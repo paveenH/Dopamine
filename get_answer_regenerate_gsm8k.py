@@ -219,9 +219,10 @@ if __name__ == "__main__":
     parser.add_argument("--test_file", required=True)
     parser.add_argument("--ans_file", type=str, default="answer_mdf_gsm8k")
     parser.add_argument("--suite", type=str, default="default", choices=["default", "vanilla"])
-    parser.add_argument("--fmt_wording", type=str, default="neutral", choices=["neutral", "pushy"],
-                        help="#### directive phrasing (default suite only). 'neutral' = main line; "
-                             "'pushy' = early-#### positive-control ablation.")
+    parser.add_argument("--fmt_wording", type=str, default="plain", choices=["plain", "pushy"],
+                        help="#### directive phrasing (default suite only). 'plain' = main line; "
+                             "'pushy' = early-#### positive-control ablation. ('plain' not 'neutral' "
+                             "to avoid colliding with the neutral role.)")
     parser.add_argument("--cot", action="store_true")
     parser.add_argument("--use_chat", action="store_true")
     parser.add_argument("--data", type=str, default="default", choices=["data1", "data2"])
