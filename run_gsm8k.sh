@@ -19,10 +19,15 @@
 #
 # Output isolation: --ans_file differs for CoT vs No-CoT (the .py output path
 # does NOT encode cot), so the two alpha=0 calls don't overwrite each other.
-#   No-CoT → answer_mdf_gsm8k        (mdf_0 / mdf_4 / mdf_-4)
-#   CoT    → answer_mdf_gsm8k_cot    (mdf_0)
+#   No-CoT → answer_mdf_gsm8k[_pushy]        (mdf_0 / mdf_4 / mdf_-4)
+#   CoT    → answer_mdf_gsm8k_cot[_pushy]    (mdf_0)
 #
-# Usage: bash run_gsm8k_regen.sh
+# WORDING knob (set below): "neutral" (main line) | "pushy" (early-#### 抢答
+# positive-control ablation). Same matrix either way; pushy writes to _pushy
+# dirs so it never overwrites the neutral main line. Run both, compare wording
+# effect vs the internal α-steering lever.
+#
+# Usage: bash run_gsm8k.sh   (flip WORDING= to run the control version)
 
 # ==================== Model ====================
 MODEL_NAME="llama3"
@@ -44,12 +49,22 @@ GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 ROLES_ALL="an expert,a non expert,a primary school teacher,neutral"
 ROLES_NEUTRAL="neutral"
 
+# #### directive wording. "neutral" = main line; "pushy" = early-#### 抢答
+# positive-control ablation. Same matrix either way — only this knob differs,
+# so accuracy differences attribute cleanly to wording. Flip to "pushy" to run
+# the control version; outputs go to a separate _pushy dir so they don't
+# overwrite the neutral main line.
+WORDING="neutral"          # neutral | pushy
+if [ "${WORDING}" = "pushy" ]; then ANS_SFX="_pushy"; else ANS_SFX=""; fi
+ANS_NOCOT="answer_mdf_gsm8k${ANS_SFX}"
+ANS_COT="answer_mdf_gsm8k_cot${ANS_SFX}"
+
 # ==================== Paths ====================
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 echo "=================================================="
-echo "GSM8K regenerate re-run | ${MODEL_NAME} (${MODEL_SIZE})"
+echo "GSM8K regenerate re-run | ${MODEL_NAME} (${MODEL_SIZE}) | wording=${WORDING}"
 echo "Start: $(date)"
 echo "=================================================="
 cd "${WORK_DIR}"
@@ -67,8 +82,9 @@ python get_answer_regenerate_gsm8k.py \
     --configs    0-11-20 \
     --mask_type  "${MASK_TYPE}" \
     --test_file  "${GSM8K_FILE}" \
-    --ans_file   "answer_mdf_gsm8k" \
+    --ans_file   "${ANS_NOCOT}" \
     --suite      "${SUITE}" \
+    --fmt_wording "${WORDING}" \
     --base_dir   "${BASE_DIR}" \
     --roles      "${ROLES_ALL}" \
     --max_new_tokens ${MAX_NEW_TOKENS} \
@@ -89,8 +105,9 @@ python get_answer_regenerate_gsm8k.py \
     --configs    0-11-20 \
     --mask_type  "${MASK_TYPE}" \
     --test_file  "${GSM8K_FILE}" \
-    --ans_file   "answer_mdf_gsm8k_cot" \
+    --ans_file   "${ANS_COT}" \
     --suite      "${SUITE}" \
+    --fmt_wording "${WORDING}" \
     --base_dir   "${BASE_DIR}" \
     --roles      "${ROLES_NEUTRAL}" \
     --max_new_tokens ${MAX_NEW_TOKENS} \
@@ -112,8 +129,9 @@ python get_answer_regenerate_gsm8k.py \
     --configs    4-11-20 neg4-11-20 \
     --mask_type  "${MASK_TYPE}" \
     --test_file  "${GSM8K_FILE}" \
-    --ans_file   "answer_mdf_gsm8k" \
+    --ans_file   "${ANS_NOCOT}" \
     --suite      "${SUITE}" \
+    --fmt_wording "${WORDING}" \
     --base_dir   "${BASE_DIR}" \
     --roles      "${ROLES_NEUTRAL}" \
     --max_new_tokens ${MAX_NEW_TOKENS} \
