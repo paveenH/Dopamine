@@ -446,28 +446,26 @@ def select_templates_pro(suite: str, labels: List[str] = None, use_E: bool = Fal
 # Unlike multiple-choice, these prompt the model to generate a full solution.
 # The model should produce CoT reasoning and end with a boxed/final numeric answer.
 
-def build_gsm8k_default_suite(cot: bool = False):
+def build_gsm8k_default_suite(cot: bool = False, wording: str = "neutral"):
     """
     GSM8K generation prompts (default suite).
     {context} will be filled with the question text.
+
+    wording: selects the "#### <number>" directive phrasing.
+      "neutral" (default, main line) — does NOT pressure immediate answering.
+      "pushy" — positive-control ablation that induces early-####.
+    The two versions differ ONLY by this one line; everything else (role
+    routing, symmetry, etc.) is identical, so accuracy differences attribute
+    cleanly to wording vs the internal α-steering lever.
     """
-    # Symmetric No-CoT / CoT templates: the ONLY difference is the
-    # "Let's think step by step." line. The "#### <number>" final-answer
-    # directive is present in BOTH so extract_gsm8k_answer hits its strongest
-    # (####) rule instead of the noisy last-number fallback. Without it, the
-    # model never emits #### and runs to max_new_tokens without committing
-    # (see 2026-05-31 diagnosis: 98-100% of No-CoT samples hit the 512-token
-    # cap, fallback extraction made role accuracies uncomparable).
-    # Neutral wording on purpose: "Provide your final numeric answer after ####"
-    # does NOT pressure the model to answer immediately. An earlier variant
-    # ("Give your final answer as a single number after ####") read as "just give
-    # one number now" and induced early-#### 抢答: the model wrote #### with an
-    # un-reasoned initial guess (expert role hit 72% early-####, acc collapsed to
-    # 34%). Keep this wording aligned with the historical orig run for
-    # comparability. (The 抢答-inducing wording is kept as a future positive-
-    # control ablation: prompt wording vs alpha-steering as two levers on
-    # commitment timing — see Dopamine over-wanting framing.)
-    fmt = "Provide your final numeric answer after '####'."
+   
+    _fmt_by_wording = {
+        "neutral": "Provide your final numeric answer after '####'.",
+        "pushy":   "Give your final answer as a single number after '####'.",
+    }
+    if wording not in _fmt_by_wording:
+        raise ValueError(f"wording must be one of {list(_fmt_by_wording)}, got {wording!r}")
+    fmt = _fmt_by_wording[wording]
     if cot:
         return {
             "default": (
@@ -687,14 +685,16 @@ def build_effort_choice_suite():
     }
 
 
-def select_templates_gsm8k(suite: str = "default", cot: bool = False):
+def select_templates_gsm8k(suite: str = "default", cot: bool = False, wording: str = "neutral"):
     """
     Unified selector for GSM8K generation templates.
     suite: "default" | "vanilla" | "action" | "confidence"
+    wording: "neutral" | "pushy" — only the default suite honors this (the ####
+      directive phrasing). See build_gsm8k_default_suite.
     """
     suite = suite.lower()
     if suite == "default":
-        return build_gsm8k_default_suite(cot)
+        return build_gsm8k_default_suite(cot, wording=wording)
     elif suite == "vanilla":
         return build_gsm8k_vanilla_suite(cot)
     elif suite == "action":
