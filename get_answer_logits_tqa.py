@@ -1,0 +1,249 @@
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+TruthfulQA (multiple_choice) runner for VicundaModel
+
+- Supports MC1 (single-label) and MC2 (multi-label; correct if any gold label is predicted)
+- Dynamically builds LABELS and option token ids per-question
+- Saves per-sample predictions (answer/prob/softmax/logits) and per-role summary CSV
+
+"""
+
+
+from pathlib import Path
+from typing import List, Dict, Any
+import numpy as np
+import torch
+import argparse
+from tqdm import tqdm
+import csv
+import h5py
+
+from llms import VicundaModel
+from template import select_templates_pro
+import utils
+
+
+LETTER = [chr(ord("A") + i) for i in range(26)]  # A..Z
+
+
+
+def gold_indices_for_sample(sample: Dict[str, Any]) -> List[int]:
+    """
+    Get gold indices for a sample.
+    """
+    gi = sample.get("gold_indices")
+    if gi and isinstance(gi, list) and len(gi) > 0:
+        return [int(x) for x in gi]
+    labels = sample.get("labels", [])
+    pos = [i for i, v in enumerate(labels) if int(v) == 1]
+    return pos if pos else [0]
+
+
+def main(args):
+
+    # Load model
+    vc = VicundaModel(model_path=args.model_dir)
+    vc.model.eval()
+
+    # Load TruthfulQA multiple_choice JSON
+    samples: List[Dict[str, Any]] = utils.load_json(TQA_PATH)
+    
+    if not isinstance(samples, list) or len(samples) == 0:
+        raise ValueError("Empty or invalid TQA JSON:", TQA_PATH)
+
+    # Roles and stats
+    task_name = samples[0].get("task", "TruthfulQA")
+    custom_roles = None
+    if args.roles:
+        custom_roles = [r.strip() for r in args.roles.split(",")]
+    roles = utils.make_characters(task_name.replace(" ", "_"), custom_roles)
+    role_stats = {r: {"correct": 0, "E_count": 0, "invalid": 0, "total": 0} for r in roles}
+
+    # Initialize HDF5 files for streaming save if needed
+    h5_files: Dict[str, h5py.File] = {}
+    h5_datasets: Dict[str, h5py.Dataset] = {}
+    if args.save:
+        for role in roles:
+            safe_role = role.replace(" ", "_").replace("-", "_")
+            hs_file = HS_DIR / f"{safe_role}_{task_name.replace(' ', '_')}_{args.model}_{args.size}.h5"
+            h5_files[role] = h5py.File(hs_file, 'w')
+        sample_count = len(samples)
+
+    all_outputs = []
+
+    with torch.no_grad():
+        for sample_idx, sample in enumerate(tqdm(samples, desc=task_name)):
+            ctx = sample["text"]
+
+            # Build per-question LABELS and templates
+            K = int(sample.get("num_options")) 
+            LABELS = [chr(ord("A") + i) for i in range(K)]
+            templates = select_templates_pro(suite=args.suite, labels=LABELS, use_E=args.use_E, cot = args.cot)
+            templates = utils.remove_honest(templates)
+            LABELS = templates["labels"]
+            refusal_label = templates.get("refusal_label")
+
+            opt_ids = utils.option_token_ids(vc, LABELS)
+            gold_indices = gold_indices_for_sample(sample)
+
+            item_out = dict(sample)  # copy for output
+            for role in roles:
+                prompt = utils.construct_prompt(vc, templates, ctx, role, False)
+
+                logits = vc.get_logits([prompt], return_hidden=args.save)
+
+                # Extract hidden states if saving
+                if args.save and isinstance(logits, tuple):
+                    logits, hidden = logits
+                    last_hs = [lay[0, -1].half().cpu().numpy() for lay in hidden]  # list(len_layers, hidden_size), FP16
+                    # Stream save to HDF5
+                    hs_array = np.stack(last_hs, axis=0)  # (layers, hidden)
+                    if role not in h5_datasets:
+                        # Create dataset on first write
+                        hs_shape = hs_array.shape
+                        h5_datasets[role] = h5_files[role].create_dataset(
+                            'hidden_states',
+                            shape=(sample_count,) + hs_shape,
+                            dtype='float16',
+                            chunks=(1,) + hs_shape
+                        )
+                    h5_datasets[role][sample_idx] = hs_array
+
+                logits_np = logits[0, -1].detach().float().cpu().numpy()
+
+                opt_logits = np.array([logits_np[i] for i in opt_ids])
+                probs = utils.softmax_1d(opt_logits)
+                pred_idx = int(opt_logits.argmax())
+                pred_label = LABELS[pred_idx]
+                pred_prob = float(probs[pred_idx])
+
+                key = role.replace(" ", "_")
+                item_out[f"answer_{key}"] = pred_label
+                item_out[f"prob_{key}"] = pred_prob
+                item_out[f"softmax_{key}"] = probs.tolist()
+                item_out[f"logits_{key}"] = opt_logits.tolist()
+
+                rs = role_stats[role]
+                rs["total"] += 1
+                if pred_idx in gold_indices:
+                    rs["correct"] += 1
+                elif args.use_E and refusal_label is not None and pred_label == refusal_label:
+                    rs["E_count"] += 1
+                else:
+                    rs["invalid"] += 1
+
+            all_outputs.append(item_out)
+
+    # Print and summarize
+    rows = []
+    for role, s in role_stats.items():
+        acc = (s["correct"] / s["total"] * 100.0) if s["total"] else 0.0
+        print(f"{role:<25} acc={acc:5.2f}%  (correct {s['correct']}/{s['total']}), Refuse={s['E_count']}")
+        rows.append({
+            "model": args.model,
+            "size": args.size,
+            "dataset": "TruthfulQA",
+            "mode": args.mode.upper(),
+            "task": task_name,
+            "role": role,
+            "correct": s["correct"],
+            "E_count": s["E_count"],
+            "invalid": s["invalid"],
+            "total": s["total"],
+            "accuracy_percentage": round(acc, 2),
+            "suite": args.suite,
+            "refusal_enabled": int(bool(args.use_E)),
+            "refusal_label": refusal_label if refusal_label is not None else "",
+        })
+
+    # Save answers (full)
+    tmp_record = utils.record_template(roles, templates)
+    print(LABELS)
+    print("refuse label ", refusal_label)
+
+    ans_file = ANS_DIR / f"{task_name.replace(' ', '_')}_{args.model}_{args.size}_{args.mode}.json"
+    utils.dump_json({"data": all_outputs, "template": tmp_record}, ans_file)
+    print("[Saved answers]", ans_file)
+
+    # Close HDF5 files
+    if args.save:
+        for role in roles:
+            if role in h5_files:
+                h5_files[role].close()
+                safe_role = role.replace(" ", "_").replace("-", "_")
+                hs_file = HS_DIR / f"{safe_role}_{task_name.replace(' ', '_')}_{args.model}_{args.size}.h5"
+                print("[Saved HS]", hs_file)
+
+    # Save CSV summary
+    csv_file = ANS_DIR / f"summary_{args.model}_{args.size}_{args.mode}.csv"
+    fieldnames = [
+        "model", "size", "dataset", "mode", "task", "role",
+        "correct", "E_count", "invalid", "total",
+        "accuracy_percentage", "suite", "refusal_enabled", "refusal_label"
+    ]
+    with open(csv_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    print("[Saved summary]", csv_file)
+    print("\n✅  Done.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run TruthfulQA MC1/MC2 with VicundaModel")
+    parser.add_argument("--mode", required=True, choices=["mc1", "mc2"], help="TruthfulQA mode")
+    parser.add_argument("--model", "-m", required=True, help="Model name, used for folder naming")
+    parser.add_argument("--size", "-s", required=True, help="Model size, e.g., 8B")
+    parser.add_argument("--model_dir", required=True, help="HF model id / local checkpoint dir")
+    parser.add_argument("--ans_file", required=True, help="Subfolder name for outputs")
+    parser.add_argument("--type", type=str, default="non", help="Role type identifier for hidden_states directory")
+    parser.add_argument("--task_name", type=str, default="truthfulqa", help="Task name for hidden_states subdirectory (e.g., truthfulqa, factor)")
+    parser.add_argument("--use_E", action="store_true", help="Enable 5-choice template (if template requires E option)")
+    parser.add_argument("--suite", type=str, default="default", choices=["default", "vanilla"], help="Prompt suite name")
+    parser.add_argument("--cot", action="store_true")
+    parser.add_argument("--data", type=str, default="data1", choices=["data1", "data2"])
+    parser.add_argument("--save", action="store_true", help="Whether to save hidden states (default saves only logits/answers)")
+    parser.add_argument("--test_file", type=str, default=None,
+                        help="Path to TQA JSON relative to base_dir (e.g., benchmark/tqa_mc1.json). "
+                             "If not set, falls back to truthfulqa/truthfulqa_{mode}_validation_shuf.json")
+    parser.add_argument("--base_dir", type=str, default=None,
+                        help="Base directory for data/output (e.g., /work/<user>/RolePlaying/components)")
+    parser.add_argument("--roles", type=str, default=None,
+                        help="Comma-separated list of roles. E.g., 'neutral'")
+    parser.add_argument("--hs_dir", type=str, default=None,
+                        help="Base directory for hidden states output (e.g., /data1/paveen/ConfSteer/HiddenStates). "
+                             "If not set, falls back to {base}/hidden_states_{type}/{model}/{task}/")
+
+    args = parser.parse_args()
+
+    # Prepare directories
+    if args.base_dir:
+        BASE = Path(args.base_dir)
+    else:
+        BASE = Path(f"/{args.data}/paveen/RolePlaying/components")
+
+    ANS_DIR = BASE / args.model / args.ans_file
+    if args.hs_dir:
+        HS_DIR = Path(args.hs_dir) / args.model / args.task_name
+    else:
+        HS_DIR = BASE / f"hidden_states_{args.type}" / args.model / args.task_name
+    ANS_DIR.mkdir(parents=True, exist_ok=True)
+    HS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.test_file:
+        TQA_PATH = BASE / args.test_file
+    elif args.mode == "mc1":
+        TQA_PATH = BASE / "truthfulqa" / "truthfulqa_mc1_validation_shuf.json"
+    else:
+        TQA_PATH = BASE / "truthfulqa" / "truthfulqa_mc2_validation_shuf.json"
+    
+
+    print("Mode:", args.mode)
+    print("Loading model from:", args.model_dir)
+    print("Dataset:", TQA_PATH)
+    
+    main(args)
+    
+        
