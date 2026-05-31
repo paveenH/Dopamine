@@ -1,14 +1,21 @@
 #!/bin/bash
 # ==================== GSM8K CoT Run Script ====================
 # Runs GSM8K with explicit chain-of-thought prompting (--cot flag).
-# Three conditions per model: no-steering baseline / +4 steering / -4 steering
+# Three conditions per model in ONE regenerate pass: baseline (alpha=0,
+# diff*0 is a no-op == pure batched generate) / +4 steering / -4 steering.
 # Output dirs use _cot suffix to separate from no-CoT runs.
 #
 # Models  : llama3-8B, qwen3-8B, mistral-7B
 # Samples : 300 (gsm8k_test_sample.json, same as no-CoT run)
-# Configs : llama3   → 4-11-20 / neg4-11-20
-#           qwen3    → 4-17-26 / neg4-17-26
-#           mistral  → 4-14-22 / neg4-14-22
+# Configs : llama3   → 0-11-20 / 4-11-20 / neg4-11-20
+#           qwen3    → 0-17-26 / 4-17-26 / neg4-17-26
+#           mistral  → 0-14-22 / 4-14-22 / neg4-14-22
+#   (config "0-<s>-<e>" loads mask*0 → no steering → pure baseline; same code
+#    path as the steered configs, so baseline/+4/-4 stay maximally comparable.)
+#
+# Prompt: roles pass the full character string (e.g. "an expert"); GSM8K has no
+# E-option so NO "honest" framing — get_answer_regenerate_gsm8k.py routes
+# neutral→neutral template, any other role→neg template ("Now you are {role}.").
 #
 # Usage: bash run_gsm8k_cot.sh
 
@@ -26,9 +33,9 @@ GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 # ==================== Model configs ====================
 # Format: MODEL_NAME|MODEL_DIR|MODEL_SIZE|HS_PREFIX|CONFIGS
 MODELS=(
-    # "llama3|meta-llama/Llama-3.1-8B-Instruct|8B|llama3|4-11-20 neg4-11-20"
-    # "qwen3|Qwen/Qwen3-8B|8B|qwen3|4-17-26 neg4-17-26"
-    "mistral|mistralai/Mistral-7B-Instruct-v0.3|7B|mistral|4-14-22 neg4-14-22"
+    "llama3|meta-llama/Llama-3.1-8B-Instruct|8B|llama3|0-11-20 4-11-20 neg4-11-20"
+    # "qwen3|Qwen/Qwen3-8B|8B|qwen3|0-17-26 4-17-26 neg4-17-26"
+    # "mistral|mistralai/Mistral-7B-Instruct-v0.3|7B|mistral|0-14-22 4-14-22 neg4-14-22"
 )
 
 # ==================== Paths ====================
@@ -44,7 +51,7 @@ echo "=================================================="
 
 cd "${WORK_DIR}"
 
-TOTAL=$(( ${#MODELS[@]} * 2 ))
+TOTAL=${#MODELS[@]}
 STEP=1
 
 for MODEL_CFG in "${MODELS[@]}"; do
@@ -56,35 +63,8 @@ for MODEL_CFG in "${MODELS[@]}"; do
     echo "# Configs: ${CONFIGS}"
     echo "####################################################"
 
-    # ==================== [1] Baseline (no steering, CoT) ====================
-    echo ""
-    echo "=========================================="
-    echo "[${STEP}/${TOTAL}] GSM8K baseline CoT — ${MODEL_NAME}"
-    echo "=========================================="
-
-    python get_answer_gsm8k.py \
-        --model      "${MODEL_NAME}" \
-        --model_dir  "${MODEL_DIR}" \
-        --size       "${MODEL_SIZE}" \
-        --test_file  "${GSM8K_FILE}" \
-        --ans_file   "answer_gsm8k_cot" \
-        --suite      "${SUITE}" \
-        --base_dir   "${BASE_DIR}" \
-        --roles      "${ROLES}" \
-        --max_new_tokens ${MAX_NEW_TOKENS} \
-        --temperature    ${TEMPERATURE} \
-        --batch_size     ${BATCH_SIZE} \
-        --cot
-
-    if [ $? -eq 0 ]; then
-        echo "[✓ Done] baseline CoT — ${MODEL_NAME}"
-    else
-        echo "[✗ Failed] baseline CoT — ${MODEL_NAME}"
-        exit 1
-    fi
-    STEP=$((STEP + 1))
-
-    # ==================== [2] Regenerate (+4 / -4, CoT) ====================
+    # ==================== Regenerate (baseline + +4 / -4, CoT) ====================
+    # config "0-<s>-<e>" → mask*0 → no steering → pure baseline (== generate).
     echo ""
     echo "=========================================="
     echo "[${STEP}/${TOTAL}] GSM8K regenerate CoT — ${MODEL_NAME}"
