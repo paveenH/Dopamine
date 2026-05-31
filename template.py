@@ -451,24 +451,35 @@ def build_gsm8k_default_suite(cot: bool = False):
     GSM8K generation prompts (default suite).
     {context} will be filled with the question text.
     """
+    # Symmetric No-CoT / CoT templates: the ONLY difference is the
+    # "Let's think step by step." line. The "#### <number>" final-answer
+    # directive is present in BOTH so extract_gsm8k_answer hits its strongest
+    # (####) rule instead of the noisy last-number fallback. Without it, the
+    # model never emits #### and runs to max_new_tokens without committing
+    # (see 2026-05-31 diagnosis: 98-100% of No-CoT samples hit the 512-token
+    # cap, fallback extraction made role accuracies uncomparable).
+    fmt = "Give your final answer as a single number after '####'."
     if cot:
         return {
             "default": (
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Now you are an honest {character}. Let's think step by step.\n"
+                f"{fmt}\n"
                 "Answer: "
             ),
             "neutral": (
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Let's think step by step.\n"
+                f"{fmt}\n"
                 "Answer: "
             ),
             "neg": (
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Now you are {character}. Let's think step by step.\n"
+                f"{fmt}\n"
                 "Answer: "
             ),
         }
@@ -478,17 +489,20 @@ def build_gsm8k_default_suite(cot: bool = False):
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Now you are an honest {character}.\n"
+                f"{fmt}\n"
                 "Answer: "
             ),
             "neutral": (
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
+                f"{fmt}\n"
                 "Answer: "
             ),
             "neg": (
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Now you are {character}.\n"
+                f"{fmt}\n"
                 "Answer: "
             ),
         }
