@@ -88,7 +88,22 @@ This directory is **not** in the RolePlaying git repo. It is the offline analysi
 - `analysis_*` and `analyze_*` are post-hoc plotting; never call them from training-style scripts.
 - `mean/mean_diff.py` is the canonical diff-vector builder — other `mean/mean_*.py` are ablations (consistent / pairs / dice / per-layer).
 - `harness.py` + `hf_rsn.py` plug into [lm-evaluation-harness] for benchmark-suite eval.
-- **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`). All 6 consumers (`get_answer_gsm8k`, `get_answer_regenerate_gsm8k`, `get_answer_math`, `closed_loop_gsm8k`, `track_dopamine_signal`, `track_hidden_states`) import from here — do not redefine locally.
+- **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`). All 5 consumers (`get_answer_regenerate_gsm8k`, `get_answer_math`, `closed_loop_gsm8k`, `track_dopamine_signal`, `track_hidden_states`) import from here — do not redefine locally.
+
+## GSM8K re-run conventions (2026-05-31, current rework)
+
+The Phase-2/1b GSM8K numbers from before 2026-05-31 are **discarded** — diagnosis found the prompts and extraction were noisy. Conventions for the re-run:
+
+- **No "honest" on GSM8K roles.** `honest` belongs only to E-option ("I am not sure") MMLU suites. GSM8K has no E-option, so every role uses the `neg` template (`"Now you are {character}."`), neutral uses `neutral`. `get_answer_regenerate_gsm8k.py` now bypasses `construct_prompt`'s default(+honest) branch and selects neutral/neg directly — this makes it produce **identical prompts to `track_dopamine_signal.py`** (the two were silently diverging: regenerate said "an honest expert", track said "an expert").
+- **`####` final-answer directive in all GSM8K templates** (`build_gsm8k_default_suite`, both CoT and No-CoT, all 3 keys). Without it the model never emits `####`, runs to `max_new_tokens` (98–100% of No-CoT samples hit the 512 cap with no commit), and `extract_gsm8k_answer` falls back to "last number in text" — pure noise. The reversal *non_expert (63.7%) > expert (58%) > neutral (53%)* in the old results was an extraction lottery, not a real role effect. Symmetry preserved: No-CoT vs CoT still differ only by the `Let's think step by step.` line.
+- **No-CoT is the main condition**; CoT is the contrast control only.
+- **Pass roles as full character strings** to `--roles` (e.g. `"an expert,a non expert,a primary school teacher"`), matching track's `role_to_character` values, so prompts align across scripts.
+- **`get_answer_gsm8k.py` was deleted.** Its pure-baseline role is covered by `get_answer_regenerate_gsm8k.py` with a `0-<s>-<e>` config: `diff = mask*0` is a no-op, so α=0 regenerate == batched `generate`. Run baseline + ±4 steering in one regenerate pass (`configs="0-11-20 4-11-20 neg4-11-20"`) for maximum comparability. NOTE: regenerate steering is **prefill-only** (static push on the last prompt token); decode-time per-step steering is `closed_loop_gsm8k.py --plan static`. Different experiments — don't conflate.
+- **Two generation paths to validate**: bs=1 (`track_dopamine_signal.py`, also emits signal) vs batched (`get_answer_regenerate_gsm8k.py` α=0). CLAUDE notes ~2% Llama acc gap from padding; run both to quantify it.
+
+## Offline analysis workspace path
+
+The offline analysis workspace was renamed `RoleAnswer_non/` → **`RoleAnswer/`** (`/Users/paveenhuang/Downloads/RSNResult/RoleAnswer/`). Scripts there (e.g. `analyze_multi_metric.py`) and older doc references that still say `RoleAnswer_non/` are stale — use `RoleAnswer/`. Existing `RoleAnswer/llama3/dopamine/signal/*.json` (dated 5/30) were produced with the **old layer-offset mask** (signal values unreliable; acc is unaffected by the mask) AND the old noisy prompts — they are being re-run, not kept.
 
 ## Server / data layout
 
