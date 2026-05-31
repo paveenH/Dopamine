@@ -148,7 +148,15 @@ def main():
         out_dir = os.path.join(SAVE_ROOT, f"mdf_{alpha}")
         os.makedirs(out_dir, exist_ok=True)
         out_path = os.path.join(out_dir, f"gsm8k_{args.size}_answers_{TOP}_{st}_{en}.json")
-        tmp_record = utils.record_template(roles, templates)
+        # Record the template ACTUALLY used per role (mirror the routing above):
+        # neutral→neutral, any other role→neg (no honest). Do NOT use
+        # utils.record_template here — it logs the default(+honest) template for
+        # non-neg roles, which would mislabel GSM8K results as "an honest expert"
+        # when the real prompt is "an expert".
+        tmp_record = [
+            templates["neutral"] if role in ("neutral", "norole") else templates["neg"]
+            for role in roles
+        ]
         with open(out_path, "w", encoding="utf-8") as fw:
             json.dump(
                 {"data": updated_data, "accuracy": accuracy, "template": tmp_record},
