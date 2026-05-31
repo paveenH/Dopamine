@@ -458,7 +458,16 @@ def build_gsm8k_default_suite(cot: bool = False):
     # model never emits #### and runs to max_new_tokens without committing
     # (see 2026-05-31 diagnosis: 98-100% of No-CoT samples hit the 512-token
     # cap, fallback extraction made role accuracies uncomparable).
-    fmt = "Give your final answer as a single number after '####'."
+    # Neutral wording on purpose: "Provide your final numeric answer after ####"
+    # does NOT pressure the model to answer immediately. An earlier variant
+    # ("Give your final answer as a single number after ####") read as "just give
+    # one number now" and induced early-#### 抢答: the model wrote #### with an
+    # un-reasoned initial guess (expert role hit 72% early-####, acc collapsed to
+    # 34%). Keep this wording aligned with the historical orig run for
+    # comparability. (The 抢答-inducing wording is kept as a future positive-
+    # control ablation: prompt wording vs alpha-steering as two levers on
+    # commitment timing — see Dopamine over-wanting framing.)
+    fmt = "Provide your final numeric answer after '####'."
     if cot:
         return {
             "default": (
