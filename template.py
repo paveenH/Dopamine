@@ -446,22 +446,23 @@ def select_templates_pro(suite: str, labels: List[str] = None, use_E: bool = Fal
 # Unlike multiple-choice, these prompt the model to generate a full solution.
 # The model should produce CoT reasoning and end with a boxed/final numeric answer.
 
-def build_gsm8k_default_suite(cot: bool = False, wording: str = "neutral"):
+def build_gsm8k_default_suite(cot: bool = False, wording: str = "plain"):
     """
     GSM8K generation prompts (default suite).
     {context} will be filled with the question text.
 
-    wording: selects the "#### <number>" directive phrasing.
-      "neutral" (default, main line) — does NOT pressure immediate answering.
+    wording: selects the "#### <number>" directive phrasing. (Named to NOT
+      collide with the role-level "neutral".)
+      "plain" (default, main line) — does NOT pressure immediate answering.
       "pushy" — positive-control ablation that induces early-####.
     The two versions differ ONLY by this one line; everything else (role
     routing, symmetry, etc.) is identical, so accuracy differences attribute
     cleanly to wording vs the internal α-steering lever.
     """
-   
+
     _fmt_by_wording = {
-        "neutral": "Provide your final numeric answer after '####'.",
-        "pushy":   "Give your final answer as a single number after '####'.",
+        "plain": "Provide your final numeric answer after '####'.",
+        "pushy": "Give your final answer as a single number after '####'.",
     }
     if wording not in _fmt_by_wording:
         raise ValueError(f"wording must be one of {list(_fmt_by_wording)}, got {wording!r}")
@@ -685,11 +686,11 @@ def build_effort_choice_suite():
     }
 
 
-def select_templates_gsm8k(suite: str = "default", cot: bool = False, wording: str = "neutral"):
+def select_templates_gsm8k(suite: str = "default", cot: bool = False, wording: str = "plain"):
     """
     Unified selector for GSM8K generation templates.
     suite: "default" | "vanilla" | "action" | "confidence"
-    wording: "neutral" | "pushy" — only the default suite honors this (the ####
+    wording: "plain" | "pushy" — only the default suite honors this (the ####
       directive phrasing). See build_gsm8k_default_suite.
     """
     suite = suite.lower()
