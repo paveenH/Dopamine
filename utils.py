@@ -32,7 +32,7 @@ def dump_json(obj, path: Path):
 
 # ─────────────────────── GSM8K / MATH answer extraction ───────────────────────
 # Canonical extraction + correctness logic shared by every GSM8K/MATH entry-point
-# (get_answer_gsm8k, closed_loop_gsm8k, track_dopamine_signal, track_hidden_states).
+# (get_answer_regenerate_gsm8k, closed_loop_gsm8k, track_dopamine_signal, track_hidden_states).
 # Keep all scripts importing from here so accuracy stays comparable across runs.
 
 def extract_gsm8k_answer(text: str) -> str:
