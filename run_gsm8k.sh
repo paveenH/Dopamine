@@ -30,7 +30,8 @@ MAX_NEW_TOKENS=512
 TEMPERATURE=0.0
 
 # Alpha and layer range configurations (format: alpha-start-end)
-CONFIGS="4-14-22 neg4-14-22"
+# "0-<s>-<e>" = mask*0 = no steering = pure baseline (same code path as steered).
+CONFIGS="0-14-22 4-14-22 neg4-14-22"
 
 # GSM8K data file
 GSM8K_FILE="benchmark/gsm8k_test_sample.json"
@@ -52,30 +53,12 @@ echo "=================================================="
 
 cd ${WORK_DIR}
 
-# # ==================== 1. GSM8K (original/baseline) ====================
-# echo ""
-# echo "=========================================="
-# echo "[1/2] Running GSM8K (original)"
-# echo "=========================================="
-
-# python get_answer_gsm8k.py \
-#     --model "${MODEL_NAME}" \
-#     --model_dir "${MODEL_DIR}" \
-#     --size "${MODEL_SIZE}" \
-#     --test_file "${GSM8K_FILE}" \
-#     --ans_file "answer_gsm8k" \
-#     --suite "${SUITE}" \
-#     --base_dir "${BASE_DIR}" \
-#     --roles "${ROLES}" \
-#     --max_new_tokens ${MAX_NEW_TOKENS} \
-#     --temperature ${TEMPERATURE}
-
-# echo "[Done] GSM8K original"
-
-# ==================== 2. GSM8K (regenerate) ====================
+# ==================== GSM8K (regenerate: baseline + steering in one pass) ====================
+# get_answer_gsm8k.py was removed — its pure-baseline role is now covered by
+# regenerate with the "0-<s>-<e>" config (mask*0 no-op == batched generate).
 echo ""
 echo "=========================================="
-echo "[2/2] Running GSM8K (regenerate)"
+echo "Running GSM8K (regenerate: baseline+steering)"
 echo "=========================================="
 
 python get_answer_regenerate_gsm8k.py \
