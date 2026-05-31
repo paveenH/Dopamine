@@ -22,7 +22,7 @@
 #   No-CoT → answer_mdf_gsm8k[_pushy]        (mdf_0 / mdf_4 / mdf_-4)
 #   CoT    → answer_mdf_gsm8k_cot[_pushy]    (mdf_0)
 #
-# WORDING knob (set below): "neutral" (main line) | "pushy" (early-#### 抢答
+# WORDING knob (set below): "plain" (main line) | "pushy" (early-#### 抢答
 # positive-control ablation). Same matrix either way; pushy writes to _pushy
 # dirs so it never overwrites the neutral main line. Run both, compare wording
 # effect vs the internal α-steering lever.
@@ -49,12 +49,12 @@ GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 ROLES_ALL="an expert,a non expert,a primary school teacher,neutral"
 ROLES_NEUTRAL="neutral"
 
-# #### directive wording. "neutral" = main line; "pushy" = early-#### 抢答
+# #### directive wording. "plain" = main line; "pushy" = early-#### 抢答
 # positive-control ablation. Same matrix either way — only this knob differs,
-# so accuracy differences attribute cleanly to wording. Flip to "pushy" to run
-# the control version; outputs go to a separate _pushy dir so they don't
-# overwrite the neutral main line.
-WORDING="neutral"          # neutral | pushy
+# so accuracy differences attribute cleanly to wording. "pushy" outputs go to a
+# separate _pushy dir so they don't overwrite the plain main line.
+# (Named "plain" not "neutral" to avoid colliding with the neutral role.)
+WORDING="pushy"            # plain | pushy
 if [ "${WORDING}" = "pushy" ]; then ANS_SFX="_pushy"; else ANS_SFX=""; fi
 ANS_NOCOT="answer_mdf_gsm8k${ANS_SFX}"
 ANS_COT="answer_mdf_gsm8k_cot${ANS_SFX}"
