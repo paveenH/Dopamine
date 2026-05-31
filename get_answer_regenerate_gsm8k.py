@@ -55,10 +55,15 @@ def run_gsm8k_regenerate(
     stats = {r: {"correct": 0, "total": 0} for r in roles}
 
     for role in roles:
-        prompts = [
-            utils.construct_prompt(vc, templates, s["question"], role, args.use_chat)
-            for s in samples
-        ]
+        # GSM8K has no "I am not sure" (E) option, so roles must NOT carry the
+        # "honest" framing (that belongs only to E-option MMLU suites). Bypass
+        # construct_prompt's default(+honest) branch: neutral → neutral template,
+        # any other role → neg template ("Now you are {role}."). This matches
+        # track_dopamine_signal.py so the two scripts produce identical prompts.
+        if role in ("neutral", "norole"):
+            prompts = [templates["neutral"].format(context=s["question"]) for s in samples]
+        else:
+            prompts = [templates["neg"].format(character=role, context=s["question"]) for s in samples]
         generated_texts = []
         for i in tqdm(range(0, len(prompts), batch_size), desc=f"GSM8K-regen [{role}]"):
             batch_prompts = prompts[i : i + batch_size]
