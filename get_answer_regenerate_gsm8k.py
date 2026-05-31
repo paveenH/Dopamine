@@ -113,7 +113,7 @@ def main():
     print(f"Loaded {len(all_samples)} GSM8K samples.")
 
     # Templates
-    templates = select_templates_gsm8k(suite=args.suite, cot=args.cot)
+    templates = select_templates_gsm8k(suite=args.suite, cot=args.cot, wording=args.fmt_wording)
 
     # Roles
     custom_roles = None
@@ -219,6 +219,9 @@ if __name__ == "__main__":
     parser.add_argument("--test_file", required=True)
     parser.add_argument("--ans_file", type=str, default="answer_mdf_gsm8k")
     parser.add_argument("--suite", type=str, default="default", choices=["default", "vanilla"])
+    parser.add_argument("--fmt_wording", type=str, default="neutral", choices=["neutral", "pushy"],
+                        help="#### directive phrasing (default suite only). 'neutral' = main line; "
+                             "'pushy' = early-#### positive-control ablation.")
     parser.add_argument("--cot", action="store_true")
     parser.add_argument("--use_chat", action="store_true")
     parser.add_argument("--data", type=str, default="default", choices=["data1", "data2"])
