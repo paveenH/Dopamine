@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/CLAUDE.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work.
 
 **Required reading before non-trivial changes:**
-- `AdaptativeThinking.md` — Phases 1–2, Plans A–H3 (full design rationale, failure analyses; current state: H2 k1=4 is the only plan beating baseline +1.0%, H3 disproves the "more CoT-like shape → higher acc" reading of H2, project pivoting to signal-proxy validation), Yerkes–Dodson framing, EMA + 1-step-lag physics
+- `AdaptativeThinking0529.md` — current state. 2026-05-30 起 GSM8K template 已對稱化、mask offset bug 已修,所有舊 Phase 1/2 數字與當前 pipeline 不可比。Phase 1b 重做為當前優先工作;Phase 2 (Plans A–H3) 結論暫擱置,須重跑
+- `AdaptativeThinking.md` — 歷史 Phase 1–2 設計、Plan A–H3 動機 / 失敗分析、Yerkes–Dodson framing、EMA + 1-step-lag physics(設計思路仍有效,但數字本身已過時)
 - `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` — literature & mapping
 - `~/CLAUDE.md` — running commands and data-directory map
 
@@ -21,7 +22,7 @@ A typical experiment is one of the `get_answer_*.py` / `get_action_*.py` entry-p
    - `vanilla` — neutral phrasing without role
    - `action` — self-reported "reasoning willingness" 0–9
    Each suite has CoT / non-CoT / E-option (with "I am not sure") variants. The chosen template is rendered per-role via `utils.construct_prompt` + `utils.make_characters`.
-3. **`llms.VicundaModel`** loads the LM. Three loading paths: `dream` diffusion (`AutoModel`, see `diffusion.py`), Mistral3 multimodal (`Mistral3ForConditionalGeneration`), or default `AutoModelForCausalLM`. All use bf16 + `device_map="auto"`. `_find_decoder_layers()` is the abstraction used by every layer-injection hook.
+3. **`llms.VicundaModel`** loads the LM. Three loading paths: `dream` diffusion (`AutoModel`, see `diffusion.py`), Mistral3 multimodal (`Mistral3ForConditionalGeneration`), or default `AutoModelForCausalLM`. All use bf16 + `device_map="auto"`. `_find_decoder_layers()` is the abstraction used by every layer-injection hook. **Generation entry points**: `VicundaModel.generate(inputs, batch_size)` for batched no-hook runs (`get_answer_*` uses this; pads with `padding=True`); `VicundaModel.generate_one(prompt, ...)` for bs=1 with caller-managed hooks (`track_hidden_states`, `closed_loop_gsm8k`, `track_dopamine_signal` all use this). **Do not mix**—batched vs bs=1 generation differs by ~2% acc on Llama due to padding artifact.
 4. **Steering / closed-loop** is layered on top via forward hooks on the decoder layers identified in step 3. The diff vectors come from `mean/` (per-role mean differences) gated by a mask from `detection/` (NMD / KL / KS / LR / PCA / t-test / XGB selectors over `task_list.py`).
 5. **Output**: per-role answer logits + optional hidden-state H5 are written under `<hs_prefix>/<task>/...` (server path `/data1/paveen/RolePlaying/components/...`).
 
@@ -52,6 +53,8 @@ The H2/H3 contradiction (H2 +1% but H3 better-shape-worse-acc) raised the questi
 - `extract_entropy_confidence.py` loads `model.norm.weight` + `lm_head.weight` from safetensors (no full 8B load) and computes per-step `entropy / top1_prob / margin / info_gain` from the stored final-layer HS, plus a prefill snapshot. Same backward-compat for stored final-layer index.
 - Offline analysis lives in `~/Downloads/RSNResult/RoleAnswer_non/` — reloads the JSON + masks (`nmd_*` and `diff_random_*` from `${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits/`) and compares **late-tonic-ratio gap, AUROC, Cohen's d** plus the multi-metric correlation matrix (`analyze_multi_metric.py`) between expert / non_expert / primary_teacher / neutral.
 - `track_dopamine_signal.py` is the fast NMD-only path (no raw HS dump) — use when you only need scalars; use the HDF5 path when you want multi-mask flexibility or layer ablations.
+- **Prompt self-documentation**: HDF5 meta, `dopamine_signal_*.json`, `random_signal_*.json`, `metrics_*.json`, and `closed_loop_*.json` all carry `prompt_template` (the raw template string) in their meta as of 2026-05-30. `grep '"prompt_template"' <file>` self-attests which prompt produced the result — use this before comparing numbers across runs.
+- **Sanity script**: `sanity_mask_indexing.py` confirms saved mask non-zero rows + their decoder-layer alignment on the server. **Run it before any change to layer-indexing code** — this prevents repeating the offset bug fixed on 2026-05-30.
 
 ## Capitulation / Pressure experiments
 
@@ -85,6 +88,7 @@ This directory is **not** in the RolePlaying git repo. It is the offline analysi
 - `analysis_*` and `analyze_*` are post-hoc plotting; never call them from training-style scripts.
 - `mean/mean_diff.py` is the canonical diff-vector builder — other `mean/mean_*.py` are ablations (consistent / pairs / dice / per-layer).
 - `harness.py` + `hf_rsn.py` plug into [lm-evaluation-harness] for benchmark-suite eval.
+- **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`). All 6 consumers (`get_answer_gsm8k`, `get_answer_regenerate_gsm8k`, `get_answer_math`, `closed_loop_gsm8k`, `track_dopamine_signal`, `track_hidden_states`) import from here — do not redefine locally.
 
 ## Server / data layout
 
@@ -100,8 +104,9 @@ Mistral3 needs `transformers` from main + `mistral-common>=1.8.6` (already in `s
 
 ## Editing guidance
 
+- **Layer indexing convention** (踩過大坑,務必先讀): `LAYER_START` / `LAYER_END` follow **HF hidden_states semantics** (index 0 = embedding, 1..N = decoder layer outputs). Saved masks drop the embedding row (`detection/nmd.py: return mask[1:]`), so saved-index `i` ↔ `decoder_layers[i]` ↔ `hidden_states[i+1]`. **Always use `utils.mask_slice_for(mask, ls, le)` and `utils.decoder_layer_range(ls, le)`** instead of raw `mask[ls:le]` / `range(ls, le)` — they encode the `layer_start-1` offset so hook registration and mask slicing stay in sync. The `regenerate` family (`get_answer_regenerate_*.py`) sidesteps the offset by `zip(decoder_layers, mask)` full-length and is the canonical alignment reference. Verify on server with `sanity_mask_indexing.py` before changing any layer-indexing code.
 - Don't refactor `llms.VicundaModel` loading branches casually — Mistral3, dream-diffusion and CausalLM each rely on slightly different hook surfaces.
-- Don't change `template.py` strings in place; add a new variant — Phase 1 baselines are tied to exact prompt wording.
+- `template.py` 大部分變體不要原地改(歷史 baseline 綁定);但 GSM8K/MATH 的 `build_gsm8k_default_suite` 和 `build_math_suite` 在 2026-05-30 已修正為**對稱**(No-CoT 與 CoT 唯一差別是 `Let's think step by step.` 一行),vanilla / action / confidence 三個 suite 維持不動。舊不對稱模板跑的數字(含早期 61.7% / 76.0% baseline)與當前 pipeline 不可比。
 - New plans go in `closed_loop_gsm8k.py` behind a new `--plan` value (added to the `choices=[...]` list and as a branch in `_compute_alpha()`); keep prior plans callable for ablation reproducibility.
 - The injection–observation loop has a hard 1-step lag (pre-hook injects `α_t` before forward; post-hook reads `x_t`/`ema_t` after, so `α_{t+1}` is decided from `x_t`). Any new controller must assume `α` based on step-`t` observation only takes effect at step `t+1` — controllers that try to react to fast (per-token) signal changes diverge (see Plan D failure in `AdaptativeThinking.md` §4.3).
 - Tracking projection and steering injection share the same `nmd_mask` (sparse, ~0.5% of neurons per layer). This co-design means injecting `+α` directly raises next-step `x_{t+1}` by `α × ‖mask‖²` — do not change one without the other.
