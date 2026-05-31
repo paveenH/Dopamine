@@ -45,7 +45,7 @@ ROLES_ALL="an expert,a non expert,a primary school teacher,neutral"
 ROLES_NEUTRAL="neutral"
 
 # ==================== Paths ====================
-WORK_DIR="/data1/paveen/RolePlaying"
+WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 echo "=================================================="
