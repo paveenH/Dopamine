@@ -19,7 +19,7 @@ Usage (GSM8K):
     --task gsm8k \
     --model llama3 --model_dir meta-llama/Llama-3.1-8B-Instruct --size 8B \
     --test_file benchmark/gsm8k_test_sample.json \
-    --base_dir /data1/paveen/RolePlaying/components \
+    --base_dir /data1/paveen/Dopamine/components \
     --ema_alpha 0.95 --max_new_tokens 512
 
 Usage (MATH):
@@ -27,7 +27,7 @@ Usage (MATH):
     --task math \
     --model llama3 --model_dir meta-llama/Llama-3.1-8B-Instruct --size 8B \
     --test_file benchmark/math_test_sample.json \
-    --base_dir /data1/paveen/RolePlaying/components \
+    --base_dir /data1/paveen/Dopamine/components \
     --ema_alpha 0.95 --max_new_tokens 1024 --cot
 """
 
@@ -416,7 +416,7 @@ if __name__ == "__main__":
     if args.base_dir:
         BASE = args.base_dir
     else:
-        BASE = f"/{args.data}/paveen/RolePlaying/components"
+        BASE = f"/{args.data}/paveen/Dopamine/components"
 
     DATA_DIR = os.path.join(BASE, args.test_file)
     MASK_DIR = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
