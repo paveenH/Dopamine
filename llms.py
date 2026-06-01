@@ -1,6 +1,7 @@
 import logging
 import torch
 import numpy as np
+from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoModel, AutoTokenizer, AutoConfig
 from diffusion import diffusion_generate
 
@@ -634,7 +635,9 @@ class VicundaModel:
         temperature_val = temperature if do_sample else None
 
         results = []
-        for i in range(0, len(inputs), batch_size):
+        n_batches = (len(inputs) + batch_size - 1) // batch_size
+        for i in tqdm(range(0, len(inputs), batch_size),
+                      total=n_batches, desc="generate", unit="batch"):
             batch = inputs[i : i + batch_size]
             tokens = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
             input_ids = tokens.input_ids.to(self.model.device)
