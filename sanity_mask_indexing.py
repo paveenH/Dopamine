@@ -24,7 +24,8 @@ Three questions we want to answer:
 Run on server (does NOT load full model weights for Q1 alone; Q2/Q3 do).
 
   python sanity_mask_indexing.py \
-    --mask_path /data1/paveen/RolePlaying/components/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy \
+    --mask_path /data1/paveen/Dopamine/components/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy \
+    --expect_layer_start 11 --expect_layer_end 20 \
     --model_dir meta-llama/Llama-3.1-8B-Instruct
 
 Set --skip_model to skip Q2/Q3 if you only want the mask info.
@@ -48,6 +49,29 @@ def q1_mask(mask_path: str):
         n = int((mask[i] != 0).sum())
         print(f"    saved[{i:2d}]  nnz={n}   norm={np.linalg.norm(mask[i]):.4f}")
     return mask
+
+
+def validate_expected_range(mask: np.ndarray, layer_start: int, layer_end: int):
+    """Fail fast unless saved-mask rows match the HF hidden-state layer range."""
+    if layer_start < 1:
+        raise ValueError(f"expect_layer_start must be >= 1, got {layer_start}")
+    if layer_end <= layer_start:
+        raise ValueError(
+            f"expect_layer_end ({layer_end}) must be > expect_layer_start ({layer_start})"
+        )
+
+    actual = [i for i in range(mask.shape[0]) if (mask[i] != 0).any()]
+    expected = list(range(layer_start - 1, layer_end - 1))
+    print()
+    print("=" * 70)
+    print("Expected-range validation")
+    print("=" * 70)
+    print(f"  HF hidden_states range: [{layer_start}, {layer_end})")
+    print(f"  expected saved rows:    {expected}")
+    print(f"  actual non-zero rows:   {actual}")
+    if actual != expected:
+        raise SystemExit("  ✗ mask rows do not match the expected layer-offset mapping")
+    print("  ✓ mask rows match the expected layer-offset mapping")
 
 
 def q2_q3_model(model_dir: str, mask: np.ndarray):
@@ -129,12 +153,20 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--mask_path", required=True,
                    help="e.g. .../mask/llama3_non_logits/nmd_0.5_11_20_8B.npy")
+    p.add_argument("--expect_layer_start", type=int,
+                   help="Optional HF hidden_states start index for fail-fast row validation")
+    p.add_argument("--expect_layer_end", type=int,
+                   help="Optional HF hidden_states end index (exclusive) for fail-fast row validation")
     p.add_argument("--model_dir", default="meta-llama/Llama-3.1-8B-Instruct")
     p.add_argument("--skip_model", action="store_true",
                    help="Skip Q2/Q3 (no model weights loaded)")
     args = p.parse_args()
 
     mask = q1_mask(args.mask_path)
+    if (args.expect_layer_start is None) != (args.expect_layer_end is None):
+        raise SystemExit("--expect_layer_start and --expect_layer_end must be passed together")
+    if args.expect_layer_start is not None:
+        validate_expected_range(mask, args.expect_layer_start, args.expect_layer_end)
     if not args.skip_model:
         q2_q3_model(args.model_dir, mask)
 
