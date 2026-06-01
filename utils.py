@@ -21,7 +21,8 @@ MMLU_POOL_DIR = Path(
 ROLE_TO_CHARACTER = {
     "expert": "an expert",
     "non_expert": "a non expert",
-    "primary_teacher": "a primary school teacher",
+    "primary_teacher": "a primary school teacher",   # GSM8K task-matched extra role
+    "math_expert": "a mathematician",                # MATH task-matched extra role
 }
 
 
