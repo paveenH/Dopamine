@@ -54,8 +54,10 @@ python -m pip install sympy "antlr4-python3-runtime==4.11"
 # Visualization
 python -m pip install matplotlib seaborn
 
-# Hugging Face utilities + Phase 1b hidden-state pipeline
-python -m pip install huggingface_hub tqdm h5py safetensors
+# Hugging Face utilities + Phase 1b hidden-state pipeline. Keep Typer aligned
+# with the current `hf` CLI requirements so `hf auth login` remains usable.
+python -m pip install --upgrade huggingface_hub "typer>=0.20.0,<0.26.0"
+python -m pip install tqdm h5py safetensors
 
 echo "[5/5] Verifying installation..."
 python - <<'PY'
