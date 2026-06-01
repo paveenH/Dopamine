@@ -1,19 +1,19 @@
 #!/bin/bash
 # ==================== MATH role × α re-run ====================
-# Entry-point: get_answer_math.py. Non-Cartesian matrix (mirrors run_gsm8k.sh):
+# Entry-point: get_answer_regenerate_math.py. Non-Cartesian matrix (mirrors run_gsm8k.sh):
 # multi-role only at alpha=0, steering only on neutral.
 #
 #   alpha=0  : No-CoT (neutral, expert, non_expert, math_expert) + CoT (neutral)
 #   alpha=+4 : No-CoT (neutral)
 #   alpha=-4 : No-CoT (neutral)
 #
-# Implemented as 3 calls (get_answer_math.py is roles x configs Cartesian):
+# Implemented as 3 calls (get_answer_regenerate_math.py is roles x configs Cartesian):
 #   [1] configs=0-11-20         roles=4              (No-CoT)
 #   [2] configs=0-11-20         roles=neutral --cot  (CoT)
 #   [3] configs="4-11-20 neg4-11-20"  roles=neutral  (No-CoT)
 #
 # Prompt: roles passed as short names (neutral/expert/non_expert/math_expert);
-# get_answer_math.py routes neutral→neutral, others→neg ("Now you are {char}.")
+# get_answer_regenerate_math.py routes neutral→neutral, others→neg ("Now you are {char}.")
 # via utils.ROLE_TO_CHARACTER. NO "honest" framing (MATH has no E-option, same
 # as GSM8K). All templates carry the "Provide your final answer in \boxed{}."
 # directive (MATH analogue of GSM8K's #### directive).
@@ -60,7 +60,7 @@ cd "${WORK_DIR}"
 # ==================== [1] alpha=0, No-CoT, all roles ====================
 echo ""
 echo "[1/3] alpha=0 No-CoT — roles: ${ROLES_ALL}"
-python get_answer_math.py \
+python get_answer_regenerate_math.py \
     --model      "${MODEL_NAME}" \
     --model_dir  "${MODEL_DIR}" \
     --hs         "${HS_PREFIX}" \
@@ -82,7 +82,7 @@ python get_answer_math.py \
 # ==================== [2] alpha=0, CoT, neutral ====================
 echo ""
 echo "[2/3] alpha=0 CoT — neutral"
-python get_answer_math.py \
+python get_answer_regenerate_math.py \
     --model      "${MODEL_NAME}" \
     --model_dir  "${MODEL_DIR}" \
     --hs         "${HS_PREFIX}" \
@@ -105,7 +105,7 @@ python get_answer_math.py \
 # ==================== [3] alpha=+4 / -4, No-CoT, neutral ====================
 echo ""
 echo "[3/3] alpha=+4/-4 No-CoT — neutral"
-python get_answer_math.py \
+python get_answer_regenerate_math.py \
     --model      "${MODEL_NAME}" \
     --model_dir  "${MODEL_DIR}" \
     --hs         "${HS_PREFIX}" \
