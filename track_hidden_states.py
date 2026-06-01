@@ -45,7 +45,7 @@ Usage (matches track_dopamine_signal.py argument layout):
     --model_dir meta-llama/Llama-3.1-8B-Instruct \
     --test_file benchmark/gsm8k_test_sample.json \
     --base_dir /data1/paveen/Dopamine/components \
-    --role expert --max_new_tokens 512 --n_samples 300
+    --role expert --max_new_tokens 768 --n_samples 300
 """
 
 import os
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_file", type=str, required=True)
     parser.add_argument("--n_samples", type=int, default=300)
     parser.add_argument("--cot", action="store_true")
-    parser.add_argument("--max_new_tokens", type=int, default=512)
+    parser.add_argument("--max_new_tokens", type=int, default=768)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top_p", type=float, default=0.9)
     parser.add_argument("--base_dir", type=str, default=None)
