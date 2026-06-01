@@ -28,7 +28,7 @@ EMA_ALPHA=0.95
 MAX_NEW_TOKENS_GSM=512
 N_SAMPLES=300
 
-WORK_DIR="/${DATA}/paveen/RolePlaying"
+WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 echo "=================================================="
