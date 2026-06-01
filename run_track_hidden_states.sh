@@ -105,17 +105,17 @@ BASE_ARGS="
   --base_dir ${BASE_DIR}
 "
 
-# # ── Run 1: expert ──
-# echo ""
-# echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
-# python track_hidden_states.py ${BASE_ARGS} --role expert
-# echo "[Done] expert"
+# ── Run 1: expert ──
+echo ""
+echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
+python track_hidden_states.py ${BASE_ARGS} --role expert
+echo "[Done] expert"
 
-# # ── Run 2: non_expert ──
-# echo ""
-# echo "[2/5] GSM8K No-CoT | role=non_expert ('a non expert')"
-# python track_hidden_states.py ${BASE_ARGS} --role non_expert
-# echo "[Done] non_expert"
+# ── Run 2: non_expert ──
+echo ""
+echo "[2/5] GSM8K No-CoT | role=non_expert ('a non expert')"
+python track_hidden_states.py ${BASE_ARGS} --role non_expert
+echo "[Done] non_expert"
 
 # ── Run 3: neutral (No-CoT) ──
 echo ""
