@@ -134,7 +134,7 @@ class HiddenStateRecorder:
         First n_middle entries are the middle layers; uses those for NMD proj.
         """
         middle = stored_hs_last[: self.n_middle]  # (n_middle, H)
-        return float(np.sum(middle * self.directions, axis=-1).mean())
+        return utils.project_rsn_numpy(middle, self.directions)
 
     # ── hook registration: hook middle layers + final layer only ──
     def attach(self, decoder_layers):
@@ -190,10 +190,7 @@ class HiddenStateRecorder:
                         self._decode_hs.append(layers_LH[:, -1, :].copy())
 
                         proj = self._project_middle_last(last_tok)
-                        self._ema_val = (
-                            self.ema_alpha * self._ema_val
-                            + (1 - self.ema_alpha) * proj
-                        )
+                        self._ema_val = utils.ema_update(self._ema_val, proj, self.ema_alpha)
                         self._x_decode_proj.append(proj)
                         self._ema_decode_proj.append(self._ema_val)
 
@@ -282,21 +279,7 @@ def main():
     else:
         templates = build_math_suite(cot=args.cot)
 
-    role_to_character = {
-        "expert":          "an expert",
-        "non_expert":      "a non expert",
-        "primary_teacher": "a primary school teacher",
-    }
-    if args.role == "neutral":
-        prompt_template = templates["neutral"]
-        character = None
-    else:
-        if "neg" not in templates:
-            raise ValueError(
-                f"Task '{args.task}' template suite has no 'neg' (role-bearing) variant."
-            )
-        prompt_template = templates["neg"]
-        character = role_to_character[args.role]
+    prompt_template, character = utils.select_role_prompt(templates, args.role)
     print(f"Role: {args.role} (character={character})")
 
     # ── recorder ──
@@ -343,10 +326,7 @@ def main():
         samples_grp = fh.create_group("samples")
 
         for idx, sample in enumerate(tqdm(samples, desc=f"Recording [{args.task}|{args.role}]")):
-            if character is None:
-                prompt = prompt_template.format(context=sample["question"])
-            else:
-                prompt = prompt_template.format(context=sample["question"], character=character)
+            prompt = utils.render_role_prompt(prompt_template, sample["question"], character)
 
             with torch.no_grad():
                 generated = generate_with_recording(
