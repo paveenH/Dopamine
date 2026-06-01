@@ -5,7 +5,7 @@
 1. ✅ 重新整理近期GSM8K相關的code，重新備份一次code;
 2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 wanting/incentive salience：抢答、放不下、跨任务统一）**;
 3. Math的表现？
-4. 確認新的指標，需要重新跑 HS + 結果（signal 用旧 layer-offset mask，待重跑）確認新的template的準確率是一致的（plain 主线 role 排序已正常）;
+4. ⏳ Phase 1b 信號重跑（見 §3）：旧 §4.9 mathematician 信號已刪除；pipeline 脚本已对齐新约定（paper-aligned roles、`####`、路径统一到 Dopamine）。待跑 HS 重采集 + NMD/random 双 mask 重投影，验证信号方向性 + RSN-specificity（plain 主线 role 排序已正常）;
 5. 之前的
 
 ## 0. Template Update
@@ -292,6 +292,57 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 13. **"放不下"措辞**（`this is not the answer` / `let's re-evaluate` / `to follow the format` / `however, the` / `wait,`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 36 / 0: 77 / +4: 107 题）。
 14. 答完 `####` 后续写字符数 + 自然结束率（"还想不想说"，方向对但幅度弱）。
 
-> 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_new/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_cot_pushy}/`。signal（NMD 投影）仍为旧 layer-offset mask，**待重跑**。
+> 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_new/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_cot_pushy}/`。signal（NMD 投影）仍为旧 layer-offset mask，**待重跑**（见 §3）。
+
+---
+
+## 3. Phase 1b：多巴胺信号代理验证（重跑中）
+
+> 历史文档 `AdaptativeThinking.md` 的旧 §4.9/§4.9.1（mathematician 角色、两轮对不上的信号对比）已删除——不可比。本节是用**修正后 pipeline**（对称化模板 + `####` directive + paper-aligned roles + 修复 layer-offset 的 NMD mask）重做的 Phase 1b 信号结果，写在 current-state 文档这里。Pipeline 流程规范仍参见 `AdaptativeThinking.md` §3.1b（Multi-Metric Signal Suite SOP，不含具体数字，无需重做）。
+
+### 3.0 重跑动机与核心问题
+
+§2 的行为学发现（α−4 = 低 wanting = 放得下、α+4 = 高 wanting = 放不下；expert/persona 同向抬高 commitment）全部是**生成 trace 上的行为观测**。Phase 1b 要回答的是它的**机制对应**：
+
+1. **信号方向性**：高 wanting 的条件（expert、α+4）是否在 NMD 投影信号上呈现更高的 early-peak / late-tonic？行为上的"想不想"能否在隐状态投影上读出？
+2. **RSN-specificity（关键对照，CLAUDE.md flagged）**：expert-vs-non_expert 的信号 gap 是 **NMD mask 特有**，还是**任何同稀疏度的随机投影**都会显示？→ Axis C：NMD mask vs `diff_random_*` mask 并排。若随机 mask 也有同样 gap，则"RSN 信号"只是一般性的 role-prompt 漂移，而非多巴胺特异方向。
+3. **跨指标关系**：RSN 信号 vs entropy/top1/margin/info_gain 的相关与 partial correlation（控制 confidence 后 RSN 的独立预测力）。
+
+### 3.1 实验设置（与 §1/§2 同批 prompt，保证可比）
+
+- 模型 Llama3.1-8B-Instruct，GSM8K No-CoT 主线 + CoT 对照，300 samples，EMA α=0.95，Layer 11–20。
+- 角色（paper-aligned，与 `run_track_hidden_states.sh` 一致）：`an expert` / `a non expert` / `a primary school teacher` / `neutral`（No-CoT）/ `neutral`（CoT）= 5 runs。
+- Prompt 与 §1 的 `get_answer_regenerate_gsm8k.py` α=0 **完全相同**（无 honest、带 `####`、plain 主线措辞、neutral→neutral / role→neg），故信号与行为可逐题对齐。
+- 采集：`track_hidden_states.py`（bs=1 greedy）存 selective HDF5（middle 9 + final = 10 层）→ `extract_signal_json.py`（NMD + random mask 各一份）+ `extract_entropy_confidence.py`。
+- **前置 sanity**：跑 `sanity_mask_indexing.py` 确认 layer-offset 已修（旧 5/30 signal 的废弃原因）。
+
+### 3.2 结果（待填）
+
+> ⏳ HS 重采集 + 重投影完成后填入。预期表格骨架：
+
+**A. Role axis（NMD mask，correct/wrong 分组）**
+
+| 条件 | Acc | EarlyPk(corr) | LateT(corr) | EarlyPk(wrong) | LateT(wrong) |
+|------|-----|---------------|-------------|----------------|--------------|
+| neutral No-CoT | — | — | — | — | — |
+| expert | — | — | — | — | — |
+| non_expert | — | — | — | — | — |
+| primary_teacher | — | — | — | — | — |
+| neutral CoT | — | — | — | — | — |
+
+**B. Mask axis（RSN-specificity 检验，expert−non_expert gap）**
+
+| Mask | ΔEarlyPk | ΔLateT | AUROC(role) | Cohen's d | 结论 |
+|------|----------|--------|-------------|-----------|------|
+| NMD | — | — | — | — | — |
+| random | — | — | — | — | — |
+
+→ 待判定：NMD gap 是否显著大于 random gap（= 信号是否 RSN-specific）。
+
+**C. Cross-metric（per-role Pearson + partial r(RSN, correct \| entropy)）**：待填。
+
+### 3.3 与 §2 行为发现的对照（待填）
+
+待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §3.2 的信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
 
 
