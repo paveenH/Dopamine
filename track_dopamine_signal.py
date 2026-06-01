@@ -95,7 +95,6 @@ class DopamineTracker:
         self._step_buffer: list[float] = []   # raw projection per decode step
         self._ema_buffer: list[float] = []
         self._ema_val: float = 0.0
-        self._is_prefill: bool = True
         self._prefill_proj: float | None = None
         self._layer_projs: list[list[float]] = []  # per-step, per-middle-layer
 
@@ -106,9 +105,7 @@ class DopamineTracker:
         hs_np: (n_middle, H) — one hidden state vector per middle layer.
         Returns: mean projection across middle layers (scalar).
         """
-        # dot product per layer, then average
-        projs = np.sum(hs_np * self.directions, axis=-1)  # (n_middle,)
-        return float(projs.mean())
+        return utils.project_rsn_numpy(hs_np, self.directions)
 
     def _project_per_layer(self, hs_np: np.ndarray) -> list[float]:
         projs = np.sum(hs_np * self.directions, axis=-1)  # (n_middle,)
@@ -152,10 +149,7 @@ class DopamineTracker:
                         # Decode step
                         raw = self._project(hs_np)
                         per_layer = self._project_per_layer(hs_np)
-                        self._ema_val = (
-                            self.ema_alpha * self._ema_val
-                            + (1 - self.ema_alpha) * raw
-                        )
+                        self._ema_val = utils.ema_update(self._ema_val, raw, self.ema_alpha)
                         self._step_buffer.append(raw)
                         self._ema_buffer.append(self._ema_val)
                         self._layer_projs.append(per_layer)
@@ -245,23 +239,7 @@ def main():
         templates = build_math_suite(cot=args.cot)
 
     # ── role selection ──
-    # Paper-aligned roles, matched to track_hidden_states.py.
-    role_to_character = {
-        "expert":          "an expert",
-        "non_expert":      "a non expert",
-        "primary_teacher": "a primary school teacher",
-    }
-    if args.role == "neutral":
-        prompt_template = templates["neutral"]
-        character = None
-    else:
-        if "neg" not in templates:
-            raise ValueError(
-                f"Task '{args.task}' template suite has no 'neg' (role-bearing) variant. "
-                "Cannot use --role expert/non_expert/primary_teacher."
-            )
-        prompt_template = templates["neg"]
-        character = role_to_character[args.role]
+    prompt_template, character = utils.select_role_prompt(templates, args.role)
     print(f"Role: {args.role} (character={character})")
 
     # ── tracker ──
@@ -275,10 +253,7 @@ def main():
     results = []
 
     for sample in tqdm(samples, desc=f"Tracking [{args.task}|{args.role}]"):
-        if character is None:
-            prompt = prompt_template.format(context=sample["question"])
-        else:
-            prompt = prompt_template.format(context=sample["question"], character=character)
+        prompt = utils.render_role_prompt(prompt_template, sample["question"], character)
 
         with torch.no_grad():
             generated = generate_with_tracking(
@@ -366,6 +341,7 @@ def main():
                     "n_samples": len(results),
                     "accuracy": round(correct_n / total * 100, 2),
                     "cot": args.cot,
+                    "prompt_template": prompt_template,
                 },
                 "diff_stats": diff_stats,
                 "data": results,
