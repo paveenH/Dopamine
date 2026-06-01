@@ -88,7 +88,7 @@ This directory is **not** in the RolePlaying git repo. It is the offline analysi
 - `analysis_*` and `analyze_*` are post-hoc plotting; never call them from training-style scripts.
 - `mean/mean_diff.py` is the canonical diff-vector builder — other `mean/mean_*.py` are ablations (consistent / pairs / dice / per-layer).
 - `harness.py` + `hf_rsn.py` plug into [lm-evaluation-harness] for benchmark-suite eval.
-- **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`). All 5 consumers (`get_answer_regenerate_gsm8k`, `get_answer_math`, `closed_loop_gsm8k`, `track_dopamine_signal`, `track_hidden_states`) import from here — do not redefine locally.
+- **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`). All 5 consumers (`get_answer_regenerate_gsm8k`, `get_answer_regenerate_math`, `closed_loop_gsm8k`, `track_dopamine_signal`, `track_hidden_states`) import from here — do not redefine locally.
 
 ## GSM8K re-run conventions (2026-05-31, current rework)
 
