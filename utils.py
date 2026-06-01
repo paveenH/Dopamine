@@ -18,6 +18,11 @@ LABELS = ["A", "B", "C", "D"]
 MMLU_POOL_DIR = Path(
     os.environ.get("MMLU_POOL_DIR", "/data2/paveen/RolePlaying/components/mmlu_fewshot")
 )
+ROLE_TO_CHARACTER = {
+    "expert": "an expert",
+    "non_expert": "a non expert",
+    "primary_teacher": "a primary school teacher",
+}
 
 
 def load_json(path):
@@ -28,6 +33,26 @@ def load_json(path):
 def dump_json(obj, path: Path):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
+
+
+# ─────────────────────── Open-ended prompt rendering ───────────────────────
+
+def select_role_prompt(templates: dict, role: str):
+    """Select the neutral or role-bearing open-ended prompt template."""
+    if role == "neutral":
+        return templates["neutral"], None
+    if role not in ROLE_TO_CHARACTER:
+        raise ValueError(f"Unknown role: {role}")
+    if "neg" not in templates:
+        raise ValueError("Template suite has no 'neg' (role-bearing) variant.")
+    return templates["neg"], ROLE_TO_CHARACTER[role]
+
+
+def render_role_prompt(prompt_template: str, question: str, character=None) -> str:
+    """Render an open-ended prompt with or without a character role."""
+    if character is None:
+        return prompt_template.format(context=question)
+    return prompt_template.format(context=question, character=character)
 
 
 # ─────────────────────── GSM8K / MATH answer extraction ───────────────────────
@@ -128,6 +153,16 @@ def decoder_layer_range(layer_start: int, layer_end: int) -> range:
     decoder-layer index range. Use this for hook registration so it stays in
     sync with mask_slice_for."""
     return range(layer_start - 1, layer_end - 1)
+
+
+def project_rsn_numpy(hidden_states: np.ndarray, directions: np.ndarray) -> float:
+    """Average per-layer RSN projection for CPU numpy hidden states."""
+    return float(np.sum(hidden_states * directions, axis=-1).mean())
+
+
+def ema_update(previous: float, current: float, alpha: float) -> float:
+    """Update a scalar exponential moving average."""
+    return alpha * previous + (1.0 - alpha) * current
 
 
 def softmax_1d(x: np.ndarray):
