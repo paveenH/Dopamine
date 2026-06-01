@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 # Phase 1b round 2: Hidden-state recording with paper-aligned roles + neutral
 # baselines. HS storage is now selective (middle 9 layers + final layer = 10
 # layers total) — see track_hidden_states.py HiddenStateRecorder.
@@ -15,6 +17,7 @@
 MODEL_NAME="llama3"
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
 MODEL_SIZE="8B"
+TASK="gsm8k"
 HS_PREFIX="llama3"
 TYPE="non"
 DATA="data1"
@@ -30,6 +33,12 @@ N_SAMPLES=300
 
 WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
+H5_DIR="${BASE_DIR}/hidden_states/${TASK}"
+MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
+NMD_MASK="${MASK_DIR}/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
+RAND_MASK="${MASK_DIR}/diff_random_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
+SIG_OUT="${BASE_DIR}/${MODEL_NAME}"            # NMD signal + entropy staging area
+RAND_OUT="${BASE_DIR}/${MODEL_NAME}_random"    # random signal staging area
 
 echo "=================================================="
 echo "Phase 1b round 2: HS recording (5 runs, GSM8K)"
@@ -41,8 +50,31 @@ echo "=================================================="
 
 cd ${WORK_DIR}
 
+# Pre-flight: confirm mask rows match the fixed HF-hidden-state offset before
+# spending time on the five slow HDF5 recording runs.
+echo ""
+echo "[sanity] NMD mask indexing check (see CLAUDE.md layer-offset warning)"
+python sanity_mask_indexing.py \
+    --mask_path "${NMD_MASK}" \
+    --expect_layer_start ${LAYER_START} \
+    --expect_layer_end ${LAYER_END} \
+    --skip_model
+
+if [ -f "${RAND_MASK}" ]; then
+  echo ""
+  echo "[sanity] random mask indexing check"
+  python sanity_mask_indexing.py \
+      --mask_path "${RAND_MASK}" \
+      --expect_layer_start ${LAYER_START} \
+      --expect_layer_end ${LAYER_END} \
+      --skip_model
+else
+  echo ""
+  echo "[warn] random mask not found at ${RAND_MASK} — Axis C will be skipped"
+fi
+
 BASE_ARGS="
-  --task gsm8k
+  --task ${TASK}
   --model ${MODEL_NAME}
   --model_dir ${MODEL_DIR}
   --hs ${HS_PREFIX}
@@ -90,8 +122,49 @@ echo "[5/5] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
 python track_hidden_states.py ${BASE_ARGS} --role primary_teacher
 echo "[Done] primary_teacher"
 
+# ==================================================================
+# Step 2/3: offline re-projection (SOP §3.1b). All three extractors are
+# DIRECTORY-level (glob hs_*.h5), so each runs ONCE over all 5 HDF5 files —
+# no per-role loop. Outputs are the JSONs to scp to local ./signal/.
+# ==================================================================
+
+echo ""
+echo "[Step 2a] extract_signal_json.py  (NMD mask → ${SIG_OUT})"
+python extract_signal_json.py \
+    --h5_dir     "${H5_DIR}" \
+    --mask_path  "${NMD_MASK}" \
+    --out_dir    "${SIG_OUT}" \
+    --layer_start ${LAYER_START} --layer_end ${LAYER_END} --ema_alpha ${EMA_ALPHA}
+echo "[✓] NMD signal"
+
+echo ""
+echo "[Step 2b] extract_signal_json_remask.py  (random mask → ${RAND_OUT}, RSN-specificity axis C)"
+if [ -f "${RAND_MASK}" ]; then
+  python extract_signal_json_remask.py \
+      --h5_dir     "${H5_DIR}" \
+      --mask_path  "${RAND_MASK}" \
+      --out_dir    "${RAND_OUT}" \
+      --out_prefix random_signal \
+      --layer_start ${LAYER_START} --layer_end ${LAYER_END} --ema_alpha ${EMA_ALPHA}
+  echo "[✓] random signal"
+else
+  echo "[skip] random mask not found at ${RAND_MASK} — generate it first, then re-run this step for axis C"
+fi
+
+echo ""
+echo "[Step 3] extract_entropy_confidence.py  (entropy/top1/margin/info_gain → ${SIG_OUT})"
+python extract_entropy_confidence.py \
+    --h5_dir     "${H5_DIR}" \
+    --model_dir  "${MODEL_DIR}" \
+    --out_dir    "${SIG_OUT}" \
+    --layer_start ${LAYER_START} --layer_end ${LAYER_END} --ema_alpha ${EMA_ALPHA}
+echo "[✓] entropy/confidence"
+
 echo ""
 echo "=================================================="
 echo "All done: $(date)"
-echo "Output → ${BASE_DIR}/hidden_states/gsm8k/"
+echo "HS     → ${H5_DIR}/"
+echo "NMD signal + entropy → ${SIG_OUT}/"
+echo "random signal        → ${RAND_OUT}/"
+echo "Next: scp the *.json to local ./signal/, then run analyze_multi_metric.py"
 echo "=================================================="
