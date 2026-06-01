@@ -13,6 +13,16 @@ from typing import List
 from pathlib import Path
 import numpy as np
 
+# sympy is optional: is_correct_math falls back to normalized string equality
+# if it is unavailable (e.g. on a minimal env). Install for symbolic-equivalence
+# matching of MATH answers (1/2 == 0.5, x^2 == x**2, etc.).
+try:
+    import sympy
+    from sympy.parsing.latex import parse_latex
+    _HAS_SYMPY = True
+except Exception:
+    _HAS_SYMPY = False
+
 INTRO_FMT = "The following are multiple choice questions (with answers) about {subject}."
 LABELS = ["A", "B", "C", "D"]
 MMLU_POOL_DIR = Path(
@@ -101,8 +111,30 @@ def gsm8k_difficulty(question: str) -> str:
 
 
 def extract_boxed(text: str) -> str:
-    matches = re.findall(r"\\boxed\{([^}]+)\}", text)
-    return matches[-1].strip() if matches else ""
+    r"""Return the content of the LAST \boxed{...}, handling nested braces.
+
+    A regex like \\boxed\{([^}]+)\} truncates at the first '}', so
+    \boxed{\frac{1}{2}} would yield only '\frac{1'. Here we scan for each
+    "\boxed{" and walk forward tracking brace depth to capture the full
+    balanced span, including nested {}.
+    """
+    results = []
+    needle = r"\boxed{"
+    i = text.find(needle)
+    while i != -1:
+        j = i + len(needle)
+        depth = 1
+        start = j
+        while j < len(text) and depth > 0:
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+            j += 1
+        if depth == 0:
+            results.append(text[start:j - 1].strip())  # j-1 = matching close brace
+        i = text.find(needle, j)
+    return results[-1] if results else ""
 
 
 def extract_math_answer(text: str) -> str:
@@ -117,11 +149,54 @@ def extract_math_answer(text: str) -> str:
 
 
 def normalize_math(s: str) -> str:
-    return s.strip().lower().replace(",", "").replace(" ", "")
+    r"""Light LaTeX normalization for string-equality fallback.
+
+    Folds common surface variants that should compare equal:
+    \dfrac/\tfrac→\frac, drops \left \right and spacing macros (\! \, \;
+    \quad), strips $ and outer text wrappers, removes \mathrm/\text{...}
+    wrappers' commands, collapses whitespace. Symbolic equivalence (1/2 vs
+    0.5) is handled by is_correct_math via sympy, not here.
+    """
+    if s is None:
+        return ""
+    out = s.strip()
+    # strip math-mode delimiters and a leading "x =" / "= x" assignment
+    out = out.replace("$", "")
+    out = re.sub(r"\\(?:left|right|big|Big|bigg|Bigg)\b", "", out)
+    out = re.sub(r"\\[,!;:> ]", "", out)          # spacing macros: \, \! \; \: \>
+    out = re.sub(r"\\quad|\\qquad", "", out)
+    out = out.replace(r"\dfrac", r"\frac").replace(r"\tfrac", r"\frac")
+    out = out.replace(r"\times", "*").replace(r"\cdot", "*")
+    out = re.sub(r"\\(?:mathrm|mathbf|text|mbox)\{([^{}]*)\}", r"\1", out)
+    out = out.replace("^{}", "")
+    # drop a leading variable assignment like "x=" or "x ="
+    out = re.sub(r"^[A-Za-z]\s*=\s*", "", out)
+    out = out.replace("\\!", "").replace(" ", "").replace(",", "")
+    return out.lower()
+
+
+def _sympy_equal(pred: str, gold: str) -> bool:
+    """True if pred/gold parse to symbolically-equal expressions (best effort)."""
+    if not _HAS_SYMPY:
+        return False
+    for parse in (lambda x: parse_latex(x), lambda x: sympy.sympify(x.replace("^", "**"))):
+        try:
+            ep, eg = parse(pred), parse(gold)
+            diff = sympy.simplify(ep - eg)
+            if diff == 0:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def is_correct_math(pred: str, gold: str) -> bool:
-    return normalize_math(pred) == normalize_math(gold)
+    """MATH correctness: normalized string equality, then sympy equivalence."""
+    if not pred or not gold:
+        return False
+    if normalize_math(pred) == normalize_math(gold):
+        return True
+    return _sympy_equal(pred, gold)
 
 
 # ─────────────────────── RSN mask indexing ───────────────────────
