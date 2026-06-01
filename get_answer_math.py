@@ -36,9 +36,16 @@ from utils import extract_boxed, extract_math_answer, is_correct_math
 # Per-config runner
 # ──────────────────────────────────────────────
 
-def run_math(vc, samples, diff_mtx, template, alpha, st, en):
-    prompts = [template["neutral"].format(context=s["question"]) for s in samples]
-    print(f"  Generating {len(prompts)} samples (batch_size={args.batch_size})...")
+def run_math(vc, samples, diff_mtx, template, alpha, st, en, role):
+    # GSM8K/MATH have no E-option → roles must NOT carry "honest" framing.
+    # neutral → neutral template; any other role → neg ("Now you are {char}.").
+    # Mirrors get_answer_regenerate_gsm8k.py routing so prompts align.
+    if role in ("neutral", "norole"):
+        prompts = [template["neutral"].format(context=s["question"]) for s in samples]
+    else:
+        character = utils.ROLE_TO_CHARACTER[role]
+        prompts = [template["neg"].format(character=character, context=s["question"]) for s in samples]
+    print(f"  [{role}] Generating {len(prompts)} samples (batch_size={args.batch_size})...")
 
     if diff_mtx is None:
         generated_texts = vc.generate(
@@ -77,7 +84,7 @@ def run_math(vc, samples, diff_mtx, template, alpha, st, en):
         })
 
     acc = correct_count / len(results) * 100 if results else 0.0
-    print(f"  alpha={alpha} | acc={acc:.2f}% ({correct_count}/{len(results)})")
+    print(f"  alpha={alpha} | role={role} | acc={acc:.2f}% ({correct_count}/{len(results)})")
     return results, acc
 
 
@@ -99,6 +106,14 @@ def main():
 
     template = build_math_suite(cot=args.cot)
 
+    # Roles to evaluate. Default = neutral only (back-compat). Pass --roles
+    # "neutral,expert,non_expert,math_expert" for the role comparison.
+    if args.roles:
+        roles = [r.strip() for r in args.roles.split(",")]
+    else:
+        roles = ["neutral"]
+    print("Roles:", roles)
+
     csv_rows = []
 
     for alpha, (st, en) in ALPHAS_START_END_PAIRS:
@@ -112,38 +127,42 @@ def main():
             mask_path = os.path.join(MASK_DIR, mask_name)
             diff_mtx = np.load(mask_path) * alpha
 
-        samples = copy.deepcopy(all_samples)
-        with torch.no_grad():
-            results, acc = run_math(vc, samples, diff_mtx, template, alpha, st, en)
+        for role in roles:
+            samples = copy.deepcopy(all_samples)
+            with torch.no_grad():
+                results, acc = run_math(vc, samples, diff_mtx, template, alpha, st, en, role)
 
-        # Save JSON
-        alpha_tag = f"neg{abs(alpha)}" if alpha < 0 else str(alpha)
-        out_dir = os.path.join(SAVE_ROOT, f"mdf_{alpha_tag}")
-        os.makedirs(out_dir, exist_ok=True)
-        out_path = os.path.join(out_dir, f"math_{args.size}_{st}_{en}.json")
-        with open(out_path, "w", encoding="utf-8") as fw:
-            json.dump({"data": results, "accuracy": round(acc, 4)}, fw,
-                      ensure_ascii=False, indent=2)
-        print(f"[Saved JSON] {out_path}")
+            # Save JSON. Output path encodes role so roles don't overwrite each
+            # other; neutral keeps the legacy name for back-compat.
+            alpha_tag = f"neg{abs(alpha)}" if alpha < 0 else str(alpha)
+            role_tag = "" if role in ("neutral", "norole") else f"_{role}"
+            out_dir = os.path.join(SAVE_ROOT, f"mdf_{alpha_tag}")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, f"math_{args.size}_{st}_{en}{role_tag}.json")
+            with open(out_path, "w", encoding="utf-8") as fw:
+                json.dump({"data": results, "accuracy": round(acc, 4), "role": role},
+                          fw, ensure_ascii=False, indent=2)
+            print(f"[Saved JSON] {out_path}")
 
-        csv_rows.append({
-            "model": args.model,
-            "size": args.size,
-            "alpha": alpha,
-            "start": st,
-            "end": en,
-            "n_total": len(results),
-            "correct": sum(1 for r in results if r["correct"]),
-            "accuracy_percentage": round(acc, 4),
-        })
+            csv_rows.append({
+                "model": args.model,
+                "size": args.size,
+                "alpha": alpha,
+                "start": st,
+                "end": en,
+                "role": role,
+                "n_total": len(results),
+                "correct": sum(1 for r in results if r["correct"]),
+                "accuracy_percentage": round(acc, 4),
+            })
 
-        del results, samples
-        gc.collect()
-        torch.cuda.empty_cache()
+            del results, samples
+            gc.collect()
+            torch.cuda.empty_cache()
 
     # Save CSV summary
     csv_path = os.path.join(SAVE_ROOT, f"summary_math_{args.model}_{args.size}.csv")
-    fieldnames = ["model", "size", "alpha", "start", "end", "n_total", "correct", "accuracy_percentage"]
+    fieldnames = ["model", "size", "alpha", "start", "end", "role", "n_total", "correct", "accuracy_percentage"]
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -165,7 +184,13 @@ if __name__ == "__main__":
     parser.add_argument("--abs", action="store_true")
     parser.add_argument("--test_file", type=str, default="benchmark/math_test_sample.json")
     parser.add_argument("--ans_file", type=str, default="answer_math")
-    parser.add_argument("--cot", action="store_true", default=True)
+    parser.add_argument("--roles", type=str, default=None,
+                        help="Comma-separated roles, e.g. 'neutral,expert,non_expert,math_expert'. "
+                             "neutral → neutral template; others → neg ('Now you are {char}.'). "
+                             "Default: neutral only.")
+    parser.add_argument("--cot", action="store_true",
+                        help="Enable CoT ('Let's think step by step.'). Default OFF "
+                             "(No-CoT is the main line, matching GSM8K convention).")
     parser.add_argument("--n_samples", type=int, default=300)
     parser.add_argument("--max_new_tokens", type=int, default=1024)
     parser.add_argument("--temperature", type=float, default=0.0)
@@ -181,7 +206,7 @@ if __name__ == "__main__":
     if args.base_dir:
         BASE = args.base_dir
     else:
-        BASE = f"/{args.data}/paveen/RolePlaying/components"
+        BASE = f"/{args.data}/paveen/Dopamine/components"
 
     DATA_DIR = os.path.join(BASE, args.test_file)
     MASK_DIR = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
