@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 # Phase 0: RSN dopamine signal tracking
 # Records per-token RSN projection curves during original generation (no steering)
 # Output: JSON with x_prefill, x_decode, ema_decode per sample
@@ -20,8 +22,9 @@ MAX_NEW_TOKENS_GSM=512
 MAX_NEW_TOKENS_MATH=1024
 N_SAMPLES=300
 
-WORK_DIR="/${DATA}/paveen/RolePlaying"
+WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
+MASK_PATH="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
 
 echo "=================================================="
 echo "Phase 0: Dopamine Signal Tracking"
@@ -31,6 +34,14 @@ echo "Start: $(date)"
 echo "=================================================="
 
 cd ${WORK_DIR}
+
+echo ""
+echo "[sanity] NMD mask indexing check"
+python sanity_mask_indexing.py \
+    --mask_path "${MASK_PATH}" \
+    --expect_layer_start ${LAYER_START} \
+    --expect_layer_end ${LAYER_END} \
+    --skip_model
 
 # ── GSM8K No-CoT ──
 echo ""
