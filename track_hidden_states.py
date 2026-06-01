@@ -44,7 +44,7 @@ Usage (matches track_dopamine_signal.py argument layout):
     --task gsm8k --model llama3 --size 8B --hs llama3 \
     --model_dir meta-llama/Llama-3.1-8B-Instruct \
     --test_file benchmark/gsm8k_test_sample.json \
-    --base_dir /data1/paveen/RolePlaying/components \
+    --base_dir /data1/paveen/Dopamine/components \
     --role expert --max_new_tokens 512 --n_samples 300
 """
 
@@ -455,7 +455,7 @@ if __name__ == "__main__":
     BASE_DIR = (
         args.base_dir
         if args.base_dir
-        else f"/{args.data}/paveen/RolePlaying/components"
+        else f"/{args.data}/paveen/Dopamine/components"
     )
     MASK_DIR = os.path.join(BASE_DIR, "mask", f"{args.hs}_{args.type}_logits")
     DATA_DIR = os.path.join(BASE_DIR, args.test_file)
