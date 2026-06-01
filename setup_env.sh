@@ -42,6 +42,10 @@ pip install "mistral-common>=1.8.6"
 # Data processing & analysis
 pip install numpy pandas scikit-learn scipy
 
+# Symbolic math: MATH answer equivalence checking (utils.is_correct_math).
+# antlr4-python3-runtime is required for sympy.parsing.latex.parse_latex.
+pip install sympy "antlr4-python3-runtime==4.11"
+
 # Visualization
 pip install matplotlib seaborn
 
