@@ -9,7 +9,7 @@
 
 set -e
 
-WORK_DIR="/data1/paveen/RolePlaying"
+WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 H5_DIR="${BASE_DIR}/hidden_states/gsm8k"
@@ -34,6 +34,20 @@ echo "NMD mask : ${NMD_MASK}"
 echo "Rnd mask : ${RANDOM_MASK}"
 echo "Start: $(date)"
 echo "=================================================="
+
+# Fail fast if the saved masks do not match the fixed HF-hidden-state offset.
+python sanity_mask_indexing.py \
+  --mask_path "${NMD_MASK}" \
+  --expect_layer_start ${LAYER_START} \
+  --expect_layer_end ${LAYER_END} \
+  --skip_model
+if [ -f "${RANDOM_MASK}" ]; then
+  python sanity_mask_indexing.py \
+    --mask_path "${RANDOM_MASK}" \
+    --expect_layer_start ${LAYER_START} \
+    --expect_layer_end ${LAYER_END} \
+    --skip_model
+fi
 
 # ── Pass 1: NMD projection ──
 echo ""
@@ -80,9 +94,9 @@ echo "Random JSON        → ${OUT_RANDOM}"
 echo ""
 echo "Next: scp to local analysis dir, e.g."
 echo "  scp '<server>:${OUT_NMD}/dopamine_signal_gsm8k_8B_*.json' \\"
-echo "      ~/Downloads/RSNResult/RoleAnswer_non/llama3/dopamine/signal/"
+echo "      ~/Downloads/RSNResult/RoleAnswer/llama3/dopamine/signal/"
 echo "  scp '<server>:${OUT_NMD}/metrics_gsm8k_8B_*.json' \\"
-echo "      ~/Downloads/RSNResult/RoleAnswer_non/llama3/dopamine/signal/"
+echo "      ~/Downloads/RSNResult/RoleAnswer/llama3/dopamine/signal/"
 echo "  scp '<server>:${OUT_RANDOM}/random_signal_gsm8k_8B_*.json' \\"
-echo "      ~/Downloads/RSNResult/RoleAnswer_non/llama3/dopamine/signal/"
+echo "      ~/Downloads/RSNResult/RoleAnswer/llama3/dopamine/signal/"
 echo "=================================================="
