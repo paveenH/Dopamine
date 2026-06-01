@@ -14,11 +14,11 @@ Also computes the same scalars for the **last prompt token** (prefill snapshot)
 so paper-03 §3.4.2 "intuitive prior" analysis is supported.
 
 Input  (server, full-layer fp16 HS):
-  /data1/paveen/RolePlaying/components/hidden_states/<task>/
+  /data1/paveen/Dopamine/components/hidden_states/<task>/
       hs_<task>_<size>_<mode>_<role>_L<L_start>-<L_end>.h5
 
 Output (server, ~few MB each — copy to local analysis workspace):
-  /data1/paveen/RolePlaying/components/llama3/
+  /data1/paveen/Dopamine/components/llama3/
       metrics_<task>_<size>_<mode>_<role>_ema0.95_L<L_start>-<L_end>.json
 
 Per-sample JSON schema:
@@ -257,7 +257,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--h5_dir", type=str,
-        default="/data1/paveen/RolePlaying/components/hidden_states/gsm8k_mathematician",
+        default="/data1/paveen/Dopamine/components/hidden_states/gsm8k",
         help="Directory containing hs_*.h5",
     )
     parser.add_argument(
@@ -267,7 +267,7 @@ def main():
     )
     parser.add_argument(
         "--out_dir", type=str,
-        default="/data1/paveen/RolePlaying/components/llama3",
+        default="/data1/paveen/Dopamine/components/llama3",
     )
     parser.add_argument("--ema_alpha", type=float, default=0.95,
                         help="Only used to name the output JSON.")
