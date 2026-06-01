@@ -7,6 +7,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 **Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/AGENTS.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work.
 
 **Required reading before non-trivial changes:**
+- `AdaptativeThinking0529.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed.
 - `AdaptativeThinking.md` — Phases 1–2, Plans A–H3 (full design rationale, failure analyses, integrated conclusion that decode-time shape control is measurable but does not robustly recover CoT-level accuracy), Yerkes–Dodson framing, EMA + 1-step-lag physics
 - `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` — literature & mapping
 - `~/AGENTS.md` — running commands and data-directory map
@@ -23,9 +24,9 @@ A typical experiment is one of the `get_answer_*.py` / `get_action_*.py` entry-p
    Each suite has CoT / non-CoT / E-option (with "I am not sure") variants. The chosen template is rendered per-role via `utils.construct_prompt` + `utils.make_characters`.
 3. **`llms.VicundaModel`** loads the LM. Three loading paths: `dream` diffusion (`AutoModel`, see `diffusion.py`), Mistral3 multimodal (`Mistral3ForConditionalGeneration`), or default `AutoModelForCausalLM`. All use bf16 + `device_map="auto"`. `_find_decoder_layers()` is the abstraction used by every layer-injection hook.
 4. **Steering / closed-loop** is layered on top via forward hooks on the decoder layers identified in step 3. The diff vectors come from `mean/` (per-role mean differences) gated by a mask from `detection/` (NMD / KL / KS / LR / PCA / t-test / XGB selectors over `task_list.py`).
-5. **Output**: per-role answer logits + optional hidden-state H5 are written under `<hs_prefix>/<task>/...` (server path `/data1/paveen/RolePlaying/components/...`).
+5. **Output**: current GSM8K re-run artifacts are written under `/data1/paveen/Dopamine/components/...`. Older experiment scripts may still point at the historical `/data1/paveen/RolePlaying/components/...` tree.
 
-## Phase 2 closed-loop (current focus)
+## Phase 2 closed-loop
 
 `closed_loop_gsm8k.py` + `run_closed_loop_gsm8k.sh` is the active iteration target. The shell script is the source of truth for hyperparameters; key knobs:
 
@@ -52,7 +53,7 @@ When tweaking a plan, modify the `.sh` not the `.py` — the script is committed
 
 ## Server / data layout
 
-Code runs on `/data1/paveen/RolePlaying/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Hard-coded `WORK_DIR=/data1/paveen/RolePlaying` appears in most `run_*.sh`.
+Current GSM8K re-runs run on `/data1/paveen/Dopamine/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Older experiments still have hard-coded `WORK_DIR=/data1/paveen/RolePlaying`; migrate them only when re-running that experiment family.
 
 ## Environment
 
