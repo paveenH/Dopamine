@@ -10,9 +10,9 @@ the random mask.
 
 Usage (server):
   python extract_signal_json_remask.py \
-    --h5_dir   /data1/paveen/RolePlaying/components/hidden_states/gsm8k_mathematician \
-    --mask_path /data1/paveen/RolePlaying/components/mask/llama3_non_logits/diff_random_0.5_11_20_8B.npy \
-    --out_dir  /data1/paveen/RolePlaying/components/llama3_random \
+    --h5_dir   /data1/paveen/Dopamine/components/hidden_states/gsm8k \
+    --mask_path /data1/paveen/Dopamine/components/mask/llama3_non_logits/diff_random_0.5_11_20_8B.npy \
+    --out_dir  /data1/paveen/Dopamine/components/llama3_random \
     --out_prefix random_signal \
     --ema_alpha 0.95
 """
