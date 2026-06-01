@@ -8,12 +8,12 @@ This lets the local analysis scripts treat expert / non_expert outputs the
 same way they treat the existing neutral baseline — no schema adapter needed.
 
 Input  (server, ~7-9 GB each):
-  /data1/paveen/RolePlaying/components/hidden_states/gsm8k/
+  /data1/paveen/Dopamine/components/hidden_states/gsm8k/
       hs_gsm8k_8B_nocot_expert_L11-20.h5
       hs_gsm8k_8B_nocot_non_expert_L11-20.h5
 
 Output (server staging area, ~few MB each — copy to local ./signal/):
-  /data1/paveen/RolePlaying/components/llama3/
+  /data1/paveen/Dopamine/components/llama3/
       dopamine_signal_gsm8k_8B_nocot_expert_ema0.95_L11-20.json
       dopamine_signal_gsm8k_8B_nocot_non_expert_ema0.95_L11-20.json
 
@@ -160,19 +160,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--h5_dir", type=str,
-        default="/data1/paveen/RolePlaying/components/hidden_states/gsm8k_mathematician",
+        default="/data1/paveen/Dopamine/components/hidden_states/gsm8k",
         help="Directory containing hs_*.h5 files",
     )
     parser.add_argument(
         "--mask_path", type=str,
-        default="/data1/paveen/RolePlaying/components/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy",
+        default="/data1/paveen/Dopamine/components/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy",
         help="NMD mask path — must match the sanity_mask recorded in HDF5",
     )
     parser.add_argument("--layer_start", type=int, default=11)
     parser.add_argument("--layer_end", type=int, default=20)
     parser.add_argument(
         "--out_dir", type=str,
-        default="/data1/paveen/RolePlaying/components/llama3",
+        default="/data1/paveen/Dopamine/components/llama3",
         help="Output dir for lightweight JSON (default is the staging area "
              "intended to be copied to local).",
     )
