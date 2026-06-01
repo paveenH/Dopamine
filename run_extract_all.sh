@@ -64,15 +64,19 @@ echo "[Done] NMD signal"
 # ── Pass 2: Random projection (re-projects ALL scalars, not just per-layer) ──
 echo ""
 echo "[2/3] Random projection → random_signal_*.json"
-python extract_signal_json_remask.py \
-  --h5_dir ${H5_DIR} \
-  --mask_path ${RANDOM_MASK} \
-  --out_dir ${OUT_RANDOM} \
-  --out_prefix random_signal \
-  --layer_start ${LAYER_START} \
-  --layer_end ${LAYER_END} \
-  --ema_alpha ${EMA_ALPHA}
-echo "[Done] Random signal"
+if [ -f "${RANDOM_MASK}" ]; then
+  python extract_signal_json_remask.py \
+    --h5_dir ${H5_DIR} \
+    --mask_path ${RANDOM_MASK} \
+    --out_dir ${OUT_RANDOM} \
+    --out_prefix random_signal \
+    --layer_start ${LAYER_START} \
+    --layer_end ${LAYER_END} \
+    --ema_alpha ${EMA_ALPHA}
+  echo "[Done] Random signal"
+else
+  echo "[skip] random mask not found at ${RANDOM_MASK} — generate it first for axis C"
+fi
 
 # ── Pass 3: Entropy / confidence (norm + lm_head, no full model load) ──
 echo ""
