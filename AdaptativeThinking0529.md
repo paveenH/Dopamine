@@ -304,7 +304,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 §2 的行为学发现（α−4 = 低 wanting = 放得下、α+4 = 高 wanting = 放不下；expert/persona 同向抬高 commitment）全部是**生成 trace 上的行为观测**。Phase 1b 要回答的是它的**机制对应**：
 
-1. **信号方向性**：高 wanting 的条件（expert、α+4）是否在 NMD 投影信号上呈现更高的 early-peak / late-tonic？行为上的"想不想"能否在隐状态投影上读出？
+1. **信号方向性**：本轮先看 persona / CoT 条件（expert、non_expert、primary_teacher、neutral No-CoT/CoT）是否在 NMD 投影信号上呈现稳定的 early-peak / late-tonic 差异。`α=±4` signal 是下一轮 static-steering 对照，不在本轮 5 个 HDF5 内。
 2. **RSN-specificity（关键对照，CLAUDE.md flagged）**：expert-vs-non_expert 的信号 gap 是 **NMD mask 特有**，还是**任何同稀疏度的随机投影**都会显示？→ Axis C：NMD mask vs `diff_random_*` mask 并排。若随机 mask 也有同样 gap，则"RSN 信号"只是一般性的 role-prompt 漂移，而非多巴胺特异方向。
 3. **跨指标关系**：RSN 信号 vs entropy/top1/margin/info_gain 的相关与 partial correlation（控制 confidence 后 RSN 的独立预测力）。
 
@@ -312,8 +312,9 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 - 模型 Llama3.1-8B-Instruct，GSM8K No-CoT 主线 + CoT 对照，300 samples，EMA α=0.95，Layer 11–20。
 - 角色（paper-aligned，与 `run_track_hidden_states.sh` 一致）：`an expert` / `a non expert` / `a primary school teacher` / `neutral`（No-CoT）/ `neutral`（CoT）= 5 runs。
-- Prompt 与 §1 的 `get_answer_regenerate_gsm8k.py` α=0 **完全相同**（无 honest、带 `####`、plain 主线措辞、neutral→neutral / role→neg），故信号与行为可逐题对齐。
-- 采集：`track_hidden_states.py`（bs=1 greedy）存 selective HDF5（middle 9 + final = 10 层）→ `extract_signal_json.py`（NMD + random mask 各一份）+ `extract_entropy_confidence.py`。
+- Prompt 与 §1 的 `get_answer_regenerate_gsm8k.py` α=0 **完全相同**（无 honest、带 `####`、plain 主线措辞、neutral→neutral / role→neg），题目顺序一致。
+- 生成路径不同：本轮 tracker 是 `bs=1 greedy, max_new_tokens=512`；§1 行为结果是 batched regenerate、`max_new_tokens=768`。先比较 aggregate 方向；若要做逐题行为-信号相关，使用本轮 HDF5 自带的 bs=1 generation 重新提取行为指标。
+- 采集：`track_hidden_states.py`（bs=1 greedy）存 selective HDF5（middle 9 + final = 10 层）→ `extract_signal_json.py`（NMD）+ `extract_signal_json_remask.py`（random）+ `extract_entropy_confidence.py`。
 - **前置 sanity**：跑 `sanity_mask_indexing.py` 确认 layer-offset 已修（旧 5/30 signal 的废弃原因）。
 
 ### 3.2 结果（待填）
@@ -344,5 +345,4 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 ### 3.3 与 §2 行为发现的对照（待填）
 
 待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §3.2 的信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
-
 
