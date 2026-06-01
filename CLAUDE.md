@@ -24,7 +24,7 @@ A typical experiment is one of the `get_answer_*.py` / `get_action_*.py` entry-p
    Each suite has CoT / non-CoT / E-option (with "I am not sure") variants. The chosen template is rendered per-role via `utils.construct_prompt` + `utils.make_characters`.
 3. **`llms.VicundaModel`** loads the LM. Three loading paths: `dream` diffusion (`AutoModel`, see `diffusion.py`), Mistral3 multimodal (`Mistral3ForConditionalGeneration`), or default `AutoModelForCausalLM`. All use bf16 + `device_map="auto"`. `_find_decoder_layers()` is the abstraction used by every layer-injection hook. **Generation entry points**: `VicundaModel.generate(inputs, batch_size)` for batched no-hook runs (`get_answer_*` uses this; pads with `padding=True`); `VicundaModel.generate_one(prompt, ...)` for bs=1 with caller-managed hooks (`track_hidden_states`, `closed_loop_gsm8k`, `track_dopamine_signal` all use this). **Do not mix**—batched vs bs=1 generation differs by ~2% acc on Llama due to padding artifact.
 4. **Steering / closed-loop** is layered on top via forward hooks on the decoder layers identified in step 3. The diff vectors come from `mean/` (per-role mean differences) gated by a mask from `detection/` (NMD / KL / KS / LR / PCA / t-test / XGB selectors over `task_list.py`).
-5. **Output**: per-role answer logits + optional hidden-state H5 are written under `<hs_prefix>/<task>/...` (server path `/data1/paveen/RolePlaying/components/...`).
+5. **Output**: current GSM8K re-run artifacts are written under `/data1/paveen/Dopamine/components/...`. Older experiment scripts may still point at the historical `/data1/paveen/RolePlaying/components/...` tree.
 
 ## Phase 2 closed-loop (current focus)
 
@@ -51,7 +51,7 @@ The H2/H3 contradiction (H2 +1% but H3 better-shape-worse-acc) raised the questi
 - Output dir: `${BASE_DIR}/hidden_states/${TASK}/hs_<task>_<size>_<mode>_<role>_L<s>-<e>.h5` (selective storage ≈ 2–3 GB per role, gzip fp16).
 - `extract_signal_json.py` reprojects HDF5 against any mask (NMD or `diff_random_*`) and emits per-sample `dopamine_signal_*.json` matching the neutral-baseline schema (`x_prefill / x_decode / ema_decode / *_per_layer` + meta + diff_stats). Backward-compat: detects selective HDF5 via `final_layer_idx_stored` and slices middle as `[0, n_middle)`, else falls back to `[layer_start, layer_end)`.
 - `extract_entropy_confidence.py` loads `model.norm.weight` + `lm_head.weight` from safetensors (no full 8B load) and computes per-step `entropy / top1_prob / margin / info_gain` from the stored final-layer HS, plus a prefill snapshot. Same backward-compat for stored final-layer index.
-- Offline analysis lives in `~/Downloads/RSNResult/RoleAnswer_non/` — reloads the JSON + masks (`nmd_*` and `diff_random_*` from `${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits/`) and compares **late-tonic-ratio gap, AUROC, Cohen's d** plus the multi-metric correlation matrix (`analyze_multi_metric.py`) between expert / non_expert / primary_teacher / neutral.
+- Offline analysis lives in `~/Downloads/RSNResult/RoleAnswer/` — reloads the JSON + masks (`nmd_*` and `diff_random_*` from `${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits/`) and compares **late-tonic-ratio gap, AUROC, Cohen's d** plus the multi-metric correlation matrix (`analyze_multi_metric.py`) between expert / non_expert / primary_teacher / neutral.
 - `track_dopamine_signal.py` is the fast NMD-only path (no raw HS dump) — use when you only need scalars; use the HDF5 path when you want multi-mask flexibility or layer ablations.
 - **Prompt self-documentation**: HDF5 meta, `dopamine_signal_*.json`, `random_signal_*.json`, `metrics_*.json`, and `closed_loop_*.json` all carry `prompt_template` (the raw template string) in their meta as of 2026-05-30. `grep '"prompt_template"' <file>` self-attests which prompt produced the result — use this before comparing numbers across runs.
 - **Sanity script**: `sanity_mask_indexing.py` confirms saved mask non-zero rows + their decoder-layer alignment on the server. **Run it before any change to layer-indexing code** — this prevents repeating the offset bug fixed on 2026-05-30.
@@ -69,7 +69,7 @@ Key CLI flags: `--pressure` switches to the authority-challenge prompt; `--confi
 
 Analysis: `gsm8k/analyze_cap_stratified.py` stratifies capitulation rates by difficulty and task category.
 
-## Offline analysis workspace (`~/Downloads/RSNResult/RoleAnswer_non/`)
+## Offline analysis workspace (`~/Downloads/RSNResult/RoleAnswer/`)
 
 This directory is **not** in the RolePlaying git repo. It is the offline analysis workspace for Phase 1b signal-proxy validation and capitulation analysis. Key scripts there:
 
@@ -109,7 +109,7 @@ The offline analysis workspace was renamed `RoleAnswer_non/` → **`RoleAnswer/`
 
 ## Server / data layout
 
-Code runs on `/data1/paveen/RolePlaying/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Hard-coded `WORK_DIR=/data1/paveen/RolePlaying` appears in most `run_*.sh`.
+Current GSM8K re-runs run on `/data1/paveen/Dopamine/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Older experiments still have hard-coded `WORK_DIR=/data1/paveen/RolePlaying`; migrate them only when re-running that experiment family.
 
 ## Environment
 
