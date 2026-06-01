@@ -645,7 +645,15 @@ def build_math_suite(cot: bool = True):
     """
     MATH open-ended generation template (neutral role only).
     {context} = MATH question text.
-    Answer extracted via \\boxed{} or last number.
+
+    Answer extracted via \\boxed{} (the dataset gold is itself the last
+    \\boxed{} of the solution, so prompting for \\boxed{} aligns pred/gold).
+    The "Provide your final answer in \\boxed{}." directive is the MATH analogue
+    of GSM8K's "#### <number>" directive — without it No-CoT rarely emits
+    \\boxed{} and extract_math_answer falls back to last-number (noisy, since
+    MATH answers are often expressions). Symmetry preserved: No-CoT vs CoT
+    differ only by the "Let's think step by step." line (same convention as
+    build_gsm8k_default_suite, fixed 2026-05-30).
     """
     if cot:
         return {
@@ -653,6 +661,7 @@ def build_math_suite(cot: bool = True):
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Let's think step by step.\n"
+                "Provide your final answer in \\boxed{{}}.\n"
                 "Answer: "
             ),
         }
@@ -661,6 +670,7 @@ def build_math_suite(cot: bool = True):
             "neutral": (
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
+                "Provide your final answer in \\boxed{{}}.\n"
                 "Answer: "
             ),
         }
