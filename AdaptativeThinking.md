@@ -260,7 +260,7 @@ Plot（本地）：
 **Pipeline 步驟（每次新對比軸跑一輪）**:
 
 1. **Server**: `track_hidden_states.py --role <role>` → raw HS (HDF5)
-2. **Server**: `extract_signal_json.py --mask_path <NMD/random>` → dopamine signal JSON
+2. **Server**: `extract_signal_json.py --mask_path <NMD>` + `extract_signal_json_remask.py --mask_path <random>` → dopamine / random signal JSON
 3. **Server**: `extract_entropy_confidence.py` → entropy/confidence JSON
 4. **scp** 三個 JSON 到本地 `./signal/`
 5. **本地**: `analyze_multi_metric.py` → 4 plot + stdout 統計表
@@ -780,103 +780,12 @@ correct vs wrong 的最大形狀差異就在 early peak 高度，late tonic 反�
 
 ---
 
-#### 4.9 Phase 1b 第一輪：Neutral / Expert / Non-Expert 對比（GSM8K No-CoT, 300 samples each, NMD mask）
+#### 4.9 Phase 1b 訊號代理驗證 — 已搬遷至 `AdaptativeThinking0529.md`
 
-**實驗設置**：
-- 同 Phase 1 baseline（Llama3-8B, GSM8K No-CoT, EMA α=0.95, Layer 11–20）
-- 三組 role prompt：
-  - **Neutral**: 不帶角色描述（既有 baseline）
-  - **Expert**: `templates["neg"]` + character = `"a mathematician expert"`，即 prompt 含 `Now you are a mathematician expert, provide your final numeric answer after '####'.`
-  - **Non-Expert**: 同上但 character = `"a non-mathematician expert"`
-- 資料採集：`track_hidden_states.py` 存全 32 層 raw HS 到 HDF5（67 GB total），server 端 `extract_signal_json.py` 用 NMD mask 重投影並輸出與 `signal/` schema 一致的 JSON
-
-**Accuracy 與信號統計**：
-
-| 條件 | Acc | EarlyPk (corr) | LateT (corr) | EarlyPk (wrong) | LateT (wrong) |
-|------|-----|----------------|--------------|-----------------|---------------|
-| Neutral | 61.67% | 1.285 | 0.252 | 1.210 | 0.364 |
-| Expert | 56.33% | 1.383 | 0.327 | 1.337 | 0.480 |
-| Non-Expert | 58.00% | 1.402 | 0.279 | 1.325 | 0.440 |
-
-**觀察事實**（暫不下結論）：
-
-1. **加 role prompt 之後 acc 下降**：Neutral 61.67% → Expert 56.33%（-5.34%）/ Non-Expert 58.00%（-3.67%）。Non-Expert 比 Expert 高 1.67%。
-2. **加 role prompt 之後 RSN signal 整體抬高**：Expert / Non-Expert 的 early peak 和 late tonic 在 correct/wrong 兩組都顯著高於 Neutral。
-3. **Expert 與 Non-Expert 之間的信號差異小**：兩條 EMA 軌跡在 correct/wrong 兩個 panel 都緊密貼合，shaded std band 重疊。
-4. **wrong > correct 的 late tonic 方向性在三組都存在**：所有 role 下，wrong 樣本的 late tonic 都比 correct 高（+0.11 ~ +0.16）。
-
-**對比圖**：`expert_vs_non_expert_correct_wrong.png`
-
-##### 4.9.1 Multi-metric 補充（Expert / Non-Expert，沿用同批 HDF5）
-
-用 §3.1b SOP 的 pipeline 補上 entropy / top1 / margin / info_gain 4 個 logit-based 指標。
-
-**Sample-level mean (Expert)**:
-
-| Group | Acc | RSN late_tonic | mean_entropy | mean_top1 | mean_margin | entropy_prefill | top1_prefill |
-|-------|-----|----------------|--------------|-----------|-------------|-----------------|--------------|
-| correct (n=169) | 56.3% | 0.327 | 0.243 | 0.933 | 0.899 | 3.319 | 0.296 |
-| wrong (n=131)   | —     | 0.480 | 0.327 | 0.911 | 0.868 | 3.206 | 0.268 |
-
-**Sample-level mean (Non-Expert)**:
-
-| Group | Acc | RSN late_tonic | mean_entropy | mean_top1 | mean_margin | entropy_prefill | top1_prefill |
-|-------|-----|----------------|--------------|-----------|-------------|-----------------|--------------|
-| correct (n=174) | 58.0% | 0.279 | 0.237 | 0.937 | 0.905 | 3.259 | 0.305 |
-| wrong (n=126)   | —     | 0.440 | 0.315 | 0.915 | 0.874 | 3.456 | 0.241 |
-
-**Role gap 量級對比（Δ = Expert − Non-Expert，沿用 correct group）**:
-
-| Metric | Δ | 量級 |
-|--------|------|------|
-| RSN late_tonic | **+0.048** | 顯著 |
-| Mean entropy | +0.006 | 小但方向一致 |
-| Mean top1 | -0.004 | 接近 noise |
-| Mean margin | -0.006 | 接近 noise |
-
-→ **role gap 排序：RSN ≫ entropy > top1/margin**。
-
-**Cross-metric Pearson correlation (Expert)**:
-
-|  | late_tonic | mean_entropy | mean_top1 | correct |
-|--|------------|--------------|-----------|---------|
-| late_tonic | 1.000 | +0.585 | -0.643 | -0.248 |
-| mean_entropy | +0.585 | 1.000 | -0.967 | -0.259 |
-| mean_top1 | -0.643 | -0.967 | 1.000 | +0.254 |
-| correct | -0.248 | -0.259 | +0.254 | 1.000 |
-
-**Cross-metric Pearson correlation (Non-Expert)**:
-
-|  | late_tonic | mean_entropy | mean_top1 | correct |
-|--|------------|--------------|-----------|---------|
-| late_tonic | 1.000 | +0.505 | -0.516 | -0.311 |
-| mean_entropy | +0.505 | 1.000 | -0.972 | -0.294 |
-| mean_top1 | -0.516 | -0.972 | 1.000 | +0.308 |
-| correct | -0.311 | -0.294 | +0.308 | 1.000 |
-
-**Partial correlation r(RSN, correct | entropy)**（控制 entropy 後 RSN 的獨立預測力）：
-
-| Role | r(RSN, correct) | r(RSN, correct \| entropy) | 解釋方差變化 |
-|------|----------------|---------------------------|-------------|
-| Expert | -0.248 | -0.124 | 6.2% → 1.5% |
-| Non-Expert | -0.311 | -0.196 | 9.7% → 3.8% |
-
-**觀察事實（暫不下結論）**：
-
-1. **role 敏感度排序**：RSN dopamine ≫ entropy > top1 ≈ margin（top1/margin 對 role 不敏感）
-2. **correct/wrong 預測力相當**：RSN、entropy、top1 三者的 |r(metric, correct)| 都在 0.25–0.31 區間
-3. **RSN ↔ confidence 中等耦合**：|r(RSN, top1)| ≈ 0.52–0.64，r²≈25–40%，兩者共享方差但仍 60–75% 獨立
-4. **RSN ↔ confidence 為負相關**：dopamine 高的樣本，top1 信心反而低
-5. **Top1 與 margin 高度共線**：r=+0.994，後續分析 margin 可省略
-6. **Partial correlation 顯示** RSN 對 acc 預測力約一半來自與 entropy 共有的方差；扣除後 RSN-specific 部分仍 |r|≈0.12–0.20
-7. **Prefill snapshot 無穩定方向性**：entropy_prefill / top1_prefill / margin_prefill 對 correct 的 |r| ≤ 0.16，paper 03 "intuitive prior" 在 GSM8K No-CoT 上未復現
-8. **InfoGain (paper 03) 對 correct 接近零相關** (|r|<0.08)：每步 entropy reduction 無法區分正誤
-
-**對比圖**：
-- `multi_metric_curves.png` — 7 curves × correct/wrong (14 panels)
-- `multi_metric_prefill.png` — 3 prefill scalar boxplots
-- `multi_metric_summary.png` — sample-level bars
-- `multi_metric_correlation.png` — cross-metric Pearson heatmap per role
+> **此處原 §4.9 / §4.9.1（Neutral / Expert / Non-Expert 信號對比、multi-metric 補充）已刪除。**
+> 那批數字用的是舊 prompt（角色 `a mathematician expert` / `a non-mathematician expert`、兩輪 GSM8K 結果對不上、extraction 不穩），與 2026-05-30 對稱化模板 + `####` directive 修正後的 pipeline **不可比**，故不保留。
+>
+> Phase 1b 信號重跑（paper-aligned roles：`an expert` / `a non expert` / `a primary school teacher` + neutral No-CoT/CoT）的所有新結果寫入 **`AdaptativeThinking0529.md`**（current-state 文檔）。本歷史文檔僅保留 §3.1b 的 Multi-Metric Signal Suite SOP（流程規範，不綁定具體數字）作為 pipeline 參考。
 
 ---
 
@@ -900,7 +809,7 @@ correct vs wrong 的最大形狀差異就在 early peak 高度，late tonic 反�
 | `analyze_expert_vs_non_expert.py` | Phase 1b：Neutral / Expert / Non-Expert NMD-投影 EMA 軌跡對比 | `expert_vs_non_expert_correct_wrong` |
 | `analyze_multi_metric.py` | Phase 1b：dopamine + entropy + top1 + margin + info_gain 多指標 × role × correct/wrong 對比，含 cross-metric Pearson 矩陣與 partial correlation | `multi_metric_curves`, `multi_metric_prefill`, `multi_metric_summary`, `multi_metric_correlation` |
 
-資料目錄：`llama3/dopamine/signal/`（Phase 1）、`llama3/dopamine/loop/`（Phase 2）、`llama3/dopamine/plots/`（所有圖）、`/data1/paveen/RolePlaying/components/hidden_states/<task>/`（Phase 1b raw HS HDF5，僅 server）
+資料目錄：`llama3/dopamine/signal/`（Phase 1）、`llama3/dopamine/loop/`（Phase 2）、`llama3/dopamine/plots/`（所有圖）、`/data1/paveen/Dopamine/components/hidden_states/<task>/`（Phase 1b raw HS HDF5，僅 server）
 
 ## TODO
 
