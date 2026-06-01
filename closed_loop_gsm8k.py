@@ -32,7 +32,7 @@ Usage:
   python closed_loop_gsm8k.py \\
     --model llama3 --model_dir meta-llama/Llama-3.1-8B-Instruct --size 8B \\
     --test_file benchmark/gsm8k_test_sample.json \\
-    --base_dir /data1/paveen/RolePlaying/components \\
+    --base_dir /data1/paveen/Dopamine/components \\
     --plan B --k1 2.0 --n_samples 300
 
 @author: paveenhuang
@@ -135,10 +135,6 @@ class ClosedLoopController:
         self.alpha_t: list = []
 
     # ── helpers ──
-
-    def _project(self, hs_np: np.ndarray) -> float:
-        projs = np.sum(hs_np * self.directions, axis=-1)
-        return float(projs.mean())
 
     def _compute_alpha(self, x_t: float) -> float:
         plan = self.plan
@@ -357,10 +353,8 @@ class ClosedLoopController:
                     return
 
                 # Decode step t: update slow EMA and fast EMA with observed x_t
-                self._ema_val = (
-                    self.ema_alpha * self._ema_val + (1 - self.ema_alpha) * x_t
-                )
-                self._fast_ema_val = 0.3 * self._fast_ema_val + 0.7 * x_t
+                self._ema_val = utils.ema_update(self._ema_val, x_t, self.ema_alpha)
+                self._fast_ema_val = utils.ema_update(self._fast_ema_val, x_t, 0.3)
                 # Decide α for next decode step (1-step lag)
                 alpha_next = self._compute_alpha(x_t)
 
@@ -456,6 +450,7 @@ def main():
 
     # Templates
     templates = select_templates_gsm8k(suite="default", cot=args.cot)
+    prompt_template, character = utils.select_role_prompt(templates, "neutral")
 
     # Controller
     controller = ClosedLoopController(
@@ -475,7 +470,7 @@ def main():
     results = []
 
     for sample in tqdm(samples, desc=f"GSM8K closed-loop [{args.plan}]"):
-        prompt = templates["neutral"].format(context=sample["question"])
+        prompt = utils.render_role_prompt(prompt_template, sample["question"], character)
 
         with torch.no_grad():
             generated = generate_with_control(
@@ -554,7 +549,7 @@ def main():
                     "n_samples": total,
                     "accuracy": round(acc, 2),
                     "cot": args.cot,
-                    "prompt_template": templates["neutral"],
+                    "prompt_template": prompt_template,
                 },
                 "diff_stats": diff_stats,
                 "data": results,
@@ -631,7 +626,7 @@ if __name__ == "__main__":
     if args.base_dir:
         BASE = args.base_dir
     else:
-        BASE = f"/{args.data}/paveen/RolePlaying/components"
+        BASE = f"/{args.data}/paveen/Dopamine/components"
 
     DATA_DIR = os.path.join(BASE, args.test_file)
     MASK_DIR = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
