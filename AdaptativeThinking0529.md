@@ -3,7 +3,7 @@
 ---
 待驗證的事情：
 1. ✅ 重新整理近期GSM8K相關的code，重新備份一次code;
-2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 commitment timing / over-arousal looping）**;
+2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 wanting/incentive salience：抢答、放不下、跨任务统一）**;
 3. 確認新的template的準確率是一致的（plain 主线 role 排序已正常）;
 4. 確認新的指標，需要重新跑 HS + 結果（signal 用旧 layer-offset mask，待重跑）
 
@@ -60,16 +60,16 @@ CoT:     Solve the following math problem.
 | +4 | 55.3% | 53.7% |
 | cot (α=0) | **69.0%** | 57.0% |
 
-## 2. 行为学发现：Commitment / Motivation to Engage
+## 2. 行为学发现：Wanting (Incentive Salience)
 
-**统一框架**：α 调的是模型对一个答案的 **commitment / 投入度** —— 即多巴胺的本义（"commitment to a choice" / incentive salience / 行动的能量，ACL 原文："motivation to engage", "energetic motivation to overcome inhibition"）。两端的行为签名（细化自逐文本细读，见 §2.2）：
+**统一框架**：α 调节的内部变量是 **"wanting"（incentive salience）** —— 多巴胺驱动的动机性渴求（Berridge & Robinson 的 wanting≠liking 理论；ACL "digital dopamine" 主线）。wanting 是**上游动机状态**；它的**下游行为表现**是 commitment dynamics（"commitment to a choice"，ACL 引 dopamine 文献：将内部状态推过行动阈值、抑制 change-of-mind）。两端签名（细化自逐文本细读，见 §2.2）：
 
-- **α=+4（高投入 / over-commit）** → 急于输出（**抢答**，没想清就答）+ 答完**放不下**（焦虑性反复确认、重算、纠结格式 → loop / 空转 / 不收敛）。
-- **α=−4（低投入 / 适度）** → 不急（**不抢答**、冷静条理）+ 算完**放下**（果断收口，不回头质疑）。
+- **α=+4（high wanting / over-commit）** → 急于输出（**抢答**，没想清就答）+ 答完**放不下**（焦虑性反复确认、重算、纠结格式 → loop / 空转 / 不收敛）。
+- **α=−4（low wanting / 适度）** → 不急（**不抢答**、冷静条理）+ 算完**放下**（果断收口，不回头质疑）。
 
-> 注意 +4 有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。"放不下"那层带语义性反复检查（**真 overthinking 成分**），不止是机械空转——见 §2.2 修正。
+> 术语层级：**wanting = 我们 steer 的内部旋钮（因）；commitment behavior = 我们测的行为（果）**。+4 的行为有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。"放不下"那层带语义性反复检查（**真 overthinking 成分**），不止机械空转——见 §2.2 修正。
 
-这统一了之前看似矛盾的跨任务现象（见 §2.2 末"跨任务统一"）：**同一个投入度旋钮，在判断题（MMLU-E）表现为"选不选 E"，在生成题（GSM8K）表现为"抢不抢答 / 放不放得下"** —— 任务给什么出口就从哪表达。下文 §2.1–2.3 的所有行为签名（抢答、loop、收口、放不下）都是这一旋钮的不同侧面。
+这统一了之前看似矛盾的跨任务现象（见 §2.2 末"跨任务统一"）：**同一个 wanting 旋钮，在判断题（MMLU-E）表现为"选不选 E"，在生成题（GSM8K）表现为"抢不抢答 / 放不放得下"** —— 任务给什么出口就从哪表达。下文 §2.1–2.3 的所有行为签名（抢答、loop、收口、放不下）都是这一旋钮（wanting）的不同行为侧面。
 
 ### 2.1 α−4 的提升从哪来：五分类细分（neutral, No-CoT, plain）
 
@@ -108,8 +108,6 @@ CoT:     Solve the following math problem.
 
 #### α+4 的 loop 有两种 flavor（修正：不是"纯机械空转、非 overthinking"）
 
-> 早先（仅看 #1 这类样本）判断"α+4 = degenerate 机械空转、非 overthinking"。**逐条细读完整文本后修正**：α+4 的 loop 实有两类，第二类是**真·语义性反复确认**（overthinking 特征）：
->
 > 1. **机械空转**（与 α−4 类似）：`"The answer is 96"` ×118、`"####.####.####"` 刷符号 —— 无新内容，纯复读。
 > 2. **"放不下"型反复确认/重算**（α+4 特有）：算出答案后**反复自我质疑、重算、纠结格式**。例（Q3, gold=18, ✗）：`"...36 = x. However, this is not the answer we are looking for. Let's re-evaluate the problem..."` → 重算又得 36 → 再"this is not the answer"→ 再重算（整段循环）；例（Q2, gold=260）：算对 260 后陷入 `"the answer should be four digits... add a leading zero... 0260... but this is still not the correct format..."` 长篇格式焦虑。
 
@@ -121,7 +119,7 @@ CoT:     Solve the following math problem.
 | α=0 | 77/300 | 535 |
 | **α=+4** | **107/300** | **716** |
 
-→ **α+4 = "答完放不下"**（焦虑性反复确认，107 最多）；**α−4 = "算完就放下"**（不回头质疑，36 最少）。这是比"想不想回答"更精确的轴：**commitment / letting-go**。注意机械空转那一类仍在（见 #1 例），所以 α+4 是"机械空转 + 真反复确认"**两者并存**，不是单一的"非 overthinking"。
+→ **α+4 = "答完放不下"**（high wanting → over-commit → 焦虑性反复确认，107 最多）；**α−4 = "算完就放下"**（low wanting → 不回头质疑，36 最少）。这是 wanting 在行为上最精确的载体：**commitment / letting-go**。
 
 #### 文本人格：α−4 vs α+4
 
@@ -148,23 +146,6 @@ CoT:     Solve the following math problem.
 - 方向符合框架：**α−4 答完后写得最少、最易自然收手**（"没那么想说，交了就停"）；α+4 答完后还想写最多（"停不下来"）。
 - ⚠️ **但幅度弱**（1584 vs 1714 仅差 ~8%）：所有 α 都有"答完仍写 1500+ 字符"的基线毛病（模型本就爱在 `####` 后接 Explanation / 客套），α 只调**程度**不调有无；信号被基线稀释。更干净的 motivation 信号仍是抢答%（46/57/63）、loop（74/81/104）、`####` 位置（21%/18%/14%）。
 
-#### 跨任务统一：消解"α−4 是否该像 non_expert"的疑问
-
-ACL（MMLU-E）结论：expert 倾向**不选 E**（高 motivation），non_expert 倾向**选 E / "我不知道"**（低 motivation）；α−4 用的正是 non_expert 方向的 diff。**疑问**：α−4 在 GSM8K 上 acc≈non_expert（73 vs 68），是否也该有 non_expert 的"认怂/自我否定"？
-
-**实测：α−4 在 GSM8K 上几乎无自我否定**（自我否定/逃避语句 1/300，全场最少；明确拒答 0；empty_pred 3 最少）—— 反而最冷静自信。看似与 ACL 矛盾，但用"想不想回答"框架即自洽：
-
-| 任务 | "太想答"(+) | "没那么想答"(−) |
-|---|---|---|
-| **MMLU-E（有 E 出口）** | 硬选答案、**不选 E** | **选 E / abstain** |
-| **GSM8K（无 E 出口）** | 抢答 + 停不下 | **沉着、点到为止**（abstain 无出口，转为"不急"） |
-
-→ **同一个 "想不想回答" 旋钮，任务给什么出口就从哪表达**：判断题→选不选 E，生成题→抢不抢答/停不停。GSM8K 主线没看到 abstain，**只因没有 E 出口**，非框架失效。
-
-**且 α−4 ≠ non_expert**（虽 acc 近）：**non_expert = α−4（低 motivation）+ persona 强加的 self-doubt（"我是外行/我不行"）两层叠加**。两者共享"低 motivation→不抢答"（故 acc 都高），但 non_expert 多了 persona 语义的自我否定（303 词 vs α−4 的 1 词）→ 内心独白不同。**expert/non_expert 的独白因此完全合理 = wanting 方向 + persona 语义内容。**
-
-> ⚠️ 可证伪验证（待跑）：给 GSM8K 加 E-option，看 α−4 是否真比 α0/α+4 更倾向选"我不知道"。若是 → 跨任务一致性铁证；若否 → diff 向量语义在 MMLU-E↔GSM8K 间漂移（本身亦为重要发现）。
-
 ### 2.3 三杠杆图景：commitment timing 可被多入口调控
 
 三个来源不同的杠杆产生**完全相同的行为签名**（抢答↑、loop↑、等式数不变、acc↓），证明它们调的是**同一个 wanting/commitment 维度**：
@@ -174,7 +155,6 @@ ACL（MMLU-E）结论：expert 倾向**不选 E**（高 motivation），non_expe
 | **persona** | expert↑ / non_expert↓ | expert 最多 | expert 最低 | 内部 |
 | **α steering** | +4↑ / −4↓ | +4 最多 | +4 最低 | 内部 |
 | **措辞** | pushy↑ / plain↓ | pushy 全面推高 | pushy 全降 | 外部 |
-| **叠加** | expert × pushy = 双↑ | 抢答71% / loop136（极值） | **34%（全场最低）** | — |
 
 **plain → pushy 各 role 变化**（α=0, No-CoT）—— 注意 `真错` 几乎不变、`锁错` 暴涨，证明 pushy 不让模型变笨、只逼它抢答锁错：
 
@@ -310,10 +290,6 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 12. 身份确认循环（自报角色 cue 词频 + 重度刷身份题数）
 13. **"放不下"措辞**（`this is not the answer` / `let's re-evaluate` / `to follow the format` / `however, the` / `wait,`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 36 / 0: 77 / +4: 107 题）。
 14. 答完 `####` 后续写字符数 + 自然结束率（"还想不想说"，方向对但幅度弱）。
-
-**Caveats**：抢答用**字符位置**近似（非 token / 推理步），check / "放不下" 正则会把机械重复的 however 也算进去（无法区分"真重算"vs"复读 however"），改答案/算对又改错抽取只认 "answer is X" 句式且 Easy 题小数易误判（绝对值偏高，组间趋势可靠），身份确认正则会把"模拟审核流程/落款"等正常文本算进去——这些指标适合**组间相对对比**，绝对数值不宜当精确真值。**早先"α+4=纯机械空转、非 overthinking"的论断已在 §2.2 修正**：逐文本细读发现 α+4 兼有机械空转**与**真语义性反复确认（重算/纠结格式），后者是 overthinking 成分。后续若入 paper，需把"抢答""反复确认""算对又改错"重新定义为更硬的标准（`####` 前是否有实质推理 / 独立非重复的 verify / final-commit 之后的覆盖）。
-
-**全部结论的边界**：以上均为 **neutral/role × Easy 题（295/300 Easy）× plain/pushy** 的**行为层**结论。Easy 题上 knowing 不是瓶颈，故 role/α 效应"纯"由 wanting/收敛驱动；难题（MATH/Hard）上 expert 的知识可能反超，**未验证**。signal 层（NMD 投影是否证实 expert/α+4 的 x_prefill/early-peak 更高）**待重跑**——这是从"行为一致"到"机制坐实"还差的一步。
 
 > 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_new/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_cot_pushy}/`。signal（NMD 投影）仍为旧 layer-offset mask，**待重跑**。
 
