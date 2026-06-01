@@ -37,10 +37,11 @@ echo "[4/5] Installing Python packages..."
 python -m pip install --upgrade pip
 
 # Core packages
-python -m pip install accelerate datasets
+python -m pip install transformers accelerate datasets
 
 # For Mistral3 models (requires latest transformers from main)
 python -m pip install git+https://github.com/huggingface/transformers
+python -m pip install --upgrade "regex>=2025.10.22"
 python -m pip install "mistral-common>=1.8.6"
 
 # Data processing & analysis
