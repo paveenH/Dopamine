@@ -4,8 +4,9 @@
 待驗證的事情：
 1. ✅ 重新整理近期GSM8K相關的code，重新備份一次code;
 2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 wanting/incentive salience：抢答、放不下、跨任务统一）**;
-3. 確認新的template的準確率是一致的（plain 主线 role 排序已正常）;
-4. 確認新的指標，需要重新跑 HS + 結果（signal 用旧 layer-offset mask，待重跑）
+3. Math的表现？
+4. 確認新的指標，需要重新跑 HS + 結果（signal 用旧 layer-offset mask，待重跑）確認新的template的準確率是一致的（plain 主线 role 排序已正常）;
+5. 之前的
 
 ## 0. Template Update
 
