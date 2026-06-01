@@ -12,7 +12,7 @@ set -euo pipefail
 #   4) GSM8K CoT     role=neutral           (no character)
 #   5) GSM8K No-CoT  role=primary_teacher   "a primary school teacher"
 #
-# Output: HDF5 files under ${BASE_DIR}/hidden_states/${TASK}/
+# Output: HDF5 files under ${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}/
 
 MODEL_NAME="llama3"
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
@@ -33,22 +33,35 @@ N_SAMPLES=300
 
 WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
-H5_DIR="${BASE_DIR}/hidden_states/${TASK}"
+# Keep each expensive HS collection isolated. Override RUN_TAG explicitly for
+# a new replicate; set ALLOW_OVERWRITE=1 only when replacing that exact run.
+RUN_TAG="${RUN_TAG:-phase1b_plain_768_20260601}"
+ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
+H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
 NMD_MASK="${MASK_DIR}/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
 RAND_MASK="${MASK_DIR}/diff_random_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
-SIG_OUT="${BASE_DIR}/${MODEL_NAME}"            # NMD signal + entropy staging area
-RAND_OUT="${BASE_DIR}/${MODEL_NAME}_random"    # random signal staging area
+SIG_OUT="${BASE_DIR}/${MODEL_NAME}/signal/${RUN_TAG}"            # NMD signal + entropy staging area
+RAND_OUT="${BASE_DIR}/${MODEL_NAME}_random/signal/${RUN_TAG}"    # random signal staging area
 
 echo "=================================================="
 echo "Phase 1b round 2: HS recording (5 runs, GSM8K)"
 echo "Model: ${MODEL_NAME} (${MODEL_SIZE}) | Middle layers: ${LAYER_START}-${LAYER_END}"
 echo "HS storage: middle [${LAYER_START},${LAYER_END}) + final layer = 10 stored layers"
 echo "Sanity mask: ${MASK_TYPE} (offline reanalysis can use any mask)"
+echo "Run tag: ${RUN_TAG}"
 echo "Start: $(date)"
 echo "=================================================="
 
 cd ${WORK_DIR}
+
+# HDF5 files are opened with mode="w", so an accidental rerun would truncate
+# completed or partially collected files. Require an explicit override.
+if [ "${ALLOW_OVERWRITE}" != "1" ] && [ -d "${H5_DIR}" ] && compgen -G "${H5_DIR}/hs_*.h5" > /dev/null; then
+  echo "[error] Existing HDF5 files found under ${H5_DIR}"
+  echo "        Use a new RUN_TAG, or set ALLOW_OVERWRITE=1 to replace this exact run."
+  exit 1
+fi
 
 # Pre-flight: confirm mask rows match the fixed HF-hidden-state offset before
 # spending time on the five slow HDF5 recording runs.
