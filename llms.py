@@ -637,7 +637,8 @@ class VicundaModel:
         results = []
         n_batches = (len(inputs) + batch_size - 1) // batch_size
         for i in tqdm(range(0, len(inputs), batch_size),
-                      total=n_batches, desc="generate", unit="batch"):
+                      total=n_batches, desc="generate", unit="batch",
+                      disable=n_batches <= 1):
             batch = inputs[i : i + batch_size]
             tokens = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
             input_ids = tokens.input_ids.to(self.model.device)
@@ -847,7 +848,13 @@ class VicundaModel:
 
         results = []
         try:
-            for i in range(0, len(inputs), self._prefill_batch_size):
+            n_batches = (len(inputs) + self._prefill_batch_size - 1) // self._prefill_batch_size
+            # disable when there's a single batch — callers that pre-chunk and
+            # loop (e.g. get_answer_regenerate_gsm8k.py) already show a tqdm, so
+            # this avoids a redundant 1/1 bar flashing per call.
+            for i in tqdm(range(0, len(inputs), self._prefill_batch_size),
+                          total=n_batches, desc="regenerate", unit="batch",
+                          disable=n_batches <= 1):
                 batch = inputs[i : i + self._prefill_batch_size]
                 tokens = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
                 input_ids = tokens.input_ids.to(self.model.device)
