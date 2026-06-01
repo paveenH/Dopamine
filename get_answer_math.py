@@ -47,23 +47,16 @@ def run_math(vc, samples, diff_mtx, template, alpha, st, en, role):
         prompts = [template["neg"].format(character=character, context=s["question"]) for s in samples]
     print(f"  [{role}] Generating {len(prompts)} samples (batch_size={args.batch_size})...")
 
-    if diff_mtx is None:
-        generated_texts = vc.generate(
-            prompts,
-            max_new_tokens=args.max_new_tokens,
-            temperature=args.temperature,
-            top_p=args.top_p,
-            batch_size=args.batch_size,
-        )
-    else:
-        generated_texts = vc.regenerate(
-            prompts,
-            diff_matrices=diff_mtx,
-            max_new_tokens=args.max_new_tokens,
-            temperature=args.temperature,
-            top_p=args.top_p,
-            batch_size=args.batch_size,
-        )
+    # Always regenerate (diff_mtx = mask×alpha; alpha=0 is a no-op mask×0).
+    # Single generation path keeps α=0 baseline comparable to ±4 steering.
+    generated_texts = vc.regenerate(
+        prompts,
+        diff_matrices=diff_mtx,
+        max_new_tokens=args.max_new_tokens,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        batch_size=args.batch_size,
+    )
 
     correct_count = 0
     results = []
@@ -119,13 +112,15 @@ def main():
     for alpha, (st, en) in ALPHAS_START_END_PAIRS:
         print(f"\n=== alpha={alpha} | layers={st}-{en} ===")
 
-        if alpha == 0:
-            diff_mtx = None
-        else:
-            mask_suffix = "_abs" if args.abs else ""
-            mask_name = f"{args.mask_type}_{args.percentage}_{st}_{en}_{args.size}{mask_suffix}.npy"
-            mask_path = os.path.join(MASK_DIR, mask_name)
-            diff_mtx = np.load(mask_path) * alpha
+        # Always load the mask and scale by alpha (alpha=0 → mask×0 = no-op),
+        # so α=0 baseline and ±4 steering go through the SAME generation path
+        # (vc.regenerate). Mirrors get_answer_regenerate_gsm8k.py — avoids the
+        # generate-vs-regenerate ~2% padding gap noted in CLAUDE.md, keeping
+        # baseline and steering strictly comparable.
+        mask_suffix = "_abs" if args.abs else ""
+        mask_name = f"{args.mask_type}_{args.percentage}_{st}_{en}_{args.size}{mask_suffix}.npy"
+        mask_path = os.path.join(MASK_DIR, mask_name)
+        diff_mtx = np.load(mask_path) * alpha
 
         for role in roles:
             samples = copy.deepcopy(all_samples)
