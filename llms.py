@@ -66,6 +66,14 @@ class VicundaModel:
             use_fast=False,
             trust_remote_code=True,
         )
+        # Llama3 is BPE; clean_up_tokenization_spaces=True is destructive for BPE
+        # (strips spaces before punctuation) and newer transformers defaults it
+        # True + warns. Force False so decode preserves spacing — this matches
+        # the (silent) behavior under the older transformers the GSM8K results
+        # were produced with, keeping GSM8K/MATH numbers comparable, and avoids
+        # corrupting LaTeX/spacing in MATH generations. Set as an attribute so it
+        # covers every self.tokenizer.decode() call site.
+        self.tokenizer.clean_up_tokenization_spaces = False
         self._ensure_padding_token()
 
     # ───────────────────── Core helpers ───────────────────── #
