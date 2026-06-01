@@ -1,66 +1,78 @@
 #!/bin/bash
-# ==================== RolePlaying Environment Setup ====================
-# This script creates and configures the conda environment for RolePlaying
+set -euo pipefail
+
+# ==================== Dopamine Environment Setup ====================
+# Creates or updates the conda environment used by this repository.
 #
 # Usage: bash setup_env.sh
 #
 # Note: Run this script in an interactive shell (not via sbatch)
 
-ENV_NAME="roleplaying"
+ENV_NAME="dopamine"
 PYTHON_VERSION="3.10"
 
 echo "=================================================="
-echo "Setting up RolePlaying environment"
+echo "Setting up Dopamine environment"
 echo "Environment name: ${ENV_NAME}"
 echo "Python version: ${PYTHON_VERSION}"
 echo "=================================================="
 
-# Create conda environment
-echo "[1/4] Creating conda environment..."
-conda create -n ${ENV_NAME} python=${PYTHON_VERSION} -y
+echo "[1/5] Loading conda..."
+source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# Activate environment
-echo "[2/4] Activating environment..."
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate ${ENV_NAME}
+echo "[2/5] Creating or reusing conda environment..."
+if conda env list | awk '{print $1}' | grep -qx "${ENV_NAME}"; then
+    echo "Environment '${ENV_NAME}' already exists; reusing it."
+else
+    conda create -n "${ENV_NAME}" "python=${PYTHON_VERSION}" -y
+fi
+conda activate "${ENV_NAME}"
 
 # Install PyTorch with CUDA support
-echo "[3/4] Installing PyTorch with CUDA..."
+echo "[3/5] Installing PyTorch with CUDA..."
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
 
 # Install required packages
-echo "[4/4] Installing Python packages..."
-pip install --upgrade pip
+echo "[4/5] Installing Python packages..."
+python -m pip install --upgrade pip
 
 # Core packages
-pip install transformers accelerate datasets
+python -m pip install accelerate datasets
 
 # For Mistral3 models (requires latest transformers from main)
-pip install git+https://github.com/huggingface/transformers
-pip install "mistral-common>=1.8.6"
+python -m pip install git+https://github.com/huggingface/transformers
+python -m pip install "mistral-common>=1.8.6"
 
 # Data processing & analysis
-pip install numpy pandas scikit-learn scipy
+python -m pip install numpy pandas scikit-learn scipy
 
 # Symbolic math: MATH answer equivalence checking (utils.is_correct_math).
 # antlr4-python3-runtime is required for sympy.parsing.latex.parse_latex.
-pip install sympy "antlr4-python3-runtime==4.11"
+python -m pip install sympy "antlr4-python3-runtime==4.11"
 
 # Visualization
-pip install matplotlib seaborn
+python -m pip install matplotlib seaborn
 
-# Hugging Face utilities
-pip install huggingface_hub
+# Hugging Face utilities + Phase 1b hidden-state pipeline
+python -m pip install huggingface_hub tqdm h5py safetensors
 
-# Progress bars
-pip install tqdm
+echo "[5/5] Verifying installation..."
+python - <<'PY'
+import torch
+import h5py
+import safetensors
+import transformers
+
+print("CUDA available:", torch.cuda.is_available())
+print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "None")
+print("Transformers:", transformers.__version__)
+PY
 
 # Optional: for notebook support
-# pip install jupyter ipykernel
+# python -m pip install jupyter ipykernel
 
 echo "=================================================="
 echo "Environment setup complete!"
 echo ""
 echo "To activate: conda activate ${ENV_NAME}"
-echo "To verify: python -c 'import torch; print(torch.cuda.is_available())'"
 echo "=================================================="
