@@ -664,10 +664,28 @@ def build_math_suite(cot: bool = True):
                 "Provide your final answer in \\boxed{{}}.\n"
                 "Answer: "
             ),
+            # Role-bearing variant (NO "honest" — MATH has no E-option, same as
+            # GSM8K). "Now you are {character}." matches build_gsm8k_default_suite
+            # neg so prompts align across scripts. character ∈ ROLE_TO_CHARACTER.
+            "neg": (
+                "Now you are {character}.\n"
+                "Solve the following math problem.\n"
+                "Question: {context}\n"
+                "Let's think step by step.\n"
+                "Provide your final answer in \\boxed{{}}.\n"
+                "Answer: "
+            ),
         }
     else:
         return {
             "neutral": (
+                "Solve the following math problem.\n"
+                "Question: {context}\n"
+                "Provide your final answer in \\boxed{{}}.\n"
+                "Answer: "
+            ),
+            "neg": (
+                "Now you are {character}.\n"
                 "Solve the following math problem.\n"
                 "Question: {context}\n"
                 "Provide your final answer in \\boxed{{}}.\n"
