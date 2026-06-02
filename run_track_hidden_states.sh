@@ -108,13 +108,13 @@ BASE_ARGS="
   --save_dir ${H5_DIR}
 "
 
-# # ── Run 1: expert ──
-# if [ "${START_FROM}" -le 1 ]; then
-#   echo ""
-#   echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
-#   python track_hidden_states.py ${BASE_ARGS} --role expert
-#   echo "[Done] expert"
-# fi
+# ── Run 1: expert ──
+if [ "${START_FROM}" -le 1 ]; then
+  echo ""
+  echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
+  python track_hidden_states.py ${BASE_ARGS} --role expert
+  echo "[Done] expert"
+fi
 
 # ── Run 2: non_expert ──
 if [ "${START_FROM}" -le 2 ]; then
