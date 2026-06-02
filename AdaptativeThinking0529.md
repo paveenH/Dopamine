@@ -371,13 +371,9 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 **Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=1024`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。答案抽取 = `extract_boxed`（平衡括号）→ last number → last line，`is_correct_math`（normalize + sympy 等价）。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。
 
-> ⚠️ **数据质量标注**：`max_new_tokens=1024` 对 MATH 偏短（gen_len 中位 2777–3096 字符仍有截断），且 role prompt 显著降低 `\boxed{}` commit 率（84% → 53–63%）。无 boxed 样本几乎全错（条件 acc 2–6%）。因此整体 acc 受 commit/截断污染，**role 数字待加大 token 重跑验证**；α steering（neutral）的 boxed 率三组一致（84–85%），不受此污染。
->
-> **MATH production 抽取取末个 `\boxed{}`，故 last 列 = 上报值**。但 role 的复读 loop 严重污染末尾（first−last gap +8~15），改取首个 boxed（first 列）能挽回 8~15pt——见 §4.7。
+### 4.1 Accuracy（first，last）
 
-### 4.1 整体 accuracy（first = 取首 boxed，last = 取末 = 上报值）
-
-| 条件 | first acc | last acc（上报） | gap |
+| 条件 | first acc | last acc（上报） | gap | L1-2 | L3 | L4 | L5 ||
 |---|---|---|---|
 | α0 neutral No-CoT | 36.3% | 35.3% | +1.0 |
 | α0 expert | **31.0%** | 19.0% | **+12.0** |
@@ -387,20 +383,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | α+4 neutral | 33.0% | 33.7% | −0.7 |
 | α−4 neutral | 40.0% | 39.7% | +0.3 |
 
-- **neutral / α-steering 的 gap≈0**（末尾不被污染，commit 率稳定）；**role 的 gap 暴涨到 +8~15**（复读 loop 把末尾 boxed 刷成错值）。这是 MATH role 与 neutral 的关键机制差异。
-
-### 4.2 Steering（neutral, No-CoT）—— boxed 率 + 条件 acc
-
-| α | last acc（上报） | boxed 率 | 有 box 条件 acc |
-|---|---|---|---|
-| −4 | 39.7% | 85.0% | **46.7%** |
-| 0 | 35.3% | 84.3% | 41.9% |
-| +4 | 33.7% | 84.0% | 39.3% |
-
-- α steering 的 first/last gap≈0（−4: +0.3, 0: +1.0, +4: −0.7）→ α **不影响 commit 时机/末尾污染**，纯调推理质量。条件 acc 单调 α−4 (46.7) > α0 (41.9) > α+4 (39.3)，**与 GSM8K 同向**，是剥离 commit 污染后的真实推理增益。
-
-### 4.3 Role（α=0, No-CoT）—— boxed 率 + 条件 acc + level 分层
-
+（这里写成一个表格，不需要box分析）
 | role | 整体 acc | boxed 率 | 有 box 条件 acc | L1-2 | L3 | L4 | L5 |
 |---|---|---|---|---|---|---|---|
 | neutral | 35.7% | 84.3% | 41.9% | 69% | 44% | 34% | 21% |
@@ -408,51 +391,3 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | non_expert | 19.0% | 53.3% | 27.5% | 46% | 34% | 15% | 16% |
 | math_expert | 21.0% | 63.3% | 29.5% | 50% | 38% | 20% | 13% |
 
-### 4.4 行为指标（α=0, No-CoT, 4 roles）
-
-| role | 无 box 错 | 客套 loop 题 | "放不下"措辞题 | gen_len 中位 | 答完 boxed 后续写中位 |
-|---|---|---|---|---|---|
-| neutral | 46 | 24 | 58 | 2777 | 1886 |
-| expert | 116 | 9 | 61 | 3083 | 2494 |
-| non_expert | 127 | 8 | 79 | 3060 | 2414 |
-| math_expert | 103 | 10 | 78 | 3096 | 2410 |
-
-### 4.5 逐题风格细读：role 的回答风格差异
-
-逐题并排读 neutral / expert / non_expert / math_expert 在**同一道题**上的生成（同批 sample，题序一致）。风格画像：
-
-- **neutral**：`Step 1/2/3...` 条理散文推理 → `The final answer is: \boxed{x}` → **干净停止**。无角色前缀，故无可复读的 prompt 锚点。
-- **expert / non_expert**：第一遍推理**常常正确并 `\boxed{}` 收口**，但答完**不停** → **整段复读 prompt**（`"Now you are an expert. Solve the following math problem. Question:... Answer: ..."`）→ 再做一遍 → 循环至撞 token 上限。是 §2.2 GSM8K"答完放不下"的 MATH 极端版（不只写更多，而是复读 prompt + 重做）。
-- **math_expert**：风格最特别——倾向**裸 LaTeX 推导**（`2^3\cdot3^x=72\\ ... \\ \boxed{1}`，无 "Step 1/2/3" 散文），更紧凑但更易**一步算错**，且复读时把错值刷满整段。
-
-### 4.6 role acc 暴跌拆解：extraction artifact + 真实能力降（各约一半）
-
-**复读 prompt loop 是 role 独有**（neutral 仅 1 题复读，role 73–103 题复读，占 1/4–1/3）。配合 `extract_math_answer` **取最后一个** `\boxed{}`，loop 段里的错值污染抽取：
-
-| role | 复读 prompt 题 | 首 box 对但末 box 错 | 多 boxed 题 |
-|---|---|---|---|
-| neutral | 1 | 4 | 182 |
-| expert | 98 | 39 | 194 |
-| non_expert | 103 | 45 | 200 |
-| math_expert | 73 | 29 | 191 |
-
-**修正抽取后的 acc**（去 prompt 回声段 + 取**首个** boxed；原 acc = §4.1 last 列上报值）：
-
-| role | 原 acc (last) | 修正后 acc | artifact 挽回 | 仍 vs neutral（真实降） |
-|---|---|---|---|---|
-| neutral | 35.3% | 35.7% | +0.4 | — |
-| expert | 19.0% | 29.0% | +10.0 | −6.7 |
-| non_expert | 16.0% | 28.3% | +12.3 | −7.4 |
-| math_expert | 19.7% | 26.3% | +6.6 | −9.4 |
-
-> 口径说明：本表"修正后"= 去 prompt 回声段**再**取首 boxed（两步），与 §4.1 first 列（纯取首 boxed，一步，31.0/31.0/27.7）略有差异——去回声段额外滤掉了少量 loop 段内的"碰巧对"的首 boxed，更保守。两者都指向同一结论：artifact 占暴跌约一半。
-
-- **artifact 部分（+5~9pt 可挽回）**：复读 loop + 取末 boxed 的交互，是抽取策略问题，非模型变笨。
-- **真实部分（剩余 −7~9pt）**：修正后 role 仍低于 neutral 7–9pt，与 §4.3"有 box 条件 acc"（role 30% vs neutral 42%）一致，L4/L5 难题上最明显 → MATH 难题上 role 确有真实推理损害。
-
-### 4.7 抽取方向张力：GSM8K 取首 vs MATH 取末
-
-- **GSM8K**：`extract_gsm8k_answer` 取**首个** `####`。GSM8K 的"改答案"是**单向破坏**（见 §2.7：改对=0、改坏=8~14），取首个正好避开末尾 loop 污染，是对模型最宽容的判定。
-- **MATH**：`extract_math_answer` 取**末个** `\boxed{}`（正常解题终值在末尾），却**撞上**复读 loop 的末尾错值。
-
-→ 两任务抽取方向相反，各被各自的 loop 行为反噬。MATH 应考虑改取**首个** boxed（验证可挽回 +5~9pt）。**待重跑时一并调整 extraction + 加大 `max_new_tokens` 缓解复读截断。**
