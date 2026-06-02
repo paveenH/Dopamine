@@ -99,6 +99,7 @@ class HiddenStateRecorder:
         layer_start: int,
         layer_end: int,
         ema_alpha: float = 0.95,
+        steer_alpha: float = 0.0,
     ):
         self.layer_start = layer_start
         self.layer_end = layer_end
@@ -110,6 +111,16 @@ class HiddenStateRecorder:
         # of middle layers so any other mask can be re-projected offline.
         # See utils.mask_slice_for for the layer_start-1 offset rationale.
         self.directions = utils.mask_slice_for(rsn_mask, layer_start, layer_end).astype(np.float32)
+
+        # Optional prefill-only steering: when steer_alpha != 0, inject
+        # α × mask[l] into the LAST prompt token of each middle layer (L>1 only),
+        # matching get_answer_regenerate_*.py's prefill-only steering and
+        # closed_loop_gsm8k.py's static-α injection direction. α=0 (default)
+        # leaves the recorder a pure observer — neutral/role runs are unchanged.
+        # steer_dirs shares the SAME middle-layer slice as `directions` (NMD
+        # co-design: injecting +α raises next-step x by α·‖mask‖²).
+        self.steer_alpha = steer_alpha
+        self.steer_dirs = self.directions if steer_alpha != 0.0 else None
 
         # Discovered at attach() time
         self.num_layers: int | None = None       # total decoder layers in model
@@ -198,10 +209,39 @@ class HiddenStateRecorder:
 
             return hook
 
-        # Register hook once per unique model layer index
+        # Register post-hook (observation) once per unique model layer index
         for model_idx in sorted(model_to_storage.keys()):
             h = decoder_layers[model_idx].register_forward_hook(make_hook(model_idx))
             self._hooks.append(h)
+
+        # Optional prefill-only steering pre-hook on MIDDLE layers only.
+        # Injects α × mask[l] into the last prompt token (L>1) before the layer
+        # forward, so it perturbs the prefill that decode attends to — identical
+        # to get_answer_regenerate_*.py. No-op during decode (L==1) and when
+        # steer_alpha==0 (no pre-hook registered at all).
+        if self.steer_alpha != 0.0:
+            middle_model_idxs = list(utils.decoder_layer_range(self.layer_start, self.layer_end))
+
+            def make_steer_pre_hook(middle_local_idx: int):
+                dir_vec = self.steer_dirs[middle_local_idx]  # (H,) fp32
+
+                def pre_hook(module, args_in):
+                    hs = args_in[0] if isinstance(args_in, tuple) else args_in
+                    if hs.shape[1] <= 1:        # decode step: skip
+                        return None
+                    diff = torch.as_tensor(
+                        self.steer_alpha * dir_vec, device=hs.device, dtype=hs.dtype
+                    )
+                    hs[:, -1, :] += diff        # last prompt token only
+                    return None                 # in-place; keep original args
+
+                return pre_hook
+
+            for local_i, model_idx in enumerate(middle_model_idxs):
+                hp = decoder_layers[model_idx].register_forward_pre_hook(
+                    make_steer_pre_hook(local_i)
+                )
+                self._hooks.append(hp)
 
     def detach(self):
         for h in self._hooks:
@@ -282,22 +322,33 @@ def main():
     prompt_template, character = utils.select_role_prompt(templates, args.role)
     print(f"Role: {args.role} (character={character})")
 
-    # ── recorder ──
+    # ── recorder (steer_alpha=0 → pure observer; ≠0 → prefill-only steering) ──
     recorder = HiddenStateRecorder(
         rsn_mask=rsn_mask,
         layer_start=args.layer_start,
         layer_end=args.layer_end,
         ema_alpha=args.ema_alpha,
+        steer_alpha=args.alpha,
     )
+    if args.alpha != 0.0:
+        print(f"Prefill-only steering ON: α={args.alpha} × NMD mask on middle layers")
 
     # ── output path ──
     os.makedirs(SAVE_DIR, exist_ok=True)
     mode_tag = "cot" if args.cot else "nocot"
     role_tag = "" if args.role == "neutral" else f"_{args.role}"
     mask_tag = "" if args.mask_type == "nmd" else f"_{args.mask_type}"
+    # Encode α in the filename so steered runs never overwrite the α=0 baselines.
+    # a4 / aneg4 for ±4; empty for α=0 (keeps existing neutral/role names).
+    if args.alpha == 0.0:
+        alpha_tag = ""
+    elif args.alpha < 0:
+        alpha_tag = f"_aneg{abs(args.alpha):g}"
+    else:
+        alpha_tag = f"_a{args.alpha:g}"
     out_path = os.path.join(
         SAVE_DIR,
-        f"hs_{args.task}_{args.size}_{mode_tag}{role_tag}{mask_tag}"
+        f"hs_{args.task}_{args.size}_{mode_tag}{role_tag}{alpha_tag}{mask_tag}"
         f"_L{args.layer_start}-{args.layer_end}.h5",
     )
 
@@ -319,6 +370,8 @@ def main():
         meta.attrs["layer_start"] = args.layer_start
         meta.attrs["layer_end"] = args.layer_end
         meta.attrs["ema_alpha"] = args.ema_alpha
+        meta.attrs["steer_alpha"] = args.alpha            # prefill-only steering α (0 = none)
+        meta.attrs["steer_mode"] = "prefill_only" if args.alpha != 0.0 else "none"
         meta.attrs["sanity_mask"] = mask_name
         meta.attrs["max_new_tokens"] = args.max_new_tokens
         meta.attrs["n_samples_planned"] = len(samples)
@@ -407,6 +460,11 @@ if __name__ == "__main__":
     parser.add_argument("--layer_start", type=int, default=11)
     parser.add_argument("--layer_end", type=int, default=20)
     parser.add_argument("--ema_alpha", type=float, default=0.95)
+    parser.add_argument("--alpha", type=float, default=0.0,
+                        help="Prefill-only steering α (× NMD mask on middle layers). "
+                             "0 = pure observer (default, neutral/role baselines). "
+                             "±4 = static-steering trajectory, prefill-only (matches "
+                             "get_answer_regenerate_*.py). Encoded in output filename.")
     parser.add_argument("--test_file", type=str, required=True)
     parser.add_argument("--n_samples", type=int, default=300)
     parser.add_argument("--cot", action="store_true")

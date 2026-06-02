@@ -5,14 +5,17 @@ set -euo pipefail
 # baselines. HS storage is now selective (middle 9 layers + final layer = 10
 # layers total) — see track_hidden_states.py HiddenStateRecorder.
 #
-# 5 runs total:
+# 7 runs total:
 #   1) GSM8K No-CoT  role=expert            "an expert"
 #   2) GSM8K No-CoT  role=non_expert        "a non expert"
 #   3) GSM8K No-CoT  role=neutral           (no character)
 #   4) GSM8K CoT     role=neutral           (no character)
 #   5) GSM8K No-CoT  role=primary_teacher   "a primary school teacher"
+#   6) GSM8K No-CoT  role=neutral  α=+4     (prefill-only static steering)
+#   7) GSM8K No-CoT  role=neutral  α=-4     (prefill-only static steering)
 #
 # Output: HDF5 files under ${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}/
+# (α=0 runs untagged; ±4 runs carry _a4 / _aneg4 in the filename.)
 
 MODEL_NAME="llama3"
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
@@ -143,15 +146,35 @@ fi
 # ── Run 5: primary_teacher (task-matched extra role) ──
 if [ "${START_FROM}" -le 5 ]; then
   echo ""
-  echo "[5/5] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
+  echo "[5/7] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
   python track_hidden_states.py ${BASE_ARGS} --role primary_teacher
   echo "[Done] primary_teacher"
 fi
 
+# ── Run 6: neutral + α=+4 (prefill-only static-steering trajectory) ──
+# Same neutral prompt as Run 3, but inject +4 × NMD mask into the last prompt
+# token (prefill-only, matches get_answer_regenerate_gsm8k.py). Output file
+# carries the _a4 tag so it sits beside the α=0 neutral baseline. Forms the
+# −4 / 0 / +4 steering axis for offline signal comparison.
+if [ "${START_FROM}" -le 6 ]; then
+  echo ""
+  echo "[6/7] GSM8K No-CoT | role=neutral | α=+4 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha 4
+  echo "[Done] neutral α=+4"
+fi
+
+# ── Run 7: neutral + α=-4 ──
+if [ "${START_FROM}" -le 7 ]; then
+  echo ""
+  echo "[7/7] GSM8K No-CoT | role=neutral | α=-4 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha -4
+  echo "[Done] neutral α=-4"
+fi
+
 # ==================================================================
 # Step 2/3: offline re-projection (SOP §3.1b). All three extractors are
-# DIRECTORY-level (glob hs_*.h5), so each runs ONCE over all 5 HDF5 files —
-# no per-role loop. Outputs are the JSONs to scp to local ./signal/.
+# DIRECTORY-level (glob hs_*.h5), so each runs ONCE over ALL HDF5 files
+# (now 7: neutral/role α=0 + neutral ±4) — no per-role loop.
 # ==================================================================
 
 echo ""
