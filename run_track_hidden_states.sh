@@ -40,7 +40,10 @@ BASE_DIR="${WORK_DIR}/components"
 # a new replicate; set ALLOW_OVERWRITE=1 only when replacing that exact run.
 RUN_TAG="${RUN_TAG:-phase1b_plain}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
-START_FROM="${START_FROM:-2}"
+# Default 6 = only the ±4 prefill-only steering runs (Run 6/7) on this machine;
+# the α=0 baselines (Run 1–5) were collected on another server. Set START_FROM=1
+# to (re)collect the full set here.
+START_FROM="${START_FROM:-6}"
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
 NMD_MASK="${MASK_DIR}/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
