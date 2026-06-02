@@ -35,8 +35,9 @@ WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 # Keep each expensive HS collection isolated. Override RUN_TAG explicitly for
 # a new replicate; set ALLOW_OVERWRITE=1 only when replacing that exact run.
-RUN_TAG="${RUN_TAG:-phase1b_plain_768_20260601}"
+RUN_TAG="${RUN_TAG:-phase1b_plain}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
+START_FROM="${START_FROM:-1}"
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
 NMD_MASK="${MASK_DIR}/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
@@ -50,6 +51,7 @@ echo "Model: ${MODEL_NAME} (${MODEL_SIZE}) | Middle layers: ${LAYER_START}-${LAY
 echo "HS storage: middle [${LAYER_START},${LAYER_END}) + final layer = 10 stored layers"
 echo "Sanity mask: ${MASK_TYPE} (offline reanalysis can use any mask)"
 echo "Run tag: ${RUN_TAG}"
+echo "Start from run: ${START_FROM}"
 echo "Start: $(date)"
 echo "=================================================="
 
@@ -57,7 +59,7 @@ cd ${WORK_DIR}
 
 # HDF5 files are opened with mode="w", so an accidental rerun would truncate
 # completed or partially collected files. Require an explicit override.
-if [ "${ALLOW_OVERWRITE}" != "1" ] && [ -d "${H5_DIR}" ] && compgen -G "${H5_DIR}/hs_*.h5" > /dev/null; then
+if [ "${START_FROM}" = "1" ] && [ "${ALLOW_OVERWRITE}" != "1" ] && [ -d "${H5_DIR}" ] && compgen -G "${H5_DIR}/hs_*.h5" > /dev/null; then
   echo "[error] Existing HDF5 files found under ${H5_DIR}"
   echo "        Use a new RUN_TAG, or set ALLOW_OVERWRITE=1 to replace this exact run."
   exit 1
@@ -103,37 +105,48 @@ BASE_ARGS="
   --max_new_tokens ${MAX_NEW_TOKENS_GSM}
   --temperature 0.0
   --base_dir ${BASE_DIR}
+  --save_dir ${H5_DIR}
 "
 
 # ── Run 1: expert ──
-echo ""
-echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
-python track_hidden_states.py ${BASE_ARGS} --role expert
-echo "[Done] expert"
+if [ "${START_FROM}" -le 1 ]; then
+  echo ""
+  echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
+  python track_hidden_states.py ${BASE_ARGS} --role expert
+  echo "[Done] expert"
+fi
 
 # ── Run 2: non_expert ──
-echo ""
-echo "[2/5] GSM8K No-CoT | role=non_expert ('a non expert')"
-python track_hidden_states.py ${BASE_ARGS} --role non_expert
-echo "[Done] non_expert"
+if [ "${START_FROM}" -le 2 ]; then
+  echo ""
+  echo "[2/5] GSM8K No-CoT | role=non_expert ('a non expert')"
+  python track_hidden_states.py ${BASE_ARGS} --role non_expert
+  echo "[Done] non_expert"
+fi
 
 # ── Run 3: neutral (No-CoT) ──
-echo ""
-echo "[3/5] GSM8K No-CoT | role=neutral"
-python track_hidden_states.py ${BASE_ARGS} --role neutral
-echo "[Done] neutral No-CoT"
+if [ "${START_FROM}" -le 3 ]; then
+  echo ""
+  echo "[3/5] GSM8K No-CoT | role=neutral"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral
+  echo "[Done] neutral No-CoT"
+fi
 
 # ── Run 4: neutral (CoT) ──
-echo ""
-echo "[4/5] GSM8K CoT    | role=neutral"
-python track_hidden_states.py ${BASE_ARGS} --role neutral --cot
-echo "[Done] neutral CoT"
+if [ "${START_FROM}" -le 4 ]; then
+  echo ""
+  echo "[4/5] GSM8K CoT    | role=neutral"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --cot
+  echo "[Done] neutral CoT"
+fi
 
-# # ── Run 5: primary_teacher (task-matched extra role) ──
-# echo ""
-# echo "[5/5] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
-# python track_hidden_states.py ${BASE_ARGS} --role primary_teacher
-# echo "[Done] primary_teacher"
+# ── Run 5: primary_teacher (task-matched extra role) ──
+if [ "${START_FROM}" -le 5 ]; then
+  echo ""
+  echo "[5/5] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
+  python track_hidden_states.py ${BASE_ARGS} --role primary_teacher
+  echo "[Done] primary_teacher"
+fi
 
 # ==================================================================
 # Step 2/3: offline re-projection (SOP §3.1b). All three extractors are
