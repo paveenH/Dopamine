@@ -4,14 +4,14 @@
 待驗證的事情：
 1. ✅ 重新整理近期GSM8K相關的code，重新備份一次code;
 2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 wanting/incentive salience：抢答、放不下、跨任务统一）**;
-5. ✅ 统一抽取/ACC 口径：所有准确率由 `RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，每条件报 first/last 双 acc。GSM8K 取首 ####（§2.7 改答案=单向破坏），MATH 取末 boxed 但被 role 复读 loop 污染（§4.7，改取首挽回 8~15pt）。
+5. ✅ 统一抽取/ACC 口径：所有准确率由 `RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，每条件报 first/last 双 acc。GSM8K 取首 ####（§2.1 改答案=单向破坏），MATH 原取末 boxed 被 role 复读 loop 污染、已改取首（§3，挽回 8~15pt）。
 3. MATH len = 2048 [running]
 4. Phase 1b 信號重跑 [running 需要确认准确率一致度]
 
 
 ## 0. Template Update
 
-### 0.1 对称化（No-CoT vs CoT 唯一差别 = `Let's think step by step.`）
+### 0.1 Symmetrization (No-CoT vs CoT differ only by `Let's think step by step.`)
 
 | | 舊 No-CoT | 舊 CoT |
 |---|---|---|
@@ -41,9 +41,9 @@ CoT:     Solve the following math problem.
 **Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, greedy bs=batched(regenerate, prefill steering), `max_new_tokens=768`, NMD mask layer 11–20, EMA α=0.95。
 α=0 即 `diff = mask×0` no-op == 纯 baseline。steering 为 **prefill-only**（在 prompt 最后一个 token 静态推一下，decode 不干预）。
 
-> **ACC 权威来源**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.7：改答案是单向破坏，取首最优）。
+> **ACC 权威来源**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.1：改答案是单向破坏，取首最优）。
 
-### 1.1 Role accuracy（α=0, No-CoT；first acc = 上报值）
+### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
 
 | Role | plain first | plain last | pushy first | Δ(pushy−plain, first) |
 |---|---|---|---|---|
@@ -56,7 +56,7 @@ CoT:     Solve the following math problem.
 - **pushy 推力幅度对所有带-role prompt 基本恒定，与起点 wanting 无关**。
 - **first−last gap 都很小（≤2.3）**：GSM8K role 末尾几乎不被 loop 污染（与 MATH role 的 +8~15 gap 形成对比，见 §4）。
 
-### 1.2 Steering（neutral, No-CoT；first acc = 上报值）
+### 1.2 Steering (neutral, No-CoT; first acc = reported value)
 
 | α | plain first | plain last | pushy first |
 |---|---|---|---|
@@ -66,7 +66,7 @@ CoT:     Solve the following math problem.
 | cot (α=0) | **69.0%** | 68.3% | 57.0% |
 
 
-## 2. 行为学发现：Wanting (Incentive Salience)
+## 2. Behavioral Findings: Wanting (Incentive Salience)
 
 > **本节所有 acc / 五分类 / 行为指标以 first-`####` 为准**（取首个 `####`，= §1 上报值）。理由见 §2.1 末与 §1 ACC 权威来源说明：GSM8K"改答案"是单向破坏（改对=0），取首最优。
 
@@ -79,7 +79,7 @@ CoT:     Solve the following math problem.
 
 这统一了之前看似矛盾的跨任务现象（见 §2.2 末"跨任务统一"）：**同一个 wanting 旋钮，在判断题（MMLU-E）表现为"选不选 E"，在生成题（GSM8K）表现为"抢不抢答 / 放不放得下"** —— 任务给什么出口就从哪表达。下文 §2.1–2.3 的所有行为签名（抢答、loop、收口、放不下）都是这一旋钮（wanting）的不同行为侧面。
 
-### 2.1 α−4 的提升从哪来：五分类细分（neutral, No-CoT, plain）
+### 2.1 Where α−4's gain comes from: five-way breakdown (neutral, No-CoT, plain)
 
 把每题按「有无 `####`」× 对错 × 「gold 是否出现在正文」分成五类：
 
@@ -93,7 +93,7 @@ CoT:     Solve the following math problem.
 - **「锁错」指标有偏差**（自我纠正）：α+4 的「锁错」看似少（21），是因为它 `####` 本来就少（`no#### = 84` 最多），损失藏在 `无#### 错 = 81`（三组最高）里，不是 α+4 更好。
 - **取首 `####` 的正当性（"改答案"是单向破坏）**：对有多个 `####` 的题，取首 vs 取末（neutral, first/last acc）—— α−4: 73.0/68.3，α0: 60.0/55.3，α+4: 55.3/52.7。**首错末对（改对）= 0（全部 α）；首对末错（改坏）= 8~14**。模型一旦首个 `####` 错就再没改对过，"改答案"纯是 over-wanting→loop 的单向破坏，故取首是最宽容也最干净的判定，避开末尾 loop 污染。"改答案"行为本身见 §2.2"算对又改错"，与 extraction 分开统计。（对照：MATH 取末却撞上末尾 loop，见 MATH 节。）
 
-### 2.2 α+4 vs α−4 完整画像：commitment / letting-go
+### 2.2 α+4 vs α−4 full picture: commitment / letting-go
 
 α 是一个 **commitment-timing / 收敛旋钮**。完整对比（neutral, No-CoT, plain）—— 几乎所有收敛/commit 指标随 α 单调：
 
@@ -115,7 +115,7 @@ CoT:     Solve the following math problem.
 - **α+4 的损失是"双重死法"**（5 分类）：`#### 对` 129→94（抢答/早commit 毁掉正常收口）+ `无#### 错` 61→81（loop→撞 token 上限→交不出答案）；而 `真错` 29→32 几乎不变 → **不是算错，是收不了尾**。
 - **α−4 双赢式收敛**：`#### 对`(137) 与 `无#### 对`(82) 双高、`无#### 错`(43) 与 `算对又改错`(23) 双低。
 
-#### α+4 的 loop 有两种 flavor（修正：不是"纯机械空转、非 overthinking"）
+#### α+4's loop has two flavors (correction: not "purely mechanical idling, non-overthinking")
 
 > 1. **机械空转**（与 α−4 类似）：`"The answer is 96"` ×118、`"####.####.####"` 刷符号 —— 无新内容，纯复读。
 > 2. **"放不下"型反复确认/重算**（α+4 特有）：算出答案后**反复自我质疑、重算、纠结格式**。例（Q3, gold=18, ✗）：`"...36 = x. However, this is not the answer we are looking for. Let's re-evaluate the problem..."` → 重算又得 36 → 再"this is not the answer"→ 再重算（整段循环）；例（Q2, gold=260）：算对 260 后陷入 `"the answer should be four digits... add a leading zero... 0260... but this is still not the correct format..."` 长篇格式焦虑。
@@ -132,7 +132,7 @@ CoT:     Solve the following math problem.
 
 **"放不下" = wanting 多的直接行为投影。** 关键不在"收口机制失败"，而在内心独白显示：expert / α+4 放不下，是因为它**还想继续做计算**（"let's re-evaluate / 这还不对，再算一遍"——它仍在"想要"求解）。所以"放不下"不是单纯的 letting-go 失败，而是 **over-wanting 的最直接证据**：wanting 越高 → 越"还想做" → 越放不下（α−4 → α0 → α+4：36 → 77 → 107 单调）。letting-go 失败只是 high-wanting 的下游表现，里子是"还想要"。
 
-#### 文本人格：α−4 vs α+4
+#### Textual persona: α−4 vs α+4
 
 | | α=−4 | α=+4 |
 |---|---|---|
@@ -144,7 +144,7 @@ CoT:     Solve the following math problem.
 
 > 形象说法：**α−4 像"做完题就交卷"，α+4 像"做完题了还在卷子上反复涂改、自言自语'等等这个对吗''这不对再算一遍''格式该怎么写'，直到打铃被收卷"。** 两者算的内容一样多，差的是**"放不放得下答案"（commitment / letting-go）** —— α−4 算完即放下，α+4 焦虑性反复确认。这正是 dopamine（commitment to a choice）调节的东西，不是 thinking 本身。
 
-#### "答完 #### 后还继续写多少"（= 想不想继续说）
+#### "How much it keeps writing after #### " (= how much it still wants to say)
 
 直接测 motivation 的载体：首个 `####`（已交答案）之后还写了多少字符。
 
@@ -157,7 +157,7 @@ CoT:     Solve the following math problem.
 - 方向符合框架：**α−4 答完后写得最少、最易自然收手**（"没那么想说，交了就停"）；α+4 答完后还想写最多（"停不下来"）。
 - **幅度弱**（1584 vs 1714 仅差 ~8%）：所有 α 都有"答完仍写 1500+ 字符"的基线毛病（模型本就爱在 `####` 后接 Explanation / 客套）。更干净的 motivation 信号仍是抢答%（46/57/63）、loop（74/81/104）、`####` 位置（21%/18%/14%）。
 
-### 2.3 三杠杆图景：commitment timing 可被多入口调控
+### 2.3 Three-lever picture: commitment timing is controllable via multiple entry points
 
 三个来源不同的杠杆产生**完全相同的行为签名**（抢答↑、loop↑、等式数不变、acc↓），证明它们调的是**同一个 wanting/commitment 维度**：
 
@@ -180,7 +180,7 @@ CoT:     Solve the following math problem.
 
 > pushy + expert 叠加 → 抢答 71%、`####` 中位位置=0%（开头就抢答）、acc 崩至 34% → 外部措辞 × 内部 persona 两个同向杠杆叠加的极端点。
 
-### 2.4 身份确认循环：persona 调制 looping 的语义内容
+### 2.4 Identity-confirmation loop: persona modulates the semantic content of looping
 
 over-arousal looping 在所有 role 都会出现，但**循环的语义内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白"。
 
@@ -199,7 +199,7 @@ over-arousal looping 在所有 role 都会出现，但**循环的语义内容被
 
 **pushy 放大身份循环**（含身份确认题数 plain→pushy）：expert 5→7、non_expert 11→**20**、primary_tch 4→**21**。pushy 下 primary_teacher 出现独特的**"格式焦虑"循环**：`"####20#### (I am a primary school teacher, I have to put the answer in the box)"` ×重复——pushy 措辞强调格式 × teacher persona "守规矩" 的特异交互（plain 无）。
 
-#### 2.4.1 逐题原文样本（身份独白 —— 最直观反映模型"内心的身份思考"）
+#### 2.4.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
 > 数据来源：`gsm8k_new/mdf_0`（plain）与 `mdf_0_pushy`（pushy），neutral No-CoT。`hits`=身份确认 cue 词命中数（正则粗估，含正常落款/审核文本，仅供定位）。✓/✗=该题对错。
 
@@ -267,7 +267,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | #275 | 79 | 40000 | ✗ | `I am a primary school teacher. I do not know how to solve this problem. I am not a math teacher.` —— 推辞 + 不会做 |
 | #272 | 2 | 2400 | ✓* | `The answer is 2400. But I am a primary school teacher, so I will give the answer as 1200.` —— **又一例因 persona 故意改答案（2400→1200）** |
 
-### 2.5 persona 干预 commitment：机械失调为主，语义干预为奇观
+### 2.5 Persona intervenes on commitment: mechanical dysregulation dominates, semantic intervention is the spectacle
 
 "算对又改错"（gold 在正文出现过、最终答案却不是 gold）频率：
 
@@ -285,7 +285,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 > 这两例是 persona 显式覆盖正确计算的教科书案例，但**极罕见**（1–2/300）。**结论**：RSN/persona 调的是 *wanting 强度*（→ 机械的收敛失败），**不是**"persona 的语义信念"（"我该谦虚答错"那种有意识干预几乎不存在）。这反而更干净地支持框架：调的是 commitment 机制，非 knowing、非语义动机。
 
-### 2.6 行为指标清单（本轮使用，供后续脚本化）
+### 2.6 Behavioral metric checklist (used this round, for later scripting)
 
 1. accuracy（role × α × wording × CoT）
 2. `####` 出现位置 / 抢答率（前20%；分母 = n_hash）
@@ -306,13 +306,13 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 ---
 
-## 3. MATH Performance（结果记录，重跑中）
+## 3. MATH Performance (results log, re-running)
 
 **Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。答案抽取 = `extract_math_answer`（首个 `\boxed{}` → last number → last line），`is_correct_math`（normalize + sympy 等价）。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。
 
 > **下表为第一版（`max_new_tokens=1024`、抽取取末 boxed）结果。已发现 role 复读 loop 污染末尾 + token 偏短截断，正以 `max_new_tokens=2048` + 抽取改取首 boxed 重跑，重跑后定稿。** ACC 由 `RSNResult/RoleAnswer/analyze_first_last_acc.py` 计算（first/last 双口径，整体分母 300）。
 
-### 3.1 Accuracy（first = 取首 boxed，last = 取末 = 第一版上报值）
+### 3.1 Accuracy (first = first boxed, last = last boxed = v1 reported value)
 
 | 条件 | first acc | last acc | gap |
 |---|---|---|---|
@@ -327,7 +327,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 - **neutral / α-steering gap≈0**（末尾不污染）；**role gap +8~15**（复读 loop 污染末尾 boxed，已改取首 boxed）。
 - α steering 方向**与 GSM8K 同向**：α−4 (40.0) > α0 (36.3) > α+4 (33.0)。
 
-### 3.2 Role × boxed 率 × level 分层（last 口径，第一版）
+### 3.2 Role × boxed rate × level breakdown (last policy, v1)
 
 | role | 整体 acc | boxed 率 | 有 box 条件 acc | L1-2 | L3 | L4 | L5 |
 |---|---|---|---|---|---|---|---|
@@ -340,9 +340,9 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 ---
 
-## 4. Phase 1b：多巴胺信号代理验证
+## 4. Phase 1b: Dopamine Signal Proxy Validation
 
-### 4.0 重跑动机与核心问题
+### 4.0 Motivation for re-run & core questions
 
 §2 的行为学发现（α−4 = 低 wanting = 放得下、α+4 = 高 wanting = 放不下；expert/persona 同向抬高 commitment）全部是**生成 trace 上的行为观测**。Phase 1b 要回答的是它的**机制对应**：
 
@@ -350,7 +350,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 2. **RSN-specificity**：expert-vs-non_expert 的信号 gap 是 **NMD mask 特有**，还是**任何同稀疏度的随机投影**都会显示？→ Axis C：NMD mask vs `diff_random_*` mask 并排。若随机 mask 也有同样 gap，则"RSN 信号"只是一般性的 role-prompt 漂移，而非多巴胺特异方向。
 3. **跨指标关系**：RSN 信号 vs entropy/top1/margin/info_gain 的相关与 partial correlation（控制 confidence 后 RSN 的独立预测力）。
 
-### 4.1 实验设置（与 §1/§2 同批 prompt，保证可比）
+### 4.1 Experimental setup (same prompts as §1/§2 for comparability)
 
 - 模型 Llama3.1-8B-Instruct，GSM8K No-CoT 主线 + CoT 对照，300 samples，EMA α=0.95，Layer 11–20。
 - 角色：`an expert` / `a non expert` / `a primary school teacher` / `neutral`（No-CoT）/ `neutral`（CoT）= 5 runs。
@@ -359,7 +359,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 - 采集：`track_hidden_states.py`（bs=1 greedy）存 selective HDF5（middle 9 + final = 10 层）至独立 `${RUN_TAG}` 目录 → `extract_signal_json.py`（NMD）+ `extract_signal_json_remask.py`（random）+ `extract_entropy_confidence.py`。
 - **前置 sanity**：跑 `sanity_mask_indexing.py` 确认 layer-offset 已修（旧 5/30 signal 的废弃原因）。
 
-### 4.2 结果（待填）
+### 4.2 Results (TBD)
 
 > ⏳ HS 重采集 + 重投影完成后填入。预期表格骨架：
 
@@ -384,7 +384,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 **C. Cross-metric（per-role Pearson + partial r(RSN, correct \| entropy)）**：待填。
 
-### 4.3 与 §2 行为发现的对照（待填）
+### 4.3 Comparison with §2 behavioral findings (TBD)
 
 待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §3.2 的信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
 
