@@ -110,13 +110,20 @@ def gsm8k_difficulty(question: str) -> str:
     return "Hard"
 
 
-def extract_boxed(text: str) -> str:
-    r"""Return the content of the LAST \boxed{...}, handling nested braces.
+def extract_boxed(text: str, which: str = "last") -> str:
+    r"""Return the content of one \boxed{...}, handling nested braces.
+
+    which="last" (default): the LAST \boxed — correct for GOLD (the dataset
+        solution's final answer is its last \boxed).
+    which="first": the FIRST \boxed — correct for model PREDICTIONS, where
+        role-prompt re-statement loops append wrong \boxed values at the tail
+        (see AdaptativeThinking0529.md §4.7). On clean neutral output the model
+        only boxes the final answer (no mid-step \boxed), so first==last there;
+        taking first only diverges when a trailing loop has polluted the tail.
 
     A regex like \\boxed\{([^}]+)\} truncates at the first '}', so
-    \boxed{\frac{1}{2}} would yield only '\frac{1'. Here we scan for each
-    "\boxed{" and walk forward tracking brace depth to capture the full
-    balanced span, including nested {}.
+    \boxed{\frac{1}{2}} would yield only '\frac{1'. Here we scan each "\boxed{"
+    and walk forward tracking brace depth to capture the full balanced span.
     """
     results = []
     needle = r"\boxed{"
@@ -134,11 +141,14 @@ def extract_boxed(text: str) -> str:
         if depth == 0:
             results.append(text[start:j - 1].strip())  # j-1 = matching close brace
         i = text.find(needle, j)
-    return results[-1] if results else ""
+    if not results:
+        return ""
+    return results[0] if which == "first" else results[-1]
 
 
 def extract_math_answer(text: str) -> str:
-    boxed = extract_boxed(text)
+    # Prediction extraction takes the FIRST \boxed (tail loops pollute the last).
+    boxed = extract_boxed(text, which="first")
     if boxed:
         return boxed
     nums = re.findall(r"-?\d+(?:\.\d+)?", text)
