@@ -5,7 +5,7 @@
 1. ✅ 重新整理近期GSM8K相關的code，重新備份一次code;
 2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 wanting/incentive salience：抢答、放不下、跨任务统一）**;
 5. ✅ 统一抽取/ACC 口径：所有准确率由 `RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，每条件报 first/last 双 acc。GSM8K 取首 ####（§2.7 改答案=单向破坏），MATH 取末 boxed 但被 role 复读 loop 污染（§4.7，改取首挽回 8~15pt）。
-3. ✅ Math的表现 
+3. MATH len = 2048 [running]
 4. Phase 1b 信號重跑 [running 需要确认准确率一致度]
 
 
@@ -68,6 +68,8 @@ CoT:     Solve the following math problem.
 
 ## 2. 行为学发现：Wanting (Incentive Salience)
 
+> **本节所有 acc / 五分类 / 行为指标以 first-`####` 为准**（取首个 `####`，= §1 上报值）。理由见 §2.1 末与 §1 ACC 权威来源说明：GSM8K"改答案"是单向破坏（改对=0），取首最优。
+
 **统一框架**：α 调节的内部变量是 **"wanting"（incentive salience）** —— 多巴胺驱动的动机性渴求（Berridge & Robinson 的 wanting≠liking 理论；ACL "digital dopamine" 主线）。wanting 是**上游动机状态**；它的**下游行为表现**是 commitment dynamics（"commitment to a choice"，ACL 引 dopamine 文献：将内部状态推过行动阈值、抑制 change-of-mind）。两端签名（细化自逐文本细读，见 §2.2）：
 
 - **α=+4（high wanting / over-commit）** → 急于输出（**抢答**，没想清就答）+ 答完**放不下**（焦虑性反复确认、重算、纠结格式 → loop / 空转 / 不收敛）。
@@ -89,6 +91,7 @@ CoT:     Solve the following math problem.
 
 - **α−4 的 13pt 提升主体是真实推理增益**：`无#### 对` +31（最大贡献，纯推理，与抽取无关）、`#### 对` +8；「锁错」仅减 −15（抽取层面，次要）。
 - **「锁错」指标有偏差**（自我纠正）：α+4 的「锁错」看似少（21），是因为它 `####` 本来就少（`no#### = 84` 最多），损失藏在 `无#### 错 = 81`（三组最高）里，不是 α+4 更好。
+- **取首 `####` 的正当性（"改答案"是单向破坏）**：对有多个 `####` 的题，取首 vs 取末（neutral, first/last acc）—— α−4: 73.0/68.3，α0: 60.0/55.3，α+4: 55.3/52.7。**首错末对（改对）= 0（全部 α）；首对末错（改坏）= 8~14**。模型一旦首个 `####` 错就再没改对过，"改答案"纯是 over-wanting→loop 的单向破坏，故取首是最宽容也最干净的判定，避开末尾 loop 污染。"改答案"行为本身见 §2.2"算对又改错"，与 extraction 分开统计。（对照：MATH 取末却撞上末尾 loop，见 MATH 节。）
 
 ### 2.2 α+4 vs α−4 完整画像：commitment / letting-go
 
@@ -125,7 +128,9 @@ CoT:     Solve the following math problem.
 | α=0 | 77/300 | 535 |
 | **α=+4** | **107/300** | **716** |
 
-→ **α+4 = "答完放不下"**（high wanting → over-commit → 焦虑性反复确认，107 最多）；**α−4 = "算完就放下"**（low wanting → 不回头质疑，36 最少）。这是 wanting 在行为上最精确的载体：**commitment / letting-go**。
+→ **α+4 = "答完放不下"**（107 最多）；**α−4 = "算完就放下"**（36 最少）。
+
+**"放不下" = wanting 多的直接行为投影。** 关键不在"收口机制失败"，而在内心独白显示：expert / α+4 放不下，是因为它**还想继续做计算**（"let's re-evaluate / 这还不对，再算一遍"——它仍在"想要"求解）。所以"放不下"不是单纯的 letting-go 失败，而是 **over-wanting 的最直接证据**：wanting 越高 → 越"还想做" → 越放不下（α−4 → α0 → α+4：36 → 77 → 107 单调）。letting-go 失败只是 high-wanting 的下游表现，里子是"还想要"。
 
 #### 文本人格：α−4 vs α+4
 
@@ -299,27 +304,45 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 > 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_new/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_cot_pushy}/`。signal（NMD 投影）仍为旧 layer-offset mask，**待重跑**（见 §3）。
 
-### 2.7 "改答案"是单向破坏：取首个 `####` 的正当性
+---
 
-`extract_gsm8k_answer` 取**首个** `####`（`re.search` 返回首个匹配）。这统计的是"首次 commit 的质量"。对模型在首个 `####` 之后又写出新 `####`（= 改答案）的题，对比取首 vs 取末（neutral）：
+## 3. MATH Performance（结果记录，重跑中）
 
-| | 取首 acc | 取末 acc | 多 #### 题 | 首错末对（改对） | 首对末错（改坏） |
-|---|---|---|---|---|---|
-| α−4 | **45.7%** | 41.0% | 65 | **0** | 14 |
-| α0 | **43.0%** | 38.3% | 63 | **0** | 14 |
-| α+4 | **31.3%** | 28.7% | 43 | **0** | 8 |
+**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。答案抽取 = `extract_math_answer`（首个 `\boxed{}` → last number → last line），`is_correct_math`（normalize + sympy 等价）。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。
 
-- **模型几乎从不"改对"**：首错末对 = **0**（全部三组 α）。第一个 `####` 错了，后续复读/续写**没有一次**改对。
-- **只会"改坏"**：首对末错 = 8–14 题。
-- → **取首个 `####` 反而是对模型最宽容的判定**（取末 acc 更低，掉 ~4.7pt）。"改答案"在 GSM8K 上是 over-wanting → loop 的**单向破坏**（把对的搅错），取首正好避开末尾 loop 污染。
-- "改答案"行为本身**未被遗漏**：见 §2.2"算对又改错"指标（首对末错的同类），与 extraction 分开统计。
-- 与 §4.7 对照：GSM8K 取首避开末尾 loop，MATH 取末却撞上末尾 loop——两任务抽取方向相反。
+> **下表为第一版（`max_new_tokens=1024`、抽取取末 boxed）结果。已发现 role 复读 loop 污染末尾 + token 偏短截断，正以 `max_new_tokens=2048` + 抽取改取首 boxed 重跑，重跑后定稿。** ACC 由 `RSNResult/RoleAnswer/analyze_first_last_acc.py` 计算（first/last 双口径，整体分母 300）。
+
+### 3.1 Accuracy（first = 取首 boxed，last = 取末 = 第一版上报值）
+
+| 条件 | first acc | last acc | gap |
+|---|---|---|---|
+| α0 neutral No-CoT | 36.3% | 35.3% | +1.0 |
+| α0 expert | **31.0%** | 19.0% | **+12.0** |
+| α0 non_expert | **31.0%** | 16.0% | **+15.0** |
+| α0 math_expert | **27.7%** | 19.7% | **+8.0** |
+| α0 neutral CoT | 42.3% | 41.3% | +1.0 |
+| α+4 neutral | 33.0% | 33.7% | −0.7 |
+| α−4 neutral | 40.0% | 39.7% | +0.3 |
+
+- **neutral / α-steering gap≈0**（末尾不污染）；**role gap +8~15**（复读 loop 污染末尾 boxed，已改取首 boxed）。
+- α steering 方向**与 GSM8K 同向**：α−4 (40.0) > α0 (36.3) > α+4 (33.0)。
+
+### 3.2 Role × boxed 率 × level 分层（last 口径，第一版）
+
+| role | 整体 acc | boxed 率 | 有 box 条件 acc | L1-2 | L3 | L4 | L5 |
+|---|---|---|---|---|---|---|---|
+| neutral | 35.7% | 84.3% | 41.9% | 69% | 44% | 34% | 21% |
+| expert | 20.0% | 59.3% | 30.3% | 57% | 35% | 12% | 14% |
+| non_expert | 19.0% | 53.3% | 27.5% | 46% | 34% | 15% | 16% |
+| math_expert | 21.0% | 63.3% | 29.5% | 50% | 38% | 20% | 13% |
+
+- role 把 `\boxed{}` commit 率从 84% 砸到 53–63%（无 box 几乎全错）；即使有 box，条件 acc 也低于 neutral，L4/L5 难题最明显。**role 在 MATH 上方向与 GSM8K 相反（GSM8K role 提升 / MATH role 降）——待重跑确认。**
 
 ---
 
-## 3. Phase 1b：多巴胺信号代理验证
+## 4. Phase 1b：多巴胺信号代理验证
 
-### 3.0 重跑动机与核心问题
+### 4.0 重跑动机与核心问题
 
 §2 的行为学发现（α−4 = 低 wanting = 放得下、α+4 = 高 wanting = 放不下；expert/persona 同向抬高 commitment）全部是**生成 trace 上的行为观测**。Phase 1b 要回答的是它的**机制对应**：
 
@@ -327,7 +350,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 2. **RSN-specificity**：expert-vs-non_expert 的信号 gap 是 **NMD mask 特有**，还是**任何同稀疏度的随机投影**都会显示？→ Axis C：NMD mask vs `diff_random_*` mask 并排。若随机 mask 也有同样 gap，则"RSN 信号"只是一般性的 role-prompt 漂移，而非多巴胺特异方向。
 3. **跨指标关系**：RSN 信号 vs entropy/top1/margin/info_gain 的相关与 partial correlation（控制 confidence 后 RSN 的独立预测力）。
 
-### 3.1 实验设置（与 §1/§2 同批 prompt，保证可比）
+### 4.1 实验设置（与 §1/§2 同批 prompt，保证可比）
 
 - 模型 Llama3.1-8B-Instruct，GSM8K No-CoT 主线 + CoT 对照，300 samples，EMA α=0.95，Layer 11–20。
 - 角色：`an expert` / `a non expert` / `a primary school teacher` / `neutral`（No-CoT）/ `neutral`（CoT）= 5 runs。
@@ -336,7 +359,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 - 采集：`track_hidden_states.py`（bs=1 greedy）存 selective HDF5（middle 9 + final = 10 层）至独立 `${RUN_TAG}` 目录 → `extract_signal_json.py`（NMD）+ `extract_signal_json_remask.py`（random）+ `extract_entropy_confidence.py`。
 - **前置 sanity**：跑 `sanity_mask_indexing.py` 确认 layer-offset 已修（旧 5/30 signal 的废弃原因）。
 
-### 3.2 结果（待填）
+### 4.2 结果（待填）
 
 > ⏳ HS 重采集 + 重投影完成后填入。预期表格骨架：
 
@@ -361,33 +384,10 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 **C. Cross-metric（per-role Pearson + partial r(RSN, correct \| entropy)）**：待填。
 
-### 3.3 与 §2 行为发现的对照（待填）
+### 4.3 与 §2 行为发现的对照（待填）
 
 待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §3.2 的信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
 
 ---
 
-## 4. MATH Performance（结果记录，分析待续）
-
-**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=1024`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。答案抽取 = `extract_boxed`（平衡括号）→ last number → last line，`is_correct_math`（normalize + sympy 等价）。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。
-
-### 4.1 Accuracy（first，last）
-
-| 条件 | first acc | last acc（上报） | gap | L1-2 | L3 | L4 | L5 ||
-|---|---|---|---|
-| α0 neutral No-CoT | 36.3% | 35.3% | +1.0 |
-| α0 expert | **31.0%** | 19.0% | **+12.0** |
-| α0 non_expert | **31.0%** | 16.0% | **+15.0** |
-| α0 math_expert | **27.7%** | 19.7% | **+8.0** |
-| α0 neutral CoT | 42.3% | 41.3% | +1.0 |
-| α+4 neutral | 33.0% | 33.7% | −0.7 |
-| α−4 neutral | 40.0% | 39.7% | +0.3 |
-
-（这里写成一个表格，不需要box分析）
-| role | 整体 acc | boxed 率 | 有 box 条件 acc | L1-2 | L3 | L4 | L5 |
-|---|---|---|---|---|---|---|---|
-| neutral | 35.7% | 84.3% | 41.9% | 69% | 44% | 34% | 21% |
-| expert | 20.0% | 59.3% | 30.3% | 57% | 35% | 12% | 14% |
-| non_expert | 19.0% | 53.3% | 27.5% | 46% | 34% | 15% | 16% |
-| math_expert | 21.0% | 63.3% | 29.5% | 50% | 38% | 20% | 13% |
 
