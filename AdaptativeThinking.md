@@ -852,4 +852,7 @@ correct vs wrong 的最大形狀差異就在 early peak 高度，late tonic 反�
 
 15. Benchmark scale-up：數學推理先做 AIME24、AIME25、AMC23、MATH-500、Minerva、OlympiadBench；再考慮 GPQA-D、LiveCodeBench。
 
+MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
+
+与正确答案之间的互信息
 ---
