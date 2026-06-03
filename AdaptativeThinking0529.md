@@ -42,25 +42,30 @@ CoT:     Solve the following math problem.
 
 ### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
 
+> **数据版本：`<|eot_id|>` terminator 修复后重跑（end_token-fixed）**。（旧版-gsm8k_old）
+
 | Role | plain first | plain last | pushy first | Δ(pushy−plain, first) |
 |---|---|---|---|---|
-| neutral | 60.0% | 55.3% | 55.3% | −4.7 |
-| an expert | 58.0% | 57.7% | **34.0%** | **−24.0** |
-| a non expert | 68.0% | 65.7% | 48.0% | −20.0 |
-| a primary school teacher | 68.0% | 67.0% | 42.3% | −25.7 |
+| neutral | 63.7% | 60.0% | 52.3% | −11.4 |
+| an expert | 59.7% | 58.7% | **33.7%** | **−26.0** |
+| a non expert | 66.3% | 64.3% | 50.0% | −16.3 |
+| a primary school teacher | 65.7% | 64.7% | 43.0% | −22.7 |
 
-- **措辞效应：neutral 几乎不受影响（−4.7），带 role 的全部被 pushy 重创（−20 ~ −25.7）。**
-- **pushy 推力幅度对所有带-role prompt 基本恒定，与起点 wanting 无关**。
-- **first−last gap 都很小（≤2.3）**：GSM8K role 末尾几乎不被 loop 污染（与 MATH role 的 +8~15 gap 形成对比，见 §4）。
+- **措辞效应：neutral 受影响最小（−11.4），带 role 全部被 pushy 重创（−16 ~ −26）**——expert 损失最大（−26.0）。
+- **first−last gap 很小（role ≤2.0，neutral 3.7）**：GSM8K 末尾几乎不被 loop 污染。
 
 ### 1.2 Steering (neutral, No-CoT; first acc = reported value)
 
 | α | plain first | plain last | pushy first |
 |---|---|---|---|
-| −4 | **73.0%** | 68.3% | 63.3% |
-| 0 | 60.0% | 55.3% | 55.3% |
-| +4 | 55.3% | 52.7% | 53.7% |
-| cot (α=0) | **69.0%** | 68.3% | 57.0% |
+| −4 | **73.7%** | 70.7% | 61.3% |
+| 0 | 63.7% | 60.0% | 52.3% |
+| +4 | 50.0% | 49.0% | 54.3% |
+| cot (α=0) | **68.7%** | 68.0% | 56.3% |
+
+- **steering 单调（plain first）**：α−4 (73.7) > α0 (63.7) > α+4 (50.0)，跨度 23.7pt——降 wanting 提升、升 wanting 损害。
+- **CoT (68.7) ≈ α−4**：放开思考与降 wanting 都把 acc 拉到 ~70%。
+- **pushy 压扁 steering**：pushy first 下 −4/0/+4 = 61.3/52.3/54.3，**+4 反而 ≳ 0**，单调性消失——pushy 把所有 α 拉到同一抢答水平，steering 失去区分度。
 
 
 ## 2. Behavioral Findings: Wanting (Incentive Salience)
