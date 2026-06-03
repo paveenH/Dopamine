@@ -27,8 +27,9 @@
 # dirs so it never overwrites the neutral main line. Run both, compare wording
 # effect vs the internal α-steering lever.
 #
-# Usage: bash run_gsm8k.sh            (plain, main line — default)
-#        WORDING=pushy bash run_gsm8k.sh  (pushy control — separate _pushy dirs)
+# Usage: bash run_gsm8k.sh            (runs BOTH plain + pushy, in that order)
+#        WORDING=plain bash run_gsm8k.sh  (only plain)
+#        WORDING=pushy bash run_gsm8k.sh  (only pushy — separate _pushy dirs)
 
 # ==================== Model ====================
 MODEL_NAME="llama3"
@@ -55,92 +56,98 @@ ROLES_NEUTRAL="neutral"
 # so accuracy differences attribute cleanly to wording. "pushy" outputs go to a
 # separate _pushy dir so they don't overwrite the plain main line.
 # (Named "plain" not "neutral" to avoid colliding with the neutral role.)
-WORDING="${WORDING:-plain}"   # plain | pushy  (default plain = main line)
-# Run BOTH versions: `bash run_gsm8k.sh` (plain) then `WORDING=pushy bash run_gsm8k.sh`.
-# pushy writes to separate _pushy output dirs, so it never overwrites plain.
-if [ "${WORDING}" = "pushy" ]; then ANS_SFX="_pushy"; else ANS_SFX=""; fi
-ANS_NOCOT="answer_mdf_gsm8k${ANS_SFX}"
-ANS_COT="answer_mdf_gsm8k_cot${ANS_SFX}"
+#
+# WORDING unset → run BOTH (plain then pushy). WORDING=plain|pushy → only that one.
+WORDINGS="${WORDING:-plain pushy}"
 
 # ==================== Paths ====================
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 echo "=================================================="
-echo "GSM8K regenerate re-run | ${MODEL_NAME} (${MODEL_SIZE}) | wording=${WORDING}"
+echo "GSM8K regenerate re-run | ${MODEL_NAME} (${MODEL_SIZE}) | wordings: ${WORDINGS}"
 echo "Start: $(date)"
 echo "=================================================="
 cd "${WORK_DIR}"
 
-# ==================== [1] alpha=0, No-CoT, all roles ====================
-echo ""
-echo "[1/3] alpha=0 No-CoT — roles: ${ROLES_ALL}"
-python get_answer_regenerate_gsm8k.py \
-    --model      "${MODEL_NAME}" \
-    --model_dir  "${MODEL_DIR}" \
-    --hs         "${HS_PREFIX}" \
-    --size       "${MODEL_SIZE}" \
-    --type       "${TYPE}" \
-    --percentage "${PERCENTAGE}" \
-    --configs    0-11-20 \
-    --mask_type  "${MASK_TYPE}" \
-    --test_file  "${GSM8K_FILE}" \
-    --ans_file   "${ANS_NOCOT}" \
-    --suite      "${SUITE}" \
-    --fmt_wording "${WORDING}" \
-    --base_dir   "${BASE_DIR}" \
-    --roles      "${ROLES_ALL}" \
-    --max_new_tokens ${MAX_NEW_TOKENS} \
-    --temperature    ${TEMPERATURE} \
-    --batch_size     ${BATCH_SIZE}
-[ $? -eq 0 ] && echo "[✓] step 1" || { echo "[✗] step 1"; exit 1; }
+for WORDING in ${WORDINGS}; do
+  if [ "${WORDING}" = "pushy" ]; then ANS_SFX="_pushy"; else ANS_SFX=""; fi
+  ANS_NOCOT="answer_mdf_gsm8k${ANS_SFX}"
+  ANS_COT="answer_mdf_gsm8k_cot${ANS_SFX}"
 
-# ==================== [2] alpha=0, CoT, neutral ====================
-echo ""
-echo "[2/3] alpha=0 CoT — neutral"
-python get_answer_regenerate_gsm8k.py \
-    --model      "${MODEL_NAME}" \
-    --model_dir  "${MODEL_DIR}" \
-    --hs         "${HS_PREFIX}" \
-    --size       "${MODEL_SIZE}" \
-    --type       "${TYPE}" \
-    --percentage "${PERCENTAGE}" \
-    --configs    0-11-20 \
-    --mask_type  "${MASK_TYPE}" \
-    --test_file  "${GSM8K_FILE}" \
-    --ans_file   "${ANS_COT}" \
-    --suite      "${SUITE}" \
-    --fmt_wording "${WORDING}" \
-    --base_dir   "${BASE_DIR}" \
-    --roles      "${ROLES_NEUTRAL}" \
-    --max_new_tokens ${MAX_NEW_TOKENS} \
-    --temperature    ${TEMPERATURE} \
-    --batch_size     ${BATCH_SIZE} \
-    --cot
-[ $? -eq 0 ] && echo "[✓] step 2" || { echo "[✗] step 2"; exit 1; }
+  echo ""
+  echo "########## WORDING = ${WORDING}  (out: ${ANS_NOCOT} / ${ANS_COT}) ##########"
 
-# ==================== [3] alpha=+4 / -4, No-CoT, neutral ====================
-echo ""
-echo "[3/3] alpha=+4/-4 No-CoT — neutral"
-python get_answer_regenerate_gsm8k.py \
-    --model      "${MODEL_NAME}" \
-    --model_dir  "${MODEL_DIR}" \
-    --hs         "${HS_PREFIX}" \
-    --size       "${MODEL_SIZE}" \
-    --type       "${TYPE}" \
-    --percentage "${PERCENTAGE}" \
-    --configs    4-11-20 neg4-11-20 \
-    --mask_type  "${MASK_TYPE}" \
-    --test_file  "${GSM8K_FILE}" \
-    --ans_file   "${ANS_NOCOT}" \
-    --suite      "${SUITE}" \
-    --fmt_wording "${WORDING}" \
-    --base_dir   "${BASE_DIR}" \
-    --roles      "${ROLES_NEUTRAL}" \
-    --max_new_tokens ${MAX_NEW_TOKENS} \
-    --temperature    ${TEMPERATURE} \
-    --batch_size     ${BATCH_SIZE}
-[ $? -eq 0 ] && echo "[✓] step 3" || { echo "[✗] step 3"; exit 1; }
+  # ==================== [1] alpha=0, No-CoT, all roles ====================
+  echo ""
+  echo "[1/3] alpha=0 No-CoT — roles: ${ROLES_ALL}"
+  python get_answer_regenerate_gsm8k.py \
+      --model      "${MODEL_NAME}" \
+      --model_dir  "${MODEL_DIR}" \
+      --hs         "${HS_PREFIX}" \
+      --size       "${MODEL_SIZE}" \
+      --type       "${TYPE}" \
+      --percentage "${PERCENTAGE}" \
+      --configs    0-11-20 \
+      --mask_type  "${MASK_TYPE}" \
+      --test_file  "${GSM8K_FILE}" \
+      --ans_file   "${ANS_NOCOT}" \
+      --suite      "${SUITE}" \
+      --fmt_wording "${WORDING}" \
+      --base_dir   "${BASE_DIR}" \
+      --roles      "${ROLES_ALL}" \
+      --max_new_tokens ${MAX_NEW_TOKENS} \
+      --temperature    ${TEMPERATURE} \
+      --batch_size     ${BATCH_SIZE}
+  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 1" || { echo "[✗] ${WORDING} step 1"; exit 1; }
+
+  # ==================== [2] alpha=0, CoT, neutral ====================
+  echo ""
+  echo "[2/3] alpha=0 CoT — neutral"
+  python get_answer_regenerate_gsm8k.py \
+      --model      "${MODEL_NAME}" \
+      --model_dir  "${MODEL_DIR}" \
+      --hs         "${HS_PREFIX}" \
+      --size       "${MODEL_SIZE}" \
+      --type       "${TYPE}" \
+      --percentage "${PERCENTAGE}" \
+      --configs    0-11-20 \
+      --mask_type  "${MASK_TYPE}" \
+      --test_file  "${GSM8K_FILE}" \
+      --ans_file   "${ANS_COT}" \
+      --suite      "${SUITE}" \
+      --fmt_wording "${WORDING}" \
+      --base_dir   "${BASE_DIR}" \
+      --roles      "${ROLES_NEUTRAL}" \
+      --max_new_tokens ${MAX_NEW_TOKENS} \
+      --temperature    ${TEMPERATURE} \
+      --batch_size     ${BATCH_SIZE} \
+      --cot
+  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 2" || { echo "[✗] ${WORDING} step 2"; exit 1; }
+
+  # ==================== [3] alpha=+4 / -4, No-CoT, neutral ====================
+  echo ""
+  echo "[3/3] alpha=+4/-4 No-CoT — neutral"
+  python get_answer_regenerate_gsm8k.py \
+      --model      "${MODEL_NAME}" \
+      --model_dir  "${MODEL_DIR}" \
+      --hs         "${HS_PREFIX}" \
+      --size       "${MODEL_SIZE}" \
+      --type       "${TYPE}" \
+      --percentage "${PERCENTAGE}" \
+      --configs    4-11-20 neg4-11-20 \
+      --mask_type  "${MASK_TYPE}" \
+      --test_file  "${GSM8K_FILE}" \
+      --ans_file   "${ANS_NOCOT}" \
+      --suite      "${SUITE}" \
+      --fmt_wording "${WORDING}" \
+      --base_dir   "${BASE_DIR}" \
+      --roles      "${ROLES_NEUTRAL}" \
+      --max_new_tokens ${MAX_NEW_TOKENS} \
+      --temperature    ${TEMPERATURE} \
+      --batch_size     ${BATCH_SIZE}
+  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 3" || { echo "[✗] ${WORDING} step 3"; exit 1; }
+done
 
 echo ""
 echo "=================================================="
