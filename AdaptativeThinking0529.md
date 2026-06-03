@@ -171,18 +171,19 @@ CoT:     Solve the following math problem.
 | **α steering** | +4↑ / −4↓ | +4 最多 | +4 最低 | 内部 |
 | **措辞** | pushy↑ / plain↓ | pushy 全面推高 | pushy 全降 | 外部 |
 
-**plain → pushy 各 role 变化**（α=0, No-CoT）—— 注意 `真错` 几乎不变、`锁错` 暴涨，证明 pushy 不让模型变笨、只逼它抢答锁错：
+**plain → pushy 各 role 变化**（α=0, No-CoT）—— **`真错`（算错）几乎不变、`锁错`（抢答害的）暴涨**，证明 pushy 不让模型变笨、只逼它抢答锁错：
 
 | Role | acc | 抢答% | loop | 真错(算错) | 锁错(抢答害的) |
 |---|---|---|---|---|---|
-| expert plain | 58% | 52% | 84 | 41 | 26 |
-| **expert pushy** | **34%** | **71%** | **136** | 39 | **90** |
-| non_exp plain | 68% | 34% | 62 | 29 | 20 |
-| non_exp pushy | 48% | 55% | 118 | 28 | 37 |
-| teacher plain | 68% | 42% | 45 | 32 | 25 |
-| teacher pushy | 42% | 59% | 99 | 27 | 65 |
+| expert plain | 59.7% | 30% | 123 | 54 | 67 |
+| **expert pushy** | **33.7%** | **42%** | 133 | 54 | **145** |
+| non_exp plain | 66.3% | 21% | 112 | 48 | 53 |
+| non_exp pushy | 50.0% | 22% | 146 | 47 | **103** |
+| teacher plain | 65.7% | 28% | 80 | 46 | 57 |
+| teacher pushy | 43.0% | 33% | 124 | 53 | **118** |
 
-> pushy + expert 叠加 → 抢答 71%、`####` 中位位置=0%（开头就抢答）、acc 崩至 34% → 外部措辞 × 内部 persona 两个同向杠杆叠加的极端点。
+- **铁证：真错几乎恒定（54→54 / 48→47 / 46→53），锁错近乎翻倍（67→145 / 53→103 / 57→118）。** pushy 把 acc 砸下来（−16~−26pt）靠的全是"抢答锁错"，不是让模型算不出题——印证 §2.1"改答案是单向破坏"。
+> pushy + expert 叠加 → 锁错 145（三组最高）、acc 崩至 33.7% → 外部措辞 × 内部 persona 两个同向杠杆叠加的极端点。
 
 ### 2.4 Identity-confirmation loop: persona modulates the semantic content of looping
 
