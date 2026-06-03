@@ -7,6 +7,7 @@
 5. ✅ 统一抽取/ACC 口径：所有准确率由 `RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，每条件报 first/last 双 acc。GSM8K 取首 ####（§2.1 改答案=单向破坏），MATH 原取末 boxed 被 role 复读 loop 污染、已改取首（§3，挽回 8~15pt）。
 3. MATH len = 2048 [running]
 4. Phase 1b 信號重跑 [running 需要确认准确率一致度]
+5. 补充+-4的结果
 
 
 ## 0. Template Update
