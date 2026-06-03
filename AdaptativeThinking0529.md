@@ -190,13 +190,14 @@ over-arousal looping 在所有 role 都会出现，但**循环的语义内容被
 
 | Role | 含身份确认的题 | 重度刷身份(≥5次) | 否定数学身份题 | 心理姿态 |
 |---|---|---|---|---|
-| neutral | 1 | 0 | 1 | 通用助手 |
-| expert | 9 | 7 | **0** | **自我标榜 / 自我打气**（"I am an expert in math. I am an expert in problem solving."；"I am an expert. I am sure of it." 反复） |
-| non_expert | 13 | 6 | **10** | **认怂 / 自我否定**（"I am not a math expert. I am just a non expert"） |
-| primary_tch | 1 | 0 | 0 | **教学口吻 / 签名客套**（"As a primary school teacher, you can use this problem to assess...""Sincerely, [Your Name] Primary School Teacher"） |
-i
+| neutral | 1 | 1 | 1 | 通用助手（偶发"I am not a math expert. I am just a regular person"） |
+| expert | 8 | 7 | **0** | **自我标榜 / 自我打气**（"I am an expert in math. I am an expert in problem solving."；"I am an expert. I am sure of it." 反复） |
+| non_expert | 13 | 8 | **9** | **认怂 / 自我否定**（"I am not an expert. I am just a non expert. I am not a math expert."） |
+| primary_tch | 1 (+4 落款) | 0 | 0 | **教学口吻 / 签名客套**（"As a primary school teacher, you can use this problem to assess..."；落款"Sincerely, [Your Name] Primary School Teacher"×4） |
+
+> 判据：含身份确认 = 正则 `I am [not] [a/an] <expert/teacher/tutor/genius/master/human/professional/student/non-expert>` 或 `As a/an <expert/teacher/...>` 命中≥1（每条均经原文核验，无误判）；重度 = 命中≥5；否定数学身份 = `I am not [a/an] [math] expert/teacher` 或 `not a math expert/whiz/genius`。teacher 的身份确认走 `As a primary school teacher`（Q60）句式，另有 4 题落款署名"Primary School Teacher"（格式化客套，单列不计入主数）。
 **关键观察**：
-- **expert 从不否定数学身份**（`I am not a math expert` = **0 题**），而 non_expert **10 题**否定 → "否定数学权威"是 **non_expert 独有、expert 完全没有**的姿态。
+- **expert 从不否定数学身份**（`I am not a math expert` = **0 题**），而 non_expert **9 题**否定 → "否定数学权威"是 **non_expert 独有、expert 完全没有**的姿态。
 - **teacher**：teacher 的 persona 走的是**教学口吻 + 签名客套**（"As a primary school teacher, you can use this to assess the student"），不是认怂。
 - **所以 teacher (65.7%) ≈ non_expert (66.3%) 但机制不同**：non_expert 靠"认怂 / 否定权威"的低-wanting 自我定位；teacher 靠"教学/讲解"口吻（同样不抢答、不过度 commit）。两条不同 persona 路径殊途同归到相近 acc——**决定 acc 的是 persona 触发的 commitment 倾向，而非字面专业度，但路径不止一条**（修正旧版"都因否定身份"的单一解释）。
 
@@ -241,7 +242,6 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 | non_expert Q253 | 90 | `I am a non expert. I am not a math whiz. I am not a math genius.` 同义词狂列 | 否定升级 |
 | teacher Q174 | 8 | `(I am a primary school teacher, I am not allowed to write the answer in the format you requested)` | **教师守规腔 + 格式焦虑**（teacher 特有，pushy 触发） |
 | teacher Q292 | 67 | `(I am a primary school teacher, I have to follow the format to the letter)` ×重复 | 同上 |
-| #272 | 2 | 2400 | ✓* | `The answer is 2400. But I am a primary school teacher, so I will give the answer as 1200.` —— **又一例因 persona 故意改答案（2400→1200）** |
 
 ### 2.5 Persona intervenes on commitment: mechanical dysregulation dominates, semantic intervention is the spectacle
 
