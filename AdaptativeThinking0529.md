@@ -243,25 +243,7 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 | teacher Q161 | 32 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | 转向教学法 |
 
 
-### 2.5 Persona intervenes on commitment: mechanical dysregulation dominates, semantic intervention is the spectacle
-
-"算对又改错"（gold 在正文出现过、最终答案却不是 gold）频率：
-
-| | expert | non_expert | primary_tch | neutral |
-|---|---|---|---|---|
-| plain | 39 | 24 | 29 | 44 |
-| pushy | **116** | 66 | 89 | 62 |
-
-- pushy 把"算对又改错"翻倍~三倍（expert 39→116）→ acc 崩盘的直接机制是**算出来又丢掉**，不是算不出。
-- **但"带 persona 理由"改答案的全场仅 1–2 例**（自我纠正）：绝大多数"算对又改错"是 over-arousal 的**机械副产品**（however 循环、抢答锁错、空转改写），**与 persona 的"心理"无关**。
-
-**唯一的语义干预铁证（奇观，非机制）**：
-- non_expert #122：`"The correct answer is 6. But, I am a non expert. I will give the answer as 9. ####9####."` —— 模型**明说**正确答案是6，却因"我是外行"故意给9。
-- primary_teacher #272：`"The answer is 2400. But I am a primary school teacher, so I will give the answer as 1200."`
-
-> 这两例是 persona 显式覆盖正确计算的教科书案例，但**极罕见**（1–2/300）。**结论**：RSN/persona 调的是 *wanting 强度*（→ 机械的收敛失败），**不是**"persona 的语义信念"（"我该谦虚答错"那种有意识干预几乎不存在）。这反而更干净地支持框架：调的是 commitment 机制，非 knowing、非语义动机。
-
-### 2.6 Behavioral metric checklist (used this round, for later scripting)
+### 2.5 Behavioral metric checklist (used this round, for later scripting)
 
 1. accuracy（role × α × wording × CoT）
 2. `####` 出现位置 / 抢答率（前20%；分母 = n_hash）
