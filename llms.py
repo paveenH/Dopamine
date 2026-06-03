@@ -84,6 +84,29 @@ class VicundaModel:
             self.model.resize_token_embeddings(len(self.tokenizer))
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "left"
+        self.terminators = self._build_terminators()
+
+    def _build_terminators(self) -> list[int]:
+        """Stop-token id list for generation.
+
+        Llama-3.x-Instruct ends each assistant turn with <|eot_id|> (128009),
+        NOT <|end_of_text|> (= tokenizer.eos_token, 128001). Passing only
+        eos_token_id means the model "wants to stop" (emits <|eot_id|>) but that
+        token is not a terminator, so decoding runs to max_new_tokens and the
+        tail degenerates into a repetition loop. Including <|eot_id|> lets the
+        chat-formatted model stop naturally. Harmless for non-chat models: the
+        token either is absent (skipped) or never generated.
+        """
+        ids = [self.tokenizer.eos_token_id]
+        for tok in ("<|eot_id|>", "<|end_of_turn|>"):
+            try:
+                tid = self.tokenizer.convert_tokens_to_ids(tok)
+            except Exception:
+                tid = None
+            unk = getattr(self.tokenizer, "unk_token_id", None)
+            if tid is not None and tid != unk and tid not in ids:
+                ids.append(tid)
+        return ids
 
     def _find_decoder_layers(self):
         """
@@ -619,7 +642,7 @@ class VicundaModel:
             temperature=temperature if do_sample else None,
             top_p=top_p if do_sample else None,
             use_cache=True,
-            eos_token_id=self.tokenizer.eos_token_id,
+            eos_token_id=self.terminators,
             pad_token_id=self.tokenizer.pad_token_id,
         )
         gen_ids = output_ids[0, prompt_len:]
@@ -661,7 +684,7 @@ class VicundaModel:
                 temperature=temperature_val,
                 use_cache=True,
                 top_p=top_p_val,
-                eos_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=self.terminators,
                 pad_token_id=self.tokenizer.pad_token_id,
             )
             for seq in output_ids:
@@ -877,7 +900,7 @@ class VicundaModel:
                     temperature=temperature_val,
                     use_cache=True,
                     top_p=top_p_val,
-                    eos_token_id=self.tokenizer.eos_token_id,
+                    eos_token_id=self.terminators,
                     pad_token_id=self.tokenizer.pad_token_id,
                 )
                 for seq in output_ids:
