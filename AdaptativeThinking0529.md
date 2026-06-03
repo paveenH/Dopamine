@@ -338,7 +338,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | math_expert | 79 | 27.0% | 5886 | 2 | 196 | 51 |
 
 - neutral 正常 1–2 个 boxed；**expert/non_expert 中位 6–7 个**——把同一段推理(或同一个 prompt 片段)反复重写，尾部堆叠大量 boxed。这正是 last-acc 暴跌、改坏 40+ 的来源。
-- 平均长度 role > neutral（+450~750 char），即 role 写得更长、更"放不下"——与 GSM8K §2 的 over-wanting 行为同向。
+- ⚠️ **boxed 数 / 长度不能直接当 over-wanting 代理**：neutral 也大量复读（见 §3.5 度量修正），长度差异（+450~750 char）是噪声级。**boxed 计数只反映"复读时是否带 boxed"**（expert/non_expert 的复读句含 `Step N: \boxed{}`，故 boxed 多；math_expert/neutral 的复读句不含 boxed，故计数低但一样长）。区分 role 的是复读**内容**（§3.5），不是数量。
 
 ### 3.3 Per-question 风格差异（role 怎么写崩的）
 
