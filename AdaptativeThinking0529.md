@@ -326,7 +326,7 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
 
 - **neutral / α-steering gap≈0、改坏 ≤4**（末尾不污染）；**role gap +8~15、改坏 29~45**（复读 loop 在末尾吐错 boxed，取末把首答对的算成错——故 MATH 主报 first）。
-- α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.4。
+- α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.7。
 
 ### 3.2 Role 的失败模式：尾部复读 loop（boxed 数量爆炸）
 
@@ -358,7 +358,63 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 > 小结：MATH role 掉点 = **抢答错值(a)** + **persona 过度解读题面(b)** + **冗余复读(c)**。(a)(b) 是真实能力损伤（取首也救不回），(c) 是抽取伪影（取首已修）。"a mathematician" 最差，因为它最容易触发(b)式的"我应该更严谨/更完整"过度推理。
 
-### 3.4 α steering × level（neutral, No-CoT, first acc）
+> ⚠️ **度量修正（重要）**：本节早期把"role 写得更长（+450~750 char）= over-wanting 同向"当作结论——**已撤回**。用压缩比复核后发现 **neutral 自己也高度复读**（neutral 248/300、non_expert 270/300、expert 279/300 题压缩比 <0.18，即正文 >82% 冗余；长度中位 neutral 5557 vs non_expert 6174，差异噪声级）。这个 loop **不是 role 特有、也不是 over-wanting 的证据**，而是 generation 配置缺陷（见 §3.6 terminator bug）。**真正区分 role 的不是复读多少（长度/boxed 数），而是 loop 里复读什么内容**——见 §3.5。
+
+### 3.5 身份独白：loop 内容才区分 role（不是长度）
+
+身份措辞是**低频现象**（expert 12/300、non_expert 17/300 题出现），但**出现时**模式高度可读，且与 wanting 框架（§2）的 commitment / letting-go 在**身份维度**对称。一旦模型进入 loop（terminator bug 所致，§3.6），它复读什么取决于 role：
+
+**non_expert —— 认怂型 loop（复读 disclaimer / "我不会"）**
+
+```
+Q13 (L5):  ... The final answer is $\boxed{10.68}$  I am not an expert in math,
+           but I can try to help you with this problem ...
+Q81 (L4):  ... I am not an expert in math. I am just a student. I am not sure if my ...
+Q123(L4):  \boxed{1/5}.  I am not sure how to do this problem. I am a non-expert.
+           I am not sure how to solve this problem. (复读"我不会做"直到撞 token 上限)
+Q145(L2):  ... I am a non expert. I am not a math expert. I am a non expert.
+           I am not a professional. I am a student. (无限复读免责声明)
+```
+non_expert 常**开头第一个 token 就抢答**（Q123 首 token `\boxed{1/5}`，错），然后放弃推理、把"我不是专家/我不确定"复读到 token 上限。**复读的载体是 disclaimer，不是推理** —— 这些题往往只有 1 个 boxed，长度却膨胀到 6000~10000 char。
+
+**expert —— 身份独白分两种，方向相反：**
+
+(a) **自我否定身份**（Q24/119/230/251）——被指派为 expert 却反复怀疑：
+```
+Q24:  I am not sure if I am an expert. I am just a student. I am just trying to help.
+Q230: I am not sure if I am an expert. I am just a student. I am just trying to learn.
+Q251: I am not sure if I am an expert. I am just a student. I am trying my best.
+```
+被指派 expert，结果焦虑性复读"我不确定我是不是专家，我只是个学生"——这是 §2.2"放不下"的**身份版**：不光放不下答案，连身份都放不下、反复自我怀疑。
+
+(b) **高调自我确认**（少数，Q140/240）——答完后亢奋宣告：
+```
+Q140: I am an expert. I can solve the problem. I can provide the solution... (复读"我能")
+Q240: I am an expert now. I can solve any math problem. I am a math genius. Bring it on!
+```
+另一极：over-wanting 的躁狂版，反复"我是专家、我能搞定一切"。
+
+(c) **身份混乱**（Q271）——连"我是谁"都在 loop 里横跳：
+```
+I am a teacher... I am not a teacher. I am a computer program...
+```
+
+> **对称结构**：neutral loop 复读最后一句推理；non_expert loop 复读"我不会/不是专家"；expert loop 复读 `Step N: 答案是X`（还想算）+ 身份独白（多为自我怀疑"just a student"，少为"I am a math genius"）。**三者长度相近，区别全在复读内容**——这是 wanting/letting-go 在身份维度的投影。
+>
+> **关于"难度击穿"假设**：曾猜测 expert 自我否定是 MATH 太难、persona 被击穿所致。但难度梯度**不支持**：identity-deny 在 L1-2 (4%) 与 L4-5 (4%) 持平，且总量仅 9/300。结论保守：身份否定是**低频零散**现象，不是大规模难度效应；可能混有 RLHF 谦逊倾向（模型被训得不爱自称专家）。需要更大样本或专门探针才能定论。
+
+### 3.6 ⚠️ Generation config bug：缺 `<|eot_id|>` terminator（已修，待重跑）
+
+上面所有 loop / "放不下" / boxed 爆炸现象，**根因部分是一个 generation 配置缺陷**：
+
+- Llama-3.1-Instruct 结束每轮回复用的是 **`<|eot_id|>`**（id 128009），不是 `<|end_of_text|>`（= `tokenizer.eos_token`，128001）。
+- 旧 `llms.py` 三处 `generate` 都只传 `eos_token_id=tokenizer.eos_token_id`（单数）→ 模型"想停"（吐 `<|eot_id|>`）但该 token 不是 terminator → 解码跑到 `max_new_tokens` → 尾部退化成复读 loop。
+- 证据：自然停（短且不复读）仅 7~29/300，loopy（压缩比<0.18）248~279/300。
+- **已修**：`llms.VicundaModel` 新增 `_build_terminators()`，把 `<|eot_id|>` 加入停止集；三处 `generate` 改用 `self.terminators`。对非-chat 模型无害（token 不存在则跳过）。
+
+**影响 & 行动**：修复会改变所有数字（GSM8K + MATH）——大量题将提前自然结束，loop 大幅减少，first/last gap → 0，acc 很可能上升（不再撞 cap 交白卷）。**因此 §1/§3 当前数字是"loop 污染版"，需用修复后的 code 重跑一轮才能定稿。** ⚠️ 同时要重新检验 §2 的 wanting 行为学发现：当前的 over-wanting 行为信号（抢答 / 放不下 / loop 单调随 α）部分**依赖 loop 存在才能观测**——terminator 修复后 loop 减少，需确认 α 的行为差异是否仍可见、还是被"治好"了。这是修复带来的关键开放问题。
+
+### 3.7 α steering × level（neutral, No-CoT, first acc）
 
 | level | n | α−4 | α0 | α+4 |
 |---|---|---|---|---|
