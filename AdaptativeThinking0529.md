@@ -2,13 +2,9 @@
 
 ---
 待驗證的事情：
-1. ✅ 重新整理近期GSM8K相關的code，重新備份一次code;
-2. ✅ 重新整理prompt，梳理结果 → **有行为学发现（§2 wanting/incentive salience：抢答、放不下、跨任务统一）**;
-5. ✅ 统一抽取/ACC 口径：所有准确率由 `RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，每条件报 first/last 双 acc。GSM8K 取首 ####（§2.1 改答案=单向破坏），MATH 原取末 boxed 被 role 复读 loop 污染、已改取首（§3，挽回 8~15pt）。
-3. ✅ MATH len = 2048 [分析完成]
-4. trajectory Phase 1b 信號重跑 [待确认结果]
-5. trajectory 补充+-4的结果
-
+4. trajectory signal + HS [end-token id -> running]
+5. Analylize gsm8k [eot] 
+6. Analylize math [eot] 
 
 ## 0. Template Update
 
