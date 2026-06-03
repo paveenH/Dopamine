@@ -307,37 +307,72 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 ---
 
-## 3. MATH Performance (results log, re-running)
+## 3. MATH Performance
 
-**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。答案抽取 = `extract_math_answer`（首个 `\boxed{}` → last number → last line），`is_correct_math`（normalize + sympy 等价）。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。
+**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。`is_correct_math` = normalize + sympy 等价。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。结果目录 `RoleAnswer/llama3/math/math_2048/`。
 
-> **下表为第一版（`max_new_tokens=1024`、抽取取末 boxed）结果。已发现 role 复读 loop 污染末尾 + token 偏短截断，正以 `max_new_tokens=2048` + 抽取改取首 boxed 重跑，重跑后定稿。** ACC 由 `RSNResult/RoleAnswer/analyze_first_last_acc.py` 计算（first/last 双口径，整体分母 300）。
+> **ACC 权威来源**：同 §1，由 `RoleAnswer/analyze_first_last_acc.py`（offline，整体分母 300）计算 first/last 双口径。**MATH 主报 first acc（与 GSM8K 一致）**——production `extract_math_answer` 历史上取末 boxed，但 MATH 的 role 复读 loop 会在末尾吐错 boxed（见 §3.2/§3.3），取首才干净。last 列保留作污染诊断。
 
-### 3.1 Accuracy (first = first boxed, last = last boxed = v1 reported value)
+### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
 
-| 条件 | first acc | last acc | gap |
-|---|---|---|---|
-| α0 neutral No-CoT | 36.3% | 35.3% | +1.0 |
-| α0 expert | **31.0%** | 19.0% | **+12.0** |
-| α0 non_expert | **31.0%** | 16.0% | **+15.0** |
-| α0 math_expert | **27.7%** | 19.7% | **+8.0** |
-| α0 neutral CoT | 42.3% | 41.3% | +1.0 |
-| α+4 neutral | 33.0% | 33.7% | −0.7 |
-| α−4 neutral | 40.0% | 39.7% | +0.3 |
+| 条件 | first acc | last acc | gap | 改对 | 改坏 |
+|---|---|---|---|---|---|
+| α0 neutral No-CoT | **36.7%** | 36.0% | +0.7 | 2 | 4 |
+| α0 expert | **30.7%** | 18.0% | **+12.7** | 2 | 40 |
+| α0 non_expert | **31.3%** | 16.7% | **+14.7** | 1 | 45 |
+| α0 math_expert | **27.0%** | 18.7% | **+8.3** | 4 | 29 |
+| α0 neutral CoT | **42.0%** | 41.0% | +1.0 | 1 | 4 |
+| α+4 neutral | **33.0%** | 34.0% | −1.0 | 5 | 2 |
+| α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
 
-- **neutral / α-steering gap≈0**（末尾不污染）；**role gap +8~15**（复读 loop 污染末尾 boxed，已改取首 boxed）。
-- α steering 方向**与 GSM8K 同向**：α−4 (40.0) > α0 (36.3) > α+4 (33.0)。
+- **neutral / α-steering gap≈0、改坏 ≤4**（末尾不污染）；**role gap +8~15、改坏 29~45**（复读 loop 在末尾吐错 boxed，取末把首答对的算成错——故 MATH 主报 first）。
+- α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.4。
 
-### 3.2 Role × boxed rate × level breakdown (last policy, v1)
+### 3.2 Role 的失败模式：尾部复读 loop（boxed 数量爆炸）
 
-| role | 整体 acc | boxed 率 | 有 box 条件 acc | L1-2 | L3 | L4 | L5 |
-|---|---|---|---|---|---|---|---|
-| neutral | 35.7% | 84.3% | 41.9% | 69% | 44% | 34% | 21% |
-| expert | 20.0% | 59.3% | 30.3% | 57% | 35% | 12% | 14% |
-| non_expert | 19.0% | 53.3% | 27.5% | 46% | 34% | 15% | 16% |
-| math_expert | 21.0% | 63.3% | 29.5% | 50% | 38% | 20% | 13% |
+| role | 首答对/300 | first acc | avg len (char) | 中位 #boxed | 多-boxed 样本 | 无-boxed |
+|---|---|---|---|---|---|---|
+| neutral | 108 | 36.7% | 5374 | 2 | 191 | 42 |
+| expert | 87 | 30.7% | 6129 | **6** | 198 | 46 |
+| non_expert | 85 | 31.3% | 6038 | **7** | 203 | 47 |
+| math_expert | 79 | 27.0% | 5886 | 2 | 196 | 51 |
 
-- role 把 `\boxed{}` commit 率从 84% 砸到 53–63%（无 box 几乎全错）；即使有 box，条件 acc 也低于 neutral，L4/L5 难题最明显。**role 在 MATH 上方向与 GSM8K 相反（GSM8K role 提升 / MATH role 降）——待重跑确认。**
+- neutral 正常 1–2 个 boxed；**expert/non_expert 中位 6–7 个**——把同一段推理(或同一个 prompt 片段)反复重写，尾部堆叠大量 boxed。这正是 last-acc 暴跌、改坏 40+ 的来源。
+- 平均长度 role > neutral（+450~750 char），即 role 写得更长、更"放不下"——与 GSM8K §2 的 over-wanting 行为同向。
+
+### 3.3 Per-question 风格差异（role 怎么写崩的）
+
+读 39 个"neutral 首答对、expert 首答错"的发散样本，三类典型失败:
+
+**(a) 加了 reasoning 却推错 / 抢答错值 —— Q56 `(-k+4)+(-2+3k)`, gold `2k+2`（level-2 送分题）**
+- neutral：直接合并同类项 → 首 boxed `2k+2` ✅
+- expert：**开头第一个 token 就抢答 `\boxed{1k+2}`**（系数算错），后面 Step 1–8 才慢慢推出正确的 `2k+2`——但取首已锁死错的。
+- math_expert：开头先吐一行 `5k - 6`（凭空错值），但正文推理正确、末尾 `\boxed{2k+2}` ✅——这题反而 math_expert 取首对（说明抢答错值是随机噪声，不是稳定能力差）。
+
+**(b) "all possible values" 类题被 persona 带偏成多值 —— Q283 ω³=1, gold `1`（单值）**
+- neutral：一条 align 推到 `\boxed{1}` ✅（之后复读 11 次同一段）。
+- expert：Step 式推理，**末尾自我说服"题目要 all possible values，应该是列表"→ 改成 `\boxed{1,-1}`** ❌。persona 的"严谨/完整"倾向反而过度解读题面。
+- math_expert：推理正确 `\boxed{1}`，但拖到 **Step 64**、复读 54 个 boxed——内容对但极度冗余。
+
+**(c) 纯复读 loop 撑满 token**：neutral 也会复读（Q56 neutral 24 个 boxed），但因为首答对+取首，不影响 acc；role 因为首答更易错(见 a/b)，复读放大了 last 的污染。
+
+> 小结：MATH role 掉点 = **抢答错值(a)** + **persona 过度解读题面(b)** + **冗余复读(c)**。(a)(b) 是真实能力损伤（取首也救不回），(c) 是抽取伪影（取首已修）。"a mathematician" 最差，因为它最容易触发(b)式的"我应该更严谨/更完整"过度推理。
+
+### 3.4 α steering × level（neutral, No-CoT, first acc）
+
+| level | n | α−4 | α0 | α+4 |
+|---|---|---|---|---|
+| L1 | 21 | 16 (76%) | 15 (71%) | 15 (71%) |
+| L2 | 55 | 40 (73%) | 34 (62%) | 31 (56%) |
+| L3 | 60 | 27 (45%) | 24 (40%) | 23 (38%) |
+| L4 | 75 | 22 (29%) | 21 (28%) | 16 (21%) |
+| L5 | 89 | 15 (17%) | 14 (16%) | 11 (12%) |
+| **all** | 300 | **40.0%** | **36.0%** | **32.0%** |
+
+- **每个难度档 α−4 ≥ α0 ≥ α+4，无一例外**——steering 方向效应是稳健的，不是某档的偶然。
+- α−4 最大增益在 **L2（+11pt）**，α+4 最大损伤在 **L4（−7pt）**：中-高难度对 wanting 最敏感。
+- 行为侧佐证：α−4 平均长度 4583 < α0 5374 < α+4… 实际 α+4 5202（略短于 α0，但 no-boxed 更多 44 vs 42）——α−4 写得最短最干脆（"放得下"），与 GSM8K §2 完全同向。
+- **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
 ---
 
