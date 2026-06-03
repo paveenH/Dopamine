@@ -412,6 +412,30 @@ I am a teacher... I am not a teacher. I am a computer program...
 - α−4 最大增益在 **L2（+11pt）**，α+4 最大损伤在 **L4（−7pt）**：中-高难度对 wanting 最敏感。
 - **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
+
+### 3.6 α+4 vs α−4 textual behavior on MATH (cross-task replication of §2 wanting)
+
+GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH（neutral, No-CoT）上**全部复现**——同一个 wanting 旋钮，换了任务出口（`####` → `\boxed{}`）仍是同样的行为方向。
+
+| 指标（neutral, No-CoT） | **α=−4** | α=0 | **α=+4** | 单调 | GSM8K §2.2 对照 |
+|---|---|---|---|---|---|
+| **first acc** | **40.0%** | 36.0% | 32.0% | ✓ 递减 | 同向（73/60/55） |
+| 抢答%（开头即数字/boxed） | **42%** | 45% | **64%** | ✓ 递增 | 同向（46/57/63） |
+| 首个 boxed 中位位置 | **21%**（最晚） | 14% | 16% | −4 最晚 | 同向（####越来越早） |
+| "放不下"措辞（题数 / 总词数） | **19 / 133** | 36 / 364 | **49 / 627** | ✓ 递增 | 同向（36/77/107 题） |
+| gen_len（中位 char） | **4798**（最短） | 5557 | **5719**（最长） | ✓ 递增 | 同向（短→长） |
+
+**逐题对照（α+4 放不下 vs α−4 放下）**——挑 `α+4 hold-phrase ≥3 且 α−4 ≤1` 的 22 题，典型：
+
+**Q275 (L2, gold=15 cm²，几何送分题)**
+- **α−4**：直接套 `A=½bh=½(10)(3)=15 cm²` ✓ 一步到位（之后机械复读同一句 24 次，但答案对、无自我怀疑）。
+- **α+4**：算出错值 21，然后陷入 **`"Sorry, I made an error in my previous response. The correct answer is 21. Here is the corrected response: \boxed{21}"` × 50 次** —— 反复"道歉-纠正-再道歉"，越纠越确信错值,**放不下**。
+
+**Q16 (L2, gold=−2+7i，复数旋转)**
+- **α−4**：Step 式推到 `\boxed{-2+7i}` ✓（尾部转去复读客套话 "Best regards, [Your Name]"，但答案锁对）。
+- **α+4**：先算出 `2-7i`（错，方向反了），然后 **`"Wait, that's not what we were looking for. We were looking for the answer in the format \boxed{answer}..."` × 114 次** —— 明明察觉"不对"，却把矛头错指到**格式**（而非数值），反复重贴同一个错值。这是 §2.2"纠结 `####` 格式"的 MATH 版（纠结 `\boxed{}` 格式）。
+
+
 ---
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
