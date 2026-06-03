@@ -27,7 +27,8 @@
 # dirs so it never overwrites the neutral main line. Run both, compare wording
 # effect vs the internal α-steering lever.
 #
-# Usage: bash run_gsm8k.sh   (flip WORDING= to run the control version)
+# Usage: bash run_gsm8k.sh            (plain, main line — default)
+#        WORDING=pushy bash run_gsm8k.sh  (pushy control — separate _pushy dirs)
 
 # ==================== Model ====================
 MODEL_NAME="llama3"
@@ -54,7 +55,9 @@ ROLES_NEUTRAL="neutral"
 # so accuracy differences attribute cleanly to wording. "pushy" outputs go to a
 # separate _pushy dir so they don't overwrite the plain main line.
 # (Named "plain" not "neutral" to avoid colliding with the neutral role.)
-WORDING="pushy"            # plain | pushy
+WORDING="${WORDING:-plain}"   # plain | pushy  (default plain = main line)
+# Run BOTH versions: `bash run_gsm8k.sh` (plain) then `WORDING=pushy bash run_gsm8k.sh`.
+# pushy writes to separate _pushy output dirs, so it never overwrites plain.
 if [ "${WORDING}" = "pushy" ]; then ANS_SFX="_pushy"; else ANS_SFX=""; fi
 ANS_NOCOT="answer_mdf_gsm8k${ANS_SFX}"
 ANS_COT="answer_mdf_gsm8k_cot${ANS_SFX}"
