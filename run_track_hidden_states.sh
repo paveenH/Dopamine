@@ -42,7 +42,9 @@ RUN_TAG="${RUN_TAG:-phase1b_plain}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
 # Default 6 = only the ±4 prefill-only steering runs (Run 6/7) on this machine;
 # the α=0 baselines (Run 1–5) were collected on another server. Set START_FROM=1
-# to (re)collect the full set here.
+# to (re)collect the full set here. Set START_FROM=8 to SKIP all HS collection
+# and only run the offline Step 2/3 extraction over the HDF5 already in H5_DIR
+# (use this after gathering all 7 files from multiple machines onto one host).
 START_FROM="${START_FROM:-6}"
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
