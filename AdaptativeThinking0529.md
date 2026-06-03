@@ -72,14 +72,12 @@ CoT:     Solve the following math problem.
 
 > **本节所有 acc / 五分类 / 行为指标以 first-`####` 为准**（取首个 `####`，= §1 上报值）。理由见 §2.1 末与 §1 ACC 权威来源说明：GSM8K"改答案"是单向破坏（改对=0），取首最优。
 
-**统一框架**：α 调节的内部变量是 **"wanting"（incentive salience）** —— 多巴胺驱动的动机性渴求（Berridge & Robinson 的 wanting≠liking 理论；ACL "digital dopamine" 主线）。wanting 是**上游动机状态**；它的**下游行为表现**是 commitment dynamics（"commitment to a choice"，ACL 引 dopamine 文献：将内部状态推过行动阈值、抑制 change-of-mind）。两端签名（细化自逐文本细读，见 §2.2）：
+**统一框架**：α 调节的内部变量是 **"wanting"（incentive salience）** —— 多巴胺驱动的动机性渴求（Berridge & Robinson 的 wanting≠liking 理论；ACL "digital dopamine" 主线）。wanting 是**上游动机状态**；它的**下游行为表现**是 commitment dynamics（"commitment to a choice"，ACL 引 dopamine 文献：将内部状态推过行动阈值、抑制 change-of-mind）。
 
 - **α=+4（high wanting / over-commit）** → 急于输出（**抢答**，没想清就答）+ 答完**放不下**（焦虑性反复确认、重算、纠结格式 → loop / 空转 / 不收敛）。
 - **α=−4（low wanting / 适度）** → 不急（**不抢答**、冷静条理）+ 算完**放下**（果断收口，不回头质疑）。
 
-> 术语层级：**wanting = 我们 steer 的内部旋钮（因）；commitment behavior = 我们测的行为（果）**。+4 的行为有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。"放不下"那层带语义性反复检查（**真 overthinking 成分**），不止机械空转——见 §2.2 修正。
-
-这统一了之前看似矛盾的跨任务现象（见 §2.2 末"跨任务统一"）：**同一个 wanting 旋钮，在判断题（MMLU-E）表现为"选不选 E"，在生成题（GSM8K）表现为"抢不抢答 / 放不放得下"** —— 任务给什么出口就从哪表达。下文 §2.1–2.3 的所有行为签名（抢答、loop、收口、放不下）都是这一旋钮（wanting）的不同行为侧面。
+> 术语层级：**wanting = 我们 steer 的内部旋钮（因）；commitment behavior = 我们测的行为（果）**。+4 的行为有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。
 
 ### 2.1 Where α−4's gain comes from: five-way breakdown (neutral, No-CoT, plain)
 
