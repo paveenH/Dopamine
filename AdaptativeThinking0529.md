@@ -245,19 +245,19 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 
 ### 2.5 Behavioral metric checklist (used this round, for later scripting)
 
-1. accuracy（role × α × wording × CoT）
+1. accuracy（role × α × wording × CoT）—— 权威口径 = `analyze_first_last_acc.py`（first-#### + fallback + norm），勿用内联 `pred_answer` 字段
 2. `####` 出现位置 / 抢答率（前20%；分母 = n_hash）
 3. n_hash / has#### / no####（commit 数量）
 4. 抽取来源分布（hash / answer-is / boxed / fallback / empty）
 5. 五分类（#### 对 / 锁错 / 真错 / 无#### 对 / 无#### 错）
 6. 截断率（结尾无终止标点 ≈ 撞 token 上限）
 7. 生成长度（gen_len，correct vs wrong）+ 等式数（真推理量）
-8. 机械重复 loop（最高重复句次数）
+8. 机械重复 loop（最高重复句次数；注：GSM8K loop 多为 `####N####N` 字符级，`<|eot_id|>` 修复未消除）
 9. check/verify 词频
 10. 改答案频率（候选序列去连续重复后的切换数）
-11. 算对又改错（gold 出现过但最终答案≠gold）+ 是否带 persona 理由
-12. 身份确认循环（自报角色 cue 词频 + 重度刷身份题数）
-13. **"放不下"措辞**（`this is not the answer` / `let's re-evaluate` / `to follow the format` / `however, the` / `wait,`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 36 / 0: 77 / +4: 107 题）。
+11. 算对又改错（gold 出现过但最终答案≠gold = 「锁错」）—— 查证：几乎全是机械丢弃，带 persona 理由 = 0 题
+12. 身份确认循环（自报角色 cue 词频 + 重度刷身份题数；判据含 `I am [not] a <id>` / `As a <id>`，逐条原文核验）
+13. **"放不下"措辞**（审计后词表：`however` / `this is not the answer` / `the format requires` / `not in the correct format` / `i made a mistake/error` / `let me recheck` / `let's re-evaluate`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 46 / 0: 88 / +4: 127 题）。
 14. 答完 `####` 后续写字符数 + 自然结束率（"还想不想说"，方向对但幅度弱）。
 
 > 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_eot/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_pushy_cot}/`（`<|eot_id|>` 修复版）。signal（NMD 投影）正用修复版重跑（`phase1b_eot`，见 §3/§4）。
