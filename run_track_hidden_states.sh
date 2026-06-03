@@ -38,14 +38,19 @@ WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 # Keep each expensive HS collection isolated. Override RUN_TAG explicitly for
 # a new replicate; set ALLOW_OVERWRITE=1 only when replacing that exact run.
-RUN_TAG="${RUN_TAG:-phase1b_plain}"
+#
+# RUN_TAG = phase1b_eot: FULL re-collection under the <|eot_id|> terminator fix
+# (llms._build_terminators). The earlier phase1b_plain HDF5 were generated with
+# the buggy single-eos config and are NOT comparable — kept only as reference,
+# not overwritten (new tag = new dir).
+RUN_TAG="${RUN_TAG:-phase1b_eot}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
-# Default 6 = only the ±4 prefill-only steering runs (Run 6/7) on this machine;
-# the α=0 baselines (Run 1–5) were collected on another server. Set START_FROM=1
-# to (re)collect the full set here. Set START_FROM=8 to SKIP all HS collection
-# and only run the offline Step 2/3 extraction over the HDF5 already in H5_DIR
-# (use this after gathering all 7 files from multiple machines onto one host).
-START_FROM="${START_FROM:-6}"
+# Default 1 = re-collect ALL 7 runs (5 α=0 baselines + ±4) on this machine with
+# the terminator fix. The generation path (vc.generate_one) inherits the fix via
+# self.terminators automatically — no code change to track_hidden_states.py.
+# Set START_FROM=8 to SKIP all HS collection and only run offline Step 2/3
+# extraction over HDF5 already in H5_DIR.
+START_FROM="${START_FROM:-1}"
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
 NMD_MASK="${MASK_DIR}/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
@@ -54,7 +59,7 @@ SIG_OUT="${BASE_DIR}/${MODEL_NAME}/signal/${RUN_TAG}"            # NMD signal + 
 RAND_OUT="${BASE_DIR}/${MODEL_NAME}_random/signal/${RUN_TAG}"    # random signal staging area
 
 echo "=================================================="
-echo "Phase 1b round 2: HS recording (5 runs, GSM8K)"
+echo "Phase 1b round 2: HS recording (7 runs, GSM8K, <|eot_id|> terminator fix)"
 echo "Model: ${MODEL_NAME} (${MODEL_SIZE}) | Middle layers: ${LAYER_START}-${LAYER_END}"
 echo "HS storage: middle [${LAYER_START},${LAYER_END}) + final layer = 10 stored layers"
 echo "Sanity mask: ${MASK_TYPE} (offline reanalysis can use any mask)"
