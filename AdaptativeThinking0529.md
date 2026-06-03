@@ -232,16 +232,16 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 | Q60 | 180 | `As a primary school teacher, you can use this problem to assess the student's understanding of basic arithmetic...` —— 转向教学法 |
 | Q88 | 4 | `Sincerely, [Your Name] Primary School Teacher. I hope it is correct. Thank you for your time.` —— 写信落款式客套 |
 
-**PUSHY α=0**（措辞强调格式 → 身份独白转向"格式焦虑"）
+**PUSHY α=0**（pushy = 措辞仅略强调"单一数字"，语气仍平实，见 §0；身份独白随 role 不同：expert 8→1 几乎消失，non_expert 13→13 保留，teacher 1→5 增多）
 
-| Role / Q | gold | 原文循环（实际文本） | 性质 |
+| Role / Q | gold | 身份独白（实际文本） | 性质 |
 |---|---|---|---|
-| expert Q81 | 14 | `(I am not allowed to give the answer in the required format) I am sorry. I am not allowed...` | pushy 把 expert 也逼成**格式焦虑 + 道歉**（不再自信） |
-| expert Q206 | 90 | `I am not sure what the correct answer is. I am just guessing.` | pushy 击穿专家自信 → 退缩 |
-| non_expert Q14 | 36 | `The answer is 60. I am a non expert. I am not a math expert.` ×反复 | 抢答错值 + 否定身份循环 |
-| non_expert Q253 | 90 | `I am a non expert. I am not a math whiz. I am not a math genius.` 同义词狂列 | 否定升级 |
-| teacher Q174 | 8 | `(I am a primary school teacher, I am not allowed to write the answer in the format you requested)` | **教师守规腔 + 格式焦虑**（teacher 特有，pushy 触发） |
-| teacher Q292 | 67 | `(I am a primary school teacher, I have to follow the format to the letter)` ×重复 | 同上 |
+| expert Q19 | 26 | `I am an expert. I hope it is correct. I am done. I hope it is correct. I tried my best.` | 标榜被"求正确"稀释（pushy 下 expert 几乎不再刷身份，仅 1 题） |
+| non_expert Q14 | 36 | `I am a non expert. I am not a math expert. I am a non expert. I am not a math expert.` ×反复 | 否定身份循环（与 plain 同，pushy 不改变） |
+| non_expert Q27 | 240 | `I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.` | 认输 + 道歉 |
+| teacher Q55 | 98 | `As a primary school teacher, I would guide the student through this problem by breaking it down...` | **教学独白**（以教师身份讲解，pushy 下 teacher 身份独白增多） |
+| teacher Q161 | 32 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | 转向教学法 |
+
 
 ### 2.5 Persona intervenes on commitment: mechanical dysregulation dominates, semantic intervention is the spectacle
 
