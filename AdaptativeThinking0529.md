@@ -260,7 +260,7 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 13. **"放不下"措辞**（`this is not the answer` / `let's re-evaluate` / `to follow the format` / `however, the` / `wait,`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 36 / 0: 77 / +4: 107 题）。
 14. 答完 `####` 后续写字符数 + 自然结束率（"还想不想说"，方向对但幅度弱）。
 
-> 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_new/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_cot_pushy}/`。signal（NMD 投影）仍为旧 layer-offset mask，**待重跑**（见 §3）。
+> 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_eot/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_cot_pushy}/`。signal（NMD 投影）仍为旧 layer-offset mask，**待重跑**（见 §3）。
 
 ---
 
