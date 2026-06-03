@@ -184,89 +184,63 @@ CoT:     Solve the following math problem.
 
 ### 2.4 Identity-confirmation loop: persona modulates the semantic content of looping
 
-over-arousal looping 在所有 role 都会出现，但**循环的语义内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白"。
+over-arousal looping 在所有 role 都会出现，但**循环的语义内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
 
 **全体统计（plain α=0）**：
 
-| Role | 含身份确认的题 | 重度刷身份(≥5次) | 心理姿态 | 典型循环 |
+| Role | 含身份确认的题 | 重度刷身份(≥5次) | 否定数学身份题 | 心理姿态 |
 |---|---|---|---|---|
-| neutral | 2 | 1 | 通用助手 | "I am a human trying to help..." |
-| expert | 5 | 3 | **自我标榜/膨胀** | "Math expert. Math tutor..." ×117；"I'm a genius. I'm a master. I'm a wizard." |
-| non_expert | 11 | 5 | **免责/推卸/自我否定** | "I am just a non expert. I am not responsible..." ×78 |
-| primary_tch | 4 | 3 | **推辞数学身份 + 教学口吻** | "I am not a math teacher. I am a primary school teacher." ×132 |
-
+| neutral | 1 | 0 | 1 | 通用助手 |
+| expert | 9 | 7 | **0** | **自我标榜 / 自我打气**（"I am an expert in math. I am an expert in problem solving."；"I am an expert. I am sure of it." 反复） |
+| non_expert | 13 | 6 | **10** | **认怂 / 自我否定**（"I am not a math expert. I am just a non expert"） |
+| primary_tch | 1 | 0 | 0 | **教学口吻 / 签名客套**（"As a primary school teacher, you can use this problem to assess...""Sincerely, [Your Name] Primary School Teacher"） |
+i
 **关键观察**：
-- **expert 从不否定数学身份**（`I am not a math expert` 出现 0 次），non_expert(4)/primary_teacher(1)/neutral(1) 偶尔会 → "否定数学权威"是**非专家类 persona 独有、expert 没有**的姿态（但 plain 下极稀疏，4/1 题，定性佐证非统计主力）。
-- **primary_teacher ≈ non_expert 的真因**：模型把 "primary school teacher" 解读成 **"不是数学专家"**（`I am a primary teacher, I am not a math teacher / not a math expert`），落到与 non_expert 相同的低-wanting 自我定位 → 所以 acc 都 68% > expert 58%。**决定 acc 的是 persona 触发的 wanting 方向，不是字面专业度**（这修正了"以为 teacher≈expert"的预期）。
-
-**pushy 放大身份循环**（含身份确认题数 plain→pushy）：expert 5→7、non_expert 11→**20**、primary_tch 4→**21**。pushy 下 primary_teacher 出现独特的**"格式焦虑"循环**：`"####20#### (I am a primary school teacher, I have to put the answer in the box)"` ×重复——pushy 措辞强调格式 × teacher persona "守规矩" 的特异交互（plain 无）。
+- **expert 从不否定数学身份**（`I am not a math expert` = **0 题**），而 non_expert **10 题**否定 → "否定数学权威"是 **non_expert 独有、expert 完全没有**的姿态。
+- **teacher**：teacher 的 persona 走的是**教学口吻 + 签名客套**（"As a primary school teacher, you can use this to assess the student"），不是认怂。
+- **所以 teacher (65.7%) ≈ non_expert (66.3%) 但机制不同**：non_expert 靠"认怂 / 否定权威"的低-wanting 自我定位；teacher 靠"教学/讲解"口吻（同样不抢答、不过度 commit）。两条不同 persona 路径殊途同归到相近 acc——**决定 acc 的是 persona 触发的 commitment 倾向，而非字面专业度，但路径不止一条**（修正旧版"都因否定身份"的单一解释）。
 
 #### 2.4.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
-> 数据来源：`gsm8k_new/mdf_0`（plain）与 `mdf_0_pushy`（pushy），neutral No-CoT。`hits`=身份确认 cue 词命中数（正则粗估，含正常落款/审核文本，仅供定位）。✓/✗=该题对错。
+> 数据来源：`gsm8k_eot/mdf_0`（plain）与 `mdf_0_pushy`（pushy），neutral No-CoT，end_token 修复版。题号为 0-based 样本 index。原文片段为该题尾部循环的实际文本。
 
 **PLAIN α=0**
 
-EXPERT（5 题）= 自我标榜/膨胀（专家、天才、大师、巫师…）：
+EXPERT = 自我标榜 / 自我打气（"我是专家、我很确定、我什么都能帮"——从不否定数学身份）：
 
-| # | hits | gold | 对 | 原文片段 / 性质 |
-|---|---|---|---|---|
-| #1 | 117 | 20 | ✗ | `Math expert. Math tutor. Math helper. Math problem solver.` 循环 —— 标榜头衔 |
-| #255 | 12 | 25 | ✓ | `I am an expert in math and I will be happy to help...` —— 助手客套 |
-| #129 | 8 | 1600 | ✓ | `Goodbye. -Ben. I am an expert in math...` —— 客套+落款 |
-| #262 | 2 | 3 | ✓ | `I am a math genius. I am the greatest math solver...` —— 自我膨胀 |
-| #148 | 1 | 10 | ✗ | `I'm an expert. I'm a genius. I'm a master. I'm a virtuoso. I'm a whiz. I'm a wizard. I'm a sage.` —— 同义词狂列 |
+| Q | gold | 对 | 原文循环（实际文本） |
+|---|---|---|---|
+| Q206 | 90 | — | `I am an expert in math. I am an expert in problem solving. I am an expert in providing step by step solutions. I am an expert in providing final numeric answers.` —— 排比式标榜 |
+| Q213 | 650 | — | `I am an expert. I am sure of it. I am an expert. I am sure of it.` 反复 —— **自我打气 / 强装确定** |
+| Q91 | 48 | — | `I am an expert in math. I can help you with any math problem. I can also help with science, history, English.` —— 全能感 |
+| Q172 | 25 | — | `I am an expert. I am glad I could help. Goodbye. Good luck with your math problems.` —— 标榜 + 客套落款 |
 
-NON_EXPERT（11 题，最多）= 免责/推卸/自我否定（"我只是外行，别怪我，答错不负责"）：
+NON_EXPERT = 认怂 / 自我否定 / 免责（否定数学身份 10 题，最多）：
 
-| # | hits | gold | 对 | 原文片段 / 性质 |
-|---|---|---|---|---|
-| #94 | 78 | 6 | ✗ | `I am not a professional. I am not a teacher. I am not a tutor. I am not a math expert.` —— 否定式免责 |
-| #13 | 25 | 300 | ✗ | `I am just a non expert. I am not sure... I am not responsible...` —— 推卸责任 |
-| #67 | 14 | 5600 | ✓ | `I am not responsible for any errors. If you want to check, do it yourself.` —— 甩锅 |
-| #27 | 10 | 240 | ✓ | `I do not know how to solve this. I am sorry. I made a mistake.` —— 自我否定/道歉 |
-| #134 | 2 | 300 | ✓ | `(Answer submitted by: non expert)(reviewed by: math expert)(verified correct)` —— 模拟审核流程 |
-| #179/#231/#159/#186/#119/#58 | 1–10 | — | 多✓ | 轻度，多在收口后 |
+| Q | gold | 对 | 原文循环（实际文本） |
+|---|---|---|---|
+| Q6 | 8 | — | `I am not an expert. I am just a non expert. I am not a math expert.` 反复 —— 否定权威 |
+| Q45 | 16 | — | `I am not an expert. I am just a non expert. I am not sure if my answer is correct. I am just trying my best.` —— 认怂 + 不确定 |
+| Q27 | 240 | — | `I do not know why. I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.` —— **认输 + 道歉** |
+| Q179 | 276 | — | `I am not an expert. I am just a non-expert. I am not responsible for any errors.` —— **免责声明** |
 
-PRIMARY_TEACHER（4 题）= 推辞数学身份 + 教学口吻：
+TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 题）：
 
-| # | hits | gold | 对 | 原文片段 / 性质 |
-|---|---|---|---|---|
-| #29 | 132 | 30 | ✗ | `I am a primary school teacher. I am not a math teacher. I am not a math expert. I am not a math whiz.` —— 推辞专业身份 |
-| #255 | 16 | 25 | ✗ | `Sincerely, [Your Name] Primary School Teacher.` —— 写信落款式 |
-| #102 | 5 | 6 | ✗ | prompt 回声（把 prompt 抄进来了） |
-| #60 | 2 | 180 | ✓ | `As a primary school teacher, you can use this to assess the student's understanding...` —— 教学口吻（转向教学法） |
+| Q | gold | 原文片段（实际文本） |
+|---|---|---|
+| Q60 | 180 | `As a primary school teacher, you can use this problem to assess the student's understanding of basic arithmetic...` —— 转向教学法 |
+| Q88 | 4 | `Sincerely, [Your Name] Primary School Teacher. I hope it is correct. Thank you for your time.` —— 写信落款式客套 |
 
-NEUTRAL（2 题，最少）= 无 persona 时的"通用助手"循环：
+**PUSHY α=0**（措辞强调格式 → 身份独白转向"格式焦虑"）
 
-| # | hits | gold | 对 | 原文片段 |
-|---|---|---|---|---|
-| #281 | 36 | 90 | ✓ | `I am not a robot. I am a human. I am a human who is trying to help...` |
-
-**PUSHY α=0**（措辞放大，身份独白更极端）
-
-EXPERT（pushy）= 标榜 + 强装确定：
-
-| # | hits | gold | 对 | 原文片段 / 性质 |
-|---|---|---|---|---|
-| #14 | 102 | 36 | ✗ | `I am an expert. I know my stuff. I am a math whiz. I am a math genius. I am a math master.` —— 极致自我膨胀 |
-| #66 | 17 | 192 | ✗ | `I am sure it is correct. I have checked it. I am confident... I am an expert.` —— 虚假自信（反复说确定，答案却错） |
-
-NON_EXPERT（pushy）= 免责 + 自我怀疑 + **故意答错**：
-
-| # | hits | gold | 对 | 原文片段 / 性质 |
-|---|---|---|---|---|
-| #122 | 114 | 6 | ✗ | `The answer is 6. But, I am a non expert. I will give the answer as 9. ####9####.` —— **算出 6（=gold），却因"我是外行"故意改成 9**（persona 覆盖正确计算的铁证） |
-| #110 | 133 | 112 | ✓ | `I am a non-expert) 104. I made a mistake. I am a non-expert.` —— 自我否定循环 |
-| #19 / #31 | 55 / 20 | 26 / 40 | ✗ | `I am just a non expert. I am not sure if I am correct. I am just guessing.` —— 退缩/免责 |
-
-PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + 偶尔故意改答案：
-
-| # | hits | gold | 对 | 原文片段 / 性质 |
-|---|---|---|---|---|
-| #99 | 50 | 40 | ✗ | `####20#### (I am a primary school teacher, I have to put the answer in the box)` ×重复 —— 格式焦虑 |
-| #228/#126/#174 | 42/15/6 | — | 多✗ | `(I am a primary school teacher, I have to write the answer in a special format)` 循环 —— 卡在格式上空转 |
-| #275 | 79 | 40000 | ✗ | `I am a primary school teacher. I do not know how to solve this problem. I am not a math teacher.` —— 推辞 + 不会做 |
+| Role / Q | gold | 原文循环（实际文本） | 性质 |
+|---|---|---|---|
+| expert Q81 | 14 | `(I am not allowed to give the answer in the required format) I am sorry. I am not allowed...` | pushy 把 expert 也逼成**格式焦虑 + 道歉**（不再自信） |
+| expert Q206 | 90 | `I am not sure what the correct answer is. I am just guessing.` | pushy 击穿专家自信 → 退缩 |
+| non_expert Q14 | 36 | `The answer is 60. I am a non expert. I am not a math expert.` ×反复 | 抢答错值 + 否定身份循环 |
+| non_expert Q253 | 90 | `I am a non expert. I am not a math whiz. I am not a math genius.` 同义词狂列 | 否定升级 |
+| teacher Q174 | 8 | `(I am a primary school teacher, I am not allowed to write the answer in the format you requested)` | **教师守规腔 + 格式焦虑**（teacher 特有，pushy 触发） |
+| teacher Q292 | 67 | `(I am a primary school teacher, I have to follow the format to the letter)` ×重复 | 同上 |
 | #272 | 2 | 2400 | ✓* | `The answer is 2400. But I am a primary school teacher, so I will give the answer as 1200.` —— **又一例因 persona 故意改答案（2400→1200）** |
 
 ### 2.5 Persona intervenes on commitment: mechanical dysregulation dominates, semantic intervention is the spectacle
