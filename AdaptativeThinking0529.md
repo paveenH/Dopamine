@@ -326,9 +326,9 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
 
 - **neutral / α-steering gap≈0、改坏 ≤4**（末尾不污染）；**role gap +8~15、改坏 29~45**（复读 loop 在末尾吐错 boxed，取末把首答对的算成错——故 MATH 主报 first）。
-- α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.7。
+- α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.6。
 
-### 3.2 Role 的失败模式：尾部复读 loop（boxed 数量爆炸）
+### 3.2 Role failure mode: trailing repetition loop (boxed-count explosion)
 
 | role | 首答对/300 | first acc | avg len (char) | 中位 #boxed | 多-boxed 样本 | 无-boxed |
 |---|---|---|---|---|---|---|
@@ -338,9 +338,9 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 | math_expert | 79 | 27.0% | 5886 | 2 | 196 | 51 |
 
 - neutral 正常 1–2 个 boxed；**expert/non_expert 中位 6–7 个**——把同一段推理(或同一个 prompt 片段)反复重写，尾部堆叠大量 boxed。这正是 last-acc 暴跌、改坏 40+ 的来源。
-- ⚠️ **boxed 数 / 长度不能直接当 over-wanting 代理**：neutral 也大量复读（见 §3.5 度量修正），长度差异（+450~750 char）是噪声级。**boxed 计数只反映"复读时是否带 boxed"**（expert/non_expert 的复读句含 `Step N: \boxed{}`，故 boxed 多；math_expert/neutral 的复读句不含 boxed，故计数低但一样长）。区分 role 的是复读**内容**（§3.5），不是数量。
+- ⚠️ **boxed 数 / 长度不能直接当 over-wanting 代理**：neutral 也大量复读（见 §3.4 度量修正），长度差异（+450~750 char）是噪声级。**boxed 计数只反映"复读时是否带 boxed"**（expert/non_expert 的复读句含 `Step N: \boxed{}`，故 boxed 多；math_expert/neutral 的复读句不含 boxed，故计数低但一样长）。区分 role 的是复读**内容**（§3.4），不是数量。
 
-### 3.3 Per-question 风格差异（role 怎么写崩的）
+### 3.3 Per-question style differences (how each role breaks down)
 
 读 39 个"neutral 首答对、expert 首答错"的发散样本，三类典型失败:
 
@@ -358,11 +358,11 @@ PRIMARY_TEACHER（pushy）= **格式焦虑**（独特）+ 推辞数学身份 + �
 
 > 小结：MATH role 掉点 = **抢答错值(a)** + **persona 过度解读题面(b)** + **冗余复读(c)**。(a)(b) 是真实能力损伤（取首也救不回），(c) 是抽取伪影（取首已修）。"a mathematician" 最差，因为它最容易触发(b)式的"我应该更严谨/更完整"过度推理。
 
-> ⚠️ **度量修正（重要）**：本节早期把"role 写得更长（+450~750 char）= over-wanting 同向"当作结论——**已撤回**。用压缩比复核后发现 **neutral 自己也高度复读**（neutral 248/300、non_expert 270/300、expert 279/300 题压缩比 <0.18，即正文 >82% 冗余；长度中位 neutral 5557 vs non_expert 6174，差异噪声级）。这个 loop **不是 role 特有、也不是 over-wanting 的证据**，而是 generation 配置缺陷（见 §3.6 terminator bug）。**真正区分 role 的不是复读多少（长度/boxed 数），而是 loop 里复读什么内容**——见 §3.5。
+> ⚠️ **度量修正（重要）**：本节早期把"role 写得更长（+450~750 char）= over-wanting 同向"当作结论——**已撤回**。用压缩比复核后发现 **neutral 自己也高度复读**（neutral 248/300、non_expert 270/300、expert 279/300 题压缩比 <0.18，即正文 >82% 冗余；长度中位 neutral 5557 vs non_expert 6174，差异噪声级）。这个 loop **不是 role 特有、也不是 over-wanting 的证据**，而是 generation 配置缺陷（见 §3.5 terminator bug）。**真正区分 role 的不是复读多少（长度/boxed 数），而是 loop 里复读什么内容**——见 §3.4。
 
-### 3.5 身份独白：loop 内容才区分 role（不是长度）
+### 3.4 Identity monologue: loop content (not length) is what distinguishes roles
 
-身份措辞是**低频现象**（expert 12/300、non_expert 17/300 题出现），但**出现时**模式高度可读，且与 wanting 框架（§2）的 commitment / letting-go 在**身份维度**对称。一旦模型进入 loop（terminator bug 所致，§3.6），它复读什么取决于 role：
+身份措辞是**低频现象**（expert 12/300、non_expert 17/300 题出现），但**出现时**模式高度可读，且与 wanting 框架（§2）的 commitment / letting-go 在**身份维度**对称。一旦模型进入 loop（terminator bug 所致，§3.5），它复读什么取决于 role：
 
 **non_expert —— 认怂型 loop（复读 disclaimer / "我不会"）**
 
@@ -403,7 +403,7 @@ I am a teacher... I am not a teacher. I am a computer program...
 >
 > **关于"难度击穿"假设**：曾猜测 expert 自我否定是 MATH 太难、persona 被击穿所致。但难度梯度**不支持**：identity-deny 在 L1-2 (4%) 与 L4-5 (4%) 持平，且总量仅 9/300。结论保守：身份否定是**低频零散**现象，不是大规模难度效应；可能混有 RLHF 谦逊倾向（模型被训得不爱自称专家）。需要更大样本或专门探针才能定论。
 
-### 3.6 ⚠️ Generation config bug：缺 `<|eot_id|>` terminator（已修，待重跑）
+### 3.5 ⚠️ Generation config bug: missing `<|eot_id|>` terminator (fixed, re-run pending)
 
 上面所有 loop / "放不下" / boxed 爆炸现象，**根因部分是一个 generation 配置缺陷**：
 
@@ -414,7 +414,7 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 **影响 & 行动**：修复会改变所有数字（GSM8K + MATH）——大量题将提前自然结束，loop 大幅减少，first/last gap → 0，acc 很可能上升（不再撞 cap 交白卷）。**因此 §1/§3 当前数字是"loop 污染版"，需用修复后的 code 重跑一轮才能定稿。** ⚠️ 同时要重新检验 §2 的 wanting 行为学发现：当前的 over-wanting 行为信号（抢答 / 放不下 / loop 单调随 α）部分**依赖 loop 存在才能观测**——terminator 修复后 loop 减少，需确认 α 的行为差异是否仍可见、还是被"治好"了。这是修复带来的关键开放问题。
 
-### 3.7 α steering × level（neutral, No-CoT, first acc）
+### 3.6 α steering × level (neutral, No-CoT, first acc)
 
 | level | n | α−4 | α0 | α+4 |
 |---|---|---|---|---|
