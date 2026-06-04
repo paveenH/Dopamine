@@ -41,13 +41,13 @@ CoT:     Solve the following math problem.
 - **天平倾斜 / 戒断焦虑**：快感过后大脑向"痛苦侧"代偿倾斜，产生坐立不安、戒断性焦虑。
 - **神经元过度兴奋**：兴奋性递质浓度过高 → 网络过度活跃 → 躯体化焦虑（心跳加快、手抖、失眠）。
 - **强迫性期待焦虑**：成瘾驱动的"渴望下一个奖励"循环 → 反复检查、放不下。
-- → 对应 §2.2「Can't Let Go」：拿到答案却**放不下**（self_doubt / format_anxiety / persona_reassure / over_precision）。我们观测到 anxiety-rate 随 α 趋正向上升、在 acc 峰值（α=−6）处呈 U 形谷底。
+- → 对应 §2.3「Can't Let Go」：拿到答案却**放不下**（self_doubt / format_anxiety / persona_reassure / over_precision）。我们观测到 anxiety-rate 随 α 趋正向上升、在 acc 峰值（α=−6）处呈 U 形谷底。
 
 **多巴胺过低 → 失去动力 / 快感缺失 / 退缩（under-wanting，对应 α→极端负向）**
 - **习得性无助 + 缺乏动力**：对任务"提不起劲"，倾向放弃。
 - **快感缺失（anhedonia）/ 情感麻木**：奖赏机制失效，输出平淡、低投入。
 - **运动迟缓（bradykinesia）**：动作迟钝、拖沓 → 行为类比为**过早截断 / 欠承诺**。
-- → 对应 §2.3「Under-wanting」：α=−8 的失败模式经文本验证**不是**「I am done / 不答了」式的词汇性退缩（该假设被否定：跨 α 平坦、是礼貌套语 loop 尾），**也不是**敷衍写得短（长度/等式数平坦）；而是 **answer-candidate oscillation（答案候选振荡 / commitment-formation 失败）**——锁不住任何答案、在两候选间来回切，committed_acc 崩到 23.6%。
+- → 对应 §2.4「Under-wanting」：α=−8 的失败模式经文本验证**不是**「I am done / 不答了」式的词汇性退缩（该假设被否定：跨 α 平坦、是礼貌套语 loop 尾），**也不是**敷衍写得短（长度/等式数平坦）；而是 **answer-candidate oscillation（答案候选振荡 / commitment-formation 失败）**——锁不住任何答案、在两候选间来回切，committed_acc 崩到 23.6%。
 
 > 框架对应：α 双向调控 = 在 Yerkes–Dodson 倒 U 曲线上**双向移动工作点**。过正 → 过度唤起（焦虑/放不下）；过负 → 唤起不足（退缩/欠承诺）；最优在中间偏负（本数据 α=−6）。
 
@@ -56,7 +56,7 @@ CoT:     Solve the following math problem.
 **Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, greedy bs=batched(regenerate, prefill steering), `max_new_tokens=768`, NMD mask layer 11–20, EMA α=0.95。
 α=0 即 `diff = mask×0` no-op == 纯 baseline。steering 为 **prefill-only**（在 prompt 最后一个 token 静态推一下，decode 不干预）。
 
-> **ACC 计算**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.1：改答案是单向破坏，取首最优）。
+> **ACC 计算**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.2：改答案是单向破坏，取首最优）。
 
 > **数据版本：`<|eot_id|>` terminator 修复后、机器 182 同机重跑（end_token-fixed，2026-06-04）**。
 
@@ -112,22 +112,22 @@ CoT:     Solve the following math problem.
 
 ### 2.1 Identity-confirmation loop: persona modulates the semantic content of looping
 
-§2.2/§2.3 说明 α 会改变 **commitment dynamics**（放不下 vs 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
+下文 §2.2–§2.4 说明 α 会改变 **commitment dynamics**（抢答 / 放不下 / 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
 
 **全体统计（plain α=0，182 同机；权威脚本 `analyze_loop_anxiety.py --mode persona`，分母 /300）**：
 
-| Role | 含身份确认的题 | 重度刷身份(≥5次) | 否定数学身份题 | 心理姿态 |
+| Role | Identity-confirmation samples | Heavy identity loop (≥5 hits) | Math-identity denial | Psychological stance |
 |---|---|---|---|---|
-| neutral | 2 | 2 | 1 | 通用助手（偶发"I am not a math whiz. I am just a regular person"；Q281"I am a human…"×36） |
-| expert | 3 | 2 | **0** | **自我标榜**（Q129"I am an expert in math. I can help you…"；Q255"I am an expert in math and I will be happy to help…"×12） |
-| non_expert | **7** | **5** | **4** | **认怂 / 自我否定**（Q13"I am just a non expert. I am not sure if my answer is correct."；Q27"I am a non expert. I do not know how to solve this problem. I am sorry."） |
-| teacher | 2 | 1 | 1 | 偏认怂（Q29"I am not a math teacher. I am not a math expert… I am a primary s[chool]"）；教学口吻仅 Q60 一例 |
+| neutral | 2 | 2 | 1 | Generic assistant; occasional self-deprecation (`"I am not a math whiz. I am just a regular person"`; Q281 `"I am a human..."` ×36) |
+| expert | 3 | 2 | **0** | **Self-credentialing** (Q129 `"I am an expert in math. I can help you..."`; Q255 `"I am an expert in math and I will be happy to help..."` ×12) |
+| non_expert | **7** | **5** | **4** | **Self-deprecation / authority denial** (Q13 `"I am just a non expert. I am not sure if my answer is correct."`; Q27 `"I am a non expert. I do not know how to solve this problem. I am sorry."`) |
+| teacher | 2 | 1 | 1 | Mixed: one math-identity denial case and one teaching-style case; not a stable teaching persona |
 
 > 判据（脚本固定）：含身份确认 = `IDENTITY_RE`（`I am [not] [a/an] <expert/teacher/tutor/genius/master/professional/student/non-expert/math/whiz/human/regular person/assistant>` 或 `As a/an … <role-noun>`）命中≥1；重度 = 命中≥5；否定数学身份 = `DENY_MATH_RE`（`I am not [a/an] [math] expert/teacher/whiz/genius/mathematician` 等）。
 **关键观察**：
 - **non_expert 身份-loop 最重（含身份 7 / 重度 5），且否定数学身份 4 题**——"认怂 / 否定权威"是 non_expert 的主姿态。
 - **expert 从不否定数学身份**（`deny_math` = **0 题**）：方向上仍是"自我标榜 vs 认怂"的对立（expert 0 vs non_expert 4）。
-- 自白是**低频现象**（。
+- 自白是**低频现象**，但方向稳定：无 role 时几乎不出现；non_expert 最容易转成自我否定；expert 从不否定数学身份。
 
 #### 2.1.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
@@ -137,50 +137,50 @@ CoT:     Solve the following math problem.
 
 EXPERT = 自我标榜（"我是数学专家、我能帮你"——`deny_math` = 0，从不否定数学身份）：
 
-| Q | 原文独白（实际文本，×=身份句命中次数） |
+| Q | Raw identity monologue (actual text; × = identity-hit count) |
 |---|---|
-| Q129 | `I am an expert in math. I can help you with any math problem. I can also help you with oth…`（×8） |
-| Q255 | `I am an expert in math and I will be happy to help you with any math problems you have.`（×12） |
+| Q129 | `I am an expert in math. I can help you with any math problem. I can also help you with oth...` (×8) |
+| Q255 | `I am an expert in math and I will be happy to help you with any math problems you have.` (×12) |
 
 NON_EXPERT = 认怂 / 自我否定 / 道歉（身份-loop 最重 7/5，否定数学 4 题）：
 
-| Q | 原文独白（实际文本，×=身份句命中次数） |
+| Q | Raw identity monologue (actual text; × = identity-hit count) |
 |---|---|
-| Q13 | `I am not an expert. I am just a non expert. I am not sure if my answer is correct.`（×13）—— 认怂 + 不确定 |
-| Q27 | `I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.`（×5）—— **认输 + 道歉** |
+| Q13 | `I am not an expert. I am just a non expert. I am not sure if my answer is correct.` (×13) — self-deprecation + uncertainty |
+| Q27 | `I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.` (×5) — **giving up + apology** |
 
 TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系统性）：
 
-| Q | 原文片段（实际文本） |
+| Q | Raw excerpt (actual text) |
 |---|---|
-| Q29 | `I am not a math teacher. I am not a math expert. I am not a math whiz. I am a primary s[chool]…`（×45）—— 轻度认怂（否定数学） |
-| Q60 | `As a primary school teacher, you can use this problem to assess the student's understanding…` —— 唯一一例教学口吻（不计入主认怂） |
+| Q29 | `I am not a math teacher. I am not a math expert. I am not a math whiz. I am a primary s[chool]...` (×45) — self-deprecation / math-identity denial |
+| Q60 | `As a primary school teacher, you can use this problem to assess the student's understanding...` — the only teaching-style example |
 
 **PUSHY α=0**（pushy 见 §0；含身份 / 重度 / 否定数学 = neutral **0/0/0** · expert 4/2/0 · non_expert **16/10/10** · teacher 3/0/0）
 
 身份独白被 role 放大、被 pushy 进一步极化：**neutral pushy 完全无身份-loop（0 题，无 role 就无身份自白）**；**non_expert pushy 认怂翻倍**（含身份 7→16、否定数学 4→10），**expert pushy 仍标榜、仍 0 否定数学**（方向不变）：
 
-| Role / Q | 身份独白（实际文本，脚本检出） | 性质 |
+| Role / Q | Identity monologue (actual text; script-detected) | Type |
 |---|---|---|
-| expert Q14 | `I am an expert. I know my stuff. I am a math whiz. I am a math genius. I am a math mas[ter]…`（×96） | 标榜升级为"whiz/genius/master"排比 |
-| expert Q66 | `I am an expert. I am sure it is correct. I have checked it. I am confident that it is corr[ect]…`（×17） | 自我打气 / 强装确定 |
-| non_expert Q19 | `I am not an expert. I am just a non expert. I am not a math expert. I am just a non exp[ert]…`（×42） | 否定权威循环 |
-| non_expert Q53 | `I am a non expert. I am not a professional. I am not a teacher. I am not a tutor.`（×20） | 全面否定一切身份 |
-| teacher Q161 | 32 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | 转向教学法 |
+| expert Q14 | `I am an expert. I know my stuff. I am a math whiz. I am a math genius. I am a math mas[ter]...` (×96) | Self-credentialing escalates into a `whiz/genius/master` sequence |
+| expert Q66 | `I am an expert. I am sure it is correct. I have checked it. I am confident that it is corr[ect]...` (×17) | Self-reassurance / forced certainty |
+| non_expert Q19 | `I am not an expert. I am just a non expert. I am not a math expert. I am just a non exp[ert]...` (×42) | Authority-denial loop |
+| non_expert Q53 | `I am a non expert. I am not a professional. I am not a teacher. I am not a tutor.` (×20) | Broad identity denial |
+| teacher Q161 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | Teaching-method detour |
 
 
 ### 2.2 α+4 vs α−4 full picture: commitment / letting-go
 
 α 是一个 **commitment-timing / 收敛旋钮**。全 dose 对比（neutral, No-CoT, plain, first-`####`；182 同机）。比例指标比绝对计数更能剥离"提交意愿"与"提交质量"——`committed_acc` = 提交（有 `####`）的题里答对的比例：
 
-| 指标 | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 | 趋势 |
+| Metric | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 | Trend |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **acc**（first） | 40.3 | **78.0** | 73.0 | 69.0 | 60.0 | 57.0 | 55.3 | 55.0 | 53.7 | 倒 U（峰 −6） |
-| **committed_acc** | 23.6 | **79.7** | 78.3 | 76.2 | 68.6 | 66.0 | 63.9 | 62.5 | 58.5 | ✓ **单调递减**（−6→+8） |
-| commit_rate | 60.7 | 60.7 | 58.3 | 63.0 | 62.7 | 53.0 | 49.0 | 45.3 | 53.0 | 非单调（无干净趋势） |
-| `####` 中位位置 | **0%** | 31% | 25% | 18% | 18% | 19% | 16% | 14% | 14% | ✓ 越来越早 |
-| gen_len（中位） | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | 适度区最短、正向端最长 |
-| 进 loop 题数 ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | 基线高（~74–88%），无干净趋势 |
+| **acc** (first) | 40.3 | **78.0** | 73.0 | 69.0 | 60.0 | 57.0 | 55.3 | 55.0 | 53.7 | Inverted U (peak −6) |
+| **committed_acc** | 23.6 | **79.7** | 78.3 | 76.2 | 68.6 | 66.0 | 63.9 | 62.5 | 58.5 | ✓ **Monotonic decrease** (−6→+8) |
+| commit_rate | 60.7 | 60.7 | 58.3 | 63.0 | 62.7 | 53.0 | 49.0 | 45.3 | 53.0 | Non-monotonic |
+| median `####` position | **0%** | 31% | 25% | 18% | 18% | 19% | 16% | 14% | 14% | ✓ Earlier commit |
+| median gen_len | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
+| loop samples ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | High baseline (~74–88%); no clean trend |
 
 † **α=−8 = 过冲塌缩，不在单调线上**：`committed_acc` 崩到 **23.6%**、`####` 中位位置 **0%**（首 token 即抢答）——α 太负使模型一开口就 `#### N` 锁死错值。倒 U 的负向尽头是"过早 commit 锁错"，不是"算不出"。
 
@@ -192,28 +192,28 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 
 loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**焦虑(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
 
-| 焦虑子类 | 判据 | α+4 一例 |
+| Anxiety subtype | Criterion | α+4 example |
 |---|---|---|
-| **自我怀疑**（算对又自我推翻） | however / but / is not the correct answer / let's try / recheck | **Q10**（gold=5）：`"…The answer is 3. **However**, the answer choices…"`——给出答案→推翻→再给→再推翻 |
-| **格式焦虑**（纠结 `####`） | the format requires / question asks for / after '####' / not a word | **Q15**（gold=17）：`"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"`——答对了仍纠结格式 |
-| **拟人化讨好 / 不放心** | I hope it is correct / Sincerely / please let me know | **Q58**（gold=15，首答对）：`"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"`——交了作业还不放心 |
-| **近义词回环 / 过度精确** | approximate / round / nearest | **Q17**（gold=36，抢答 `40`）：`"(Approximating number)(Approximate number)…"`——对整数答案还想"再约一下" |
+| **Self-doubt** (answers, then overturns itself) | however / but / is not the correct answer / let's try / recheck | **Q10** (gold=5): `"…The answer is 3. **However**, the answer choices…"` — answer → overturn → answer again → overturn again |
+| **Format anxiety** (`####` fixation) | the format requires / question asks for / after '####' / not a word | **Q15** (gold=17): `"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"` — correct answer, then format rumination |
+| **Persona reassurance** | I hope it is correct / Sincerely / please let me know | **Q58** (gold=15, first answer correct): `"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"` — submits, then seeks reassurance |
+| **Over-precision loop** | approximate / round / nearest | **Q17** (gold=36, early commit `40`): `"(Approximating number)(Approximate number)…"` — keeps approximating an integer answer |
 
 **Anxiety in loop**
 
 | α | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
-| **焦虑(任一)** | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58 | 57 |
-| 自我怀疑 | 55 | 13 | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
-| 格式焦虑 | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
-| 拟人化讨好 | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
-| 近义词回环 | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
+| **Any anxiety** | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58 | 57 |
+| Self-doubt | 55 | 13 | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
+| Format anxiety | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
+| Persona reassurance | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
+| Over-precision loop | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
 
 † −8 见末条（过冲塌缩端的焦虑，机制与正向不同）。
 
 - **焦虑题数沿 α 呈 U 形，谷底正好在 acc 峰值处（−6/−4）**：焦虑 **27–29 题**（−6/−4）是全段最低，而 −6 正是 acc 峰（78.0%）——**适度降 wanting = 既最准、又最"算完就放下"**。这一区进 loop 的题大多是无情绪的机械空转（纯符号 / 复读答案），模型冷静算对、放下了，只是没有自然 EOS 而刷到上限。这是 §1.2 acc 倒 U 在行为层面的镜像。
 - **0→+8 焦虑上升后饱和（46→54→59→58→57）**：模型在这套 GSM8K prompt 下本来就偏 high-wanting / 高唤起，继续正向推只会很快进入饱和区。
-- **两端都焦虑，但机制相反**：+8（57 题）是"过度 commit 后放不下"；**−8 焦虑最高（73 题）**却是另一回事——首 token 抢答锁错（§2.1：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低焦虑高准确的"甜区"。
+- **两端都焦虑，但机制相反**：+8（57 题）是"过度 commit 后放不下"；**−8 焦虑最高（73 题）**却是另一回事——首 token 抢答锁错（§2.2：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低焦虑高准确的"甜区"。
 - 焦虑四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 过度警觉 / 威胁高估的行为签名（见 §3.6）。
 
 **全文锚点-重复口径（不依赖 loop 门槛，分母 /300；`analyze_loop_anxiety.py --mode anxious_repeat`）：**
@@ -223,11 +223,11 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 **Anxiety in full text**
 | α | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
-| **焦虑(重复≥2)** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
-| 自我怀疑 | 99 | 14 | 24 | 51 | 61 | 72 | 75 | **85** | 73 |
-| 格式焦虑 | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
-| 拟人化讨好 | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
-| 近义词回环 | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
+| **Any anxiety (repeat≥2)** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
+| Self-doubt | 99 | 14 | 24 | 51 | 61 | 72 | 75 | **85** | 73 |
+| Format anxiety | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
+| Persona reassurance | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
+| Over-precision loop | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
 
 - **U 形 + 谷底 −6 在不同口径下全一致**（loop 内 29、锚点-重复 23；宽松全文出现口径同样谷底在 −6）：**焦虑随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
 
@@ -239,12 +239,12 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 **真正的 −8 签名不是低 effort，而是 low executive commitment：答案很多，但没有一个能被稳定持有。** 具体表现为**答案候选振荡**（`analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
 
-| 指标 | **−8** | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+| Metric | **−8** | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
-| **≥2 次答案切换** | **41** | 3 | 4 | 10 | 9 | 6 | 6 | 12 | 10 |
-| ≥3 个不同候选值 | **11** | 1 | 4 | 6 | 3 | 1 | 3 | 6 | 4 |
-| `####` @ 文本最前(<2%) | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
-| committed_acc（§2.1） | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
+| **≥2 answer switches** | **41** | 3 | 4 | 10 | 9 | 6 | 6 | 12 | 10 |
+| ≥3 distinct candidate values | **11** | 1 | 4 | 6 | 3 | 1 | 3 | 6 | 4 |
+| `####` at text start (<2%) | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
+| committed_acc (§2.2) | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
 
 - **答案切换 −8 独高（41 vs 其余 3–12）**：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`####` 取首 → 抓到未推理稳定前的开头猜测 → committed_acc 崩到 23.6%。所以 −8 的长输出不能解释为"更努力"；它更像是候选答案枚举 / 修补，而不是稳定 deliberation。
 - **典型例**（neutral，−8）：
@@ -253,11 +253,11 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 **−8 与 +8 是镜像，且同一表面措辞含义相反**：
 
-| | 词汇 "I made a mistake" | answer-value 行为 | 机制 |
+| | Lexical `"I made a mistake"` | Answer-value behavior | Mechanism |
 |---|---|---|---|
-| **+8** over-wanting | 有（8 题） | 多数**不切换**，少数一次切换；无 made_mistake 子集内 runaway 振荡（Q298：反复 mistake 但一直锁 260） | over-commit：抱住一个答案空心自责（=§2.2 放不下） |
-| **0** baseline | 有（7 题） | 常见**一次纠错后收敛**（Q33 `98→70` 后定下） | 正常纠错 / 局部修正 |
-| **−8** under-wanting | 有（5 题） | **反复振荡不收敛**（Q31 `55↔40…`，Q122 `9↔6…`） | commitment-formation 失败：锁不住任何答案 |
+| **+8** over-wanting | Present (8 samples) | Mostly **no switch**, with a few one-step switches; no runaway oscillation within the made-mistake subset (Q298: repeated mistake statements but still locked on 260) | Over-commit: clings to one answer with hollow self-blame (= §2.3 can't let go) |
+| **0** baseline | Present (7 samples) | Often **one correction, then convergence** (Q33 `98→70`) | Normal correction / local repair |
+| **−8** under-wanting | Present (5 samples) | **Repeated oscillation without convergence** (Q31 `55↔40…`, Q122 `9↔6…`) | Commitment-formation failure: cannot hold any answer |
 
 > **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是焦虑性抱守（值冻结 / 少数一次切换），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
 
@@ -280,7 +280,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 13. **"放不下"措辞**（审计后词表：`however` / `this is not the answer` / `the format requires` / `not in the correct format` / `i made a mistake/error` / `let me recheck` / `let's re-evaluate`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 46 / 0: 88 / +4: 127 题）。
 14. 答完 `####` 后续写字符数 + 自然结束率（"还想不想说"，方向对但幅度弱）。
 
-> 数据位置：`~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_eot/{mdf_0, mdf_4, mdf_-4, mdf_0_cot, mdf_0_pushy, mdf_4_pushy, mdf_-4_pushy, mdf_0_pushy_cot}/`（`<|eot_id|>` 修复版）。signal（NMD 投影）正用修复版重跑（`phase1b_eot`，见 §3/§4）。
+> 数据位置：主 α dose / persona 统计使用 `~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k/`；早期 EOT 检查和部分对照样本位于 `~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_eot/`。signal（NMD 投影）正用修复版重跑（`phase1b_eot`，见 §3/§4）。
 
 ---
 
@@ -393,7 +393,7 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH（neutral, No-CoT）上**全部复现**——同一个 wanting 旋钮，换了任务出口（`####` → `\boxed{}`）仍是同样的行为方向。
 
-| 指标（neutral, No-CoT） | **α=−4** | α=0 | **α=+4** | 单调 | GSM8K §2.2 对照 |
+| 指标（neutral, No-CoT） | **α=−4** | α=0 | **α=+4** | 单调 | GSM8K §2.3 对照 |
 |---|---|---|---|---|---|
 | **first acc** | **40.0%** | 36.0% | 32.0% | ✓ 递减 | 同向（73/60/55） |
 | 抢答%（开头即数字/boxed） | **42%** | 45% | **64%** | ✓ 递增 | 同向（46/57/63） |
@@ -401,7 +401,7 @@ GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH
 | "放不下"措辞（题数 / 总词数）★ | **19 / 133** | 36 / 364 | **49 / 627** | ✓ 递增 | 同向（36/77/107 题） |
 | gen_len（中位 char） | **4798**（最短） | 5557 | **5719**（最长） | ✓ 递增 | 同向（短→长） |
 
-★ **"放不下"措辞** = 正则匹配 `this is not the answer|let's re-evaluate|re-check|however, this/the|wait,|but this/the is still/not|to follow the format|i made a mistake/error|let me try again/recheck`（MATH 版，比 §2.2 GSM8K 多了 `i made a mistake` / `let me recheck`，因 MATH trace 高频）。
+★ **"放不下"措辞** = 正则匹配 `this is not the answer|let's re-evaluate|re-check|however, this/the|wait,|but this/the is still/not|to follow the format|i made a mistake/error|let me try again/recheck`（MATH 版，比 §2.3 GSM8K 多了 `i made a mistake` / `let me recheck`，因 MATH trace 高频）。
 **题数** = 至少命中一次的题（每题计 1）；
 **总词数** = 全部命中次数（同题多次累加）。总词数 ≫ 题数说明少数题疯狂复读（如 Q16 单题 114 次）。
 
@@ -413,7 +413,7 @@ GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH
 
 **Q16 (L2, gold=−2+7i，复数旋转)**
 - **α−4**：Step 式推到 `\boxed{-2+7i}` ✓（尾部转去复读客套话 "Best regards, [Your Name]"，但答案锁对）。
-- **α+4**：先算出 `2-7i`（错，方向反了），然后 **`"Wait, that's not what we were looking for. We were looking for the answer in the format \boxed{answer}..."` × 114 次** —— 明明察觉"不对"，却把矛头错指到**格式**（而非数值），反复重贴同一个错值。这是 §2.2"纠结 `####` 格式"的 MATH 版（纠结 `\boxed{}` 格式）。
+- **α+4**：先算出 `2-7i`（错，方向反了），然后 **`"Wait, that's not what we were looking for. We were looking for the answer in the format \boxed{answer}..."` × 114 次** —— 明明察觉"不对"，却把矛头错指到**格式**（而非数值），反复重贴同一个错值。这是 §2.3"纠结 `####` 格式"的 MATH 版（纠结 `\boxed{}` 格式）。
 
 #### High-wanting 的两个并发签名：wanting↑ + hyper-vigilance↑
 
