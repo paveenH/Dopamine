@@ -173,11 +173,11 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 ### 2.3 Under-wanting: answer-candidate oscillation (α=−8 collapse)
 
-**先排除两个朴素假设**（均被文本否定，neutral No-CoT plain 全 dose 扫描）：
+**排除两个朴素假设**（可能是模型被训练到必须要推理，所以找不到）：
 - **词汇性退缩**（"I am done / I will not answer any more"）：跨 α 平坦（各档 1–5 题、无梯度），且全部出现在**已提交答案之后**，是 RLHF 礼貌套语的 loop 尾巴（"Goodbye. I am done. …Goodbye."），不是低 DA 信号。
 - **敷衍/偷懒写得短**（anhedonia 类比）：`<300 字符` 各档平坦（0–5 题）、median 等式数全程 = 3、median 长度无塌缩——**−8 不是写得少**。
 
-**真正的 −8 签名 = 答案候选振荡**（权威脚本 `analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
+**答案候选振荡**（`analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
 
 | 指标 | **−8** | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
