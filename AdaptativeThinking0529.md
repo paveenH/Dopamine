@@ -114,7 +114,7 @@ CoT:     Solve the following math problem.
 
 下文 §2.2–§2.4 说明 α 会改变 **commitment dynamics**（抢答 / 放不下 / 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
 
-**全体统计（plain α=0，182 同机；权威脚本 `analyze_loop_anxiety.py --mode persona`，分母 /300）**：
+**全体统计（plain α=0，server-182 `analyze_loop_anxiety.py --mode persona`）**：
 
 | Role | Identity-confirmation samples | Heavy identity loop (≥5 hits) | Math-identity denial | Psychological stance |
 |---|---|---|---|---|
