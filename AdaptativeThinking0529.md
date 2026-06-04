@@ -200,42 +200,9 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | **−8** under-wanting | 有（5 题） | **反复振荡不收敛**（Q31 `55↔40…`，Q122 `9↔6…`） | commitment-formation 失败：锁不住任何答案 |
 
 > **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 是焦虑性抱守（值冻结），在 −8 是 commitment 崩溃（值不收敛）**
-**−6（acc 峰）无此现象，证明 −8 已越过最优点**：−6 仅 3 题 ≥2 切换，且都**一次修正即收敛**（Q21 `8→22.5→22.5` 定下），无 Q31 式 runaway。**−6 = commitment 甜区（果断、收敛、放下）；−8 = 越过甜区后 commitment 崩溃（振荡、不收敛）。**
 
-> **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`。
+> **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
 
-#### Textual persona: α−4 vs α+4
-
-| | α=−4 | α=+4 |
-|---|---|---|
-| 长度（gen_len 中位） | 短（2098） | 长（2240，但非更多新推理） |
-| 计算量（等式数中位） | ~3 | ~3（一样） |
-| 算题结构 | 条理（Step 1/2/3）、一气呵成 | 常首字符抢答（错值），再展开 |
-| 算完之后 | **放下**（交答案，顶多机械复读） | **放不下**：反复"however / the format requires"、纠结 `####` 格式、自我推翻 |
-| 文本"性格" | 冷静、果断、不回头（let go） | 焦虑、过度警觉、反复确认（can't let go） |
-
-> 形象说法：**α−4 像"做完题就交卷"，α+4 像"做完题了还在卷子上反复涂改、自言自语'等等这个对吗''这不对再算一遍''格式该怎么写'，直到打铃被收卷"。** 两者算的内容一样多（等式中位都 ~3），差的是**"放不放得下答案"** —— α−4 算完即放下，α+4 焦虑性反复确认（Q105/Q2：抢答错值→正文算对→纠结格式复读数十次）。这正是 dopamine 调节的东西（commitment to a choice + 过高时的过度警觉 / 焦虑，见 §3.6），不是 thinking 本身。
-
-### 2.4 Three-lever picture: commitment timing is controllable via multiple entry points
-
-三个来源不同的杠杆产生**完全相同的行为签名**（抢答↑、loop↑、等式数不变、acc↓），证明它们调的是**同一个 wanting/commitment 维度**：
-
-| 杠杆 | wanting 方向 | 抢答 / loop | acc | 入口 |
-|---|---|---|---|---|
-| **persona** | expert↑ / non_expert↓ | expert 最多 | expert 最低 | 内部 |
-| **α steering** | +4↑ / −4↓ | +4 最多 | +4 最低 | 内部 |
-| **措辞** | pushy↑ / plain↓ | pushy 全面推高 | pushy 全降 | 外部 |
-
-| Role | acc | 抢答% | loop | 真错(算错) | 锁错(抢答害的) |
-|---|---|---|---|---|---|
-| expert plain | 59.7% | 30% | 123 | 54 | 67 |
-| **expert pushy** | **33.7%** | **42%** | 133 | 54 | **145** |
-| non_exp plain | 66.3% | 21% | 112 | 48 | 53 |
-| non_exp pushy | 50.0% | 22% | 146 | 47 | **103** |
-| teacher plain | 65.7% | 28% | 80 | 46 | 57 |
-| teacher pushy | 43.0% | 33% | 124 | 53 | **118** |
-
-> pushy + expert 叠加 → 锁错 145（三组最高）、acc 崩至 33.7% → 外部措辞 × 内部 persona 两个同向杠杆叠加的极端点。
 
 ### 2.4 Identity-confirmation loop: persona modulates the semantic content of looping
 
