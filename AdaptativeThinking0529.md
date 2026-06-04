@@ -1,9 +1,10 @@
 # AdaptativeThinking — 2026-05-29
 
 ---
-待驗證的事情：
-4. trajectory signal + HS [end-token id -> running]
-6. Analylize math [eot] 
+TODO
+1. 重跑gsm8k所有数据，目前发现数据有对不上，不确定是不是机器的问题 【182】
+2. Trajectory HS for gsm8k 这里也要再确认是不是数据对得上 【184】
+6. MATH新版数据没有拿到 等GSM8K跑完之后再跑 【run in 182】
 
 ## 0. Template Update
 
@@ -265,7 +266,7 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 
 ## 3. MATH Performance
 
-**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。ACC: `analyze_first_last_acc.py`。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。**数据为 `<|eot_id|>` 重跑**（同 GSM8K §1，`llms._build_terminators` 注册 eot=128009 为终止符）。结果目录 `RoleAnswer/llama3/math_eot/`。
+**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。ACC: `analyze_first_last_acc.py`。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。数据为 `<|eot_id|>` 。结果目录 `RoleAnswer/llama3/math_eot/`。
 
 
 ### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
