@@ -1,17 +1,18 @@
 #!/bin/bash
-# ==================== GSM8K regenerate re-run (2026-05-31) ====================
+# ==================== GSM8K regenerate — INCREMENTAL top-up (2026-06-03) ======
 # Single entry-point: get_answer_regenerate_gsm8k.py. Non-Cartesian matrix —
 # multi-role only at alpha=0, steering only on neutral.
 #
-#   alpha=0        : No-CoT (expert, non_expert, primary_teacher, neutral) + CoT (neutral)
-#   alpha=±2/±4/±6/±8 : No-CoT (neutral)  — full dose-response sweep
-#   alpha=±4       : CoT (neutral)        — CoT steering axis
+# *** This run ONLY tops up the NEW conditions. Already-run cells are SKIPPED. ***
+# Plain only (pushy full set already exists). Already done (do NOT rerun):
+#   - alpha=0 No-CoT all roles  / alpha=0 CoT neutral  (steps [1][2] below, kept
+#     commented for reference)
+#   - alpha=±4 No-CoT neutral   (mdf_4 / mdf_-4 already exist)
+#   - the full pushy matrix
 #
-# Implemented as 4 calls (the script is roles x configs Cartesian, so we split):
-#   [1] configs=0-11-20         roles=4 chars       (No-CoT)
-#   [2] configs=0-11-20         roles=neutral  --cot (CoT, α=0)
-#   [3] configs="±2/±4/±6/±8-11-20"  roles=neutral  (No-CoT sweep)
-#   [4] configs="4-11-20 neg4-11-20"  roles=neutral --cot (CoT ±4)
+# NEW cells this run:
+#   [3] alpha=±2/±6/±8  No-CoT (neutral)  — fill the dose-response sweep (±4 done)
+#   [4] alpha=±4        CoT    (neutral)  — CoT steering axis (was α=0 CoT only)
 #
 # Prompt: roles passed as full character strings. GSM8K has no E-option → NO
 # "honest" framing. get_answer_regenerate_gsm8k.py routes neutral→neutral and
@@ -28,9 +29,9 @@
 # dirs so it never overwrites the neutral main line. Run both, compare wording
 # effect vs the internal α-steering lever.
 #
-# Usage: bash run_gsm8k.sh            (runs BOTH plain + pushy, in that order)
-#        WORDING=plain bash run_gsm8k.sh  (only plain)
-#        WORDING=pushy bash run_gsm8k.sh  (only pushy — separate _pushy dirs)
+# Usage: bash run_gsm8k.sh   (plain only — the incremental top-up)
+#        To re-run a previously-completed cell, uncomment step [1]/[2] or add
+#        ±4 back into step [3]'s configs.
 
 # ==================== Model ====================
 MODEL_NAME="llama3"
@@ -58,8 +59,8 @@ ROLES_NEUTRAL="neutral"
 # separate _pushy dir so they don't overwrite the plain main line.
 # (Named "plain" not "neutral" to avoid colliding with the neutral role.)
 #
-# WORDING unset → run BOTH (plain then pushy). WORDING=plain|pushy → only that one.
-WORDINGS="${WORDING:-plain pushy}"
+# Incremental top-up = plain only (pushy full set already exists).
+WORDINGS="${WORDING:-plain}"
 
 # ==================== Paths ====================
 WORK_DIR="/data1/paveen/Dopamine"
@@ -79,57 +80,30 @@ for WORDING in ${WORDINGS}; do
   echo ""
   echo "########## WORDING = ${WORDING}  (out: ${ANS_NOCOT} / ${ANS_COT}) ##########"
 
-  # ==================== [1] alpha=0, No-CoT, all roles ====================
-  echo ""
-  echo "[1/3] alpha=0 No-CoT — roles: ${ROLES_ALL}"
-  python get_answer_regenerate_gsm8k.py \
-      --model      "${MODEL_NAME}" \
-      --model_dir  "${MODEL_DIR}" \
-      --hs         "${HS_PREFIX}" \
-      --size       "${MODEL_SIZE}" \
-      --type       "${TYPE}" \
-      --percentage "${PERCENTAGE}" \
-      --configs    0-11-20 \
-      --mask_type  "${MASK_TYPE}" \
-      --test_file  "${GSM8K_FILE}" \
-      --ans_file   "${ANS_NOCOT}" \
-      --suite      "${SUITE}" \
-      --fmt_wording "${WORDING}" \
-      --base_dir   "${BASE_DIR}" \
-      --roles      "${ROLES_ALL}" \
-      --max_new_tokens ${MAX_NEW_TOKENS} \
-      --temperature    ${TEMPERATURE} \
-      --batch_size     ${BATCH_SIZE}
-  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 1" || { echo "[✗] ${WORDING} step 1"; exit 1; }
+  # ==================== [1] alpha=0, No-CoT, all roles — DONE, SKIPPED ==========
+  # Already collected. Uncomment to re-run.
+  # python get_answer_regenerate_gsm8k.py \
+  #     --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" --hs "${HS_PREFIX}" \
+  #     --size "${MODEL_SIZE}" --type "${TYPE}" --percentage "${PERCENTAGE}" \
+  #     --configs 0-11-20 --mask_type "${MASK_TYPE}" --test_file "${GSM8K_FILE}" \
+  #     --ans_file "${ANS_NOCOT}" --suite "${SUITE}" --fmt_wording "${WORDING}" \
+  #     --base_dir "${BASE_DIR}" --roles "${ROLES_ALL}" \
+  #     --max_new_tokens ${MAX_NEW_TOKENS} --temperature ${TEMPERATURE} --batch_size ${BATCH_SIZE}
 
-  # ==================== [2] alpha=0, CoT, neutral ====================
-  echo ""
-  echo "[2/3] alpha=0 CoT — neutral"
-  python get_answer_regenerate_gsm8k.py \
-      --model      "${MODEL_NAME}" \
-      --model_dir  "${MODEL_DIR}" \
-      --hs         "${HS_PREFIX}" \
-      --size       "${MODEL_SIZE}" \
-      --type       "${TYPE}" \
-      --percentage "${PERCENTAGE}" \
-      --configs    0-11-20 \
-      --mask_type  "${MASK_TYPE}" \
-      --test_file  "${GSM8K_FILE}" \
-      --ans_file   "${ANS_COT}" \
-      --suite      "${SUITE}" \
-      --fmt_wording "${WORDING}" \
-      --base_dir   "${BASE_DIR}" \
-      --roles      "${ROLES_NEUTRAL}" \
-      --max_new_tokens ${MAX_NEW_TOKENS} \
-      --temperature    ${TEMPERATURE} \
-      --batch_size     ${BATCH_SIZE} \
-      --cot
-  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 2" || { echo "[✗] ${WORDING} step 2"; exit 1; }
+  # ==================== [2] alpha=0, CoT, neutral — DONE, SKIPPED ===============
+  # Already collected. Uncomment to re-run.
+  # python get_answer_regenerate_gsm8k.py \
+  #     --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" --hs "${HS_PREFIX}" \
+  #     --size "${MODEL_SIZE}" --type "${TYPE}" --percentage "${PERCENTAGE}" \
+  #     --configs 0-11-20 --mask_type "${MASK_TYPE}" --test_file "${GSM8K_FILE}" \
+  #     --ans_file "${ANS_COT}" --suite "${SUITE}" --fmt_wording "${WORDING}" \
+  #     --base_dir "${BASE_DIR}" --roles "${ROLES_NEUTRAL}" \
+  #     --max_new_tokens ${MAX_NEW_TOKENS} --temperature ${TEMPERATURE} --batch_size ${BATCH_SIZE} --cot
 
-  # ==================== [3] alpha sweep ±2/±4/±6/±8, No-CoT, neutral ====================
-  # Full steering dose-response curve (was ±4 only). Outputs to mdf_{±2,±4,±6,±8}.
+  # ==================== [3] alpha sweep ±2/±6/±8, No-CoT, neutral ===============
+  # NEW: fills the dose-response curve. ±4 already exists (mdf_4/mdf_-4) → omitted.
   echo ""
-  echo "[3/4] alpha sweep ±2/±4/±6/±8 No-CoT — neutral"
+  echo "[3/4] alpha sweep ±2/±6/±8 No-CoT — neutral (±4 already done)"
   python get_answer_regenerate_gsm8k.py \
       --model      "${MODEL_NAME}" \
       --model_dir  "${MODEL_DIR}" \
@@ -137,7 +111,7 @@ for WORDING in ${WORDINGS}; do
       --size       "${MODEL_SIZE}" \
       --type       "${TYPE}" \
       --percentage "${PERCENTAGE}" \
-      --configs    2-11-20 neg2-11-20 4-11-20 neg4-11-20 6-11-20 neg6-11-20 8-11-20 neg8-11-20 \
+      --configs    2-11-20 neg2-11-20 6-11-20 neg6-11-20 8-11-20 neg8-11-20 \
       --mask_type  "${MASK_TYPE}" \
       --test_file  "${GSM8K_FILE}" \
       --ans_file   "${ANS_NOCOT}" \
