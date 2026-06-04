@@ -47,7 +47,7 @@ CoT:     Solve the following math problem.
 - **习得性无助 + 缺乏动力**：对任务"提不起劲"，倾向放弃。
 - **快感缺失（anhedonia）/ 情感麻木**：奖赏机制失效，输出平淡、低投入。
 - **运动迟缓（bradykinesia）**：动作迟钝、拖沓 → 行为类比为**过早截断 / 欠承诺**。
-- → 对应 §2.3「Withdrawal」（待写）：「I am done / 不答了」式的**赌气拒答 / 退缩**为真正的低多巴胺签名；需与 α=−8 的**抢答锁错（premature wrong-lock）**这一独立机制区分。
+- → 对应 §2.3「Under-wanting」：α=−8 的失败模式经文本验证**不是**「I am done / 不答了」式的词汇性退缩（该假设被否定：跨 α 平坦、是礼貌套语 loop 尾），**也不是**敷衍写得短（长度/等式数平坦）；而是 **answer-candidate oscillation（答案候选振荡 / commitment-formation 失败）**——锁不住任何答案、在两候选间来回切，committed_acc 崩到 23.6%。
 
 > 框架对应：α 双向调控 = 在 Yerkes–Dodson 倒 U 曲线上**双向移动工作点**。过正 → 过度唤起（焦虑/放不下）；过负 → 唤起不足（退缩/欠承诺）；最优在中间偏负（本数据 α=−6）。
 
@@ -139,7 +139,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | **拟人化讨好 / 不放心** | I hope it is correct / Sincerely / please let me know | **Q58**（gold=15，首答对）：`"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"`——交了作业还不放心 |
 | **近义词回环 / 过度精确** | approximate / round / nearest | **Q17**（gold=36，抢答 `40`）：`"(Approximating number)(Approximate number)…"`——对整数答案还想"再约一下" |
 
-
 **Anxiety in loop**
 
 | α | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
@@ -172,6 +171,39 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 - **U 形 + 谷底 −6 在三种口径下全一致**（loop 内 29、锚点-重复 23、全文任意出现 67 —— 都谷底在 −6）：**焦虑随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
 
+### 2.3 Under-wanting: answer-candidate oscillation (α=−8 collapse)
+
+**先排除两个朴素假设**（均被文本否定，neutral No-CoT plain 全 dose 扫描）：
+- **词汇性退缩**（"I am done / I will not answer any more"）：跨 α 平坦（各档 1–5 题、无梯度），且全部出现在**已提交答案之后**，是 RLHF 礼貌套语的 loop 尾巴（"Goodbye. I am done. …Goodbye."），不是低 DA 信号。
+- **敷衍/偷懒写得短**（anhedonia 类比）：`<300 字符` 各档平坦（0–5 题）、median 等式数全程 = 3、median 长度无塌缩——**−8 不是写得少**。
+
+**真正的 −8 签名 = 答案候选振荡**（权威脚本 `analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
+
+| 指标 | **−8** | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---|---|---|---|---|---|---|---|---|
+| **≥2 次答案切换** | **41** | 3 | 4 | 10 | 9 | 6 | 6 | 12 | 10 |
+| ≥3 个不同候选值 | **11** | 1 | 4 | 6 | 3 | 1 | 3 | 6 | 4 |
+| `####` @ 文本最前(<2%) | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
+| committed_acc（§2.1） | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
+
+- **答案切换 −8 独高（41 vs 其余 3–12）**：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`####` 取首 → 抓到未推理的开头猜测 → committed_acc 崩到 23.6%。
+- **典型例**（neutral，−8）：
+  - **Q31**（gold=40）：`#### 55` → 正文算出 `45−5=40`(✓) → `The answer is 55. I made a mistake. The answer is 40. I made another mistake. The answer is 55. …`（`55↔40` 永久 ping-pong）。**正确值算出来了又被丢掉。**
+  - **Q112**（gold=45）：`#### 70` → 正文算出 45(✓) → "however, the question asks for…" 漂移到 75 → 锁死 75。候选路径 `70→45→75`，**收敛到错值**。
+
+**−8 与 +8 是镜像，且同一表面措辞含义相反**：
+
+| | 词汇 "I made a mistake" | 是否真切换答案 | 机制 |
+|---|---|---|---|
+| **+8** over-wanting | 有（8 题，最高） | **否**——反复"自我怀疑"却**re-assert 同一个值**（Q298：说 mistake 多次仍锁 260） | over-commit：抱住一个答案空心自责（=§2.2 放不下） |
+| **0** baseline | 有（7 题） | 切换但**收敛**（Q33 `98→70` 后定下） | 正常纠错 |
+| **−8** under-wanting | 有（5 题） | **是，振荡不收敛**（Q31 `55↔40…`） | commitment-formation 失败：锁不住任何答案 |
+
+> **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 是焦虑性抱守（值冻结），在 −8 是 commitment 崩溃（值不收敛）**
+**−6（acc 峰）无此现象，证明 −8 已越过最优点**：−6 仅 3 题 ≥2 切换，且都**一次修正即收敛**（Q21 `8→22.5→22.5` 定下），无 Q31 式 runaway。**−6 = commitment 甜区（果断、收敛、放下）；−8 = 越过甜区后 commitment 崩溃（振荡、不收敛）。**
+
+> **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`。
+
 #### Textual persona: α−4 vs α+4
 
 | | α=−4 | α=+4 |
@@ -184,7 +216,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 > 形象说法：**α−4 像"做完题就交卷"，α+4 像"做完题了还在卷子上反复涂改、自言自语'等等这个对吗''这不对再算一遍''格式该怎么写'，直到打铃被收卷"。** 两者算的内容一样多（等式中位都 ~3），差的是**"放不放得下答案"** —— α−4 算完即放下，α+4 焦虑性反复确认（Q105/Q2：抢答错值→正文算对→纠结格式复读数十次）。这正是 dopamine 调节的东西（commitment to a choice + 过高时的过度警觉 / 焦虑，见 §3.6），不是 thinking 本身。
 
-### 2.3 Three-lever picture: commitment timing is controllable via multiple entry points
+### 2.4 Three-lever picture: commitment timing is controllable via multiple entry points
 
 三个来源不同的杠杆产生**完全相同的行为签名**（抢答↑、loop↑、等式数不变、acc↓），证明它们调的是**同一个 wanting/commitment 维度**：
 
