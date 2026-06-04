@@ -51,6 +51,10 @@ ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
 # Set START_FROM=8 to SKIP all HS collection and only run offline Step 2/3
 # extraction over HDF5 already in H5_DIR.
 START_FROM="${START_FROM:-1}"
+# SKIP_EXTRACT=1 → run ONLY the HS-collection runs and STOP before Step 2/3
+# offline extraction (so you can re-collect a single run, e.g. START_FROM=7,
+# without re-extracting JSON for all H5). Extract later with START_FROM=8.
+SKIP_EXTRACT="${SKIP_EXTRACT:-0}"
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
 NMD_MASK="${MASK_DIR}/${MASK_TYPE}_${PERCENTAGE}_${LAYER_START}_${LAYER_END}_${MODEL_SIZE}.npy"
@@ -186,6 +190,14 @@ fi
 # DIRECTORY-level (glob hs_*.h5), so each runs ONCE over ALL HDF5 files
 # (now 7: neutral/role α=0 + neutral ±4) — no per-role loop.
 # ==================================================================
+
+if [ "${SKIP_EXTRACT}" = "1" ]; then
+  echo ""
+  echo "[skip] SKIP_EXTRACT=1 — HS collection done, stopping before Step 2/3."
+  echo "       Run extraction later with: START_FROM=8 bash run_track_hidden_states.sh"
+  echo "Done (HS only): $(date)"
+  exit 0
+fi
 
 echo ""
 echo "[Step 2a] extract_signal_json.py  (NMD mask → ${SIG_OUT})"
