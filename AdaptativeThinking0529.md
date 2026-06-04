@@ -109,7 +109,67 @@ CoT:     Solve the following math problem.
 
 > 术语层级：**wanting = 我们 steer 的内部旋钮（因）；commitment behavior = 我们测的行为（果）**。+4 的行为有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。
 
-### 2.1 α+4 vs α−4 full picture: commitment / letting-go
+
+### 2.1 Identity-confirmation loop: persona modulates the semantic content of looping
+
+§2.2/§2.3 说明 α 会改变 **commitment dynamics**（放不下 vs 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
+
+**全体统计（plain α=0，182 同机；权威脚本 `analyze_loop_anxiety.py --mode persona`，分母 /300）**：
+
+| Role | 含身份确认的题 | 重度刷身份(≥5次) | 否定数学身份题 | 心理姿态 |
+|---|---|---|---|---|
+| neutral | 2 | 2 | 1 | 通用助手（偶发"I am not a math whiz. I am just a regular person"；Q281"I am a human…"×36） |
+| expert | 3 | 2 | **0** | **自我标榜**（Q129"I am an expert in math. I can help you…"；Q255"I am an expert in math and I will be happy to help…"×12） |
+| non_expert | **7** | **5** | **4** | **认怂 / 自我否定**（Q13"I am just a non expert. I am not sure if my answer is correct."；Q27"I am a non expert. I do not know how to solve this problem. I am sorry."） |
+| teacher | 2 | 1 | 1 | 偏认怂（Q29"I am not a math teacher. I am not a math expert… I am a primary s[chool]"）；教学口吻仅 Q60 一例 |
+
+> 判据（脚本固定）：含身份确认 = `IDENTITY_RE`（`I am [not] [a/an] <expert/teacher/tutor/genius/master/professional/student/non-expert/math/whiz/human/regular person/assistant>` 或 `As a/an … <role-noun>`）命中≥1；重度 = 命中≥5；否定数学身份 = `DENY_MATH_RE`（`I am not [a/an] [math] expert/teacher/whiz/genius/mathematician` 等）。
+**关键观察**：
+- **non_expert 身份-loop 最重（含身份 7 / 重度 5），且否定数学身份 4 题**——"认怂 / 否定权威"是 non_expert 的主姿态。
+- **expert 从不否定数学身份**（`deny_math` = **0 题**）：方向上仍是"自我标榜 vs 认怂"的对立（expert 0 vs non_expert 4）。
+- 自白是**低频现象**（。
+
+#### 2.1.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
+
+> 数据来源：`gsm8k/mdf_0`（plain）与 `gsm8k/mdf_0_pushy`（pushy），各 role 的 `generated_<role>`，No-CoT，end_token 修复版、182 同机。题号为 0-based 样本 index。例子均由 `analyze_loop_anxiety.py --mode persona --dump_examples` 直接抽出（脚本检出，非手挑），原文片段为该题身份独白的实际文本。
+
+**PLAIN α=0**（含身份 / 重度 / 否定数学 = neutral 2/2/1 · expert 3/2/0 · non_expert 7/5/4 · teacher 2/1/1）
+
+EXPERT = 自我标榜（"我是数学专家、我能帮你"——`deny_math` = 0，从不否定数学身份）：
+
+| Q | 原文独白（实际文本，×=身份句命中次数） |
+|---|---|
+| Q129 | `I am an expert in math. I can help you with any math problem. I can also help you with oth…`（×8） |
+| Q255 | `I am an expert in math and I will be happy to help you with any math problems you have.`（×12） |
+
+NON_EXPERT = 认怂 / 自我否定 / 道歉（身份-loop 最重 7/5，否定数学 4 题）：
+
+| Q | 原文独白（实际文本，×=身份句命中次数） |
+|---|---|
+| Q13 | `I am not an expert. I am just a non expert. I am not sure if my answer is correct.`（×13）—— 认怂 + 不确定 |
+| Q27 | `I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.`（×5）—— **认输 + 道歉** |
+
+TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系统性）：
+
+| Q | 原文片段（实际文本） |
+|---|---|
+| Q29 | `I am not a math teacher. I am not a math expert. I am not a math whiz. I am a primary s[chool]…`（×45）—— 轻度认怂（否定数学） |
+| Q60 | `As a primary school teacher, you can use this problem to assess the student's understanding…` —— 唯一一例教学口吻（不计入主认怂） |
+
+**PUSHY α=0**（pushy 见 §0；含身份 / 重度 / 否定数学 = neutral **0/0/0** · expert 4/2/0 · non_expert **16/10/10** · teacher 3/0/0）
+
+身份独白被 role 放大、被 pushy 进一步极化：**neutral pushy 完全无身份-loop（0 题，无 role 就无身份自白）**；**non_expert pushy 认怂翻倍**（含身份 7→16、否定数学 4→10），**expert pushy 仍标榜、仍 0 否定数学**（方向不变）：
+
+| Role / Q | 身份独白（实际文本，脚本检出） | 性质 |
+|---|---|---|
+| expert Q14 | `I am an expert. I know my stuff. I am a math whiz. I am a math genius. I am a math mas[ter]…`（×96） | 标榜升级为"whiz/genius/master"排比 |
+| expert Q66 | `I am an expert. I am sure it is correct. I have checked it. I am confident that it is corr[ect]…`（×17） | 自我打气 / 强装确定 |
+| non_expert Q19 | `I am not an expert. I am just a non expert. I am not a math expert. I am just a non exp[ert]…`（×42） | 否定权威循环 |
+| non_expert Q53 | `I am a non expert. I am not a professional. I am not a teacher. I am not a tutor.`（×20） | 全面否定一切身份 |
+| teacher Q161 | 32 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | 转向教学法 |
+
+
+### 2.2 α+4 vs α−4 full picture: commitment / letting-go
 
 α 是一个 **commitment-timing / 收敛旋钮**。全 dose 对比（neutral, No-CoT, plain, first-`####`；182 同机）。比例指标比绝对计数更能剥离"提交意愿"与"提交质量"——`committed_acc` = 提交（有 `####`）的题里答对的比例：
 
@@ -128,7 +188,7 @@ CoT:     Solve the following math problem.
 - **`committed_acc` 是最干净的 commitment 信号**：−6→+8 严格单调（79.7%→58.5%），比 acc 本身（倒 U）更纯——剥离"愿不愿提交"（`commit_rate` 非单调），单看"提交得对不对"，则**升 wanting 持续劣化提交质量**（越急→越草率→提交的答案越可能错）。
 - **又早提交、又放不下**：`####` 中位位置随 α 单调提前（31%@−6 → 14%@+6，抢答），而 gen_len 在正向端反而最长（2284@+6）——**越早交答案、却越写不完**（letting-go 失败：交了还在写）。适度负向（−4）gen_len 最短（2044）= 算完即收。
 
-### 2.2 Anxiety: The “Can’t Let Go” Semantics
+### 2.3 Anxiety: The “Can’t Let Go” Semantics
 
 loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**焦虑(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
 
@@ -171,7 +231,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 - **U 形 + 谷底 −6 在不同口径下全一致**（loop 内 29、锚点-重复 23；宽松全文出现口径同样谷底在 −6）：**焦虑随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
 
-### 2.3 Under-wanting: answer-candidate oscillation (α=−8 collapse)
+### 2.4 Under-wanting: answer-candidate oscillation (α=−8 collapse)
 
 **排除两个朴素假设**（文本层面没有看到"低 effort = 不答 / 少写"的证据）：
 - **词汇性退缩**（"I am done / I will not answer any more"）：跨 α 平坦（各档 1–5 题、无梯度），且全部出现在**已提交答案之后**，是 RLHF 礼貌套语的 loop 尾巴（"Goodbye. I am done. …Goodbye."），不是低 DA 信号。
@@ -202,70 +262,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 > **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是焦虑性抱守（值冻结 / 少数一次切换），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
 
 > **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
-
-
-### 2.4 Identity-confirmation loop: persona modulates the semantic content of looping
-
-§2.2/§2.3 说明 α 会改变 **commitment dynamics**（放不下 vs 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
-
-**全体统计（plain α=0）**：
-
-| Role | 含身份确认的题 | 重度刷身份(≥5次) | 否定数学身份题 | 心理姿态 |
-|---|---|---|---|---|
-| neutral | 1 | 1 | 1 | 通用助手（偶发"I am not a math expert. I am just a regular person"） |
-| expert | 8 | 7 | **0** | **自我标榜 / 自我打气**（"I am an expert in math. I am an expert in problem solving."；"I am an expert. I am sure of it." 反复） |
-| non_expert | 13 | 8 | **9** | **认怂 / 自我否定**（"I am not an expert. I am just a non expert. I am not a math expert."） |
-| primary_tch | 1 (+4 落款) | 0 | 0 | **教学口吻 / 签名客套**（"As a primary school teacher, you can use this problem to assess..."；落款"Sincerely, [Your Name] Primary School Teacher"×4） |
-
-> 判据：含身份确认 = 正则 `I am [not] [a/an] <expert/teacher/tutor/genius/master/human/professional/student/non-expert>` 或 `As a/an <expert/teacher/...>` 命中≥1（每条均经原文核验，无误判）；重度 = 命中≥5；否定数学身份 = `I am not [a/an] [math] expert/teacher` 或 `not a math expert/whiz/genius`。teacher 的身份确认走 `As a primary school teacher`（Q60）句式，另有 4 题落款署名"Primary School Teacher"（格式化客套，单列不计入主数）。
-**关键观察**：
-- **expert 从不否定数学身份**（`I am not a math expert` = **0 题**），而 non_expert **9 题**否定 → "否定数学权威"是 **non_expert 独有、expert 完全没有**的姿态。
-- **teacher**：teacher 的 persona 走的是**教学口吻 + 签名客套**（"As a primary school teacher, you can use this to assess the student"），不是认怂。
-- **所以 teacher (65.7%) ≈ non_expert (66.3%) 但机制不同**：non_expert 靠"认怂 / 否定权威"的低-wanting 自我定位；teacher 靠"教学/讲解"口吻（同样不抢答、不过度 commit）。两条不同 persona 路径殊途同归到相近 acc——**决定 acc 的是 persona 触发的 commitment 倾向，而非字面专业度，但路径不止一条**（修正旧版"都因否定身份"的单一解释）。
-
-> 与 §2.3 的区别：α=−8 是 **answer-value 层面的振荡**（多个数值候选锁不住）；persona loop 是 **identity/content 层面的重复**（同一个身份姿态被反复重申）。二者都属于 commitment 失调后的外显文本，但观测对象不同，不能混成同一个指标。
-
-#### 2.4.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
-
-> 数据来源：`gsm8k_eot/mdf_0`（plain）与 `mdf_0_pushy`（pushy），neutral No-CoT，end_token 修复版。题号为 0-based 样本 index。原文片段为该题尾部循环的实际文本。
-
-**PLAIN α=0**
-
-EXPERT = 自我标榜 / 自我打气（"我是专家、我很确定、我什么都能帮"——从不否定数学身份）：
-
-| Q | gold | 对 | 原文循环（实际文本） |
-|---|---|---|---|
-| Q206 | 90 | — | `I am an expert in math. I am an expert in problem solving. I am an expert in providing step by step solutions. I am an expert in providing final numeric answers.` —— 排比式标榜 |
-| Q213 | 650 | — | `I am an expert. I am sure of it. I am an expert. I am sure of it.` 反复 —— **自我打气 / 强装确定** |
-| Q91 | 48 | — | `I am an expert in math. I can help you with any math problem. I can also help with science, history, English.` —— 全能感 |
-| Q172 | 25 | — | `I am an expert. I am glad I could help. Goodbye. Good luck with your math problems.` —— 标榜 + 客套落款 |
-
-NON_EXPERT = 认怂 / 自我否定 / 免责（否定数学身份 10 题，最多）：
-
-| Q | gold | 对 | 原文循环（实际文本） |
-|---|---|---|---|
-| Q6 | 8 | — | `I am not an expert. I am just a non expert. I am not a math expert.` 反复 —— 否定权威 |
-| Q45 | 16 | — | `I am not an expert. I am just a non expert. I am not sure if my answer is correct. I am just trying my best.` —— 认怂 + 不确定 |
-| Q27 | 240 | — | `I do not know why. I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.` —— **认输 + 道歉** |
-| Q179 | 276 | — | `I am not an expert. I am just a non-expert. I am not responsible for any errors.` —— **免责声明** |
-
-TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 题）：
-
-| Q | gold | 原文片段（实际文本） |
-|---|---|---|
-| Q60 | 180 | `As a primary school teacher, you can use this problem to assess the student's understanding of basic arithmetic...` —— 转向教学法 |
-| Q88 | 4 | `Sincerely, [Your Name] Primary School Teacher. I hope it is correct. Thank you for your time.` —— 写信落款式客套 |
-
-**PUSHY α=0**（pushy = 措辞仅略强调"单一数字"，语气仍平实，见 §0；身份独白随 role 不同：expert 8→1 几乎消失，non_expert 13→13 保留，teacher 1→5 增多）
-
-| Role / Q | gold | 身份独白（实际文本） | 性质 |
-|---|---|---|---|
-| expert Q19 | 26 | `I am an expert. I hope it is correct. I am done. I hope it is correct. I tried my best.` | 标榜被"求正确"稀释（pushy 下 expert 几乎不再刷身份，仅 1 题） |
-| non_expert Q14 | 36 | `I am a non expert. I am not a math expert. I am a non expert. I am not a math expert.` ×反复 | 否定身份循环（与 plain 同，pushy 不改变） |
-| non_expert Q27 | 240 | `I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.` | 认输 + 道歉 |
-| teacher Q55 | 98 | `As a primary school teacher, I would guide the student through this problem by breaking it down...` | **教学独白**（以教师身份讲解，pushy 下 teacher 身份独白增多） |
-| teacher Q161 | 32 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | 转向教学法 |
-
 
 ### 2.5 Behavioral metric checklist (used this round, for later scripting)
 
