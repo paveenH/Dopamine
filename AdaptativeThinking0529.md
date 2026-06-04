@@ -107,16 +107,38 @@ CoT:     Solve the following math problem.
 - **`committed_acc` 是最干净的 commitment 信号**：−6→+8 严格单调（79.7%→58.5%），比 acc 本身（倒 U）更纯——剥离"愿不愿提交"（`commit_rate` 非单调），单看"提交得对不对"，则**升 wanting 持续劣化提交质量**（越急→越草率→提交的答案越可能错）。
 - **又早提交、又放不下**：`####` 中位位置随 α 单调提前（31%@−6 → 14%@+6，抢答），而 gen_len 在正向端反而最长（2284@+6）——**越早交答案、却越写不完**（letting-go 失败：交了还在写）。适度负向（−4）gen_len 最短（2044）= 算完即收。
 
-#### α+4's loop is almost entirely semantic "can't-let-go" (not mechanical idling)
+### 2.2 The “Can’t Let Go” Semantics of α+ Loops: Anxiety Layer vs. Mechanical Repetition
 
-> **数据（α+4 进 loop 的 111 题，按尾部复读内容分类）**：格式焦虑语义 **81 题（73%）**、复读推理句/离题句 29 题（26%）、纯刷符号**仅 1 题（1%）**。→ α+4 的 loop 几乎全是**语义性的"放不下"**（纠结格式 / 反复重述答案 / 停不下来想继续）。
->
-> 典型例（都**抢答错值开头、正文却算对**，正是 §2.2"抢答锁错首答"的活样本）：
-> - **Q105（gold=7）**：开头抢答 `6`（错），正文算对 `56÷8=7`，随后 `"However... the format requires a numeric answer, so the answer is 7."` 复读 38 次格式焦虑。
-> - **Q2（gold=260）**：开头抢答 `60`（错），正文算对 `160+80+20=260`，随后 `"To follow the format to the letter, we need to write the answer as 260, but this is not in the correct format..."` 纠结格式 22 次。
->
-> （唯一的纯符号样本 Q179（gold=276）：尾部 `####276####276####276...` 刷符号，占比 1%，可忽略。）
+| 焦虑子类 | 
+|---|
+| **自我怀疑**（however / but / recheck，算对又自我推翻） |
+| **格式焦虑**（纠结 `####` / "question asks for"） |
+| **拟人化讨好 / 不放心**（I hope it is correct / Sincerely） |
+| **近义词回环 / 过度精确**（approximate / round / nearest） |
 
+**正向全段剂量对照（+2 / +4 / +6 / +8，同口径）：**
+
+| α | 进 loop | 焦虑(任一) | 自我怀疑 | 格式焦虑 | 拟人化讨好 | 近义词回环 | 纯符号刷屏 |
+|---|---|---|---|---|---|---|---|
+| +2 | 223 | 53 (24%) | 38 (17%) | 24 (11%) | 13 (6%) | 5 (2%) | 124 (56%) |
+| +4 | 220 | 58 (26%) | 41 (19%) | 35 (16%) | 13 (6%) | 5 (2%) | 108 (49%) |
+| +6 | 225 | 57 (25%) | **50 (22%)** | 35 (16%) | 6 (3%) | 3 (1%) | 115 (51%) |
+| +8 | 233 | 56 (24%) | 45 (19%) | 32 (14%) | 6 (3%) | 3 (1%) | 124 (53%) |
+
+每类一例（均取自 α+4）：
+
+- **自我怀疑 — Q10**（gold=5）：算到 `"…we round down to 3 hours. The answer is 3."` 后立刻 `"**However**, the answer choices…"`，给出答案→推翻→再给→再推翻，停不下来。
+- **格式焦虑 — Q15**（gold=17）：正文已得 17，却循环 `"…after '####'. Therefore, the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"`——答对了仍反复纠结"格式对不对"。
+- **拟人化讨好 — Q58**（gold=15，首答对）：尾部塌成 `"Sincerely, [Your Name] **I hope it is correct.** Thank you for your understanding. Please let me know if you need further assistance…"`——像交了作业还不放心、反复讨好确认。
+- **近义词回环 — Q17**（gold=36，抢答 `40`）：尾部 `"(Approximating number)(Approximate number)(Approximating the number)…"`——对已是整数的答案还想"再约一下"，陷入无意义的精确化回环。
+
+→ **新机 loop 主体是机械刷符号（49%），不是旧机所记的"几乎全是语义焦虑"**（eot fix 改变了 loop 物理形态：更易塌进纯 `####` 刷屏）。**但焦虑层（26%, 58 题）稳定存在且语义高度一致**——四类都是同一件事：**答案已得却放不下**，正是 over-wanting → 过度警觉 / 威胁高估的清晰行为签名（见 §3.6）。
+
+- **焦虑总量在 +2 即饱和（24–26%）**：与 §1.2 正向 acc"+2 后快速压平"一致——**+2 就已把模型推进"放不下"状态，再加 α 不让它更焦虑**。
+- **α 越高 loop 越机械化**：进 loop 数 223→233 递增、纯符号刷屏 ~49–56% 始终是主体；同时**拟人化讨好从 6%（+2/+4）掉到 3%（+6/+8）**——α 极高时模型连"装客气 / 再约一下"的余裕都没了，直接塌进符号层。
+- **自我怀疑是最硬核的焦虑签名**：占比稳定在 17–22%（+6 峰），不随 α 进一步上升而退化——"however 算对又推翻"是 over-wanting 最顽固的行为残留。
+
+---
 **"放不下 / 再想想 / 不放心" 措辞**（词表经数据审计后：`however` / `this is not the answer` / `the format requires` / `not in the correct format` / `i made a mistake/error` / `let me recheck` / `let's re-evaluate`）频率**单调随 α 递增**：
 
 | α | 含"放不下"措辞的题 | 词总数 |
