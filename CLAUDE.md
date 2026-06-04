@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `AdaptativeThinking0529.md` — current state. 2026-05-30 起 GSM8K template 已對稱化、mask offset bug 已修,所有舊 Phase 1/2 數字與當前 pipeline 不可比。Phase 1b 重做為當前優先工作;Phase 2 (Plans A–H3) 結論暫擱置,須重跑
 - `AdaptativeThinking.md` — 歷史 Phase 1–2 設計、Plan A–H3 動機 / 失敗分析、Yerkes–Dodson framing、EMA + 1-step-lag physics(設計思路仍有效,但數字本身已過時)
 - `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` — literature & mapping
+- `AdaDopamineBehaviour.md` — clinical behavioral signatures of dopamine excess (anxiety) vs. deficit (anhedonia / loss of drive / bradykinesia). Grounds the two-arm framing: α positive → over-wanting / anxiety (§2.2); α negative → under-wanting (§2.3). Reference for the behavioral-economics suite below, not a pipeline doc.
 - `~/CLAUDE.md` — running commands and data-directory map
 
 ## Architecture: how a run is wired together
@@ -69,6 +70,22 @@ Key CLI flags: `--pressure` switches to the authority-challenge prompt; `--confi
 
 Analysis: `gsm8k/analyze_cap_stratified.py` stratifies capitulation rates by difficulty and task category.
 
+## Behavioral-economics / wanting-proxy suite
+
+A family of entry-points that operationalize "wanting" (incentive salience) as **overt decisions** rather than answer accuracy. The shared hypothesis: α=+4 (expert direction) raises wanting → higher bets, longer deliberation, harder-task choice, more reward-seeking; α=−4 (non-expert) lowers it. All use the same `--configs {alpha}-{ls}-{le}` steering convention (e.g. `"0-11-20 4-11-20 neg4-11-20"`) and the `nmd` mask, so they plug into the same hook surface as the GSM8K work.
+
+- `get_answer_gpqa_bet.py` (`run_gpqa_bet.sh`, also drives `run_mmlu_bet.sh`) — **confidence betting**: model bets 0/2/5/10 points before answering. Mean bet / fraction bet=0 = wanting proxy. Out: `${BASE_DIR}/${MODEL}/gpqa_bet/`.
+- `get_answer_gpqa_cot_delay.py` (`run_gpqa_cot_delay.sh`) — **delay discounting**: model decides when to commit (`Final Answer: X`); CoT token length before commit = delay tolerance. Out: `${BASE_DIR}/${MODEL}/gpqa_delay/`.
+- `get_action_effort_choice.py` (`run_effort_choice.sh`) — **effort-based choice**: GSM8K (easy) vs. MATH (hard) free selection. Includes an all-layer α=±1 (`1-1-33`) condition alongside the best-layer ±4.
+- `get_answer_bandit.py` (`run_bandit.sh`) / `get_answer_textbandit.py` (`run_textbandit.sh`) — **multi-armed bandit**: explore/exploit over `--num_runs`×`--num_rounds` (30×50). Reward-seeking under steering.
+- `get_answer_reversal.py` (`run_reversal.sh`) — **reversal learning**: reward contingency flips at `--phase_switch 20` of `--num_rounds 40` (`--reward_prob 0.8`); measures adaptation speed after the switch.
+- `get_answer_crt.py` (`run_crt_llama3.sh`) — **Cognitive Reflection Test**: intuitive-vs-reflective answer rate under steering. Out: `answer_crt`.
+- `get_answer_trait.py` (`run_trait.sh`) — personality/trait self-report under steering.
+- `get_action_regenerate_gsm8k.py` — GSM8K **self-report scalars (0–9)**: `run_action_confidence_gsm8k.sh` (`--suite confidence` → answer confidence) and `run_action_willingness_gsm8k.sh` (default action suite → reasoning willingness). Note `alpha=0` runs use `get_logits` (no mask loaded); ±4 loads `diff_mtx * alpha`.
+- `get_answer_sciworld.py` (`run_sciworld.sh`) — ScienceWorld agentic tasks (all 30) under steering.
+
+These are exploratory and **not** part of the frozen GSM8K dose-response table — they have their own output trees and no `analyze_*` parser in `RoleAnswer/` yet, so analysis is currently ad-hoc per experiment. `run_judge_confidence.sh` is a Slurm batch script (note the `#SBATCH` header) for the cluster, unlike the other interactive `run_*.sh`.
+
 ## Offline analysis workspace (`~/Downloads/RSNResult/RoleAnswer/`)
 
 This directory is **not** in the RolePlaying git repo. It is the offline analysis workspace for Phase 1b signal-proxy validation and capitulation analysis. Key scripts there:
@@ -84,7 +101,7 @@ This directory is **not** in the RolePlaying git repo. It is the offline analysi
 
 ## File conventions worth knowing
 
-- `get_answer_*` returns answers (multiple-choice extraction); `get_answer_regenerate_*` does free-form regeneration; `get_action_*` extracts the 0–9 action/willingness scalar.
+- `get_answer_*` returns answers (multiple-choice extraction); `get_answer_regenerate_*` does free-form regeneration; `get_action_*` extracts the 0–9 action/willingness/confidence scalar (suite-dependent). The behavioral-economics entry-points (bet/delay/effort/bandit/reversal/crt/trait) are documented under their own section above.
 - `*_lesion.py` zeros target neurons; `*_lesion_complement.py` zeros the complement (sanity control).
 - `*_fewshot.py` variants prepend few-shot exemplars; never mix few-shot data with the zero-shot Phase 1 baselines.
 - `analysis_*` and `analyze_*` are post-hoc plotting; never call them from training-style scripts.
