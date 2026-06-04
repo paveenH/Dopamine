@@ -6,7 +6,9 @@ TODO
 2. Trajectory HS for gsm8k 这里也要再确认是不是数据对得上 【184】
 6. MATH新版数据没有拿到 等GSM8K跑完之后再跑 【run in 182】
 
-## 0. Template Update
+## 0. Background
+
+### 0.1 Prompt Template Symmetrization
 
 | | 舊 No-CoT | 舊 CoT |
 |---|---|---|
@@ -30,6 +32,24 @@ CoT:     Solve the following math problem.
 ```
 
 **`####` 措辞 = "Provide your final numeric answer after '####'."（中性）**。一个更催促的变体 `"Give your final answer as a single number after '####'."`（pushy）会诱导**抢答**，被保留为**正向对照（positive control）**——见 §2。
+
+### 0.2 Dopamine Prior Knowledge
+
+行为学先验：多巴胺是**驱动力（incentive salience / "wanting"）**递质，调控动机、期待与奖赏，而非单纯的"快乐分子"。其水平偏离基准线（baseline）的**双向失衡**各有独立的行为表现，构成本研究 α 双向调控的神经学对应。
+
+**多巴胺过高 → 焦虑（over-wanting，对应 α→正向）**
+- **天平倾斜 / 戒断焦虑**：快感过后大脑向"痛苦侧"代偿倾斜，产生坐立不安、戒断性焦虑。
+- **神经元过度兴奋**：兴奋性递质浓度过高 → 网络过度活跃 → 躯体化焦虑（心跳加快、手抖、失眠）。
+- **强迫性期待焦虑**：成瘾驱动的"渴望下一个奖励"循环 → 反复检查、放不下。
+- → 对应 §2.2「Can't Let Go」：拿到答案却**放不下**（self_doubt / format_anxiety / persona_reassure / over_precision）。我们观测到 anxiety-rate 随 α 趋正向上升、在 acc 峰值（α=−6）处呈 U 形谷底。
+
+**多巴胺过低 → 失去动力 / 快感缺失 / 退缩（under-wanting，对应 α→极端负向）**
+- **习得性无助 + 缺乏动力**：对任务"提不起劲"，倾向放弃。
+- **快感缺失（anhedonia）/ 情感麻木**：奖赏机制失效，输出平淡、低投入。
+- **运动迟缓（bradykinesia）**：动作迟钝、拖沓 → 行为类比为**过早截断 / 欠承诺**。
+- → 对应 §2.3「Withdrawal」（待写）：「I am done / 不答了」式的**赌气拒答 / 退缩**为真正的低多巴胺签名；需与 α=−8 的**抢答锁错（premature wrong-lock）**这一独立机制区分。
+
+> 框架对应：α 双向调控 = 在 Yerkes–Dodson 倒 U 曲线上**双向移动工作点**。过正 → 过度唤起（焦虑/放不下）；过负 → 唤起不足（退缩/欠承诺）；最优在中间偏负（本数据 α=−6）。
 
 ## 1. GSM8K Performance
 
@@ -107,7 +127,7 @@ CoT:     Solve the following math problem.
 - **`committed_acc` 是最干净的 commitment 信号**：−6→+8 严格单调（79.7%→58.5%），比 acc 本身（倒 U）更纯——剥离"愿不愿提交"（`commit_rate` 非单调），单看"提交得对不对"，则**升 wanting 持续劣化提交质量**（越急→越草率→提交的答案越可能错）。
 - **又早提交、又放不下**：`####` 中位位置随 α 单调提前（31%@−6 → 14%@+6，抢答），而 gen_len 在正向端反而最长（2284@+6）——**越早交答案、却越写不完**（letting-go 失败：交了还在写）。适度负向（−4）gen_len 最短（2044）= 算完即收。
 
-### 2.2 The “Can’t Let Go” Semantics of α+ Loops: Anxiety Layer vs. Mechanical Repetition
+### 2.2 Anxiety: The “Can’t Let Go” Semantics
 
 loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**焦虑(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
 
@@ -162,19 +182,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | 文本"性格" | 冷静、果断、不回头（let go） | 焦虑、过度警觉、反复确认（can't let go） |
 
 > 形象说法：**α−4 像"做完题就交卷"，α+4 像"做完题了还在卷子上反复涂改、自言自语'等等这个对吗''这不对再算一遍''格式该怎么写'，直到打铃被收卷"。** 两者算的内容一样多（等式中位都 ~3），差的是**"放不放得下答案"** —— α−4 算完即放下，α+4 焦虑性反复确认（Q105/Q2：抢答错值→正文算对→纠结格式复读数十次）。这正是 dopamine 调节的东西（commitment to a choice + 过高时的过度警觉 / 焦虑，见 §3.6），不是 thinking 本身。
-
-#### "How much it keeps writing after #### " (= how much it still wants to say)
-
-直接测 motivation 的载体：首个 `####`（已交答案）之后还写了多少字符。
-
-| α | #### 后续写字符（中位） | 自然结束（非 loop，压缩比>0.30） | 进 loop（压缩比<0.18） |
-|---|---|---|---|
-| **α=−4** | **1479** | **23/300** | **222/300** |
-| α=0 | 1542 | 21/300 | 234/300 |
-| α=+4 | **1699** | 17/300 | **241/300** |
-
-- 方向符合框架且三指标全单调：**α−4 答完后写得最少（1479）、最易自然收手（23）、最少进 loop（222）**（"交了就停"）；α+4 反之——写最多（1699）、最难自然停（17）、最易进 loop（241）（"停不下来"）。
-- **幅度弱、基线高**（后续字符 1479 vs 1699 仅差 ~15%；进 loop 全部 74~80%）：GSM8K + greedy 下绝大多数题都会在 `####` 后接 Explanation / 客套并陷入复读——这是任务基线毛病，**terminator 修复也未消除**（GSM8K loop 是 `####N####N` 字符级复读，模型不吐 `<|eot_id|>`）。故"后续字符 / 自然结束"是**弱信号**；更干净的定量主证据仍是 `####` 位置（23%/18%/12%，§2.2）与 acc（73.7/63.7/50.0）。
 
 ### 2.3 Three-lever picture: commitment timing is controllable via multiple entry points
 
