@@ -38,9 +38,9 @@ CoT:     Solve the following math problem.
 
 > **ACC 计算**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.1：改答案是单向破坏，取首最优）。
 
-### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
-
 > **数据版本：`<|eot_id|>` terminator 修复后、机器 182 同机重跑（end_token-fixed，2026-06-04）**。
+
+### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
 
 | Role | plain first | plain last | pushy first | Δ(pushy−plain, first) |
 |---|---|---|---|---|
@@ -53,8 +53,6 @@ CoT:     Solve the following math problem.
 - **first−last gap 很小（role ≤2.3，neutral 4.7）**。
 
 ### 1.2 Steering (neutral, No-CoT; first acc = reported value)
-
-> 182 同机全 dose 重跑（2026-06-04）。plain first 即上报值。
 
 **完整 dose-response（neutral, No-CoT, plain first）：**
 
@@ -74,12 +72,11 @@ CoT:     Solve the following math problem.
 | cot (α−4) | **85.0%** | 84.7% | — |
 | cot (α+4) | 59.7% | 59.0% | — |
 
-- **倒 U 形（Yerkes–Dodson），峰值在 α=−6（78.0%）而非端点**：负向不是越负越好——α 从 0→−6 单调爬升（60→69→73→**78**），但 **α=−8 骤降到 40.3%**（过冲：首 token 抢答 `#### 3` / 残缺标记，推理塌缩）。这是框架预言的**适度降 wanting 提升、过度降 wanting 反而崩**的直接证据，是全 dose 重跑最重要的新结果。
+- **倒 U 形（Yerkes–Dodson），峰值在 α=−6（78.0%）而非端点**：负向不是越负越好——α 从 0→−6 单调爬升（60→69→73→**78**），但 **α=−8 骤降到 40.3%**。这是框架预言的**适度降 wanting 提升、过度降 wanting 反而崩**的直接证据。
 - **正向单调下降但快速饱和**：0→+2→+4→+6→+8 = 60→57→55.3→55→53.7，+4 以后基本压平（~54%）——升 wanting 一路损害，但边际递减。
 - **CoT 把 steering 抬高且仍单调**：α−4_cot **85.0%**（全表最高）> α0_cot 69.0 > α+4_cot 59.7。放开思考与降 wanting 叠加，α−4+CoT 把 acc 推到 85%。
 - **pushy 压扁 steering**：pushy first 下 −4/0/+4 = 61.7/55.7/53.0，跨度仅 ~9pt（plain 同区间 17.7pt），**+4≈0**——pushy 把所有 α 拉向同一抢答水平，steering 区分度被措辞吃掉。
 - **first−last gap 一律 ≤4.7**：取首即上报，末尾 loop 不污染（CoT 几乎为 0）。
-
 
 ## 2. Behavioral Findings: Wanting (Incentive Salience)
 
