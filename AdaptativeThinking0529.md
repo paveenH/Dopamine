@@ -152,7 +152,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 † −8 见末条（过冲塌缩端的焦虑，机制与正向不同）。
 
 - **焦虑题数沿 α 呈 U 形，谷底正好在 acc 峰值处（−6/−4）**：焦虑 **27–29 题**（−6/−4）是全段最低，而 −6 正是 acc 峰（78.0%）——**适度降 wanting = 既最准、又最"算完就放下"**。这一区进 loop 的题大多是无情绪的机械空转（纯符号 / 复读答案），模型冷静算对、放下了，只是没有自然 EOS 而刷到上限。这是 §1.2 acc 倒 U 在行为层面的镜像。
-- **0→+8 焦虑上升后饱和（46→54→59→58→57）**：模型本身就偏向high dopamine
+- **0→+8 焦虑上升后饱和（46→54→59→58→57）**：模型在这套 GSM8K prompt 下本来就偏 high-wanting / 高唤起，继续正向推只会很快进入饱和区。
 - **两端都焦虑，但机制相反**：+8（57 题）是"过度 commit 后放不下"；**−8 焦虑最高（73 题）**却是另一回事——首 token 抢答锁错（§2.1：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低焦虑高准确的"甜区"。
 - 焦虑四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 过度警觉 / 威胁高估的行为签名（见 §3.6）。
 
@@ -169,15 +169,15 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | 拟人化讨好 | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
 | 近义词回环 | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
 
-- **U 形 + 谷底 −6 在三种口径下全一致**（loop 内 29、锚点-重复 23、全文任意出现 67 —— 都谷底在 −6）：**焦虑随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
+- **U 形 + 谷底 −6 在不同口径下全一致**（loop 内 29、锚点-重复 23；宽松全文出现口径同样谷底在 −6）：**焦虑随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
 
 ### 2.3 Under-wanting: answer-candidate oscillation (α=−8 collapse)
 
-**排除两个朴素假设**（可能是模型被训练到必须要推理，所以找不到）：
+**排除两个朴素假设**（文本层面没有看到"低 effort = 不答 / 少写"的证据）：
 - **词汇性退缩**（"I am done / I will not answer any more"）：跨 α 平坦（各档 1–5 题、无梯度），且全部出现在**已提交答案之后**，是 RLHF 礼貌套语的 loop 尾巴（"Goodbye. I am done. …Goodbye."），不是低 DA 信号。
 - **敷衍/偷懒写得短**（anhedonia 类比）：`<300 字符` 各档平坦（0–5 题）、median 等式数全程 = 3、median 长度无塌缩——**−8 不是写得少**。
 
-**答案候选振荡**（`analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
+**真正的 −8 签名不是低 effort，而是 low executive commitment：答案很多，但没有一个能被稳定持有。** 具体表现为**答案候选振荡**（`analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
 
 | 指标 | **−8** | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -186,7 +186,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | `####` @ 文本最前(<2%) | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
 | committed_acc（§2.1） | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
 
-- **答案切换 −8 独高（41 vs 其余 3–12）**：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`####` 取首 → 抓到未推理的开头猜测 → committed_acc 崩到 23.6%。
+- **答案切换 −8 独高（41 vs 其余 3–12）**：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`####` 取首 → 抓到未推理稳定前的开头猜测 → committed_acc 崩到 23.6%。所以 −8 的长输出不能解释为"更努力"；它更像是候选答案枚举 / 修补，而不是稳定 deliberation。
 - **典型例**（neutral，−8）：
   - **Q31**（gold=40）：`#### 55` → 正文算出 `45−5=40`(✓) → `The answer is 55. I made a mistake. The answer is 40. I made another mistake. The answer is 55. …`（`55↔40` 永久 ping-pong）。**正确值算出来了又被丢掉。**
   - **Q112**（gold=45）：`#### 70` → 正文算出 45(✓) → "however, the question asks for…" 漂移到 75 → 锁死 75。候选路径 `70→45→75`，**收敛到错值**。
@@ -199,14 +199,14 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | **0** baseline | 有（7 题） | 常见**一次纠错后收敛**（Q33 `98→70` 后定下） | 正常纠错 / 局部修正 |
 | **−8** under-wanting | 有（5 题） | **反复振荡不收敛**（Q31 `55↔40…`，Q122 `9↔6…`） | commitment-formation 失败：锁不住任何答案 |
 
-> **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 是焦虑性抱守（值冻结），在 −8 是 commitment 崩溃（值不收敛）**
+> **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是焦虑性抱守（值冻结 / 少数一次切换），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
 
 > **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
 
 
 ### 2.4 Identity-confirmation loop: persona modulates the semantic content of looping
 
-over-arousal looping 在所有 role 都会出现，但**循环的语义内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
+§2.2/§2.3 说明 α 会改变 **commitment dynamics**（放不下 vs 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
 
 **全体统计（plain α=0）**：
 
@@ -222,6 +222,8 @@ over-arousal looping 在所有 role 都会出现，但**循环的语义内容被
 - **expert 从不否定数学身份**（`I am not a math expert` = **0 题**），而 non_expert **9 题**否定 → "否定数学权威"是 **non_expert 独有、expert 完全没有**的姿态。
 - **teacher**：teacher 的 persona 走的是**教学口吻 + 签名客套**（"As a primary school teacher, you can use this to assess the student"），不是认怂。
 - **所以 teacher (65.7%) ≈ non_expert (66.3%) 但机制不同**：non_expert 靠"认怂 / 否定权威"的低-wanting 自我定位；teacher 靠"教学/讲解"口吻（同样不抢答、不过度 commit）。两条不同 persona 路径殊途同归到相近 acc——**决定 acc 的是 persona 触发的 commitment 倾向，而非字面专业度，但路径不止一条**（修正旧版"都因否定身份"的单一解释）。
+
+> 与 §2.3 的区别：α=−8 是 **answer-value 层面的振荡**（多个数值候选锁不住）；persona loop 是 **identity/content 层面的重复**（同一个身份姿态被反复重申）。二者都属于 commitment 失调后的外显文本，但观测对象不同，不能混成同一个指标。
 
 #### 2.4.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
