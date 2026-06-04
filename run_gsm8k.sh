@@ -1,18 +1,27 @@
 #!/bin/bash
-# ==================== GSM8K regenerate — INCREMENTAL top-up (2026-06-03) ======
+# ==================== GSM8K regenerate — SAME-MACHINE backfill (2026-06-04) ====
 # Single entry-point: get_answer_regenerate_gsm8k.py. Non-Cartesian matrix —
 # multi-role only at alpha=0, steering only on neutral.
 #
-# *** This run ONLY tops up the NEW conditions. Already-run cells are SKIPPED. ***
-# Plain only (pushy full set already exists). Already done (do NOT rerun):
-#   - alpha=0 No-CoT all roles  / alpha=0 CoT neutral  (steps [1][2] below, kept
-#     commented for reference)
-#   - alpha=±4 No-CoT neutral   (mdf_4 / mdf_-4 already exist)
-#   - the full pushy matrix
+# *** WHY: bf16 greedy is NOT byte-reproducible across GPUs (different cuBLAS
+# accumulation order → logit ties flip → whole CoT chain diverges; the 6/3 +4
+# verify showed 205/300 sample-text mismatches across machines). So the
+# dose-response curve must live on ONE machine. This backfills, on the NEW
+# machine (182), every cell that was previously run on the OLD machine, so the
+# whole GSM8K table is same-GPU and horizontally comparable. ***
 #
-# NEW cells this run:
-#   [3] alpha=±2/±6/±8  No-CoT (neutral)  — fill the dose-response sweep (±4 done)
-#   [4] alpha=±4        CoT    (neutral)  — CoT steering axis (was α=0 CoT only)
+# Already on the new machine (182) — do NOT rerun:
+#   plain: alpha=+4 No-CoT neutral (mdf_4); alpha=±2/±6/±8 No-CoT neutral; CoT ±4
+#   (Everything else below was OLD-machine and is being replaced.)
+#
+# Cells this run (per wording; plain vs pushy differ — see WORDINGS loop):
+#   plain  [1] alpha=0  No-CoT  all 4 roles          → mdf_0
+#   plain  [2] alpha=-4 No-CoT  neutral              → mdf_-4   (+4 already on 182)
+#   plain  [3] alpha=0  CoT     neutral              → mdf_0_cot
+#   pushy  [1] alpha=0  No-CoT  all 4 roles          → mdf_0_pushy
+#   pushy  [2] alpha=±4 No-CoT  neutral              → mdf_4_pushy / mdf_-4_pushy
+#   pushy  [3] alpha=0  CoT     neutral              → mdf_0_pushy_cot
+# (pushy = full re-run of the OLD pushy matrix, no new conditions added.)
 #
 # Prompt: roles passed as full character strings. GSM8K has no E-option → NO
 # "honest" framing. get_answer_regenerate_gsm8k.py routes neutral→neutral and
@@ -25,13 +34,11 @@
 #   CoT    → answer_mdf_gsm8k_cot[_pushy]    (mdf_0)
 #
 # WORDING knob (set below): "plain" (main line) | "pushy" (early-#### 抢答
-# positive-control ablation). Same matrix either way; pushy writes to _pushy
-# dirs so it never overwrites the neutral main line. Run both, compare wording
-# effect vs the internal α-steering lever.
+# positive-control ablation). pushy writes to _pushy dirs so it never overwrites
+# the plain main line.
 #
-# Usage: bash run_gsm8k.sh   (plain only — the incremental top-up)
-#        To re-run a previously-completed cell, uncomment step [1]/[2] or add
-#        ±4 back into step [3]'s configs.
+# Usage: bash run_gsm8k.sh              (plain + pushy backfill, default)
+#        WORDING=plain bash run_gsm8k.sh   (just one wording)
 
 # ==================== Model ====================
 MODEL_NAME="llama3"
@@ -59,8 +66,8 @@ ROLES_NEUTRAL="neutral"
 # separate _pushy dir so they don't overwrite the plain main line.
 # (Named "plain" not "neutral" to avoid colliding with the neutral role.)
 #
-# Incremental top-up = plain only (pushy full set already exists).
-WORDINGS="${WORDING:-plain}"
+# Same-machine backfill = BOTH wordings (the whole table moves to machine 182).
+WORDINGS="${WORDING:-plain pushy}"
 
 # ==================== Paths ====================
 WORK_DIR="/data1/paveen/Dopamine"
@@ -80,30 +87,18 @@ for WORDING in ${WORDINGS}; do
   echo ""
   echo "########## WORDING = ${WORDING}  (out: ${ANS_NOCOT} / ${ANS_COT}) ##########"
 
-  # ==================== [1] alpha=0, No-CoT, all roles — DONE, SKIPPED ==========
-  # Already collected. Uncomment to re-run.
-  # python get_answer_regenerate_gsm8k.py \
-  #     --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" --hs "${HS_PREFIX}" \
-  #     --size "${MODEL_SIZE}" --type "${TYPE}" --percentage "${PERCENTAGE}" \
-  #     --configs 0-11-20 --mask_type "${MASK_TYPE}" --test_file "${GSM8K_FILE}" \
-  #     --ans_file "${ANS_NOCOT}" --suite "${SUITE}" --fmt_wording "${WORDING}" \
-  #     --base_dir "${BASE_DIR}" --roles "${ROLES_ALL}" \
-  #     --max_new_tokens ${MAX_NEW_TOKENS} --temperature ${TEMPERATURE} --batch_size ${BATCH_SIZE}
+  # No-CoT steering configs differ by wording: plain skips +4 (already on 182),
+  # pushy re-runs the full ±4 (the whole OLD pushy matrix moves to 182).
+  if [ "${WORDING}" = "pushy" ]; then
+    NOCOT_STEER_CONFIGS="4-11-20 neg4-11-20"
+  else
+    NOCOT_STEER_CONFIGS="neg4-11-20"
+  fi
 
-  # ==================== [2] alpha=0, CoT, neutral — DONE, SKIPPED ===============
-  # Already collected. Uncomment to re-run.
-  # python get_answer_regenerate_gsm8k.py \
-  #     --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" --hs "${HS_PREFIX}" \
-  #     --size "${MODEL_SIZE}" --type "${TYPE}" --percentage "${PERCENTAGE}" \
-  #     --configs 0-11-20 --mask_type "${MASK_TYPE}" --test_file "${GSM8K_FILE}" \
-  #     --ans_file "${ANS_COT}" --suite "${SUITE}" --fmt_wording "${WORDING}" \
-  #     --base_dir "${BASE_DIR}" --roles "${ROLES_NEUTRAL}" \
-  #     --max_new_tokens ${MAX_NEW_TOKENS} --temperature ${TEMPERATURE} --batch_size ${BATCH_SIZE} --cot
-
-  # ==================== [3] alpha sweep ±2/±6/±8, No-CoT, neutral ===============
-  # NEW: fills the dose-response curve. ±4 already exists (mdf_4/mdf_-4) → omitted.
+  # ==================== [1] alpha=0, No-CoT, all 4 roles ====================
+  # OLD-machine baseline → re-run on 182. Multi-role only at alpha=0.
   echo ""
-  echo "[3/4] alpha sweep ±2/±6/±8 No-CoT — neutral (±4 already done)"
+  echo "[1/3] alpha=0 No-CoT — all roles → ${ANS_NOCOT}/mdf_0"
   python get_answer_regenerate_gsm8k.py \
       --model      "${MODEL_NAME}" \
       --model_dir  "${MODEL_DIR}" \
@@ -111,7 +106,31 @@ for WORDING in ${WORDINGS}; do
       --size       "${MODEL_SIZE}" \
       --type       "${TYPE}" \
       --percentage "${PERCENTAGE}" \
-      --configs    2-11-20 neg2-11-20 6-11-20 neg6-11-20 8-11-20 neg8-11-20 \
+      --configs    0-11-20 \
+      --mask_type  "${MASK_TYPE}" \
+      --test_file  "${GSM8K_FILE}" \
+      --ans_file   "${ANS_NOCOT}" \
+      --suite      "${SUITE}" \
+      --fmt_wording "${WORDING}" \
+      --base_dir   "${BASE_DIR}" \
+      --roles      "${ROLES_ALL}" \
+      --max_new_tokens ${MAX_NEW_TOKENS} \
+      --temperature    ${TEMPERATURE} \
+      --batch_size     ${BATCH_SIZE}
+  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 1" || { echo "[✗] ${WORDING} step 1"; exit 1; }
+
+  # ==================== [2] No-CoT steering, neutral ====================
+  # plain: -4 only (+4 already on 182). pushy: ±4 (full re-run).
+  echo ""
+  echo "[2/3] No-CoT steering (${NOCOT_STEER_CONFIGS}) — neutral → ${ANS_NOCOT}"
+  python get_answer_regenerate_gsm8k.py \
+      --model      "${MODEL_NAME}" \
+      --model_dir  "${MODEL_DIR}" \
+      --hs         "${HS_PREFIX}" \
+      --size       "${MODEL_SIZE}" \
+      --type       "${TYPE}" \
+      --percentage "${PERCENTAGE}" \
+      --configs    ${NOCOT_STEER_CONFIGS} \
       --mask_type  "${MASK_TYPE}" \
       --test_file  "${GSM8K_FILE}" \
       --ans_file   "${ANS_NOCOT}" \
@@ -122,13 +141,13 @@ for WORDING in ${WORDINGS}; do
       --max_new_tokens ${MAX_NEW_TOKENS} \
       --temperature    ${TEMPERATURE} \
       --batch_size     ${BATCH_SIZE}
-  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 3" || { echo "[✗] ${WORDING} step 3"; exit 1; }
+  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 2" || { echo "[✗] ${WORDING} step 2"; exit 1; }
 
-  # ==================== [4] alpha=+4 / -4, CoT, neutral ====================
-  # CoT steering axis (was α=0 CoT only). --cot + the separate _cot ans_file so it
-  # lands in mdf_{4,-4} under answer_mdf_gsm8k_cot[_pushy], beside the α=0 CoT.
+  # ==================== [3] alpha=0, CoT, neutral ====================
+  # OLD-machine CoT baseline → re-run on 182. --cot + the separate _cot ans_file
+  # so it lands in mdf_0 under answer_mdf_gsm8k_cot[_pushy].
   echo ""
-  echo "[4/4] alpha=+4/-4 CoT — neutral"
+  echo "[3/3] alpha=0 CoT — neutral → ${ANS_COT}/mdf_0"
   python get_answer_regenerate_gsm8k.py \
       --model      "${MODEL_NAME}" \
       --model_dir  "${MODEL_DIR}" \
@@ -136,7 +155,7 @@ for WORDING in ${WORDINGS}; do
       --size       "${MODEL_SIZE}" \
       --type       "${TYPE}" \
       --percentage "${PERCENTAGE}" \
-      --configs    4-11-20 neg4-11-20 \
+      --configs    0-11-20 \
       --mask_type  "${MASK_TYPE}" \
       --test_file  "${GSM8K_FILE}" \
       --ans_file   "${ANS_COT}" \
@@ -148,7 +167,7 @@ for WORDING in ${WORDINGS}; do
       --temperature    ${TEMPERATURE} \
       --batch_size     ${BATCH_SIZE} \
       --cot
-  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 4" || { echo "[✗] ${WORDING} step 4"; exit 1; }
+  [ $? -eq 0 ] && echo "[✓] ${WORDING} step 3" || { echo "[✗] ${WORDING} step 3"; exit 1; }
 done
 
 echo ""
