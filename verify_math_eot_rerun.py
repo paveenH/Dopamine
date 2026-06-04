@@ -44,8 +44,13 @@ def short(s, n=160):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model_dir", required=True)
-    ap.add_argument("--ref", required=True,
-                    help="reference JSON to compare against (the stored math_eot mdf_0 neutral file)")
+    ap.add_argument("--ref", default=None,
+                    help="optional reference JSON to compare against. If omitted (or "
+                         "missing), the script only re-generates and SAVES the first N "
+                         "samples to --out for offline comparison.")
+    ap.add_argument("--out", default="verify_math_eot_first3.json",
+                    help="where to save the re-generated first-N samples (same schema "
+                         "as math_eot mdf_0). scp this to local and diff vs math_eot.")
     ap.add_argument("--test_file", default="benchmark/math_test_sample.json")
     ap.add_argument("--base_dir", default="/data1/paveen/Dopamine/components")
     ap.add_argument("--mask_type", default="nmd")
@@ -76,10 +81,14 @@ def main():
     if eot_id not in vc.terminators:
         print("[WARN] <|eot_id|> NOT in terminators — this process is running PRE-EOT code.")
 
-    # ---- load reference + leading samples ----
-    ref = json.load(open(a.ref))
-    ref_data = ref["data"][:a.n]
-    print(f"[ref] {a.ref}  role={ref.get('role')}  using first {len(ref_data)} samples")
+    # ---- optional reference (may be absent on server — then we only save) ----
+    ref_data = None
+    if a.ref and os.path.exists(a.ref):
+        ref = json.load(open(a.ref))
+        ref_data = ref["data"][:a.n]
+        print(f"[ref] {a.ref}  role={ref.get('role')}  using first {len(ref_data)} samples")
+    else:
+        print(f"[ref] none ({a.ref!r} not found) — will only SAVE re-generated samples")
 
     data_path = os.path.join(a.base_dir, a.test_file)
     all_samples = utils.load_json(data_path)[:a.n]
@@ -95,6 +104,23 @@ def main():
     with torch.no_grad():
         results, acc = run_math(vc, samples, diff_mtx, template,
                                 alpha=0, st=a.layer_start, en=a.layer_end, role="neutral")
+
+    # ---- always save (same schema as math_eot mdf_0) for offline diff ----
+    with open(a.out, "w", encoding="utf-8") as fw:
+        json.dump({"data": results, "accuracy": round(acc, 4), "role": "neutral",
+                   "_verify_meta": {"terminators": vc.terminators,
+                                    "eot_in_terminators": eot_id in vc.terminators,
+                                    "n": a.n, "max_new_tokens": a.max_new_tokens}},
+                  fw, ensure_ascii=False, indent=2)
+    print(f"\n[Saved] {a.out}  (scp to local, diff vs math_eot/mdf_0/math_8B_11_20.json)")
+
+    if ref_data is None:
+        print("\nNo --ref on this machine. Compare offline with:")
+        print("  python -c \"import json;"
+              "a=json.load(open('%s'))['data'];"
+              "b=json.load(open('LOCAL_math_eot/mdf_0/math_8B_11_20.json'))['data'];"
+              "print([a[i]['generated']==b[i]['generated'] for i in range(len(a))])\"" % a.out)
+        return
 
     # ---- compare ----
     print("\n" + "=" * 80)
