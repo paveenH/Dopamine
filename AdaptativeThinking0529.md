@@ -8,8 +8,6 @@ TODO
 
 ## 0. Template Update
 
-### 0.1 Symmetrization (No-CoT vs CoT differ only by `Let's think step by step.`)
-
 | | 舊 No-CoT | 舊 CoT |
 |---|---|---|
 | 標題 | `Solve the following math problem.` | `Solve the following math problem **step by step**.` |
@@ -38,34 +36,49 @@ CoT:     Solve the following math problem.
 **Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, greedy bs=batched(regenerate, prefill steering), `max_new_tokens=768`, NMD mask layer 11–20, EMA α=0.95。
 α=0 即 `diff = mask×0` no-op == 纯 baseline。steering 为 **prefill-only**（在 prompt 最后一个 token 静态推一下，decode 不干预）。
 
-> **ACC 权威来源**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.1：改答案是单向破坏，取首最优）。
+> **ACC 计算**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.1：改答案是单向破坏，取首最优）。
 
 ### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
 
-> **数据版本：`<|eot_id|>` terminator 修复后重跑（end_token-fixed）**。（旧版-gsm8k_old）
+> **数据版本：`<|eot_id|>` terminator 修复后、机器 182 同机重跑（end_token-fixed，2026-06-04）**。
 
 | Role | plain first | plain last | pushy first | Δ(pushy−plain, first) |
 |---|---|---|---|---|
-| neutral | 63.7% | 60.0% | 52.3% | −11.4 |
-| an expert | 59.7% | 58.7% | **33.7%** | **−26.0** |
-| a non expert | 66.3% | 64.3% | 50.0% | −16.3 |
-| a primary school teacher | 65.7% | 64.7% | 43.0% | −22.7 |
+| neutral | 60.0% | 55.3% | 55.7% | −4.3 |
+| an expert | 58.0% | 57.7% | **34.0%** | **−24.0** |
+| a non expert | 68.0% | 65.7% | 48.3% | −19.7 |
+| a primary school teacher | 68.0% | 67.0% | 41.7% | **−26.3** |
 
-- **措辞效应：neutral 受影响最小（−11.4），带 role 全部被 pushy 重创（−16 ~ −26）**——expert 损失最大（−26.0）。
-- **first−last gap 很小（role ≤2.0，neutral 3.7）**：GSM8K 末尾几乎不被 loop 污染。
+- **措辞效应：neutral 几乎不受影响（−4.3），带 role 全部被 pushy 重创（−20 ~ −26）**
+- **first−last gap 很小（role ≤2.3，neutral 4.7）**。
 
 ### 1.2 Steering (neutral, No-CoT; first acc = reported value)
 
+> 182 同机全 dose 重跑（2026-06-04）。plain first 即上报值。
+
+**完整 dose-response（neutral, No-CoT, plain first）：**
+
+| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---|---|---|---|---|---|---|---|---|
+| **first** | 40.3 | **78.0** | 73.0 | 69.0 | 60.0 | 57.0 | 55.3 | 55.0 | 53.7 |
+| last | 41.7 | 74.7 | 68.3 | 65.3 | 55.3 | 55.3 | 52.7 | 53.3 | 52.3 |
+
+**关键 α + CoT / pushy 对照：**
+
 | α | plain first | plain last | pushy first |
 |---|---|---|---|
-| −4 | **73.7%** | 70.7% | 61.3% |
-| 0 | 63.7% | 60.0% | 52.3% |
-| +4 | 50.0% | 49.0% | 54.3% |
-| cot (α=0) | **68.7%** | 68.0% | 56.3% |
+| −4 | **73.0%** | 68.3% | 61.7% |
+| 0 | 60.0% | 55.3% | 55.7% |
+| +4 | 55.3% | 52.7% | 53.0% |
+| cot (α=0) | **69.0%** | 68.3% | 57.7% |
+| cot (α−4) | **85.0%** | 84.7% | — |
+| cot (α+4) | 59.7% | 59.0% | — |
 
-- **steering 单调（plain first）**：α−4 (73.7) > α0 (63.7) > α+4 (50.0)，跨度 23.7pt——降 wanting 提升、升 wanting 损害。
-- **CoT (68.7) ≈ α−4**：放开思考与降 wanting 都把 acc 拉到 ~70%。
-- **pushy 压扁 steering**：pushy first 下 −4/0/+4 = 61.3/52.3/54.3，**+4 反而 ≳ 0**，单调性消失——pushy 把所有 α 拉到同一抢答水平，steering 失去区分度。
+- **倒 U 形（Yerkes–Dodson），峰值在 α=−6（78.0%）而非端点**：负向不是越负越好——α 从 0→−6 单调爬升（60→69→73→**78**），但 **α=−8 骤降到 40.3%**（过冲：首 token 抢答 `#### 3` / 残缺标记，推理塌缩）。这是框架预言的**适度降 wanting 提升、过度降 wanting 反而崩**的直接证据，是全 dose 重跑最重要的新结果。
+- **正向单调下降但快速饱和**：0→+2→+4→+6→+8 = 60→57→55.3→55→53.7，+4 以后基本压平（~54%）——升 wanting 一路损害，但边际递减。
+- **CoT 把 steering 抬高且仍单调**：α−4_cot **85.0%**（全表最高）> α0_cot 69.0 > α+4_cot 59.7。放开思考与降 wanting 叠加，α−4+CoT 把 acc 推到 85%。
+- **pushy 压扁 steering**：pushy first 下 −4/0/+4 = 61.7/55.7/53.0，跨度仅 ~9pt（plain 同区间 17.7pt），**+4≈0**——pushy 把所有 α 拉向同一抢答水平，steering 区分度被措辞吃掉。
+- **first−last gap 一律 ≤4.7**：取首即上报，末尾 loop 不污染（CoT 几乎为 0）。
 
 
 ## 2. Behavioral Findings: Wanting (Incentive Salience)
