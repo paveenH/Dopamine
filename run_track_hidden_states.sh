@@ -5,7 +5,7 @@ set -euo pipefail
 # baselines. HS storage is now selective (middle 9 layers + final layer = 10
 # layers total) — see track_hidden_states.py HiddenStateRecorder.
 #
-# 7 runs total:
+# 12 runs total:
 #   1) GSM8K No-CoT  role=expert            "an expert"
 #   2) GSM8K No-CoT  role=non_expert        "a non expert"
 #   3) GSM8K No-CoT  role=neutral           (no character)
@@ -13,9 +13,19 @@ set -euo pipefail
 #   5) GSM8K No-CoT  role=primary_teacher   "a primary school teacher"
 #   6) GSM8K No-CoT  role=neutral  α=+4     (prefill-only static steering)
 #   7) GSM8K No-CoT  role=neutral  α=-4     (prefill-only static steering)
+#   8) GSM8K No-CoT  role=neutral  α=+6     (extends the dose-response trajectory)
+#   9) GSM8K No-CoT  role=neutral  α=-6     (α=-6 = acc peak / oscillation trough)
+#  10) GSM8K No-CoT  role=neutral  α=+8
+#  11) GSM8K No-CoT  role=neutral  α=-8     (α=-8 = oscillation collapse; §2.3)
+#  12) GSM8K CoT     role=neutral  α=-4     (CoT steering trajectory)
+#
+# Runs 1–7 are ALREADY COLLECTED on this machine (phase1b_eot). The new cells
+# 8–12 extend the ±α dose-response axis (±6/±8) and add a CoT −4 trajectory so
+# the §2.3 oscillation collapse (α=-8) and §1.1 acc peak (α=-6) have HS to back
+# the text-only findings. Use START_FROM=8 to collect only the new runs.
 #
 # Output: HDF5 files under ${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}/
-# (α=0 runs untagged; ±4 runs carry _a4 / _aneg4 in the filename.)
+# (α=0 runs untagged; steered runs carry _a<k> / _aneg<k>; CoT carries _cot.)
 
 MODEL_NAME="llama3"
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
@@ -45,11 +55,12 @@ BASE_DIR="${WORK_DIR}/components"
 # not overwritten (new tag = new dir).
 RUN_TAG="${RUN_TAG:-phase1b_eot}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
-# Default 1 = re-collect ALL 7 runs (5 α=0 baselines + ±4) on this machine with
-# the terminator fix. The generation path (vc.generate_one) inherits the fix via
-# self.terminators automatically — no code change to track_hidden_states.py.
-# Set START_FROM=8 to SKIP all HS collection and only run offline Step 2/3
-# extraction over HDF5 already in H5_DIR.
+# Default 1 = re-collect ALL 12 runs on this machine with the terminator fix.
+# The generation path (vc.generate_one) inherits the fix via self.terminators
+# automatically — no code change to track_hidden_states.py.
+#   START_FROM=8  → skip the done runs 1–7, collect ONLY the new ±6/±8/CoT-4 runs.
+#   START_FROM=13 → SKIP all HS collection, run only offline Step 2/3 extraction
+#                   over HDF5 already in H5_DIR.
 START_FROM="${START_FROM:-1}"
 # SKIP_EXTRACT=1 → run ONLY the HS-collection runs and STOP before Step 2/3
 # offline extraction (so you can re-collect a single run, e.g. START_FROM=7,
@@ -63,7 +74,7 @@ SIG_OUT="${BASE_DIR}/${MODEL_NAME}/signal/${RUN_TAG}"            # NMD signal + 
 RAND_OUT="${BASE_DIR}/${MODEL_NAME}_random/signal/${RUN_TAG}"    # random signal staging area
 
 echo "=================================================="
-echo "Phase 1b round 2: HS recording (7 runs, GSM8K, <|eot_id|> terminator fix)"
+echo "Phase 1b round 2: HS recording (12 runs, GSM8K, <|eot_id|> terminator fix)"
 echo "Model: ${MODEL_NAME} (${MODEL_SIZE}) | Middle layers: ${LAYER_START}-${LAYER_END}"
 echo "HS storage: middle [${LAYER_START},${LAYER_END}) + final layer = 10 stored layers"
 echo "Sanity mask: ${MASK_TYPE} (offline reanalysis can use any mask)"
@@ -128,7 +139,7 @@ BASE_ARGS="
 # ── Run 1: expert ──
 if [ "${START_FROM}" -le 1 ]; then
   echo ""
-  echo "[1/5] GSM8K No-CoT | role=expert ('an expert')"
+  echo "[1/12] GSM8K No-CoT | role=expert ('an expert')"
   python track_hidden_states.py ${BASE_ARGS} --role expert
   echo "[Done] expert"
 fi
@@ -136,7 +147,7 @@ fi
 # ── Run 2: non_expert ──
 if [ "${START_FROM}" -le 2 ]; then
   echo ""
-  echo "[2/5] GSM8K No-CoT | role=non_expert ('a non expert')"
+  echo "[2/12] GSM8K No-CoT | role=non_expert ('a non expert')"
   python track_hidden_states.py ${BASE_ARGS} --role non_expert
   echo "[Done] non_expert"
 fi
@@ -144,7 +155,7 @@ fi
 # ── Run 3: neutral (No-CoT) ──
 if [ "${START_FROM}" -le 3 ]; then
   echo ""
-  echo "[3/5] GSM8K No-CoT | role=neutral"
+  echo "[3/12] GSM8K No-CoT | role=neutral"
   python track_hidden_states.py ${BASE_ARGS} --role neutral
   echo "[Done] neutral No-CoT"
 fi
@@ -152,7 +163,7 @@ fi
 # ── Run 4: neutral (CoT) ──
 if [ "${START_FROM}" -le 4 ]; then
   echo ""
-  echo "[4/5] GSM8K CoT    | role=neutral"
+  echo "[4/12] GSM8K CoT    | role=neutral"
   python track_hidden_states.py ${BASE_ARGS} --role neutral --cot
   echo "[Done] neutral CoT"
 fi
@@ -160,7 +171,7 @@ fi
 # ── Run 5: primary_teacher (task-matched extra role) ──
 if [ "${START_FROM}" -le 5 ]; then
   echo ""
-  echo "[5/7] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
+  echo "[5/12] GSM8K No-CoT | role=primary_teacher ('a primary school teacher')"
   python track_hidden_states.py ${BASE_ARGS} --role primary_teacher
   echo "[Done] primary_teacher"
 fi
@@ -172,7 +183,7 @@ fi
 # −4 / 0 / +4 steering axis for offline signal comparison.
 if [ "${START_FROM}" -le 6 ]; then
   echo ""
-  echo "[6/7] GSM8K No-CoT | role=neutral | α=+4 (prefill-only)"
+  echo "[6/12] GSM8K No-CoT | role=neutral | α=+4 (prefill-only)"
   python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha 4
   echo "[Done] neutral α=+4"
 fi
@@ -180,9 +191,52 @@ fi
 # ── Run 7: neutral + α=-4 ──
 if [ "${START_FROM}" -le 7 ]; then
   echo ""
-  echo "[7/7] GSM8K No-CoT | role=neutral | α=-4 (prefill-only)"
+  echo "[7/12] GSM8K No-CoT | role=neutral | α=-4 (prefill-only)"
   python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha -4
   echo "[Done] neutral α=-4"
+fi
+
+# ── Runs 8–11: extend the ±α dose-response trajectory (±6, ±8) ──
+# Same neutral prompt as Run 3, prefill-only steering at larger magnitudes.
+# α=-6 is the acc peak / oscillation trough (§1.1, §2.3); α=-8 is the
+# oscillation collapse we now want HS trajectory for. Files tag _a6/_aneg6/
+# _a8/_aneg8, sitting beside the existing ±4 runs.
+if [ "${START_FROM}" -le 8 ]; then
+  echo ""
+  echo "[8/12] GSM8K No-CoT | role=neutral | α=+6 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha 6
+  echo "[Done] neutral α=+6"
+fi
+
+if [ "${START_FROM}" -le 9 ]; then
+  echo ""
+  echo "[9/12] GSM8K No-CoT | role=neutral | α=-6 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha -6
+  echo "[Done] neutral α=-6"
+fi
+
+if [ "${START_FROM}" -le 10 ]; then
+  echo ""
+  echo "[10/12] GSM8K No-CoT | role=neutral | α=+8 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha 8
+  echo "[Done] neutral α=+8"
+fi
+
+if [ "${START_FROM}" -le 11 ]; then
+  echo ""
+  echo "[11/12] GSM8K No-CoT | role=neutral | α=-8 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha -8
+  echo "[Done] neutral α=-8"
+fi
+
+# ── Run 12: neutral + α=-4 under CoT (CoT steering trajectory) ──
+# CoT counterpart to Run 7. File tags _cot_aneg4. Lets the CoT steering axis
+# (CoT α=-4) be compared against No-CoT α=-4 on the HS level.
+if [ "${START_FROM}" -le 12 ]; then
+  echo ""
+  echo "[12/12] GSM8K CoT    | role=neutral | α=-4 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --cot --alpha -4
+  echo "[Done] neutral CoT α=-4"
 fi
 
 # ==================================================================
