@@ -3,7 +3,6 @@
 ---
 待驗證的事情：
 4. trajectory signal + HS [end-token id -> running]
-5. Analylize gsm8k [eot] 
 6. Analylize math [eot] 
 
 ## 0. Template Update
@@ -266,9 +265,8 @@ TEACHER = 教学口吻 / 签名客套（**不否定身份**，重度刷身份 0 
 
 ## 3. MATH Performance
 
-**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。`is_correct_math` = normalize + sympy 等价。α=0 = mask×0 no-op == 纯 baseline，全程 regenerate。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。结果目录 `RoleAnswer/llama3/math/math_2048/`。
+**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。ACC: `analyze_first_last_acc.py`。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。**数据为 `<|eot_id|>` 重跑**（同 GSM8K §1，`llms._build_terminators` 注册 eot=128009 为终止符）。结果目录 `RoleAnswer/llama3/math_eot/`。
 
-> **ACC 权威来源**：同 §1，由 `RoleAnswer/analyze_first_last_acc.py`（offline，整体分母 300）计算 first/last 双口径。**MATH 主报 first acc（与 GSM8K 一致）**——production `extract_math_answer` 历史上取末 boxed，但 MATH 的 role 复读 loop 会在末尾吐错 boxed（见 §3.2/§3.3），取首才干净。last 列保留作污染诊断。
 
 ### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
 
@@ -481,5 +479,3 @@ GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH
 待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §3.2 的信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
 
 ---
-
-
