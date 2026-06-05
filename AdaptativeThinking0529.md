@@ -175,8 +175,8 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | commit_rate | 60.7 | 60.7 | 58.3 | 63.0 | 62.7 | 53.0 | 49.0 | 45.3 | 53.0 | Non-monotonic |
 | median `####` position | **0%** | 31% | 25% | 18% | 18% | 19% | 16% | 14% | 14% | ✓ Earlier commit |
 | mean `####` position | 9% | 33% | 28% | 24% | 22% | 25% | 26% | 22% | 20% | Same negative-high/positive-low tilt as median, but non-monotonic|
-| premature answer (leading digit) | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 | Low at −8/−6 because the first token is often `####` |
-| premature answer (either: lead-digit ∪ early-`####`) | **175** | 94 | 195 | 223 | 206 | 215 | 232 | 233 | 210 | Union of both forms |
+| premature (leading digit) | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 | 漏检 `####`-lock 型抢答(−8 只读到 4) |
+| **premature (either)** | **175** | **94** | **195** | **223** | **206** | **215** | **232** | **233** | **210** | lead-digit ∪ early-`####`,−8=175 才是真相 |
 | median gen_len (char) | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
 | loop samples ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | High baseline (~74–88%); no clean trend |
 | ≥2 `Step` markers | 31 | 185 | 73 | 36 | 25 | 31 | 31 | 27 | 37 | No-CoT rarely enters stepwise reasoning |
@@ -190,7 +190,7 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 > - **median gen_len** = 生成的**字符**长度中位数。
 > - **loop samples** = `analyze_loop_anxiety.py --mode loop` 的 `n_loop`。
 > - **≥2 Step 标记**、**卡死**（短串复读 loop ∧ `=`<2，即从未真正运算）、**med 等式数**（`=` 计数）见 §2.5.1。
-> - **premature (leading digit)** = 首个非空字符即数字（抓**裸数字**抢答，+α 端）；**premature (either)** = 前者 ∪ `####` 出现在前 2% 文本（再抓 **`#### N` 首 token 锁值**，−α 端）。两者必须并读——单看 leading-digit 会把 −8 的 `####`-抢答漏成 4，union 口径下 −8 实为 175（全表最高），见 §2.4。
+> - **抢答主指标 = premature (either)**（全文统一口径）= 首字符即数字 ∪ `####` 出现在前 2% 文本（lead-digit ∪ early-`####`）。**leading-digit 单列仅作辅助**——它只抓"裸数字"抢答（+α 端），会漏掉 −α 端的 **`#### N` 首 token 锁值**：−8 lead 只读到 4，either 口径下实为 **175（全表最高）**。这与 anxiety 的 full/loop 取舍同理：抢答也用更全的检测器当主口径，见 §2.4 / §2.5.1。
 
 † **α=−8 = 过冲塌缩，不在单调线上**：`committed_acc` 崩到 **23.6%**、`####` 中位位置 **0%**（首 token 即抢答）——α 太负使模型一开口就 `#### N` 锁死错值。倒 U 的负向尽头是"过早 commit 锁错"，不是"算不出"。
 
@@ -337,17 +337,17 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | commit_rate % | 58.3 | 62.7 | 49.0 | 31.7 | 37.7 | 29.0 | CoT shifts the answer outlet toward `\boxed{}` |
 | median `####` position | 25% | 18% | 16% | 37% | 36% | 41% | Step 前缀 + `\boxed{}` 出口推后 `####` |
 | mean `####` position | 28% | 22% | 26% | 37% | 35% | 37% | 同样被 CoT 前缀推后|
-| premature answer (leading digit) | 195 | 199 | 229 | **48** | 121 | 237 | **Lower wanting** |
-| premature answer (either: lead-digit ∪ early-`####`) | 195 | 206 | 232 | **63** | 151 | 242 | **Lower wanting** |
+| premature (leading digit)| 195 | 199 | 229 | 48 | 121 | 237 | 漏检 `####`-lock |
+| **premature (either)** | **195** | **206** | **232** | **63** | **151** | **242** | **Lower wanting** |
 | median gen_len (char) | 2044 | 2107 | 2228 | 2113 | 2091 | 2078 | Flat |
 | loop samples (n_loop) | 242 | 232 | 220 | 284 | 254 | 250 | Flat |
 | **≥2 `Step` markers** | 73 | 25 | 31 | **261** | 220 | 227 | **CoT**: stepwise-structure rate ×3–9 (73→261) |
 | stuck loops (loop ∧ `=` < 2) | 27 | 25 | 20 | **12** | 28 | 42 | -|
 | median equation count (`=`) | 3 | 3 | 3 | 3 | 4 | 3 | Flat |
 
-> - **两个杠杆正交**：`≥2 Step` 由 CoT 决定、几乎不随 α 变（CoT 三档 220–261）；`premature(leading)` 由 α 决定、几乎不随 CoT 变（No-CoT 195/199/229 与 CoT 48/121/237 都随 α 单调）。互不干涉 → 两者的 acc 增益**可叠加**。
-> - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature）**。
-> - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答仍被钉在高位(237≈+4_nocot 的 229),过度 wanting 直接穿透脚手架;−4 端抢答塌到 48,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
+> - **两个杠杆正交**：`≥2 Step` 由 CoT 决定、几乎不随 α 变（CoT 三档 220–261）；`premature(either)` 由 α 决定、几乎不随 CoT 变（No-CoT 195/206/232 与 CoT 63/151/242 都随 α 单调）。互不干涉 → 两者的 acc 增益**可叠加**。
+> - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature either）**。
+> - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答（either）仍被钉在高位(242≈+4_nocot 的 232),过度 wanting 直接穿透脚手架;−4 端抢答塌到 63,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
 
 ---
 
@@ -436,8 +436,8 @@ I am a teacher... I am not a teacher. I am a computer program...
 | commit_rate % | 87.3 | 86.0 | 85.3 | 高且平（MATH `\boxed{}` 收口稳定，不像 GSM8K `####` 的 58/63/49） |
 | median `\boxed{}` position | 21% | 14% | 16% | −4 提交最晚（GSM8K ####位置同向：负向最晚） |
 | mean `\boxed{}` position | 40% | 26% | 33% | 右偏长尾（mean≫median = 少数题极晚才 boxed） |
-| premature (lead `\boxed{}`) | 7 | 17 | 8 | 低基数（MATH 难、极少首 token 直接 boxed） |
-| premature (either) | 13 | 29 | 26 | 同上，union 仍低（MATH 抢答远少于 GSM8K） |
+| premature (lead `\boxed{}`) | 7 | 17 | 8 | 漏检 `\boxed{}`-lock 型抢答 |
+| **premature (either)** | **13** | **29** | **26** | union（lead ∪ early-`\boxed{}`），MATH 抢答远少于 GSM8K |
 | **median gen_len** (char) | **4798** | 5557 | **5719** | ✓ 递增；−4 算完即收、+4 写不完（GSM8K 同向，量级大 2×+） |
 | loop samples | 76 | 120 | 99 | 远低于 GSM8K（~220-264）——MATH 长推理稀释了短串复读检出 |
 | ≥2 `Step` markers | 168 | 131 | 177 | 高（MATH No-CoT 也大量自发分步，与 GSM8K 25-31 截然不同） |
@@ -547,8 +547,8 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 | commit_rate % | 87.3 | 86.0 | 85.3 | 92.3 | 92.7 | 87.0 | MATH 几乎都 commit(≫ GSM8K) |
 | median boxed pos | 21% | 14% | 16% | 33% | 23% | 28% | Step 前缀把 `\boxed{}` 推后 |
 | mean boxed pos | 40% | 26% | 33% | 52% | 36% | 46% | 同样被 CoT 前缀推后 |
-| premature (leading) | 7 | 17 | 8 | **3** | 19 | 11 | 抢答随 α,CoT 在 −4 端再压(7→3) |
-| **premature (either)** | 13 | 29 | 26 | **6** | 25 | 26 | 同上 |
+| premature (leading) | 7 | 17 | 8 | 3 | 19 | 11 | 漏检 `\boxed{}`-lock |
+| **premature (either)** | **13** | **29** | **26** | **6** | **25** | **26** | 抢答随 α,CoT 在 −4 端再压(13→6) |
 | median gen_len (char) | 4798 | 5557 | 5719 | 3864 | 5141 | 4123 | CoT 反而更短(分步收敛更快) |
 | loop (n_loop) | 76 | 120 | 99 | 79 | 130 | 102 | Flat(CoT 不减 loop) |
 | **≥2 `Step` markers** | 168 | 131 | 177 | **273** | 217 | 185 | **CoT**: 分步结构率抬升(−4: 168→273) |
