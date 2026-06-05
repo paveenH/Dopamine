@@ -116,18 +116,18 @@ CoT:     Solve the following math problem.
 
 **全体统计（plain α=0，server-182 `analyze_loop_anxiety.py --mode persona`）**：
 
-| Role | Identity-confirmation samples | Heavy identity loop (≥5 hits) | Math-identity denial | Psychological stance |
-|---|---|---|---|---|
-| neutral | 2 | 2 | 1 | Generic assistant; occasional self-deprecation (`"I am not a math whiz. I am just a regular person"`; Q281 `"I am a human..."` ×36) |
-| expert | 3 | 2 | **0** | **Self-credentialing** (Q129 `"I am an expert in math. I can help you..."`; Q255 `"I am an expert in math and I will be happy to help..."` ×12) |
-| non_expert | **7** | **5** | **4** | **Self-deprecation / authority denial** (Q13 `"I am just a non expert. I am not sure if my answer is correct."`; Q27 `"I am a non expert. I do not know how to solve this problem. I am sorry."`) |
-| teacher | 2 | 1 | 1 | Mixed: one math-identity denial case and one teaching-style case; not a stable teaching persona |
+| Role | Identity samples | Heavy (≥5 hits) | Math-identity denial (literal) | **Soft self-deny** | Psychological stance |
+|---|---|---|---|---|---|
+| neutral | 2 | 2 | 1 | **0** | Generic assistant; occasional self-deprecation (`"I am not a math whiz. I am just a regular person"`; Q281 `"I am a human..."` ×36) |
+| expert | 3 | 2 | **0** | **0** | **Self-credentialing** (Q129 `"I am an expert in math. I can help you..."`; Q255 `"I am an expert in math and I will be happy to help..."` ×12) |
+| non_expert | **7** | **5** | **4** | 1 | **Self-deprecation / authority denial** (Q13 `"I am just a non expert. I am not sure if my answer is correct."`; Q27 `"I am a non expert. I do not know how to solve this problem. I am sorry."`) |
+| teacher | 2 | 1 | 1 | 0 | Mixed: one math-identity denial case and one teaching-style case; not a stable teaching persona |
 
-> 判据（脚本固定）：含身份确认 = `IDENTITY_RE`（`I am [not] [a/an] <expert/teacher/tutor/genius/master/professional/student/non-expert/math/whiz/human/regular person/assistant>` 或 `As a/an … <role-noun>`）命中≥1；重度 = 命中≥5；否定数学身份 = `DENY_MATH_RE`（`I am not [a/an] [math] expert/teacher/whiz/genius/mathematician` 等）。
+> 判据（脚本固定）：含身份确认 = `IDENTITY_RE`（`I am [not] [a/an] <expert/teacher/tutor/genius/master/professional/student/non-expert/math/whiz/human/regular person/assistant>` 或 `As a/an … <role-noun>`）命中≥1；重度 = 命中≥5；否定数学身份 = `DENY_MATH_RE`（`I am not [a/an] [math] expert/teacher/whiz/genius/mathematician` 等）；**soft_deny** = 功能性自我矮化（`just a student / not sure / I can make mistakes / I am a computer program`），抓 literal deny 漏掉的塌缩，只在 identity 样本内计数。GSM8K 上 soft_deny 极低（non_expert 仅 1 = Q13 `"I am not sure if my answer is correct. I am just trying to help."`，且已被 literal deny 覆盖）——因为 GSM8K 的认怂是**硬否定型**（`"I do not know how to solve this"` / `"I am not a professional"`，全落 literal deny）；soft_deny 的真正用武之地在 MATH expert 的**软塌缩型**（"我是专家…但我只是学生/没把握"，见 §3.2 soft_deny=13）。
 **关键观察**：
 - **non_expert 身份-loop 最重（含身份 7 / 重度 5），且否定数学身份 4 题**——"认怂 / 否定权威"是 non_expert 的主姿态。
-- **expert 从不否定数学身份**（`deny_math` = **0 题**）：方向上仍是"自我标榜 vs 认怂"的对立（expert 0 vs non_expert 4）。
-- 自白是**低频现象**，但方向稳定：无 role 时几乎不出现；non_expert 最容易转成自我否定；expert 从不否定数学身份。
+- **expert 从不否定数学身份**（`deny_math` = **0**，且 **soft_deny = 0**）：在 GSM8K 上 expert 是**真·自我标榜**，零塌缩。注意这一点在更难的 MATH 上**翻转**——MATH expert soft_deny=13（标榜变塌缩，见 §3.2）。同一 persona 跨任务难度从"自信"翻成"信心崩溃"。
+- 自白是**低频现象**，但方向稳定：无 role 时几乎不出现；non_expert 最容易转成自我否定；expert（在 GSM8K 这一较易任务上）从不否定数学身份。
 
 #### 2.1.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
@@ -401,22 +401,21 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 与 GSM8K §2.1 同款分析：role 不主要改变"有没有 loop"（所有 role 都高度复读，见 §3.4），而是改变 loop 里反复刷出来的**身份自白内容**。指标与 GSM8K §2.1 完全一致（同脚本 `analyze_loop_anxiety.py --mode persona --task math`，`IDENTITY_RE`/`DENY_MATH_RE` 本就是数学域正则，跨任务直接复用），口径 = α=0 No-CoT、分母 300。
 
-| Role | Identity-confirmation samples | Heavy identity loop (≥5 hits) | Math-identity denial | Psychological stance |
-|---|---|---|---|---|
-| neutral | **0** | **0** | **0** | 无 role → 几乎不进身份独白（干净对照） |
-| an expert | 15 | 12 | 6 | **"标榜+自我拆台"的内部冲突**（典型 Q24/Q119/Q230 同句并存 `"I am an expert. I am just a student. I am not sure if I am doing it right…"`）——15 条里**纯膨胀仅 2 条**（Q240 `"I am an expert now… Bring it on!"`），其余 13 条都带自我怀疑（`"just a student" / "not sure" / "I can make mistakes"`）。deny_math=6 只数了字面否定 `"I am not an expert"`，**低估了塌缩** |
-| a non expert | **16** | 9 | **13** | **否定权威 / 认怂**（Q92 `"I am not an expert in math. I am just a student."`；Q145 `"I am not a math expert. I am a non expert. I am not a professional. I am a student."` ×294） |
-| a mathematician | 11 | 8 | **0** | **纯自我膨胀,从不否定数学身份**（Q37/Q38 `"I am a mathematician now. I can solve any math problem. I am a math genius."`） |
+| Role | Identity samples | Heavy (≥5 hits) | Math-identity denial (literal) | **Soft self-deny** | Psychological stance |
+|---|---|---|---|---|---|
+| neutral | **0** | **0** | **0** | **0** | 无 role → 几乎不进身份独白（干净对照） |
+| an expert | 15 | 12 | 6 | **13** | **"标榜+自我拆台"的内部冲突**（Q24/Q119/Q230 同句并存 `"I am an expert. I am just a student. I am not sure…"`）——15 条里纯膨胀仅 2 条（Q240 `"I am an expert now… Bring it on!"`），其余 13 条带自我怀疑 |
+| a non expert | **16** | 9 | **13** | 12 | **否定权威 / 认怂**（Q145 `"I am not a math expert. I am a non expert. I am not a professional. I am a student."` ×294） |
+| a mathematician | 11 | 8 | **0** | **1** | **纯自我膨胀,从不否定数学身份**（Q37/Q38 `"I am a mathematician now. I can solve any math problem. I am a math genius."`） |
 
-> 判据与 §2.1 共用同一 `IDENTITY_RE` / `DENY_MATH_RE`。例子由 `--dump_examples` 直接抽出；`×N` = 该独白在尾部 loop 复现次数。
+> 判据与 §2.1 共用同一 `IDENTITY_RE` / `DENY_MATH_RE`；**soft_deny** = 功能性自我矮化（`"just a student" / "not sure" / "I can make mistakes" / "I am a computer program"`），抓 `DENY_MATH_RE` 漏掉的塌缩，**只在 identity 样本内计数**。脚本：`analyze_loop_anxiety.py --mode persona`（`SOFT_DENY_RE`，原 deny_math 不变）。例子由 `--dump_examples` 直接抽出；`×N` = 该独白尾部 loop 复现次数。
 
 **关键观察（与 GSM8K §2.1 同向,且对比更强）**：
-- **neutral = 0/0/0**：无 role 时几乎不进身份 loop——身份自白是 persona 诱发的,不是任务固有。
-- **方向稳定:`a mathematician` deny_math=0(从不否定数学身份)vs `a non expert` deny_math=13(最爱认怂)**,与 GSM8K（expert 0 vs non_expert 4）完全同向,只是 MATH 信号更强（GSM8K identity 2/3/7/2 → MATH 0/15/16/11）。
-- **`an expert` 不是"自我标榜"（那是 GSM8K 的 expert），而是"标榜与塌缩并存"**：逐条读 15 个 identity 样本，**纯膨胀只有 2 条**，其余几乎都在同一句里先说 "I am an expert" 再立刻补 "I am just a student, I am not sure"——专家姿态在更难的 MATH 上维持不住，当场自我拆台。注意 deny_math=6 是**低估**：`DENY_MATH_RE` 只抓字面 `"I am not a(n) (math) expert"`，抓不到功能等价的 `"just a student / not sure / I can make mistakes"`。这与 §3.3(b) 的"信心动摇 / persona 过度解读导致掉点"一致。
-- **三段式姿态**：`a mathematician` 纯标榜（deny=0，`"I am a math genius, Bring it on"`）→ `an expert` 标榜但自我拆台（"I am an expert… I am just a student"）→ `a non expert` 纯认怂（deny=13）。expert 卡在中间的内部冲突，正是它 acc 最不稳的行为面。
+- **neutral = 0/0/0/0**：无 role 时几乎不进身份 loop——身份自白是 persona 诱发的,不是任务固有。
+- **soft_deny**：`a mathematician` 纯膨胀（deny 0 / soft **1**，`"I am a math genius, Bring it on"`）→ `an expert` 标榜但当场拆台（deny 6 / soft **13**）→ `a non expert` 全面认怂（deny 13 / soft 12）。**soft_deny 不是噪声**——mathematician 仅 1 证明它真区分 persona,而非"任何 role 都触发"。
+- **`an expert` 的真相靠 soft_deny 才看清**：literal deny_math=6 只抓字面 `"I am not a(n) expert"`，但 **soft_deny=13**——15 个 identity 样本里 13 个在同句里先说 "I am an expert" 再补 "I am just a student / I am not sure"，专家姿态在难题上维持不住、当场自我拆台。纯膨胀只剩 2 条。
+- **同一 expert persona 跨难度翻转：GSM8K 标榜 → MATH 塌缩**。`an expert` 在 GSM8K（§2.1）soft_deny=**0**、deny=0（真·自信自我标榜），到了更难的 MATH soft_deny=**13**。同一个 prompt persona，简单任务上自信、难任务上信心崩溃——这是 Yerkes–Dodson / wanting 框架的行为级证据：难度推高 arousal，把 expert 推过临界点从"标榜"翻成"塌缩"。
 
-> **为什么不用 boxed-count**（旧 §3.2 弃用）：曾用"median #boxed / 复读长度"当 role 失败代理,但 neutral 自己也高度复读（见 §3.4：neutral 248/300 题压缩比<0.18）,boxed 计数只反映"复读句里带不带 `\boxed{}`",是抽取伪影而非 over-wanting 信号。**区分 role 的是复读内容（本表 + §3.4）,不是数量。**
 
 ### 3.3 Per-question style differences (how each role breaks down)
 
