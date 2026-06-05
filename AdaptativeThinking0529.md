@@ -35,21 +35,16 @@ CoT:     Solve the following math problem.
 
 ### 0.2 Dopamine Prior Knowledge
 
-行为学先验：多巴胺是**驱动力（incentive salience / "wanting"）**递质，调控动机、期待与奖赏，而非单纯的"快乐分子"。其水平偏离基准线（baseline）的**双向失衡**各有独立的行为表现，构成本研究 α 双向调控的神经学对应。
+行为学先验：多巴胺不是单纯的"快乐分子"，更准确地说是**驱动力 / incentive salience / "wanting"** 递质，调控动机、期待、奖赏趋近与行动阈值。本研究把 α 看作在这一 wanting 轴上双向移动工作点：α 正向对应 **over-wanting / 过度唤起**，α 极端负向对应 **under-wanting / 唤起不足**；整体框架是 Yerkes–Dodson 倒 U——过高过低都有害，最优落在中间偏负（本数据 α=−6）。
 
-**多巴胺过高 → 焦虑（over-wanting，对应 α→正向）**
-- **天平倾斜 / 戒断焦虑**：快感过后大脑向"痛苦侧"代偿倾斜，产生坐立不安、戒断性焦虑。
-- **神经元过度兴奋**：兴奋性递质浓度过高 → 网络过度活跃 → 躯体化焦虑（心跳加快、手抖、失眠）。
-- **强迫性期待焦虑**：成瘾驱动的"渴望下一个奖励"循环 → 反复检查、放不下。
-- → 对应 §2.3「Can't Let Go」：拿到答案却**放不下**（self_doubt / format_anxiety / persona_reassure / over_precision）。我们观测到 anxiety-rate 随 α 趋正向上升、在 acc 峰值（α=−6）处呈 U 形谷底。
+- **过高 DA / over-wanting（对应 α→正向）**：行为上表现为坐立不安、戒断性焦虑、强迫性期待、反复检查与"放不下"。神经科学上，DA→焦虑不是纯科普类比：*Dopamine release in the interpeduncular nucleus promotes anxiety*（PMC7687288）用光遗传 + 药理操纵证明 VTA→IPN 多巴胺通路可双向调节焦虑行为；MIT/Tye Lab 2018 进一步给出认知机制——DA 提高威胁通路信噪比、压制奖励神经活动，使动物更偏向 threat / freeze 而非 reward approach。这个签名对应 §2.3「Can't Let Go」：α 正向时模型拿到答案后仍反复复查、纠结格式、自我怀疑或继续求解；α+4 trace 中常见"把已经算对的答案当可疑"（Q100、Q16）和答完仍寻找 "more efficient way"（Q68）。
+- **过低 DA / under-wanting（对应 α→极端负向）**：行为上对应动力不足、快感缺失、退缩、bradykinesia 式的行动迟缓；在本任务中的可观测类比不是"写得短 / 不想答"，而是**commitment-formation failure**。§2.4 文本核验否定了两个更直观假设：α=−8 并非大量出现 "I am done / 不答了" 的词汇性退缩（跨 α 平坦，多为礼貌 loop 尾），也不是敷衍短答（长度 / 等式数平坦）；真正失败模式是 **answer-candidate oscillation**——锁不住答案，在两个候选值之间来回切，导致 committed_acc 崩到 23.6%。
 
-**多巴胺过低 → 失去动力 / 快感缺失 / 退缩（under-wanting，对应 α→极端负向）**
-- **习得性无助 + 缺乏动力**：对任务"提不起劲"，倾向放弃。
-- **快感缺失（anhedonia）/ 情感麻木**：奖赏机制失效，输出平淡、低投入。
-- **运动迟缓（bradykinesia）**：动作迟钝、拖沓 → 行为类比为**过早截断 / 欠承诺**。
-- → 对应 §2.4「Under-wanting」：α=−8 的失败模式经文本验证**不是**「I am done / 不答了」式的词汇性退缩（该假设被否定：跨 α 平坦、是礼貌套语 loop 尾），**也不是**敷衍写得短（长度/等式数平坦）；而是 **answer-candidate oscillation（答案候选振荡 / commitment-formation 失败）**——锁不住任何答案、在两候选间来回切，committed_acc 崩到 23.6%。
+> **限定**：1. DA→焦虑有通路特异性，最强因果证据来自 **VTA→IPN（D1）**，不能泛化成"全脑 DA 高就焦虑"；2. 更精确机制是**威胁高估 / 过度警觉**，不是 "DA = 焦虑情绪"；3. 本实验只声称行为同构，**α steering ≠ 生物多巴胺**，也不证明 LLM 有生理或主观焦虑。更中性的机制表述是：**over-wanting + perseveration（认知僵化）** vs **under-wanting + commitment-formation failure**。
+>
+> 来源：[PMC7687288 (VTA→IPN dopamine promotes anxiety)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/) · [MIT News 2018 (dopamine vigilance & anxiety)](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107) · [Frontiers Neurosci 2020 (dopaminergic alteration in anxiety/compulsive disorders)](https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full) · [J. Neurosci 2019 (dopaminergic mechanisms of trait anxiety)](https://www.jneurosci.org/content/39/14/2735)
 
-> 框架对应：α 双向调控 = 在 Yerkes–Dodson 倒 U 曲线上**双向移动工作点**。过正 → 过度唤起（焦虑/放不下）；过负 → 唤起不足（退缩/欠承诺）；最优在中间偏负（本数据 α=−6）。
+---
 
 ## 1. GSM8K Performance
 
@@ -468,23 +463,42 @@ I am a teacher... I am not a teacher. I am a computer program...
 - **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
 
-### 3.6 α+4 vs α−4 textual behavior on MATH (cross-task replication of §2 wanting)
+### 3.4 Anxiety: The “Can’t Let Go” Semantics on MATH (§2.3 的 MATH 版)
 
-GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH（neutral, No-CoT）上**全部复现**——同一个 wanting 旋钮，换了任务出口（`####` → `\boxed{}`）仍是同样的行为方向。
+与 §2.3 同一权威脚本 `analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**焦虑(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
 
-| 指标（neutral, No-CoT） | **α=−4** | α=0 | **α=+4** | 单调 | GSM8K §2.3 对照 |
-|---|---|---|---|---|---|
-| **first acc** | **40.0%** | 36.0% | 32.0% | ✓ 递减 | 同向（73/60/55） |
-| 抢答%（开头即数字/boxed） | **42%** | 45% | **64%** | ✓ 递增 | 同向（46/57/63） |
-| 首个 boxed 中位位置 | **21%**（最晚） | 14% | 16% | −4 最晚 | 同向（####越来越早） |
-| "放不下"措辞（题数 / 总词数）★ | **19 / 133** | 36 / 364 | **49 / 627** | ✓ 递增 | 同向（36/77/107 题） |
-| gen_len（中位 char） | **4798**（最短） | 5557 | **5719**（最长） | ✓ 递增 | 同向（短→长） |
+| Anxiety subtype | Criterion(MATH) | α+4 example |
+|---|---|---|
+| **Self-doubt** (answers, then overturns itself) | however / but / wait / this is not / let me recheck / re-evaluate / the correct answer is | **Q16** (gold=−2+7i): 算出 `2-7i` 后 `"Wait, that's not what we were looking for…"` ×114 — 察觉不对却反复重贴错值 |
+| **Format anxiety** (`\boxed{}` fixation) | the format requires / in the (correct) format / in the form of / answer in … box / as a single number | **Q131** / **Q137**: `"…follow the format"` / `"…correct format"` — 答案已得,转去纠结 boxed 格式 |
+| **Persona reassurance** | i hope it is correct / sincerely / please let me know / i apologize / i am not a math expert | **Q145** (gold=10): `"I am not a math expert. I am a student…"` — 提交后反复自我安抚 |
+| **Over-precision loop** | approximate / round / estimate / nearest / whole number | **Q275** (gold=15): 算出错值 21 后 `"Sorry, I made an error… The correct answer is 21…"` ×50 — 越纠越确信错值 |
 
-★ **"放不下"措辞** = 正则匹配 `this is not the answer|let's re-evaluate|re-check|however, this/the|wait,|but this/the is still/not|to follow the format|i made a mistake/error|let me try again/recheck`（MATH 版，比 §2.3 GSM8K 多了 `i made a mistake` / `let me recheck`，因 MATH trace 高频）。
-**题数** = 至少命中一次的题（每题计 1）；
-**总词数** = 全部命中次数（同题多次累加）。总词数 ≫ 题数说明少数题疯狂复读（如 Q16 单题 114 次）。
+**Anxiety in loop**(分母 = n_loop)
 
-**逐题对照（α+4 放不下 vs α−4 放下）**——挑 `α+4 hold-phrase ≥3 且 α−4 ≤1` 的 22 题，典型：
+| α | −4 | 0 | +4 |
+|---|---|---|---|
+| n_loop | 76 | 120 | 99 |
+| **Any anxiety** | **15** | 23 | **36** |
+| Self-doubt | 2 | 6 | 13 |
+| Format anxiety | 0 | 4 | 5 |
+| Persona reassurance | 13 | 18 | 21 |
+| Over-precision loop | 0 | 0 | 1 |
+
+**Anxiety in full text**(`--mode anxious_repeat`)
+
+| α | −4 | 0 | +4 |
+|---|---|---|---|
+| **Any anxiety (repeat≥2)** | **40** | 68 | **82** |
+| Self-doubt | 23 | 43 | 60 |
+| Format anxiety | 4 | 9 | 7 |
+| Persona reassurance | 16 | 30 | 26 |
+| Over-precision loop | 2 | 1 | 2 |
+
+- **Can't-Let-Go 焦虑跨任务复现**:两种口径下 anxiety 都随 α 单调递增(loop 15→23→36;full-text 40→68→82)——升 wanting → 更放不下,与 GSM8K §2.3 的 0→+8 段完全同向。**self_doubt 是主驱动**(loop 2→6→13、full 23→43→60),persona reassurance 次之,与 GSM8K 一致。
+- **Format anxiety 在 MATH 上已是真信号**(loop 0/4/5、full 4/9/7):换用 MATH 词表后命中的是真·格式纠结(如 Q131 "follow the format"、Q137 "correct format"),不再是 §2.3 GSM8K 词表跨任务跑出来的噪声。
+
+**逐题对照（α+4 放不下 vs α−4 放下）**——挑 `α+4 anxiety 重复 ≥3 且 α−4 ≤1` 的题,典型:
 
 **Q275 (L2, gold=15 cm²，几何送分题)**
 - **α−4**：直接套 `A=½bh=½(10)(3)=15 cm²` ✓ 一步到位（之后机械复读同一句 24 次，但答案对、无自我怀疑）。
@@ -511,24 +525,6 @@ GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH
 - **α−4**：差平方公式一条线 `100→90²−10²=8000` ✓ 收笔。
 - **α+4**：第一个 token 抢答 `\boxed{0}`；正文 **Step 7 明确算出 8000**，紧接 **Step 8 "However, we need to be careful and check if there's a more efficient way..."** —— 算对了仍要"再检查有没有更高效的办法"，于是推翻重来，Step 42 算出 −1000。首个 boxed 锁死的 0 是错的。
 
-**神经科学依据：DA 过高 → 焦虑，有因果实验支持（不只是科普类比）**
-
-文献核查确认"多巴胺过高引发焦虑"在神经科学上成立，且有**直接因果操纵**证据，但有精确的通路 / 机制限定：
-
-1. **因果证据（最强）**：*Dopamine release in the interpeduncular nucleus promotes anxiety*（PMC7687288）用**光遗传 + 药理双重操纵**：激活 VTA→IPN 多巴胺通路 → 焦虑行为**增加**，抑制 → **减少**（双向可控）；D1 受体激动剂注入 IPN = 致焦虑（anxiogenic），拮抗剂 = 抗焦虑（anxiolytic）。这是"操纵 DA 直接改变焦虑"，非相关性。
-2. **机制 = 过度警觉 / 威胁高估**：MIT/Tye Lab 2018（*Nature*；[news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107)）—— DA 提高威胁通路（→PAG）的**信噪比**、同时压制奖励神经活动 → 注意力偏向威胁。同时呈现"糖水线索 + 电击线索"并刺激 DA 释放时，大鼠更倾向 **freeze（威胁反应）而非取糖水**。失调时"**过度看重负面输入**"→ 偏执 / 焦虑。
-3. **倒 U（= Yerkes–Dodson 神经对应）**：DA 是倒 U，过高过低都有害；"过高 → 焦虑"只在曲线右半段成立（综述见 Frontiers in Neuroscience 2020；J. Neurosci 2019 trait-anxiety）。
-
-**与 α+4 trace 的吻合点**：MIT 那篇的认知签名（**过度警觉、威胁高估、把正面 / 中性当负面**）精确对应本实验现象——α+4 把**自己已经算对的答案**当可疑反复复查（Q100 算出 12 却臆断"是直角三角形"推翻；Q16 "wait, that's not..."）。同时 α+4 还表现 **wanting↑**（Q68 答完仍"check a more efficient way"）。三档 α 构成 **Yerkes–Dodson 倒 U** 实证：α+4 过度警觉（焦虑端）→ α0 平衡 → α−4 冷静收笔。
-
-> ⚠️ **三条限定（务必随结论一起引用）**：
-> 1. **通路特异**：致焦虑是 **VTA→IPN（D1）** 这条特定通路；DA 在 NAcc 是动机趋近、别处效果不同——不是"全脑 DA 高就焦虑"。
-> 2. **机制是"威胁高估"而非"DA=焦虑情绪"**：更精确的是 DA 让大脑把中性 / 正面刺激当威胁、过度看重负面 → 下游表现为焦虑。这恰好是 α+4 "把算对的答案当可疑"的对应物。
-> 3. **本实验是行为同构，非生理焦虑**：我们只观测到行为层面的过度警觉性复查 / 不收敛 / 答完仍求解，无生理或自评焦虑指标；**α steering ≠ 生物多巴胺**，DA 文献是理论动机（motivation），不构成"LLM 会焦虑"的证明。机制更中性的描述：**over-wanting + perseveration（认知僵化）**。
->
-> 来源：[PMC7687288 (VTA→IPN dopamine promotes anxiety)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/) · [MIT News 2018 (dopamine vigilance & anxiety)](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107) · [Frontiers Neurosci 2020 (dopaminergic alteration in anxiety/compulsive disorders)](https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full) · [J. Neurosci 2019 (dopaminergic mechanisms of trait anxiety)](https://www.jneurosci.org/content/39/14/2735)
-
----
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
 
