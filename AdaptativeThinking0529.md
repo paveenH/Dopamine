@@ -294,23 +294,23 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 - **anxiety 整体下移、但 α 方向保留**：**CoT 把每档砍掉 ~26–40 题，但随 α 上升的梯度依然在**（CoT 跨度 44 vs No-CoT 57，只是斜率略缓，并非消失）。即 **α 仍是定方向的因（升 wanting→升焦虑），CoT 只降幅度、不改方向**（与 §2.5.1 的正交分解一致）。CoT 仍会进 loop（250–284/300，甚至略多于 No-CoT），但 loop 的**语义性质变了**：mechanical（纯符号 / 复读答案）占绝对多数（−4_cot 247/284、+4_cot 213/250），焦虑性"放不下"被显著挤掉。即 **CoT 不消除 loop，但把 loop 从"焦虑性反复确认"换成"无情绪机械空转"**——这与 §2.3「焦虑谷底=acc 峰」一致：CoT 等于把整条曲线推向更冷静的工作点。
 
 
-#### 2.5.1 α−4 + CoT = 85.0% 从哪来：两个正交杠杆叠加（CoT 强制分步 × 降 wanting 不抢答）
+#### 2.5.1 Where α−4 + CoT = 85.0% Comes From: Two Orthogonal Levers Stacked Together (CoT Forces Stepwise Reasoning × Lower Wanting Prevents Premature Answering)
 
-α−4_cot **85.0%** 接近 GSM8K few-shot CoT 水平，远超 zero-shot 单一条件。逐条读文本 + 四个配对的归因分解（first-acc 口径，neutral）显示这**不是少数题的运气**，而是两条独立杠杆的净增叠加。
+ α−4_cot reaches **85.0%** under our first-answer extraction protocol, numerically matching the official Llama 3.1-8B-Instruct GSM8K 8-shot CoT result (**84.5%, em_maj1@1**). The two numbers are not strictly metric-identical: the official result uses 8-shot CoT with the benchmark extractor, whereas ours is zero-shot CoT + α−4 steering with a first-marker extraction policy designed to avoid loop-tail contamination.
 
-**2×2 acc 表（neutral，first-acc）**：
+**2×2 Accuracy Table (neutral, first-acc):**
 
-| | No-CoT | CoT | +CoT 增益 |
+| | No-CoT | CoT | +CoT Gain |
 |---|---|---|---|
 | α=−4 | 73.0 | **85.0** | **+12.0** |
 | α=0 | 60.0 | 69.0 | +9.0 |
 | α=+4 | 55.3 | 59.7 | +4.4 |
-| α 跨度(−4→+4) | 17.7 | 25.3 | — |
+| α span (−4→+4) | 17.7 | 25.3 | — |
 
-**四个配对的逐题归因（新对 = X 对 & Y 错；net = 新对−新错）**：
+**Per-sample attribution across four paired contrasts (newly correct = X correct & Y wrong; net = newly correct − newly wrong):**
 
-| 对照 (X vs Y) | 新对 | 新错 | 净 | gain 中 Y 抢答 | 该杠杆修好的失败模式 |
-|---|---|---|---|---|---|
+| Contrast (X vs Y) | Newly correct | Newly wrong | Net | premature answers| Failure mode fixed by this lever |
+|---|---:|---:|---:|---:|---|
 | −4_cot vs **0_cot** | 66 | 18 | **+48** | 37 | 降 wanting：砍抢答 + 中间算术更稳 |
 | −4_cot vs **−4_nocot** | 56 | 20 | **+36** | 48 | CoT：强制分步，消除省步/卡死 |
 | 0_cot vs **0_nocot** | 59 | 32 | **+27** | 49 | CoT（α=0）：同上但增益打折 |
