@@ -522,6 +522,7 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 
 **共同结构**:α−4 四题全是"算完→1–2 个 boxed→收笔"(纵有尾部机械复读,答案已锁、无纠结);α+4 全是"算完→不收笔→过度求解 / 过度警觉 / 求安抚→boxed 暴涨,半数 commit 到错值"。这是 §2 over-wanting 行为签名在 MATH **推理内容层面**(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
 
+### 3.5 MATH COT 
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
 
