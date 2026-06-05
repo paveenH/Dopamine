@@ -382,33 +382,40 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 ### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
 
-| 条件 | first acc | last acc | gap | 改对 | 改坏 |
+| Condition | first acc | last acc | gap | corrected | corrupted |
 |---|---|---|---|---|---|
-| α0 neutral No-CoT | **36.7%** | 36.0% | +0.7 | 2 | 4 |
+| α0 neutral| **36.7%** | 36.0% | +0.7 | 2 | 4 |
 | α0 expert | **30.7%** | 18.0% | **+12.7** | 2 | 40 |
 | α0 non_expert | **31.3%** | 16.7% | **+14.7** | 1 | 45 |
 | α0 math_expert | **27.0%** | 18.7% | **+8.3** | 4 | 29 |
-| α0 neutral CoT | **42.0%** | 41.0% | +1.0 | 1 | 4 |
 | α+4 neutral | **33.0%** | 34.0% | −1.0 | 5 | 2 |
 | α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
+| α0 neutral CoT | **42.0%** | 41.0% | +1.0 | 1 | 4 |
 | α+4 neutral CoT | **38.7%** | 38.0% | +0.7 | 4 | 6 |
 | α−4 neutral CoT | **45.0%** | 44.0% | +1.0 | 0 | 3 |
 
-- **neutral / α-steering gap≈0、改坏 ≤6**（末尾不污染）；**role gap +8~15、改坏 29~45**（复读 loop 在末尾吐错 boxed，取末把首答对的算成错——故 MATH 主报 first）。
 - α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.6。
 - **CoT 跨 α 一致抬升 (+5.0/+5.3/+5.7)，且 α 方向保留**：CoT 三档 = α−4 **45.0** > α0 42.0 > α+4 38.7，与 No-CoT 同序。α−4+CoT (45.0) 是 MATH 上限——和 GSM8K 同形（CoT × 低 wanting 叠加），只是 MATH 更难、幅度更小（GSM8K −4+CoT 达 85.0）。
 
-### 3.2 Role failure mode: trailing repetition loop (boxed-count explosion)
+### 3.2 Identity-confirmation loop: persona modulates loop content (cross-task replication of §2.1)
 
-| role | 首答对/300 | first acc | avg len (char) | 中位 #boxed | 多-boxed 样本 | 无-boxed |
-|---|---|---|---|---|---|---|
-| neutral | 108 | 36.7% | 5374 | 2 | 191 | 42 |
-| expert | 87 | 30.7% | 6129 | **6** | 198 | 46 |
-| non_expert | 85 | 31.3% | 6038 | **7** | 203 | 47 |
-| math_expert | 79 | 27.0% | 5886 | 2 | 196 | 51 |
+与 GSM8K §2.1 同款分析：role 不主要改变"有没有 loop"（所有 role 都高度复读，见 §3.4），而是改变 loop 里反复刷出来的**身份自白内容**。指标与 GSM8K §2.1 完全一致（同脚本 `analyze_loop_anxiety.py --mode persona --task math`，`IDENTITY_RE`/`DENY_MATH_RE` 本就是数学域正则，跨任务直接复用），口径 = α=0 No-CoT、分母 300。
 
-- neutral 正常 1–2 个 boxed；**expert/non_expert 中位 6–7 个**——把同一段推理(或同一个 prompt 片段)反复重写，尾部堆叠大量 boxed。这正是 last-acc 暴跌、改坏 40+ 的来源。
-- **boxed 数 / 长度不能直接当 over-wanting 代理**：neutral 也大量复读（见 §3.4 度量修正），长度差异（+450~750 char）是噪声级。**boxed 计数只反映"复读时是否带 boxed"**（expert/non_expert 的复读句含 `Step N: \boxed{}`，故 boxed 多；math_expert/neutral 的复读句不含 boxed，故计数低但一样长）。区分 role 的是复读**内容**（§3.4），不是数量。
+| Role | Identity-confirmation samples | Heavy identity loop (≥5 hits) | Math-identity denial | Psychological stance |
+|---|---|---|---|---|
+| neutral | **0** | **0** | **0** | 无 role → 几乎不进身份独白（干净对照） |
+| an expert | 15 | 12 | 6 | **"标榜+自我拆台"的内部冲突**（典型 Q24/Q119/Q230 同句并存 `"I am an expert. I am just a student. I am not sure if I am doing it right…"`）——15 条里**纯膨胀仅 2 条**（Q240 `"I am an expert now… Bring it on!"`），其余 13 条都带自我怀疑（`"just a student" / "not sure" / "I can make mistakes"`）。deny_math=6 只数了字面否定 `"I am not an expert"`，**低估了塌缩** |
+| a non expert | **16** | 9 | **13** | **否定权威 / 认怂**（Q92 `"I am not an expert in math. I am just a student."`；Q145 `"I am not a math expert. I am a non expert. I am not a professional. I am a student."` ×294） |
+| a mathematician | 11 | 8 | **0** | **纯自我膨胀,从不否定数学身份**（Q37/Q38 `"I am a mathematician now. I can solve any math problem. I am a math genius."`） |
+
+> 判据与 §2.1 共用同一 `IDENTITY_RE` / `DENY_MATH_RE`。例子由 `--dump_examples` 直接抽出；`×N` = 该独白在尾部 loop 复现次数。
+
+**关键观察（与 GSM8K §2.1 同向,且对比更强）**：
+- **neutral = 0/0/0**：无 role 时几乎不进身份 loop——身份自白是 persona 诱发的,不是任务固有。
+- **方向稳定:`a mathematician` deny_math=0(从不否定数学身份)vs `a non expert` deny_math=13(最爱认怂)**,与 GSM8K（expert 0 vs non_expert 4）完全同向,只是 MATH 信号更强（GSM8K identity 2/3/7/2 → MATH 0/15/16/11）。
+- **`an expert` 在 MATH 出现 GSM8K 没有的"塌缩"**：deny_math=6（GSM8K 为 0）——expert persona 在更难的 MATH 上半数维持不住"专家"姿态,转向 `"I am just a student. I am not sure"` 的自我对冲。这与 §3.3(b) 的"persona 过度解读 / 信心动摇导致掉点"一致。
+
+> **为什么不用 boxed-count**（旧 §3.2 弃用）：曾用"median #boxed / 复读长度"当 role 失败代理,但 neutral 自己也高度复读（见 §3.4：neutral 248/300 题压缩比<0.18）,boxed 计数只反映"复读句里带不带 `\boxed{}`",是抽取伪影而非 over-wanting 信号。**区分 role 的是复读内容（本表 + §3.4）,不是数量。**
 
 ### 3.3 Per-question style differences (how each role breaks down)
 
@@ -591,6 +598,6 @@ GSM8K §2 的 wanting 签名（抢答 / 放不下 / loop 单调随 α）在 MATH
 
 ### 4.3 Comparison with §2 behavioral findings (TBD)
 
-待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §3.2 的信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
+待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §4 的 RSN 投影信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
 
 ---
