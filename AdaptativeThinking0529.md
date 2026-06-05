@@ -555,8 +555,8 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 | stuck (loop ∧ `=`<2) | 10 | 18 | 4 | 11 | 21 | 15 | — |
 | median `=` count | 10 | 10 | 10 | 7 | 8 | 8 | CoT 下 `=` 反略少(改走 Step 文字) |
 
-> - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
-> - **但 MATH 的 premature 绝对量本就低**(No-CoT 仅 7–17,GSM8K No-CoT 是 195–229):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
+> - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature(either)` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
+> - **但 MATH 的 premature(either)绝对量本就低**(No-CoT 仅 13–29,GSM8K No-CoT 是 195–232):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
 
