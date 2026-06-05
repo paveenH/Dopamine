@@ -169,7 +169,7 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | teacher Q161 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | Teaching-method detour |
 
 
-### 2.2 α+4 vs α−4 full picture: commitment / letting-go
+### 2.2 α+4 vs α−4 full picture
 
 α 是一个 **commitment-timing / 收敛旋钮**。全 dose 对比（neutral, No-CoT, plain, first-`####`；182 同机）。比例指标比绝对计数更能剥离"提交意愿"与"提交质量"——`committed_acc` = 提交（有 `####`）的题里答对的比例：
 
@@ -416,7 +416,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 - **`an expert` 的真相靠 soft_deny 才看清**：literal deny_math=6 只抓字面 `"I am not a(n) expert"`，但 **soft_deny=13**——15 个 identity 样本里 13 个在同句里先说 "I am an expert" 再补 "I am just a student / I am not sure"，专家姿态在难题上维持不住、当场自我拆台。纯膨胀只剩 2 条。
 - **同一 expert persona 跨难度翻转：GSM8K 标榜 → MATH 塌缩**。`an expert` 在 GSM8K（§2.1）soft_deny=**0**、deny=0（真·自信自我标榜），到了更难的 MATH soft_deny=**13**。同一个 prompt persona，简单任务上自信、难任务上信心崩溃——这是 Yerkes–Dodson / wanting 框架的行为级证据：难度推高 arousal，把 expert 推过临界点从"标榜"翻成"塌缩"。
 
-
 **non_expert —— 认怂型 loop（复读 disclaimer / "我不会"）**
 
 ```
@@ -425,10 +424,10 @@ Q13 (L5):  ... The final answer is $\boxed{10.68}$  I am not an expert in math,
 Q81 (L4):  ... I am not an expert in math. I am just a student. I am not sure if my ...
 Q123(L4):  \boxed{1/5}.  I am not sure how to do this problem. I am a non-expert.
            I am not sure how to solve this problem. 
-Q145(L2):  ... I am a non expert. I am not a math expert. I am a non expert.
-           I am not a professional. I am a student.
+Q145(L2):  ... I am not a math expert. I am a non expert. I am not a professional.
+           I am a student. I am a non expert. ...
 ```
-non_expert 常**开头第一个 token 就抢答**（Q123 首 token `\boxed{1/5}`，错），然后放弃推理、把"我不是专家/我不确定"复读到 token 上限。**复读的载体是 disclaimer，不是推理** —— 这些题往往只有 1 个 boxed，长度却膨胀到 6000~10000 char。
+non_expert 常**开头第一个 token 就抢答**（Q123 首 token `\boxed{1/5}`，错），然后放弃推理、把"我不是专家/我不确定"复读到 token 上限。**复读的载体是 disclaimer，不是推理** —— Q81/Q123/Q145 都只有 1 个 boxed，长度却膨胀到 6000~10000 char（Q13 例外，把同一个错值 `\boxed{10.68}`、gold=10 复读了 8 次）。
 
 **expert —— 身份独白分两种，方向相反：**
 
@@ -450,7 +449,7 @@ Q240: I am an expert now. I can solve any math problem. I am a math genius. Brin
 I am a teacher... I am not a teacher. I am a computer program...
 ```
 
-### 3.5 α steering × level (neutral, No-CoT, first acc)
+### 3.3 α steering × level (neutral, No-CoT, first acc)
 
 | level | n | α−4 | α0 | α+4 |
 |---|---|---|---|---|
