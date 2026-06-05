@@ -182,6 +182,11 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | median gen_len | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
 | loop samples ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | High baseline (~74–88%); no clean trend |
 
+
+commit_rate = % samples with ≥1 valid ####N
+committed_acc = first-#### acc among committed samples (denom=commit count)
+median #### position = median(first #### char-start / len(full text)) × 100, over committed samples
+
 † **α=−8 = 过冲塌缩，不在单调线上**：`committed_acc` 崩到 **23.6%**、`####` 中位位置 **0%**（首 token 即抢答）——α 太负使模型一开口就 `#### N` 锁死错值。倒 U 的负向尽头是"过早 commit 锁错"，不是"算不出"。
 
 **核心结论**：
