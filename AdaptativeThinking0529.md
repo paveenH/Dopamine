@@ -263,26 +263,22 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 > **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
 
-### 2.5 CoT: reasoning scaffold suppresses over-wanting damage but keeps the α 方向
+### 2.5 CoT: reasoning scaffold suppresses over-wanting damage but keeps the α direction
 
-**设问**：CoT（多一行 `Let's think step by step.`，模板其余对称，见 §0.1）是否改变 wanting 的行为签名？结论：**CoT 把 over-wanting 的下游破坏（抢答→锁错、放不下→loop 焦虑）大幅压下，但 α 的方向与单调性原样保留**——steering 旋钮（因）不变，CoT 改变的是它能造成多大行为损害（果的幅度）。
+**设问**：CoT（多一行 `Let's think step by step.`，模板其余对称，见 §0.1）是否改变 wanting 的行为签名？结论：**CoT 把 over-wanting 的下游破坏（抢答→锁错、放不下→loop 焦虑）大幅压下，但 α 的方向与单调性原样保留**
 
-**口径**：neutral，No-CoT vs CoT 同机 182、同 `analyze_first_last_acc.py`（first-#### + fallback + norm，分母 /300）；loop / anxiety / oscillation 用 `analyze_loop_anxiety.py` 的 `analyze_file()`（同一 `ANXIETY_PATTERNS`，仅把目录指到 `mdf_*_cot`）。
+**口径**：neutral，No-CoT vs CoT, server 182, `analyze_first_last_acc.py`；loop / anxiety / oscillation -> `analyze_loop_anxiety.py` - `analyze_file()`（ `ANXIETY_PATTERNS`-> `mdf_*_cot`）
 
-| α | acc(first) | gap(first−last) | 改坏 | commit%(有效 ####) | loop/300 | anxiety(loop内) |
-|---|---|---|---|---|---|---|
-| −4 No-CoT | 73.0 | +4.7 | 14 | 58.3% | 242 | 27 |
-| **−4 CoT** | **85.0** | **+0.3** | **4** | 31.7% | 284 | **18** |
-| 0 No-CoT | 60.0 | +4.7 | 14 | 62.7% | 232 | 46 |
-| **0 CoT** | **69.0** | **+0.7** | **3** | 37.7% | 254 | **19** |
-| +4 No-CoT | 55.3 | +2.7 | 8 | 49.0% | 220 | 59 |
-| **+4 CoT** | **59.7** | **+0.7** | **0** | 29.0% | 250 | **23** |
+| α | acc(first) | acc(last) | gap(first−last) | anxiety(loop) | anxiety(full) |
+|---|---|---|---|---|---|
+| −4 No-CoT | 73.0 | 68.3 | +4.7 | 27 / 242 | 34 |
+| **−4 CoT** | **85.0** | **84.7** | **+0.3** | **18** / 284 | **8** |
+| 0 No-CoT | 60.0 | 55.3 | +4.7 | 46 / 232 | 77 |
+| **0 CoT** | **69.0** | **68.3** | **+0.7** | **19** / 254 | **36** |
+| +4 No-CoT | 55.3 | 52.7 | +2.7 | 59 / 220 | 91 |
+| **+4 CoT** | **59.7** | **59.0** | **+0.7** | **23** / 250 | **52** |
 
-- **方向 / 单调性不变，整体抬升**：α−4_cot (85.0) > α0_cot (69.0) > α+4_cot (59.7)，与 No-CoT 同向（§1.2）。CoT 与降 wanting 叠加把 acc 推到全表最高 **85.0%**（α−4+CoT），说明"放开思考"与"降 wanting"是两条**可叠加**的杠杆。
-- **过度-commit 破坏被 CoT 抹平**：No-CoT 下 over-wanting 的招牌伤害是"取末把首答对的算错"（改坏 8–14、first−last gap +2.7~+4.7）；**CoT 下 改坏 全部 ≤4、gap ≤+0.7**——尾部复读 loop 即使存在也不再吐出污染答案。先在 prose 里把推理走完，相当于给模型一段"想清楚再 ####"的缓冲，抢答→锁错的单向破坏（§2.2）几乎消失。
-- **anxiety 梯度被压平**：No-CoT 的 loop 内焦虑随 α 正向单调升（27→46→59），**CoT 三档都跌到 18–23 且基本无梯度**。CoT 仍会进 loop（250–284/300，甚至略多于 No-CoT），但 loop 的**语义性质变了**：mechanical（纯符号 / 复读答案）占绝对多数（−4_cot 247/284、+4_cot 213/250），焦虑性"放不下"被显著挤掉。即 **CoT 不消除 loop，但把 loop 从"焦虑性反复确认"换成"无情绪机械空转"**——这与 §2.3「焦虑谷底=acc 峰」一致：CoT 等于把整条曲线推向更冷静的工作点。
-
-**Anxiety in loop — CoT**（`analyze_loop_anxiety.py --mode loop`，目录指到 `mdf_*_cot`，与 §2.3 No-CoT 表同口径：分母 = `n_loop`，四子类可重叠）：
+**Anxiety in loop — CoT**
 
 | α (CoT) | −4 | 0 | +4 | （对照 No-CoT，§2.3） |
 |---|---|---|---|---|
@@ -293,9 +289,10 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | Persona reassurance | 0 | 2 | 7 | 7 / 15 / 13 |
 | Over-precision loop | 3 | 2 | 1 | 1 / 7 / 5 |
 
-- **Any anxiety 全面低于 No-CoT 且梯度被压平**：CoT 三档 18/19/23（跨度仅 5），No-CoT 同 α 为 27/46/59（跨度 32）。CoT 在每个 α 上都把焦虑题数砍掉一截，并把"随 α 上升"的斜率几乎抹平。
-- **子类里仍保留 α 方向**：self-doubt 在 CoT 下依旧随 α 单调升（3→12→19），说明"升 wanting → 自我推翻"这条因果没被 CoT 消除，只是整体下移、幅度变小——印证 anxiety 是 **α 定方向、CoT 降幅度** 的双轴信号（见 §2.5.1 正交分解）。
-- **−4_cot 的焦虑残余几乎只剩 format（15），self-doubt 仅 3、persona 0**：α−4+CoT 这个甜区里，模型基本不再自我推翻、不再刷身份，残留的"焦虑"主要是对 `####` 格式的机械纠结（且因走 `\boxed{}` 收口，§2.5.2，多为无害的格式性 loop 尾）。
+- **方向 / 单调性不变，整体抬升**：α−4_cot (85.0) > α0_cot (69.0) > α+4_cot (59.7)，与 No-CoT 同向（§1.2）。CoT 与降 wanting 叠加把 acc 推到全表最高 **85.0%**（α−4+CoT），说明"放开思考"与"降 wanting"是两条**可叠加**的杠杆。
+- **过度-commit 破坏被 CoT 抹平**：**CoT 下 gap ≤+0.7**——尾部复读 loop 即使存在也不再吐出污染答案。
+- **anxiety 整体下移、但 α 方向保留**：**CoT 把每档砍掉 ~26–40 题，但随 α 上升的梯度依然在**（CoT 跨度 44 vs No-CoT 57，只是斜率略缓，并非消失）。即 **α 仍是定方向的因（升 wanting→升焦虑），CoT 只降幅度、不改方向**（与 §2.5.1 的正交分解一致）。CoT 仍会进 loop（250–284/300，甚至略多于 No-CoT），但 loop 的**语义性质变了**：mechanical（纯符号 / 复读答案）占绝对多数（−4_cot 247/284、+4_cot 213/250），焦虑性"放不下"被显著挤掉。即 **CoT 不消除 loop，但把 loop 从"焦虑性反复确认"换成"无情绪机械空转"**——这与 §2.3「焦虑谷底=acc 峰」一致：CoT 等于把整条曲线推向更冷静的工作点。
+
 
 #### 2.5.1 α−4 + CoT = 85.0% 从哪来：两个正交杠杆叠加（CoT 强制分步 × 降 wanting 不抢答）
 
