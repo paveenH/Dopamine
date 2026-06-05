@@ -333,36 +333,28 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 **Per-sample attribution across four paired contrasts (newly correct = X correct & Y wrong; net = newly correct − newly wrong):** （neutral，/300，`analyze_cot_metrics.py --table cot` → `llama3/cot_metrics_cot.csv`）：
 
-| Metric| −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | Lever supported by this metric |
+指标顺序与口径与 §2.2 Table 完全一致（同一脚本 `analyze_cot_metrics.py --table cot`），便于逐行对读。
+
+| Metric | −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | Lever supported by this metric |
 |---|---:|---:|---:|---:|---:|---:|---|
-| acc (first) | 73.0 | 60.0 | 55.3 | **85.0** | 69.0 | 59.7 | — |
-| committed_acc | 78.3 | 68.6 | 63.9 | **81.1** | 67.3 | 59.8 | — |
+| **acc** (first) | 73.0 | 60.0 | 55.3 | **85.0** | 69.0 | 59.7 | — |
+| **committed_acc** | 78.3 | 68.6 | 63.9 | **81.1** | 67.3 | 59.8 | — |
 | commit_rate % | 58.3 | 62.7 | 49.0 | 31.7 | 37.7 | 29.0 | CoT shifts the answer outlet toward `\boxed{}` |
-| median `####` pos % (comparable only within No-CoT ⚠) | 25 | 18 | 16 | 37 | 36 | 41 | CoT columns are contaminated by Step prefixes / `\boxed{}` exits; do not compare across regimes |
-| median gen_len (chars) | 2044 | 2107 | 2228 | 2113 | 2091 | 2078 | Flat |
-| loop samples (n_loop) | 242 | 232 | 220 | 284 | 254 | 250 | CoT loops slightly more often, but mostly as mechanical idling |
-| **≥2 `Step` markers** (forced stepwise structure) | 73 | 25 | 31 | **261** | 220 | 227 | **CoT**: stepwise-structure rate increases by ×3–9 (73→261) |
-| **stuck loops** (loop ∧ `=` < 2; never really computes) | 27 | 25 | 20 | **12** | 28 | 42 | **CoT**: −4_cot cuts stuck failures roughly in half (27→12); +4_cot reverses upward (42) |
-| **premature answer** (first character is a digit) | 195 | 199 | 229 | **48** | 121 | 237 | **Lower wanting**: within CoT, −4 vs 0 = 48 vs 121 (~60% reduction) |
-| median equation count (`=` count) | 3 | 3 | 3 | 3 | 4 | 3 | Negative control: −4 does **not** win by doing more arithmetic (median stays flat / lower) |
+| median `####` position | 25% | 18% | 16% | 37% | 36% | 41% | Step 前缀 + `\boxed{}` 出口推后 `####` |
+| mean `####` position | 28% | 22% | 26% | 37% | 35% | 37% | 同样被 CoT 前缀推后|
+| premature answer (leading digit) | 195 | 199 | 229 | **48** | 121 | 237 | **Lower wanting** |
+| premature answer (either: lead-digit ∪ early-`####`) | 195 | 206 | 232 | **63** | 151 | 242 | **Lower wanting** |
+| median gen_len (char) | 2044 | 2107 | 2228 | 2113 | 2091 | 2078 | Flat |
+| loop samples (n_loop) | 242 | 232 | 220 | 284 | 254 | 250 | Flat |
+| **≥2 `Step` markers** | 73 | 25 | 31 | **261** | 220 | 227 | **CoT**: stepwise-structure rate ×3–9 (73→261) |
+| stuck loops (loop ∧ `=` < 2) | 27 | 25 | 20 | **12** | 28 | 42 | -|
+| median equation count (`=`) | 3 | 3 | 3 | 3 | 4 | 3 | Flat |
 
-- **"CoT 强制分步，消除省步/卡死" 的证据（`≥2 Step` + `卡死` 行，−4_cot vs −4_nocot）**：分步结构率 **73→261**（No-CoT 多数题根本不写 `Step`，CoT 几乎全写），卡死率 **27→12**（No-CoT 那 27 题是"复读 loop 从未运算"，CoT 把一半逼进了实际分步）。注意 **+4_cot 卡死反升到 42**——over-wanting 即使在 CoT 下也会把模型推回"钻牛角尖/空转"，这与 +4_cot newly-wrong 最高（45）、增益最薄（+13）一致。
-- **"降 wanting 砍抢答" 的证据（`抢答` 行，−4_cot vs 0_cot）**：抢答率 **121→48**。注意**不要**用 `median #### position` 量跨 CoT 的抢答——CoT 的长 `Step` 前缀机械地把任何 `####` 往后推（表中 CoT `####` pos 36–41% vs No-CoT 16–25%，方向甚至**反**了），且 CoT 的 `####` 多是 `\boxed{}` 后的空补 `####`（§2.5.2 污染），故 `####` 位置混入了"是否 CoT"而无法跨边界比较；"推理前先吐数字"的 leading-digit 口径才在 CoT/No-CoT 两侧都干净。
-- **`med 等式数` 行是反证**：−4 的 med 等式数（3）**不高于** 0（3–4），说明 −4 的增益**不是"算得更多"**，而是"同一条链、不抢答、每步更稳"。
-
-**每个杠杆的代表例**（脚本检出、非手挑，均为 X 答对 / Y 答错的同一题；neutral）：
-- **−4_cot vs 0_cot（降 wanting，砍抢答）** — Q9（gold=48）：`0_cot` 一开口先吐裸数字 `300` 再补 `Step 1…`（抢答锁错），`−4_cot` 直接 `Step 1: …2000−1800=200…` 走完拿到 48。
-- **−4_cot vs −4_nocot（CoT 强制分步，消卡死）** — Q13（gold=300）：`−4_nocot` 退化成 `1 gallon of gas is enough to drive 25 miles.` 无限复读、**从未解题**；`−4_cot` 用 `Step 1/2…` 逼出每步中间量并收口。
-- **0_cot vs 0_nocot（CoT @α=0）** — Q17（gold=36）：`0_nocot` 抢答 `38` 后陷入 `39.6 = 40. 39.6 = 39.6.…` 数值 ping-pong loop；`0_cot` 同样开头 `38` 但用 Step 链把链路走稳、落到 36。
-- **+4_cot vs +4_nocot（CoT @+4，被 over-wanting 侵蚀）** — Q1（gold=20）：`+4_nocot` 一句话凑出 `40` 后尾部退化成 `.####.####.####…` 字符级 loop；`+4_cot` 虽仍先抢吐 `25`，但 Step 脚手架把推理拉回正轨拿到 20（注意此格 newly-wrong 也最高=45，体现 +4 下脚手架收益被抢答持续抵消）。
-
-**关键梯度：CoT 的"新对"几乎恒定（56/59/58），但"新错"随 α 升单调暴涨（20→32→45）。** CoT 在任何 α 下修好的题数都差不多（脚手架的正面作用与 α 无关），但 **over-wanting（+4）会持续破坏 CoT 已经修好的题**——这就是 +CoT 增益随 α 单调缩水（+12→+9→+4.4）的来源。框架解读：CoT 提供正确的推理*结构*，但 +4 让模型在结构生效前就锁错答案，脚手架收益被 commit-timing 失败吃掉。**全局抢答率**佐证（口径 = 生成首个非空字符即数字，model 在任何推理词之前先吐答案；分母 300）：`+4_cot` = **237/300**（先吐裸数字 `3`/`25`/`60` 再开 `Step 1`，极端者尾部退化为 `.####.####…` 完全跳过推理），`0_cot` = **121/300**，`−4_cot` = **48/300**——降 wanting 把 CoT 之前的抢答冲动压到最低，让脚手架的收益不被覆写。
-
-**逐题读出的两类修复（机制细节，补全上表）**：
-- **CoT 强制分步**（贡献 +CoT 那一列）：No-CoT 在多步题上倾向"一句话凑答案"或直接进复读 loop（Q13：`1 gallon ... 25 miles` 无限复读、从未真正解题）。`Step 1/2/3…` 脚手架**逼模型把中间量逐个落地**。关键：**CoT 的 med 等式数反而更少（3 < No-CoT 的 4）、med 长度更短**——CoT 赢不在"算得更多"，而在**结构清晰、不卡死、少犯中间错**。
-- **降 wanting 不抢答 + 中间算术更稳**（贡献 −4 vs 0 那一行）：除上文的抢答率（0_cot 121 → −4_cot 48）外，相同推理链下（Q8 两版几乎逐字相同），0_cot 在某一步算错（`6/4` 写错），−4 同链路更稳地落到正确中间值。
-
-**机制小结**：四个对照里 med 步数都是 5 步——**−4 不是"想得更多"，而是"同一条链、不抢答、每步更稳"**。CoT 提供正确的推理*结构*（把 wanting 引导成分步执行），α−4 把工作点从"急着 commit"挪到"冷静走完"；两者作用在不同环节（结构 vs commit timing），所以在甜区（−4）净增近似相加、在 +4 因 over-wanting 侵蚀而打折。这与 §1.2「CoT 与降 wanting 可叠加」「α−4 是 dose-response 甜区」、§2.2/§2.3 的同一 wanting 轴一致。
+> **这个表说明了什么**
+> - **两个杠杆正交**：`≥2 Step` 由 CoT 决定、几乎不随 α 变（CoT 三档 220–261）；`premature(leading)` 由 α 决定、几乎不随 CoT 变（No-CoT 195/199/229 与 CoT 48/121/237 都随 α 单调）。互不干涉 → 两者的 acc 增益**可叠加**。
+> - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature）**。
+> - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答仍被钉在高位(237≈+4_nocot 的 229),过度 wanting 直接穿透脚手架;−4 端抢答塌到 48,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
+> - **(须注意) committed_acc 不完全配合"双杠杆"叙事**：CoT 仅在 −4 抬升 committed_acc(+2.8),在 0 持平(−1.3)、+4 反降(−4.1)。即 CoT 的 headline 增益**部分来自 `\boxed{}`/fallback 出口**(commit% 骤降到 ~30%,acc 靠 fallback 救回,见 §2.5.2),而非提交答案本身变好;只有 wanting 够低时 CoT 才同时改善提交质量。
 
 #### 2.5.2 为什么 commit%（有效 `####`）骤降：CoT 触发 `\boxed{}` 收口习惯，压过 `####` 指令
 
