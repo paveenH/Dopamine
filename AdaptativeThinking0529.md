@@ -377,7 +377,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 ## 3. MATH Performance
 
-**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。ACC: `analyze_first_last_acc.py`。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。数据为 `<|eot_id|>` 。结果目录 `RoleAnswer/llama3/math_eot/`。
+**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。ACC: `analyze_first_last_acc.py`。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。数据为 `<|eot_id|>` 。结果目录 `RoleAnswer/llama3/math/math_eot/`。
 
 
 ### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
@@ -391,9 +391,12 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | α0 neutral CoT | **42.0%** | 41.0% | +1.0 | 1 | 4 |
 | α+4 neutral | **33.0%** | 34.0% | −1.0 | 5 | 2 |
 | α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
+| α+4 neutral CoT | **38.7%** | 38.0% | +0.7 | 4 | 6 |
+| α−4 neutral CoT | **45.0%** | 44.0% | +1.0 | 0 | 3 |
 
-- **neutral / α-steering gap≈0、改坏 ≤4**（末尾不污染）；**role gap +8~15、改坏 29~45**（复读 loop 在末尾吐错 boxed，取末把首答对的算成错——故 MATH 主报 first）。
+- **neutral / α-steering gap≈0、改坏 ≤6**（末尾不污染）；**role gap +8~15、改坏 29~45**（复读 loop 在末尾吐错 boxed，取末把首答对的算成错——故 MATH 主报 first）。
 - α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.6。
+- **CoT 跨 α 一致抬升 (+5.0/+5.3/+5.7)，且 α 方向保留**：CoT 三档 = α−4 **45.0** > α0 42.0 > α+4 38.7，与 No-CoT 同序。α−4+CoT (45.0) 是 MATH 上限——和 GSM8K 同形（CoT × 低 wanting 叠加），只是 MATH 更难、幅度更小（GSM8K −4+CoT 达 85.0）。
 
 ### 3.2 Role failure mode: trailing repetition loop (boxed-count explosion)
 
