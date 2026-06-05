@@ -179,8 +179,9 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | **committed_acc** | 23.6 | **79.7** | 78.3 | 76.2 | 68.6 | 66.0 | 63.9 | 62.5 | 58.5 | ✓ **Monotonic decrease** (−6→+8) |
 | commit_rate | 60.7 | 60.7 | 58.3 | 63.0 | 62.7 | 53.0 | 49.0 | 45.3 | 53.0 | Non-monotonic |
 | median `####` position | **0%** | 31% | 25% | 18% | 18% | 19% | 16% | 14% | 14% | ✓ Earlier commit |
-| mean `####` position | 9% | 33% | 28% | 24% | 22% | 25% | 26% | 22% | 20% | Same negative-high/positive-low tilt as median, but non-monotonic — pulled up by −8's mass of 0%-commits + long tails |
-| premature answer (leading digit) | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 | Low at −8/−6 because the first token is often `####`, not a bare number; high from 0 to +8 |
+| mean `####` position | 9% | 33% | 28% | 24% | 22% | 25% | 26% | 22% | 20% | Same negative-high/positive-low tilt as median, but non-monotonic|
+| premature answer (leading digit) | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 | Low at −8/−6 because the first token is often `####` |
+| premature answer (either: lead-digit ∪ early-`####`) | **175** | 94 | 195 | 223 | 206 | 215 | 232 | 233 | 210 | Union of both forms |
 | median gen_len (char) | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
 | loop samples ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | High baseline (~74–88%); no clean trend |
 | ≥2 `Step` markers | 31 | 185 | 73 | 36 | 25 | 31 | 31 | 27 | 37 | No-CoT rarely enters stepwise reasoning |
@@ -190,9 +191,11 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 > `analyze_cot_metrics.py`（`RoleAnswer/`，`--table dose`） → `llama3/cot_metrics_dose.csv`：=
 > - **commit_rate** = 含 ≥1 个有效 `####N` 的样本比例；**committed_acc** = 这些 committed 样本里 first-`####` 答对的比例（分母=commit 数）。
 > - **median `####` position** = `median(首个 ####（含裸 ####）char 起点 / 全文长度) × 100`（在有 `####` 的样本上取中位）。
+> - **mean `####` position** = 同上但取均值（右偏诊断；mean>median 说明有晚提交长尾）。
 > - **median gen_len** = 生成的**字符**长度中位数。
 > - **loop samples** = `analyze_loop_anxiety.py --mode loop` 的 `n_loop`。
-> - **≥2 Step 标记**、**卡死**（短串复读 loop ∧ `=`<2，即从未真正运算）、**抢答**（首个非空字符即数字）、**med 等式数**（`=` 计数）见 §2.5.1。
+> - **≥2 Step 标记**、**卡死**（短串复读 loop ∧ `=`<2，即从未真正运算）、**med 等式数**（`=` 计数）见 §2.5.1。
+> - **premature (leading digit)** = 首个非空字符即数字（抓**裸数字**抢答，+α 端）；**premature (either)** = 前者 ∪ `####` 出现在前 2% 文本（再抓 **`#### N` 首 token 锁值**，−α 端）。两者必须并读——单看 leading-digit 会把 −8 的 `####`-抢答漏成 4，union 口径下 −8 实为 175（全表最高），见 §2.4。
 
 † **α=−8 = 过冲塌缩，不在单调线上**：`committed_acc` 崩到 **23.6%**、`####` 中位位置 **0%**（首 token 即抢答）——α 太负使模型一开口就 `#### N` 锁死错值。倒 U 的负向尽头是"过早 commit 锁错"，不是"算不出"。
 
@@ -276,11 +279,8 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 **Opening shape for 8 & -8 steering**
 | | Opening shape | `####` at start (<2%) | leading-digit premature answer | Interpretation |
 |---|---|---|---|---|
-| **−8** under-wanting | `#### 40 …`（井号开头） | **171** | **4** | 用 **`####` 直接锁值**：首 token 即 `#### N`，所以 `####`-position 见 0%、`####`-at-start 极高；但首字符是 `#` 非数字，leading-digit 几乎不命中 |
-| **+8** over-wanting | `40 Step1 …`（裸数字开头） | 20 | **206** | 用 **裸数字抢吐**：先说一个数字再补推理/`####`，所以 leading-digit 高、`####`-at-start 低 |
-
-- **两个指标互补、各抓一种抢答形态**：`#### position / #### at start` 抓"`####` 锁得多早"（−8 独高），`leading-digit` 抓"裸数字吐得多早"（+8 一带高）。**单看任一列都会漏掉一端**——这也是为什么 §2.2 Table1 里 −8 的 leading-digit 反而最低（4），并非 −8 不抢答，而是它的抢答走 `####` 出口、被 leading-digit 检测器漏过。
-- **与 §2.2 / §2.5.1 口径衔接**：`leading-digit` 是**跨 CoT 边界**的抢答口径（CoT 的 `####` 被 `\boxed{}` 污染、位置不可比，§2.5.2）；`#### position` 仅在 No-CoT 内部可比。−8 这个"`####` 抢答但 leading-digit 漏检"的盲点，正是 No-CoT 端 `#### position` 与 leading-digit 必须并列读的原因。
+| **−8** under-wanting | `#### 40 …`（井号开头） | **171** | **4** | 首 token 即 `#### N`|
+| **+8** over-wanting | `40 Step1 …`（裸数字开头） | 20 | **206** | 用 **裸数字抢吐**|
 
 > **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
 
