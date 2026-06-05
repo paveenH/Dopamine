@@ -524,7 +524,7 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 
 ### 3.5 CoT on MATH: lifts acc, keeps α direction, and lowers anxiety — same story as GSM8K (smaller magnitude)
 
-> neutral,No-CoT vs CoT,server-182,`analyze_first_last_acc.py`(first = `\boxed{}`);anxiety 主口径 = **full-text 锚点-重复**(`--mode anxious_repeat`,分母固定 300,跨条件可比);loop 列仅作对照(分母 = n_loop 浮动,会稀释比例)。两口径取舍见 §2.3 末。
+> neutral, No-CoT vs CoT, server-182, `analyze_first_last_acc.py` (first = `\boxed{}`); the main anxiety metric is **full-text anchor repetition** (`--mode anxious_repeat`, fixed denominator = 300, comparable across conditions); the loop column is only a control view (denominator = floating n_loop, which can dilute the rate). See the end of §2.3 for the metric-choice rationale.
 
 | α | acc(first) | acc(last) | gap(first−last) | anxiety(loop)/n_loop | anxiety(full) |
 |---|---|---|---|---|---|
@@ -535,10 +535,10 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 | +4 No-CoT | 33.0 | 34.0 | −1.0 | 36 / 99 | 82 |
 | **+4 CoT** | **38.7** | 38.0 | +0.7 | 23 / 102 | **49** |
 
-
 - **acc 抬升 + α 方向保留(与 GSM8K 同向)**:每档 CoT 都涨(+5.0 / +5.3 / +5.7),α−4_cot **45.0%** 是 MATH 全表天花板,α−4 > 0 > +4 单调不变。说明"放开思考"与"降 wanting"在 MATH 上仍是**可叠加**的两条杠杆。
+- **CoT 降焦虑,与 GSM8K 同向(full )**:full-text anxiety 每档都降——**−4: 40→26(−14)、0: 68→31(−37)、+4: 82→49(−33)**,与 GSM8K §2.5"CoT 抑制 over-wanting 焦虑"一致。
 
-**12-metric 正交分解(neutral,`analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**:指标顺序与 §2.5.1 完全一致(marker = `\boxed{}`,故 ##med/##mean 实为 boxed position):
+**12-metric orthogonal decomposition (neutral, `analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**: metric order is identical to §2.5.1 (marker = `\boxed{}`, so `##med` / `##mean` actually denote boxed position):
 
 | Metric | −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | 说明 |
 |---|---:|---:|---:|---:|---:|---:|---|
@@ -548,7 +548,7 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 | median boxed pos | 21% | 14% | 16% | 33% | 23% | 28% | Step 前缀把 `\boxed{}` 推后 |
 | mean boxed pos | 40% | 26% | 33% | 52% | 36% | 46% | 同样被 CoT 前缀推后 |
 | premature (leading) | 7 | 17 | 8 | **3** | 19 | 11 | 抢答随 α,CoT 在 −4 端再压(7→3) |
-| premature (either) | 13 | 29 | 26 | **6** | 25 | 26 | 同上 |
+| **premature (either)** | 13 | 29 | 26 | **6** | 25 | 26 | 同上 |
 | median gen_len (char) | 4798 | 5557 | 5719 | 3864 | 5141 | 4123 | CoT 反而更短(分步收敛更快) |
 | loop (n_loop) | 76 | 120 | 99 | 79 | 130 | 102 | Flat(CoT 不减 loop) |
 | **≥2 `Step` markers** | 168 | 131 | 177 | **273** | 217 | 185 | **CoT**: 分步结构率抬升(−4: 168→273) |
