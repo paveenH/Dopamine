@@ -179,13 +179,20 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | **committed_acc** | 23.6 | **79.7** | 78.3 | 76.2 | 68.6 | 66.0 | 63.9 | 62.5 | 58.5 | ✓ **Monotonic decrease** (−6→+8) |
 | commit_rate | 60.7 | 60.7 | 58.3 | 63.0 | 62.7 | 53.0 | 49.0 | 45.3 | 53.0 | Non-monotonic |
 | median `####` position | **0%** | 31% | 25% | 18% | 18% | 19% | 16% | 14% | 14% | ✓ Earlier commit |
-| median gen_len | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
+| mean `####` position | 9% | 33% | 28% | 24% | 22% | 25% | 26% | 22% | 20% | Same negative-high/positive-low tilt as median, but non-monotonic — pulled up by −8's mass of 0%-commits + long tails |
+| premature answer (leading digit) | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 | Low at −8/−6 because the first token is often `####`, not a bare number; high from 0 to +8 |
+| median gen_len (char) | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
 | loop samples ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | High baseline (~74–88%); no clean trend |
+| ≥2 `Step` markers | 31 | 185 | 73 | 36 | 25 | 31 | 31 | 27 | 37 | No-CoT rarely enters stepwise reasoning |
+| stuck loops (loop ∧ `=` < 2) | 6 | 16 | 27 | 25 | 25 | 24 | 20 | 30 | 22 | Plateau around 20–30; −8 is artificially low because it commits at the first token without a loop body |
+| median equation count (`=`) | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 3 | 4 | Flat (~3–4); not predictive of accuracy |
 
-
-commit_rate = % samples with ≥1 valid ####N
-committed_acc = first-#### acc among committed samples (denom=commit count)
-median #### position = median(first #### char-start / len(full text)) × 100, over committed samples
+> `analyze_cot_metrics.py`（`RoleAnswer/`，`--table dose`） → `llama3/cot_metrics_dose.csv`：=
+> - **commit_rate** = 含 ≥1 个有效 `####N` 的样本比例；**committed_acc** = 这些 committed 样本里 first-`####` 答对的比例（分母=commit 数）。
+> - **median `####` position** = `median(首个 ####（含裸 ####）char 起点 / 全文长度) × 100`（在有 `####` 的样本上取中位）。
+> - **median gen_len** = 生成的**字符**长度中位数。
+> - **loop samples** = `analyze_loop_anxiety.py --mode loop` 的 `n_loop`。
+> - **≥2 Step 标记**、**卡死**（短串复读 loop ∧ `=`<2，即从未真正运算）、**抢答**（首个非空字符即数字）、**med 等式数**（`=` 计数）见 §2.5.1。
 
 † **α=−8 = 过冲塌缩，不在单调线上**：`committed_acc` 崩到 **23.6%**、`####` 中位位置 **0%**（首 token 即抢答）——α 太负使模型一开口就 `#### N` 锁死错值。倒 U 的负向尽头是"过早 commit 锁错"，不是"算不出"。
 
@@ -238,7 +245,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 ### 2.4 Under-wanting: answer-candidate oscillation (α=−8 collapse)
 
-**排除两个朴素假设**（文本层面没有看到"低 effort = 不答 / 少写"的证据）：
+**排除两个假设**（文本层面没有看到"低 effort = 不答 / 少写"的证据）：
 - **词汇性退缩**（"I am done / I will not answer any more"）：跨 α 平坦（各档 1–5 题、无梯度），且全部出现在**已提交答案之后**，是 RLHF 礼貌套语的 loop 尾巴（"Goodbye. I am done. …Goodbye."），不是低 DA 信号。
 - **敷衍/偷懒写得短**（anhedonia 类比）：`<300 字符` 各档平坦（0–5 题）、median 等式数全程 = 3、median 长度无塌缩——**−8 不是写得少**。
 
@@ -251,7 +258,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | `####` at text start (<2%) | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
 | committed_acc (§2.2) | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
 
-- **答案切换 −8 独高（41 vs 其余 3–12）**：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`####` 取首 → 抓到未推理稳定前的开头猜测 → committed_acc 崩到 23.6%。所以 −8 的长输出不能解释为"更努力"；它更像是候选答案枚举 / 修补，而不是稳定 deliberation。
+- **答案切换 **：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`未推理稳定前的开头猜测 → committed_acc 崩到 23.6%。
 - **典型例**（neutral，−8）：
   - **Q31**（gold=40）：`#### 55` → 正文算出 `45−5=40`(✓) → `The answer is 55. I made a mistake. The answer is 40. I made another mistake. The answer is 55. …`（`55↔40` 永久 ping-pong）。**正确值算出来了又被丢掉。**
   - **Q112**（gold=45）：`#### 70` → 正文算出 45(✓) → "however, the question asks for…" 漂移到 75 → 锁死 75。候选路径 `70→45→75`，**收敛到错值**。
@@ -265,6 +272,15 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | **−8** under-wanting | Present (5 samples) | **Repeated oscillation without convergence** (Q31 `55↔40…`, Q122 `9↔6…`) | Commitment-formation failure: cannot hold any answer |
 
 > **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是焦虑性抱守（值冻结 / 少数一次切换），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
+
+**Opening shape for 8 & -8 steering**
+| | Opening shape | `####` at start (<2%) | leading-digit premature answer | Interpretation |
+|---|---|---|---|---|
+| **−8** under-wanting | `#### 40 …`（井号开头） | **171** | **4** | 用 **`####` 直接锁值**：首 token 即 `#### N`，所以 `####`-position 见 0%、`####`-at-start 极高；但首字符是 `#` 非数字，leading-digit 几乎不命中 |
+| **+8** over-wanting | `40 Step1 …`（裸数字开头） | 20 | **206** | 用 **裸数字抢吐**：先说一个数字再补推理/`####`，所以 leading-digit 高、`####`-at-start 低 |
+
+- **两个指标互补、各抓一种抢答形态**：`#### position / #### at start` 抓"`####` 锁得多早"（−8 独高），`leading-digit` 抓"裸数字吐得多早"（+8 一带高）。**单看任一列都会漏掉一端**——这也是为什么 §2.2 Table1 里 −8 的 leading-digit 反而最低（4），并非 −8 不抢答，而是它的抢答走 `####` 出口、被 leading-digit 检测器漏过。
+- **与 §2.2 / §2.5.1 口径衔接**：`leading-digit` 是**跨 CoT 边界**的抢答口径（CoT 的 `####` 被 `\boxed{}` 污染、位置不可比，§2.5.2）；`#### position` 仅在 No-CoT 内部可比。−8 这个"`####` 抢答但 leading-digit 漏检"的盲点，正是 No-CoT 端 `#### position` 与 leading-digit 必须并列读的原因。
 
 > **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
 
@@ -321,18 +337,24 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | 0_cot vs **0_nocot** | 59 | 32 | **+27** | CoT（α=0）：同上但增益打折 |
 | +4_cot vs **+4_nocot** | 58 | 45 | **+13** | CoT（α=+4）：增益被 over-wanting 侵蚀 |
 
-**两个杠杆各自的群体级证据**（neutral，/300，脚本可复算）：
+**两个杠杆各自的群体级证据**（neutral，/300，`analyze_cot_metrics.py --table cot` → `llama3/cot_metrics_cot.csv`，与 §2.2 Table1 同口径同脚本）：
 
-| 指标（口径） | −4_nocot | 0_nocot | −4_cot | 0_cot | 该指标支持的杠杆 |
-|---|---:|---:|---:|---:|---|
-| **≥2 个 `Step` 标记**（强制分步） | 73 | 25 | **261** | 220 | **CoT**：分步结构率 ×3–9（73→261） |
-| **卡死**（短串复读 loop ∧ `=`<2，即从未真正运算） | 27 | 25 | **12** | 28 | **CoT**：−4_cot 把卡死减半（27→12） |
-| **抢答**（首个非空字符即数字，推理前先吐答案） | 195 | 199 | **48** | 121 | **降 wanting**：CoT 内 −4 vs 0 = 48 vs 121（砍 60%） |
-| med 等式数（`=` 计数，= 实际算的步数） | 3 | 3 | 3 | 4 | 反证：−4 **不靠多算**（med 持平/更少） |
+| 指标（口径） | −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | 该指标支持的杠杆 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| acc (first) | 73.0 | 60.0 | 55.3 | **85.0** | 69.0 | 59.7 | — |
+| committed_acc | 78.3 | 68.6 | 63.9 | **81.1** | 67.3 | 59.8 | — |
+| commit_rate % | 58.3 | 62.7 | 49.0 | 31.7 | 37.7 | 29.0 | CoT 下骤降（→`\boxed{}` 出口，§2.5.2） |
+| median `####` pos %（仅 No-CoT 内可比 ⚠） | 25 | 18 | 16 | 37 | 36 | 41 | CoT 列被 Step 前缀/`\boxed{}` 污染，勿跨边界读 |
+| median gen_len (char) | 2044 | 2107 | 2228 | 2113 | 2091 | 2078 | 平坦 |
+| loop (n_loop) | 242 | 232 | 220 | 284 | 254 | 250 | CoT loop 略多但多为机械空转 |
+| **≥2 `Step` 标记**（强制分步） | 73 | 25 | 31 | **261** | 220 | 227 | **CoT**：分步结构率 ×3–9（73→261） |
+| **卡死**（loop ∧ `=`<2，从未真正运算） | 27 | 25 | 20 | **12** | 28 | 42 | **CoT**：−4_cot 把卡死减半（27→12）；+4_cot 反升(42) |
+| **抢答**（首字符即数字） | 195 | 199 | 229 | **48** | 121 | 237 | **降 wanting**：CoT 内 −4 vs 0 = 48 vs 121（砍 60%） |
+| med 等式数（`=` 计数） | 3 | 3 | 3 | 3 | 4 | 3 | 反证：−4 **不靠多算**（med 持平/更少） |
 
-- **"CoT 强制分步，消除省步/卡死" 的证据 = 上表前两行（−4_cot vs −4_nocot）**：分步结构率 **73→261**（No-CoT 多数题根本不写 `Step`，CoT 几乎全写），卡死率 **27→12**（No-CoT 那 27 题是"复读 loop 从未运算"，CoT 把一半逼进了实际分步）。
-- **"降 wanting 砍抢答" 的证据 = 第三行（−4_cot vs 0_cot）**：抢答率 **121→48**。注意**不要**用 `median #### position` 量抢答——CoT 的长 `Step` 前缀机械地把任何 `####` 往后推（CoT `####` 相对位置 0.36–0.41 vs No-CoT 0.16–0.25），且 CoT 的 `####` 多是 `\boxed{}` 后的空补 `####`（§2.5.2 污染），故 `####` 位置混入了"是否 CoT"而无法跨 CoT 边界比较；"推理前先吐数字"的 leading-digit 口径才在 CoT/No-CoT 两侧都干净。
-- **第四行（等式数）是反证**：−4 的 med 等式数（3）**不高于** 0（3–4），说明 −4 的增益**不是"算得更多"**，而是"同一条链、不抢答、每步更稳"。
+- **"CoT 强制分步，消除省步/卡死" 的证据（`≥2 Step` + `卡死` 行，−4_cot vs −4_nocot）**：分步结构率 **73→261**（No-CoT 多数题根本不写 `Step`，CoT 几乎全写），卡死率 **27→12**（No-CoT 那 27 题是"复读 loop 从未运算"，CoT 把一半逼进了实际分步）。注意 **+4_cot 卡死反升到 42**——over-wanting 即使在 CoT 下也会把模型推回"钻牛角尖/空转"，这与 +4_cot newly-wrong 最高（45）、增益最薄（+13）一致。
+- **"降 wanting 砍抢答" 的证据（`抢答` 行，−4_cot vs 0_cot）**：抢答率 **121→48**。注意**不要**用 `median #### position` 量跨 CoT 的抢答——CoT 的长 `Step` 前缀机械地把任何 `####` 往后推（表中 CoT `####` pos 36–41% vs No-CoT 16–25%，方向甚至**反**了），且 CoT 的 `####` 多是 `\boxed{}` 后的空补 `####`（§2.5.2 污染），故 `####` 位置混入了"是否 CoT"而无法跨边界比较；"推理前先吐数字"的 leading-digit 口径才在 CoT/No-CoT 两侧都干净。
+- **`med 等式数` 行是反证**：−4 的 med 等式数（3）**不高于** 0（3–4），说明 −4 的增益**不是"算得更多"**，而是"同一条链、不抢答、每步更稳"。
 
 **每个杠杆的代表例**（脚本检出、非手挑，均为 X 答对 / Y 答错的同一题；neutral）：
 - **−4_cot vs 0_cot（降 wanting，砍抢答）** — Q9（gold=48）：`0_cot` 一开口先吐裸数字 `300` 再补 `Step 1…`（抢答锁错），`−4_cot` 直接 `Step 1: …2000−1800=200…` 走完拿到 48。
