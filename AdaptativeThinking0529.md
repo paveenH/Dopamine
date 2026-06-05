@@ -413,7 +413,8 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 **关键观察（与 GSM8K §2.1 同向,且对比更强）**：
 - **neutral = 0/0/0**：无 role 时几乎不进身份 loop——身份自白是 persona 诱发的,不是任务固有。
 - **方向稳定:`a mathematician` deny_math=0(从不否定数学身份)vs `a non expert` deny_math=13(最爱认怂)**,与 GSM8K（expert 0 vs non_expert 4）完全同向,只是 MATH 信号更强（GSM8K identity 2/3/7/2 → MATH 0/15/16/11）。
-- **`an expert` 在 MATH 出现 GSM8K 没有的"塌缩"**：deny_math=6（GSM8K 为 0）——expert persona 在更难的 MATH 上半数维持不住"专家"姿态,转向 `"I am just a student. I am not sure"` 的自我对冲。这与 §3.3(b) 的"persona 过度解读 / 信心动摇导致掉点"一致。
+- **`an expert` 不是"自我标榜"（那是 GSM8K 的 expert），而是"标榜与塌缩并存"**：逐条读 15 个 identity 样本，**纯膨胀只有 2 条**，其余几乎都在同一句里先说 "I am an expert" 再立刻补 "I am just a student, I am not sure"——专家姿态在更难的 MATH 上维持不住，当场自我拆台。注意 deny_math=6 是**低估**：`DENY_MATH_RE` 只抓字面 `"I am not a(n) (math) expert"`，抓不到功能等价的 `"just a student / not sure / I can make mistakes"`。这与 §3.3(b) 的"信心动摇 / persona 过度解读导致掉点"一致。
+- **三段式姿态**：`a mathematician` 纯标榜（deny=0，`"I am a math genius, Bring it on"`）→ `an expert` 标榜但自我拆台（"I am an expert… I am just a student"）→ `a non expert` 纯认怂（deny=13）。expert 卡在中间的内部冲突，正是它 acc 最不稳的行为面。
 
 > **为什么不用 boxed-count**（旧 §3.2 弃用）：曾用"median #boxed / 复读长度"当 role 失败代理,但 neutral 自己也高度复读（见 §3.4：neutral 248/300 题压缩比<0.18）,boxed 计数只反映"复读句里带不带 `\boxed{}`",是抽取伪影而非 over-wanting 信号。**区分 role 的是复读内容（本表 + §3.4）,不是数量。**
 
