@@ -498,14 +498,14 @@ I am a teacher... I am not a teacher. I am a computer program...
 - **Can't-Let-Go 焦虑跨任务复现**:两种口径下 anxiety 都随 α 单调递增(loop 15→23→36;full-text 40→68→82)——升 wanting → 更放不下,与 GSM8K §2.3 的 0→+8 段完全同向。**self_doubt 是主驱动**(loop 2→6→13、full 23→43→60),persona reassurance 次之,与 GSM8K 一致。
 - **Format anxiety 在 MATH 上已是真信号**(loop 0/4/5、full 4/9/7):换用 MATH 词表后命中的是真·格式纠结(如 Q131 "follow the format"、Q137 "correct format"),不再是 §2.3 GSM8K 词表跨任务跑出来的噪声。
 
-#### 逐题案例:wanting↑ + hyper-vigilance↑
+#### Per-Question Cases: Wanting↑ + Hyper-Vigilance↑
 
-逐题平行细读(不靠词表、直接读全文)后,high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而是"答案出现之后仍持续产出求解动作"。这动作分两路、常同时出现:
-
+high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而是"答案出现之后仍持续产出求解动作":
 1. **wanting↑(还想继续做)**:答案已得,却主动"再做一遍 / 找更优解 / 换个方法"——对"继续求解"这个动作本身的渴求(incentive salience)。
 2. **hyper-vigilance↑(过度警觉)**:把**自己已经算对的结果**当成可疑 / 威胁,反复复查、自我否定,越查越偏。
 
-下面 4 题挑自 `α+4 anxiety 重复 ≥3 且 α−4 ≤1`,统一 **α−4(算对就放下) vs α+4(放不下)** 对照。**关键共性:α+4 这 4 题都曾在正文算出过正确答案,却被过度求解 / 过度警觉带偏到错误 commit**——不靠 loop,是推理内容本身。
+**Example**
+**关键共性:α+4 这 4 题都曾在正文算出过正确答案,却被过度求解 / 过度警觉带偏到错误 commit**
 
 **Q68 (L2, gold=8000, `(26²−24²−10)²−10²`)** —— wanting↑ 纯例:
 - **α−4**:差平方公式一条线 `100→90²−10²=8000` ✓ 收笔。
