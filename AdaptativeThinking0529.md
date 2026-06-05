@@ -465,7 +465,7 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 ### 3.4 Anxiety: The “Can’t Let Go” Semantics on MATH 
 
-与 §2.3 同一权威脚本 `analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**焦虑(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
+> `analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**焦虑(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
 
 | Anxiety subtype | Criterion(MATH) | α+4 example |
 |---|---|---|
@@ -522,7 +522,41 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 
 **共同结构**:α−4 四题全是"算完→1–2 个 boxed→收笔"(纵有尾部机械复读,答案已锁、无纠结);α+4 全是"算完→不收笔→过度求解 / 过度警觉 / 求安抚→boxed 暴涨,半数 commit 到错值"。这是 §2 over-wanting 行为签名在 MATH **推理内容层面**(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
 
-### 3.5 MATH COT 
+### 3.5 CoT on MATH: lifts acc, keeps α direction, and lowers anxiety — same story as GSM8K (smaller magnitude)
+
+> neutral,No-CoT vs CoT,server-182,`analyze_first_last_acc.py`(first = `\boxed{}`);anxiety 主口径 = **full-text 锚点-重复**(`--mode anxious_repeat`,分母固定 300,跨条件可比);loop 列仅作对照(分母 = n_loop 浮动,会稀释比例)。两口径取舍见 §2.3 末。
+
+| α | acc(first) | acc(last) | gap(first−last) | anxiety(loop)/n_loop | anxiety(full) |
+|---|---|---|---|---|---|
+| −4 No-CoT | 40.0 | 39.7 | +0.3 | 15 / 76 | 40 |
+| **−4 CoT** | **45.0** | 44.0 | +1.0 | 18 / 79 | **26** |
+| 0 No-CoT | 36.7 | 36.0 | +0.7 | 23 / 120 | 68 |
+| **0 CoT** | **42.0** | 41.0 | +1.0 | 31 / 130 | **31** |
+| +4 No-CoT | 33.0 | 34.0 | −1.0 | 36 / 99 | 82 |
+| **+4 CoT** | **38.7** | 38.0 | +0.7 | 23 / 102 | **49** |
+
+
+- **acc 抬升 + α 方向保留(与 GSM8K 同向)**:每档 CoT 都涨(+5.0 / +5.3 / +5.7),α−4_cot **45.0%** 是 MATH 全表天花板,α−4 > 0 > +4 单调不变。说明"放开思考"与"降 wanting"在 MATH 上仍是**可叠加**的两条杠杆。
+
+**12-metric 正交分解(neutral,`analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**:指标顺序与 §2.5.1 完全一致(marker = `\boxed{}`,故 ##med/##mean 实为 boxed position):
+
+| Metric | −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | 说明 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| **acc** (first) | 40.0 | 36.7 | 33.0 | **45.0** | 42.0 | 38.7 | — |
+| **committed_acc** | 45.8 | 42.2 | 37.9 | **48.7** | 45.3 | 44.1 | — |
+| commit_rate % | 87.3 | 86.0 | 85.3 | 92.3 | 92.7 | 87.0 | MATH 几乎都 commit(≫ GSM8K) |
+| median boxed pos | 21% | 14% | 16% | 33% | 23% | 28% | Step 前缀把 `\boxed{}` 推后 |
+| mean boxed pos | 40% | 26% | 33% | 52% | 36% | 46% | 同样被 CoT 前缀推后 |
+| premature (leading) | 7 | 17 | 8 | **3** | 19 | 11 | 抢答随 α,CoT 在 −4 端再压(7→3) |
+| premature (either) | 13 | 29 | 26 | **6** | 25 | 26 | 同上 |
+| median gen_len (char) | 4798 | 5557 | 5719 | 3864 | 5141 | 4123 | CoT 反而更短(分步收敛更快) |
+| loop (n_loop) | 76 | 120 | 99 | 79 | 130 | 102 | Flat(CoT 不减 loop) |
+| **≥2 `Step` markers** | 168 | 131 | 177 | **273** | 217 | 185 | **CoT**: 分步结构率抬升(−4: 168→273) |
+| stuck (loop ∧ `=`<2) | 10 | 18 | 4 | 11 | 21 | 15 | — |
+| median `=` count | 10 | 10 | 10 | 7 | 8 | 8 | CoT 下 `=` 反略少(改走 Step 文字) |
+
+> - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
+> - **但 MATH 的 premature 绝对量本就低**(No-CoT 仅 7–17,GSM8K No-CoT 是 195–229):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
 
