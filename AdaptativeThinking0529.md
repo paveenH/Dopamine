@@ -417,30 +417,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 - **同一 expert persona 跨难度翻转：GSM8K 标榜 → MATH 塌缩**。`an expert` 在 GSM8K（§2.1）soft_deny=**0**、deny=0（真·自信自我标榜），到了更难的 MATH soft_deny=**13**。同一个 prompt persona，简单任务上自信、难任务上信心崩溃——这是 Yerkes–Dodson / wanting 框架的行为级证据：难度推高 arousal，把 expert 推过临界点从"标榜"翻成"塌缩"。
 
 
-### 3.3 Per-question style differences (how each role breaks down)
-
-读 39 个"neutral 首答对、expert 首答错"的发散样本，三类典型失败:
-
-**(a) 加了 reasoning 却推错 / 抢答错值 —— Q56 `(-k+4)+(-2+3k)`, gold `2k+2`（level-2 送分题）**
-- neutral：直接合并同类项 → 首 boxed `2k+2` ✅
-- expert：**开头第一个 token 就抢答 `\boxed{1k+2}`**（系数算错），后面 Step 1–8 才慢慢推出正确的 `2k+2`——但取首已锁死错的。
-- math_expert：开头先吐一行 `5k - 6`（凭空错值），但正文推理正确、末尾 `\boxed{2k+2}` ✅——这题反而 math_expert 取首对（说明抢答错值是随机噪声，不是稳定能力差）。
-
-**(b) "all possible values" 类题被 persona 带偏成多值 —— Q283 ω³=1, gold `1`（单值）**
-- neutral：一条 align 推到 `\boxed{1}` ✅（之后复读 11 次同一段）。
-- expert：Step 式推理，**末尾自我说服"题目要 all possible values，应该是列表"→ 改成 `\boxed{1,-1}`** ❌。persona 的"严谨/完整"倾向反而过度解读题面。
-- math_expert：推理正确 `\boxed{1}`，但拖到 **Step 64**、复读 54 个 boxed——内容对但极度冗余。
-
-**(c) 纯复读 loop 撑满 token**：neutral 也会复读（Q56 neutral 24 个 boxed），但因为首答对+取首，不影响 acc；role 因为首答更易错(见 a/b)，复读放大了 last 的污染。
-
-> 小结：MATH role 掉点 = **抢答错值(a)** + **persona 过度解读题面(b)** + **冗余复读(c)**。(a)(b) 是真实能力损伤（取首也救不回），(c) 是抽取伪影（取首已修）。"a mathematician" 最差，因为它最容易触发(b)式的"我应该更严谨/更完整"过度推理。
-
-> **neutral 自己也高度复读**（neutral 248/300、non_expert 270/300、expert 279/300 题压缩比 <0.18，即正文 >82% 冗余；长度中位 neutral 5557 vs non_expert 6174，差异噪声级）。这个 loop **不是 role 特有、也不是 over-wanting 的证据**，而是 generation 配置缺陷（见 §3.5 terminator bug）。**真正区分 role 的不是复读多少（长度/boxed 数），而是 loop 里复读什么内容**——见 §3.4。
-
-### 3.4 Identity monologue: loop content (not length) is what distinguishes roles
-
-身份措辞是**低频现象**（expert 12/300、non_expert 17/300 题出现），但**出现时**模式高度可读，且与 wanting 框架（§2）的 commitment / letting-go 在**身份维度**对称。一旦模型进入 loop（terminator bug 所致，§3.5），它复读什么取决于 role：
-
 **non_expert —— 认怂型 loop（复读 disclaimer / "我不会"）**
 
 ```
