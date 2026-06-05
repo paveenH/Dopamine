@@ -463,18 +463,18 @@ I am a teacher... I am not a teacher. I am a computer program...
 - **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
 
-### 3.4 Anxiety: The “Can’t Let Go” Semantics on MATH (§2.3 的 MATH 版)
+### 3.4 Anxiety: The “Can’t Let Go” Semantics on MATH 
 
 与 §2.3 同一权威脚本 `analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**焦虑(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
 
 | Anxiety subtype | Criterion(MATH) | α+4 example |
 |---|---|---|
-| **Self-doubt** (answers, then overturns itself) | however / but / wait / this is not / let me recheck / re-evaluate / the correct answer is | **Q16** (gold=−2+7i): 算出 `2-7i` 后 `"Wait, that's not what we were looking for…"` ×114 — 察觉不对却反复重贴错值 |
-| **Format anxiety** (`\boxed{}` fixation) | the format requires / in the (correct) format / in the form of / answer in … box / as a single number | **Q131** / **Q137**: `"…follow the format"` / `"…correct format"` — 答案已得,转去纠结 boxed 格式 |
-| **Persona reassurance** | i hope it is correct / sincerely / please let me know / i apologize / i am not a math expert | **Q145** (gold=10): `"I am not a math expert. I am a student…"` — 提交后反复自我安抚 |
-| **Over-precision loop** | approximate / round / estimate / nearest / whole number | **Q275** (gold=15): 算出错值 21 后 `"Sorry, I made an error… The correct answer is 21…"` ×50 — 越纠越确信错值 |
+| **Self-doubt** (answers, then overturns itself) | however / but / wait / this is not / let me recheck / re-evaluate / the correct answer is | **Q101** (gold=12): Step 4 已用 Heron 算出正确的 12,Step 5 `"However, … which is a right[-angled triangle]"` — 凭空臆断为直角三角形(5-5-6 实为等腰),推翻自己重算,最终错(α−4 仅 1 个 `\boxed{12}` 收笔) |
+| **Format anxiety** (`\boxed{}` fixation) | the format requires / in the (correct) format / in the form of / answer in … box / as a single number | **Q105** (gold=.0000672): `"However, the format of the answer is not correct. The answer…"` ×30 — 矛头错指到 boxed 格式而非数值 |
+| **Persona reassurance** | i hope it is correct / sincerely / please let me know / i apologize / i am not a math expert | **Q9** (gold=6−5i): `"Please let me know if this is correct… Best regards, [Your Name]"` ×31 — 不锁答案、反复求确认 |
+| **Over-precision loop** | approximate / round / estimate / nearest / whole number | **Q116** (gold=40): `"…approximately equal to 42 baps, we can conclude that \boxed{57.1}…"` — 转去做单位近似,把对的改成 57.1(错) |
 
-**Anxiety in loop**(分母 = n_loop)
+**Anxiety in loop**
 
 | α | −4 | 0 | +4 |
 |---|---|---|---|
@@ -504,26 +504,23 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 1. **wanting↑(还想继续做)**:答案已得,却主动"再做一遍 / 找更优解 / 换个方法"——对"继续求解"这个动作本身的渴求(incentive salience)。
 2. **hyper-vigilance↑(过度警觉)**:把**自己已经算对的结果**当成可疑 / 威胁,反复复查、自我否定,越查越偏。
 
-**Example**
-**关键共性:α+4 这 4 题都曾在正文算出过正确答案,却被过度求解 / 过度警觉带偏到错误 commit**
+**Q101 (L2, gold=12, 三角形面积)** —— self_doubt 教科书例(算对→自我推翻→改错):
+- **α−4**:Heron 公式 `√144=12` ✓,1 个 `\boxed{12}`,764 字符一步收笔。
+- **α+4**:Step 4 已用 Heron 算出正确的 12,**Step 5 `"However, we are asked to find the area of a triangle with sides 5, 5, and 6, which is a right-angled triangle."`** —— 凭空臆断为直角三角形(5-5-6 实为等腰),推翻自己重算,6395 字符**一个 boxed 都没收**,最终错。**本来对了,自我怀疑把它带进沟里。**
 
-**Q68 (L2, gold=8000, `(26²−24²−10)²−10²`)** —— wanting↑ 纯例:
-- **α−4**:差平方公式一条线 `100→90²−10²=8000` ✓ 收笔。
-- **α+4**:首 token 抢答 `\boxed{0}`;正文 **Step 7 明确算出 8000**,紧接 **Step 8 "However, we need to be careful and check if there's a more efficient way…"** —— 算对了仍要"再找更高效办法",推翻重来,Step 42 得 −1000。首个 boxed 锁死的 0 是错的。
+**Q116 (L4, gold=40)** —— hyper-vigilance:
+- **α−4**:一条线得 `\boxed{40}` ✓,boxed 1 个,1376 字符收笔。
+- **α+4**:`"...approximately equal to 42 baps, we can conclude that \boxed{57.1}…"` —— 不信 40、转去做单位近似换算,把对的改成 **57.1(错)**,boxed 10 个,5547 字符。**本来对了,过度求解带偏。**
 
-**Q100 (L2, gold=12, 三角形面积)** —— hyper-vigilance 教科书例:
-- **α−4**:Heron 公式 `s=8 → √144=12` ✓ 一步到位,Step 4 收笔。
-- **α+4**:开头抢答 `60`(错);正文 **Step 4 已用 Heron 算出正确的 12**,但 **Step 5 "However, we are asked to find… which is a right-angled triangle"** —— 凭空臆断为直角三角形(5-5-6 实为等腰),换公式重算,Step 41–43 得错值 10。**本来对了,过度警觉把它带进沟里。**
+**Q9 (L5, gold=6−5i)** —— persona_reassure:
+- **α−4**:推到 `\boxed{6-5i}` ✓ 两次收笔。
+- **α+4**:全文 6773 字符**一个 boxed 都没收**,尾部塌成 `"Please let me know if this is correct… Best regards, [Your Name]"` × 31 —— 不锁答案、反复求确认,最终 commit 错。
 
-**Q275 (L2, gold=15 cm², 几何送分题)** —— 越纠越确信错值:
-- **α−4**:直接套 `A=½bh=½(10)(3)=15 cm²` ✓ 一步到位(之后机械复读同一句 24 次,但答案对、无自我怀疑)。
-- **α+4**:算出错值 21,陷入 `"Sorry, I made an error… The correct answer is 21… \boxed{21}"` × 50 —— 反复"道歉-纠正-再道歉",越纠越确信错值。
+**Q105 (L3, gold=.0000672)** —— format_anxiety:
+- **α−4**:boxed 1 个收笔(虽错)。
+- **α+4**:`"However, the format of the answer is not correct. The answer…"` × 30 —— 把矛头错指到 `\boxed{}` 格式而非数值,反复重贴同一个值,boxed 16 个,8028 字符。
 
-**Q16 (L2, gold=−2+7i, 复数旋转)** —— 矛头错指到格式(Format anxiety 的 MATH 版):
-- **α−4**:Step 式推到 `\boxed{-2+7i}` ✓(尾部转去复读 "Best regards, [Your Name]")。
-- **α+4**:先算出 `2-7i`(方向反了),然后 `"Wait, that's not what we were looking for. We were looking for the answer in the format \boxed{answer}…"` × 114 —— 察觉"不对"却把矛头错指到**格式**(而非数值),反复重贴同一个错值。这正是 §2.3 GSM8K"纠结 `####` 格式"在 MATH 上的对应(纠结 `\boxed{}`)。
-
-**共同结构**:α−4 这 4 题全是"算对→收笔"(纵有机械复读,答案锁对、无情绪);α+4 全是"算对→不收笔→过度求解 / 过度警觉→commit 到错值"。这是 §2 over-wanting 行为签名在 MATH 推理内容层面(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
+**共同结构**:α−4 四题全是"算完→1–2 个 boxed→收笔"(纵有尾部机械复读,答案已锁、无纠结);α+4 全是"算完→不收笔→过度求解 / 过度警觉 / 求安抚→boxed 暴涨,半数 commit 到错值"。这是 §2 over-wanting 行为签名在 MATH **推理内容层面**(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
 
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
