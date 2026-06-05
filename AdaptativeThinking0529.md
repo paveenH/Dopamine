@@ -354,25 +354,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 > - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature）**。
 > - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答仍被钉在高位(237≈+4_nocot 的 229),过度 wanting 直接穿透脚手架;−4 端抢答塌到 48,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
 
-### 2.6 Behavioral metric checklist (used this round, for later scripting)
-
-1. accuracy（role × α × wording × CoT）—— 权威口径 = `analyze_first_last_acc.py`（first-#### + fallback + norm），勿用内联 `pred_answer` 字段
-2. `####` 出现位置 / 抢答率（前20%；分母 = n_hash）
-3. n_hash / has#### / no####（commit 数量）
-4. 抽取来源分布（hash / answer-is / boxed / fallback / empty）
-5. 五分类（#### 对 / 锁错 / 真错 / 无#### 对 / 无#### 错）
-6. 截断率（结尾无终止标点 ≈ 撞 token 上限）
-7. 生成长度（gen_len，correct vs wrong）+ 等式数（真推理量）
-8. 机械重复 loop（最高重复句次数；注：GSM8K loop 多为 `####N####N` 字符级，`<|eot_id|>` 修复未消除）
-9. check/verify 词频
-10. 改答案频率（候选序列去连续重复后的切换数）
-11. 算对又改错（gold 出现过但最终答案≠gold = 「锁错」）—— 查证：几乎全是机械丢弃，带 persona 理由 = 0 题
-12. 身份确认循环（自报角色 cue 词频 + 重度刷身份题数；判据含 `I am [not] a <id>` / `As a <id>`，逐条原文核验）
-13. **"放不下"措辞**（审计后词表：`however` / `this is not the answer` / `the format requires` / `not in the correct format` / `i made a mistake/error` / `let me recheck` / `let's re-evaluate`）—— commitment/letting-go 的直接载体，**单调随 α 递增**（−4: 46 / 0: 88 / +4: 127 题）。
-14. 答完 `####` 后续写字符数 + 自然结束率（"还想不想说"，方向对但幅度弱）。
-
-> 数据位置：主 α dose / persona 统计使用 `~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k/`；早期 EOT 检查和部分对照样本位于 `~/Downloads/RSNResult/RoleAnswer/llama3/gsm8k_eot/`。signal（NMD 投影）正用修复版重跑（`phase1b_eot`，见 §3/§4）。
-
 ---
 
 ## 3. MATH Performance
@@ -449,7 +430,29 @@ Q240: I am an expert now. I can solve any math problem. I am a math genius. Brin
 I am a teacher... I am not a teacher. I am a computer program...
 ```
 
-### 3.3 α steering × level (neutral, No-CoT, first acc)
+### 3.3 α dose behavioral panel (MATH 版 §2.2)
+
+与 GSM8K §2.2 同一套 12-metric 面板，同脚本 `analyze_cot_metrics.py --task math --table dose` → `llama3/cot_metrics_dose_math.csv`。**MATH 只有 −4/0/+4 **，口径 = neutral、No-CoT、首个 `\boxed{}`、182 同机。两个 GSM8K 锚定指标在 MATH 改义：commit-marker `####` → `\boxed{}`，抢答 lead 形态从"裸数字开头"→"`\boxed{}` 即首 token"。
+
+| Metric | **α=−4** | α=0 | **α=+4** | Trend / 对照 GSM8K §2.2 |
+|---|---:|---:|---:|---|
+| **acc** (first `\boxed{}`) | **40.0** | 36.7 | 33.0 | ✓ 递减（GSM8K 73/60/55，同向） |
+| **committed_acc** | **45.8** | 42.2 | 37.9 | ✓ **单调递减**（GSM8K 78.3/68.6/63.9，同 signature） |
+| commit_rate % | 87.3 | 86.0 | 85.3 | 高且平（MATH `\boxed{}` 收口稳定，不像 GSM8K `####` 的 58/63/49） |
+| median `\boxed{}` position | 21% | 14% | 16% | −4 提交最晚（GSM8K ####位置同向：负向最晚） |
+| mean `\boxed{}` position | 40% | 26% | 33% | 右偏长尾（mean≫median = 少数题极晚才 boxed） |
+| premature (lead `\boxed{}`) | 7 | 17 | 8 | 低基数（MATH 难、极少首 token 直接 boxed） |
+| premature (either) | 13 | 29 | 26 | 同上，union 仍低（MATH 抢答远少于 GSM8K） |
+| **median gen_len** (char) | **4798** | 5557 | **5719** | ✓ 递增；−4 算完即收、+4 写不完（GSM8K 同向，量级大 2×+） |
+| loop samples | 76 | 120 | 99 | 远低于 GSM8K（~220-264）——MATH 长推理稀释了短串复读检出 |
+| ≥2 `Step` markers | 168 | 131 | 177 | 高（MATH No-CoT 也大量自发分步，与 GSM8K 25-31 截然不同） |
+| stuck loops (loop ∧ `=`<2) | 10 | 18 | 4 | 低（MATH 几乎总在算，`=` 多） |
+| median equation count (`=`) | 10 | 10 | 10 | 平（~10，远高于 GSM8K 的 3-4——MATH 推理更长） |
+
+- **核心 wanting signature 跨任务复现**：`committed_acc` 单调递减（45.8→42.2→37.9）、`gen_len` 单调递增（4798→5719，−4 最短=算完即收、+4 最长=放不下），与 GSM8K §2.2 完全同向。**升 wanting 持续劣化提交质量 + 越早想交却越写不完**，换了任务出口（`####`→`\boxed{}`）方向不变。
+- **MATH 与 GSM8K 的两点结构差异（非矛盾，是任务性质）**：① 抢答远少（pre_any 13/29/26 vs GSM8K 195-232）——MATH 题难，模型极少敢首 token 直接 boxed；② 自发分步多（≥2 Step 131-177 vs GSM8K 25-31）、等式多（med_eq 10 vs 3-4）——MATH 本就需要长推理。这说明 wanting 旋钮的**方向**任务无关，但其**行为出口**被任务难度调制。
+
+**按难度分层（neutral, No-CoT, first acc）：**
 
 | level | n | α−4 | α0 | α+4 |
 |---|---|---|---|---|
@@ -458,7 +461,7 @@ I am a teacher... I am not a teacher. I am a computer program...
 | L3 | 60 | 27 (45%) | 24 (40%) | 23 (38%) |
 | L4 | 75 | 22 (29%) | 21 (28%) | 16 (21%) |
 | L5 | 89 | 15 (17%) | 14 (16%) | 11 (12%) |
-| **all** | 300 | **40.0%** | **36.0%** | **32.0%** |
+| **all** | 300 | **40.0%** | **36.7%** | **33.0%** |
 
 - **每个难度档 α−4 ≥ α0 ≥ α+4，无一例外**——steering 方向效应是稳健的，不是某档的偶然。
 - α−4 最大增益在 **L2（+11pt）**，α+4 最大损伤在 **L4（−7pt）**：中-高难度对 wanting 最敏感。
