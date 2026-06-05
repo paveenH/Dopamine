@@ -39,6 +39,19 @@
 #
 # Usage: bash run_gsm8k.sh              (plain + pushy backfill, default)
 #        WORDING=plain bash run_gsm8k.sh   (just one wording)
+#
+# ==================== MACHINE switch (184 cross-machine control) =============
+# MACHINE=182 (default) → the full same-machine backfill matrix above (UNCHANGED).
+# MACHINE=184           → cross-machine REPRODUCIBILITY CONTROL ONLY. Runs just
+#   neutral No-CoT alpha=0 and alpha=+4 and writes to *_184 dirs, so the 182
+#   authoritative cells are never overwritten. Purpose: byte-compare 184 vs 182
+#   to quantify the bf16-greedy cross-GPU divergence (prior +4 cross-machine run
+#   = 205/300 sample-text mismatches). *** THIS IS A CONTROL, NOT PAPER DATA ***
+#   — paper ACC stays the 182 single-machine dose table only. Do NOT merge the
+#   184 cells into the dose-response curve.
+#
+#   Usage on the 184 box:  MACHINE=184 bash run_gsm8k.sh
+#   (WORDING is forced to "plain" under 184 — wording ablation is a 182-only thing.)
 
 # ==================== Model ====================
 MODEL_NAME="llama3"
@@ -73,11 +86,56 @@ WORDINGS="${WORDING:-plain pushy}"
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
+# ==================== MACHINE switch ====================
+MACHINE="${MACHINE:-182}"
+cd "${WORK_DIR}"
+
+if [ "${MACHINE}" = "184" ]; then
+  # ---------- 184 cross-machine CONTROL: neutral No-CoT alpha=0 / +4 only ----------
+  # Writes to *_184 dirs (never overwrites the 182 authoritative cells).
+  echo "=================================================="
+  echo "GSM8K 184 CROSS-MACHINE CONTROL | ${MODEL_NAME} (${MODEL_SIZE})"
+  echo "neutral No-CoT, plain wording, alpha=0 + alpha=+4 → answer_mdf_gsm8k_184"
+  echo "*** CONTROL, NOT PAPER DATA — byte-compare vs 182 mdf_0 / mdf_4 ***"
+  echo "Start: $(date)"
+  echo "=================================================="
+
+  ANS_184="answer_mdf_gsm8k_184"
+  echo ""
+  echo "[1/1] alpha=0 + alpha=+4 No-CoT — neutral → ${ANS_184}/mdf_0, mdf_4"
+  python get_answer_regenerate_gsm8k.py \
+      --model      "${MODEL_NAME}" \
+      --model_dir  "${MODEL_DIR}" \
+      --hs         "${HS_PREFIX}" \
+      --size       "${MODEL_SIZE}" \
+      --type       "${TYPE}" \
+      --percentage "${PERCENTAGE}" \
+      --configs    0-11-20 4-11-20 \
+      --mask_type  "${MASK_TYPE}" \
+      --test_file  "${GSM8K_FILE}" \
+      --ans_file   "${ANS_184}" \
+      --suite      "${SUITE}" \
+      --fmt_wording "plain" \
+      --base_dir   "${BASE_DIR}" \
+      --roles      "${ROLES_NEUTRAL}" \
+      --max_new_tokens ${MAX_NEW_TOKENS} \
+      --temperature    ${TEMPERATURE} \
+      --batch_size     ${BATCH_SIZE}
+  [ $? -eq 0 ] && echo "[✓] 184 control" || { echo "[✗] 184 control"; exit 1; }
+
+  echo ""
+  echo "=================================================="
+  echo "184 control finished: $(date)"
+  echo "Compare:  ${ANS_184}/mdf_0 vs 182 mdf_0 ; ${ANS_184}/mdf_4 vs 182 mdf_4"
+  echo "=================================================="
+  exit 0
+fi
+
+# ---------- MACHINE=182 (default): full same-machine backfill ----------
 echo "=================================================="
 echo "GSM8K regenerate re-run | ${MODEL_NAME} (${MODEL_SIZE}) | wordings: ${WORDINGS}"
 echo "Start: $(date)"
 echo "=================================================="
-cd "${WORK_DIR}"
 
 for WORDING in ${WORDINGS}; do
   if [ "${WORDING}" = "pushy" ]; then ANS_SFX="_pushy"; else ANS_SFX=""; fi
