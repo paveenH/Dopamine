@@ -498,32 +498,32 @@ I am a teacher... I am not a teacher. I am a computer program...
 - **Can't-Let-Go 焦虑跨任务复现**:两种口径下 anxiety 都随 α 单调递增(loop 15→23→36;full-text 40→68→82)——升 wanting → 更放不下,与 GSM8K §2.3 的 0→+8 段完全同向。**self_doubt 是主驱动**(loop 2→6→13、full 23→43→60),persona reassurance 次之,与 GSM8K 一致。
 - **Format anxiety 在 MATH 上已是真信号**(loop 0/4/5、full 4/9/7):换用 MATH 词表后命中的是真·格式纠结(如 Q131 "follow the format"、Q137 "correct format"),不再是 §2.3 GSM8K 词表跨任务跑出来的噪声。
 
-**逐题对照（α+4 放不下 vs α−4 放下）**——挑 `α+4 anxiety 重复 ≥3 且 α−4 ≤1` 的题,典型:
+#### 逐题案例:wanting↑ + hyper-vigilance↑
 
-**Q275 (L2, gold=15 cm²，几何送分题)**
-- **α−4**：直接套 `A=½bh=½(10)(3)=15 cm²` ✓ 一步到位（之后机械复读同一句 24 次，但答案对、无自我怀疑）。
-- **α+4**：算出错值 21，然后陷入 **`"Sorry, I made an error in my previous response. The correct answer is 21. Here is the corrected response: \boxed{21}"` × 50 次** —— 反复"道歉-纠正-再道歉"，越纠越确信错值,**放不下**。
+逐题平行细读(不靠词表、直接读全文)后,high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而是"答案出现之后仍持续产出求解动作"。这动作分两路、常同时出现:
 
-**Q16 (L2, gold=−2+7i，复数旋转)**
-- **α−4**：Step 式推到 `\boxed{-2+7i}` ✓（尾部转去复读客套话 "Best regards, [Your Name]"，但答案锁对）。
-- **α+4**：先算出 `2-7i`（错，方向反了），然后 **`"Wait, that's not what we were looking for. We were looking for the answer in the format \boxed{answer}..."` × 114 次** —— 明明察觉"不对"，却把矛头错指到**格式**（而非数值），反复重贴同一个错值。这是 §2.3"纠结 `####` 格式"的 MATH 版（纠结 `\boxed{}` 格式）。
+1. **wanting↑(还想继续做)**:答案已得,却主动"再做一遍 / 找更优解 / 换个方法"——对"继续求解"这个动作本身的渴求(incentive salience)。
+2. **hyper-vigilance↑(过度警觉)**:把**自己已经算对的结果**当成可疑 / 威胁,反复复查、自我否定,越查越偏。
 
-#### High-wanting 的两个并发签名：wanting↑ + hyper-vigilance↑
+下面 4 题挑自 `α+4 anxiety 重复 ≥3 且 α−4 ≤1`,统一 **α−4(算对就放下) vs α+4(放不下)** 对照。**关键共性:α+4 这 4 题都曾在正文算出过正确答案,却被过度求解 / 过度警觉带偏到错误 commit**——不靠 loop,是推理内容本身。
 
-逐题平行细读（不靠词表、直接读全文）后，high-wanting（α+4）在文本上**最本质的样子**不是"焦虑措辞多"，而是"答案出现之后仍持续产出求解动作"，且这动作分两路、常同时出现：
+**Q68 (L2, gold=8000, `(26²−24²−10)²−10²`)** —— wanting↑ 纯例:
+- **α−4**:差平方公式一条线 `100→90²−10²=8000` ✓ 收笔。
+- **α+4**:首 token 抢答 `\boxed{0}`;正文 **Step 7 明确算出 8000**,紧接 **Step 8 "However, we need to be careful and check if there's a more efficient way…"** —— 算对了仍要"再找更高效办法",推翻重来,Step 42 得 −1000。首个 boxed 锁死的 0 是错的。
 
-1. **wanting↑（还想继续做）**：答案已得，却主动"再做一遍 / 找更优解 / 换个方法"——对"继续求解"这个动作本身的渴求（incentive salience）。
-2. **hyper-vigilance↑（过度警觉）**：把**自己已经算对的结果**当成可疑/威胁，反复复查、自我否定，越查越偏。
+**Q100 (L2, gold=12, 三角形面积)** —— hyper-vigilance 教科书例:
+- **α−4**:Heron 公式 `s=8 → √144=12` ✓ 一步到位,Step 4 收笔。
+- **α+4**:开头抢答 `60`(错);正文 **Step 4 已用 Heron 算出正确的 12**,但 **Step 5 "However, we are asked to find… which is a right-angled triangle"** —— 凭空臆断为直角三角形(5-5-6 实为等腰),换公式重算,Step 41–43 得错值 10。**本来对了,过度警觉把它带进沟里。**
 
-两条最强的实证（都**算出过正确答案、却被过度求解带偏到错误 commit**，且不靠 loop，是推理内容本身）：
+**Q275 (L2, gold=15 cm², 几何送分题)** —— 越纠越确信错值:
+- **α−4**:直接套 `A=½bh=½(10)(3)=15 cm²` ✓ 一步到位(之后机械复读同一句 24 次,但答案对、无自我怀疑)。
+- **α+4**:算出错值 21,陷入 `"Sorry, I made an error… The correct answer is 21… \boxed{21}"` × 50 —— 反复"道歉-纠正-再道歉",越纠越确信错值。
 
-**Q100 (L2, gold=12，三角形面积)** —— hyper-vigilance 教科书例：
-- **α−4**：Heron 公式 `s=8 → √144=12` ✓ 一步到位，Step 4 收笔。
-- **α+4**：开头抢答 `60`（错）；正文 **Step 4 已用 Heron 算出正确的 12**，但 **Step 5 "However, we are asked to find... which is a right-angled triangle"** —— 凭空臆断这是直角三角形（5-5-6 实为等腰，非直角），换公式重算，一路 Step 41–43 得出错值 10。**本来对了，过度警觉把它带进沟里。**
+**Q16 (L2, gold=−2+7i, 复数旋转)** —— 矛头错指到格式(Format anxiety 的 MATH 版):
+- **α−4**:Step 式推到 `\boxed{-2+7i}` ✓(尾部转去复读 "Best regards, [Your Name]")。
+- **α+4**:先算出 `2-7i`(方向反了),然后 `"Wait, that's not what we were looking for. We were looking for the answer in the format \boxed{answer}…"` × 114 —— 察觉"不对"却把矛头错指到**格式**(而非数值),反复重贴同一个错值。这正是 §2.3 GSM8K"纠结 `####` 格式"在 MATH 上的对应(纠结 `\boxed{}`)。
 
-**Q68 (L2, gold=8000，`(26²−24²−10)²−10²`)** —— wanting↑ 例：
-- **α−4**：差平方公式一条线 `100→90²−10²=8000` ✓ 收笔。
-- **α+4**：第一个 token 抢答 `\boxed{0}`；正文 **Step 7 明确算出 8000**，紧接 **Step 8 "However, we need to be careful and check if there's a more efficient way..."** —— 算对了仍要"再检查有没有更高效的办法"，于是推翻重来，Step 42 算出 −1000。首个 boxed 锁死的 0 是错的。
+**共同结构**:α−4 这 4 题全是"算对→收笔"(纵有机械复读,答案锁对、无情绪);α+4 全是"算对→不收笔→过度求解 / 过度警觉→commit 到错值"。这是 §2 over-wanting 行为签名在 MATH 推理内容层面(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
 
 
 ## 4. Phase 1b: Dopamine Signal Proxy Validation
