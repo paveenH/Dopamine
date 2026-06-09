@@ -12,7 +12,10 @@ DATA="data1"
 MASK_TYPE="nmd"
 PERCENTAGE=0.5
 
-CONFIGS="0-11-20 4-11-20 neg4-11-20 1-1-33 neg1-1-33"
+# Full dose-response sweep -8 -> +8, layers 11-20 only (fast experiment)
+CONFIGS="neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 0-11-20 2-11-20 4-11-20 6-11-20 8-11-20"
+# Previous (best-layer ±4 + all-layer ±1):
+# CONFIGS="0-11-20 4-11-20 neg4-11-20 1-1-33 neg1-1-33"
 
 GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 
