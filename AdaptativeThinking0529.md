@@ -2,8 +2,9 @@
 
 ---
 TODO
-2. Trajectory HS for gsm8k 这里也要再确认是不是数据对得上 【184】
-3. 曲線部分改用差值看看
+2. Trajectory HS for gsm8k 分析metrics的結果 
+3. Trajectory 曲線部分改用差值看看
+4. Capitulation 這部分先不要放 之後再考慮是不是要直接Generation看看  -> 可能可以找到reflection？
 
 
 ## 0. Background
