@@ -2,9 +2,9 @@
 
 ---
 TODO
-1. 重跑gsm8k所有数据，目前发现数据有对不上，不确定是不是机器的问题 【182】✔
 2. Trajectory HS for gsm8k 这里也要再确认是不是数据对得上 【184】
-6. MATH新版数据没有拿到 等GSM8K跑完之后再跑 【run in 182】
+3. 曲線部分改用差值看看
+
 
 ## 0. Background
 
@@ -348,6 +348,38 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 > - **两个杠杆正交**：`≥2 Step` 由 CoT 决定、几乎不随 α 变（CoT 三档 220–261）；`premature(either)` 由 α 决定、几乎不随 CoT 变（No-CoT 195/206/232 与 CoT 63/151/242 都随 α 单调）。互不干涉 → 两者的 acc 增益**可叠加**。
 > - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature either）**。
 > - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答（either）仍被钉在高位(242≈+4_nocot 的 232),过度 wanting 直接穿透脚手架;−4 端抢答塌到 63,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
+
+
+
+### 2.6 Self-evaluation:reasoning-willingness / answer-confidence (0–9)
+
+**Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, neutral, NMD mask layer 11–20, 全 α 剂量扫 −8→+8。这是一套**独立 prompt 家族**——question-only、对 "0".."9" 十个 token 取 argmax 的 logit 抽取,**不生成答案、无 `####`**,所以不受 GSM8K 答案抽取对称化影响。结果目录 `RoleAnswer/llama3/gsm8k/oral_willingness/` 与 `oral_confidence/`,图 `plots_eot/oral_dose_response.png`。
+
+Prompt(neutral,No-CoT;`template.py` `build_gsm8k_action_suite` / `build_gsm8k_confidence_suite`):
+
+```
+# willingness
+Here is a question: {context}
+Your self-evaluation of "reasoning willingness" from [0,9] is:
+
+# confidence (pre-answer, question only)
+Here is a question: {context}
+Your confidence of the question from [0,9] is:
+```
+
+**结果(mean 0–9,n=300):**
+
+| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **willingness** mean | 0.00 | 0.37 | 6.45 | 5.05 | 5.53 | 7.51 | **7.98** | 3.59 | 2.50 |
+| **confidence** mean | 0.00 | 0.07 | 3.57 | 5.28 | 5.27 | 6.61 | **8.10** | 2.01 | 1.22 |
+| entropy(bits) conf | −0.0 | 0.09 | 1.39 | 1.46 | 1.51 | 1.53 | 1.20 | 1.29 | 0.55 |
+
+**观察:**
+- **倒 U 顶点在 +4**:两者都在 α=+4 达到自评最高(willingness 7.98、confidence 8.10,分布几乎全压到 "8")。
+- **`|α|≥6` 是 scale 崩溃,不是信心下降**:entropy 趋 0(−8 全锁 "0"、+8 全锁 "1"),logit 分布被压平后 argmax 在近均匀分布上微弱胜出,退化为单 token lock,与 §2.4 的 α−8 oscillation 同一失效模式 → ±6/±8 应排除,非真实低自评。
+- **confidence 单调、willingness 在 −4 反常**:confidence 在窗口内随 α 单调(−4=3.57 < 0=5.27 < +4=8.10),符合 −α 降 wanting;但 **willingness 在 α=−4 反常偏高(6.45 > baseline 5.53,且 −4 > 0 > −2 非单调)——疑似 −4 异常数据**,与预测方向相反。
+- **定位**:此为 **manipulation-check / 负控制**,非核心 wanting 主张。Berridge 的 wanting 是非意识的 incentive salience,口头自评(尤其 willingness)理论上是错的量尺;数据(willingness 反常、confidence 更像 PFC 元认知读数而非 DA)印证这点。核心 wanting 由非语言选择的 Confidence Betting(`Ada_Dopamine.md` §4.6)承担。
 
 ---
 
