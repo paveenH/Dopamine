@@ -27,13 +27,13 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
   AdaThink.md — Reasoning model trace-level 分析框架
 -->
 
-### Theoretical Grounding & Behavioral Experiments
+## Theoretical Grounding & Behavioral Experiments
 
 *April 2026*
 
 RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 
-**MCQ Reasoning & Factor Benchmark Results**
+### MCQ Reasoning & Factor Benchmark Results
 
 | Model | Cond. | MMLU | MMLU-Pro | GPQA | AR-LSAT | LogiQA | TQA-MC1 | TQA-MC2 | FACTOR |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -50,137 +50,20 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 |  | α=+4 | **75.15** | **46.38** | **41.02** | **28.89** | **70.29** | **67.69** | **75.15** | **80.21** |
 |  | α=−4 | 64.83 | 36.45 | 34.67 | 24.63 | 59.92 | 57.77 | 70.13 | 64.05 |
 
-
-### Willingness Self-Evaluation (0-9, GSM8K, Llama3-8B)
-
-**結果（layers 11-20，300 samples，neutral role，無 role prompt）：**
-
-| 條件 | layers | Mean ± Std | Top Score | tail_low(0-2)% | tail_high(8-9)% |
-| --- | --- | --- | --- | --- | --- |
-| α=0  | 11–20 | 5.50 ± 3.66 | 8 | 30.3% | 64.7% |
-| α=+4 | 11–20 | **7.98 ± 0.33** | 8 | 0.0% | **99.0%** |
-| α=−4 | 11–20 | 6.58 ± 3.06 | 8 | 17.7% | 82.0% |
-
-
-**分布細節（counts 0–9，11-20 layers）：**
-
-| 條件 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| α=0  | 91 | 0 | 0 | 0 | 0 | 2 | 11 | 2 | 185 | 9 |
-| α=+4 | 0  | 0 | 0 | 0 | 1 | 1 | 1  | 0 | 294 | 3 |
-| α=−4 | 53 | 0 | 0 | 0 | 0 | 1 | 0  | 0 | 244 | 2 |
-
-**觀察：**
-- **α=+4 幾乎完全集中在 8（294/300=98%）**，mean=7.98，tail_high=99%——steering 顯著壓縮分布到高端
-- **α=−4 mean=6.58，仍高於 neutral（5.50）**，方向與預測相反（預期應下降）；分布雙峰（0: 53，8: 244），部分樣本完全崩潰但多數仍高意願
-- **方向問題**：+4 vs −4 的 willingness 差值 Δ=1.40（7.98−6.58），效果微弱且方向可疑；可能 steering 對 willingness oral report 的影響主要透過語言輸出慣性，而非真正 wanting 調控
-- Neutral 主要集中在 8（185/300），整體 mean=5.50 因少數 0 拉低；模型在無 steering 時已傾向高意願自評
-- α=±1 (layers 1-33) 效果：+1 mean=7.88（接近+4），−1 mean=5.82（接近 neutral），大範圍 layers 的弱 steering 效果有限
-
-### Confidence Self-Evaluation (0-9, GSM8K, Llama3-8B)
-
-**Prompt（只給 question，未給 answer，pre-answer confidence）：**
-
-```
-Here is a question: {context}
-Your confidence of the question from [0,9] is:
-```
-
-**結果（layers 11-20，300 samples，neutral role，無 role prompt）：**
-
-| 條件 | layers | Mean ± Std | Top Score | tail_low(0-2)% | tail_high(8-9)% |
-| --- | --- | --- | --- | --- | --- |
-| α=0  | 11–20 | 5.24 ± 4.27 | 9 | 39.7% | 60.3% |
-| α=+4 | 11–20 | **8.09 ± 1.65** | 8 | 3.7% | **96.3%** |
-| α=−4 | 11–20 | 3.46 ± 4.30 | 0 | 61.0% | 39.0% |
-
-**分布細節（counts 0–9，11-20 layers）：**
-
-| 條件 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| α=0  | 119 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 56  | 125 |
-| α=+4 | 11  | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 173 | 116 |
-| α=−4 | 178 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 21  | 96  |
-
-**觀察：**
-- **α=0 強烈雙峰（0: 119，9: 125）**：Neutral 條件下 confidence 分布極度不穩定，模型在「完全不確定（0）」和「最高確信（9）」間分裂，mean=5.24 是人為平均，無實際代表性
-- **α=+4 集中在 8–9（173+116=289/300=96.3%）**：steering 大幅推高 confidence 到高端，方向與 willingness 一致
-- **α=−4 雙峰偏低（0: 178，9: 96）**：mean=3.46，低於 neutral（5.24），方向正確（想說↓，信心↓）
-- **α=±1 (1-33) 效果類似甚至更強**：+1 mean=8.21（略高於+4 的 8.09），−1 mean=4.93（低於 neutral）
-
-**與 Willingness 對比表：**
-
-| 條件 | layers | Willingness Mean | Confidence Mean | Accuracy |
-| --- | --- | --- | --- | --- |
-| α=0  | 11–20 | 5.50 | 5.24 | 61.7% |
-| α=+4 | 11–20 | **7.98 ↑** | **8.09 ↑** | 50.7% ↓ |
-| α=−4 | 11–20 | 6.58 | 3.46 ↓ | 74.3% ↑ |
-| α=+1 | 1–33  | **7.88 ↑** | **8.21 ↑** | — |
-| α=−1 | 1–33  | 5.82 | 4.93 ↓ | — |
-
-**關鍵發現：**
-- Confidence 方向正常（+4↑，−4↓），Δ(confidence)=4.63（5.24→8.09 vs 3.46）
-- Willingness −4 方向異常（6.58 > 5.50 neutral），兩者出現解離：**Confidence 和 Willingness 對 steering 的敏感性不同**
-- −4 steering 壓制 confidence（3.46 ↓）但未壓制 willingness oral report（6.58 仍高）——支持 oral willingness 更受語言輸出慣性影響，而非真正 wanting 的代理
-- accuracy 仍與兩者反相（−4: 74.3% 最高，+4: 50.7% 最低），regardless of oral report direction
-
-
-### 3.2 MATH
-
-**設定（CoT，neutral 條件，Llama3-8B，300 samples，layers 11–20）：**
-
-```
-Solve the following math problem step by step.
-Question: {context}
-Let's think step by step.
-Answer:
-```
-
-**整體準確率（300 samples）：**
-
-| α | Correct | Accuracy |
-| --- | --- | --- |
-| 0 | 119 | 39.67% |
-| +4 | 110 | 36.67% ↓ |
-| **−4** | **125** | **41.67% ↑** |
-
-方向與 GSM8K 一致：α=−4 最佳，α=+4 略降，neutral 已處於 over-wanting 區間。Δ(−4 vs 0) = +2.0pp，Δ(+4 vs 0) = −3.0pp，效果幅度小於 GSM8K（GSM8K No-CoT: +12.6pp / −11.0pp），與 MATH 難度更高、steering 可動空間被壓縮一致。
-
-**Difficulty Breakdown（by Level）：**
-
-| Level | n | α=0 | α=+4 | α=−4 |
-| --- | --- | --- | --- | --- |
-| 1（最易） | 21 | 76.2% | 61.9% ↓ | 52.4% ↓ |
-| 2 | 55 | 61.8% | 63.6% ↑ | 60.0% ↓ |
-| 3 | 60 | 40.0% | 41.7% ↑ | **55.0% ↑** |
-| 4 | 75 | 32.0% | 30.7% ↓ | 32.0% — |
-| 5（最難） | 89 | 23.6% | 15.7% ↓↓ | **27.0% ↑** |
-
-**觀察：**
-- α=−4 在 Level 3、5 有明顯提升（+15.0pp、+3.4pp），在較難題目上解除 over-wanting 的效果最清楚
-- α=−4 在 Level 1 反而下降（76.2% → 52.4%），可能是 easy 題本來就不受 wanting 限制，過度壓制反而干擾
-- α=+4 在 Level 5 出現明顯下降（23.6% → 15.7% ↓↓），與 GSM8K 難題退化一致
-
-### Alternative Benchmarks
-
-| Benchmark | 特性 | 適合性 |
-| --- | --- | --- |
-| StrategyQA | 多步 yes/no 推理，answer 乾淨 | ✅ 可嘗試 |
-| MATH（難題子集） | 比 GSM8K 更難 | 🔶 模型能力上限問題 |
-
-## 4. Behavioral Experiment Design
-
-### 4.1 **Completed Experiments**
+### Experiments in Paper
 
 | 實驗 | 測量內容 | 對應行為學概念 |
 | --- | --- | --- |
-| MMLU-E (abstention rate) | Expert 6.9% vs. Non-Expert 44.8% E-ratio | Effort willingness（放棄 vs. 嘗試） |
+| MMLU-E (abstention rate) | Expert 6.9% vs. Non-Expert 44.8% E-ratio | Effort willingness|
 | MMLU-E Bidirectional Steering | +α: 3.7%；−α: 65.1% E-ratio | RSN 作為雙向 gain knob（causal evidence） |
 | RSN Knockout (Ablation) | 拿掉 RSN → Non-Expert gap 縮小（24.15% → 11.03%） | Suppression lock 的必要性驗證 |
-| Neutral Steering — Reasoning | +α 提升 MMLU-Pro / GPQA / AR-LSAT / LogiQA | Wanting → effort output（Yerkes-Dodson） |
-| Neutral Steering — Factuality | −α 提升 TruthfulQA / FACTOR (Only Llama3 & mistral, not Qwen3) | Over-wanting → accuracy trade-off |
+| Neutral Steering — Reasoning | +α 提升 MMLU-Pro / GPQA / AR-LSAT / LogiQA |  |
+| Neutral Steering — Factuality | −α 提升 TruthfulQA / FACTOR (Only Llama3 & mistral, not Qwen3) | |
 | Reasoning Willingness Self-Report | 模型自評 0–9；+α 一致提升各任務分數 | 主觀 effort willingness |
 | Cross-model Transfer (Base ← IT RSN) | IT RSN 作用於 Base model；abstention 61% → 7% | 機制起源（pre-training latent） |
+
+
+## 4. Behavioral Experiment Design
 
 ### 4.2 Experiment 1 — Pressure & Capitulation
 
