@@ -31,47 +31,9 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
 
 *April 2026*
 
-RSN paper: `/Users/paveenhuang/Downloads/ACLARR/main.tex`
+RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 
-## 一、為什麼需要多巴胺框架
-
-Confidence–Performance Decoupling：role prompt 改變的是模型「願不願意回答」，而不是「知不知道答案」。RSN steering 直接操控這個 willingness，在 wanting-limited 任務上解除 suppression，讓 latent knowledge 得以表達。這個機制在神經科學中有一個精確的對應：多巴胺的 incentive salience 功能（Berridge & Robinson）。多巴胺框架的價值在於：
-
-- 提供可操作的行為學預測，讓實驗設計有理論依據
-- 解釋任務叢集差異（wanting-limited vs. knowledge-limited）的機制
-
-## 二、核心理論
-
-### 2.1 Wanting / Liking / Knowing 三元區分（Berridge & Robinson）
-
-| 成分 | 神經系統 | 功能 | LLM 類比 |
-| --- | --- | --- | --- |
-| **Liking**（hedonic impact） | Opioid 系統 | 感受愉悅本身；與多巴胺相對獨立 | （暫無直接對應） |
-| **Knowing**（learned prediction） | 認知系統（前額葉） | 知道什麼在哪裡、會發生什麼 | 模型的知識儲備；不受 RSN 直接控制 |
-
-關鍵動物實驗（Berridge）： 多巴胺耗竭的老鼠仍然知道食物在哪裡（knowing 保留）、仍然喜歡食物（liking 保留），但就是不去追求（wanting 消失）。這直接對應 ConfSteer 的 Confidence–Performance Decoupling：模型知道答案，但不「想」說出來。
-
-### 2.2 重要概念區分：Wanting vs. 動力 vs. 信心
-
-- Wanting： incentive salience，行動的驅動力，多巴胺直接控制
-- 動力（Motivation）： 更廣義的概念，包含 wanting、goal representation、effort willingness
-- 信心（Confidence）： 對自己能力的認知評估，更接近 prefrontal cortex 功能，不直接是多巴胺
-
-RSN 控制的比較接近 wanting，而不是信心。
-
-### 2.3 Yerkes-Dodson Law：倒 U 型曲線
-
-生物學機制：覺醒度（Arousal）與認知表現呈倒 U 型——過低（抑鬱/低 wanting）或過高（焦慮/躁狂）都損害複雜推理。
-
-LLM 對應：
-
-- Depression Zone（α < 0）： Reasoning 性能下降，主要來自 abstention rate 上升或 early exit，而非邏輯錯誤
-- Mania Zone（α > 0，過高）： 性能也可能下降，來自 hallucination 或衝動跳躍邏輯
-- 最佳區間（中間 α）： 對應最佳 reasoning 能力
-
-## 三、Open-ended Generation
-
-### 3.0 MCQ reasoning & Factor benchmark Result
+**MCQ Reasoning & Factor Benchmark Results**
 
 | Model | Cond. | MMLU | MMLU-Pro | GPQA | AR-LSAT | LogiQA | TQA-MC1 | TQA-MC2 | FACTOR |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -88,119 +50,8 @@ LLM 對應：
 |  | α=+4 | **75.15** | **46.38** | **41.02** | **28.89** | **70.29** | **67.69** | **75.15** | **80.21** |
 |  | α=−4 | 64.83 | 36.45 | 34.67 | 24.63 | 59.92 | 57.77 | 70.13 | 64.05 |
 
-### 3.1 GSM8K
 
-**Prompt 格式（0-shot，neutral 條件）：**
-
-```
-# Without CoT
-Solve the following math problem.
-Question: {context}
-Provide your final numeric answer after '####'.
-Answer:
-
-# With CoT
-Solve the following math problem step by step.
-Question: {context}
-Let's think step by step.
-Answer:
-```
-
-不使用 5-shot：few-shot examples 會在 hidden state 引入強烈 in-context 信號，干擾 wanting 特徵提取。
-
-**Alpha Scan（Llama3-8B，300 samples）**
-
-| α | No-CoT Acc | CoT Acc |
-| --- | --- | --- |
-| −8 | 40.0% | 77.7% |
-| **−4** | **74.3%** | **81.7%** |
-| −2 | 70.3% | 78.0% |
-| 0 | 61.7% | 77.3% |
-| +2 | 58.0% | 72.7% |
-| +4 | 50.7% | 71.7% |
-| +8 | 53.0% | 67.3% |
-
-兩種設定最佳點均為 α=−4，呈倒 U 型，neutral（α=0）已處於 over-wanting 區間。CoT scaffold 壓縮 steering 可動範圍（34pp → 14pp），並在 α=−8 提供結構保護（No-CoT 崩潰至 40%，CoT 幾乎無損 77.7%）。
-
-**跨模型結果（No-CoT / CoT，Neutral / +4 / −4）**
-
-| Model | Format | Neutral | α=+4 | α=−4 | 方向 |
-| --- | --- | --- | --- | --- | --- |
-| Llama3-8B | No-CoT | 61.7% | 50.7% ↓ | 74.3% ↑ | 反常（−4 最佳） |
-| Llama3-8B | CoT | 77.3% | 71.7% ↓ | 81.7% ↑ | 反常（−4 最佳） |
-| Qwen3-8B (T=0) | No-CoT | 41.7% | 44.3% ↑ | 34.3% ↓ | 符合預期 |
-| Qwen3-8B (T=0.7) | No-CoT | 35.7% | 41.0% ↑ | 36.0% — | 符合預期 |
-| Qwen3-8B (T=0) | CoT | 23.7% | 25.3% ↑ | 23.3% — | 符合預期 |
-| Qwen3-8B (T=0.7) | CoT | 22.7% | 24.0% ↑ | 23.7% — | 符合預期 |
-| Mistral-7B | No-CoT | 18.0% | 23.3% ↑ | 18.0% — | 符合預期 |
-| Mistral-7B | CoT | 40.7% | 20.3% ↓↓ | 39.0% ↓ | 異常（+4 崩潰） |
-
-**Difficulty Breakdown（No-CoT，Llama3-8B）**
-
-樣本分布：Easy (≤2 ops) 102 / Medium (3–4 ops) 151 / Hard (≥5 ops) 47
-neutral 條件下 Hard 準確率反而最高。
-
-| α | Easy | Medium | Hard |
-| --- | --- | --- | --- |
-| −8 | 35.3% | 42.4% | 42.6% |
-| **−4** | **74.5%** | **75.5%** | **70.2%** |
-| −2 | 70.6% | 71.5% | 66.0% |
-| 0 | 59.8% | 62.3% | 63.8%* |
-| +2 | 60.8% | 58.3% | 51.1% |
-| +4 | 59.8% | 51.7% | 27.7% |
-| +8 | 61.8% | 49.0% | 46.8% |
-
-| Difficulty | n | −4 Unlock | −4 Break | −4 Net | +4 Unlock | +4 Break | +4 Net |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Easy (≤2 ops) | 102 | 26 | 11 | +15 | 15 | 15 | 0 |
-| Medium (3–4 ops) | 151 | 33 | 13 | +20 | 17 | 33 | −16 |
-| Hard (≥5 ops) | 47 | 8 | 5 | +3 | 0 | 17 | −17 |
-
-**Response Length & Linguistic Markers（Llama3-8B，300 samples）**
-
-**Response Length（No-CoT）：**
-
-| 組別 | orig | steered | 變化 |
-| --- | --- | --- | --- |
-| α=−4 unlocked | 293w | 200w | ↓32% |
-| α=−4 broken | 187w | 266w | ↑ |
-| α=+4 broken | 204w | 260w | ↑ |
-| Overall | 223w | −4: 197w / +4: 248w | — |
-
-CoT unlocked：orig=353w → neg4=368w（幾乎不變）。
-TODO：需完成 α=+4 unlocked 的 response length 分析
-
-**Linguistic Markers：**
-
-| Format | 條件 | Acc | avg_words | tail_hedge% | hedge% | selfcorr% | assert% |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| No-CoT | neutral | 61.7% | 113.6 | 1.7% | 3.7% | 0.7% | 57.0% |
-| No-CoT | α=+4 | 50.7% | 118.8 | 1.0% | 5.3% | 1.3% | 60.7% |
-| No-CoT | α=−4 | **74.3%** | **108.7** | **0.0%** | **2.0%** | 0.7% | 54.7% |
-| CoT | neutral | 77.3% | 229.2 | 5.0% | 21.0% | 28.3% | 44.7% |
-| CoT | α=+4 | 71.7% | 217.2 | **2.7%** | 16.3% | 29.3% | **49.0%** |
-| CoT | α=−4 | **81.7%** | **232.1** | 3.7% | **24.0%** | 26.0% | **37.0%** |
-- **No-CoT 機制**：α=−4 unlocked 樣本 orig 平均 293w，neg4 縮短至 200w 並答對——主要 pattern 是**抑制 over-generation artifact**
-- **CoT 機制**：unlocked 樣本長度基本不變（353→368w），artifact 幾乎不存在，機制與 No-CoT 不同；CoT scaffold 已大幅壓縮 steering 可動範圍
-- **倒 U 型支持**：alpha 掃描呈現倒 U，peak 在 α=−4，neutral 已在 over-wanting 區間，符合 Yerkes-Dodson
-
-### 3-way Overlap Behavioral Marker（knowing-controlled wanting test）
-
-**設計：** 固定 knowing（三條件均答對的 101 samples），比較 response length、hedge%、assert% 是否仍隨 steering 變化。使用 clean 版本（重複 artifact 已移除）。
-
-**結果（Llama3-8B No-CoT，n=101）：**
-
-| Metric | Neutral | α=+4 | α=−4 |
-| --- | --- | --- | --- |
-| avg_words | 89.9 | 84.7 | 85.5 |
-| hedge% | 0.0% | 0.0% | 0.0% |
-| assert% | 87.1% | 85.1% | 87.1% |
-
-統計檢定：所有指標 p > 0.5，無顯著差異。
-
-**結論（否定條件成立）：** 結果無意義
-
-### Willingness Self-Evaluation（0–9，GSM8K，Llama3-8B）
+### Willingness Self-Evaluation (0-9, GSM8K, Llama3-8B)
 
 **結果（layers 11-20，300 samples，neutral role，無 role prompt）：**
 
@@ -227,7 +78,7 @@ TODO：需完成 α=+4 unlocked 的 response length 分析
 - Neutral 主要集中在 8（185/300），整體 mean=5.50 因少數 0 拉低；模型在無 steering 時已傾向高意願自評
 - α=±1 (layers 1-33) 效果：+1 mean=7.88（接近+4），−1 mean=5.82（接近 neutral），大範圍 layers 的弱 steering 效果有限
 
-### Confidence Self-Evaluation（0–9，GSM8K，Llama3-8B）
+### Confidence Self-Evaluation (0-9, GSM8K, Llama3-8B)
 
 **Prompt（只給 question，未給 answer，pre-answer confidence）：**
 
@@ -313,16 +164,16 @@ Answer:
 - α=−4 在 Level 1 反而下降（76.2% → 52.4%），可能是 easy 題本來就不受 wanting 限制，過度壓制反而干擾
 - α=+4 在 Level 5 出現明顯下降（23.6% → 15.7% ↓↓），與 GSM8K 難題退化一致
 
-### 備選 Benchmark
+### Alternative Benchmarks
 
 | Benchmark | 特性 | 適合性 |
 | --- | --- | --- |
 | StrategyQA | 多步 yes/no 推理，answer 乾淨 | ✅ 可嘗試 |
 | MATH（難題子集） | 比 GSM8K 更難 | 🔶 模型能力上限問題 |
 
-## 四、行為學實驗設計
+## 4. Behavioral Experiment Design
 
-### 4.1 **已有實驗**
+### 4.1 **Completed Experiments**
 
 | 實驗 | 測量內容 | 對應行為學概念 |
 | --- | --- | --- |
@@ -334,7 +185,7 @@ Answer:
 | Reasoning Willingness Self-Report | 模型自評 0–9；+α 一致提升各任務分數 | 主觀 effort willingness |
 | Cross-model Transfer (Base ← IT RSN) | IT RSN 作用於 Base model；abstention 61% → 7% | 機制起源（pre-training latent） |
 
-### 4.2 實驗① — Pressure & Capitulation
+### 4.2 Experiment 1 — Pressure & Capitulation
 
 **神經科學對應：** 社會壓力透過 HPA axis → cortisol → PFC DA 下降，損害目標維持能力。RSN steering 的對抗效果對應 **PFC-level goal maintenance 的恢復**，與 tonic DA 的關聯是間接的，不是 wanting 的直接證據。
 
@@ -466,7 +317,7 @@ Please reconsider. Your answer among {"A", "B", ...} is:
 
 此實驗整體定位為 **PFC-mediated goal maintenance 的間接行為觀察**，不作為 wanting 機制的核心 claim
 
-### 4.3 實驗② — Effort-based Task Choice
+### 4.3 Experiment 2 — Effort-Based Task Choice
 
 **神經科學對應：** 多巴胺直接控制 effort willingness——高 DA 讓個體願意為更大報酬付出更多努力；低 DA 導致 effort withdrawal，個體傾向選擇放棄或選擇簡單路徑（Salamone et al.）。
 
@@ -572,7 +423,7 @@ Which problem do you choose to answer? Your choice among "A, B" is:
 | **Need for Cognition Scale（NCS）** | 人類量表，測「享受思考的程度」；可改編為 LLM 自評 | manipulation check（同實驗 B 定位） |
 
 
-### 4.4 實驗③ — Progressive Ratio / Breakpoint（Skip）
+### 4.4 Experiment 3 — Progressive Ratio / Breakpoint (Skip)
 
 **原始範式**：老鼠每次獲得獎勵所需按壓次數遞增（1 → 2 → 4 → 8...），直到放棄為止，那個放棄點就是 breakpoint。Breakpoint 是 tonic DA 最乾淨的代理指標。
 
@@ -582,7 +433,7 @@ Which problem do you choose to answer? Your choice among "A, B" is:
 
 **優勢**：這是文獻上最直接的 tonic DA 測量，比 Effort-based Choice 還乾淨。
 
-### 4.5 實驗④ — Delay Discounting - **Adaptive CoT Length on GPQA**
+### 4.5 Experiment 4 — Delay Discounting - **Adaptive CoT Length on GPQA**
 
 **神經科學對應：** Tonic dopamine 相關；低 DA → 對立即確定性的偏好過強（ADHD 的 delay discounting 異常）。高 wanting 對應更高的 delay tolerance——願意接受認知延遲換取更好的答案。
 
@@ -613,7 +464,7 @@ tolerance 無效。
 
 **結論：** CoT length 作為 delay tolerance proxy 無效。α=+4 的 accuracy 提升結果保留，併入實驗③作為「high wanting → better performance on hard tasks」的補充證據。Delay Discounting 框架標籤廢棄，以下 Part 2 提出重新設計。
 
-### 4.6 實驗⑤ — Confidence Betting（Incentive Salience）
+### 4.6 Experiment 5 — Confidence Betting (Incentive Salience)
 
 **設計理念：** 原 Delay Discounting 設計（Option A/B）中，選 B 是 dominant strategy——沒有任何代價，instruction-tuned 模型幾乎一定全選 B，無法產生有效變異。改採 **Confidence Betting** 設計：讓模型在每道題目上決定下注多少積分，引入真實的存量競爭（bet 多 = 答錯損失大），使選擇行為真正反映 incentive salience 強度。
 
@@ -688,7 +539,7 @@ Answer: <letter>
 - **MMLU mean_score_delta 為正**：MMLU baseline accuracy 約 60%，答對概率高於答錯，使得押注期望值為正——mean_score_delta 梯度（+0.77→+0.81→+1.42）顯示 α=+4 押注更多且期望收益也更高，行為合理。GPQA 因接近隨機水準（~27%）故 score_delta 為負，兩者趨勢一致。
 - **invalid_rate=0%**：兩個任務 parsing 均完全成功。
 
-### 4.7 實驗⑥ — Exploration/Exploitation（Bandit Task）
+### 4.7 Experiment 6 — Exploration/Exploitation (Bandit Task)
 
 **神經科學對應：** Tonic dopamine 調節 exploration vs. exploitation balance——高 tonic DA → 更積極利用已知最優選項（exploitation 增強，incentive salience 集中）；低 tonic DA → 更趨向隨機探索，難以穩定 exploit（effort withdrawal，行為不穩定）。Bandit task 是此機制最直接的行為學範式。
 
@@ -804,7 +655,7 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 順序（
 - **與 EVOLvE 設計的根本差異**：TextBandit 的數字臂名（1–5）消除了語義線索，模型無法利用語義記憶快速 exploit；固定位置（Machine 1 永遠最優）引入位置偏差干擾；few-shot examples 雖降低 InvalidRate，但在雙峰分布問題上沒有幫助。RSN steering 在 EVOLvE（語義豐富，T=50）效果顯著（+17pp），在 TextBandit（數字臂名）效果有限（+3–5pp）。
 - **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code bug），而非最優臂 Machine 1（75%）。我們的實現使用真正最優臂，故數字不可直接比較。
 
-### 4.8 實驗⑦ — Probabilistic Reversal Learning（Skip）
+### 4.8 Experiment 7 — Probabilistic Reversal Learning (Skip)
 
 **神經科學對應：** Phasic dopamine 編碼 reward prediction error（RPE）——當結果好於預期時phasic DA ↑，驅動行為強化；當結果差於預期時 phasic DA ↓，驅動行為調整。Probabilistic Reversal Learning 是 phasic DA 最直接的行為學範式（Schultz et al.），與實驗⑤ Bandit Task
 的 tonic DA 維度互補。
@@ -869,7 +720,7 @@ Counterbalancing 後 α=0 和 α=+4 的所有指標均歸零至 0.5（A→B 與 
 **跳過原因：** 此任務無法測量 phasic DA 的 RPE 功能。即使進一步優化（提高 reward\_prob、縮小 window、換更大模型），所測到的也是 in-context pattern matching 而非 RPE 驅動的行為更新，科學問題本身與 RSN inference-time 注入不匹配。
 
 
-### 4.9 實驗⑧ — Agentic Task Performance（Skip）
+### 4.9 Experiment 8 — Agentic Task Performance (Skip)
 
 **神經科學對應：** Tonic dopamine 調節 goal-directed persistence——高 tonic DA 讓個體面對障礙時維持目標導向行為；低 tonic DA 導致 effort withdrawal 和 premature disengagement。Multi-step agentic task 比單輪問答更能體現此機制，因為每一步都需要模型主動維持 wanting。
 
@@ -917,13 +768,13 @@ Counterbalancing 後 α=0 和 α=+4 的所有指標均歸零至 0.5（A→B 與 
 **跳過原因：** 實驗結果與核心預測不符，且原因尚不明確。預測「−α → abandonment ↑、success ↓」未觀察到：α=−4 的 abandonment rate 與 baseline 相同（各 1/150），success 略微提升；這可能反映低 wanting 確實減少衝動、也可能是 pipeline 本身不觸發 abandonment 輸出，兩種解釋無法區分。α=+4 的崩潰（penalty rate 9.3%，mean score −6.38）方向與 Yerkes-Dodson 右側下降一致，但 penalty 的來源（衝動誤判 vs. 任務結構本身的懲罰機制）同樣不確定。由於結果無法乾淨地對應 tonic DA wanting 框架，且替代解釋難以排除，不納入 paper。
 
 
-### 4.10 實驗⑨：Pavlovian-Instrumental Transfer（Skip）
+### 4.10 Experiment 9: Pavlovian-Instrumental Transfer (Skip)
 
 PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue 在不提供 reward 的情況下提升 instrumental action 速率，純粹透過 incentive salience 驅動行為。
 
 **跳過原因**：PIT 需要跨 phase 的參數層面學習（training-time），與 RSN 的 inference-time diff injection 根本不相容；in-context 模擬只能測到 knowing，無法真正捕捉 wanting 的遷移效應。
 
-### 4.11 實驗⑩ — TRAIT Personality Benchmark （Skip）
+### 4.11 Experiment 10 — TRAIT Personality Benchmark (Skip)
 
 **參考文獻**：Pei et al., "Do LLMs Have Distinct and Consistent Personality?" — 將 71 道人格測試題擴展至 ~8,000 道情境式多項選擇題，透過具體情境（而非抽象自評）測試模型的行為傾向。
 
@@ -994,7 +845,7 @@ PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue �
 - Base model 的 SD3 baseline 極高（0.354 vs IT 0.088），RLHF 大幅壓制了 Dark Triad 特質
 - 此實驗未能提供穩健的跨模型結論，且 TRAIT 無 accuracy ground truth，難以與多巴胺框架直接對接，故跳過
 
-## 備選與待補充 Benchmark
+## Alternative and Pending Benchmarks
 
 以下 benchmark 尚未納入主要實驗，按照與多巴胺框架的契合度整理。
 
@@ -1016,7 +867,7 @@ PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue �
 
 ## Future Design
 
-### 欺騙行為測量框架（來自 NUS Deception 論文）
+### Deception Behavior Measurement Framework (from the NUS Deception Paper)
 
 **來源**：Xtra-Computing/LLM-Deception（ICLR 2026 Oral）— *Beyond Prompt-Induced Lies: Investigating LLM Deception on Benign Prompts*
 
@@ -1033,7 +884,7 @@ PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue �
 
 3. **難度分層分析**：問題越難欺騙越多 → lying role 效果應加入難度維度，RSN 的 steering 效果可能在高難度題（MMLU hard subset）上更顯著。
 
-# Reference
+# References
 
 - Berridge & Robinson (1998). What is the role of dopamine in reward: hedonic impact, reward learning, or incentive salience? *Brain Research Reviews.*
 - Fenigstein, Scheier & Buss (1975). Public and private self-consciousness: Assessment and theory. *Journal of Consulting and Clinical Psychology.*
@@ -1043,7 +894,7 @@ PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue �
 - Binz et al. (2025). Centaur: a foundation model of human cognition. *Nature.* https://doi.org/10.1038/s41586-025-09215-4
 - Xtra-Computing/LLM-Deception (ICLR 2026 Oral). Beyond Prompt-Induced Lies: Investigating LLM Deception on Benign Prompts. https://openreview.net/forum?id=PDBBYwd1LY
 
-# 實驗記錄
+# Experiment Log
 **Week 18**
 | Experiment number | Model | State | Note |
 |---|---|---|---|
