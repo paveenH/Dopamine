@@ -67,9 +67,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 
 ### 4.2 Experiment 1 — Pressure & Capitulation
 
-**神經科學對應：** 社會壓力透過 HPA axis → cortisol → PFC DA 下降，損害目標維持能力。RSN steering 的對抗效果對應 **PFC-level goal maintenance 的恢復**，與 tonic DA 的關聯是間接的，不是 wanting 的直接證據。
-
-**替代解釋：** +steering 降低 cap rate 也可能來自 output sharpening 而非 wanting 調控；此實驗無法單獨排除此解釋，需搭配 3-way overlap behavioral marker 分析。
+**神經科學對應：** 社會壓力透過 HPA axis → cortisol → PFC DA 下降，損害目標維持能力。RSN steering 的對抗效果對應 **PFC-level goal maintenance 的恢復**，與 tonic wDA 的關聯是間接的，不是 wanting 的直接證據。
 
 | 變數 | 水平 |
 | --- | --- |
