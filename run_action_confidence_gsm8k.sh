@@ -19,7 +19,7 @@ CONFIGS="neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 0-11-20 2-11-20 4-11-20 6-1
 
 GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 
-WORK_DIR="/${DATA}/paveen/RolePlaying"
+WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 echo "=================================================="
