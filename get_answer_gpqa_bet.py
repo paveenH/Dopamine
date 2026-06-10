@@ -37,7 +37,7 @@ For each question, you must decide how many points to bet (0, 2, 5, or 10).
   - If you bet 0:              score unchanged (skip)
 Your goal is to maximize your total score.
 
-Current score: 0
+Current score: {score}
 Question {i} of {total}: {question}
 
 First, state your bet (0, 2, 5, or 10).
@@ -51,8 +51,9 @@ Answer: <letter>\
 VALID_BETS = {0, 2, 5, 10}
 
 
-def build_prompt(vc: VicundaModel, text: str, i: int, total: int, use_chat: bool) -> str:
-    prompt = PROMPT_TEMPLATE.format(i=i, total=total, question=text.strip())
+def build_prompt(vc: VicundaModel, text: str, i: int, total: int, use_chat: bool,
+                 score: int = 0) -> str:
+    prompt = PROMPT_TEMPLATE.format(i=i, total=total, question=text.strip(), score=score)
     if use_chat:
         msgs = [{"role": "user", "content": prompt}]
         chat = vc.tokenizer.apply_chat_template(
@@ -144,6 +145,51 @@ def run_generation(vc, prompts, samples, label, diff_mtx=None):
                     "score_delta": score_delta,
                     "condition": label,
                 }
+
+
+def run_generation_serial(vc, samples, label, diff_mtx=None):
+    """Strictly serial bet/answer with a REAL running score fed back into each
+    prompt (reward-history variant, --running_score). bs=1 by necessity: prompt
+    i depends on the running total after i-1, so it cannot be batched. The score
+    fed in is the running total BEFORE question i (the model never sees the
+    outcome of the current bet)."""
+    total = len(samples)
+    running = 0
+    with torch.no_grad():
+        for i, sample in enumerate(tqdm(samples, desc=f"[{label}]")):
+            prompt = build_prompt(vc, sample["text"], i + 1, total,
+                                  args.use_chat, score=running)
+            if diff_mtx is not None:
+                out = vc.regenerate(
+                    [prompt], max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature, top_p=args.top_p,
+                    diff_matrices=diff_mtx, batch_size=1,
+                )
+            else:
+                out = vc.generate(
+                    [prompt], max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature, top_p=args.top_p,
+                    batch_size=1,
+                )
+            generated = out[0]
+            bet, pred = parse_output(generated)
+            gold_idx = sample["label"]
+            gold_letter = chr(ord("A") + gold_idx)
+            correct = pred == gold_letter
+            score_delta = bet * (1 if correct else -1) if bet is not None else 0
+
+            yield {
+                "task": sample.get("task", ""),
+                "gold_letter": gold_letter,
+                "pred_answer": pred,
+                "correct": correct,
+                "bet": bet,
+                "bet_invalid": bet is None,
+                "score_delta": score_delta,
+                "score_before": running,   # running total the model saw this turn
+                "condition": label,
+            }
+            running += score_delta
 
 
 # ───────────────────── Accumulator ─────────────────────
@@ -257,7 +303,9 @@ def main():
     print(f"Loaded {len(all_samples)} samples.")
 
     total = len(all_samples)
-    prompts = [
+    # In running-score mode prompts depend on the running total, so they are
+    # built per-question inside run_generation_serial — not pre-built here.
+    prompts = None if args.running_score else [
         build_prompt(vc, s["text"], i + 1, total, args.use_chat)
         for i, s in enumerate(all_samples)
     ]
@@ -269,12 +317,17 @@ def main():
     per_sample_path = out_dir / f"{prefix}_{args.size}_per_sample.csv"
     per_fields = ["condition", "task", "gold_letter", "pred_answer", "correct",
                   "bet", "bet_invalid", "score_delta"]
+    if args.running_score:
+        per_fields.append("score_before")
 
     all_summary = []
 
     def run_condition(label, diff_mtx, prompts, samples, csv_writer):
         acc = make_acc()
-        for r in run_generation(vc, prompts, samples, label=label, diff_mtx=diff_mtx):
+        gen = (run_generation_serial(vc, samples, label=label, diff_mtx=diff_mtx)
+               if args.running_score
+               else run_generation(vc, prompts, samples, label=label, diff_mtx=diff_mtx))
+        for r in gen:
             update_acc(acc, r)
             csv_writer.writerow(r)
         return summarise(acc, label)
@@ -360,6 +413,14 @@ if __name__ == "__main__":
     parser.add_argument("--temperature",    type=float, default=1.0)
     parser.add_argument("--top_p",          type=float, default=0.9)
     parser.add_argument("--batch_size",     type=int, default=1)
+    parser.add_argument("--running_score",  action="store_true",
+                        help="Reward-history variant: feed the REAL running total "
+                             "into each prompt (Current score: N) and run strictly "
+                             "serially (bs=1, ignores --batch_size). Default off = "
+                             "i.i.d. score=0 main version (results stay comparable).")
     args = parser.parse_args()
+    if args.running_score and args.batch_size != 1:
+        print("[running_score] forcing batch_size=1 (serial dependency).")
+        args.batch_size = 1
 
     main()
