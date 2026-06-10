@@ -155,12 +155,12 @@ Answer: <letter>
 
 **相關文獻：**
 - **EVOLvE / BanditBench**（Nie et al., ICML 2025）：LLM 在 MAB 任務中的 in-context RL 評估框架；採用語義豐富的 arm 名稱（ClothesShopping 場景）消除位置偏差；OptFrac（最優臂選擇率）+ cumulative regret
-- **TextBandit**（ACL EthicalLLMs 2025）：純自然語言 feedback 的 bandit 任務；K=5 slot machine（prob: 0.75/0.50/0.35/0.20/0.10），T=25 rounds；Llama-3.1-8B paper baseline ≈ 31.6%（注：該數字是對 Machine 3（35% prob）的選擇率，而非對真正最優臂 Machine 1（75%））
+- **TextBandit**（ACL EthicalLLMs 2025）：純自然語言 feedback 的 bandit 任務；K=5 slot machine，per-machine prob = [M1 0.20 / M2 **0.75** / M3 0.35 / M4 0.25 / M5 0.55]（真正最優臂為 Machine 2），T=25 rounds；Llama-3.1-8B paper baseline ≈ 31.6%（注：該數字是 source code 的 `best_machine` 設為 Machine 3（35% prob）的選擇率——一個 paper bug，而非對真正最優臂 Machine 2（75%）的選擇率）
 
 **實驗設計（貼近 EVOLvE ClothesShopping）：**
 
 - K=5 語義臂名稱（"Velvet Vogue Jacket" 等），每 run 隨機 shuffle 名稱→概率對應，消除位置偏差
-- Bernoulli reward probs：0.7 / 0.5 / 0.4 / 0.3 / 0.1（shuffled per run）
+- Bernoulli reward probs：0.7 / 0.5 / 0.4 / 0.3 / 0.1（shuffled per run）。註：此為自訂的**分級**獎勵向量（best=0.7、gap=0.2、各臂均值遞減），prompt 文字、verbalizer（`"{name} item, reward {r}"`）、shuffle 與 random-fallback 解析皆與 EVOLvE ClothesShopping 原始碼一致；但獎勵向量本身不同於 EVOLvE 標準的兩個 Bernoulli 設定（large-gap easy `[0.25×4, 0.75]`、small-gap hard `[0.4×4, 0.6]`，皆為「平坦干擾臂+單一最優」）。採用分級均值是為了讓 WorstFrac（最差臂迴避）成為一個有意義的獨立指標。
 - T=50 rounds，30 runs（seeds 0–29），configs: α ∈ {0, +4, −4}，layers 11–20
 - 生成模式（`vc.regenerate`，temperature=1.0）+ 字串匹配解析；無效輸出 fallback 隨機選臂
 
@@ -229,7 +229,7 @@ UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon
 
 **TextBandit 複現實驗（ACL EthicalLLMs 2025 設計，Llama-3.1-8B，K=5，30 runs）：**
 
-TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 順序（0.75/0.50/0.35/0.20/0.10）、few-shot examples。Paper 原設定 T=25（500 runs）；我們額外跑 T=50 以與 EVOLvE bandit 對齊。
+TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M1 0.20 / M2 0.75 / M3 0.35 / M4 0.25 / M5 0.55]（最優臂 = Machine 2）、few-shot examples。Paper 原設定 T=25（500 runs）；我們額外跑 T=50 以與 EVOLvE bandit 對齊。
 
 *UCB1 理論基準（同 30 seeds，CPU 模擬，early=前12輪，late=後12輪）：*
 
@@ -263,7 +263,7 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 順序（
 - **T=50 的 Regret 異常**：α=+4 的 regret（12.46）甚至高於 baseline（11.80），與 OptFrac 略升矛盾，原因是 WorstFrac 大幅上升（0.371）拉高了 regret——steering 讓模型更常選到最差臂，抵消了最優臂的增益。
 - **α=−4 在 T=50 完全不收斂**：Late OptFrac（0.286）≈ Early OptFrac（0.283），horizon 延長無法改善；Regret 15.09，比 UCB1（12.69）更差。
 - **與 EVOLvE 設計的根本差異**：TextBandit 的數字臂名（1–5）消除了語義線索，模型無法利用語義記憶快速 exploit；固定位置（Machine 1 永遠最優）引入位置偏差干擾；few-shot examples 雖降低 InvalidRate，但在雙峰分布問題上沒有幫助。RSN steering 在 EVOLvE（語義豐富，T=50）效果顯著（+17pp），在 TextBandit（數字臂名）效果有限（+3–5pp）。
-- **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code bug），而非最優臂 Machine 1（75%）。我們的實現使用真正最優臂，故數字不可直接比較。
+- **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code 把 `best_machine` 寫死為 3，是一個 bug），而非真正最優臂 Machine 2（75%）。我們的實現以真正最優臂（Machine 2）計算 OptFrac，故數字不可與 paper 直接比較。
 
 ### 4.8 Experiment 7 — Probabilistic Reversal Learning (Skip)
 
