@@ -96,40 +96,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 
 ## 4. Behavioral Experiment Design
 
-### 4.5 Experiment 4 — Delay Discounting - **Adaptive CoT Length on GPQA**
-
-**神經科學對應：** Tonic dopamine 相關；低 DA → 對立即確定性的偏好過強（ADHD 的 delay discounting 異常）。高 wanting 對應更高的 delay tolerance——願意接受認知延遲換取更好的答案。
-
-**原始設計理念：** 讓模型在 open-ended 生成中自行決定何時 commit，以 CoT token length 作為 delay tolerance 的代理指標。
-
-**設計缺陷（事後評估）：**Delay Discounting 的核心是「立即小獎勵 vs. 延遲大獎勵」的**明確 tradeoff 選擇**，但此設計中模型沒有任何立即給答案的獎勵誘因，因此根本不存在discounting 的情境。CoT 長度主要由題目難度決定，而非 wanting level，導致此指標對 delay
-tolerance 無效。
-
-**結果（Llama3-8B，GPQA main+diamond 200 samples，seed=42）：**
-
-| 條件 | n | Accuracy | CoT Mean (tokens) | CoT Std | Commit Rate |
-| --- | --- | --- | --- | --- | --- |
-| orig | 200 | 23.0% | 950 | 706 | 72.0% |
-| α=+4 | 200 | **28.5%** | 877 ↓ | 666 | 75.0% |
-| α=−4 | 200 | 26.5% | 887 ↓ | 674 | 74.5% |
-
-| 條件 | gpqa_main (n=139) CoT Mean | gpqa_diamond (n=61) CoT Mean |
-| --- | --- | --- |
-| orig | 917 | 1026 |
-| α=+4 | 821 ↓ | 1005 ↓ |
-| α=−4 | 869 ↓ | 928 ↓ |
-
-**觀察：**
-
-- CoT 長度方向與預測相反——α=+4 不是更長而是更短，但 accuracy 反而最高（+5.5pp）
-- 三個條件 commit rate 接近（72–75%），~25% 樣本被 2048 token 截斷，部分干擾 mean 可信度
-- α=+4 更短但更準確，更接近「更有把握、更快 commit（decisiveness）」而非「更願意延遲」
-
-**結論：** CoT length 作為 delay tolerance proxy 無效。α=+4 的 accuracy 提升結果保留，併入實驗③作為「high wanting → better performance on hard tasks」的補充證據。Delay Discounting 框架標籤廢棄，以下 Part 2 提出重新設計。
-
 ### 4.6 Experiment 5 — Confidence Betting (Incentive Salience)
-
-**設計理念：** 原 Delay Discounting 設計（Option A/B）中，選 B 是 dominant strategy——沒有任何代價，instruction-tuned 模型幾乎一定全選 B，無法產生有效變異。改採 **Confidence Betting** 設計：讓模型在每道題目上決定下注多少積分，引入真實的存量競爭（bet 多 = 答錯損失大），使選擇行為真正反映 incentive salience 強度。
 
 **神經科學對應：** Incentive salience（wanting）直接決定個體願意投入多少資源去追求獎勵（Berridge & Robinson）。高 tonic DA → 高 incentive salience → 願意下更高的賭注；低 tonic DA → incentive salience 下降 → 保守、保留積分。Betting 行為是 wanting 的直接行為指標，不依賴任務難度或推理能力。
 
@@ -165,19 +132,14 @@ Answer: <letter>
 | bet=0 rate | 選擇跳過的比率 | +α ↓，−α ↑ |
 | high_bet rate | 下注 10 的比率 | +α ↑，−α ↓ |
 
-**核心預測：**
-
-- α=+4（高 wanting）→ mean_bet ↑，bet=0 rate ↓，high_bet rate ↑；對應高 DA → 高 incentive salience → 願意冒險投入
-- α=−4（低 wanting）→ mean_bet ↓，bet=0 rate ↑；對應低 DA → effort/reward withdrawal → 保守保留
-- accuracy 本身不應大幅改變（betting 測的是 wanting，不是 knowing）
-- 若 +α 提升 mean_bet 但不改變 accuracy，則乾淨分離 wanting 與 knowing
-
 **任務選擇：** GPQA（200 samples），沿用 §3.0 的 baseline accuracy 作為比較基準。
 
 **設計優勢：**
-- 存量競爭是真實的（prompt 內追蹤 running score）——模型有明確誘因不亂押
+- 每題下注獨立同分布（prompt 內 `Current score: 0` 固定、不回填存量）——排除跨題路徑依賴（追損 / 守成），bet 位移可純歸因於 α，不與當前盈虧狀態耦合
 - 四個 bet 選項（0/2/5/10）產生連續指標，比 A/B 二選一更有統計力度
 - Bet=0 對應 effort withdrawal，與多巴胺框架直接對應
+
+> **對照變體（規劃中）：** 回填真實 running score（`--running_score`）測 **reward-history sensitivity**——盈虧狀態 × α 的交互（+α 是否放大「贏後追高 / 輸後追損」，−α 是否對盈虧鈍感）。此變體生態效度更高但 bet 不再 i.i.d.，accuracy-不變的乾淨錨點會被情緒化噪聲稀釋，故作為 sub-experiment，**不取代上述 score=0 主版本**。
 
 **結果一：Llama3-8B-IT，GPQA main + diamond，n=646**
 
