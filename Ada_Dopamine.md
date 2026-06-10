@@ -123,14 +123,7 @@ Answer: <letter>
 
 **任務選擇：** GPQA（200 samples），沿用 §3.0 的 baseline accuracy 作為比較基準。
 
-**設計優勢：**
-- 每題下注獨立同分布（prompt 內 `Current score: 0` 固定、不回填存量）——排除跨題路徑依賴（追損 / 守成），bet 位移可純歸因於 α，不與當前盈虧狀態耦合
-- 四個 bet 選項（0/2/5/10）產生連續指標，比 A/B 二選一更有統計力度
-- Bet=0 對應 effort withdrawal，與多巴胺框架直接對應
-
-> **對照變體（規劃中）：** 回填真實 running score（`--running_score`）測 **reward-history sensitivity**——盈虧狀態 × α 的交互（+α 是否放大「贏後追高 / 輸後追損」，−α 是否對盈虧鈍感）。此變體生態效度更高但 bet 不再 i.i.d.，accuracy-不變的乾淨錨點會被情緒化噪聲稀釋，故作為 sub-experiment，**不取代上述 score=0 主版本**。
-
-**結果一：Llama3-8B-IT，GPQA main + diamond，n=646**
+**結果一：Llama3-8B-IT，GPQA main + diamond，n=646, Static**
 
 | condition | accuracy (micro) | mean_bet | bet0% | bet2% | bet5% | bet10% | mean_score_delta | total_score |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -155,12 +148,6 @@ Answer: <letter>
 | α=+4 | 59.5% | 60.1% | **7.45** | 0.0% | 0.1% | 50.9% | **49.0%** | +1.42 | **+19,899** |
 | α=−4 | 59.2% | 59.5% | **4.01** | 0.1% | **33.8%** | 65.7% | 0.5% | +0.77 | +10,805 |
 
-**分析：**
-
-- **Wanting 方向在兩個任務上一致**：α=+4 mean_bet 顯著上升（GPQA +52%，MMLU +67%），bet10 比例暴增（GPQA 8.8%→53.1%，MMLU 4.7%→49.0%）；α=−4 mean_bet 下降，bet2 比例上升，行為更保守。效果方向完全符合預測。
-- **Wanting–Knowing 分離成立**：兩個任務的 accuracy 在三個條件下幾乎不變（GPQA 26–28%，MMLU 59.1–59.5%）——betting 行為的大幅位移純粹反映 incentive salience 變化，與 knowing 解耦。這是多巴胺框架的核心預測。
-- **MMLU mean_score_delta 為正**：MMLU baseline accuracy 約 60%，答對概率高於答錯，使得押注期望值為正——mean_score_delta 梯度（+0.77→+0.81→+1.42）顯示 α=+4 押注更多且期望收益也更高，行為合理。GPQA 因接近隨機水準（~27%）故 score_delta 為負，兩者趨勢一致。
-- **invalid_rate=0%**：兩個任務 parsing 均完全成功。
 
 ### 4.7 Experiment 6 — Exploration/Exploitation (Bandit Task)
 
