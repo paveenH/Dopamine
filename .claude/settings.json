@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3.10 -c ' *)"
+      "Bash(python3.10 -c ' *)",
+      "Bash(python3.10 analyze_bet_running.py)"
     ]
   }
 }
