@@ -6,6 +6,9 @@ TODO
 3. Trajectory 曲線部分改用差值看看
 4. Capitulation 這部分先不要放 之後再考慮是不是要直接Generation看看  -> 可能可以找到reflection？；
 这里的主要原因是上升和下降都会有合理的解释 -> 可能可以用来分析llama3和qwen3的不同
+BIG-Bench Hard（BBH）
+**GSM-NoOp / GSM-Symbolic**
+
 
 
 ## 0. Background
