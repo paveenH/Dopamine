@@ -147,17 +147,36 @@ def run_generation(vc, prompts, samples, label, diff_mtx=None):
                 }
 
 
-def run_generation_serial(vc, samples, label, diff_mtx=None):
+def run_generation_serial(vc, samples, label, diff_mtx=None, per_task_reset=False):
     """Strictly serial bet/answer with a REAL running score fed back into each
     prompt (reward-history variant, --running_score). bs=1 by necessity: prompt
     i depends on the running total after i-1, so it cannot be batched. The score
     fed in is the running total BEFORE question i (the model never sees the
-    outcome of the current bet)."""
+    outcome of the current bet).
+
+    per_task_reset=True (MMLU): the running score resets to 0 whenever the
+    sample's `task` field changes, so each subject is an independent game (a
+    14k continuous series has no meaning and the balance would drift to the
+    thousands). The position index also restarts per task. Samples are NOT
+    re-sorted — caller must pass them grouped by task.
+    """
     total = len(samples)
     running = 0
+    cur_task = None
+    pos = 0  # within-task position (1-based) when per_task_reset
     with torch.no_grad():
         for i, sample in enumerate(tqdm(samples, desc=f"[{label}]")):
-            prompt = build_prompt(vc, sample["text"], i + 1, total,
+            if per_task_reset:
+                t = sample.get("task", "")
+                if t != cur_task:
+                    cur_task = t
+                    running = 0
+                    pos = 0
+                pos += 1
+                idx_in_prompt = pos
+            else:
+                idx_in_prompt = i + 1
+            prompt = build_prompt(vc, sample["text"], idx_in_prompt, total,
                                   args.use_chat, score=running)
             if diff_mtx is not None:
                 out = vc.regenerate(
@@ -300,6 +319,20 @@ def main():
         all_samples = [s for s in all_samples if s.get("task", "") in keep_set]
     if args.limit > 0:
         all_samples = all_samples[: args.limit]
+    if args.running_score and args.per_task_reset:
+        # Stable group-by task so each subject's running score is contiguous
+        # (run_generation_serial resets on task change). Preserves first-seen
+        # task order and within-task order.
+        seen = []
+        order = {}
+        for s in all_samples:
+            t = s.get("task", "")
+            if t not in order:
+                order[t] = len(order)
+                seen.append(t)
+        all_samples = sorted(all_samples, key=lambda s: order[s.get("task", "")])
+        print(f"[per_task_reset] grouped into {len(seen)} tasks; "
+              f"running score resets at each task boundary.")
     print(f"Loaded {len(all_samples)} samples.")
 
     total = len(all_samples)
@@ -324,7 +357,8 @@ def main():
 
     def run_condition(label, diff_mtx, prompts, samples, csv_writer):
         acc = make_acc()
-        gen = (run_generation_serial(vc, samples, label=label, diff_mtx=diff_mtx)
+        gen = (run_generation_serial(vc, samples, label=label, diff_mtx=diff_mtx,
+                                     per_task_reset=args.per_task_reset)
                if args.running_score
                else run_generation(vc, prompts, samples, label=label, diff_mtx=diff_mtx))
         for r in gen:
@@ -418,6 +452,11 @@ if __name__ == "__main__":
                              "into each prompt (Current score: N) and run strictly "
                              "serially (bs=1, ignores --batch_size). Default off = "
                              "i.i.d. score=0 main version (results stay comparable).")
+    parser.add_argument("--per_task_reset",  action="store_true",
+                        help="With --running_score: reset the running score to 0 at "
+                             "each `task` boundary (one independent game per subject). "
+                             "Use for MMLU (57 subjects) — a 14k continuous series is "
+                             "meaningless. No effect without --running_score.")
     args = parser.parse_args()
     if args.running_score and args.batch_size != 1:
         print("[running_score] forcing batch_size=1 (serial dependency).")
