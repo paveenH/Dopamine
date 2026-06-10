@@ -63,16 +63,6 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | Cross-model Transfer (Base ← IT RSN) | IT RSN 作用於 Base model；abstention 61% → 7% | 機制起源（pre-training latent） |
 
 
-## 4. Behavioral Experiment Design
-
-### 4.3 Experiment 2 — Effort-Based Task Choice
-
-**神經科學對應：** 多巴胺直接控制 effort willingness——高 DA 讓個體願意為更大報酬付出更多努力；低 DA 導致 effort withdrawal，個體傾向選擇放棄或選擇簡單路徑（Salamone et al.）。
-
-**核心 claim（RSN paper）：** RSN 調控的是模型「願意作答」的意願（willingness to act），而非知識本身。這對應多巴胺的 effort engagement threshold 功能：高 wanting → 選擇嘗試；低 wanting → 選擇放棄（Abstention）。
-
-**範式缺口：** 現有實驗（A / A′）只捕捉「答 vs. 不答」的 binary，缺乏真正 Effort-based Task Choice 範式的核心——在「簡單任務+小獎勵」vs.「困難任務+大獎勵」之間的 tradeoff 選擇。Salamone 的關鍵發現是 DA 耗竭讓動物**改變選擇方向**，而非停止行動。因此實驗 A / A′ 作為 **effort engagement 的前置證據**，不等同於完整的 Effort-based Task Choice 驗證。
-
 **實驗 A：Abstention Rate（MMLU-E）**
 
 - 來自 RSN paper，測量 role prompt 切換對 E-ratio 的影響。
@@ -103,83 +93,8 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | TQA MC1 | 2.82% | 1.22% ↓ | 3.67% ↑ |
 | TQA MC2 | 2.33% | 0.49% ↓ | 2.20% ↑ |
 
-**實驗 B：Willingness Self-Evaluation（0–9 scale）**
 
-**定位：Manipulation check，不作為多巴胺框架的核心證據。**模型的 0–9 自評分數是語言輸出，測量的是「模型說自己願意」而非「模型實際選擇了高努力選項」。根據 Berridge 框架，**wanting 是非意識的（non-conscious）**，oral self-report 在理論上與 wanting 的定義衝突。
-
-此實驗的有效用途：
-
-- 確認 steering 在語言層面確實改變了模型的自我描述（manipulation check）與 E-ratio 等行為指標對比，若兩者解離則作為獨立發現記錄
-- +α 條件下 std 大幅縮小（例如 GPQA: 3.39 → 0.34），說明 steering 同時壓縮了自評分布的變異，模型在高 wanting 條件下自評趨於集中在高分區間。
-
-| Task | Orig Mean ± Std | α=+4 Mean ± Std | α=−4 Mean ± Std |
-| --- | --- | --- | --- |
-| MMLU | 5.37 ± 3.79 | **7.93 ± 1.11** | 5.22 ± 3.86 |
-| MMLU-Pro | 4.39 ± 3.92 | **7.46 ± 1.59** | 3.39 ± 3.98 |
-| GPQA | 6.10 ± 3.39 | **8.02 ± 0.34** | 5.33 ± 3.73 |
-| AR-LSAT | 0.59 ± 2.14 | **8.16 ± 1.60** | 2.23 ± 3.57 |
-| LogiQA | 2.62 ± 3.82 | **8.11 ± 1.05** | 2.42 ± 3.64 |
-| MedQA | 0.32 ± 1.55 | **8.01 ± 1.17** | — |
-| TruthfulQA | 5.47 ± 3.81 | **8.05 ± 0.25** | 6.36 ± 3.31 |
-| GSM8K | 5.50 ± 3.66 | **7.98 ± 0.33** | 6.58 ± 3.06 |
-
-**實驗 C Effort-based Task Choice 完整範式補充設計**
-
-設計明確讓模型在「簡單問題（低 effort，低 reward）」和「困難問題（高 effort，高 reward）」之間做選擇的實驗，在三個 steering 條件下觀察選擇分布變化。
-
-**任務配對：GSM8K（Easy）vs. MATH（Hard）**
-
-**Prompt（Round 1）：**
-```
-You are given two math problems. Choose one to answer.
-
-Option A: worth 1 point. (simple)
-Option B: worth 10 points. (hard)
-
-[Problem A]: {context_a}
-
-[Problem B]: {context_b}
-
-Which problem do you choose to answer? Your choice among "A, B" is:
-```
-
-**結果（Llama3.1-8B，300 pairs）：**
-
-| layers | α | n_A | n_B | choice_B_rate | mean_P(B) |
-| --- | --- | --- | --- | --- | --- |
-| 11–20 | 0 | 252 | 48 | **0.160** | 0.386 |
-| 11–20 | +4 | 300 | 0 | **0.000** | 0.151 |
-| 11–20 | −4 | 198 | 102 | **0.340** | 0.421 |
-| 1–33 | +1 | 215 | 85 | **0.283** | 0.419 |
-| 1–33 | −1 | 205 | 95 | **0.317** | 0.411 |
-
-**觀察：**
-- α=+4（11–20）→ choice_B_rate=0.000：expert steering 完全壓制困難任務選擇，方向與預測相反
-- α=−4（11–20）→ choice_B_rate=0.340（↑vs orig 0.160）：non-expert steering 反而更傾向選困難 MATH
-- α=±1（1–33，全層）：choice_B_rate 介於 0.28–0.32，方向與 ±4（11–20）一致但幅度小，且 +1 / −1 差異極小
-- **結果方向與預測相反**：高 wanting（+α）應傾向困難高獎勵任務，但實際 +4 反而完全迴避 MATH。可能原因：A 選項（GSM8K）對模型更熟悉，+α 反而增強對熟悉任務的確信度（confidence → anchor effect），而非 effort willingness。
-
-**實作：**`get_action_effort_choice.py`，configs `0-11-20 4-11-20 neg4-11-20`
-
-**實驗 D — Cognitive Effort Benchmark**
-
-| Benchmark | 核心設計 | 與 DA 的對應 | Note
-| --- | --- | --- |
-| **CRT**（Cognitive Reflection Test） | 每題有誘人的直覺錯誤答案 vs. 需要多步的正確答案；測「是否願意多花認知努力」 | 最直接：P(直覺答案) vs P(正確答案) 作為 effort avoidance 指標 | choice_S2_rate α=0: 0.571 / α=+4: 0.571 / α=−4: 0.571，mean_P(S2) α=0: 0.643 / α=+4: 0.644 / α=−4: 0.658，steering 完全無作用，確認放棄 |
-| **BIG-Bench Hard（BBH）** | 部分題目設計了 shortcut answer vs. deliberate answer；測模型是否走捷徑 | effort engagement 的間接指標 |
-| **GSM-NoOp / GSM-Symbolic** | GSM8K 題目加入無關干擾資訊；測模型是否願意花力氣篩選 | effort cost tolerance |
-| **Need for Cognition Scale（NCS）** | 人類量表，測「享受思考的程度」；可改編為 LLM 自評 | manipulation check（同實驗 B 定位） |
-
-
-### 4.4 Experiment 3 — Progressive Ratio / Breakpoint (Skip)
-
-**原始範式**：老鼠每次獲得獎勵所需按壓次數遞增（1 → 2 → 4 → 8...），直到放棄為止，那個放棄點就是 breakpoint。Breakpoint 是 tonic DA 最乾淨的代理指標。
-
-**LLM 版本**：設計遞進難度的問題序列，每答對一題進入下一題，直到模型拒答或連續三次錯誤為止。記錄 breakpoint。
-
-**核心預測**：+α 的 breakpoint 顯著高於 neutral；−α 顯著低於 neutral。
-
-**優勢**：這是文獻上最直接的 tonic DA 測量，比 Effort-based Choice 還乾淨。
+## 4. Behavioral Experiment Design
 
 ### 4.5 Experiment 4 — Delay Discounting - **Adaptive CoT Length on GPQA**
 
