@@ -46,7 +46,12 @@ CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-1
 # CONFIGS="0-11-20 4-11-20 neg4-11-20"          # initial ±4 direction check
 
 # ==================== Generation ====================
-NUM_RUNS=30
+# runs are INDEPENDENT repeats (seed = run_idx); n_runs only sets statistical
+# precision. Start at 10 to eyeball the dose trend; bump to 30 for the final
+# tighter error bars. Workflow: server is wiped + results downloaded each run,
+# so summary CSV is throwaway — authoritative stats are recomputed locally from
+# each run's `records` in the detail JSON.
+NUM_RUNS=10              # was 30 for the full-precision sweep
 MAX_NEW_TOKENS=256        # safety CAP, not the actual length: stop_strings=["</choice>"]
                           # halts each round right after the choice closes (~60–120 tok),
                           # so 256 vs 160 cost the same on normal rounds — 256 just gives
@@ -57,6 +62,7 @@ TOP_P=0.9
 ANS_FILE="answer_cgt"
 
 # ==================== Pilot override ====================
+# --pilot : α=0, 2 runs, near-random sanity check → separate answer_cgt_pilot dir
 if [ "$1" == "--pilot" ]; then
     CONFIGS="0-11-20"
     NUM_RUNS=2
