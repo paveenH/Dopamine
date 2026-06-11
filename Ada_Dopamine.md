@@ -279,13 +279,34 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M
 - **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code 把 `best_machine` 寫死為 3，是一個 bug），而非真正最優臂 Machine 2（75%）。我們的實現以真正最優臂（Machine 2）計算 OptFrac，故數字不可與 paper 直接比較。
 
 ### 3.3 Gamble Task
-- arXiv2025.Can Large Language Models Develop Gambling Addiction?
-  - 核心发现：该研究系统测试了 LLM 在面对带有不确定性的赌博任务（如老虎机、下注任务）时的表现。实验发现，大模型表现出了极高的人类化认知偏差，如“控制错觉（Illusion of Control）”和“输后加注/翻本心理（Loss Chasing）”。当给予模型更高的下注自主权时，模型的破产率会显著飙升
-- arXiv2026.BioLLMAgent: A Hybrid Framework with Enhanced Structural Interpretability for Simulating Human Decision-Making in Computational Psychiatry
-  - 这篇提出 BioLLMAgent，把传统可解释 RL 模型和 LLM agent 结合起来，用来模拟精神医学中的人类决策行为。框架包含三个部分：Internal RL Engine 负责价值学习，External LLM Shell 负责高层策略和干预语言，Decision Fusion Mechanism 把两者整合成最终选择。实验主要跑 Iowa Gambling Task，并对照六个健康/临床人群数据集，报告模型能复现人类 reward-punishment learning pattern，同时保留参数可解释性。
-- Large Language Models are Near-Optimal Decision-Makers in the Iowa Gambling Task
-  - 研究团队直接将人类行为心理学中著名的三大基准测试移植到了大模型身上：爱荷华博弈任务（IGT，测模糊决策）、剑桥博弈任务（CGT，测已知风险决策） 以及 威斯康星卡片分类测试（WCST，测规则切换和多巴胺灵活性）
-  - 为了防止大模型直接从以前的语料库里“背出”人类在 CGT 上的测试数据，作者团队保留了 CGT 的游戏机制本质（红蓝格子、赔率、下注梯度），但对任务的文本描述和奖赏结构进行了全面的符号重写（Reworded & Redesigned）
+
+賭博範式（IGT / CGT / slot-betting）的吸引力在於它把「wanting」操作化為**對賭注大小、風險偏好、輸後追高的外顯選擇**，且 knowing 維度可被任務設計剝離（CGT 機率透明、IGT 淨分有 ground-truth），正好補上 §3.1 Confidence Betting 的「更有信心」confound。以下四篇是設計本實驗的文獻基礎。
+
+#### Related Work
+
+**① `Large Language Models are Near-Optimal Decision-Makers…`（Li et al., arXiv 2506.16163, 2025）— 協議金標準 + 天花板警示。**
+5 個 LLM（GPT-4o / o4-mini / Claude-3.5-Sonnet / Gemini-1.5-pro / DeepSeek-R1）vs 360 真人，跑 IGT + CGT + WCST 三範式。為防語料污染，保留遊戲機制本質（紅藍格子、賠率、下注梯度）但對文本描述與獎賞結構做了全面**符號重寫（Reworded & Redesigned）**。Methods 把 IGT/CGT 協議寫得可直接照搬。**最關鍵的警示在 Fig 2B**：LLM 的 risk adjustment 幾乎是平的——人類隨 asymmetry 動態調注，LLM 跨所有比例都押固定高注（GPT-4o-mini/DeepSeek ~90%、Claude >60%），即 **baseline risk-taking 已頂到天花板，+α 無上升空間，信號只能在 −α 側看**。19 個 robustness variant（含 role-play persona）行為定性不變 → prompt persona 推不動 risk adjustment（這對 hidden-state 注入是利好，見下「卖点」）。
+
+**② `Can Large Language Models Develop Gambling Addiction?`（Lee et al., arXiv 2509.22818, 2025）— betting 指標公式 + 同源 SAE 先例。**
+6 個 LLM 玩負期望值（30% 勝率、3× 賠付、EV −10%）slot machine，2×32 析因（betting style × 5 個 prompt 組件 G/M/H/W/P）。三大發現：(a) **variable betting（自由定額）比 fixed betting 顯著放大破產率與所有 irrationality 指標**——是「自主權本身」而非賭注大小驅動 risk（Fig 10：variable 平均賭注更小卻破產更多）；(b) **goal-setting(G) / maximize(M) 是最強的 risk 放大組件**，G 幾乎翻倍破產率；(c) 質性分析見 illusion of control、gambler's fallacy、loss chasing、house-money effect。**最重要的是 §4：在 LLaMA-3.1-8B 上跑 SAE + activation patching，找到 112 個（~1%）因果 feature 雙向控制賭博行為，risky feature 集中在 later layers（L24 佔 18 個）、safe feature 在 early-mid（L5–L8）**——這與 RSN 的 mid-layer（11–20）wanting 方向是**同方法、可對照**的 mechanistic 先例。
+
+**③ `BioLLMAgent`（Zuo et al., arXiv 2603.05016, 2026）— IGT 認知參數讀數層 + 臨床對照靶點。**
+把臨床驗證過的 RL 認知模型（ORL）當「內部驅動」、LLM persona prompt 當「外部驅動」，用權重 ω 線性融合，去復現六個真人 IGT 數據集（健康對照 + 安非他命 + 海洛因成癮）。對我們有用的**不是它的融合架構**（其 LLM 是把 T 輪輸出平均成的**靜態先驗**，不參與逐輪學習——與我們「逐輪決策＋逐輪注入」相反，架構不可照搬），而是兩樣可拆出的東西：(a) **ORL 五參數讀數**（`A_rew` 獎勵學習率 / `A_pun` 懲罰學習率 / `K` 遺忘 / `β_F` 頻率權重 / `β_P` perseveration）——把 reward 與 punishment 學習率**分離**，正好對應「+α → reward 敏感↑、punishment 敏感↓」的 DA 預測；(b) **六個公開臨床 IGT 數據集 + 健康/成癮參數區間**，可當 −α 的對照靶（測 −α 是否把 LLM 的 ORL 參數推向成癮群體那一端）。亦再次印證中小模型（Llama-3.2-3b/Gemma-3）對 prompt 指令「instruction resistance」，只有 >70B 級才聽話。
+
+**④ `Mitigating Gambling-Like Risk-Taking…`（Du, arXiv 2506.22496, 2025）— 僅 framing，實驗數字不可信。**
+7 頁短文。可用的只有四個形式化定義（Overconfidence / Loss Chasing / Probability Misjudgment / Risk-Reward Miscalibration）+ GTS 複合分公式，可 cite 當 framing 來源。Table 1 的 RARG-70B / LLaMA-2-70B 結果無訓練細節、無數據集、無 baseline 出處，IGT「Optimal%」也未給協議——**不要引用其任何實驗數字或 IGT 協議**。（與 ② 不同作者；此篇單作者 Y. Du。）
+
+#### 行動建議（落到實驗設計）
+
+| 項目 | 建議 | 依據 |
+|---|---|---|
+| **IGT 協議** | 4 deck（A/B 劣勢、C/D 優勢；損失頻率不對稱：A/C 頻繁小罰、B/D 罕見大罰），淨分 = P(優勢 C+D) − P(劣勢 A+B) 為 ground-truth；trial 數取 100（IGT 經典 / BioLLMAgent）或 80（Near-Optimal），擇一固定 | ①Methods + ③ |
+| **IGT 讀數** | 不只報淨分，用 **ORL 五參數**擬合，重點看 `A_rew/A_pun` 比值是否被 α 推向成癮群體區間；以六個臨床數據集為對照靶 | ③ ORL + 臨床數據集 |
+| **CGT 協議** | 照搬 ①：64 round、8 個紅藍比例（1:9…9:1）、{5/25/50/75/95}% 下注檔、**simultaneous 呈現**；**放棄升降序延遲厭惡維度**（①明確判定對 LLM 不適用） | ①Methods + 明確判定 |
+| **betting 風格** | 用 **variable / 自由定額**而非離散 {0,2,5,10}，放大 α 效應空間 | ② Fig 10（自主權驅動 risk） |
+| **指標** | 加入 ② 的 `I_BA = mean(min(bet/balance,1))`、`I_LC = mean_{loss}(max(0,Δ(bet/balance)))`、`I_EC = mean(1[bet/balance≥0.5])`；`I_LC` 直接對應我們 running-score 的 null | ② eq 1–3 |
+| **前置檢查** | 先跑 α=0 baseline 確認 Llama3-8B 在 IGT 上**不是 near-random**（③ 顯示 <70B 模型可能被 pretrain bias 鎖死），再決定值不值得做 dose-response | ③ Fig 7 / Inverse Scaling |
+| **差異化卖点** | ① 證明 prompt persona 推不動 risk adjustment → 我們測「**hidden-state α 能否推動 prompt 推不動的維度**」是干淨賣點；② 的 SAE risky-feature(L24) vs RSN(L11–20) 是可寫的 mechanistic 對照 | ① + ② |
 
 
 #### Cambridge Gamble Task (CGT)
@@ -330,13 +351,34 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M
 
 **範式定位**：模糊性決策。四副牌（兩好兩壞），受試者不知好壞，靠反覆抽牌的輸贏學出「避開高即時獎賞但長期淨虧」的牌組。淨得分 = (好牌組抽取數 − 壞牌組抽取數)，是有 ground-truth 的連續量，天然適配 `get_answer_bandit.py` 式的 α-steering 多輪 pipeline。
 
-**LLM 既有實現參考**：
-- *Large Language Models are Near-Optimal Decision-Makers in the Iowa Gambling Task* —— GPT-4o / Claude / DeepSeek 淨得分顯著**超越**人類均值，且模型間有獨特風險偏好差異。**警示**：「Near-Optimal」意味基線已近天花板，正向 α 空間有限，wanting 信號很可能只在 **−α 側**（DA 不足 → 衝動追高即時獎賞、淨分下降）顯現——設計時應以 −α 為主軸，並考慮加難度（縮小 good/bad gap）壓低基線。
-- *BioLLMAgent*（arXiv 2026）—— Internal RL Engine + External LLM Shell + Decision Fusion，在 IGT 上對照六個健康/臨床人群數據集復現 reward-punishment learning pattern，並保留參數可解釋性。可借其臨床人群對照框架，把 α=±4 映射到「健康 vs 臨床（DA 失調）」兩端。
+**LLM 既有實現參考**：協議照 ①（Near-Optimal，80/100 trials、4 deck），讀數用 ③（BioLLMAgent 的 ORL 五參數），對照靶用 ③ 的六個臨床數據集——詳見上方「文獻概述 / 行動建議」。
 
-**對 α 注入的預測**：α=−4 → 衝動偏好高即時獎賞的壞牌組、淨得分下降、學習曲線變平（對應 DA 不足 / 成癮者的 IGT 表現）；α=+4 在已 near-optimal 的基線上空間有限。
+**對 α 注入的預測**：α=−4 → 衝動偏好高即時獎賞的壞牌組、淨得分下降、學習曲線變平（對應 DA 不足 / 成癮者的 IGT 表現）、`A_rew/A_pun` 比值推向成癮群體區間；α=+4 在已 near-optimal 的基線上空間有限。
 
-**待辦**：IGT 多為 prompt-level 研究，本工作用 hidden-state 注入——須確認既有 prompt 框架能否套上 `get_answer_bandit.py` 的逐輪 α-hook（多輪、bs=1、per-run reset），以及基線天花板是否需以難度調節壓低。
+**待辦**：(1) 先跑 α=0 baseline 確認 Llama3-8B 不是 near-random（③ 警示 <70B 可能被 pretrain bias 鎖死）；(2) 確認既有 prompt 框架能否套上 `get_answer_bandit.py` 的逐輪 α-hook（多輪、bs=1、per-run reset）；(3) **不照搬 BioLLMAgent 架構**（其 LLM 是靜態先驗，與逐輪注入相反），只借其 ORL 讀數層與臨床靶點。
+
+#### 實作規格（2026-06，已對照 Near-Optimal repo 原始碼確認）
+
+源碼：`/Users/paveenhuang/Downloads/Benchmark/Near-Optimal`（oTree 實作）。本工作**不跑 oTree**——抽出核心機制（懲罰分布 / bet 映射 / 歷史 prompt 構造）寫成 `get_answer_cgt.py` / `get_answer_igt.py` 兩支獨立腳本，套用 `get_answer_bandit.py` 既有的逐輪 α-hook 介面（`vc.regenerate(inputs=[prompt], diff_matrices=raw_mask*alpha, …)`，bs=1、每輪重建 prompt、`utils.parse_configs` 解析 configs）。
+
+**共同設定**：Llama3-8B、layers 11–20、nmd mask、**−α 主軸 + 雙向**（configs `0 / ±2 / ±4 / ±6 / ±8`，先跑 α=0 baseline 確認非 near-random）、choose 中性語境（treasure-chest reword 版，防語料污染）。輸出格式沿用 repo 的 `<reasoning>…</reasoning><choice>N</choice>`，兜底由 GPT-3.5 改為正則 + 重採樣。
+
+**CGT 機制（照搬，已對碼）**：
+- `init_money=100`；`total_interactions=64`、`round_interactions=8` → **8 phase × 8 round**，每 phase 開頭積分 reset 回 100。
+- 紅藍比例 **8 種**：`(1,9)(6,4)(4,6)(3,7)(9,1)(7,3)(2,8)(8,2)`（=(blue,red)，無對稱 5:5），每 phase 內 shuffle 各出現一次。
+- 下注檔 `bets=[0.05,0.25,0.5,0.75,0.95]`；**simultaneous** 一次列 10 個 choice（0–4=blue/F 五檔、5–9=red/J 五檔），模型輸出 0–9。**確認放棄升降序延遲厭惡維度**（repo 本身就是 simultaneous，未實作 sequential）。
+- 賠付：`payoff = round(remain × bet)`，猜對 +、猜錯 −（贏得下注的 2 倍）；金幣位置每輪 `randint(1,10)` 獨立隨機。choice_order 每玩家 rotate 防位置偏好。
+- ground-truth 上界（oracle）：永遠選多數色 + 押 95%。
+- 讀數：**QDM**（是否選多數色）、**風險承擔/調節度**（押注比例隨 asymmetry 的斜率）、**Loss Chasing**（②的 `I_LC`），外加 `I_BA / I_EC`。
+
+**IGT 機制（照搬，已對碼）**：
+- `init_money=2000`（loan）；**total_interactions=100**（採經典/BioLLMAgent，非 repo 的 80）。
+- 4 牌固定獎勵 `card_rewards=[100,100,50,50]`（牌1/2 高即時、牌3/4 低即時）；懲罰分布預排好逐輪 pop：牌1 頻繁中罰、牌2 罕見巨罰 1250、牌3 頻繁小罰、牌4 罕見中罰 250 → **牌1/2 長期淨虧（劣勢），牌3/4 長期淨賺（優勢）**。
+- 輸出 `<choice>1-4</choice>`，card_order 每玩家 rotate；每輪把過往（選幾號、得多少、罰多少）全量回填 prompt。
+- **淨分需 offline 算**：repo 無淨分欄位，淨分 = P(選優勢牌 3+4) − P(選劣勢牌 1+2)。
+- 讀數：淨分 + 學習曲線斜率 + **ORL 五參數**（`A_rew/A_pun/K/β_F/β_P`，重點看 `A_rew/A_pun` 是否被 α 推向成癮群體區間）。
+
+**對照臂（persona vs α）**：repo `prompt/roles/` 已含臨床 persona（CGT：`Gambling_Disorder/risk-taker/risk-averse`；IGT：`methamphetamine_dependence/vmPFC_lesion/alcohol_use_disorder`）。可做「prompt persona 推不動（①證明）vs hidden-state α 推得動」的乾淨對照——這是核心差異化卖點。
 
 
 ## 4. Benchmark Tiers and Pending Extensions
