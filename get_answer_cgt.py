@@ -256,6 +256,8 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_p=top_p,
+            stop_strings=["</choice>"],   # halt right after the choice closes; the
+                                          # reasoning tail beyond it is pure wasted decode
         )
         raw = output[0] if isinstance(output, list) else output
         slot, valid = parse_choice(raw, rng=fallback_rng)
