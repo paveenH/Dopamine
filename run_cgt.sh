@@ -21,7 +21,7 @@
 #
 # Usage:
 #   bash run_cgt.sh                 # full −α-axis + bidirectional sweep
-#   bash run_cgt.sh --pilot         # α=0 only, 2 runs (baseline near-random check)
+#   bash run_cgt.sh --pilot         # α=0 only, 2 runs; writes answer_cgt_pilot
 #   nohup bash run_cgt.sh > cgt.log 2>&1 &
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -47,15 +47,18 @@ CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-1
 
 # ==================== Generation ====================
 NUM_RUNS=30
-MAX_NEW_TOKENS=256        # room for <reasoning> + <choice>; lower → faster but more invalid
+MAX_NEW_TOKENS=160        # room for <reasoning> + <choice>; lower → faster but more invalid
+                          # (smoke: reasoning is 1–2 sentences; 256 wasted decode on the tail)
 TEMPERATURE=1.0          # Near-Optimal default
 TOP_P=0.9
+ANS_FILE="answer_cgt"
 
 # ==================== Pilot override ====================
 if [ "$1" == "--pilot" ]; then
     CONFIGS="0-11-20"
     NUM_RUNS=2
-    echo "[PILOT] α=0 only, ${NUM_RUNS} runs — baseline near-random check"
+    ANS_FILE="answer_cgt_pilot"
+    echo "[PILOT] α=0 only, ${NUM_RUNS} runs — baseline near-random check (${ANS_FILE})"
 fi
 
 # ==================== Run ====================
@@ -64,7 +67,7 @@ echo "Cambridge Gambling Task — RSN α dose-response"
 echo "Model  : ${MODEL_NAME}-${MODEL_SIZE}  (layers 11–20, ${MASK_TYPE} mask)"
 echo "Configs: ${CONFIGS}"
 echo "Runs   : ${NUM_RUNS} × 64 decisions  (chat=on, T=${TEMPERATURE}, top_p=${TOP_P})"
-echo "Output : ${BASE_DIR}/${MODEL_NAME}/answer_cgt"
+echo "Output : ${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}"
 echo "Start  : $(date)"
 echo "=================================================="
 
@@ -84,7 +87,7 @@ python get_answer_cgt.py \
     --temperature "${TEMPERATURE}" \
     --top_p "${TOP_P}" \
     --use_chat \
-    --ans_file "answer_cgt" \
+    --ans_file "${ANS_FILE}" \
     --data "${DATA}" \
     --base_dir "${BASE_DIR}"
 
