@@ -278,16 +278,39 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M
 - **與 EVOLvE 設計的根本差異**：TextBandit 的數字臂名（1–5）消除了語義線索，模型無法利用語義記憶快速 exploit；固定位置（Machine 1 永遠最優）引入位置偏差干擾；few-shot examples 雖降低 InvalidRate，但在雙峰分布問題上沒有幫助。RSN steering 在 EVOLvE（語義豐富，T=50）效果顯著（+17pp），在 TextBandit（數字臂名）效果有限（+3–5pp）。
 - **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code 把 `best_machine` 寫死為 3，是一個 bug），而非真正最優臂 Machine 2（75%）。我們的實現以真正最優臂（Machine 2）計算 OptFrac，故數字不可與 paper 直接比較。
 
+### 3.3 Gamble Task
+- arXiv2025.Can Large Language Models Develop Gambling Addiction?
+  - 核心发现：该研究系统测试了 LLM 在面对带有不确定性的赌博任务（如老虎机、下注任务）时的表现。实验发现，大模型表现出了极高的人类化认知偏差，如“控制错觉（Illusion of Control）”和“输后加注/翻本心理（Loss Chasing）”。当给予模型更高的下注自主权时，模型的破产率会显著飙升
+- arXiv2026.BioLLMAgent: A Hybrid Framework with Enhanced Structural Interpretability for Simulating Human Decision-Making in Computational Psychiatry
+  - 这篇提出 BioLLMAgent，把传统可解释 RL 模型和 LLM agent 结合起来，用来模拟精神医学中的人类决策行为。框架包含三个部分：Internal RL Engine 负责价值学习，External LLM Shell 负责高层策略和干预语言，Decision Fusion Mechanism 把两者整合成最终选择。实验主要跑 Iowa Gambling Task，并对照六个健康/临床人群数据集，报告模型能复现人类 reward-punishment learning pattern，同时保留参数可解释性。
+- Large Language Models are Near-Optimal Decision-Makers in the Iowa Gambling Task
+  - 核心发现：研究让 GPT-4o、Claude 和 DeepSeek 等模型去玩与 CGT 齐名的爱荷华博弈任务（IGT）。结果显示，现代大模型由于强大的数学和期望值计算能力，其整体净得分显著超越了人类的平均水平，但在不同模型间表现出了独特的风险偏好差异
+
+#### Cambridge Gamble Task
+
+**為什麼要加**：Confidence Betting 的 confound——「模型更有信心」也能解釋賭注上升。Cambridge Gamble Task 在**機率完全透明**的情況下仍測賭注大小，可排除信心解釋。
+
+**設計**：
+- 每題告知「答案 A 的機率是 P%」（P ∈ {60, 70, 80, 90}）
+- 模型決定下注多少積分（1–10）
+- 不依賴模型是否知道答案
+
+**預測**：α=+4 在所有 P 水準下下注更大（純 wanting 效應）；α=−4 保守
+
+**人腦對應**：DA 激動劑（pramipexole）組 vs 帕金森組 vs 健康人，Cambridge Gamble Task
+
+#### Iowa Gambling Task 
+
+
 ## 4. Benchmark Tiers and Pending Extensions
 
-| Tier | Dataset / Experiment | Status | Dopamine relevance | Judgment |
-|---|---|---|---|---|
-| **Secondary** | **MMLU-E Abstention** | ✅ Done | action threshold / willingness to answer | 中强；但只是答/不答 |
-| **Secondary** | **GSM8K / MATH α scan** | ✅ Done | commitment timing, over-/under-wanting in reasoning | 重要主结果；但不是纯 dopamine assay |
-| **Auxiliary** | **GSM-NoOp / GSM-Symbolic** | 🔶 Pending | salience gating / distractor suppression / variable tracking | 可做机制扩展；不是 wanting 主证据 |
-| **Auxiliary** | **BBH tracking tasks** | 🔶 Pending | working memory / set-shifting | 神经认知相关；但偏 PFC working memory |
-| **Boundary** | **TruthfulQA-Generation / HaluEval** | 🔶 Pending | over-wanting → hallucination / over-generation | 可测副作用；不是纯 wanting |
-| **Boundary** | **SocialIQA-E / Pressure** | 🔶 Pending | social uncertainty commitment | 边界验证 |
+| Dataset / Experiment | Status | Dopamine relevance | Judgment |
+|---|---|---|---|
+| **MMLU-E Abstention** | ✅ Done | action threshold / willingness to answer | 中强；但只是答/不答 |
+| **GSM8K / MATH α scan** | ✅ Done | commitment timing, over-/under-wanting in reasoning | 重要主结果；但不是纯 dopamine assay |
+| **GSM-NoOp / GSM-Symbolic** | 🔶 Pending | salience gating / distractor suppression / variable tracking | 可做机制扩展；不是 wanting 主证据 |
+| **BBH tracking tasks** | 🔶 Pending | working memory / set-shifting | 神经认知相关；但偏 PFC working memory |
+| **TruthfulQA-Generation / HaluEval** | 🔶 Pending | over-wanting → hallucination / over-generation | 可测副作用；不是纯 wanting |
 
 ## 5. Human Behaviour Simulation
 
