@@ -47,8 +47,11 @@ CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-1
 
 # ==================== Generation ====================
 NUM_RUNS=30
-MAX_NEW_TOKENS=160        # room for <reasoning> + <choice>; lower → faster but more invalid
-                          # (smoke: reasoning is 1–2 sentences; 256 wasted decode on the tail)
+MAX_NEW_TOKENS=256        # safety CAP, not the actual length: stop_strings=["</choice>"]
+                          # halts each round right after the choice closes (~60–120 tok),
+                          # so 256 vs 160 cost the same on normal rounds — 256 just gives
+                          # a long <reasoning> room to finish before <choice> instead of
+                          # being truncated into an invalid.
 TEMPERATURE=1.0          # Near-Optimal default
 TOP_P=0.9
 ANS_FILE="answer_cgt"
