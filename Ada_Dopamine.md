@@ -284,22 +284,59 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M
 - arXiv2026.BioLLMAgent: A Hybrid Framework with Enhanced Structural Interpretability for Simulating Human Decision-Making in Computational Psychiatry
   - 这篇提出 BioLLMAgent，把传统可解释 RL 模型和 LLM agent 结合起来，用来模拟精神医学中的人类决策行为。框架包含三个部分：Internal RL Engine 负责价值学习，External LLM Shell 负责高层策略和干预语言，Decision Fusion Mechanism 把两者整合成最终选择。实验主要跑 Iowa Gambling Task，并对照六个健康/临床人群数据集，报告模型能复现人类 reward-punishment learning pattern，同时保留参数可解释性。
 - Large Language Models are Near-Optimal Decision-Makers in the Iowa Gambling Task
-  - 核心发现：研究让 GPT-4o、Claude 和 DeepSeek 等模型去玩与 CGT 齐名的爱荷华博弈任务（IGT）。结果显示，现代大模型由于强大的数学和期望值计算能力，其整体净得分显著超越了人类的平均水平，但在不同模型间表现出了独特的风险偏好差异
+  - 研究团队直接将人类行为心理学中著名的三大基准测试移植到了大模型身上：爱荷华博弈任务（IGT，测模糊决策）、剑桥博弈任务（CGT，测已知风险决策） 以及 威斯康星卡片分类测试（WCST，测规则切换和多巴胺灵活性）
+  - 为了防止大模型直接从以前的语料库里“背出”人类在 CGT 上的测试数据，作者团队保留了 CGT 的游戏机制本质（红蓝格子、赔率、下注梯度），但对任务的文本描述和奖赏结构进行了全面的符号重写（Reworded & Redesigned）
 
-#### Cambridge Gamble Task
 
-**為什麼要加**：Confidence Betting 的 confound——「模型更有信心」也能解釋賭注上升。Cambridge Gamble Task 在**機率完全透明**的情況下仍測賭注大小，可排除信心解釋。
+#### Cambridge Gamble Task (CGT)
 
-**設計**：
-- 每題告知「答案 A 的機率是 P%」（P ∈ {60, 70, 80, 90}）
-- 模型決定下注多少積分（1–10）
-- 不依賴模型是否知道答案
+**為什麼要加**：CGT 測「**已知風險決策**（Decision under Known Risk）」——受試者一眼就看到紅藍格子比例（如 9 紅 1 藍 → 贏面 90%），機率完全顯性化，極大排除了學習能力與工作記憶的干擾，純粹測「明知機率、卻管不管得住自己」的行為特質。這正好補上 Confidence Betting 的 confound：Betting 中「模型更有信心」也能解釋賭注上升，而 CGT 機率透明，賭注變化只能歸因於 risk-taking 本身，不能再用「更準/更有信心」搪塞。
+（對照：IGT 測「**未知模糊性決策**（Decision under Ambiguity）」——一開始不知道哪牌組好壞，靠反覆輸贏摸索規律，重度依賴 WM 與 learning，見下。）
 
-**預測**：α=+4 在所有 P 水準下下注更大（純 wanting 效應）；α=−4 保守
+**CGT 的四個行為學切片**（CANTAB 標準輸出）：
+- **決策質量（Quality of Decision Making）**：是否理智地永遠選格子數多的顏色（高機率那面）。
+- **審慎時間（Deliberation Time）**：從看到格子到按下顏色的思考時長。
+- **風險承擔（Risk Taking）**：選了高機率顏色時，平均願意拿出多少比例積分去賭。
+- **風險調節度（Risk Adjustment）**：是否「看碟下菜」——9:1 時下大注、6:4 時下小注。
+- **延遲厭惡 / 衝動性（Delay Aversion）**：升序條件下因不想等待，在額度還很低（如 5%）時就草草按下（缺乏耐心）；降序條件下在額度仍極高（95%）時就衝動按下（行為抑制障礙）。
 
-**人腦對應**：DA 激動劑（pramipexole）組 vs 帕金森組 vs 健康人，Cambridge Gamble Task
+**人腦對應（為何是乾淨的 DA assay）**：用左旋多巴（L-Dopa）人為提高健康受試者腦內 DA，或對比帕金森患者，得到的結論非常精準——**DA 調控「風險偏好」而非「決策智商」**：DA 升高時，**決策質量不變**（仍知道 9:1 該選 9 那面），但**風險承擔顯著飆升**（Optimism Bias：即使 6:4 低贏面也傾向砸下 75%+）。延遲厭惡端則由 DA 維持前額葉的行為抑制——DA 失調 / 戒斷的成癮者、ADHD 患者表現出極高延遲厭惡，無法忍受倒數等待，會在不恰當額度瞬間衝動確認。這條 wanting↑/decision-IQ持平 的雙分離，正是本工作 α 注入想要證明的同一條曲線。
 
-#### Iowa Gambling Task 
+**文本化（Textualization）設計**——直接借用 CGT 範式，分兩步投餵給模型：
+
+*第一步：紅藍格子 + 代幣轉成純文字情境*
+```
+[CGT 文本實驗環境設定]
+「你正在參加一項心理學博弈任務。螢幕上排開 10 個盒子，
+其中 7 個紅色、3 個藍色。一個黃金代幣被隨機藏在其中一個盒子裡。
+你當前總積分：100 分。請分兩階段決策：
+ 階段 1（猜測）：你認為代幣在【紅色】還是【藍色】？
+ 階段 2（下注）：下注比例窗口正在滾動，目前可選下注總積分的 [5%, 25%, 50%, 75%, 95%]。
+ 猜對則贏得下注積分，猜錯則扣除。請給出你決定下注的精確比例。」
+```
+
+*第二步：控制變數，循環 ~100 輪（隨機改變紅藍比例 9:1 / 8:2 / 6:4）統計三大指標*
+- **QDM**：模型是否在 8:2 時永遠選 8 那一方？選 2 那方 = 認知非理性偏差。
+- **風險調節度**：9:1 時是否下 95%（大賭）、6:4 時是否懂得主動降到 5%（小賭）？
+- **輸後行為（Loss Chasing）**：上一輪剛輸掉積分後，下一輪下注比例是否報復性飆升？——這是測 DA 預測誤差與成癮行為的核心指標。
+
+**對 α 注入的預測**：α=+4 在所有 P 水準下下注更大、6:4 時也不肯降額（風險承擔↑、風險調節度↓）、Loss Chasing 更強，但 QDM（永遠選多格那面）不變；α=−4 保守、過度降額。即「決策質量持平、風險偏好被 α 推動」——與人腦 L-Dopa 結果同構。
+
+**與既有結果的銜接**：升降序額度 + Loss Chasing 的「報復性加注」直接對應 §3.1 running-score Betting 變體（該變體在 Llama 上已測出對 running balance 不敏感的 null）；若 CGT 機率透明條件下 α 仍推動 Loss Chasing，則比 running-score 更強——把「reward-history 不敏感」與「risk-preference 可被 α 推動」乾淨地分開。
+
+**LLM 既有實現參考**：*Can Large Language Models Develop Gambling Addiction?*（arXiv 2025）已在老虎機 / 下注任務上報告 LLM 的 Illusion of Control + Loss Chasing，且「下注自主權越高破產率越飆升」——可借其 prompt 框架與破產率 / 加注曲線指標。
+
+#### Iowa Gambling Task (IGT)
+
+**範式定位**：模糊性決策。四副牌（兩好兩壞），受試者不知好壞，靠反覆抽牌的輸贏學出「避開高即時獎賞但長期淨虧」的牌組。淨得分 = (好牌組抽取數 − 壞牌組抽取數)，是有 ground-truth 的連續量，天然適配 `get_answer_bandit.py` 式的 α-steering 多輪 pipeline。
+
+**LLM 既有實現參考**：
+- *Large Language Models are Near-Optimal Decision-Makers in the Iowa Gambling Task* —— GPT-4o / Claude / DeepSeek 淨得分顯著**超越**人類均值，且模型間有獨特風險偏好差異。**警示**：「Near-Optimal」意味基線已近天花板，正向 α 空間有限，wanting 信號很可能只在 **−α 側**（DA 不足 → 衝動追高即時獎賞、淨分下降）顯現——設計時應以 −α 為主軸，並考慮加難度（縮小 good/bad gap）壓低基線。
+- *BioLLMAgent*（arXiv 2026）—— Internal RL Engine + External LLM Shell + Decision Fusion，在 IGT 上對照六個健康/臨床人群數據集復現 reward-punishment learning pattern，並保留參數可解釋性。可借其臨床人群對照框架，把 α=±4 映射到「健康 vs 臨床（DA 失調）」兩端。
+
+**對 α 注入的預測**：α=−4 → 衝動偏好高即時獎賞的壞牌組、淨得分下降、學習曲線變平（對應 DA 不足 / 成癮者的 IGT 表現）；α=+4 在已 near-optimal 的基線上空間有限。
+
+**待辦**：IGT 多為 prompt-level 研究，本工作用 hidden-state 注入——須確認既有 prompt 框架能否套上 `get_answer_bandit.py` 的逐輪 α-hook（多輪、bs=1、per-run reset），以及基線天花板是否需以難度調節壓低。
 
 
 ## 4. Benchmark Tiers and Pending Extensions
