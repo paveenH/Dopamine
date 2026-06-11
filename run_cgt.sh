@@ -52,11 +52,11 @@ CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-1
 # so summary CSV is throwaway — authoritative stats are recomputed locally from
 # each run's `records` in the detail JSON.
 NUM_RUNS=10              # was 30 for the full-precision sweep
-MAX_NEW_TOKENS=256        # safety CAP, not the actual length: stop_strings=["</choice>"]
-                          # halts each round right after the choice closes (~60–120 tok),
-                          # so 256 vs 160 cost the same on normal rounds — 256 just gives
-                          # a long <reasoning> room to finish before <choice> instead of
-                          # being truncated into an invalid.
+MAX_NEW_TOKENS=256        # natural EOS at this cap (no stop_strings). A </choice>
+                          # stop was tried but the system-prompt format spec literally
+                          # contains "</choice>", so the model echoing it mid-reasoning
+                          # truncated before the real answer → invalid 0.02→0.11. 256 +
+                          # natural EOS keeps invalid ~0.02 (cost: ~4.2s/round).
 TEMPERATURE=1.0          # Near-Optimal default
 TOP_P=0.9
 ANS_FILE="answer_cgt"

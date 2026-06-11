@@ -256,8 +256,11 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_p=top_p,
-            stop_strings=["</choice>"],   # halt right after the choice closes; the
-                                          # reasoning tail beyond it is pure wasted decode
+            # NOTE: stop_strings=["</choice>"] was tried but pushed invalid_rate
+            # from ~0.02 to ~0.11 — the system prompt contains the literal
+            # "</choice>" in its format spec, so the model echoing it mid-reasoning
+            # tripped the stop before the real <choice>N</choice>. Reverted to
+            # natural EOS at max_new_tokens=256.
         )
         raw = output[0] if isinstance(output, list) else output
         slot, valid = parse_choice(raw, rng=fallback_rng)
@@ -294,6 +297,10 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             "chose_major": chose_major,
             "valid": valid,
         }
+        if not valid:
+            # keep the raw text only for unparseable rounds, so invalid_rate can
+            # be diagnosed offline (truncated reasoning? echoed </choice>? garbage?)
+            rec["raw"] = raw
         records.append(rec)
         phase_history.append(rec)
 
