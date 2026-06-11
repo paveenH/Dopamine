@@ -21,7 +21,7 @@ Li et al. "LLMs are Near-Optimal Decision-Makers"), driven by our own RSN
   - payoff = round(remain × bet); win → +, lose → − (i.e. win returns 2× bet)
   - coin position each round is INDEPENDENT: randint(1, 10) ≤ #blue → blue
   - choice_order rotated per run to debias option position
-  - full per-round history fed back into the prompt each round
+  - current-phase per-round history fed back into the prompt each round
 
 Probability-transparent betting (model is told #blue / #red every round)
 removes the "more confident" confound of §3.1 Confidence Betting: bet changes
@@ -204,25 +204,32 @@ def to_chat(vc: VicundaModel, system_prompt: str, user_prompt: str, use_chat: bo
 
 # ───────────────────── Parsing ─────────────────────
 CHOICE_RE = re.compile(r"<choice>\s*(\d)\s*</choice>", re.IGNORECASE)
-CHOICE_LOOSE_RE = re.compile(r"\b([0-9])\b")
+CHOICE_ANCHORED_RE = re.compile(r"\b(?:choice|answer|option|choose|select)\D{0,20}([0-9])\b", re.IGNORECASE)
+CHOICE_ONLY_RE = re.compile(r"^\s*([0-9])\s*\.?\s*$")
 
 
-def parse_choice(output: str) -> tuple[int, bool]:
+def parse_choice(output: str, rng: random.Random | None = None) -> tuple[int, bool]:
     """Return (choice 0–9, is_valid). Invalid → uniform random fallback."""
     m = CHOICE_RE.search(output)
     if m:
         return int(m.group(1)), True
-    # loose: first standalone digit 0–9
-    m = CHOICE_LOOSE_RE.search(output)
+    # Loose fallback must be anchored to choice language; otherwise numbers in
+    # reasoning (e.g. "9 Type F chests") become false valid choices.
+    m = CHOICE_ANCHORED_RE.search(output)
     if m:
         return int(m.group(1)), True
-    return random.randint(0, CHOICE_NUM - 1), False
+    m = CHOICE_ONLY_RE.search(output)
+    if m:
+        return int(m.group(1)), True
+    fallback_rng = rng if rng is not None else random
+    return fallback_rng.randint(0, CHOICE_NUM - 1), False
 
 
 # ───────────────────── One run (8 phases × 8 rounds) ─────────────────────
 def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float) -> dict:
     rng = random.Random(seed)
+    fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
     choice_order = rotate_choice_order(seed)       # display slot → choice_true
     system_prompt = build_system_prompt(choice_order)
@@ -251,7 +258,7 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             top_p=top_p,
         )
         raw = output[0] if isinstance(output, list) else output
-        slot, valid = parse_choice(raw)
+        slot, valid = parse_choice(raw, rng=fallback_rng)
 
         # display slot → underlying choice_true (repo: choice_order[choice])
         choice_true = choice_order[slot]
@@ -316,12 +323,12 @@ def summarize_run(records: list[dict], phase_end_scores: list[int]) -> dict:
     # ② Gambling-Addiction metrics (eq 1–3)
     i_ba = float(np.mean([min(bf, 1.0) for bf in bet_fracs]))   # bet/remain == bet_frac
     i_ec = float(np.mean([1.0 if bf >= 0.5 else 0.0 for bf in bet_fracs]))
-    # loss chasing: over rounds following a LOSS, relative increase in bet_frac
+    # loss chasing: over rounds following a LOSS, absolute increase in bet_frac
     lc_terms = []
     for i in range(1, n):
         if records[i - 1]["payoff"] < 0:
             prev, cur = records[i - 1]["bet_frac"], records[i]["bet_frac"]
-            lc_terms.append(max(0.0, (cur - prev) / prev) if prev > 0 else 0.0)
+            lc_terms.append(max(0.0, cur - prev))
     i_lc = float(np.mean(lc_terms)) if lc_terms else 0.0
 
     invalid_rate = sum(0 if r["valid"] else 1 for r in records) / n
@@ -361,7 +368,7 @@ def main():
     if os.path.exists(csv_path):
         with open(csv_path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
-                done_keys.add(float(r["alpha"]))
+                done_keys.add((float(r["alpha"]), int(r["start"]), int(r["end"])))
         print(f"[Resume] {len(done_keys)} alpha configs already done, skipping.")
 
     write_header = not os.path.exists(csv_path)
@@ -375,8 +382,9 @@ def main():
     vc.model.eval()
 
     for alpha, (st, en) in ALPHAS_START_END_PAIRS:
-        if float(alpha) in done_keys:
-            print(f"[Skip] α={alpha} already done.")
+        done_key = (float(alpha), int(st), int(en))
+        if done_key in done_keys:
+            print(f"[Skip] α={alpha}, layers={st}-{en} already done.")
             continue
 
         mask_suffix = "_abs" if args.abs else ""
