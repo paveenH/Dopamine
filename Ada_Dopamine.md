@@ -280,19 +280,39 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M
 
 ## 4. Benchmark Tiers and Pending Extensions
 
-| Tier | Dataset / Experiment | Dopamine relevance | Judgment |
-|---|---|---|---|
-| **Core** | **Confidence Betting** | incentive salience / risked resource allocation | 最强；wanting–knowing 分离最干净 |
-| **Core** | **Bandit / EVOLvE** | reward pursuit, exploitation stability, tonic DA-like engagement | 很强；动态 reward 行为 |
-| **Secondary** | **MMLU-E Abstention** | action threshold / willingness to answer | 中强；但只是答/不答 |
-| **Secondary** | **GSM8K / MATH α scan** | commitment timing, over-/under-wanting in reasoning | 重要主结果；但不是纯 dopamine assay |
-| **Auxiliary** | **GSM-NoOp / GSM-Symbolic** | salience gating / distractor suppression / variable tracking | 可做机制扩展；不是 wanting 主证据 |
-| **Auxiliary** | **BBH tracking tasks** | working memory / set-shifting | 神经认知相关；但偏 PFC working memory |
-| **Boundary** | **TruthfulQA-Generation / HaluEval** | over-wanting → hallucination / over-generation | 可测副作用；不是纯 wanting |
-| **Boundary** | **SocialIQA-E / Pressure** | social uncertainty commitment | 边界验证 |
-| **Drop as core** | **raw SocialIQA** | social commonsense | 原始三选一任务主要测 social knowledge，dopamine 相关性弱 |
+| Tier | Dataset / Experiment | Status | Dopamine relevance | Judgment |
+|---|---|---|---|---|
+| **Secondary** | **MMLU-E Abstention** | ✅ Done | action threshold / willingness to answer | 中强；但只是答/不答 |
+| **Secondary** | **GSM8K / MATH α scan** | ✅ Done | commitment timing, over-/under-wanting in reasoning | 重要主结果；但不是纯 dopamine assay |
+| **Auxiliary** | **GSM-NoOp / GSM-Symbolic** | 🔶 Pending | salience gating / distractor suppression / variable tracking | 可做机制扩展；不是 wanting 主证据 |
+| **Auxiliary** | **BBH tracking tasks** | 🔶 Pending | working memory / set-shifting | 神经认知相关；但偏 PFC working memory |
+| **Boundary** | **TruthfulQA-Generation / HaluEval** | 🔶 Pending | over-wanting → hallucination / over-generation | 可测副作用；不是纯 wanting |
+| **Boundary** | **SocialIQA-E / Pressure** | 🔶 Pending | social uncertainty commitment | 边界验证 |
+
+## 5. Human Behaviour Simulation
+
+本節登記每個行為學實驗**對應的經典人類／動物行為學範式**及其文獻根源，把我們的 LLM 實驗 anchor 到神經科學傳統（與 §4 互補：§4 報告我們做了什麼、結果如何；§5 標明它的人類範式血統）。實驗的完整結果與分析仍在各自的 §4.x 小節，此處只做對應與 cite。
+
+| 實驗 | LLM 任務形態 | 對應人類行為學範式 | 人類範式文獻 | LLM 實現 | 狀態 |
+|---|---|---|---|---|---|
+| **Confidence Betting** | MCQ + 押注 0/2/5/10 | Post-decision wagering / confidence betting | Persaud et al. (2007); Fleming & Dolan (2012) | 本工作（§4.6） | ✅ Done |
+| **Bandit (MAB)** | 多輪 explore/exploit，語義臂名 | Multi-armed bandit / probabilistic reward learning | Daw et al. (2006) | EVOLvE-Nie et al. (2025); TextBandit (ACL EthicalLLMs 2025)（§4.7） | ✅ Done |
+| **Cambridge Gamble Task** | 機率透明下注（P% 已知） | Cambridge Gamble Task（DA-agonist／Parkinson 對比） | Rogers et al. (1999); Pessiglione et al. (2006, pramipexole) | TBD（找已在 LLM 上做過 CGT 的實驗） | ⬜ Pending |
+| **Iowa Gambling Task** | 多輪牌組選擇（淨損益學習） | Iowa Gambling Task | Bechara et al. (1994) | TBD（找已在 LLM 上做過 IGT 的實驗） | ⬜ Pending |
+
+**說明：**
+- **Confidence Betting / Bandit** 的結果在 §4.6 / §4.7，此處只標範式血統，不重複結果表。
+- **CGT / IGT** 目前為 pending：人類範式根源已確定，但「LLM 實現」欄待補——你會去找已在 LLM 上跑過 CGT / IGT 的論文填入，再決定是否復現。CGT 同時是 Confidence Betting 的 confidence-confound control（機率透明可排除「更自信」解釋）。
 
 ## References
+
+人類行為學範式文獻（占位，卷期頁待核對）：
+- Bechara, Damasio, Damasio & Anderson (1994). Insensitivity to future consequences following damage to human prefrontal cortex. *Cognition.* *[待核對卷期頁]*
+- Rogers et al. (1999). Dissociable deficits in the decision-making cognition of chronic amphetamine abusers, opiate abusers, patients with focal damage to prefrontal cortex... *Neuropsychopharmacology.* *[待核對卷期頁]*
+- Daw, O'Doherty, Dayan, Seymour & Dolan (2006). Cortical substrates for exploratory decisions in humans. *Nature.* *[待核對卷期頁]*
+- Pessiglione, Seymour, Flandin, Dolan & Frith (2006). Dopamine-dependent prediction errors underpin reward-seeking behaviour in humans. *Nature.* *[待核對卷期頁]*
+- Persaud, McLeod & Cowey (2007). Post-decision wagering objectively measures awareness. *Nature Neuroscience.* *[待核對卷期頁]*
+- Fleming & Dolan (2012). The neural basis of metacognitive ability. *Phil. Trans. R. Soc. B.* *[待核對卷期頁]*
 
 - Berridge & Robinson (1998). What is the role of dopamine in reward: hedonic impact, reward learning, or incentive salience? *Brain Research Reviews.*
 - Fenigstein, Scheier & Buss (1975). Public and private self-consciousness: Assessment and theory. *Journal of Consulting and Clinical Psychology.*
