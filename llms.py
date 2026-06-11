@@ -783,6 +783,7 @@ class VicundaModel:
         diff_matrices: list[np.ndarray] = None,
         prefill_only: bool = True,
         batch_size: int = 1,
+        stop_strings: list[str] = None,
     ) -> list[str]:
         """
         Generate text by modifying hidden states of each layer using diff_matrices.
@@ -791,6 +792,11 @@ class VicundaModel:
             prefill_only: If True (default), only apply intervention during prompt processing (prefill).
                          If False, apply intervention to every generation step (legacy behavior).
             batch_size: Number of prompts per forward pass (prefill_only=True only).
+            stop_strings: Optional list of strings that halt generation as soon as
+                         any is produced (HF `generate(stop_strings=...)`). Default
+                         None preserves existing callers' behavior exactly. Only
+                         honored on the prefill_only path (the only branch that
+                         drives `model.generate` directly).
         """
         if diff_matrices is None:
             raise ValueError("The difference matrices are not loaded. Please provide `diff_matrices` during method call.")
@@ -814,6 +820,7 @@ class VicundaModel:
             max_new_tokens=max_new_tokens,
             top_p=top_p,
             temperature=temperature,
+            stop_strings=stop_strings,
         )
 
     @torch.no_grad()
@@ -824,6 +831,7 @@ class VicundaModel:
         max_new_tokens: int,
         top_p: float,
         temperature: float,
+        stop_strings: list[str] = None,
     ) -> list[str]:
         """
         Apply intervention only during prefill (prompt processing), not during generation.
@@ -892,8 +900,7 @@ class VicundaModel:
                 attention_mask = tokens.attention_mask.to(self.model.device)
                 prompt_len = input_ids.shape[1]
 
-                output_ids = self.model.generate(
-                    input_ids,
+                gen_kwargs = dict(
                     attention_mask=attention_mask,
                     max_new_tokens=max_new_tokens,
                     do_sample=do_sample,
@@ -903,6 +910,11 @@ class VicundaModel:
                     eos_token_id=self.terminators,
                     pad_token_id=self.tokenizer.pad_token_id,
                 )
+                if stop_strings:
+                    # HF needs the tokenizer to map stop strings → token ids.
+                    gen_kwargs["stop_strings"] = stop_strings
+                    gen_kwargs["tokenizer"] = self.tokenizer
+                output_ids = self.model.generate(input_ids, **gen_kwargs)
                 for seq in output_ids:
                     gen_ids = seq[prompt_len:]
                     text = self.tokenizer.decode(
