@@ -227,7 +227,8 @@ def parse_choice(output: str, rng: random.Random | None = None) -> tuple[int, bo
 
 # ───────────────────── One run (8 phases × 8 rounds) ─────────────────────
 def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
-                max_new_tokens: int, temperature: float, top_p: float) -> dict:
+                max_new_tokens: int, temperature: float, top_p: float,
+                save_all_raw: bool = False) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
@@ -297,9 +298,12 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             "chose_major": chose_major,
             "valid": valid,
         }
-        if not valid:
-            # keep the raw text only for unparseable rounds, so invalid_rate can
-            # be diagnosed offline (truncated reasoning? echoed </choice>? garbage?)
+        if save_all_raw or not valid:
+            # By default keep the raw text only for unparseable rounds, so
+            # invalid_rate can be diagnosed offline (truncated reasoning? echoed
+            # </choice>? garbage?). With --save_all_raw, store every round's raw
+            # too, so valid-round reasoning style can be inspected across α
+            # (JSON grows ~4-6× — use only for a small diagnostic sweep).
             rec["raw"] = raw
         records.append(rec)
         phase_history.append(rec)
@@ -412,6 +416,7 @@ def main():
                     vc=vc, diff_mtx=diff_mtx, seed=run_idx, use_chat=args.use_chat,
                     max_new_tokens=args.max_new_tokens,
                     temperature=args.temperature, top_p=args.top_p,
+                    save_all_raw=args.save_all_raw,
                 )
             run_results.append(result)
             print(f"qdm={result['qdm']:.2f}  risk={result['risk_taking']:.2f}  "
@@ -470,6 +475,9 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top_p",       type=float, default=0.9)
     parser.add_argument("--use_chat",    action="store_true")
+    parser.add_argument("--save_all_raw", action="store_true",
+                        help="store raw generated text for EVERY round (not just "
+                             "invalid ones); JSON grows ~4-6×, use for diagnostics")
     parser.add_argument("--ans_file",    type=str, default="answer_cgt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
