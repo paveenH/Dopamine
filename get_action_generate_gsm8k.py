@@ -215,7 +215,7 @@ def main():
     roles = utils.make_characters("gsm8k", custom_roles)
     print("Roles:", roles)
     print("Prompt (neutral):")
-    print(build_prompt(vc, "<Q>", "neutral", args.use_chat, args.order, args.anchor))
+    print(build_prompt(vc, "<Q>", "neutral", args.use_chat, args.order, args.anchor, args.scale))
 
     all_csv_rows = []
 
@@ -241,8 +241,8 @@ def main():
         with open(out_path, "w", encoding="utf-8") as fw:
             json.dump({"data": updated, "role_stats": role_stats,
                        "prompt_template": build_prompt(vc, "{context}", "neutral", args.use_chat,
-                                                        args.order, args.anchor),
-                       "order": args.order, "anchor": args.anchor,
+                                                        args.order, args.anchor, args.scale),
+                       "order": args.order, "anchor": args.anchor, "scale": args.scale,
                        "use_chat": args.use_chat},
                       fw, ensure_ascii=False, indent=2)
         print(f"[Saved JSON] {out_path}")
