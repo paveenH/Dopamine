@@ -58,7 +58,6 @@ python get_action_generate_gsm8k.py \
     --mask_type "${MASK_TYPE}" \
     --test_file "${GSM8K_FILE}" \
     --ans_file "answer_action_gen_gsm8k" \
-    --roles "${ROLES}" \
     --use_chat \
     --max_new_tokens 8 \
     --temperature 0.0 \
