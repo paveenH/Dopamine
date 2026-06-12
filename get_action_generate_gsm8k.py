@@ -52,14 +52,23 @@ import utils
 # "Willingness: " pulled out as the assistant prefill. Mirrors betting's
 # "…bet (0,2,5,10)… Respond in this format: Bet: <number>" + "Bet: " prefill, so a
 # generation-mode willingness readout sits on the same footing as the betting one.
-PREFILL = "Willingness: "
 ANCHOR = "higher score = pay more reasoning effort"
 
+# metric → (quoted phrase in the instruction, "Field: " label / prefill).
+# willingness = reasoning-effort self-report; confidence = answer-confidence
+# self-report. Both use the identical 0–9 generation+prefill scaffold so the two
+# readouts sit on the same footing (cf. §2.6 logits willingness vs confidence).
+METRICS = {
+    "willingness": ('"reasoning willingness"', "Willingness"),
+    "confidence":  ('"confidence about the question"', "Confidence"),
+}
 
-def make_instruction(order: str = "asc", anchor: bool = False,
-                     scale: str = "enum") -> str:
-    """Build the willingness instruction.
 
+def make_instruction(metric: str = "willingness", order: str = "asc",
+                     anchor: bool = False, scale: str = "enum") -> str:
+    """Build the self-evaluation instruction for the chosen metric.
+
+    metric selects the quoted phrase + the "Field:" label (see METRICS).
     scale="enum" → options spelled out as a list. order="asc" lists 0..9, "desc"
       lists 9..0 — the list ORDER is the variable the reversed-scale experiment
       manipulates (a no-anchor model tracks list position, not numeric semantics:
@@ -70,47 +79,51 @@ def make_instruction(order: str = "asc", anchor: bool = False,
       no "first listed digit" to follow; order/anchor become no-ops). The final,
       simplest phrasing.
     """
+    phrase, label = METRICS[metric]
     if scale == "range":
         opts = "[0,9]"
     else:
         nums = range(10) if order == "asc" else range(9, -1, -1)
         opts = "(" + ", ".join(str(i) for i in nums) + ")"
-    label = f" ({ANCHOR})" if (anchor and scale != "range") else ""
+    anchor_lbl = f" ({ANCHOR})" if (anchor and scale != "range") else ""
     return (
-        f'Evaluate your "reasoning willingness" {opts}{label}.\n'
+        f'Evaluate your {phrase} {opts}{anchor_lbl}.\n'
         "Respond in this format:\n"
-        "Willingness: <number>"
+        f"{label}: <number>"
     )
 
 
 def build_prompt(vc: VicundaModel, ctx: str, role: str, use_chat: bool,
-                 order: str = "asc", anchor: bool = False, scale: str = "enum") -> str:
+                 metric: str = "willingness", order: str = "asc",
+                 anchor: bool = False, scale: str = "enum") -> str:
+    prefill = METRICS[metric][1] + ": "
     lines = [f"Here is a question: {ctx}"]
     if role not in ("neutral", "norole"):
         lines.append(f"Now you are {role}.")
-    lines.append(make_instruction(order, anchor, scale))
+    lines.append(make_instruction(metric, order, anchor, scale))
     body = "\n".join(lines)
     if use_chat:
         msgs = [{"role": "user", "content": body}]
         chat = vc.tokenizer.apply_chat_template(
             msgs, tokenize=False, add_generation_prompt=True
         )
-        return chat + PREFILL
+        return chat + prefill
     # bare: append the same prefill without the chat scaffold
-    return body + "\n" + PREFILL
+    return body + "\n" + prefill
 
 
 # ───────────────────── Parsing ─────────────────────
-# Prompt ends with "… is: ", so the model continues with the digit (prefix mode).
+# Prompt ends with the "Field: " prefill, so the model continues with the digit
+# (prefix mode). Fallback matches the echoed field name (willingness|confidence).
 LEADING_RE = re.compile(r"^\s*(\d)")                       # generation starts with the digit
-WILL_RE = re.compile(r"willingness[^0-9]{0,12}(\d)", re.IGNORECASE)  # echoed phrasing fallback
+FIELD_RE = re.compile(r"(?:willingness|confidence)[^0-9]{0,12}(\d)", re.IGNORECASE)
 
 
-def parse_willingness(text: str):
+def parse_score(text: str):
     """Return (score 0-9 | None, valid: bool)."""
     m = LEADING_RE.match(text)          # prefix mode (the normal case)
     if not m:
-        m = WILL_RE.search(text)        # fallback: model echoed "willingness … N"
+        m = FIELD_RE.search(text)       # fallback: model echoed "willingness/confidence … N"
     if m:
         return int(m.group(1)), True
     return None, False
@@ -124,7 +137,7 @@ def run_gsm8k_action_gen(vc, samples, diff_mtx, roles):
     for role in roles:
         rk = role.replace(" ", "_")
         prompts = [build_prompt(vc, s["question"], role, args.use_chat,
-                                args.order, args.anchor, args.scale) for s in samples]
+                                args.metric, args.order, args.anchor, args.scale) for s in samples]
         gen_texts = []
         for i in tqdm(range(0, len(prompts), args.batch_size),
                       desc=f"gsm8k-action-gen [{role}]"):
@@ -145,7 +158,7 @@ def run_gsm8k_action_gen(vc, samples, diff_mtx, roles):
 
         rs = role_stats[role]
         for sample, gen in zip(samples, gen_texts):
-            score, valid = parse_willingness(gen)
+            score, valid = parse_score(gen)
             sample[f"generated_{rk}"] = gen
             sample[f"score_{rk}"] = score
             sample[f"valid_{rk}"] = valid
@@ -186,7 +199,7 @@ def summarize(role_stats, alpha, st, en, roles):
 
         row = {
             "model": args.model, "size": args.size, "alpha": alpha,
-            "start": st, "end": en, "task": f"gsm8k_{args.suite}_gen", "role": role,
+            "start": st, "end": en, "task": f"gsm8k_{args.metric}_gen", "role": role,
             "total": total, "valid": valid, "invalid_rate": round(inv_rate, 6),
             "mean": round(mean, 6), "std": round(std, 6),
             "entropy_bits": round(ent, 6), "top_score": top_score,
@@ -215,7 +228,7 @@ def main():
     roles = utils.make_characters("gsm8k", custom_roles)
     print("Roles:", roles)
     print("Prompt (neutral):")
-    print(build_prompt(vc, "<Q>", "neutral", args.use_chat, args.order, args.anchor, args.scale))
+    print(build_prompt(vc, "<Q>", "neutral", args.use_chat, args.metric, args.order, args.anchor, args.scale))
 
     all_csv_rows = []
 
@@ -241,7 +254,8 @@ def main():
         with open(out_path, "w", encoding="utf-8") as fw:
             json.dump({"data": updated, "role_stats": role_stats,
                        "prompt_template": build_prompt(vc, "{context}", "neutral", args.use_chat,
-                                                        args.order, args.anchor, args.scale),
+                                                        args.metric, args.order, args.anchor, args.scale),
+                       "metric": args.metric,
                        "order": args.order, "anchor": args.anchor, "scale": args.scale,
                        "use_chat": args.use_chat},
                       fw, ensure_ascii=False, indent=2)
@@ -284,6 +298,9 @@ if __name__ == "__main__":
     parser.add_argument("--roles", type=str, default="")
     parser.add_argument("--order", type=str, default="asc", choices=["asc", "desc"],
                         help="option list order: asc=0..9, desc=9..0 (reversed-scale probe). enum scale only.")
+    parser.add_argument("--metric", type=str, default="willingness",
+                        choices=["willingness", "confidence"],
+                        help="willingness='reasoning willingness'; confidence='confidence about the question'.")
     parser.add_argument("--scale", type=str, default="enum", choices=["enum", "range"],
                         help="enum=spell out options; range='[0,9]' interval (order/anchor become no-ops).")
     parser.add_argument("--anchor", action="store_true",
