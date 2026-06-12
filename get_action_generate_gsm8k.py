@@ -56,31 +56,39 @@ PREFILL = "Willingness: "
 ANCHOR = "higher score = pay more reasoning effort"
 
 
-def make_instruction(order: str = "asc", anchor: bool = False) -> str:
+def make_instruction(order: str = "asc", anchor: bool = False,
+                     scale: str = "enum") -> str:
     """Build the willingness instruction.
 
-    order="asc" → options listed 0..9; "desc" → 9..0. The list ORDER is the
-    variable the reversed-scale experiment manipulates (a no-anchor model tracks
-    list position, not numeric semantics — baseline mean swings 5→8.9 between
-    asc/desc). anchor=True appends an explicit polarity label so the asc-vs-desc
-    decision test can ask whether stating the polarity collapses that swing.
+    scale="enum" → options spelled out as a list. order="asc" lists 0..9, "desc"
+      lists 9..0 — the list ORDER is the variable the reversed-scale experiment
+      manipulates (a no-anchor model tracks list position, not numeric semantics:
+      baseline mean swings 5→8.9 between asc/desc). anchor=True appends an explicit
+      polarity label so the asc-vs-desc decision test can ask whether stating the
+      polarity collapses that swing.
+    scale="range" → interval notation "[0,9]" (no enumerated options, so there is
+      no "first listed digit" to follow; order/anchor become no-ops). The final,
+      simplest phrasing.
     """
-    nums = range(10) if order == "asc" else range(9, -1, -1)
-    opts = ", ".join(str(i) for i in nums)
-    label = f" ({ANCHOR})" if anchor else ""
+    if scale == "range":
+        opts = "[0,9]"
+    else:
+        nums = range(10) if order == "asc" else range(9, -1, -1)
+        opts = "(" + ", ".join(str(i) for i in nums) + ")"
+    label = f" ({ANCHOR})" if (anchor and scale != "range") else ""
     return (
-        f'Evaluate your "reasoning willingness" ({opts}){label}.\n'
+        f'Evaluate your "reasoning willingness" {opts}{label}.\n'
         "Respond in this format:\n"
         "Willingness: <number>"
     )
 
 
 def build_prompt(vc: VicundaModel, ctx: str, role: str, use_chat: bool,
-                 order: str = "asc", anchor: bool = False) -> str:
+                 order: str = "asc", anchor: bool = False, scale: str = "enum") -> str:
     lines = [f"Here is a question: {ctx}"]
     if role not in ("neutral", "norole"):
         lines.append(f"Now you are {role}.")
-    lines.append(make_instruction(order, anchor))
+    lines.append(make_instruction(order, anchor, scale))
     body = "\n".join(lines)
     if use_chat:
         msgs = [{"role": "user", "content": body}]
@@ -116,7 +124,7 @@ def run_gsm8k_action_gen(vc, samples, diff_mtx, roles):
     for role in roles:
         rk = role.replace(" ", "_")
         prompts = [build_prompt(vc, s["question"], role, args.use_chat,
-                                args.order, args.anchor) for s in samples]
+                                args.order, args.anchor, args.scale) for s in samples]
         gen_texts = []
         for i in tqdm(range(0, len(prompts), args.batch_size),
                       desc=f"gsm8k-action-gen [{role}]"):
