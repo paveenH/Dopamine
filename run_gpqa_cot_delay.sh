@@ -94,7 +94,6 @@ python get_answer_gpqa_cot_delay.py \
     --limit         "${LIMIT}" \
     --sample        "${SAMPLE}" \
     --seed          "${SEED}" \
-    --use_chat \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
 
