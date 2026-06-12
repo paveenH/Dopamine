@@ -381,6 +381,32 @@ Your confidence of the question from [0,9] is:
 - **confidence 单调、willingness 在 −4 反常**:confidence 在窗口内随 α 单调(−4=3.57 < 0=5.27 < +4=8.10),符合 −α 降 wanting;但 **willingness 在 α=−4 反常偏高(6.45 > baseline 5.53,且 −4 > 0 > −2 非单调)——疑似 −4 异常数据**,与预测方向相反。
 - **定位**:此为 **manipulation-check / 负控制**,非核心 wanting 主张。Berridge 的 wanting 是非意识的 incentive salience,口头自评(尤其 willingness)理论上是错的量尺;数据(willingness 反常、confidence 更像 PFC 元认知读数而非 DA)印证这点。核心 wanting 由非语言选择的 Confidence Betting(`Ada_Dopamine.md` §4.6)承担。
 
+#### 2.6.1 Generation-mode (betting-style readout)
+
+Prompt(neutral,range `[0,9]`,chat + `"Willingness: "` assistant prefill):
+
+```
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+Cutting Knowledge Date: December 2023
+Today Date: 26 Jul 2024
+
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Here is a question: {context}
+Evaluate your "reasoning willingness" [0,9].
+Respond in this format:
+Willingness: <number><|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Willingness: 
+```
+
+| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **willingness(gen)** mean | 7.95 | 7.97 | 7.98 | 8.33 | 8.57 | 8.74 | **8.69** | 8.15 | 4.45 |
+| invalid_rate | 2.7% | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 22.3% |
+
+
 ---
 
 ## 3. MATH Performance
