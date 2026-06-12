@@ -53,7 +53,7 @@ import utils
 # "…bet (0,2,5,10)… Respond in this format: Bet: <number>" + "Bet: " prefill, so a
 # generation-mode willingness readout sits on the same footing as the betting one.
 INSTRUCTION = (
-    'Evaluate your "reasoning willingness" (0, 1, 2, 3, 4, 5, 6, 7, 8, 9).\n'
+    'Honestly evaluate your "reasoning willingness" (0, 1, 2, 3, 4, 5, 6, 7, 8, 9).\n'
     "Respond in this format:\n"
     "Willingness: <number>"
 )
