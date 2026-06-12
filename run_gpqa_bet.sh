@@ -15,13 +15,15 @@
 # Task   : GPQA main + diamond only (micro accuracy)
 # Layers : 11–20 (mid-layer RSNs)
 #
-# NOTE (2026-06): runs BARE-STRING (no --use_chat). The NMD mask / diff vectors
-# were extracted on bare prompts, so steering must inject into the same activation
-# distribution; apply_chat_template prepends <|start_header_id|>system… control
-# tokens that shift residual-stream geometry away from where the wanting direction
-# was measured, diluting the steer. build_prompt(use_chat=False) returns the bare
-# PROMPT_TEMPLATE (already ends with the "Bet:/Answer:" format spec). See CLAUDE.md
-# chat-template caveat. The §4.6 headline (n=646) was chat — re-run before citing.
+# NOTE (2026-06): KEEPS --use_chat — this is a deliberate EXCEPTION to the
+# default-bare convention (CLAUDE.md chat-template caveat). A bare-string re-run
+# (n=646) was tested and the betting effect COLLAPSED: mean_bet flat at 5.18/5.28/
+# 5.31 across α=+4/−4/orig and bet10 flat (~13–16%), vs the chat §4.6 headline where
+# α=+4 lifts mean_bet to 7.65 and bet10 to 53.1%. So the wanting→bet dose-response
+# lives only under the chat wrapper here; running bare makes the experiment null.
+# Interpretation is open (chat structure may be load-bearing for the bet behavior,
+# or the bare baseline shifts the bet distribution so α has no headroom) — but
+# empirically chat is required for this experiment, so the flag stays.
 #
 # Output:
 #   gpqa_bet_8B_summary.csv      — acc / mean_bet / bet distribution per condition
@@ -102,6 +104,7 @@ python get_answer_gpqa_bet.py \
     --limit          "${LIMIT}" \
     --out_prefix     "gpqa_bet" \
     --keep_tasks     "GPQA (gpqa_main)" "GPQA (gpqa_diamond)" \
+    --use_chat \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
 
