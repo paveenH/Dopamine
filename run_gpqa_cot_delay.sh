@@ -15,6 +15,14 @@
 # Task   : GPQA (diamond + main + extended, ~590 samples)
 # Layers : 11–20 (mid-layer RSNs)
 #
+# NOTE (2026-06): runs BARE-STRING (no --use_chat). The NMD mask / diff vectors
+# were extracted on bare prompts (run_hidden_mmlu.sh, run_mean_diff.sh, run_nmd.sh),
+# so steering must inject into the same activation distribution; apply_chat_template
+# prepends <|start_header_id|>system… control tokens that shift residual-stream
+# geometry away from where the wanting direction was measured, diluting the steer.
+# build_prompt(use_chat=False) returns the bare PROMPT_TEMPLATE unchanged. See the
+# chat-template alignment caveat in CLAUDE.md.
+#
 # Output:
 #   gpqa_delay_8B_summary.csv     — acc / cot_mean / cot_std / commit_rate per condition
 #   gpqa_delay_8B_per_sample.csv  — per-sample cot_tokens
