@@ -52,19 +52,35 @@ import utils
 # "Willingness: " pulled out as the assistant prefill. Mirrors betting's
 # "…bet (0,2,5,10)… Respond in this format: Bet: <number>" + "Bet: " prefill, so a
 # generation-mode willingness readout sits on the same footing as the betting one.
-INSTRUCTION = (
-    'Evaluate your "reasoning willingness" (9, 8, 7, 6, 5, 4, 3, 2, 1, 0).\n'
-    "Respond in this format:\n"
-    "Willingness: <number>"
-)
 PREFILL = "Willingness: "
+ANCHOR = "higher score = pay more reasoning effort"
 
 
-def build_prompt(vc: VicundaModel, ctx: str, role: str, use_chat: bool) -> str:
+def make_instruction(order: str = "asc", anchor: bool = False) -> str:
+    """Build the willingness instruction.
+
+    order="asc" → options listed 0..9; "desc" → 9..0. The list ORDER is the
+    variable the reversed-scale experiment manipulates (a no-anchor model tracks
+    list position, not numeric semantics — baseline mean swings 5→8.9 between
+    asc/desc). anchor=True appends an explicit polarity label so the asc-vs-desc
+    decision test can ask whether stating the polarity collapses that swing.
+    """
+    nums = range(10) if order == "asc" else range(9, -1, -1)
+    opts = ", ".join(str(i) for i in nums)
+    label = f" ({ANCHOR})" if anchor else ""
+    return (
+        f'Evaluate your "reasoning willingness" ({opts}){label}.\n'
+        "Respond in this format:\n"
+        "Willingness: <number>"
+    )
+
+
+def build_prompt(vc: VicundaModel, ctx: str, role: str, use_chat: bool,
+                 order: str = "asc", anchor: bool = False) -> str:
     lines = [f"Here is a question: {ctx}"]
     if role not in ("neutral", "norole"):
         lines.append(f"Now you are {role}.")
-    lines.append(INSTRUCTION)
+    lines.append(make_instruction(order, anchor))
     body = "\n".join(lines)
     if use_chat:
         msgs = [{"role": "user", "content": body}]
@@ -99,7 +115,8 @@ def run_gsm8k_action_gen(vc, samples, diff_mtx, roles):
 
     for role in roles:
         rk = role.replace(" ", "_")
-        prompts = [build_prompt(vc, s["question"], role, args.use_chat) for s in samples]
+        prompts = [build_prompt(vc, s["question"], role, args.use_chat,
+                                args.order, args.anchor) for s in samples]
         gen_texts = []
         for i in tqdm(range(0, len(prompts), args.batch_size),
                       desc=f"gsm8k-action-gen [{role}]"):
@@ -190,7 +207,7 @@ def main():
     roles = utils.make_characters("gsm8k", custom_roles)
     print("Roles:", roles)
     print("Prompt (neutral):")
-    print(build_prompt(vc, "<Q>", "neutral", args.use_chat))
+    print(build_prompt(vc, "<Q>", "neutral", args.use_chat, args.order, args.anchor))
 
     all_csv_rows = []
 
@@ -215,7 +232,9 @@ def main():
         out_path = os.path.join(out_dir, f"gsm8k_action_gen_{args.size}_{st}_{en}.json")
         with open(out_path, "w", encoding="utf-8") as fw:
             json.dump({"data": updated, "role_stats": role_stats,
-                       "prompt_template": build_prompt(vc, "{context}", "neutral", args.use_chat),
+                       "prompt_template": build_prompt(vc, "{context}", "neutral", args.use_chat,
+                                                        args.order, args.anchor),
+                       "order": args.order, "anchor": args.anchor,
                        "use_chat": args.use_chat},
                       fw, ensure_ascii=False, indent=2)
         print(f"[Saved JSON] {out_path}")
@@ -255,6 +274,10 @@ if __name__ == "__main__":
     parser.add_argument("--suite", type=str, default="action", choices=["action", "confidence"])
     parser.add_argument("--cot", action="store_true")
     parser.add_argument("--roles", type=str, default="")
+    parser.add_argument("--order", type=str, default="asc", choices=["asc", "desc"],
+                        help="option list order: asc=0..9, desc=9..0 (reversed-scale probe).")
+    parser.add_argument("--anchor", action="store_true",
+                        help=f"append the explicit polarity label '({ANCHOR})' to the instruction.")
     parser.add_argument("--use_chat", action="store_true",
                         help="ON by default in run_*.sh — the generation form wants "
                              "the chat scaffold + 'Willingness: ' prefill (betting-style).")
