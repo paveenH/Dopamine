@@ -33,7 +33,6 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
 CGT	run_cgt.sh
 GPQA 信心下注	run_gpqa_bet.sh / run_gpqa_bet_running.sh
 MMLU 信心下注	run_mmlu_bet.sh / run_mmlu_bet_running.sh
-GPQA 延迟折扣	run_gpqa_cot_delay.sh
 
 
 # Behavioral Dopamine: Theoretical Grounding & Experiments
