@@ -52,7 +52,7 @@ VALID_BETS = {0, 2, 5, 10}
 
 
 def build_prompt(vc: VicundaModel, text: str, i: int, total: int, use_chat: bool,
-                 score: int = 0) -> str:
+                 score: int = 0, bet_prefill: bool = False) -> str:
     prompt = PROMPT_TEMPLATE.format(i=i, total=total, question=text.strip(), score=score)
     if use_chat:
         msgs = [{"role": "user", "content": prompt}]
@@ -60,6 +60,12 @@ def build_prompt(vc: VicundaModel, text: str, i: int, total: int, use_chat: bool
             msgs, tokenize=False, add_generation_prompt=True
         )
         return chat + "Bet: "
+    # bare-string mode. --bet_prefill appends the same "Bet: " primer the chat
+    # branch uses, WITHOUT the chat role scaffold — this isolates whether the
+    # betting α-effect comes from the prefill施力点 (next token = bet digit) or
+    # from the chat structure itself. Bare without prefill = model free-continues.
+    if bet_prefill:
+        return prompt + "\nBet: "
     return prompt
 
 
@@ -177,7 +183,8 @@ def run_generation_serial(vc, samples, label, diff_mtx=None, per_task_reset=Fals
             else:
                 idx_in_prompt = i + 1
             prompt = build_prompt(vc, sample["text"], idx_in_prompt, total,
-                                  args.use_chat, score=running)
+                                  args.use_chat, score=running,
+                                  bet_prefill=args.bet_prefill)
             if diff_mtx is not None:
                 out = vc.regenerate(
                     [prompt], max_new_tokens=args.max_new_tokens,
@@ -339,7 +346,8 @@ def main():
     # In running-score mode prompts depend on the running total, so they are
     # built per-question inside run_generation_serial — not pre-built here.
     prompts = None if args.running_score else [
-        build_prompt(vc, s["text"], i + 1, total, args.use_chat)
+        build_prompt(vc, s["text"], i + 1, total, args.use_chat,
+                     bet_prefill=args.bet_prefill)
         for i, s in enumerate(all_samples)
     ]
 
@@ -435,6 +443,10 @@ if __name__ == "__main__":
                         help="alpha-start-end triples, e.g. '4-11-20 neg4-11-20'")
     parser.add_argument("--abs",         action="store_true")
     parser.add_argument("--use_chat",    action="store_true")
+    parser.add_argument("--bet_prefill", action="store_true",
+                        help="bare-string only: append 'Bet: ' primer without the "
+                             "chat scaffold, to isolate prefill vs chat-structure as "
+                             "the source of the betting α-effect. Ignored if --use_chat.")
     parser.add_argument("--skip_orig",   action="store_true",
                         help="Load orig results from existing JSON, skip re-running")
     parser.add_argument("--out_prefix",  default="bet",
