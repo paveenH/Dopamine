@@ -30,7 +30,8 @@ CONFIGS="neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 0-11-20 2-11-20 4-11-20 6-1
 # Quick check first (orig + ±4):
 # CONFIGS="0-11-20 4-11-20 neg4-11-20"
 
-ROLES="an expert,a non expert,a primary school teacher"
+# neutral only (no --roles → make_characters returns ["neutral"]). The dose-response
+# is the question here, not the role effect; add roles back later if needed.
 GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 
 WORK_DIR="/${DATA}/paveen/Dopamine"
@@ -40,7 +41,7 @@ echo "=================================================="
 echo "Start: $(date)"
 echo "Model: ${MODEL_NAME} (${MODEL_SIZE})  | GENERATION + chat + prefill"
 echo "Configs: ${CONFIGS}"
-echo "Roles  : neutral, ${ROLES}"
+echo "Roles  : neutral only"
 echo "Task: GSM8K Willingness (0-9), generation readout"
 echo "=================================================="
 
