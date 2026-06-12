@@ -15,6 +15,14 @@
 # Task   : GPQA main + diamond only (micro accuracy)
 # Layers : 11–20 (mid-layer RSNs)
 #
+# NOTE (2026-06): runs BARE-STRING (no --use_chat). The NMD mask / diff vectors
+# were extracted on bare prompts, so steering must inject into the same activation
+# distribution; apply_chat_template prepends <|start_header_id|>system… control
+# tokens that shift residual-stream geometry away from where the wanting direction
+# was measured, diluting the steer. build_prompt(use_chat=False) returns the bare
+# PROMPT_TEMPLATE (already ends with the "Bet:/Answer:" format spec). See CLAUDE.md
+# chat-template caveat. The §4.6 headline (n=646) was chat — re-run before citing.
+#
 # Output:
 #   gpqa_bet_8B_summary.csv      — acc / mean_bet / bet distribution per condition
 #   gpqa_bet_8B_per_sample.csv   — per-sample bet and answer
@@ -31,7 +39,7 @@ MASK_TYPE="nmd"
 CONFIGS="4-11-20 neg4-11-20"
 
 # ==================== Paths ====================
-WORK_DIR="/data1/paveen/RolePlaying"
+WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 MODEL="llama3"
@@ -94,7 +102,6 @@ python get_answer_gpqa_bet.py \
     --limit          "${LIMIT}" \
     --out_prefix     "gpqa_bet" \
     --keep_tasks     "GPQA (gpqa_main)" "GPQA (gpqa_diamond)" \
-    --use_chat \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
 
