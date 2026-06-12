@@ -27,7 +27,7 @@ MASK_TYPE="nmd"
 CONFIGS="4-11-20 neg4-11-20"
 
 # ==================== Paths ====================
-WORK_DIR="/data1/paveen/RolePlaying"
+WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
 MODEL="llama3"
