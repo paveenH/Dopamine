@@ -47,25 +47,25 @@ import utils
 # generates the digit immediately. NOT the logits-suite template — defined here to
 # avoid touching template.py's history-bound suites.
 
-NEUTRAL_BODY = (
-    "Here is a question: {context}\n"
+# BET-aligned structure (cf. get_answer_gpqa_bet.py PROMPT_TEMPLATE): an imperative
+# instruction with the explicit option set, a "Respond in this format" block, then
+# "Willingness: " pulled out as the assistant prefill. Mirrors betting's
+# "…bet (0,2,5,10)… Respond in this format: Bet: <number>" + "Bet: " prefill, so a
+# generation-mode willingness readout sits on the same footing as the betting one.
+INSTRUCTION = (
+    'Evaluate your "reasoning willingness" (0, 1, 2, 3, 4, 5, 6, 7, 8, 9).\n'
     "Respond in this format:\n"
-    "Willingness: <a single number from 0 to 9>"
-)
-NEG_BODY = (
-    "Here is a question: {context}\n"
-    "Now you are {character}.\n"
-    "Respond in this format:\n"
-    "Willingness: <a single number from 0 to 9>"
+    "Willingness: <number>"
 )
 PREFILL = "Willingness: "
 
 
 def build_prompt(vc: VicundaModel, ctx: str, role: str, use_chat: bool) -> str:
-    if role in ("neutral", "norole"):
-        body = NEUTRAL_BODY.format(context=ctx)
-    else:
-        body = NEG_BODY.format(context=ctx, character=role)
+    lines = [f"Here is a question: {ctx}"]
+    if role not in ("neutral", "norole"):
+        lines.append(f"Now you are {role}.")
+    lines.append(INSTRUCTION)
+    body = "\n".join(lines)
     if use_chat:
         msgs = [{"role": "user", "content": body}]
         chat = vc.tokenizer.apply_chat_template(
@@ -77,15 +77,16 @@ def build_prompt(vc: VicundaModel, ctx: str, role: str, use_chat: bool) -> str:
 
 
 # ───────────────────── Parsing ─────────────────────
-WILL_RE = re.compile(r"[Ww]illingness\s*[:：]\s*(\d)")
-LEADING_RE = re.compile(r"^\s*(\d)")  # prefix mode: generation starts with the digit
+# Prompt ends with "… is: ", so the model continues with the digit (prefix mode).
+LEADING_RE = re.compile(r"^\s*(\d)")                       # generation starts with the digit
+WILL_RE = re.compile(r"willingness[^0-9]{0,12}(\d)", re.IGNORECASE)  # echoed phrasing fallback
 
 
 def parse_willingness(text: str):
     """Return (score 0-9 | None, valid: bool)."""
-    m = WILL_RE.search(text)
+    m = LEADING_RE.match(text)          # prefix mode (the normal case)
     if not m:
-        m = LEADING_RE.match(text)
+        m = WILL_RE.search(text)        # fallback: model echoed "willingness … N"
     if m:
         return int(m.group(1)), True
     return None, False
