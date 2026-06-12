@@ -402,9 +402,25 @@ Willingness:
 ```
 
 | α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | **willingness** mean | 7.95 | 7.97 | 7.98 | 8.33 | 8.57 | 8.74 | **8.69** | 8.15 | 4.45 |
 | invalid_rate | 2.7% | 0% | 0% | 0% | 0% | 0% | 0% | 0% | 22.3% |
+
+**Confidence**(同 scaffold,措辞换 `"confidence about the question"`,prefill `Confidence: `,`oral_confidence_gen/`):
+
+```
+Here is a question: {context}
+Evaluate your "confidence about the question" [0,9].
+Respond in this format:
+Confidence: <number>
+```
+
+| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **confidence** mean | 6.20 | 7.17 | 5.50 | 7.77 | 8.25 | 8.38 | **8.88** | 8.07 | 2.35 |
+| invalid_rate | 1.0% | 0% | 0% | 0% | 0% | 0% | 0% | 0% | 93.3% |
+
+暂无结论
 
 ---
 
