@@ -283,7 +283,9 @@ if __name__ == "__main__":
     parser.add_argument("--cot", action="store_true")
     parser.add_argument("--roles", type=str, default="")
     parser.add_argument("--order", type=str, default="asc", choices=["asc", "desc"],
-                        help="option list order: asc=0..9, desc=9..0 (reversed-scale probe).")
+                        help="option list order: asc=0..9, desc=9..0 (reversed-scale probe). enum scale only.")
+    parser.add_argument("--scale", type=str, default="enum", choices=["enum", "range"],
+                        help="enum=spell out options; range='[0,9]' interval (order/anchor become no-ops).")
     parser.add_argument("--anchor", action="store_true",
                         help=f"append the explicit polarity label '({ANCHOR})' to the instruction.")
     parser.add_argument("--use_chat", action="store_true",
