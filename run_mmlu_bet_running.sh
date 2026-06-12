@@ -24,6 +24,11 @@
 # Bet/Answer parsed from generated text (regex), bet ∈ {0,2,5,10} discrete — NOT
 # a logit readout. ACC reported offline, not from inline correct_* fields.
 #
+# NOTE (2026-06): runs BARE-STRING (no --use_chat), matching run_mmlu_bet.sh —
+# steering must sit on the same bare activation distribution the NMD mask was
+# extracted in. build_prompt(use_chat=False) returns the bare PROMPT_TEMPLATE.
+# See CLAUDE.md chat-template caveat. Re-run before citing prior chat numbers.
+#
 # Output (separate dir, never overwrites the score=0 main MMLU results):
 #   mmlu_bet_run_8B_summary.csv     — acc / mean_bet / bet dist per condition
 #   mmlu_bet_run_8B_per_sample.csv  — per-sample bet, answer, task, score_before
@@ -119,7 +124,6 @@ python get_answer_gpqa_bet.py \
     --batch_size     "${BATCH_SIZE}" \
     --limit          "${LIMIT}" \
     --out_prefix     "mmlu_bet_run" \
-    --use_chat \
     --running_score \
     --per_task_reset \
     ${SKIP_ORIG} \
