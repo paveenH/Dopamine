@@ -351,8 +351,6 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 > - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature either）**。
 > - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答（either）仍被钉在高位(242≈+4_nocot 的 232),过度 wanting 直接穿透脚手架;−4 端抢答塌到 63,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
 
-
-
 ### 2.6 Self-evaluation:reasoning-willingness / answer-confidence (0–9)
 
 **Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, neutral, NMD mask layer 11–20, 全 α 剂量扫 −8→+8。这是一套**独立 prompt 家族**——question-only、对 "0".."9" 十个 token 取 argmax 的 logit 抽取,**不生成答案、无 `####`**,所以不受 GSM8K 答案抽取对称化影响。结果目录 `RoleAnswer/llama3/gsm8k/oral_willingness/` 与 `oral_confidence/`,图 `plots_eot/oral_dose_response.png`。
