@@ -64,14 +64,11 @@ The H2/H3 contradiction (H2 +1% but H3 better-shape-worse-acc) raised the questi
 
 ## Capitulation / Pressure experiments
 
-`get_answer_capitulation.py` runs the two-round capitulation protocol (Round 1: original answer; Round 2: pressure prompt + optional RSN steering). Four shell scripts drive it:
+**Dropped from the main line (2026-06).** Capitulation was moved out of the wanting/dopamine narrative: it measures PFC-level goal-maintenance under pressure (an indirect DA downstream), not tonic-DA wanting; the "capitulate vs. hold" readout is bidirectionally interpretable; it conflates with instruction-tuning sycophancy; and steering only works on Llama (Qwen≈0%, Mistral reverses). See `Ada_Dopamine.md` for the rationale. Code/script are kept for reference but not part of the active suite.
 
-- `run_capitulation.sh` — standard social pressure (soft challenge), all three models
-- `run_capitulation_gt.sh` — Round 1 uses gold answer (eliminates guessing noise)
-- `run_capitulation_pressure.sh` — authority-challenge pressure prompt, Llama3 only
-- `run_capitulation_pressure_own.sh` — pressure from the model's own prior answer
+`get_answer_capitulation.py` runs the two-round protocol (Round 1: original answer; Round 2: pressure prompt + optional RSN steering); Round 2 reads a single-token argmax via `regenerate_logits` (no generation). Only `run_capitulation.sh` (own answer + soft pressure, all three models) is kept — the three deleted variants (gold-R1, authority-challenge, authority-own) are recoverable by setting `--gold_r1` / `--pressure` on it.
 
-Key CLI flags: `--pressure` switches to the authority-challenge prompt; `--config` encodes `{alpha}-{layer_start}-{layer_end}` (e.g. `4-11-20`). Output lands in `${BASE_DIR}/mmlupro/${MODEL}/answer_cap_mmlupro/cap_{config}/`.
+Key CLI flags: `--pressure` switches to the authority-challenge prompt; `--gold_r1` uses the gold label as Round 1; `--configs` encodes `{alpha}-{layer_start}-{layer_end}` triplets (e.g. `0-11-20 4-11-20 neg4-11-20`). Output lands in `${BASE_DIR}/mmlupro/${MODEL}/answer_cap_mmlupro/cap_{alpha}/`.
 
 Analysis: `gsm8k/analyze_cap_stratified.py` stratifies capitulation rates by difficulty and task category.
 
