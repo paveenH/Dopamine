@@ -94,6 +94,29 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | TQA MC2 | 2.33% | 0.49% ↓ | 2.20% ↑ |
 
 
+## 4. 行為學實驗總覽 — 失敗根因診斷表
+
+整理用 MAP。核心區分：**「沒成功」≠「prompt 不合適」**。把所有 wanting 行為學實驗按失敗根因分成三類——
+**機制不兼容**（換任何 prompt 都救不回，是 inference-time 注入的物理邊界，正確的 skip）、
+**構念錯誤**（用了理論上就錯的 proxy，例如 self-report 測 non-conscious wanting）、
+**設計/任務缺陷**（範式結構可重新設計救，但要改的是結構不是 chat-vs-bare 的 input wording）。
+
+
+| # | 實驗 | 狀態 | 文檔診斷的失敗根因 | 是 prompt 問題嗎？ |
+|---|---|---|---|---|
+| ⑤ | **Confidence Betting** | ✅ 成功 | — | — (乾淨) |
+| ⑥ | **Bandit (EVOLvE)** | ✅ 成功 | — | — (乾淨) |
+| ⑥ | TextBandit | ⚠️ 弱 | 數字臂名消語義線索 + 固定位置偏差 + 雙峰分布 | 半個設計問題：是臂名/位置，非 chat-vs-bare |
+| ① | Pressure/Capitulation | ⚠️ 跨模型失效 | 理論 underdetermination（cap 可雙向解釋）+ sycophancy 與 wanting 不可分 + Qwen/Mistral steering 本身失效 | 不是 prompt：判別力 + 模型特異性 |
+| ② | Effort-choice | ❌ 方向反 | +α 增強對熟悉任務(GSM8K)的 confidence/anchor，非 effort willingness | 可能是設計：A/B 不對稱 |
+| ④ | Delay Discounting | ❌ 無效 | 根本不存在 discounting 情境（無 immediate reward），CoT 長度由難度決定 | 設計缺陷：範式缺 tradeoff |
+| ⑦ | Reversal Learning | ❌ skip | Phasic DA/RPE 需 synaptic plasticity，inference-time 靜態權重不兼容 | 機制不兼容（根本） |
+| ⑧ | Agentic (ScienceWorld) | ❌ skip | 測到 impulse control 非 persistence；+α 崩潰方向對但來源不明 | 機制/構念不匹配 |
+| ⑨ | PIT | ❌ skip | 需 cross-phase training-time 學習，與 inference injection 不兼容 | 機制不兼容（根本） |
+| ⑩ | TRAIT | ❌ skip | 無 accuracy ground truth；Llama-IT −4 觸天花板壓不動；Base 方向反轉 | 不是 prompt：RLHF 天花板 + 無 ground truth |
+| B | GSM8K willingness/confidence (自評 0–9) | ⚠️ 重試仍差 | self-report 測 conscious 自述，Berridge wanting 是 non-conscious | 不是 prompt——構念錯誤（理論上就不該用 oral self-report 測 wanting） |
+---
+
 ### 4.2 實驗① — Pressure & Capitulation
 
 **神經科學對應：** 社會壓力透過 HPA axis → cortisol → PFC DA 下降，損害目標維持能力。RSN steering 的對抗效果對應 **PFC-level goal maintenance 的恢復**，與 tonic DA 的關聯是間接的，不是 wanting 的直接證據。
