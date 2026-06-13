@@ -14,6 +14,17 @@
 # ceilinged, so +α has little headroom; signal expected on the −α side).
 # Run α=0 first to confirm Llama3-8B is NOT near-random before reading the sweep.
 #
+# NOTE (2026-06): runs BARE-STRING (no --use_chat). The NMD mask / diff vectors
+# were extracted on bare prompts, so steering must inject into the same activation
+# distribution; apply_chat_template prepends <|start_header_id|>system… control
+# tokens that shift residual-stream geometry away from where the wanting direction
+# was measured, diluting the steer — a candidate explanation for the CGT α-null.
+# to_chat(use_chat=False) just concatenates system + "\n\n" + user; the <choice>N
+# </choice> XML format is an instruction inside SYSTEM_TEMPLATE that the model emits
+# regardless of the chat wrapper, so parse_choice is unaffected. See CLAUDE.md
+# chat-template caveat. The first 10-run null was collected under chat — the
+# bare-vs-chat re-run is exactly the decision sweep that caveat calls for.
+#
 # Output (per the migrated Dopamine tree):
 #   ${BASE_DIR}/${MODEL}/answer_cgt/summary_llama3_8B.csv   — mean±std per α
 #   ${BASE_DIR}/${MODEL}/answer_cgt/mdf_${alpha}/cgt_8B_*_11_20.json  — per-run detail
@@ -75,7 +86,7 @@ echo "=================================================="
 echo "Cambridge Gambling Task — RSN α dose-response"
 echo "Model  : ${MODEL_NAME}-${MODEL_SIZE}  (layers 11–20, ${MASK_TYPE} mask)"
 echo "Configs: ${CONFIGS}"
-echo "Runs   : ${NUM_RUNS} × 64 decisions  (chat=on, T=${TEMPERATURE}, top_p=${TOP_P})"
+echo "Runs   : ${NUM_RUNS} × 64 decisions  (bare-string, T=${TEMPERATURE}, top_p=${TOP_P})"
 echo "Output : ${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}"
 echo "Start  : $(date)"
 echo "=================================================="
@@ -95,7 +106,6 @@ python get_answer_cgt.py \
     --max_new_tokens "${MAX_NEW_TOKENS}" \
     --temperature "${TEMPERATURE}" \
     --top_p "${TOP_P}" \
-    --use_chat \
     --ans_file "${ANS_FILE}" \
     --data "${DATA}" \
     --base_dir "${BASE_DIR}"
