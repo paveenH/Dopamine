@@ -20,10 +20,12 @@
 # {0,2,5,10} discrete — NOT a logit readout. ACC reported offline, not from
 # inline correct_* fields.
 #
-# NOTE (2026-06): runs BARE-STRING (no --use_chat), matching run_gpqa_bet.sh —
-# steering must sit on the same bare activation distribution the NMD mask was
-# extracted in. build_prompt(use_chat=False) returns the bare PROMPT_TEMPLATE.
-# See CLAUDE.md chat-template caveat. Re-run before citing prior chat numbers.
+# NOTE (2026-06): KEEPS --use_chat, matching run_gpqa_bet.sh — the §4.6 betting
+# effect lives under the chat wrapper (a bare-string re-run collapsed it), so this
+# running-score control must use the same chat scaffold as the main version to be
+# comparable. build_prompt(use_chat=True) appends the "+ Bet: " primer on the chat
+# branch. This is a deliberate exception to the default-bare convention (CLAUDE.md
+# chat-template caveat).
 #
 # Same-machine rule: bf16 greedy is NOT byte-reproducible across GPUs — keep the
 # whole orig/+4/−4 set on ONE box. n=646 (GPQA main+diamond) × serial is slower
@@ -113,6 +115,7 @@ python get_answer_gpqa_bet.py \
     --limit          "${LIMIT}" \
     --out_prefix     "gpqa_bet_run" \
     --keep_tasks     "GPQA (gpqa_main)" "GPQA (gpqa_diamond)" \
+    --use_chat \
     --running_score \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
