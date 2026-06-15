@@ -63,34 +63,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | Cross-model Transfer (Base ← IT RSN) | IT RSN 作用於 Base model；abstention 61% → 7% | 機制起源（pre-training latent） |
 
 
-## 4. 行為學實驗總覽 — 失敗根因診斷表
-
-整理用 MAP。核心區分：**「沒成功」≠「prompt 不合適」**。把所有 wanting 行為學實驗按失敗根因分成三類——
-**機制不兼容**（換任何 prompt 都救不回，是 inference-time 注入的物理邊界，正確的 skip）、
-**構念錯誤**（用了理論上就錯的 proxy，例如 self-report 測 non-conscious wanting）、
-**設計/任務缺陷**（範式結構可重新設計救，但要改的是結構不是 chat-vs-bare 的 input wording）。
-
-
-| # | 實驗 | 狀態 | 文檔診斷的失敗根因 | 是 prompt 問題嗎？ |
-|---|---|---|---|---|
-| ⑤ | **Confidence Betting** | ✅ 成功 | — | — (乾淨) |
-| ⑥ | **Bandit (EVOLvE)** | ✅ 成功 | — | — (乾淨) |
-| ⑥ | TextBandit | ⚠️ 弱 | 數字臂名消語義線索 + 固定位置偏差 + 雙峰分布 | 半個設計問題：是臂名/位置，非 chat-vs-bare |
-| ① | Pressure/Capitulation | ⚠️ 跨模型失效 | 理論 underdetermination（cap 可雙向解釋）+ sycophancy 與 wanting 不可分 + Qwen/Mistral steering 本身失效 | 不是 prompt：判別力 + 模型特異性 |
-| ② | Effort-choice | ❌ 方向反 | +α 增強對熟悉任務(GSM8K)的 confidence/anchor，非 effort willingness | 可能是設計：A/B 不對稱 |
-| ④ | Delay Discounting | ❌ 無效 | 根本不存在 discounting 情境（無 immediate reward），CoT 長度由難度決定 | 設計缺陷：範式缺 tradeoff |
-| ⑦ | Reversal Learning | ❌ skip | Phasic DA/RPE 需 synaptic plasticity，inference-time 靜態權重不兼容 | 機制不兼容（根本） |
-| ⑧ | Agentic (ScienceWorld) | ❌ skip | 測到 impulse control 非 persistence；+α 崩潰方向對但來源不明 | 機制/構念不匹配 |
-| ⑨ | PIT | ❌ skip | 需 cross-phase training-time 學習，與 inference injection 不兼容 | 機制不兼容（根本） |
-| ⑩ | TRAIT | ❌ skip | 無 accuracy ground truth；Llama-IT −4 觸天花板壓不動；Base 方向反轉 | 不是 prompt：RLHF 天花板 + 無 ground truth |
-| B | GSM8K willingness/confidence (自評 0–9) | ⚠️ 重試仍差 | self-report 測 conscious 自述，Berridge wanting 是 non-conscious | 不是 prompt——構念錯誤（理論上就不該用 oral self-report 測 wanting） |
----
-
-### 4.3 實驗② — Effort-based Task Choice
-
-**神經科學對應：** 多巴胺直接控制 effort willingness——高 DA 讓個體願意為更大報酬付出更多努力；低 DA 導致 effort withdrawal，個體傾向選擇放棄或選擇簡單路徑（Salamone et al.）。
-
-**實驗 A：Abstention Rate（MMLU-E）**
+### 2.1 Experiment A — Abstention Rate (MMLU-E)
 
 - 來自 RSN paper，測量 role prompt 切換對 E-ratio 的影響。
 - Expert role 一致降低 E-ratio（更願意作答），對應 effort engagement threshold 的調控。
@@ -104,7 +77,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | Qwen3-8B-IT | Non-Expert | 52.5 | 29.9 | 74.9 |
 | Qwen3-8B-IT | **Expert** | **63.4** | **14.3** | 73.9 |
 
-**實驗 A′：Neutral Steering E-ratio（Bidirectional Control，Llama3-8B）**
+### 2.2 Experiment A′ — Neutral Steering E-Ratio (Bidirectional Control, Llama3-8B)
 
 - 無 role prompt，純 RSN steering 下各任務的 E-ratio 雙向控制，排除 role prompt 的混淆。
 - +α 一致壓低 E-ratio；−α 一致放大 E-ratio——RSN 作為雙向 gain knob on effort willingness，不依賴 role prompt。
@@ -120,9 +93,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | TQA MC1 | 2.82% | 1.22% ↓ | 3.67% ↑ |
 | TQA MC2 | 2.33% | 0.49% ↓ | 2.20% ↑ |
 
-**實驗 B：Willingness Self-Evaluation（0–9 scale）**
-
-**定位：manipulation check，不作為多巴胺框架的核心證據。** 模型的 0–9 自評是語言輸出，測的是「模型說自己願意」而非「模型實際投入了多少」。
+### 2.3 ExperimentB：Willingness Self-Evaluation（0–9 scale）
 
 根據 Berridge 框架，wanting（incentive salience）是一個可在**無意識層面**運作的動機過程，與主觀感受到的 conscious desire 是可解離的兩套系統（Berridge & Robinson, 2003；Berridge, 2023）。最直接的實證來自 Winkielman, Berridge & Wilbarger（2005）：阈下（subliminal）呈現的情緒線索能改變行為層面的 wanting——口渴受試在阈下笑臉後**倒更多、喝更多、願付更高價**，阈下皺眉則相反——而受試者**完全無法以 self-report 察覺此變化**，甚至報告不出任何情緒波動。這證明 wanting 的行為讀數與 self-report 在人類身上就已解離：**self-report 測不到的 wanting，行為指標測得到。**
 
@@ -137,98 +108,10 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | TruthfulQA | 5.47 ± 3.81 | **8.05 ± 0.25** | 6.36 ± 3.31 |
 | GSM8K | 5.50 ± 3.66 | **7.98 ± 0.33** | 6.58 ± 3.06 |
 
-**實驗 C Effort-based Task Choice 完整範式補充設計**
 
-設計明確讓模型在「簡單問題（低 effort，低 reward）」和「困難問題（高 effort，高 reward）」之間做選擇的實驗，在三個 steering 條件下觀察選擇分布變化。
+## 3. Core Behavioral Experiments
 
-**任務配對：GSM8K（Easy）vs. MATH（Hard）**
-
-**Prompt（Round 1）：**
-```
-You are given two math problems. Choose one to answer.
-
-Option A: worth 1 point. (simple)
-Option B: worth 10 points. (hard)
-
-[Problem A]: {context_a}
-
-[Problem B]: {context_b}
-
-Which problem do you choose to answer? Your choice among "A, B" is:
-```
-
-**結果（Llama3.1-8B，300 pairs）：**
-
-| layers | α | n_A | n_B | choice_B_rate | mean_P(B) |
-| --- | --- | --- | --- | --- | --- |
-| 11–20 | 0 | 252 | 48 | **0.160** | 0.386 |
-| 11–20 | +4 | 300 | 0 | **0.000** | 0.151 |
-| 11–20 | −4 | 198 | 102 | **0.340** | 0.421 |
-| 1–33 | +1 | 215 | 85 | **0.283** | 0.419 |
-| 1–33 | −1 | 205 | 95 | **0.317** | 0.411 |
-
-**觀察：**
-- α=+4（11–20）→ choice_B_rate=0.000：expert steering 完全壓制困難任務選擇，方向與預測相反
-- α=−4（11–20）→ choice_B_rate=0.340（↑vs orig 0.160）：non-expert steering 反而更傾向選困難 MATH
-- α=±1（1–33，全層）：choice_B_rate 介於 0.28–0.32，方向與 ±4（11–20）一致但幅度小，且 +1 / −1 差異極小
-- **結果方向與預測相反**：高 wanting（+α）應傾向困難高獎勵任務，但實際 +4 反而完全迴避 MATH。可能原因：A 選項（GSM8K）對模型更熟悉，+α 反而增強對熟悉任務的確信度（confidence → anchor effect），而非 effort willingness。
-
-**實作：**`get_action_effort_choice.py`，configs `0-11-20 4-11-20 neg4-11-20`
-
-**實驗 D — Cognitive Effort Benchmark**
-
-| Benchmark | 核心設計 | 與 DA 的對應 | Note
-| --- | --- | --- |
-| **CRT**（Cognitive Reflection Test） | 每題有誘人的直覺錯誤答案 vs. 需要多步的正確答案；測「是否願意多花認知努力」 | 最直接：P(直覺答案) vs P(正確答案) 作為 effort avoidance 指標 | choice_S2_rate α=0: 0.571 / α=+4: 0.571 / α=−4: 0.571，mean_P(S2) α=0: 0.643 / α=+4: 0.644 / α=−4: 0.658，steering 完全無作用，確認放棄 |
-| **BIG-Bench Hard（BBH）** | 部分題目設計了 shortcut answer vs. deliberate answer；測模型是否走捷徑 | effort engagement 的間接指標 |
-| **GSM-NoOp / GSM-Symbolic** | GSM8K 題目加入無關干擾資訊；測模型是否願意花力氣篩選 | effort cost tolerance |
-| **Need for Cognition Scale（NCS）** | 人類量表，測「享受思考的程度」；可改編為 LLM 自評 | manipulation check（同實驗 B 定位） |
-
-
-### 4.4 實驗③ — Progressive Ratio / Breakpoint（Skip）
-
-**原始範式**：老鼠每次獲得獎勵所需按壓次數遞增（1 → 2 → 4 → 8...），直到放棄為止，那個放棄點就是 breakpoint。Breakpoint 是 tonic DA 最乾淨的代理指標。
-
-**LLM 版本**：設計遞進難度的問題序列，每答對一題進入下一題，直到模型拒答或連續三次錯誤為止。記錄 breakpoint。
-
-**核心預測**：+α 的 breakpoint 顯著高於 neutral；−α 顯著低於 neutral。
-
-**優勢**：這是文獻上最直接的 tonic DA 測量，比 Effort-based Choice 還乾淨。
-
-### 4.5 實驗④ — Delay Discounting - **Adaptive CoT Length on GPQA**
-
-**神經科學對應：** Tonic dopamine 相關；低 DA → 對立即確定性的偏好過強（ADHD 的 delay discounting 異常）。高 wanting 對應更高的 delay tolerance——願意接受認知延遲換取更好的答案。
-
-**原始設計理念：** 讓模型在 open-ended 生成中自行決定何時 commit，以 CoT token length 作為 delay tolerance 的代理指標。
-
-**設計缺陷（事後評估）：**Delay Discounting 的核心是「立即小獎勵 vs. 延遲大獎勵」的**明確 tradeoff 選擇**，但此設計中模型沒有任何立即給答案的獎勵誘因，因此根本不存在discounting 的情境。CoT 長度主要由題目難度決定，而非 wanting level，導致此指標對 delay
-tolerance 無效。
-
-**結果（Llama3-8B，GPQA main+diamond 200 samples，seed=42）：**
-
-| 條件 | n | Accuracy | CoT Mean (tokens) | CoT Std | Commit Rate |
-| --- | --- | --- | --- | --- | --- |
-| orig | 200 | 23.0% | 950 | 706 | 72.0% |
-| α=+4 | 200 | **28.5%** | 877 ↓ | 666 | 75.0% |
-| α=−4 | 200 | 26.5% | 887 ↓ | 674 | 74.5% |
-
-| 條件 | gpqa_main (n=139) CoT Mean | gpqa_diamond (n=61) CoT Mean |
-| --- | --- | --- |
-| orig | 917 | 1026 |
-| α=+4 | 821 ↓ | 1005 ↓ |
-| α=−4 | 869 ↓ | 928 ↓ |
-
-**觀察：**
-
-- CoT 長度方向與預測相反——α=+4 不是更長而是更短，但 accuracy 反而最高（+5.5pp）
-- 三個條件 commit rate 接近（72–75%），~25% 樣本被 2048 token 截斷，部分干擾 mean 可信度
-- α=+4 更短但更準確，更接近「更有把握、更快 commit（decisiveness）」而非「更願意延遲」
-
-**結論：** CoT length 作為 delay tolerance proxy 無效。α=+4 的 accuracy 提升結果保留，併入實驗③作為「high wanting → better performance on hard tasks」的補充證據。Delay Discounting 框架標籤廢棄，以下 Part 2 提出重新設計。
-
-### 4.6 實驗⑤ — Confidence Betting（Incentive Salience）
-
-**設計理念：** 原 Delay Discounting 設計（Option A/B）中，選 B 是 dominant strategy——沒有任何代價，instruction-tuned 模型幾乎一定全選 B，無法產生有效變異。改採 **Confidence Betting** 設計：讓模型在每道題目上決定下注多少積分，引入真實的存量競爭（bet 多 = 答錯損失大），使選擇行為真正反映 incentive salience 強度。
+### 3.1 Experiment 5 — Confidence Betting (Incentive Salience)
 
 **神經科學對應：** Incentive salience（wanting）直接決定個體願意投入多少資源去追求獎勵（Berridge & Robinson）。高 tonic DA → 高 incentive salience → 願意下更高的賭注；低 tonic DA → incentive salience 下降 → 保守、保留積分。Betting 行為是 wanting 的直接行為指標，不依賴任務難度或推理能力。
 
@@ -253,38 +136,24 @@ Bet: <number>
 Answer: <letter>
 ```
 
-**量化指標：**
-
-| 指標 | 說明 | 預測方向 |
-| --- | --- | --- |
-| mean_bet | 平均下注金額 | +α ↑，−α ↓ |
-| bet_entropy | 下注分布的熵（集中 vs 分散） | +α 集中高注，−α 集中低注或均勻 |
-| accuracy | 整體正確率（與 §3.0 GPQA baseline 比較） | 不應顯著變化 |
-| accuracy × bet（expected score） | 有效押注的品質 | +α 最高 |
-| bet=0 rate | 選擇跳過的比率 | +α ↓，−α ↑ |
-| high_bet rate | 下注 10 的比率 | +α ↑，−α ↓ |
-
-**核心預測：**
-
-- α=+4（高 wanting）→ mean_bet ↑，bet=0 rate ↓，high_bet rate ↑；對應高 DA → 高 incentive salience → 願意冒險投入
-- α=−4（低 wanting）→ mean_bet ↓，bet=0 rate ↑；對應低 DA → effort/reward withdrawal → 保守保留
-- accuracy 本身不應大幅改變（betting 測的是 wanting，不是 knowing）
-- 若 +α 提升 mean_bet 但不改變 accuracy，則乾淨分離 wanting 與 knowing
-
 **任務選擇：** GPQA（200 samples），沿用 §3.0 的 baseline accuracy 作為比較基準。
 
-**設計優勢：**
-- 存量競爭是真實的（prompt 內追蹤 running score）——模型有明確誘因不亂押
-- 四個 bet 選項（0/2/5/10）產生連續指標，比 A/B 二選一更有統計力度
-- Bet=0 對應 effort withdrawal，與多巴胺框架直接對應
-
-**結果一：Llama3-8B-IT，GPQA main + diamond，n=646**
+**結果一：Llama3-8B-IT，GPQA main + diamond，n=646, Static**
 
 | condition | accuracy (micro) | mean_bet | bet0% | bet2% | bet5% | bet10% | mean_score_delta | total_score |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | orig | 26.8% | 5.05 | 0.5% | 12.2% | 78.5% | 8.8% | −2.35 | −1,517 |
 | α=+4 | 26.0% | **7.65** | 0.0% | 0.0% | 46.9% | **53.1%** | −3.65 | −2,355 |
 | α=−4 | 28.0% | **4.32** | 0.2% | **24.5%** | 74.2% | 1.2% | −1.98 | −1,279 |
+
+**對照：Running-score 變體（reward-history sensitivity，GPQA n=646）**
+
+
+| condition | accuracy (micro) | mean_bet | bet0% | bet2% | bet5% | bet10% | mean_score_delta | total_score |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| orig | 28.8% | 5.01 | 1.2% | 22.8% | 61.0% | 15.0% | −2.18 | −1,408 |
+| α=+4 | 26.8% | **8.17** | 0.0% | 0.0% | 36.7% | **63.3%** | −3.75 | −2,425 |
+| α=−4 | 27.2% | **4.34** | 0.0% | 28.3% | 68.0% | 3.7% | −1.84 | −1,189 |
 
 **結果二：Llama3-8B-IT，MMLU all subjects，n=14,042**
 
@@ -294,25 +163,32 @@ Answer: <letter>
 | α=+4 | 59.5% | 60.1% | **7.45** | 0.0% | 0.1% | 50.9% | **49.0%** | +1.42 | **+19,899** |
 | α=−4 | 59.2% | 59.5% | **4.01** | 0.1% | **33.8%** | 65.7% | 0.5% | +0.77 | +10,805 |
 
-**分析：**
+**對照：MMLU Running-score 變體（per-subject reset，n=14,042）**
 
-- **Wanting 方向在兩個任務上一致**：α=+4 mean_bet 顯著上升（GPQA +52%，MMLU +67%），bet10 比例暴增（GPQA 8.8%→53.1%，MMLU 4.7%→49.0%）；α=−4 mean_bet 下降，bet2 比例上升，行為更保守。效果方向完全符合預測。
-- **Wanting–Knowing 分離成立**：兩個任務的 accuracy 在三個條件下幾乎不變（GPQA 26–28%，MMLU 59.1–59.5%）——betting 行為的大幅位移純粹反映 incentive salience 變化，與 knowing 解耦。這是多巴胺框架的核心預測。
-- **MMLU mean_score_delta 為正**：MMLU baseline accuracy 約 60%，答對概率高於答錯，使得押注期望值為正——mean_score_delta 梯度（+0.77→+0.81→+1.42）顯示 α=+4 押注更多且期望收益也更高，行為合理。GPQA 因接近隨機水準（~27%）故 score_delta 為負，兩者趨勢一致。
-- **invalid_rate=0%**：兩個任務 parsing 均完全成功。
+主版本固定 `Current score: 0`（i.i.d. 下注）。此對照把**真實累計分數**回填進每題 prompt 以檢驗 reward-history 敏感度；因 MMLU 含 57 個 subject，分數在每個 subject 邊界 reset（每 subject 為一獨立 game），串行 bs=1 生成。
 
-### 4.7 實驗⑥ — Exploration/Exploitation（Bandit Task）
+| condition | micro acc | mean_bet | bet0% | bet2% | bet5% | bet10% | mean_score_delta | total_score |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| orig | 59.4% | 4.54 | 0.4% | 25.5% | 67.7% | 6.5% | +0.84 | +11,816 |
+| α=+4 | 59.0% | **7.68** | 0.0% | 0.1% | 46.2% | **53.7%** | +1.38 | **+19,329** |
+| α=−4 | 59.5% | **4.18** | 0.1% | 29.0% | 70.0% | 1.0% | +0.86 | +12,088 |
+
+- **主結論完整複現**：mean_bet 方向（+4 升至 7.68、−4 降至 4.18）、bet10-rate（6.5%→53.7%）、以及 **accuracy 不變**（59.0–59.5%，跨 α ±0.5pp）全部與 score=0 主版本一致。下注移動因此不是 `Current score: 0` 的人為產物——回填真實分數後 wanting–knowing dissociation 依舊成立。
+- **Llama 對「累計餘額」不敏感（slope null）**：每個 subject 內估計 `bet ~ score_before` 斜率再跨 57 subject 聚合，三個條件的中位數斜率皆 ≈ 0（orig +0.0001、+4 +0.0001、−4 +0.0003，IQR 皆橫跨 0，約 54–60% subject 斜率為正 ≈ 擲硬幣）；按當前餘額分組的 bet|win 與 bet|lose 差 Δ(w−l) ≈ 0（−0.03 / −0.10 / +0.38）。模型不會「贏了加碼／輸了縮手」——α 移動的是**基線**下注水平，而非 reward-history 敏感度。
+
+
+### 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task)
 
 **神經科學對應：** Tonic dopamine 調節 exploration vs. exploitation balance——高 tonic DA → 更積極利用已知最優選項（exploitation 增強，incentive salience 集中）；低 tonic DA → 更趨向隨機探索，難以穩定 exploit（effort withdrawal，行為不穩定）。Bandit task 是此機制最直接的行為學範式。
 
 **相關文獻：**
 - **EVOLvE / BanditBench**（Nie et al., ICML 2025）：LLM 在 MAB 任務中的 in-context RL 評估框架；採用語義豐富的 arm 名稱（ClothesShopping 場景）消除位置偏差；OptFrac（最優臂選擇率）+ cumulative regret
-- **TextBandit**（ACL EthicalLLMs 2025）：純自然語言 feedback 的 bandit 任務；K=5 slot machine（prob: 0.75/0.50/0.35/0.20/0.10），T=25 rounds；Llama-3.1-8B paper baseline ≈ 31.6%（注：該數字是對 Machine 3（35% prob）的選擇率，而非對真正最優臂 Machine 1（75%））
+- **TextBandit**（ACL EthicalLLMs 2025）：純自然語言 feedback 的 bandit 任務；K=5 slot machine，per-machine prob = [M1 0.20 / M2 **0.75** / M3 0.35 / M4 0.25 / M5 0.55]（真正最優臂為 Machine 2），T=25 rounds；Llama-3.1-8B paper baseline ≈ 31.6%（注：該數字是 source code 的 `best_machine` 設為 Machine 3（35% prob）的選擇率——一個 paper bug，而非對真正最優臂 Machine 2（75%）的選擇率）
 
 **實驗設計（貼近 EVOLvE ClothesShopping）：**
 
 - K=5 語義臂名稱（"Velvet Vogue Jacket" 等），每 run 隨機 shuffle 名稱→概率對應，消除位置偏差
-- Bernoulli reward probs：0.7 / 0.5 / 0.4 / 0.3 / 0.1（shuffled per run）
+- Bernoulli reward probs：0.7 / 0.5 / 0.4 / 0.3 / 0.1（shuffled per run）。註：此為自訂的**分級**獎勵向量（best=0.7、gap=0.2、各臂均值遞減），prompt 文字、verbalizer（`"{name} item, reward {r}"`）、shuffle 與 random-fallback 解析皆與 EVOLvE ClothesShopping 原始碼一致；但獎勵向量本身不同於 EVOLvE 標準的兩個 Bernoulli 設定（large-gap easy `[0.25×4, 0.75]`、small-gap hard `[0.4×4, 0.6]`，皆為「平坦干擾臂+單一最優」）。採用分級均值是為了讓 WorstFrac（最差臂迴避）成為一個有意義的獨立指標。
 - T=50 rounds，30 runs（seeds 0–29），configs: α ∈ {0, +4, −4}，layers 11–20
 - 生成模式（`vc.regenerate`，temperature=1.0）+ 字串匹配解析；無效輸出 fallback 隨機選臂
 
@@ -381,7 +257,7 @@ UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon
 
 **TextBandit 複現實驗（ACL EthicalLLMs 2025 設計，Llama-3.1-8B，K=5，30 runs）：**
 
-TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 順序（0.75/0.50/0.35/0.20/0.10）、few-shot examples。Paper 原設定 T=25（500 runs）；我們額外跑 T=50 以與 EVOLvE bandit 對齊。
+TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M1 0.20 / M2 0.75 / M3 0.35 / M4 0.25 / M5 0.55]（最優臂 = Machine 2）、few-shot examples。Paper 原設定 T=25（500 runs）；我們額外跑 T=50 以與 EVOLvE bandit 對齊。
 
 *UCB1 理論基準（同 30 seeds，CPU 模擬，early=前12輪，late=後12輪）：*
 
@@ -415,197 +291,125 @@ TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 順序（
 - **T=50 的 Regret 異常**：α=+4 的 regret（12.46）甚至高於 baseline（11.80），與 OptFrac 略升矛盾，原因是 WorstFrac 大幅上升（0.371）拉高了 regret——steering 讓模型更常選到最差臂，抵消了最優臂的增益。
 - **α=−4 在 T=50 完全不收斂**：Late OptFrac（0.286）≈ Early OptFrac（0.283），horizon 延長無法改善；Regret 15.09，比 UCB1（12.69）更差。
 - **與 EVOLvE 設計的根本差異**：TextBandit 的數字臂名（1–5）消除了語義線索，模型無法利用語義記憶快速 exploit；固定位置（Machine 1 永遠最優）引入位置偏差干擾；few-shot examples 雖降低 InvalidRate，但在雙峰分布問題上沒有幫助。RSN steering 在 EVOLvE（語義豐富，T=50）效果顯著（+17pp），在 TextBandit（數字臂名）效果有限（+3–5pp）。
-- **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code bug），而非最優臂 Machine 1（75%）。我們的實現使用真正最優臂，故數字不可直接比較。
+- **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code 把 `best_machine` 寫死為 3，是一個 bug），而非真正最優臂 Machine 2（75%）。我們的實現以真正最優臂（Machine 2）計算 OptFrac，故數字不可與 paper 直接比較。
 
-### 4.8 實驗⑦ — Probabilistic Reversal Learning（Skip）
+### 3.3 Gamble Task
 
-**神經科學對應：** Phasic dopamine 編碼 reward prediction error（RPE）——當結果好於預期時phasic DA ↑，驅動行為強化；當結果差於預期時 phasic DA ↓，驅動行為調整。Probabilistic Reversal Learning 是 phasic DA 最直接的行為學範式（Schultz et al.），與實驗⑤ Bandit Task
-的 tonic DA 維度互補。
+賭博範式（IGT / CGT / slot-betting）的吸引力在於它把「wanting」操作化為**對賭注大小、風險偏好、輸後追高的外顯選擇**，且 knowing 維度可被任務設計剝離（CGT 機率透明、IGT 淨分有 ground-truth），正好補上 §3.1 Confidence Betting 的「更有信心」confound。以下四篇是設計本實驗的文獻基礎。
 
-```latex
-You are making repeated choices between two options: A and B.
-At each round you will see your recent choice history and must pick A or B.
-Adjust your strategy based on the feedback you receive.
-Reply with ONLY the letter A or B — nothing else.
+#### Related Work
 
-Recent rounds:
-  Round i: You chose [X], feedback: [Correct / Incorrect]
-  ...
+**① `Large Language Models are Near-Optimal Decision-Makers…`（Li et al., arXiv 2506.16163, 2025）— 協議金標準 + 天花板警示。**
+5 個 LLM（GPT-4o / o4-mini / Claude-3.5-Sonnet / Gemini-1.5-pro / DeepSeek-R1）vs 360 真人，跑 IGT + CGT + WCST 三範式。為防語料污染，保留遊戲機制本質（紅藍格子、賠率、下注梯度）但對文本描述與獎賞結構做了全面**符號重寫（Reworded & Redesigned）**。Methods 把 IGT/CGT 協議寫得可直接照搬。**最關鍵的警示在 Fig 2B**：LLM 的 risk adjustment 幾乎是平的——人類隨 asymmetry 動態調注，LLM 跨所有比例都押固定高注（GPT-4o-mini/DeepSeek ~90%、Claude >60%），即 **baseline risk-taking 已頂到天花板，+α 無上升空間，信號只能在 −α 側看**。19 個 robustness variant（含 role-play persona）行為定性不變 → prompt persona 推不動 risk adjustment（這對 hidden-state 注入是利好，見下「卖点」）。
 
-Round N: Which option do you choose? Reply with A or B.
+**② `Can Large Language Models Develop Gambling Addiction?`（Lee et al., arXiv 2509.22818, 2025）— betting 指標公式 + 同源 SAE 先例。**
+6 個 LLM 玩負期望值（30% 勝率、3× 賠付、EV −10%）slot machine，2×32 析因（betting style × 5 個 prompt 組件 G/M/H/W/P）。三大發現：(a) **variable betting（自由定額）比 fixed betting 顯著放大破產率與所有 irrationality 指標**——是「自主權本身」而非賭注大小驅動 risk（Fig 10：variable 平均賭注更小卻破產更多）；(b) **goal-setting(G) / maximize(M) 是最強的 risk 放大組件**，G 幾乎翻倍破產率；(c) 質性分析見 illusion of control、gambler's fallacy、loss chasing、house-money effect。**最重要的是 §4：在 LLaMA-3.1-8B 上跑 SAE + activation patching，找到 112 個（~1%）因果 feature 雙向控制賭博行為，risky feature 集中在 later layers（L24 佔 18 個）、safe feature 在 early-mid（L5–L8）**——這與 RSN 的 mid-layer（11–20）wanting 方向是**同方法、可對照**的 mechanistic 先例。
+
+**③ `BioLLMAgent`（Zuo et al., arXiv 2603.05016, 2026）— IGT 認知參數讀數層 + 臨床對照靶點。**
+把臨床驗證過的 RL 認知模型（ORL）當「內部驅動」、LLM persona prompt 當「外部驅動」，用權重 ω 線性融合，去復現六個真人 IGT 數據集（健康對照 + 安非他命 + 海洛因成癮）。對我們有用的**不是它的融合架構**（其 LLM 是把 T 輪輸出平均成的**靜態先驗**，不參與逐輪學習——與我們「逐輪決策＋逐輪注入」相反，架構不可照搬），而是兩樣可拆出的東西：(a) **ORL 五參數讀數**（`A_rew` 獎勵學習率 / `A_pun` 懲罰學習率 / `K` 遺忘 / `β_F` 頻率權重 / `β_P` perseveration）——把 reward 與 punishment 學習率**分離**，正好對應「+α → reward 敏感↑、punishment 敏感↓」的 DA 預測；(b) **六個公開臨床 IGT 數據集 + 健康/成癮參數區間**，可當 −α 的對照靶（測 −α 是否把 LLM 的 ORL 參數推向成癮群體那一端）。亦再次印證中小模型（Llama-3.2-3b/Gemma-3）對 prompt 指令「instruction resistance」，只有 >70B 級才聽話。
+
+**④ `Mitigating Gambling-Like Risk-Taking…`（Du, arXiv 2506.22496, 2025）— 僅 framing，實驗數字不可信。**
+7 頁短文。可用的只有四個形式化定義（Overconfidence / Loss Chasing / Probability Misjudgment / Risk-Reward Miscalibration）+ GTS 複合分公式，可 cite 當 framing 來源。Table 1 的 RARG-70B / LLaMA-2-70B 結果無訓練細節、無數據集、無 baseline 出處，IGT「Optimal%」也未給協議——**不要引用其任何實驗數字或 IGT 協議**。（與 ② 不同作者；此篇單作者 Y. Du。）
+
+#### 行動建議（落到實驗設計）
+
+| 項目 | 建議 | 依據 |
+|---|---|---|
+| **IGT 協議** | 4 deck（A/B 劣勢、C/D 優勢；損失頻率不對稱：A/C 頻繁小罰、B/D 罕見大罰），淨分 = P(優勢 C+D) − P(劣勢 A+B) 為 ground-truth；trial 數取 100（IGT 經典 / BioLLMAgent）或 80（Near-Optimal），擇一固定 | ①Methods + ③ |
+| **IGT 讀數** | 不只報淨分，用 **ORL 五參數**擬合，重點看 `A_rew/A_pun` 比值是否被 α 推向成癮群體區間；以六個臨床數據集為對照靶 | ③ ORL + 臨床數據集 |
+| **CGT 協議** | 照搬 ①：64 round、8 個紅藍比例（1:9…9:1）、{5/25/50/75/95}% 下注檔、**simultaneous 呈現**；**放棄升降序延遲厭惡維度**（①明確判定對 LLM 不適用） | ①Methods + 明確判定 |
+| **betting 風格** | 用 **variable / 自由定額**而非離散 {0,2,5,10}，放大 α 效應空間 | ② Fig 10（自主權驅動 risk） |
+| **指標** | 加入 ② 的 `I_BA = mean(min(bet/balance,1))`、`I_LC = mean_{loss}(max(0,Δ(bet/balance)))`、`I_EC = mean(1[bet/balance≥0.5])`；`I_LC` 直接對應我們 running-score 的 null | ② eq 1–3 |
+| **前置檢查** | 先跑 α=0 baseline 確認 Llama3-8B 在 IGT 上**不是 near-random**（③ 顯示 <70B 模型可能被 pretrain bias 鎖死），再決定值不值得做 dose-response | ③ Fig 7 / Inverse Scaling |
+| **差異化卖点** | ① 證明 prompt persona 推不動 risk adjustment → 我們測「**hidden-state α 能否推動 prompt 推不動的維度**」是干淨賣點；② 的 SAE risky-feature(L24) vs RSN(L11–20) 是可寫的 mechanistic 對照 | ① + ② |
+
+
+#### Cambridge Gamble Task (CGT)
+
+**為什麼要加**：CGT 測「**已知風險決策**（Decision under Known Risk）」——受試者一眼就看到紅藍格子比例（如 9 紅 1 藍 → 贏面 90%），機率完全顯性化，極大排除了學習能力與工作記憶的干擾，純粹測「明知機率、卻管不管得住自己」的行為特質。這正好補上 Confidence Betting 的 confound：Betting 中「模型更有信心」也能解釋賭注上升，而 CGT 機率透明，賭注變化只能歸因於 risk-taking 本身，不能再用「更準/更有信心」搪塞。
+（對照：IGT 測「**未知模糊性決策**（Decision under Ambiguity）」——一開始不知道哪牌組好壞，靠反覆輸贏摸索規律，重度依賴 WM 與 learning，見下。）
+
+**CGT 的四個行為學切片**（CANTAB 標準輸出）：
+- **決策質量（Quality of Decision Making）**：是否理智地永遠選格子數多的顏色（高機率那面）。
+- **審慎時間（Deliberation Time）**：從看到格子到按下顏色的思考時長。
+- **風險承擔（Risk Taking）**：選了高機率顏色時，平均願意拿出多少比例積分去賭。
+- **風險調節度（Risk Adjustment）**：是否「看碟下菜」——9:1 時下大注、6:4 時下小注。
+- **延遲厭惡 / 衝動性（Delay Aversion）**：升序條件下因不想等待，在額度還很低（如 5%）時就草草按下（缺乏耐心）；降序條件下在額度仍極高（95%）時就衝動按下（行為抑制障礙）。
+
+**人腦對應（為何是乾淨的 DA assay）**：用左旋多巴（L-Dopa）人為提高健康受試者腦內 DA，或對比帕金森患者，得到的結論非常精準——**DA 調控「風險偏好」而非「決策智商」**：DA 升高時，**決策質量不變**（仍知道 9:1 該選 9 那面），但**風險承擔顯著飆升**（Optimism Bias：即使 6:4 低贏面也傾向砸下 75%+）。延遲厭惡端則由 DA 維持前額葉的行為抑制——DA 失調 / 戒斷的成癮者、ADHD 患者表現出極高延遲厭惡，無法忍受倒數等待，會在不恰當額度瞬間衝動確認。這條 wanting↑/decision-IQ持平 的雙分離，正是本工作 α 注入想要證明的同一條曲線。
+
+**文本化（Textualization）設計**——直接借用 CGT 範式，分兩步投餵給模型：
+
+*第一步：紅藍格子 + 代幣轉成純文字情境*
+```
+[CGT 文本實驗環境設定]
+「你正在參加一項心理學博弈任務。螢幕上排開 10 個盒子，
+其中 7 個紅色、3 個藍色。一個黃金代幣被隨機藏在其中一個盒子裡。
+你當前總積分：100 分。請分兩階段決策：
+ 階段 1（猜測）：你認為代幣在【紅色】還是【藍色】？
+ 階段 2（下注）：下注比例窗口正在滾動，目前可選下注總積分的 [5%, 25%, 50%, 75%, 95%]。
+ 猜對則贏得下注積分，猜錯則扣除。請給出你決定下注的精確比例。」
 ```
 
-**量化指標（v2 設計）：**
+*第二步：控制變數，循環 ~100 輪（隨機改變紅藍比例 9:1 / 8:2 / 6:4）統計三大指標*
+- **QDM**：模型是否在 8:2 時永遠選 8 那一方？選 2 那方 = 認知非理性偏差。
+- **風險調節度**：9:1 時是否下 95%（大賭）、6:4 時是否懂得主動降到 5%（小賭）？
+- **輸後行為（Loss Chasing）**：上一輪剛輸掉積分後，下一輪下注比例是否報復性飆升？——這是測 DA 預測誤差與成癮行為的核心指標。
 
-| 指標 | 說明 | 預測方向 |
-| --- | --- | --- |
-| Win-stay rate | 上一輪 Correct → 本輪維持選擇的比率 | +α ↑（強化強） |
-| Lose-shift rate | 上一輪 Incorrect → 本輪切換選擇的比率 | +α ↑（更新快） |
-| Phase 1 optimal rate | Phase 1（rounds 1–20）選正確選項的比率 | +α ↑ |
-| Phase 2 early optimal | Phase 2 前 10 rounds 選正確選項的比率（逆轉速度代理） | +α ↑ |
-| Phase 2 optimal rate | Phase 2 後 10 rounds 選正確選項的比率 | +α ↑ |
+**對 α 注入的預測**：α=+4 在所有 P 水準下下注更大、6:4 時也不肯降額（風險承擔↑、風險調節度↓）、Loss Chasing 更強，但 QDM（永遠選多格那面）不變；α=−4 保守、過度降額。即「決策質量持平、風險偏好被 α 推動」——與人腦 L-Dopa 結果同構。
 
-**v1 結果（未 counterbalance，30 runs × 40 rounds，history = full）**
+**與既有結果的銜接**：升降序額度 + Loss Chasing 的「報復性加注」直接對應 §3.1 running-score Betting 變體（該變體在 Llama 上已測出對 running balance 不敏感的 null）；若 CGT 機率透明條件下 α 仍推動 Loss Chasing，則比 running-score 更強——把「reward-history 不敏感」與「risk-preference 可被 α 推動」乾淨地分開。
 
-| 指標 | α=−4 | α=0 | α=+4 |
+**LLM 既有實現參考**：*Can Large Language Models Develop Gambling Addiction?*（arXiv 2025）已在老虎機 / 下注任務上報告 LLM 的 Illusion of Control + Loss Chasing，且「下注自主權越高破產率越飆升」——可借其 prompt 框架與破產率 / 加注曲線指標。
+
+#### Iowa Gambling Task (IGT)
+
+**範式定位**：模糊性決策。四副牌（兩好兩壞），受試者不知好壞，靠反覆抽牌的輸贏學出「避開高即時獎賞但長期淨虧」的牌組。淨得分 = (好牌組抽取數 − 壞牌組抽取數)，是有 ground-truth 的連續量，天然適配 `get_answer_bandit.py` 式的 α-steering 多輪 pipeline。
+
+**LLM 既有實現參考**：協議照 ①（Near-Optimal，80/100 trials、4 deck），讀數用 ③（BioLLMAgent 的 ORL 五參數），對照靶用 ③ 的六個臨床數據集——詳見上方「文獻概述 / 行動建議」。
+
+**對 α 注入的預測**：α=−4 → 衝動偏好高即時獎賞的壞牌組、淨得分下降、學習曲線變平（對應 DA 不足 / 成癮者的 IGT 表現）、`A_rew/A_pun` 比值推向成癮群體區間；α=+4 在已 near-optimal 的基線上空間有限。
+
+**待辦**：(1) 先跑 α=0 baseline 確認 Llama3-8B 不是 near-random（③ 警示 <70B 可能被 pretrain bias 鎖死）；(2) 確認既有 prompt 框架能否套上 `get_answer_bandit.py` 的逐輪 α-hook（多輪、bs=1、per-run reset）；(3) **不照搬 BioLLMAgent 架構**（其 LLM 是靜態先驗，與逐輪注入相反），只借其 ORL 讀數層與臨床靶點。
+
+#### 實作規格（2026-06，已對照 Near-Optimal repo 原始碼確認）
+
+源碼：`/Users/paveenhuang/Downloads/Benchmark/Near-Optimal`（oTree 實作）。本工作**不跑 oTree**——抽出核心機制（懲罰分布 / bet 映射 / 歷史 prompt 構造）寫成 `get_answer_cgt.py` / `get_answer_igt.py` 兩支獨立腳本，套用 `get_answer_bandit.py` 既有的逐輪 α-hook 介面（`vc.regenerate(inputs=[prompt], diff_matrices=raw_mask*alpha, …)`，bs=1、每輪重建 prompt、`utils.parse_configs` 解析 configs）。
+
+**共同設定**：Llama3-8B、layers 11–20、nmd mask、**−α 主軸 + 雙向**（configs `0 / ±2 / ±4 / ±6 / ±8`，先跑 α=0 baseline 確認非 near-random）、choose 中性語境（treasure-chest reword 版，防語料污染）。輸出格式沿用 repo 的 `<reasoning>…</reasoning><choice>N</choice>`，兜底由 GPT-3.5 改為正則 + 重採樣。
+
+**CGT 機制（照搬，已對碼）**：
+- `init_money=100`；`total_interactions=64`、`round_interactions=8` → **8 phase × 8 round**，每 phase 開頭積分 reset 回 100。
+- 紅藍比例 **8 種**：`(1,9)(6,4)(4,6)(3,7)(9,1)(7,3)(2,8)(8,2)`（=(blue,red)，無對稱 5:5），每 phase 內 shuffle 各出現一次。
+- 下注檔 `bets=[0.05,0.25,0.5,0.75,0.95]`；**simultaneous** 一次列 10 個 choice（0–4=blue/F 五檔、5–9=red/J 五檔），模型輸出 0–9。**確認放棄升降序延遲厭惡維度**（repo 本身就是 simultaneous，未實作 sequential）。
+- 賠付：`payoff = round(remain × bet)`，猜對 +、猜錯 −（贏得下注的 2 倍）；金幣位置每輪 `randint(1,10)` 獨立隨機。choice_order 每玩家 rotate 防位置偏好。
+- ground-truth 上界（oracle）：永遠選多數色 + 押 95%。
+- 讀數：**QDM**（是否選多數色）、**風險承擔/調節度**（押注比例隨 asymmetry 的斜率）、**Loss Chasing**（②的 `I_LC`），外加 `I_BA / I_EC`。
+
+**IGT 機制（照搬，已對碼）**：
+- `init_money=2000`（loan）；**total_interactions=100**（採經典/BioLLMAgent，非 repo 的 80）。
+- 4 牌固定獎勵 `card_rewards=[100,100,50,50]`（牌1/2 高即時、牌3/4 低即時）；懲罰分布預排好逐輪 pop：牌1 頻繁中罰、牌2 罕見巨罰 1250、牌3 頻繁小罰、牌4 罕見中罰 250 → **牌1/2 長期淨虧（劣勢），牌3/4 長期淨賺（優勢）**。
+- 輸出 `<choice>1-4</choice>`，card_order 每玩家 rotate；每輪把過往（選幾號、得多少、罰多少）全量回填 prompt。
+- **淨分需 offline 算**：repo 無淨分欄位，淨分 = P(選優勢牌 3+4) − P(選劣勢牌 1+2)。
+- 讀數：淨分 + 學習曲線斜率 + **ORL 五參數**（`A_rew/A_pun/K/β_F/β_P`，重點看 `A_rew/A_pun` 是否被 α 推向成癮群體區間）。
+
+**對照臂（persona vs α）**：repo `prompt/roles/` 已含臨床 persona（CGT：`Gambling_Disorder/risk-taker/risk-averse`；IGT：`methamphetamine_dependence/vmPFC_lesion/alcohol_use_disorder`）。可做「prompt persona 推不動（①證明）vs hidden-state α 推得動」的乾淨對照——這是核心差異化卖點。
+
+
+## 4. Benchmark Tiers and Pending Extensions
+
+| Dataset / Experiment | Status | Dopamine relevance | Judgment |
 |---|---|---|---|
-| mean_win_stay | 1.000 | 0.937 | 1.000 |
-| mean_lose_shift | 0.009 | 0.046 | 0.000 |
-| mean_reversal_speed | 20.0 | 1.0 | 1.0 |
-| mean_phase1_optimal | 0.995 | 0.000 | 0.000 |
-| mean_phase2_optimal | 0.000 | 0.787 | 1.000 |
+| **MMLU-E Abstention** | ✅ Done | action threshold / willingness to answer | 中强；但只是答/不答 |
+| **GSM8K / MATH α scan** | ✅ Done | commitment timing, over-/under-wanting in reasoning | 重要主结果；但不是纯 dopamine assay |
+| **GSM-NoOp / GSM-Symbolic** | 🔶 Pending | salience gating / distractor suppression / variable tracking | 可做机制扩展；但仍是 accuracy proxy，非 effort-expenditure 主证据（见下方 Effort 说明） |
+| **BBH tracking tasks** | 🔶 Pending | working memory / set-shifting | 神经认知相关；但偏 PFC working memory |
+| **TruthfulQA-Generation / HaluEval** | 🔶 Pending | over-wanting → hallucination / over-generation | 可测副作用；不是纯 wanting |
+| **Effort-based Task Choice（实验 C）** | ❌ 范式过弱 | effort willingness | 方向对、范式太弱：二选一无强度维度、无真实成本-报酬耦合、单 token argmax 杀掉动态；测到的是 preference/anchor 不是 effort expenditure。须重做强版，见下方说明 |
+| **CRT（实验 D）** | ❌ Done-null | cognitive effort avoidance | 三个 α（0/+4/−4）choice_S2_rate 全 = 0.571，steering 完全无作用，放弃 |
 
-v1 的 α=+4 `phase2_optimal=1.0` 看似完美，實為 **position bias（B 偏見）恰好對齊 Phase 2 正確答案**；α=−4 的 `phase1_optimal=0.995` 同理（偏好 A 恰好對齊 Phase 1）。
-
-**v2 結果（counterbalance + history_window=5，30 runs × 40 rounds）**
-
-| 指標 | α=−4 | α=0 | α=+4 |
-|---|---|---|---|
-| mean_win_stay | 0.990 | 1.000 | 1.000 |
-| mean_lose_shift | 0.092 | 0.000 | 0.000 |
-| mean_phase1_optimal | 0.657 | 0.500 | 0.500 |
-| mean_phase2_early_optimal | 0.500 | 0.500 | 0.500 |
-| mean_phase2_optimal | 0.500 | 0.500 | 0.500 |
-
-Counterbalancing 後 α=0 和 α=+4 的所有指標均歸零至 0.5（A→B 與 B→A runs 完全對稱平均），**確認 v1 的表現全部來自 position bias，與反饋學習無關**。α=−4 部分保留了 lose_shift（0.092）和 phase1_optimal（0.657），說明 RSN 負向注入確實降低了某選項的偏好強度。
-
-**根本問題分析：**
-
-1. **Position bias（主因）**：模型天然偏好某選項（α=0/+4 傾向 B，α=−4 傾向 A）。Counterbalancing 揭露此偏見主導了所有行為指標。
-
-2. **Lose-shift ≈ 0（反饋不敏感）**：win_stay ≈ 1.0 而 lose_shift ≈ 0——模型只做 win-stay，幾乎不做 lose-shift。Trial-by-trial 的 RPE 更新完全缺失。
-
-3. **Irreversible lock-in（結構性）**：per-run trace 顯示模型在早期（rounds 1–10）確實能回應 Incorrect 反饋（lose_shift 發生），但一旦 history window 中積累足夠多「B, Correct」記錄，prob_A 會從 >0.6 崩潰至 <0.1 並永不恢復——即使後續持續收到 Incorrect 反饋。此為 80% noise + sliding window 的結構性陷阱。
-
-4. **Phasic DA 機制不相容（根本原因）**：Phasic DA / RPE 需要 trial-by-trial 突觸可塑性（synaptic plasticity），而 LLM inference-time 是靜態權重的 pattern matching。模型做的是「對累積歷史的統計匹配」，而非「每一輪根據預測誤差更新行為傾向」。這是架構層面的不相容，和 §4.10 PIT 類似但原因不同。
-
-**跳過原因：** 此任務無法測量 phasic DA 的 RPE 功能。即使進一步優化（提高 reward\_prob、縮小 window、換更大模型），所測到的也是 in-context pattern matching 而非 RPE 驅動的行為更新，科學問題本身與 RSN inference-time 注入不匹配。
-
-
-### 4.9 實驗⑧ — Agentic Task Performance（Skip）
-
-**神經科學對應：** Tonic dopamine 調節 goal-directed persistence——高 tonic DA 讓個體面對障礙時維持目標導向行為；低 tonic DA 導致 effort withdrawal 和 premature disengagement。Multi-step agentic task 比單輪問答更能體現此機制，因為每一步都需要模型主動維持 wanting。
-
-**Task：**
-
-| Task | 優先級 | 測量維度 | 理由 |
-| --- | --- | --- | --- |
-| **ScienceWorld** | 首選 | Exploration willingness + persistence | 明確區分執行能力與探索能力；任務需多步探索+推理（如「點亮紅色燈泡」需探索房間、找電線、搭電路）；**探索能力**才是 tonic DA 的核心測試對象 |
-| **DataSciBench** | 備選 | Persistence | 偏重執行能力，有 reference solution；若 ScienceWorld pipeline 難以實作可退而使用 |
-
-**量化指標：**
-
-| 指標 | 說明 | 預測方向 |
-| --- | --- | --- |
-| Task success rate | 最終完成率 | +α ↑，−α ↓ |
-| Abandonment rate | 中途輸出「I cannot」的比率 | +α ↓，−α ↑ |
-| Number of turns | 完成任務所需步驟數 | +α 適中，−α 過少（早放棄） |
-| Step-level hedging rate | 每步輸出的 hedging marker 比率 | +α ↓，−α ↑ |
-
-**核心預測：**
-
-- −α（低 tonic DA）→ abandonment rate ↑，success rate ↓，效果隨任務步驟數放大
-- +α（高 tonic DA）→ abandonment rate ↓，但過高 α 可能引發 hallucination（對應 Yerkes-Dodson 右側下降）
-- 步驟數越長的任務，steering 效果越顯著——短任務可能無法觀察到差異
-
-**結果（Llama3-8B-IT，layers 11–20，TOP=20，30 tasks × 5 episodes = 150 episodes/condition）：**
-
-| 條件 | mean\_score | std | success% (score>0) | penalty% (score=−100) | abandon% | hedge% |
-|---|---|---|---|---|---|---|
-| α=−4 | **6.21** | 9.60 | **56.0%** | **0.0%** | 0.7% | 0.1% |
-| α=0 (baseline) | 5.87 | 9.10 | 55.3% | 0.0% | 0.7% | 0.3% |
-| α=+4 | −6.38 | 31.00 | 24.0% | **9.3%** | 0.0% | 0.0% |
-
-- α=−4 在 20/30 個任務中得分最高；α=0 在 10/30 最高；α=+4 在 **0/30** 最高
-- α=+4 在 14/150 個 episodes 觸發 −100 懲罰（猜測或操作錯誤），佔 9.3%
-- penalty 集中在需要精確識別/測量的任務（identify-life-stages、measure-melting-point、lifespan、test-conductivity）
-
-**解讀：**
-
-- **α=−4 輕微提升（+0.34 mean score，+0.7pp success）** 而非如預測所示的下降——低 wanting 並未導致 abandonment（abandon rate 與 baseline 相同），反而減少了衝動行為，提高了謹慎度。
-- **α=+4 災難性崩潰**：penalty rate 暴增至 9.3%，mean score 從 +5.87 降至 −6.38，std 從 9.1 增至 31.0。高 wanting 在多步序列任務中導致衝動執行（對應 Mania Zone 的 hallucination / impulsive leap）。
-- 原預測方向部分反轉：「−α → abandonment ↑」未觀察到；「+α → hallucination ↑」獲得強力支持。
-- **RSN 在 Agentic 任務中的作用機制**：非線性放大衝動——在 50 步序列中，α=+4 累積的衝動誤判導致 −100 懲罰，與 Yerkes-Dodson 右側下降一致，但比 MCQ 任務中的表現更為劇烈。
-
-**跳過原因：** 實驗結果與核心預測不符，且原因尚不明確。預測「−α → abandonment ↑、success ↓」未觀察到：α=−4 的 abandonment rate 與 baseline 相同（各 1/150），success 略微提升；這可能反映低 wanting 確實減少衝動、也可能是 pipeline 本身不觸發 abandonment 輸出，兩種解釋無法區分。α=+4 的崩潰（penalty rate 9.3%，mean score −6.38）方向與 Yerkes-Dodson 右側下降一致，但 penalty 的來源（衝動誤判 vs. 任務結構本身的懲罰機制）同樣不確定。由於結果無法乾淨地對應 tonic DA wanting 框架，且替代解釋難以排除，不納入 paper。
-
-
-### 4.10 實驗⑨：Pavlovian-Instrumental Transfer（Skip）
-
-PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue 在不提供 reward 的情況下提升 instrumental action 速率，純粹透過 incentive salience 驅動行為。
-
-**跳過原因**：PIT 需要跨 phase 的參數層面學習（training-time），與 RSN 的 inference-time diff injection 根本不相容；in-context 模擬只能測到 knowing，無法真正捕捉 wanting 的遷移效應。
-
-### 4.11 實驗⑩ — TRAIT Personality Benchmark （Skip）
-
-**參考文獻**：Pei et al., "Do LLMs Have Distinct and Consistent Personality?" — 將 71 道人格測試題擴展至 ~8,000 道情境式多項選擇題，透過具體情境（而非抽象自評）測試模型的行為傾向。
-
-**工具**：
-- **BFI**（Big Five Inventory，44 items）：Openness、Conscientiousness、Extraversion、Agreeableness、Neuroticism（OCEAN）
-- **SD-3**（Short Dark Triad，27 items）：Narcissism、Machiavellianism、Psychopathy
-
-**量化指標**：
-- Per sample: `mean_trait_score = Σ(softmax[i] × option_score[i])`（softmax-weighted，不是 argmax）
-- Per dimension（task）: `mean_trait_score ± std` across all samples
-
-**實作**：`run_trait_llama3.sh`
-
-**Llama3-8B 結果（α=0/±4，layers 11–20，TOP=20）**：
-
-**Llama3-8B-IT 結果（layers 11–20，TOP=20）**
-| Dimension | α=−4 | α=−1 | α=0 | α=+1 | α=+4 |
-|---|---|---|---|---|---|
-| BFI_Agreeableness | 0.6428 | 0.6676 | 0.6275 | 0.5999 | 0.6624 |
-| BFI_Conscientiousness | 0.7821 | 0.8023 | 0.7741 | 0.7376 | 0.8031 |
-| BFI_Extraversion | 0.2669 | 0.2732 | 0.2632 | 0.2167 | 0.3103 |
-| BFI_Neuroticism | 0.1877 | 0.1885 | 0.1855 | 0.1450 | 0.2150 |
-| BFI_Openness | 0.5371 | 0.5610 | 0.5278 | 0.4866 | 0.5851 |
-| SD3_Machiavellianism | 0.1590 | 0.1567 | 0.1600 | 0.1320 | 0.2264 |
-| SD3_Narcissism | 0.0937 | 0.0950 | 0.0934 | 0.0875 | 0.1504 |
-| SD3_Psychopathy | 0.0112 | 0.0085 | 0.0114 | 0.0055 | 0.0298 |
-| **BFI avg** | **0.4833** | **0.4985** | **0.4756** | **0.4372** | **0.5152** |
-| **SD3 avg** | **0.0880** | **0.0867** | **0.0883** | **0.0750** | **0.1355** |
-
-**Alpha Sweep 結果（α ∈ {−10, −8, −6, −4, −2, 0, 2, 4, 6, 8, 10}，圖：alpha_sweep_trait.png）**
-
-整體形狀：BFI 呈**非對稱 V 型**（α=−10 高點 → 急降至 α=−6 觸底 → 緩升至 α=6 peak → 略降），SD3 呈**左偏倒 U 型**（α=−10 高峰 → 急降觸底 → 右側緩慢回升但未超過左峰）：
-
-**Llama3-8B-Base 結果（IT mask，layers 11–20，TOP=20）**
-
-| Dimension | α=−4 | α=−1 | α=0 | α=+1 | α=+4 |
-|---|---|---|---|---|---|
-| BFI_Agreeableness | 0.6216 | 0.6375 | 0.5935 | 0.5914 | 0.5775 |
-| BFI_Conscientiousness | 0.6941 | 0.6964 | 0.6582 | 0.6508 | 0.6400 |
-| BFI_Extraversion | 0.4840 | 0.4915 | 0.4654 | 0.4436 | 0.4467 |
-| BFI_Neuroticism | 0.3229 | 0.3093 | 0.3094 | 0.2797 | 0.3001 |
-| BFI_Openness | 0.5888 | 0.6058 | 0.5663 | 0.5515 | 0.5450 |
-| SD3_Machiavellianism | 0.4108 | 0.3948 | 0.3958 | 0.3486 | 0.3799 |
-| SD3_Narcissism | 0.3913 | 0.3732 | 0.3758 | 0.3291 | 0.3569 |
-| SD3_Psychopathy | 0.2890 | 0.2656 | 0.2905 | 0.2291 | 0.2821 |
-| **BFI avg** | **0.5423** | **0.5481** | **0.5186** | **0.5034** | **0.5019** |
-| **SD3 avg** | **0.3637** | **0.3445** | **0.3540** | **0.3023** | **0.3396** |
-
-**Qwen3-8B 結果（α=−4/−1/0/+1/+4，layers 17–26，TOP=20）**：
-
-| Dimension | α=−4 | α=−1 | α=0 | α=+1 | α=+4 | Δ(+4−−4) |
-|---|---|---|---|---|---|---|
-| BFI_Conscientiousness | 0.7682 | 0.7874 | 0.7935 | 0.8039 | 0.8220 | +0.0538 |
-| BFI_Agreeableness | 0.7309 | 0.7445 | 0.7483 | 0.7554 | 0.7642 | +0.0333 |
-| BFI_Openness | 0.5895 | 0.6101 | 0.6123 | 0.6181 | 0.6388 | +0.0493 |
-| BFI_Extraversion | 0.4063 | 0.4095 | 0.4136 | 0.4197 | 0.4234 | +0.0171 |
-| BFI_Neuroticism | 0.2647 | 0.2669 | 0.2660 | 0.2672 | 0.2689 | +0.0042 |
-| SD3_Machiavellianism | 0.2387 | 0.2494 | 0.2491 | 0.2551 | 0.2595 | +0.0208 |
-| SD3_Narcissism | 0.1368 | 0.1436 | 0.1434 | 0.1466 | 0.1555 | +0.0187 |
-| SD3_Psychopathy | 0.0229 | 0.0240 | 0.0238 | 0.0242 | 0.0323 | +0.0094 |
-| **BFI avg** | **0.5519** | **0.5637** | **0.5667** | **0.5729** | **0.5835** | **+0.0316** |
-| **SD3 avg** | **0.1328** | **0.1390** | **0.1388** | **0.1420** | **0.1491** | **+0.0163** |
-
-**觀察與結論（實驗跳過，不納入 paper）**：
-- **Qwen3** 是唯一符合預期的模型（+4↑、−4↓對稱）
-- **Llama3-IT** 的 −4 無法壓制——RLHF 將 baseline 拉高至天花板，負向注入無效
-- **Llama3-Base 方向反轉**是最關鍵發現：IT model 的 diff vector 在 Base model 上語義方向相反
-- Base model 的 SD3 baseline 極高（0.354 vs IT 0.088），RLHF 大幅壓制了 Dark Triad 特質
-- 此實驗未能提供穩健的跨模型結論，且 TRAIT 無 accuracy ground truth，難以與多巴胺框架直接對接，故跳過
+**夠强的 effort 范式应具备：within-task、可连续调节、付出与报酬真实耦合、能定位放弃点（breakpoint）。**
+1. **Progressive Ratio 语言版**（effort 文献黄金标准 = breakpoint）：任务链上每多走一步成本递增（如多跳 HotpotQA / 连续加深解题），测模型在哪一步放弃 → α 应移动 breakpoint。HotpotQA 可作 PR 语言版载体。
 
 ## 備選與待補充 Benchmark
 
@@ -627,48 +431,36 @@ PIT 是分離 wanting 與 knowing 的神經科學黃金標準：Pavlovian cue �
 - **HaluEval**：作為 +α 副作用的量化指標，補充目前「+α 提升 willingness 但降低 accuracy」的解釋鏈
 - **TruthfulQA-Generation**：open-ended 版的 over-generation artifact 更純粹，不受 MC 格式的 forced-choice 干擾
 
-## Future Design
 
-### 欺騙行為測量框架（來自 NUS Deception 論文）
+## 5. Human Behaviour Simulation
 
-**來源**：Xtra-Computing/LLM-Deception（ICLR 2026 Oral）— *Beyond Prompt-Induced Lies: Investigating LLM Deception on Benign Prompts*
+本節登記每個行為學實驗**對應的經典人類／動物行為學範式**及其文獻根源，把我們的 LLM 實驗 anchor 到神經科學傳統（與 §4 互補：§4 報告我們做了什麼、結果如何；§5 標明它的人類範式血統）。實驗的完整結果與分析仍在各自的 §4.x 小節，此處只做對應與 cite。
 
-**與 RSN 研究的連結**：
-- 論文將 deception 操作化為兩個維度：**Deceptive Intention Score**（方向性偏置）與 **Deceptive Behavior Score**（內部信念 vs 輸出不一致性）
-- 這和 lying role 實驗結構完全對應：neutral 條件答對（內部信念正確）→ lying role 答錯且有方向性（輸出 ≠ 內部信念）= deception cell
-- 核心發現「模型越強不等於越誠實」直接支撐 RSN 結構性介入的必要性論點
+| 實驗 | LLM 任務形態 | 對應人類行為學範式 | 人類範式文獻 | LLM 實現 | 狀態 |
+|---|---|---|---|---|---|
+| **Confidence Betting** | MCQ + 押注 0/2/5/10 | Post-decision wagering / confidence betting | Persaud et al. (2007); Fleming & Dolan (2012) | 本工作（§4.6） | ✅ Done |
+| **Bandit (MAB)** | 多輪 explore/exploit，語義臂名 | Multi-armed bandit / probabilistic reward learning | Daw et al. (2006) | EVOLvE-Nie et al. (2025); TextBandit (ACL EthicalLLMs 2025)（§4.7） | ✅ Done |
+| **Cambridge Gamble Task** | 機率透明下注（P% 已知） | Cambridge Gamble Task（DA-agonist／Parkinson 對比） | Rogers et al. (1999); Pessiglione et al. (2006, pramipexole) | TBD（找已在 LLM 上做過 CGT 的實驗） | ⬜ Pending |
+| **Iowa Gambling Task** | 多輪牌組選擇（淨損益學習） | Iowa Gambling Task | Bechara et al. (1994) | TBD（找已在 LLM 上做過 IGT 的實驗） | ⬜ Pending |
 
-**對實驗設計的具體啟發**：
+**說明：**
+- **Confidence Betting / Bandit** 的結果在 §4.6 / §4.7，此處只標範式血統，不重複結果表。
+- **CGT / IGT** 目前為 pending：人類範式根源已確定，但「LLM 實現」欄待補——你會去找已在 LLM 上跑過 CGT / IGT 的論文填入，再決定是否復現。CGT 同時是 Confidence Betting 的 confidence-confound control（機率透明可排除「更自信」解釋）。
 
-1. **Logit shift 雙維度拆分**：目前 logit shift 混合了「方向性偏置」與「不一致性」。可參考 CSQ framework 將兩者拆開——哪些是模型本身的偏置、哪些是 RSN 注入造成的方向性改變。
+## References
 
-2. **Silent fabrication 偵測**：論文觀察到模型在 thinking 中插入不存在的中間事實。若未來做 CoT/open-ended generation 實驗，可加入 fabrication rate 指標，測試 RSN 是否能抑制此現象。
-
-3. **難度分層分析**：問題越難欺騙越多 → lying role 效果應加入難度維度，RSN 的 steering 效果可能在高難度題（MMLU hard subset）上更顯著。
-
-# Reference
+人類行為學範式文獻：
+- Bechara, Damasio, Damasio & Anderson (1994). Insensitivity to future consequences following damage to human prefrontal cortex. *Cognition.* 
+- Rogers et al. (1999). Dissociable deficits in the decision-making cognition of chronic amphetamine abusers, opiate abusers, patients with focal damage to prefrontal cortex... *Neuropsychopharmacology.* 
+- Daw, O'Doherty, Dayan, Seymour & Dolan (2006). Cortical substrates for exploratory decisions in humans. *Nature.* 
+- Pessiglione, Seymour, Flandin, Dolan & Frith (2006). Dopamine-dependent prediction errors underpin reward-seeking behaviour in humans. *Nature.* 
+- Persaud, McLeod & Cowey (2007). Post-decision wagering objectively measures awareness. *Nature Neuroscience.* 
+- Fleming & Dolan (2012). The neural basis of metacognitive ability. *Phil. Trans. R. Soc. B.* 
 
 - Berridge & Robinson (1998). What is the role of dopamine in reward: hedonic impact, reward learning, or incentive salience? *Brain Research Reviews.*
-- Berridge & Robinson (2003). Parsing reward. *Trends in Neurosciences, 26*(9), 507–513.
-- Berridge (2023). Separating desire from prediction of outcome value. *Trends in Cognitive Sciences.*
-- Winkielman, Berridge & Wilbarger (2005). Unconscious affective reactions to masked happy versus angry faces influence consumption behavior and judgments of value. *Personality and Social Psychology Bulletin, 31*(1), 121–135. https://doi.org/10.1177/0146167204271309
 - Fenigstein, Scheier & Buss (1975). Public and private self-consciousness: Assessment and theory. *Journal of Consulting and Clinical Psychology.*
 - Kim et al. (2024). Will LLMs Sink or Swim? Exploring Decision-Making Under Pressure. *EMNLP 2024 Findings.*
 - RSN paper (ACL Findings). Role-Sensitive Neurons: A Neuron-Level Gain Control Mechanism for Confidence Steering.
 - Zhou et al. (2026). General scales unlock AI evaluation with explanatory and predictive power. *Nature.* https://www.nature.com/articles/s41586-026-10303-2
 - Binz et al. (2025). Centaur: a foundation model of human cognition. *Nature.* https://doi.org/10.1038/s41586-025-09215-4
 - Xtra-Computing/LLM-Deception (ICLR 2026 Oral). Beyond Prompt-Induced Lies: Investigating LLM Deception on Benign Prompts. https://openreview.net/forum?id=PDBBYwd1LY
-
-# 實驗記錄
-**Week 18**
-| Experiment number | Model | State | Note |
-|---|---|---|---|
-| ⑩ TRAIT Personality Benchmark | Qwen3-8B, Llama3-8B-IT | ✅ Done | α+4 一致提升全部 8 traits；−4 幾乎無壓制；Qwen3 baseline 整體高於 Llama3；BFI_Neuroticism 最不敏感 |
-| ⑩ TRAIT Personality Benchmark | Llama3-8B-IT (1-1-33), Llama3-8B-Base (0-11-20 + 1-1-33) | ❌ Dropped | Base model 方向完全反轉（−4↑ +4↓）；IT −4 無壓制；無 accuracy ground truth，跳過不納入 paper |
-| ⑩ TRAIT Alpha Sweep | Llama3-8B-IT (layers 11-20, TOP=20) | ✅ Done | α ∈ {−10,…,+10} 完整 11 點；倒 U 型確認，peak α=4～6；α=10 崩潰（BFI↓ SD3↑）；α=−6 壓制 SD3 至近 0；完整對應 Yerkes-Dodson |
-| ⑧ Agentic Task Performance (ScienceWorld) | Llama3-8B-IT | ❌ Dropped | 跑完但跳過：測到的是 impulse control 而非 persistence/effort withdrawal；α=−4 abandon rate 與 baseline 相同，排除 effort withdrawal；α=+4 penalty 暴增（9.3%）為衝動誤判而非 persistence；機制不匹配 tonic DA wanting，不納入 paper |
-| ⑤ Confidence Betting (Incentive Salience) | Llama3-8B-IT, GPQA n=646 + MMLU n=14042 | ✅ Done | α=+4 mean_bet↑52–67%，bet10↑至49–53%；α=−4 mean_bet↓，bet2↑；accuracy 兩任務均不變（GPQA 26–28%，MMLU 59.1–59.5%）→ wanting–knowing 分離在兩任務一致成立 |
-| ⑥ Bandit Task (MAB) | Llama3-8B-IT, assistant role | ✅ Done | EVOLvE ClothesShopping 設計；α=+4 OptFrac 0.777（+27% vs baseline 0.609），regret↓35%，std↓67%；α=−4 OptFrac↓至 0.479，invalid rate↑8.4% |
-| ⑥ Bandit Task (MAB) | Llama3-8B-IT, no role | ✅ Done | No-role baseline 0.816；α=+4 OptFrac 0.851（+4%），regret↓13%，std↓45%；α=−4 OptFrac↓至 0.619，invalid rate↑6.1%；UCB1 基準 0.359 |
-| ⑥ TextBandit 複現 (ACL 2025) | Llama3-8B-IT, K=5, T=25, v2 | ✅ Done | 雙峰分布；baseline 0.447±0.401（14/30 failures）；α=+4 OptFrac 0.480（+3.3pp），InvalidRate↓1.1%，但 WorstFrac↑，效果遠弱於 EVOLvE |
-| ⑥ TextBandit T=50 複現 | Llama3-8B-IT, K=5, T=50, v3 | ✅ Done | 雙峰結構不變（12/30 failures）；α=+4 OptFrac 0.493（+4.6pp），InvalidRate↓1.7%；但 WorstFrac↑0.371，Regret 12.46＞baseline 11.80，T延長無本質改善 |
