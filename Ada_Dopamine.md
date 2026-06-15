@@ -191,7 +191,7 @@ Answer: <letter>
 - T=50 rounds，30 runs（seeds 0–29），configs: α ∈ {0, +4, −4}，layers 11–20
 - 生成模式（`vc.regenerate`，temperature=1.0）+ 字串匹配解析；無效輸出 fallback 隨機選臂
 
-**Prompt 格式（EVOLvE ClothesShopping 風格）：**
+**Prompt（EVOLvE ClothesShopping）：**
 
 ```
 You are in an online boutique powered by a bandit algorithm...
