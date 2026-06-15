@@ -2,7 +2,9 @@
 
 ## Running
 
-- **EVOLvE ClothesShopping alpha scan** (@182) — No-Role, −8→+8, layers 11–20, 30 runs × 50 rounds. + 需要做统计分析
+- **EVOLvE ClothesShopping alpha scan** (@182) — No-Role, −8→+8, layers 11–20, 30 runs × 50 rounds. + 需要做统计分析 + STD可以作为一个观测指标
+
+
 
 ---
 
