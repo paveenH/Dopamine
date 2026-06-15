@@ -7,14 +7,12 @@
 # Model     : Llama3-8B-IT
 # Data      : All 57 MMLU subjects merged (~14k samples)
 #
-# NOTE (2026-06): runs BARE-STRING (no --use_chat). The NMD mask / diff vectors
-# were extracted on bare prompts, so steering must inject into the same activation
-# distribution; apply_chat_template prepends <|start_header_id|>system… control
-# tokens that shift residual-stream geometry away from where the wanting direction
-# was measured, diluting the steer. build_prompt(use_chat=False) returns the bare
-# PROMPT_TEMPLATE (which already ends with the "Bet:/Answer:" format spec, so the
-# chat-branch's "+ Bet: " primer is not needed). See CLAUDE.md chat-template caveat.
-# Prior §4.6 headline numbers were collected under chat — re-run before citing.
+# NOTE (2026-06): KEEPS --use_chat, matching run_gpqa_bet.sh — the §4.6 betting
+# headline was collected under the chat wrapper, where α=+4 produces the
+# wanting→bet dose-response. A bare-string re-run collapsed the effect (mean_bet
+# flat across α), so chat is required for this experiment despite the default-bare
+# convention (CLAUDE.md chat-template caveat). build_prompt(use_chat=True) appends
+# the "+ Bet: " primer on the chat branch.
 #
 # Usage:
 #   bash run_mmlu_bet.sh              # full run
@@ -106,6 +104,7 @@ python get_answer_gpqa_bet.py \
     --batch_size     "${BATCH_SIZE}" \
     --limit          "${LIMIT}" \
     --out_prefix     "mmlu_bet" \
+    --use_chat \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
 
