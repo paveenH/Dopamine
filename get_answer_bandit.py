@@ -76,26 +76,58 @@ def worst_arm(arm_map: dict[str, float]) -> str:
     return min(arm_map, key=arm_map.get)
 
 
-def build_prompt(arm_names: list[str], history: list[tuple[str, int]]) -> str:
+def build_prompt(
+    arm_names: list[str],
+    history: list[tuple[str, int]],
+    use_role: bool = True,
+) -> str:
     """
     EVOLvE-style prompt:
       task instruction → history context → query
+
+    use_role=True  → Assistant-Role variant (AI fashion-assistant persona;
+                     the §4.7 "Assistant Role" condition).
+    use_role=False → No-Role neutral variant: strips the boutique/recommend/
+                     customer persona but keeps the EVOLvE explore/exploit
+                     paragraph and the history+query structure verbatim, so the
+                     only thing removed is the role framing (the §4.7 "No Role"
+                     condition, baseline ~0.816). The explore/exploit wording,
+                     verbalizer, and query line are identical across both arms.
     """
     names_str = "[" + ", ".join(arm_names) + "]"
-    lines = [
-        f"You are in an online boutique powered by a bandit algorithm "
-        f"that offers a variety of clothing options from different brands.",
-        f"There are {K} unique clothing items available, named {names_str}.",
-        "You choose an item to recommend based on past choices and rewards.",
-        "You aim to find the clothing item that customers are most likely to purchase and enjoy.",
-        "Each time a customer buys a recommended item, you update your strategy "
-        "to better predict and meet future customer preferences.",
-        "",
-        "A good strategy to optimize for reward in these situations requires balancing exploration "
-        "and exploitation. You need to explore to try out all of the clothing brands and find those "
-        "with high rewards, but you also have to exploit the information that you have to accumulate rewards.",
-        "",
-    ]
+    if use_role:
+        lines = [
+            f"You are in an online boutique powered by a bandit algorithm "
+            f"that offers a variety of clothing options from different brands.",
+            f"There are {K} unique clothing items available, named {names_str}.",
+            "You choose an item to recommend based on past choices and rewards.",
+            "You aim to find the clothing item that customers are most likely to purchase and enjoy.",
+            "Each time a customer buys a recommended item, you update your strategy "
+            "to better predict and meet future customer preferences.",
+            "",
+        ]
+    else:
+        lines = [
+            f"There are {K} options available, named {names_str}.",
+            "You choose one option each turn based on past choices and rewards.",
+            "You aim to find the option that gives the highest reward.",
+            "Each turn, you observe the reward of the chosen option and update your strategy.",
+            "",
+        ]
+    if use_role:
+        lines += [
+            "A good strategy to optimize for reward in these situations requires balancing exploration "
+            "and exploitation. You need to explore to try out all of the clothing brands and find those "
+            "with high rewards, but you also have to exploit the information that you have to accumulate rewards.",
+            "",
+        ]
+    else:
+        lines += [
+            "A good strategy to optimize for reward in these situations requires balancing exploration "
+            "and exploitation. You need to explore to try out all of the options and find those "
+            "with high rewards, but you also have to exploit the information that you have to accumulate rewards.",
+            "",
+        ]
 
     if history:
         n = len(history)
@@ -133,6 +165,7 @@ def run_episode(
     diff_mtx,
     num_rounds: int,
     seed: int,
+    use_role: bool = True,
 ) -> dict:
     rng = random.Random(seed)
     arm_map = shuffle_arms(seed)
@@ -146,7 +179,7 @@ def run_episode(
     invalids = []
 
     for _ in range(num_rounds):
-        prompt = build_prompt(arm_names, history)
+        prompt = build_prompt(arm_names, history, use_role=use_role)
         output = vc.regenerate(
             inputs=[prompt],
             diff_matrices=diff_mtx,
@@ -248,6 +281,7 @@ def main():
                     diff_mtx=diff_mtx,
                     num_rounds=args.num_rounds,
                     seed=run_idx,
+                    use_role=not args.no_role,
                 )
             run_results.append(result)
             print(
@@ -325,6 +359,8 @@ if __name__ == "__main__":
     parser.add_argument("--percentage",  type=float, default=0.5)
     parser.add_argument("--mask_type",   type=str, default="nmd")
     parser.add_argument("--abs",         action="store_true")
+    parser.add_argument("--no_role",     action="store_true",
+                        help="Use the No-Role neutral prompt (strips the AI-fashion-assistant persona; §4.7 No-Role condition).")
     parser.add_argument("--configs",     nargs="+", default=["0-11-20", "4-11-20", "neg4-11-20"])
     parser.add_argument("--num_runs",    type=int, default=30)
     parser.add_argument("--num_rounds",  type=int, default=50)
