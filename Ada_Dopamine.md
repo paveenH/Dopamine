@@ -197,7 +197,7 @@ Answer: <letter>
 - 臂名集合 = EVOLvE ClothesShopping 場景原始名單（前 10 個取 5 個）：`Velvet Vogue Jacket / Silk Serenity Dress / Urban Mystique Jeans / Celestial Symphony Scarf / Retro Revival Sneakers / Ethereal Elegance Blouse / Midnight Mirage Trousers / Vintage Vibe Coat / Opulent Oasis Gown / Mystic Mosaic Shirt`。
 - `REWARD_PROBS_ORDERED = [0.7, 0.5, 0.4, 0.3, 0.1]`，`shuffle_arms(seed)` 
 
-第 0 輪(無 history)輸出:
+Round 0 output (no history):
 
 ```
 You are in an online boutique powered by a bandit algorithm that offers a variety of clothing options from different brands.
@@ -211,18 +211,17 @@ A good strategy to optimize for reward in these situations requires balancing ex
 Which item will you choose next? PLEASE RESPOND ONLY WITH [Velvet Vogue Jacket, Silk Serenity Dress, Urban Mystique Jeans, Celestial Symphony Scarf, Retro Revival Sneakers] AND NO TEXT EXPLANATION.
 ```
 
-第 N 輪(有 history,每輪重建 prompt、history 累積至前 N-1 輪的 (臂名, reward)）：
-
+Round N output (with history; the prompt is rebuilt every round, and the history accumulates the (arm name, reward) pairs from rounds 0 to N−1):
 ```
-... (前段任務指令同上) ...
+... (same task instructions as above) ...
 
-So far you have interacted N times with the following choices and rewards:
+So far, you have interacted N times with the following choices and rewards:
 Velvet Vogue Jacket item, reward 1
 Silk Serenity Dress item, reward 0
 Urban Mystique Jeans item, reward 1
-... (每行 = 一輪歷史，"{臂名} item, reward {0|1}") ...
+... (one line per previous round: "{arm name} item, reward {0|1}") ...
 
-Which item will you choose next? PLEASE RESPOND ONLY WITH [...同上臂名列表...] AND NO TEXT EXPLANATION.
+Which item will you choose next? PLEASE RESPOND ONLY WITH [...same arm-name list as above...] AND NO TEXT EXPLANATION.
 ```
 
 **量化指標：**
@@ -271,7 +270,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 - **Role prompt 顯著壓低 baseline**：No Role 的 α=0 OptFrac（0.816）遠高於 Assistant Role（0.609），差距約 −0.207。角色設定本身干擾了模型的 exploitation 能力；WorstFrac 亦略高（0.077 vs 0.046），說明 role 條件下最差臂迴避也較弱。提升幅度在 Assistant Role 下為 +0.168（+28%），在 No Role 下僅 +0.035（+4%）。RSN 部分補償了 role prompt 對 exploitation 的壓制——當 role 已壓低 baseline，RSN 才有更大的修復空間。
 
-**TextBandit 複現實驗（ACL EthicalLLMs 2025 設計，Llama-3.1-8B，K=5，30 runs）：**
+**TextBandit（ACL EthicalLLMs 2025, Llama-3.1-8B，K=5，30 runs）：**
 
 TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M1 0.20 / M2 0.75 / M3 0.35 / M4 0.25 / M5 0.55]（最優臂 = Machine 2）、few-shot examples。Paper 原設定 T=25（500 runs）；我們額外跑 T=50 以與 EVOLvE bandit 對齊。
 
