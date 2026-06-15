@@ -193,15 +193,36 @@ Answer: <letter>
 
 **Prompt（EVOLvE ClothesShopping）：**
 
+實現要點：
+- 臂名集合 = EVOLvE ClothesShopping 場景原始名單（前 10 個取 5 個）：`Velvet Vogue Jacket / Silk Serenity Dress / Urban Mystique Jeans / Celestial Symphony Scarf / Retro Revival Sneakers / Ethereal Elegance Blouse / Midnight Mirage Trousers / Vintage Vibe Coat / Opulent Oasis Gown / Mystic Mosaic Shirt`。
+- `REWARD_PROBS_ORDERED = [0.7, 0.5, 0.4, 0.3, 0.1]`，`shuffle_arms(seed)` 
+
+第 0 輪(無 history)輸出:
+
 ```
-You are in an online boutique powered by a bandit algorithm...
-There are 5 unique clothing items available, named [Velvet Vogue Jacket, ...].
-...
+You are in an online boutique powered by a bandit algorithm that offers a variety of clothing options from different brands.
+There are 5 unique clothing items available, named [Velvet Vogue Jacket, Silk Serenity Dress, Urban Mystique Jeans, Celestial Symphony Scarf, Retro Revival Sneakers].
+You choose an item to recommend based on past choices and rewards.
+You aim to find the clothing item that customers are most likely to purchase and enjoy.
+Each time a customer buys a recommended item, you update your strategy to better predict and meet future customer preferences.
+
+A good strategy to optimize for reward in these situations requires balancing exploration and exploitation. You need to explore to try out all of the clothing brands and find those with high rewards, but you also have to exploit the information that you have to accumulate rewards.
+
+Which item will you choose next? PLEASE RESPOND ONLY WITH [Velvet Vogue Jacket, Silk Serenity Dress, Urban Mystique Jeans, Celestial Symphony Scarf, Retro Revival Sneakers] AND NO TEXT EXPLANATION.
+```
+
+第 N 輪(有 history,每輪重建 prompt、history 累積至前 N-1 輪的 (臂名, reward)）：
+
+```
+... (前段任務指令同上) ...
+
 So far you have interacted N times with the following choices and rewards:
 Velvet Vogue Jacket item, reward 1
 Silk Serenity Dress item, reward 0
-...
-Which item will you choose next? PLEASE RESPOND ONLY WITH [...] AND NO TEXT EXPLANATION.
+Urban Mystique Jeans item, reward 1
+... (每行 = 一輪歷史，"{臂名} item, reward {0|1}") ...
+
+Which item will you choose next? PLEASE RESPOND ONLY WITH [...同上臂名列表...] AND NO TEXT EXPLANATION.
 ```
 
 **量化指標：**
@@ -218,27 +239,25 @@ Which item will you choose next? PLEASE RESPOND ONLY WITH [...] AND NO TEXT EXPL
 
 **UCB1 理論基準（同 30 seeds，CPU 模擬）：**
 
-UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 ± 1.36**，WorstFrac = 0.117。
-UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon 下長期偏大，導致探索過度。
-**Llama3-8B 的 in-context learning（baseline 0.609–0.816）大幅超越 UCB1 理論算法**——語言模型利用 prompt 中的文字歷史進行快速模式匹配，比計數器統計的 UCB1 更高效地集中到高獎勵臂。
+UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 ± 1.36**，WorstFrac = 0.117。UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon 下長期偏大，導致探索過度。
 
 **實驗結果（Llama-3.1-8B，30 runs × 50 rounds）：**
 
-*Assistant Role（prompt 中帶有 AI fashion assistant 角色設定）：*
+*Assistant Role（AI fashion assistant）：*
 
 | α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate |
 | --- | --- | --- | --- | --- | --- |
-| UCB1（理論基準） | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — |
-| 0（baseline） | 0.609 ± 0.268 | 0.570 / 0.636 | 0.077 | 6.35 | 1.5% |
+| UCB1 | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — |
+| 0 | 0.609 ± 0.268 | 0.570 / 0.636 | 0.077 | 6.35 | 1.5% |
 | +4 | **0.777 ± 0.090** | 0.692 / **0.834** | **0.060** | **4.15** | 0.3% |
 | −4 | 0.479 ± 0.278 | 0.442 / 0.504 | 0.125 | 9.39 | 8.4% |
 
-*No Role（neutral prompt，無角色設定）：*
+*No Role（neutral prompt）：*
 
 | α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate |
 | --- | --- | --- | --- | --- | --- |
-| UCB1（理論基準） | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — |
-| 0（baseline） | 0.816 ± 0.160 | 0.773 / 0.844 | 0.046 | 3.18 | 0.7% |
+| UCB1 | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — |
+| 0| 0.816 ± 0.160 | 0.773 / 0.844 | 0.046 | 3.18 | 0.7% |
 | +4 | **0.851 ± 0.089** | 0.783 / **0.897** | **0.043** | **2.78** | 0.1% |
 | −4 | 0.619 ± 0.275 | 0.585 / 0.642 | 0.104 | 6.85 | 6.1% |
 
