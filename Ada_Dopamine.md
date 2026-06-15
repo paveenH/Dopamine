@@ -244,15 +244,13 @@ UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon
 
 **結果解讀：**
 
-- **LLM 的 in-context learning 超越 UCB1 理論算法**：UCB1 OptFrac 僅 0.359，而 LLM baseline 為 0.609–0.816。在 T=50 短 horizon，UCB1 因強制探索與過大的 confidence bonus 而效率低下；LLM 的語言模式匹配使其能更快速集中到高獎勵選項。這說明我們的任務難度設定合理，LLM 表現有真實的學習信號。
+- **LLM 的 in-context learning 超越 UCB1 理論算法**：UCB1 OptFrac 僅 0.359，而 LLM baseline 為 0.609–0.816。在 T=50 短 horizon，UCB1 因強制探索與過大的 confidence bonus 而效率低下；LLM 的語言模式匹配使其能更快速集中到高獎勵選項。
 
 - **RSN 正向干預（α=+4）在兩個條件下均有效，且排除了「過早 lock-in 錯誤臂」的混淆解釋**：OptFrac 提升，Regret 下降，**WorstFrac 同步下降**（0.077→0.060 / 0.046→0.043）。最關鍵的診斷：α=+4 下 **30/30 run 的 OptFrac ≥ 0.5**（α=0 baseline：Assistant 11/30 失敗，No Role 僅 1/30 失敗），分布完全單峰（0.6–1.0），沒有任何 run 在前 5 輪完全未選到最優臂。std 下降（0.268→0.090 / 0.160→0.089）代表**每 run 均穩定收斂**，而非少數 run 拉高均值；Early OptFrac（rounds 1–20）與 overall OptFrac 呈強正相關（Assistant r=0.883，No Role r=0.829，p<0.0001），符合「更快識別最優臂 → 更早開始集中 exploit」的預期機制。Late OptFrac 明顯高於 Early OptFrac 亦與此一致。
 
-- **Role prompt 顯著壓低 baseline**：No Role 的 α=0 OptFrac（0.816）遠高於 Assistant Role（0.609），差距約 −0.207。角色設定本身干擾了模型的 exploitation 能力；WorstFrac 亦略高（0.077 vs 0.046），說明 role 條件下最差臂迴避也較弱。
-
-- **RSN 效果在 Assistant Role 條件下更顯著**：提升幅度在 Assistant Role 下為 +0.168（+28%），在 No Role 下僅 +0.035（+4%）。RSN 部分補償了 role prompt 對 exploitation 的壓制——當 role 已壓低 baseline，RSN 才有更大的修復空間。
-
 - **α=−4 破壞效果一致且多維**：WorstFrac 在兩個條件下均上升（0.125 / 0.104），InvalidRate 大幅攀升（8.4% / 6.1%），OptFrac 跌至接近甚至低於 UCB1 基準。這支持負向 RSN 干預導致行為系統退化至「低 tonic DA」狀態——effort withdrawal，對高低獎勵臂的辨別力同步下降，輸出格式亦隨之崩潰。
+
+- **Role prompt 顯著壓低 baseline**：No Role 的 α=0 OptFrac（0.816）遠高於 Assistant Role（0.609），差距約 −0.207。角色設定本身干擾了模型的 exploitation 能力；WorstFrac 亦略高（0.077 vs 0.046），說明 role 條件下最差臂迴避也較弱。提升幅度在 Assistant Role 下為 +0.168（+28%），在 No Role 下僅 +0.035（+4%）。RSN 部分補償了 role prompt 對 exploitation 的壓制——當 role 已壓低 baseline，RSN 才有更大的修復空間。
 
 **TextBandit 複現實驗（ACL EthicalLLMs 2025 設計，Llama-3.1-8B，K=5，30 runs）：**
 
