@@ -182,7 +182,6 @@ Answer: <letter>
 
 **相關文獻：**
 - **EVOLvE / BanditBench**（Nie et al., ICML 2025）：LLM 在 MAB 任務中的 in-context RL 評估框架；採用語義豐富的 arm 名稱（ClothesShopping 場景）消除位置偏差；OptFrac（最優臂選擇率）+ cumulative regret
-- **TextBandit**（ACL EthicalLLMs 2025）：純自然語言 feedback 的 bandit 任務；K=5 slot machine，per-machine prob = [M1 0.20 / M2 **0.75** / M3 0.35 / M4 0.25 / M5 0.55]（真正最優臂為 Machine 2），T=25 rounds；Llama-3.1-8B paper baseline ≈ 31.6%（注：該數字是 source code 的 `best_machine` 設為 Machine 3（35% prob）的選擇率——一個 paper bug，而非對真正最優臂 Machine 2（75%）的選擇率）
 
 **實驗設計（貼近 EVOLvE ClothesShopping）：**
 
@@ -420,7 +419,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 | 實驗 | LLM 任務形態 | 對應人類行為學範式 | 人類範式文獻 | LLM 實現 | 狀態 |
 |---|---|---|---|---|---|
 | **Confidence Betting** | MCQ + 押注 0/2/5/10 | Post-decision wagering / confidence betting | Persaud et al. (2007); Fleming & Dolan (2012) | 本工作（§4.6） | ✅ Done |
-| **Bandit (MAB)** | 多輪 explore/exploit，語義臂名 | Multi-armed bandit / probabilistic reward learning | Daw et al. (2006) | EVOLvE-Nie et al. (2025); TextBandit (ACL EthicalLLMs 2025)（§4.7） | ✅ Done |
+| **Bandit (MAB)** | 多輪 explore/exploit，語義臂名 | Multi-armed bandit / probabilistic reward learning | Daw et al. (2006) | EVOLvE-Nie et al. (2025)（§4.7） | ✅ Done |
 | **Cambridge Gamble Task** | 機率透明下注（P% 已知） | Cambridge Gamble Task（DA-agonist／Parkinson 對比） | Rogers et al. (1999); Pessiglione et al. (2006, pramipexole) | TBD（找已在 LLM 上做過 CGT 的實驗） | ⬜ Pending |
 | **Iowa Gambling Task** | 多輪牌組選擇（淨損益學習） | Iowa Gambling Task | Bechara et al. (1994) | TBD（找已在 LLM 上做過 IGT 的實驗） | ⬜ Pending |
 
