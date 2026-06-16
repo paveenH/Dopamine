@@ -491,7 +491,7 @@ def main():
                     vc=vc, diff_mtx=diff_mtx, seed=run_idx, use_chat=args.use_chat,
                     max_new_tokens=args.max_new_tokens,
                     temperature=args.temperature, top_p=args.top_p,
-                    save_all_raw=args.save_all_raw,
+                    save_all_raw=args.save_all_raw, simple=args.simple_prompt,
                 )
             run_results.append(result)
             print(f"qdm={result['qdm']:.2f}  risk={result['risk_taking']:.2f}  "
@@ -521,6 +521,7 @@ def main():
                     "bets": BETS, "ratios": ALL_RATIOS,
                     "use_chat": args.use_chat, "temperature": args.temperature,
                     "top_p": args.top_p, "max_new_tokens": args.max_new_tokens,
+                    "simple_prompt": args.simple_prompt,
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -553,6 +554,11 @@ if __name__ == "__main__":
     parser.add_argument("--save_all_raw", action="store_true",
                         help="store raw generated text for EVERY round (not just "
                              "invalid ones); JSON grows ~4-6×, use for diagnostics")
+    parser.add_argument("--simple_prompt", action="store_true",
+                        help="use the SIMPLE CGT prompt (blue/red, fixed choice grid, "
+                             "probability-bridge rule, 'Choice:' prefill, history kept). "
+                             "Diagnoses whether the faithful-port qdm≈0.5 is a prompt "
+                             "issue vs a real 8B inability. Original faithful mode is default.")
     parser.add_argument("--ans_file",    type=str, default="answer_cgt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
