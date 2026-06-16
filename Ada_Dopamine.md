@@ -239,35 +239,42 @@ Which item will you choose next? PLEASE RESPOND ONLY WITH [...same arm-name list
 
 UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 ± 1.36**，WorstFrac = 0.117。UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon 下長期偏大，導致探索過度。
 
-**實驗結果（Llama-3.1-8B，30 runs × 50 rounds）：**
+**實驗結果（Llama-3.1-8B，No-Role neutral prompt，30 runs × 50 rounds，α 全掃 −8→+8 @ layers 11–20）：**
 
-*Assistant Role（AI fashion assistant）：*
+| α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate | fail(<0.5) |
+| --- | --- | --- | --- | --- | --- | --- |
+| UCB1 | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — | — |
+| −8 | 0.614 ± 0.238 | 0.562 / 0.649 | 0.067 | 6.50 | 15.7% | 7/30 |
+| −6 | 0.641 ± 0.244 | 0.588 / 0.677 | 0.084 | 6.41 | 11.5% | 7/30 |
+| −4 | 0.601 ± 0.183 | 0.547 / 0.638 | 0.095 | 7.33 | 20.1% | 7/30 |
+| −2 | 0.748 ± 0.120 | 0.683 / 0.791 | 0.073 | 4.79 | 9.7% | 1/30 |
+| 0 | 0.843 ± 0.114 | 0.777 / 0.887 | 0.043 | 2.92 | 1.5% | 0/30 |
+| **+2** | **0.891 ± 0.070** | 0.845 / **0.922** | **0.037** | **2.15** | 0.4% | **0/30** |
+| +4 | 0.865 ± 0.084 | 0.827 / 0.890 | 0.043 | 2.56 | 0.1% | 0/30 |
+| +6 | 0.842 ± 0.094 | 0.802 / 0.869 | 0.042 | 2.85 | 0.3% | 0/30 |
+| **+8** | **0.515 ± 0.177** | 0.525 / 0.508 | 0.075 | **8.17** | 0.2% | **11/30** |
+
+（`fail(<0.5)` = 30 個 run 中 OptFrac < 0.5 的 run 數，是「雙峰失穩」的直接讀數。）
+
+*Assistant Role（AI fashion assistant，±4 三點對照，role-prompt 壓制故事，§4.7）：*
 
 | α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate |
 | --- | --- | --- | --- | --- | --- |
-| UCB1 | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — |
 | 0 | 0.609 ± 0.268 | 0.570 / 0.636 | 0.077 | 6.35 | 1.5% |
 | +4 | **0.777 ± 0.090** | 0.692 / **0.834** | **0.060** | **4.15** | 0.3% |
 | −4 | 0.479 ± 0.278 | 0.442 / 0.504 | 0.125 | 9.39 | 8.4% |
 
-*No Role（neutral prompt）：*
-
-| α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate |
-| --- | --- | --- | --- | --- | --- |
-| UCB1 | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — |
-| 0| 0.816 ± 0.160 | 0.773 / 0.844 | 0.046 | 3.18 | 0.7% |
-| +4 | **0.851 ± 0.089** | 0.783 / **0.897** | **0.043** | **2.78** | 0.1% |
-| −4 | 0.619 ± 0.275 | 0.585 / 0.642 | 0.104 | 6.85 | 6.1% |
-
 **結果解讀：**
 
-- **LLM 的 in-context learning 超越 UCB1 理論算法**：UCB1 OptFrac 僅 0.359，而 LLM baseline 為 0.609–0.816。在 T=50 短 horizon，UCB1 因強制探索與過大的 confidence bonus 而效率低下；LLM 的語言模式匹配使其能更快速集中到高獎勵選項。
+- **乾淨的 Yerkes–Dodson 倒 U** 
 
-- **RSN 正向干預（α=+4）在兩個條件下均有效，且排除了「過早 lock-in 錯誤臂」的混淆解釋**：OptFrac 提升，Regret 下降，**WorstFrac 同步下降**（0.077→0.060 / 0.046→0.043）。最關鍵的診斷：α=+4 下 **30/30 run 的 OptFrac ≥ 0.5**（α=0 baseline：Assistant 11/30 失敗，No Role 僅 1/30 失敗），分布完全單峰（0.6–1.0），沒有任何 run 在前 5 輪完全未選到最優臂。std 下降（0.268→0.090 / 0.160→0.089）代表**每 run 均穩定收斂**，而非少數 run 拉高均值；Early OptFrac（rounds 1–20）與 overall OptFrac 呈強正相關（Assistant r=0.883，No Role r=0.829，p<0.0001），符合「更快識別最優臂 → 更早開始集中 exploit」的預期機制。Late OptFrac 明顯高於 Early OptFrac 亦與此一致。
+- **右臂崩潰（α=+8）= Yerkes–Dodson 右側過載，本工作首個多輪序列上的 +α overload 證據。** OptFrac 從 +6 的 0.842 **斷崖跌到 0.515**（−0.33），Regret 翻近 3 倍（2.85→8.17），Early≈Late（0.525/0.508，**完全不收斂**）。機制是**雙峰失穩**：fail(<0.5) 從 +6 的 0/30 暴增到 **11/30**，per-run 分布從 0.10 一路鋪到 0.82——不是整體均值平移，而是**一部分 run 被推進「躁狂區」徹底失控**（鎖死錯臂、無法 exploit），另一部分仍正常。這對應 over-wanting → 行為僵化的 DA 過載預測。
 
-- **α=−4 破壞效果一致且多維**：WorstFrac 在兩個條件下均上升（0.125 / 0.104），InvalidRate 大幅攀升（8.4% / 6.1%），OptFrac 跌至接近甚至低於 UCB1 基準。這支持負向 RSN 干預導致行為系統退化至「低 tonic DA」狀態——effort withdrawal，對高低獎勵臂的辨別力同步下降，輸出格式亦隨之崩潰。
+- **左臂（−α）單調退化 + 格式崩潰。** −2→−8 整體下行（0.748→0.614），InvalidRate 飆升（−4 達 20.1%、−8 達 15.7%），WorstFrac 上升，符合「低 tonic DA → effort withdrawal + 輸出格式崩潰」。崩潰機制同樣是雙峰（−6/−8 fail 7/30，分布長尾低至 0.10）。註：−4（0.601）略低於 −6（0.641）的非單調是**採樣噪聲**（兩檔 fail 同為 7/30、分布高度重疊，舊 neutral −4=0.619 夾在中間），左臂實質為單調退化，不為此 dip 編機制。
 
-- **Role prompt 顯著壓低 baseline**：No Role 的 α=0 OptFrac（0.816）遠高於 Assistant Role（0.609），差距約 −0.207。角色設定本身干擾了模型的 exploitation 能力；WorstFrac 亦略高（0.077 vs 0.046），說明 role 條件下最差臂迴避也較弱。提升幅度在 Assistant Role 下為 +0.168（+28%），在 No Role 下僅 +0.035（+4%）。RSN 部分補償了 role prompt 對 exploitation 的壓制——當 role 已壓低 baseline，RSN 才有更大的修復空間。
+- **峰穩定性是核心讀數。** α=+2 是全場 std 最小（0.070）、fail=0/30 的點——**每個 run 都穩定收斂**；兩端 std 最大（0.18–0.24）、fail 7–11/30。倒 U 的形狀不只是均值，更是「中段全 run 收斂、兩端部分 run 失穩」的穩定性曲線。這與 GSM8K accuracy 維度的倒 U（−6 峰、±8 崩）**在不同行為維度上獨立複現了同一條 Yerkes–Dodson 曲線**。
+
+- **Role prompt 顯著壓低 baseline（Assistant-Role 對照，§4.7）**：Assistant-Role 的 α=0 OptFrac（0.609）遠低於 No-Role（0.843），角色設定本身干擾 exploitation；α=+4 在 Assistant-Role 下修復 +0.168（+28%），在 No-Role 下因已近天花板僅 +0.022。
 
 ### 3.3 Gamble Task
 
@@ -287,7 +294,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 **④ `Mitigating Gambling-Like Risk-Taking…`（Du, arXiv 2506.22496, 2025）— 僅 framing，實驗數字不可信。**
 7 頁短文。可用的只有四個形式化定義（Overconfidence / Loss Chasing / Probability Misjudgment / Risk-Reward Miscalibration）+ GTS 複合分公式，可 cite 當 framing 來源。Table 1 的 RARG-70B / LLaMA-2-70B 結果無訓練細節、無數據集、無 baseline 出處，IGT「Optimal%」也未給協議——**不要引用其任何實驗數字或 IGT 協議**。（與 ② 不同作者；此篇單作者 Y. Du。）
 
-#### 行動建議（落到實驗設計）
+#### 行動建議
 
 | 項目 | 建議 | 依據 |
 |---|---|---|
