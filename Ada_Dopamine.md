@@ -270,44 +270,6 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 - **Role prompt 顯著壓低 baseline**：No Role 的 α=0 OptFrac（0.816）遠高於 Assistant Role（0.609），差距約 −0.207。角色設定本身干擾了模型的 exploitation 能力；WorstFrac 亦略高（0.077 vs 0.046），說明 role 條件下最差臂迴避也較弱。提升幅度在 Assistant Role 下為 +0.168（+28%），在 No Role 下僅 +0.035（+4%）。RSN 部分補償了 role prompt 對 exploitation 的壓制——當 role 已壓低 baseline，RSN 才有更大的修復空間。
 
-**TextBandit（ACL EthicalLLMs 2025, Llama-3.1-8B，K=5，30 runs）：**
-
-TextBandit 使用純數字臂名（Slot Machine 1–5）、固定 prob 向量 [M1 0.20 / M2 0.75 / M3 0.35 / M4 0.25 / M5 0.55]（最優臂 = Machine 2）、few-shot examples。Paper 原設定 T=25（500 runs）；我們額外跑 T=50 以與 EVOLvE bandit 對齊。
-
-*UCB1 理論基準（同 30 seeds，CPU 模擬，early=前12輪，late=後12輪）：*
-
-| 設定 | OptFrac ± std | Early / Late | WorstFrac | Regret |
-| --- | --- | --- | --- | --- |
-| UCB1 T=25 | 0.339 ± 0.068 | 0.327 / 0.369 | 0.132 | 7.20 ± 0.80 |
-| UCB1 T=50 | 0.407 ± 0.056 | 0.292 / 0.483 | 0.107 | 12.69 ± 1.34 |
-
-*LLM 結果（T=25，v2）：*
-
-| α | mean OptFrac ± std | Early / Late | WorstFrac | Regret | InvalidRate | Failures |
-| --- | --- | --- | --- | --- | --- | --- |
-| UCB1 | 0.339 ± 0.068 | 0.327 / 0.369 | 0.132 | 7.20 | — | — |
-| 0 | 0.447 ± 0.401 | 0.422 / 0.467 | 0.209 | 5.52 | 6.4% | 14/30 |
-| +4 | 0.480 ± 0.432 | 0.511 / 0.450 | 0.299 | 5.37 | 1.1% | 14/30 |
-| −4 | 0.323 ± 0.323 | 0.286 / 0.356 | 0.304 | 7.19 | 15.5% | 17/30 |
-
-*LLM 結果（T=50，v3）：*
-
-| α | mean OptFrac ± std | Early / Late | WorstFrac | Regret | InvalidRate | Failures |
-| --- | --- | --- | --- | --- | --- | --- |
-| UCB1 | 0.407 ± 0.056 | 0.292 / 0.483 | 0.107 | 12.69 | — | — |
-| 0 | 0.447 ± 0.352 | 0.389 / 0.489 | 0.267 | 11.80 | 7.4% | 12/30 |
-| +4 | **0.493 ± 0.399** | **0.531** / 0.464 | 0.371 | 12.46 | **1.7%** | 12/30 |
-| −4 | 0.307 ± 0.302 | 0.283 / 0.286 | 0.354 | 15.09 | 13.8% | 16/30 |
-
-**結果解讀（TextBandit）：**
-
-- **雙峰分布（bimodal）是主要特徵，T=50 未改善**：T=25 和 T=50 的 failure count 相近（14→12/30），std 仍高達 0.35–0.43。模型要麼成功識別 Machine 1（75%），要麼長期隨機探索，沒有穩定的中間收斂態。延長 horizon 對 TextBandit 設計幫助有限。
-- **α=+4 最顯著效果是格式穩定化**：InvalidRate 從 6–7%→1–2%，且 Early OptFrac（0.511/0.531）一致高於 baseline。但 OptFrac 提升仍微弱（+3–5pp），failure count 未改善，WorstFrac 反而上升（0.267→0.371，T=50），Early > Late（0.531 > 0.464）與 EVOLvE 方向相反。
-- **T=50 的 Regret 異常**：α=+4 的 regret（12.46）甚至高於 baseline（11.80），與 OptFrac 略升矛盾，原因是 WorstFrac 大幅上升（0.371）拉高了 regret——steering 讓模型更常選到最差臂，抵消了最優臂的增益。
-- **α=−4 在 T=50 完全不收斂**：Late OptFrac（0.286）≈ Early OptFrac（0.283），horizon 延長無法改善；Regret 15.09，比 UCB1（12.69）更差。
-- **與 EVOLvE 設計的根本差異**：TextBandit 的數字臂名（1–5）消除了語義線索，模型無法利用語義記憶快速 exploit；固定位置（Machine 1 永遠最優）引入位置偏差干擾；few-shot examples 雖降低 InvalidRate，但在雙峰分布問題上沒有幫助。RSN steering 在 EVOLvE（語義豐富，T=50）效果顯著（+17pp），在 TextBandit（數字臂名）效果有限（+3–5pp）。
-- **Paper baseline 注意**：TextBandit paper 的 31.6% 是對 Machine 3（35% prob）的選擇率（source code 把 `best_machine` 寫死為 3，是一個 bug），而非真正最優臂 Machine 2（75%）。我們的實現以真正最優臂（Machine 2）計算 OptFrac，故數字不可與 paper 直接比較。
-
 ### 3.3 Gamble Task
 
 賭博範式（IGT / CGT / slot-betting）的吸引力在於它把「wanting」操作化為**對賭注大小、風險偏好、輸後追高的外顯選擇**，且 knowing 維度可被任務設計剝離（CGT 機率透明、IGT 淨分有 ground-truth），正好補上 §3.1 Confidence Betting 的「更有信心」confound。以下四篇是設計本實驗的文獻基礎。
