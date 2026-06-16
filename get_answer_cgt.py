@@ -322,7 +322,8 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             phase_history = []
 
         blue, red = box_seq[r]
-        user_prompt = build_user_prompt(round_number, remain, blue, red, phase_history)
+        user_prompt = build_user_prompt(round_number, remain, blue, red,
+                                        phase_history, simple=simple)
         prompt = to_chat(vc, system_prompt, user_prompt, use_chat)
 
         output = vc.regenerate(
@@ -338,7 +339,7 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             # natural EOS at max_new_tokens=256.
         )
         raw = output[0] if isinstance(output, list) else output
-        slot, valid = parse_choice(raw, rng=fallback_rng)
+        slot, valid = parse_choice(raw, rng=fallback_rng, simple=simple)
 
         # display slot → underlying choice_true (repo: choice_order[choice])
         choice_true = choice_order[slot]
