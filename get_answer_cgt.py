@@ -144,6 +144,37 @@ Your response must always present in the following XML format:
 <choice>Any number between 0-9 indicates your choice</choice>
 The available range for <choice> is 0-9."""
 
+# --simple_prompt variant (2026-06-16): a port-faithful CGT was qdm≈0.50 even at
+# 9:1 — Llama-8B never converted the chest counts into "pick the majority colour".
+# Diagnosis (offline, raw inspection): F/J abstract labels + heavy "random/
+# independent" wording + a shuffled choice-index lookup table buried the simple
+# "more chests → higher chance" inference. SIMPLE keeps every CGT mechanic intact
+# (history retained = the loss-chasing axis CGT exists to measure; counts shown,
+# NOT probabilities = model must still do the count→prob→majority step itself) but
+# (1) blue/red instead of F/J, (2) adds a probability BRIDGE giving only the *rule*
+# (share = chance), no worked example, (3) drops the XML/<reasoning> scaffold for a
+# soft "Answer with the choice number: \n Choice:" prefill (reasoning NOT forbidden
+# — whether CoT helps CGT is left to A/B test). Original faithful mode is the
+# default; pass --simple_prompt to use this.
+SIMPLE_SYSTEM_TEMPLATE = """In front of you are 10 treasure chests, some are blue and others are red.
+A gold coin is hidden in exactly one chest, chosen completely at random, so every chest is equally likely. This means a colour's chance of holding the coin equals that colour's share of the 10 chests.
+
+Each round you bet a percentage of your current points on ONE colour (blue or red).
+The available percentages are: {b0}%, {b1}%, {b2}%, {b3}%, {b4}%.
+If the coin is under a chest of the colour you bet on, you win and receive double your bet; otherwise you lose your bet. Each round's coin position is independent of previous rounds.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. Maximise your points.
+
+Choose one option (a colour and a bet percentage):
+Choice 0: blue, {b0}%   Choice 5: red, {b0}%
+Choice 1: blue, {b1}%   Choice 6: red, {b1}%
+Choice 2: blue, {b2}%   Choice 7: red, {b2}%
+Choice 3: blue, {b3}%   Choice 8: red, {b3}%
+Choice 4: blue, {b4}%   Choice 9: red, {b4}%
+
+Answer with the choice number:
+Choice: <number>"""
+
 # Label for each *display slot* (choice index as shown to the model).
 # Repo player_chinese_choice_labels uses "F <pct>%" / "J <pct>%" — we keep F/J.
 SLOT_LABELS = [
@@ -152,10 +183,17 @@ SLOT_LABELS = [
 ]
 
 
-def build_system_prompt(choice_order: list[int]) -> str:
+def build_system_prompt(choice_order: list[int], simple: bool = False) -> str:
     """choice_order maps display slot i → underlying choice_true.
-    Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]]."""
+    Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]].
+    In --simple mode the choice grid is fixed (slot == choice_true, no shuffle),
+    so the model is not burdened with a per-round lookup table."""
     pcts = {f"b{j}": decimal_to_percentage(BETS[j]) for j in range(5)}
+    if simple:
+        return SIMPLE_SYSTEM_TEMPLATE.format(
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            b0=pcts["b0"], b1=pcts["b1"], b2=pcts["b2"], b3=pcts["b3"], b4=pcts["b4"],
+        )
     labels = [SLOT_LABELS[t].format(**pcts) for t in range(CHOICE_NUM)]
     maps = {f"map_{i}": labels[choice_order[i]] for i in range(CHOICE_NUM)}
     return SYSTEM_TEMPLATE.format(
@@ -167,8 +205,26 @@ def build_system_prompt(choice_order: list[int]) -> str:
 
 
 def build_user_prompt(round_number: int, remain: int, blue: int, red: int,
-                      history: list[dict]) -> str:
-    """Port of get_language_model_user_prompt (system_prompt_choose branch)."""
+                      history: list[dict], simple: bool = False) -> str:
+    """Port of get_language_model_user_prompt (system_prompt_choose branch).
+    --simple: blue/red wording, counts only (no probabilities — model must still
+    do the count→prob→majority step), history retained, ends with a 'Choice:'
+    prefill so the model lands on a digit (soft format anchor, reasoning allowed)."""
+    if simple:
+        head = (
+            f"Your points so far this phase: {remain}.\n"
+            f"Round {round_number}: there are {blue} blue chest(s) and {red} red chest(s)."
+        )
+        if not history:
+            return head + "\nChoice:"
+        hist = "Past rounds this phase (for reference; each round is independent):\n"
+        for h in history:
+            cc = h["choice_color"]; tc = h["token_color"]
+            res = "won" if h["payoff"] > 0 else "lost"
+            hist += (f"Round {h['round']}: you bet {h['choice_percent']}% on {cc}; "
+                     f"the coin was {tc}, you {res} ({float(h['payoff'])} points).\n")
+        return hist + head + "\nChoice:"
+
     head = (
         f"Your total points in this phase so far: {remain} points.\n"
         f"Now this is the {round_number}th round of the game.\n In front of you are "
@@ -208,8 +264,24 @@ CHOICE_ANCHORED_RE = re.compile(r"\b(?:choice|answer|option|choose|select)\D{0,2
 CHOICE_ONLY_RE = re.compile(r"^\s*([0-9])\s*\.?\s*$")
 
 
-def parse_choice(output: str, rng: random.Random | None = None) -> tuple[int, bool]:
-    """Return (choice 0–9, is_valid). Invalid → uniform random fallback."""
+CHOICE_LEAD_RE = re.compile(r"^\s*([0-9])\b")
+
+
+def parse_choice(output: str, rng: random.Random | None = None,
+                 simple: bool = False) -> tuple[int, bool]:
+    """Return (choice 0–9, is_valid). Invalid → uniform random fallback.
+    --simple: prompt ends with 'Choice:' prefill, so generation starts with the
+    digit — match a leading 0–9 first, then fall back to 'Choice: N' anchor."""
+    if simple:
+        m = CHOICE_LEAD_RE.match(output)
+        if m:
+            return int(m.group(1)), True
+        m = CHOICE_ANCHORED_RE.search(output)
+        if m:
+            return int(m.group(1)), True
+        fallback_rng = rng if rng is not None else random
+        return fallback_rng.randint(0, CHOICE_NUM - 1), False
+
     m = CHOICE_RE.search(output)
     if m:
         return int(m.group(1)), True
@@ -228,12 +300,14 @@ def parse_choice(output: str, rng: random.Random | None = None) -> tuple[int, bo
 # ───────────────────── One run (8 phases × 8 rounds) ─────────────────────
 def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float,
-                save_all_raw: bool = False) -> dict:
+                save_all_raw: bool = False, simple: bool = False) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
-    choice_order = rotate_choice_order(seed)       # display slot → choice_true
-    system_prompt = build_system_prompt(choice_order)
+    # simple mode uses a FIXED choice grid (slot == choice_true); faithful mode
+    # rotates to debias option position.
+    choice_order = list(range(CHOICE_NUM)) if simple else rotate_choice_order(seed)
+    system_prompt = build_system_prompt(choice_order, simple=simple)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
