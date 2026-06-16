@@ -31,8 +31,13 @@
 # Per-α resume: summary CSV is appended, finished α are skipped on re-run.
 #
 # Usage:
-#   bash run_cgt.sh                 # full −α-axis + bidirectional sweep
+#   bash run_cgt.sh                 # full −α-axis + bidirectional sweep (faithful prompt)
 #   bash run_cgt.sh --pilot         # α=0 only, 2 runs; writes answer_cgt_pilot
+#   bash run_cgt.sh --verify        # α=0, 5 runs, SIMPLE prompt + save_all_raw →
+#                                   #   answer_cgt_simple_verify. Checks whether the
+#                                   #   faithful-port qdm≈0.5 is a prompt issue: if
+#                                   #   SIMPLE lifts qdm at 9:1, CGT is salvageable.
+#   bash run_cgt.sh --simple        # full sweep with the SIMPLE prompt (after verify passes)
 #   nohup bash run_cgt.sh > cgt.log 2>&1 &
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -71,14 +76,35 @@ MAX_NEW_TOKENS=256        # natural EOS at this cap (no stop_strings). A </choic
 TEMPERATURE=1.0          # Near-Optimal default
 TOP_P=0.9
 ANS_FILE="answer_cgt"
+SIMPLE_FLAG=""           # set by --verify / --simple
+SAVE_RAW_FLAG=""         # set by --verify
 
-# ==================== Pilot override ====================
+# ==================== Mode overrides ====================
 # --pilot : α=0, 2 runs, near-random sanity check → separate answer_cgt_pilot dir
 if [ "$1" == "--pilot" ]; then
     CONFIGS="0-11-20"
     NUM_RUNS=2
     ANS_FILE="answer_cgt_pilot"
     echo "[PILOT] α=0 only, ${NUM_RUNS} runs — baseline near-random check (${ANS_FILE})"
+fi
+
+# --verify : α=0, 5 runs, SIMPLE prompt + save every raw → separate dir.
+# Diagnoses whether faithful-port qdm≈0.5 is a prompt issue. Inspect raw + qdm
+# (esp. at 9:1) offline before committing to a full SIMPLE sweep.
+if [ "$1" == "--verify" ]; then
+    CONFIGS="0-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple_verify"
+    SIMPLE_FLAG="--simple_prompt"
+    SAVE_RAW_FLAG="--save_all_raw"
+    echo "[VERIFY] α=0, ${NUM_RUNS} runs, SIMPLE prompt + save_all_raw (${ANS_FILE})"
+fi
+
+# --simple : full sweep but with the SIMPLE prompt (use after --verify passes).
+if [ "$1" == "--simple" ]; then
+    ANS_FILE="answer_cgt_simple"
+    SIMPLE_FLAG="--simple_prompt"
+    echo "[SIMPLE] full sweep with SIMPLE prompt (${ANS_FILE})"
 fi
 
 # ==================== Run ====================
@@ -108,7 +134,9 @@ python get_answer_cgt.py \
     --top_p "${TOP_P}" \
     --ans_file "${ANS_FILE}" \
     --data "${DATA}" \
-    --base_dir "${BASE_DIR}"
+    --base_dir "${BASE_DIR}" \
+    ${SIMPLE_FLAG} \
+    ${SAVE_RAW_FLAG}
 
 if [ $? -eq 0 ]; then
     echo ""
