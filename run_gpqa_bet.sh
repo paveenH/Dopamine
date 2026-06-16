@@ -6,10 +6,17 @@
 #   Each question asks the model to bet 0/2/5/10 points before answering.
 #   Mean bet / bet distribution = proxy for incentive salience (wanting).
 #
-# Conditions:
-#   orig    (no steering)          → baseline betting behavior
-#   α=+4   (expert direction)      → prediction: higher bets, fewer bet=0
-#   α=−4   (non-expert direction)  → prediction: lower bets, more bet=0
+# Conditions (2026-06-16: extended to a full −8→+8 dose scan):
+#   orig (=α=0)  → baseline betting behavior (run via the orig branch, not CONFIGS)
+#   α<0          → prediction: lower bets, more bet=0 (under-wanting)
+#   α>0          → prediction: higher bets, fewer bet=0, saturating toward bet=10
+# Unlike GSM8K/Bandit (inverted-U on a performance metric), betting's readout is
+# mean_bet — a SATURATING MONOTONE quantity (no "overload collapse"; wanting just
+# rises until it hits the bet=10 ceiling). The scan's job is to confirm the
+# dose-response is monotone and locate the saturation point, giving a SECOND
+# "needs-engagement → peak-on-positive-α" curve (alongside Bandit) for the
+# motivation-knob cross-task argument. GPQA (n=646, already chat) is the cheap
+# carrier for the 9-cell scan; MMLU stays ±4-only (large-n dissociation, no curve).
 #
 # Model  : Llama3-8B-IT
 # Task   : GPQA main + diamond only (micro accuracy)
@@ -38,7 +45,8 @@
 # ==================== Shared config ====================
 PERCENTAGE=0.5
 MASK_TYPE="nmd"
-CONFIGS="4-11-20 neg4-11-20"
+# Full −8→+8 scan (orig=α=0 runs via the orig branch; CONFIGS holds the 8 steered cells).
+CONFIGS="neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 2-11-20 4-11-20 6-11-20 8-11-20"
 
 # ==================== Paths ====================
 WORK_DIR="/data1/paveen/Dopamine"
