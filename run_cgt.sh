@@ -134,12 +134,22 @@ if [ "$1" == "--verify2" ]; then
 fi
 [ -n "$MAX_NEW_TOKENS_OVERRIDE" ] && MAX_NEW_TOKENS=$MAX_NEW_TOKENS_OVERRIDE
 
-# --simple2 : full sweep with the SIMPLE2 multi-turn game prompt (after --verify2 passes).
+# --simple2 : full −8→+8 sweep with the SIMPLE2 multi-turn game prompt (after
+# --verify2 passes; verify2 gave qdm 0.81–0.91 with risk_adj_slope turning POSITIVE
+# +0.044/+0.046, i.e. the model finally reads the chests and scales bets to the
+# odds). 9 α × 20 runs × 64 decisions. save_all_raw kept ON across ALL cells (user
+# decision 2026-06-17) so every α's reasoning/failure mode is inspectable offline
+# (does +α chase losses more? does −α decohere?). CGT is probability-transparent, so
+# RSN's dose-response on risk_taking / risk_adj_slope / I_LC is the headline readout.
 if [ "$1" == "--simple2" ]; then
+    CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
+    NUM_RUNS=20
     ANS_FILE="answer_cgt_simple2"
     SIMPLE_FLAG="--simple2"
+    SAVE_RAW_FLAG="--save_all_raw"
     USE_CHAT_FLAG="--use_chat"
-    echo "[SIMPLE2] full sweep with SIMPLE2 multi-turn GAME prompt + chat (${ANS_FILE})"
+    MAX_NEW_TOKENS=200            # room to reason, then commit Choice: <number>
+    echo "[SIMPLE2] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE2 GAME prompt + chat + save_all_raw (${ANS_FILE})"
 fi
 
 # ==================== Run ====================
