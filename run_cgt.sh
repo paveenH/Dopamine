@@ -226,6 +226,36 @@ if [ "$1" == "--simple3b" ]; then
     echo "[SIMPLE3B] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3B reward-boosted prompt + chat + save_all_raw (${ANS_FILE})"
 fi
 
+# --verify3c : α=0/±6, 5 runs, SIMPLE3B + 'Answer: ' anchor (no reasoning; model
+# answers Color/Bet directly from the anchor, like betting's chat + 'Bet: '). The
+# prior simple3b/turn injection landed on the format header; this puts the final
+# prompt token at the brink of the decision value, so prefill steering hits the
+# decision. A/B vs simple3b_verify: if anchoring surfaces an α dose-response → the
+# null was injection LOCALITY (steering never reached the decision); if still null
+# → the null is the TASK (probability-transparent → no wanting headroom).
+if [ "$1" == "--verify3c" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple3c_verify"
+    SIMPLE_FLAG="--simple3c"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY3C] α=0/±6, ${NUM_RUNS} runs, SIMPLE3B + 'Answer: ' anchor + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --simple3c : full −8→+8 sweep with the SIMPLE3B + 'Answer: ' anchor (after verify3c).
+if [ "$1" == "--simple3c" ]; then
+    CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
+    NUM_RUNS=20
+    ANS_FILE="answer_cgt_simple3c"
+    SIMPLE_FLAG="--simple3c"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[SIMPLE3C] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3B + 'Answer: ' anchor + chat + save_all_raw (${ANS_FILE})"
+fi
+
 # --verify3b_turn : α=0/±6, 5 runs, SIMPLE3B + --inject_turn (steer the last 8 prompt
 # tokens ≈ this round's user turn, not just the final token). The simple3b α-scan was
 # NULL; one candidate cause is that single-token injection is swamped by the long
