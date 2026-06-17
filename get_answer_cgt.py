@@ -402,6 +402,10 @@ CHOICE_FINAL_RE = re.compile(r"Choice:\s*([0-9])\b", re.IGNORECASE)
 # bet% DIRECTLY (no grid lookup). Order-agnostic: accept either field first.
 SIMPLE3_COLOR_RE = re.compile(r"\bColor:\s*(blue|red)\b", re.IGNORECASE)
 SIMPLE3_BET_RE = re.compile(r"\bBet:\s*(\d{1,3})\s*%", re.IGNORECASE)
+# --simple3c fallback: with the "Answer: " anchor the model may answer without the
+# literal "Color:" tag (e.g. "Answer: blue, Bet: 95%"), so fall back to a bare
+# blue/red token. 3/3b always emit "Color:", so this only fires for 3c stragglers.
+SIMPLE3_BARE_COLOR_RE = re.compile(r"\b(blue|red)\b", re.IGNORECASE)
 BET_PCTS = [decimal_to_percentage(b) for b in BETS]   # [5, 25, 50, 75, 95]
 
 
@@ -416,9 +420,12 @@ def _snap_bet_pct(pct: int) -> float:
 def parse_choice_simple3(output: str, rng: random.Random | None = None
                          ) -> tuple[str, float, bool]:
     """Return (color, bet_frac, is_valid). Take the LAST Color:/Bet: pair (the
-    committed line), since the model reasons first. Invalid (missing either
-    field) → random colour + random tier fallback."""
+    committed line), since the model reasons first. For simple3c (anchor mode) the
+    "Color:" tag may be missing, so fall back to the last bare blue/red token.
+    Invalid (no colour OR no bet) → random colour + random tier fallback."""
     colors = SIMPLE3_COLOR_RE.findall(output)
+    if not colors:
+        colors = SIMPLE3_BARE_COLOR_RE.findall(output)   # 3c straggler fallback
     bets = SIMPLE3_BET_RE.findall(output)
     if colors and bets:
         color = colors[-1].lower()
@@ -713,7 +720,7 @@ def main():
                     temperature=args.temperature, top_p=args.top_p,
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
                     simple2=args.simple2, simple3=args.simple3,
-                    simple3b=args.simple3b,
+                    simple3b=args.simple3b, simple3c=args.simple3c,
                     prefill_tail_len=args.inject_turn_len if args.inject_turn else 1,
                 )
             run_results.append(result)
@@ -748,6 +755,7 @@ def main():
                     "simple2": args.simple2,
                     "simple3": args.simple3,
                     "simple3b": args.simple3b,
+                    "simple3c": args.simple3c,
                     "inject_turn": args.inject_turn,
                     "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
                 },
@@ -813,6 +821,15 @@ if __name__ == "__main__":
                              "objective risk偏好. Shares all simple3 downstream (grid-free "
                              "Color:/Bet:%, multi-turn, parser). REQUIRES --use_chat. "
                              "Mutually exclusive with --simple_prompt / --simple2 / --simple3.")
+    parser.add_argument("--simple3c", action="store_true",
+                        help="SIMPLE3B prompt + an 'Answer: ' anchor appended after the "
+                             "assistant header (like betting's chat + 'Bet: '). Moves the "
+                             "final prompt token from the format header to the brink of "
+                             "the decision value, so prefill-only steering lands on the "
+                             "decision (Color/Bet) not a control token — targets the "
+                             "simple3b α-null. Model continues in the format the user turn "
+                             "already specified; parser reused. REQUIRES --use_chat. "
+                             "Mutually exclusive with --simple_prompt/--simple2/--simple3/--simple3b.")
     parser.add_argument("--inject_turn", action="store_true",
                         help="steer the LAST N prompt tokens (≈ this round's user turn) "
                              "instead of only the final token, during prefill. Diagnoses "
@@ -843,6 +860,11 @@ if __name__ == "__main__":
             parser.error("--simple3b is mutually exclusive with --simple_prompt / --simple2 / --simple3.")
         if not args.use_chat:
             parser.error("--simple3b requires --use_chat (real multi-turn dialogue).")
+    if args.simple3c:
+        if args.simple_prompt or args.simple2 or args.simple3 or args.simple3b:
+            parser.error("--simple3c is mutually exclusive with --simple_prompt / --simple2 / --simple3 / --simple3b.")
+        if not args.use_chat:
+            parser.error("--simple3c requires --use_chat (real multi-turn dialogue).")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)
