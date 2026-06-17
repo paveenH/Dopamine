@@ -470,7 +470,7 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float,
                 save_all_raw: bool = False, simple: bool = False,
                 simple2: bool = False, simple3: bool = False,
-                simple3b: bool = False) -> dict:
+                simple3b: bool = False, prefill_tail_len: int = 1) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
@@ -518,6 +518,9 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_p=top_p,
+            prefill_tail_len=prefill_tail_len,   # 1 = last token only (default);
+            # >1 (--inject_turn) steers the last N prompt tokens (≈ this round's
+            # user turn) so the injection isn't swamped by the multi-turn history.
             # NOTE: stop_strings=["</choice>"] was tried but pushed invalid_rate
             # from ~0.02 to ~0.11 — the system prompt contains the literal
             # "</choice>" in its format spec, so the model echoing it mid-reasoning
@@ -692,6 +695,7 @@ def main():
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
                     simple2=args.simple2, simple3=args.simple3,
                     simple3b=args.simple3b,
+                    prefill_tail_len=args.inject_turn_len if args.inject_turn else 1,
                 )
             run_results.append(result)
             print(f"qdm={result['qdm']:.2f}  risk={result['risk_taking']:.2f}  "
@@ -725,6 +729,8 @@ def main():
                     "simple2": args.simple2,
                     "simple3": args.simple3,
                     "simple3b": args.simple3b,
+                    "inject_turn": args.inject_turn,
+                    "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -788,6 +794,15 @@ if __name__ == "__main__":
                              "objective risk偏好. Shares all simple3 downstream (grid-free "
                              "Color:/Bet:%, multi-turn, parser). REQUIRES --use_chat. "
                              "Mutually exclusive with --simple_prompt / --simple2 / --simple3.")
+    parser.add_argument("--inject_turn", action="store_true",
+                        help="steer the LAST N prompt tokens (≈ this round's user turn) "
+                             "instead of only the final token, during prefill. Diagnoses "
+                             "whether the simple3/3b α-null is because single-token "
+                             "injection is swamped by the long multi-turn history. Default "
+                             "OFF (last-token-only, byte-identical to prior runs).")
+    parser.add_argument("--inject_turn_len", type=int, default=8,
+                        help="N trailing prompt tokens to steer when --inject_turn is set "
+                             "(default 8 ≈ the tail of the round's user turn).")
     parser.add_argument("--ans_file",    type=str, default="answer_cgt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)

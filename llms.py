@@ -784,6 +784,7 @@ class VicundaModel:
         prefill_only: bool = True,
         batch_size: int = 1,
         stop_strings: list[str] = None,
+        prefill_tail_len: int = 1,
     ) -> list[str]:
         """
         Generate text by modifying hidden states of each layer using diff_matrices.
@@ -797,11 +798,17 @@ class VicundaModel:
                          None preserves existing callers' behavior exactly. Only
                          honored on the prefill_only path (the only branch that
                          drives `model.generate` directly).
+            prefill_tail_len: number of trailing prompt tokens to inject into during
+                         prefill. Default 1 = original last-token-only behaviour.
+                         >1 injects the last N prompt tokens (CGT --inject_turn).
+                         Only honored on the prefill_only path.
         """
         if diff_matrices is None:
             raise ValueError("The difference matrices are not loaded. Please provide `diff_matrices` during method call.")
 
         if not prefill_only:
+            if prefill_tail_len != 1:
+                raise ValueError("prefill_tail_len>1 is only supported with prefill_only=True.")
             # Legacy behavior: hooks active during entire generation
             def forward_fn():
                 return self.generate(
@@ -821,6 +828,7 @@ class VicundaModel:
             top_p=top_p,
             temperature=temperature,
             stop_strings=stop_strings,
+            prefill_tail_len=prefill_tail_len,
         )
 
     @torch.no_grad()
@@ -832,6 +840,7 @@ class VicundaModel:
         top_p: float,
         temperature: float,
         stop_strings: list[str] = None,
+        prefill_tail_len: int = 1,
     ) -> list[str]:
         """
         Apply intervention only during prefill (prompt processing), not during generation.
@@ -839,6 +848,13 @@ class VicundaModel:
         Strategy: Use sequence length to detect prefill vs decode.
         - Prefill: L > 1 (processing entire prompt)
         - Decode: L == 1 (processing single new token at a time)
+
+        prefill_tail_len: how many trailing prompt tokens to inject into. Default 1
+        keeps the historical behaviour (only the very last token, e.g. GSM8K/Bandit).
+        Set >1 to inject into the last N prompt tokens — used by CGT --inject_turn to
+        steer the whole final user turn (≈ the round's new board info) instead of a
+        single token swamped by the multi-turn history. Clamped to L-1 so it never
+        reaches into earlier turns past the current prefill block.
         """
         decoder_layers = self._find_decoder_layers()
         if len(decoder_layers) != len(diff_matrices):
@@ -849,6 +865,7 @@ class VicundaModel:
         do_sample = temperature > 0
         top_p_val = top_p if do_sample else None
         temperature_val = temperature if do_sample else None
+        n_tail = max(int(prefill_tail_len), 1)
 
         # Create conditional hooks that only fire during prefill (L > 1)
         def create_prefill_hook(diff_matrix):
@@ -865,13 +882,16 @@ class VicundaModel:
                 if L <= 1:
                     return output
 
-                # Prefill: add diff to last token of each sequence
+                # Prefill: add diff to the last n_tail tokens of each sequence
+                # (n_tail==1 reproduces the original last-token-only behaviour).
+                # Clamp to L-1 so injection stays within this prefill block.
+                n = min(n_tail, L - 1) if L > 1 else 1
                 diff_t = torch.as_tensor(diff_matrix, device=hs.device, dtype=hs.dtype)
                 if diff_t.ndim == 1:
                     diff_t = diff_t.unsqueeze(0)  # [1, H]
                 diff_t = diff_t.expand(B, -1)  # [B, H]
 
-                hs[:, -1, :] += diff_t
+                hs[:, -n:, :] += diff_t.unsqueeze(1)  # broadcast over the n tail positions
 
                 if isinstance(output, tuple):
                     return (hs,) + output[1:]

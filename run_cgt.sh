@@ -97,6 +97,7 @@ ANS_FILE="answer_cgt"
 SIMPLE_FLAG=""           # set by --verify / --simple / --verify2
 SAVE_RAW_FLAG=""         # set by --verify / --verify2
 USE_CHAT_FLAG=""         # set by --verify2 (simple2 requires chat)
+INJECT_FLAG=""           # set by --verify3b_turn (steer last N tokens, not just last)
 
 # ==================== Mode overrides ====================
 # --pilot : α=0, 2 runs, near-random sanity check → separate answer_cgt_pilot dir
@@ -225,6 +226,25 @@ if [ "$1" == "--simple3b" ]; then
     echo "[SIMPLE3B] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3B reward-boosted prompt + chat + save_all_raw (${ANS_FILE})"
 fi
 
+# --verify3b_turn : α=0/±6, 5 runs, SIMPLE3B + --inject_turn (steer the last 8 prompt
+# tokens ≈ this round's user turn, not just the final token). The simple3b α-scan was
+# NULL; one candidate cause is that single-token injection is swamped by the long
+# multi-turn history. A/B against simple3b_verify (same prompt, last-token-only):
+# if widening injection to the turn surfaces an α dose-response → it was an injection-
+# locality problem; if still null → the null is the task (objective probability leaves
+# no room for a wanting push), not the injection.
+if [ "$1" == "--verify3b_turn" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple3b_turn_verify"
+    SIMPLE_FLAG="--simple3b"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    INJECT_FLAG="--inject_turn --inject_turn_len 8"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY3B_TURN] α=0/±6, ${NUM_RUNS} runs, SIMPLE3B + inject last 8 tokens + chat + save_all_raw (${ANS_FILE})"
+fi
+
 # ==================== Run ====================
 echo "=================================================="
 echo "Cambridge Gambling Task — RSN α dose-response"
@@ -255,6 +275,7 @@ python get_answer_cgt.py \
     --base_dir "${BASE_DIR}" \
     ${SIMPLE_FLAG} \
     ${USE_CHAT_FLAG} \
+    ${INJECT_FLAG} \
     ${SAVE_RAW_FLAG}
 
 if [ $? -eq 0 ]; then
