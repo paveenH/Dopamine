@@ -50,6 +50,12 @@
 #                                   #   a noisy intent→digit layer). Check 90/10 max-bet
 #                                   #   rate ~100% AND risk_adj_slope moving with α.
 #   bash run_cgt.sh --simple3       # full sweep with the SIMPLE3 prompt (after verify3 passes)
+#   bash run_cgt.sh --verify3b      # α=0/±6, 5 runs, SIMPLE3B (simple3 + stronger
+#                                   #   win-as-much / cross-phase reward motivation) →
+#                                   #   answer_cgt_simple3b_verify. A/B vs simple3: does
+#                                   #   boosting reward engagement surface an α effect, or
+#                                   #   only lift the baseline (confirming the null)?
+#   bash run_cgt.sh --simple3b      # full sweep with the SIMPLE3B prompt (after verify3b)
 #   nohup bash run_cgt.sh > cgt.log 2>&1 &
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -187,6 +193,36 @@ if [ "$1" == "--simple3" ]; then
     USE_CHAT_FLAG="--use_chat"
     MAX_NEW_TOKENS=200
     echo "[SIMPLE3] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3 Color/Bet-direct prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --verify3b : α=0/±6, 5 runs, SIMPLE3B (simple3 + stronger win-as-much-as-you-can
+# reward motivation + restored cross-phase goal). The simple3 α-scan was NULL even
+# after the grid bug was fixed; concern is the model's wanting may be under-engaged
+# (flat "maximise points", no sense that winning a LOT matters), so RSN has nothing
+# to push on. A/B against simple3: if 3b raises baseline bets AND surfaces an α
+# dose-response → wanting was under-engaged; if 3b only lifts baseline but α stays
+# flat → confirms RSN doesn't move objective risk preference (clean null).
+if [ "$1" == "--verify3b" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple3b_verify"
+    SIMPLE_FLAG="--simple3b"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY3B] α=0/±6, ${NUM_RUNS} runs, SIMPLE3B reward-boosted prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --simple3b : full −8→+8 sweep with the SIMPLE3B reward-boosted prompt (after verify3b).
+if [ "$1" == "--simple3b" ]; then
+    CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
+    NUM_RUNS=20
+    ANS_FILE="answer_cgt_simple3b"
+    SIMPLE_FLAG="--simple3b"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[SIMPLE3B] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3B reward-boosted prompt + chat + save_all_raw (${ANS_FILE})"
 fi
 
 # ==================== Run ====================
