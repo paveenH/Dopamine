@@ -56,6 +56,22 @@
 #                                   #   boosting reward engagement surface an α effect, or
 #                                   #   only lift the baseline (confirming the null)?
 #   bash run_cgt.sh --simple3b      # full sweep with the SIMPLE3B prompt (after verify3b)
+#   bash run_cgt.sh --verify3c      # α=0/±6, 5 runs, SIMPLE3B + 'Answer: ' anchor →
+#                                   #   answer_cgt_simple3c_verify. Anchor puts injection on
+#                                   #   the decision token (betting-style). RESULT: α-null.
+#   bash run_cgt.sh --simple3c      # full sweep with SIMPLE3B + anchor (after verify3c)
+#   bash run_cgt.sh --verify4       # α=0/±6, 5 runs, SIMPLE4 (own neutral template +
+#                                   #   feedback + prob-explicit + anchor) →
+#                                   #   answer_cgt_simple4_verify. RESULT: α-null, but raw
+#                                   #   showed 98% zero-reasoning (dropped reasoning instr).
+#   bash run_cgt.sh --simple4       # full sweep with SIMPLE4 (after verify4 passes)
+#   bash run_cgt.sh --verify5       # α=0/±6, 5 runs, SIMPLE5 = CORRECTED main-line: 3c
+#                                   #   skeleton (reasoning instr KEPT, counts-only, anchor)
+#                                   #   + only the genuine fixes (payoff/wording/feedback),
+#                                   #   'one line' dropped → answer_cgt_simple5_verify. A/B
+#                                   #   vs simple4: does restoring reasoning surface an α
+#                                   #   effect? Check raw len up AND mean_bet/slope vs α.
+#   bash run_cgt.sh --simple5       # full sweep with SIMPLE5 (after verify5 passes)
 #   nohup bash run_cgt.sh > cgt.log 2>&1 &
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -253,6 +269,41 @@ if [ "$1" == "--simple4" ]; then
     USE_CHAT_FLAG="--use_chat"
     MAX_NEW_TOKENS=200
     echo "[SIMPLE4] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE4 main-line prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --verify5 : α=0/±6, 5 runs, SIMPLE5 = CORRECTED CGT main-line. simple3c's skeleton
+# (betting-game framing + 'how strong are the odds' reasoning instruction + COUNTS-ONLY
+# odds + Answer: anchor) with ONLY the genuine fixes (payoff ±bet matched to code,
+# neutral reward wording, EXPLICIT outcome feedback) and 'EXACTLY one line' dropped.
+# Motivation: simple4's α-null coincided with 98% zero-reasoning replies (raw median 28
+# chars) — simple4 had删 the reasoning instruction AND kept 'one line', collapsing the
+# deliberation steering needs to land in. simple5 restores it WITHOUT re-introducing the
+# 4 simple3c bugs. A/B vs simple4_verify: if reasoning returns AND an α dose-response
+# surfaces → the null was the missing deliberation载体, not CGT; if still null with
+# reasoning present → strongest evidence CGT is α-inert. inject_turn OFF (prompt is the
+# single intervention). Judges: invalid low, reasoning present (raw len up), qdm near
+# ceiling, risk_adj_slope ≥0, and whether mean_bet/I_EC/risk_taking/I_LC move with α.
+if [ "$1" == "--verify5" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple5_verify"
+    SIMPLE_FLAG="--simple5"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY5] α=0/±6, ${NUM_RUNS} runs, SIMPLE5 (3c skeleton + fixes + counts-only + reasoning kept) + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --simple5 : full −8→+8 sweep with the SIMPLE5 corrected main-line (after verify5 passes).
+if [ "$1" == "--simple5" ]; then
+    CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
+    NUM_RUNS=20
+    ANS_FILE="answer_cgt_simple5"
+    SIMPLE_FLAG="--simple5"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[SIMPLE5] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE5 corrected main-line + chat + save_all_raw (${ANS_FILE})"
 fi
 
 # --verify3c : α=0/±6, 5 runs, SIMPLE3B + 'Answer: ' anchor (no reasoning; model
