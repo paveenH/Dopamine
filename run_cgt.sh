@@ -43,6 +43,13 @@
 #                                   #   whether framing CGT as a chat dialogue fixes the
 #                                   #   --simple word-problem failure. Check qdm@9:1.
 #   bash run_cgt.sh --simple2       # full sweep with the SIMPLE2 prompt (after verify2 passes)
+#   bash run_cgt.sh --verify3       # α=0/±6, 5 runs, SIMPLE3 (Color:/Bet:% direct, NO
+#                                   #   0-9 grid) + chat + save_all_raw →
+#                                   #   answer_cgt_simple3_verify. Tests whether dropping
+#                                   #   the grid fixes the --simple2 α-scan NULL (grid was
+#                                   #   a noisy intent→digit layer). Check 90/10 max-bet
+#                                   #   rate ~100% AND risk_adj_slope moving with α.
+#   bash run_cgt.sh --simple3       # full sweep with the SIMPLE3 prompt (after verify3 passes)
 #   nohup bash run_cgt.sh > cgt.log 2>&1 &
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -150,6 +157,36 @@ if [ "$1" == "--simple2" ]; then
     USE_CHAT_FLAG="--use_chat"
     MAX_NEW_TOKENS=200            # room to reason, then commit Choice: <number>
     echo "[SIMPLE2] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE2 GAME prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --verify3 : α=0/±6, 5 runs, SIMPLE3 (Color:/Bet:% direct, no 0-9 grid) + chat.
+# The --simple2 α-scan came back NULL; raw inspection found the cause is the 10-cell
+# grid acting as a noisy intent→digit translation layer (model wants 95% but emits
+# Choice:0=5%; 90/10 rounds only 72% bet max). --simple3 drops the grid so the model
+# states colour + bet% directly. Check vs simple2: does 90/10 max-bet rate rise to
+# ~100% (confirms grid bug) AND does risk_adj_slope move with α (confirms RSN was
+# diluted by the grid)? If still null → real "RSN doesn't move client risk preference".
+if [ "$1" == "--verify3" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple3_verify"
+    SIMPLE_FLAG="--simple3"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY3] α=0/±6, ${NUM_RUNS} runs, SIMPLE3 Color/Bet-direct prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --simple3 : full −8→+8 sweep with the SIMPLE3 grid-free prompt (after verify3 passes).
+if [ "$1" == "--simple3" ]; then
+    CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
+    NUM_RUNS=20
+    ANS_FILE="answer_cgt_simple3"
+    SIMPLE_FLAG="--simple3"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[SIMPLE3] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3 Color/Bet-direct prompt + chat + save_all_raw (${ANS_FILE})"
 fi
 
 # ==================== Run ====================
