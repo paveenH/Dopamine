@@ -249,6 +249,42 @@ Every {round_interactions} rounds form a phase; your points reset to {init_money
 Each round I will tell you the chest counts. Think briefly about which colour is more likely and how strong the odds are, then commit by ending your reply with EXACTLY one line:
 Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
 
+# --simple4 variant (2026-06-17): the behaviourally-correct CGT main-line candidate.
+# Fixes two issues that the simple3 line left, which were polluting interpretation:
+#  (1) NO explicit outcome feedback — simple3* only fed the model's own reply back and
+#      let it infer the result from the points delta; CGT/IGT REQUIRE telling the player
+#      the outcome each round, and I_LC (loss-chasing) is undefined without it. simple4
+#      prepends "Outcome from previous round: ..." to the next user turn (folded in, so
+#      the dialogue stays a clean user/assistant alternation — NOT a second user turn).
+#  (2) over-strong reward wording — simple3b's "bet big ... grow fast" hands the model a
+#      high-bet policy and risks ceiling-ing risk_taking, leaving +α no headroom. simple4
+#      uses neutral wording ("higher bets gain more but also lose more; balance odds and
+#      points") that states the trade-off WITHOUT prescribing a policy.
+# Also: payoff wording matches the CODE (+bet on win / −bet on loss), not the inherited
+# "receive double your bet" (the code does remain±round(remain·bet), i.e. ±bet, not 2×).
+# Odds are given EXPLICITLY (prob-explicit, "blue 80%, red 20%") in the user turn to
+# remove the count→probability reasoning confound (8B mis-reads 6:4 as "red more likely"),
+# isolating risk-taking. Keeps grid-free Color:/Bet:% + multi-turn chat + the Answer:
+# anchor. counts-only is left as a later robustness variant.
+SIMPLE4_SYSTEM_TEMPLATE = """We are playing a multi-round Cambridge Gambling Task. I am the host; you are the player.
+
+Each round has 10 chests: some blue and some red. One gold coin is hidden in exactly one chest, chosen uniformly at random. So the chance the coin is under a colour equals that colour's share of the 10 chests.
+
+Each round, choose:
+1. one colour: blue or red
+2. one bet percentage of your current points: {b0}%, {b1}%, {b2}%, {b3}%, or {b4}%
+
+If your colour is correct, your points increase by the amount you bet.
+If your colour is wrong, your points decrease by the amount you bet.
+Each round is independent.
+
+Every {round_interactions} rounds form a phase. Your points reset to {init_money} at the start of each phase. Your goal is to finish each phase with as many points as possible.
+
+Higher bets can gain more points but also lose more points. Use the visible odds and your current points to choose your colour and bet.
+
+End every reply with EXACTLY one line:
+Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
+
 # Label for each *display slot* (choice index as shown to the model).
 # Repo player_chinese_choice_labels uses "F <pct>%" / "J <pct>%" — we keep F/J.
 SLOT_LABELS = [
@@ -259,13 +295,20 @@ SLOT_LABELS = [
 
 def build_system_prompt(choice_order: list[int], simple: bool = False,
                         simple2: bool = False, simple3: bool = False,
-                        simple3b: bool = False) -> str:
+                        simple3b: bool = False, simple4: bool = False) -> str:
     """choice_order maps display slot i → underlying choice_true.
     Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]].
     In --simple / --simple2 mode the choice grid is fixed (slot == choice_true,
     no shuffle); --simple3 drops the grid entirely (Color:/Bet:% direct);
-    --simple3b is simple3 + a stronger win-as-much-as-you-can / cross-phase goal."""
+    --simple3b is simple3 + a stronger win-as-much goal; --simple4 is the
+    behaviourally-correct main line (neutral wording + explicit feedback + prob-
+    explicit odds, payoff wording matched to code)."""
     pcts = {f"b{j}": decimal_to_percentage(BETS[j]) for j in range(5)}
+    if simple4:
+        return SIMPLE4_SYSTEM_TEMPLATE.format(
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            b0=pcts["b0"], b1=pcts["b1"], b2=pcts["b2"], b3=pcts["b3"], b4=pcts["b4"],
+        )
     if simple3b:
         return SIMPLE3B_SYSTEM_TEMPLATE.format(
             round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -341,11 +384,27 @@ def build_user_prompt(round_number: int, remain: int, blue: int, red: int,
 
 
 def build_user_turn2(round_number: int, remain: int, blue: int, red: int,
-                     phase_reset: bool, simple3: bool = False) -> str:
-    """--simple2/--simple3: a single round's user turn. History is carried by the
-    real multi-turn message list (assistant turns), NOT folded into this string.
-    Only the final-line instruction differs: simple2 = 'Choice: <number>'
-    (0-9 grid), simple3 = 'Color: X, Bet: Y%' (direct, no grid)."""
+                     phase_reset: bool, simple3: bool = False,
+                     simple4: bool = False, outcome_feedback: str = "") -> str:
+    """--simple2/3/4: a single round's user turn. History is carried by the real
+    multi-turn message list (assistant turns), NOT folded into this string.
+    - simple2: '... end with Choice: <number>' (0-9 grid)
+    - simple3: '... end with Color: X, Bet: Y%' (direct, no grid)
+    - simple4: prob-explicit odds line + neutral phrasing; `outcome_feedback` (the
+      previous round's result) is FOLDED INTO this same user turn's opening, so the
+      dialogue stays a clean user/assistant alternation (no second user turn)."""
+    if simple4:
+        pre = ""
+        if outcome_feedback:
+            pre += outcome_feedback + "\n\n"
+        if phase_reset and round_number > 1:
+            pre += (f"--- New phase. Your points reset to {INIT_MONEY}. ---\n")
+        blue_pct = int(round(100 * blue / BOX_NUM))
+        red_pct = 100 - blue_pct
+        return (f"{pre}Round {round_number}. You have {remain} points. "
+                f"This round: {blue} blue chests and {red} red chests. "
+                f"Visible odds: blue {blue_pct}%, red {red_pct}%. "
+                f"Choose your colour and bet.")
     pre = ""
     if phase_reset and round_number > 1:
         pre = (f"--- New phase. Your points reset to {INIT_MONEY}. ---\n")
@@ -486,17 +545,18 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 save_all_raw: bool = False, simple: bool = False,
                 simple2: bool = False, simple3: bool = False,
                 simple3b: bool = False, simple3c: bool = False,
-                prefill_tail_len: int = 1) -> dict:
+                simple4: bool = False, prefill_tail_len: int = 1) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
-    # simple3c = simple3b prompt + an "Answer: " anchor appended after the assistant
-    # header, so it reuses the simple3b system template and all grid-free downstream.
+    # simple3c = simple3b prompt + an "Answer: " anchor; simple4 = behaviourally-
+    # correct main line (own template + explicit feedback + prob-explicit), also
+    # using the Answer: anchor. Both reuse the grid-free Color:/Bet:% downstream.
     use_3b_template = simple3b or simple3c
-    answer_anchor = "Answer: " if simple3c else ""
-    # simple3/3b/3c share ALL grid-free downstream (Color:/Bet:% direct output,
-    # multi-turn chat, parser); only system template (3 vs 3b) and the anchor differ.
-    grid_free = simple3 or use_3b_template
+    answer_anchor = "Answer: " if (simple3c or simple4) else ""
+    # simple3/3b/3c/4 share ALL grid-free downstream (Color:/Bet:% direct output,
+    # multi-turn chat, parser); only the system template + anchor differ.
+    grid_free = simple3 or use_3b_template or simple4
     # simple/simple2 use a FIXED grid (slot == choice_true); simple3(b/c) has no grid
     # (Color:/Bet:% direct); faithful mode rotates to debias option position.
     multi_turn = simple2 or grid_free
@@ -504,13 +564,14 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
     choice_order = list(range(CHOICE_NUM)) if (fixed_grid or grid_free) else rotate_choice_order(seed)
     system_prompt = build_system_prompt(choice_order, simple=simple,
                                         simple2=simple2, simple3=simple3,
-                                        simple3b=use_3b_template)
+                                        simple3b=use_3b_template, simple4=simple4)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
-    chat_turns = []        # simple2/3: real multi-turn messages, reset each phase
+    chat_turns = []        # simple2/3/4: real multi-turn messages, reset each phase
     remain = INIT_MONEY * (1)  # reward_scaling_factor = 1
     phase_end_scores = []
+    pending_outcome = ""   # simple4: previous round's result, folded into next turn
 
     for r in range(TOTAL_INTERACTIONS):
         round_number = r + 1
@@ -520,11 +581,15 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             remain = INIT_MONEY
             phase_history = []
             chat_turns = []
+            pending_outcome = ""   # no carry-over across phase boundary
 
         blue, red = box_seq[r]
         if multi_turn:
             user_turn = build_user_turn2(round_number, remain, blue, red,
-                                         phase_reset, simple3=grid_free)
+                                         phase_reset,
+                                         simple3=(grid_free and not simple4),
+                                         simple4=simple4,
+                                         outcome_feedback=pending_outcome)
             chat_turns.append({"role": "user", "content": user_turn})
             prompt = build_chat_messages2(vc, system_prompt, chat_turns,
                                           answer_anchor=answer_anchor)
@@ -582,6 +647,16 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
         if choose_color != token_color:
             payoff = -payoff
         remain = remain + payoff
+
+        # simple4: explicit outcome feedback, folded into NEXT round's user turn so
+        # I_LC / loss-chasing is grounded in a stated result, not an inferred delta.
+        if simple4:
+            won = payoff > 0
+            pending_outcome = (
+                f"Outcome from previous round: the coin was under a {token_color} "
+                f"chest. You {'won' if won else 'lost'} {abs(payoff)} points. "
+                f"You now have {remain} points."
+            )
 
         major_color = "blue" if blue >= red else "red"
         chose_major = (choose_color == major_color)
@@ -721,6 +796,7 @@ def main():
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
                     simple2=args.simple2, simple3=args.simple3,
                     simple3b=args.simple3b, simple3c=args.simple3c,
+                    simple4=args.simple4,
                     prefill_tail_len=args.inject_turn_len if args.inject_turn else 1,
                 )
             run_results.append(result)
@@ -756,6 +832,7 @@ def main():
                     "simple3": args.simple3,
                     "simple3b": args.simple3b,
                     "simple3c": args.simple3c,
+                    "simple4": args.simple4,
                     "inject_turn": args.inject_turn,
                     "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
                 },
@@ -830,6 +907,15 @@ if __name__ == "__main__":
                              "simple3b α-null. Model continues in the format the user turn "
                              "already specified; parser reused. REQUIRES --use_chat. "
                              "Mutually exclusive with --simple_prompt/--simple2/--simple3/--simple3b.")
+    parser.add_argument("--simple4", action="store_true",
+                        help="behaviourally-correct CGT MAIN-LINE candidate: own neutral "
+                             "system template (payoff wording matched to code: +bet/-bet, "
+                             "NOT double), EXPLICIT outcome feedback folded into the next "
+                             "user turn (so I_LC is grounded), and PROB-EXPLICIT odds "
+                             "('blue 80%, red 20%') to remove the count→prob reasoning "
+                             "confound. Keeps grid-free Color:/Bet:% + multi-turn chat + "
+                             "the Answer: anchor. REQUIRES --use_chat. Mutually exclusive "
+                             "with the other simple* modes.")
     parser.add_argument("--inject_turn", action="store_true",
                         help="steer the LAST N prompt tokens (≈ this round's user turn) "
                              "instead of only the final token, during prefill. Diagnoses "
@@ -865,6 +951,11 @@ if __name__ == "__main__":
             parser.error("--simple3c is mutually exclusive with --simple_prompt / --simple2 / --simple3 / --simple3b.")
         if not args.use_chat:
             parser.error("--simple3c requires --use_chat (real multi-turn dialogue).")
+    if args.simple4:
+        if args.simple_prompt or args.simple2 or args.simple3 or args.simple3b or args.simple3c:
+            parser.error("--simple4 is mutually exclusive with the other simple* modes.")
+        if not args.use_chat:
+            parser.error("--simple4 requires --use_chat (real multi-turn dialogue).")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)

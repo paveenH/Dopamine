@@ -226,6 +226,35 @@ if [ "$1" == "--simple3b" ]; then
     echo "[SIMPLE3B] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE3B reward-boosted prompt + chat + save_all_raw (${ANS_FILE})"
 fi
 
+# --verify4 : α=0/±6, 5 runs, SIMPLE4 = behaviourally-correct CGT main-line candidate
+# (neutral wording + payoff matched to code + EXPLICIT outcome feedback + PROB-EXPLICIT
+# odds + grid-free Color/Bet + Answer: anchor). inject_turn deliberately OFF here: the
+# prompt rewrite is the single intervention to evaluate; if simple4 still α-null we then
+# run simple4 + --inject_turn separately. Judges: invalid low, qdm near ceiling (esp
+# 8:2/9:1), risk_adj_slope ≥0, and whether mean_bet/I_EC/risk_taking/I_LC move with α.
+if [ "$1" == "--verify4" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple4_verify"
+    SIMPLE_FLAG="--simple4"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY4] α=0/±6, ${NUM_RUNS} runs, SIMPLE4 (neutral+feedback+prob-explicit+anchor) + chat + save_all_raw (${ANS_FILE})"
+fi
+
+# --simple4 : full −8→+8 sweep with the SIMPLE4 main-line prompt (after verify4 passes).
+if [ "$1" == "--simple4" ]; then
+    CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
+    NUM_RUNS=20
+    ANS_FILE="answer_cgt_simple4"
+    SIMPLE_FLAG="--simple4"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[SIMPLE4] full −8→+8 sweep, ${NUM_RUNS} runs, SIMPLE4 main-line prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+
 # --verify3c : α=0/±6, 5 runs, SIMPLE3B + 'Answer: ' anchor (no reasoning; model
 # answers Color/Bet directly from the anchor, like betting's chat + 'Bet: '). The
 # prior simple3b/turn injection landed on the format header; this puts the final
