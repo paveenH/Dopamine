@@ -357,16 +357,24 @@ def build_user_turn2(round_number: int, remain: int, blue: int, red: int,
 
 
 def build_chat_messages2(vc: VicundaModel, system_prompt: str,
-                         turns: list[dict]) -> str:
-    """--simple2: render a REAL multi-turn conversation through the chat template.
-    `turns` is an alternating list of {"role": "user"/"assistant", "content": ...}
+                         turns: list[dict], answer_anchor: str = "") -> str:
+    """--simple2/3/3b: render a REAL multi-turn conversation through the chat
+    template. `turns` is an alternating list of {"role": "user"/"assistant", ...}
     accumulated across rounds of the current phase, so the model sees the game as
     an ongoing dialogue (its own past bets are prior assistant turns), not a
-    word problem. add_generation_prompt=True appends the assistant header."""
+    word problem. add_generation_prompt=True appends the assistant header.
+
+    answer_anchor (--simple3c): a short primer appended AFTER the assistant header
+    (e.g. "Answer: "), exactly like betting's chat + "Bet: ". It moves the final
+    prompt token from the format control header (<|end_header_id|>) to the brink of
+    the decision value, so prefill-only steering lands on the decision rather than
+    a control token. The model continues from here in the format the user-turn
+    instruction already specified (Color: X, Bet: Y%), so the parser is unchanged."""
     msgs = [{"role": "system", "content": system_prompt}] + turns
-    return vc.tokenizer.apply_chat_template(
+    rendered = vc.tokenizer.apply_chat_template(
         msgs, tokenize=False, add_generation_prompt=True
     )
+    return rendered + answer_anchor
 
 
 def to_chat(vc: VicundaModel, system_prompt: str, user_prompt: str, use_chat: bool) -> str:
@@ -470,21 +478,26 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float,
                 save_all_raw: bool = False, simple: bool = False,
                 simple2: bool = False, simple3: bool = False,
-                simple3b: bool = False, prefill_tail_len: int = 1) -> dict:
+                simple3b: bool = False, simple3c: bool = False,
+                prefill_tail_len: int = 1) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
-    # simple3b shares ALL of simple3's downstream behaviour (grid-free Color:/Bet:%
-    # output, multi-turn chat, parser); only the system template differs.
-    grid_free = simple3 or simple3b
-    # simple/simple2 use a FIXED grid (slot == choice_true); simple3(b) has no grid
+    # simple3c = simple3b prompt + an "Answer: " anchor appended after the assistant
+    # header, so it reuses the simple3b system template and all grid-free downstream.
+    use_3b_template = simple3b or simple3c
+    answer_anchor = "Answer: " if simple3c else ""
+    # simple3/3b/3c share ALL grid-free downstream (Color:/Bet:% direct output,
+    # multi-turn chat, parser); only system template (3 vs 3b) and the anchor differ.
+    grid_free = simple3 or use_3b_template
+    # simple/simple2 use a FIXED grid (slot == choice_true); simple3(b/c) has no grid
     # (Color:/Bet:% direct); faithful mode rotates to debias option position.
     multi_turn = simple2 or grid_free
     fixed_grid = simple or simple2
     choice_order = list(range(CHOICE_NUM)) if (fixed_grid or grid_free) else rotate_choice_order(seed)
     system_prompt = build_system_prompt(choice_order, simple=simple,
                                         simple2=simple2, simple3=simple3,
-                                        simple3b=simple3b)
+                                        simple3b=use_3b_template)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
@@ -506,7 +519,8 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             user_turn = build_user_turn2(round_number, remain, blue, red,
                                          phase_reset, simple3=grid_free)
             chat_turns.append({"role": "user", "content": user_turn})
-            prompt = build_chat_messages2(vc, system_prompt, chat_turns)
+            prompt = build_chat_messages2(vc, system_prompt, chat_turns,
+                                          answer_anchor=answer_anchor)
         else:
             user_prompt = build_user_prompt(round_number, remain, blue, red,
                                             phase_history, simple=simple)
@@ -528,10 +542,15 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             # natural EOS at max_new_tokens=256.
         )
         raw = output[0] if isinstance(output, list) else output
+        # simple3c: the model continues AFTER our "Answer: " anchor, so its raw text
+        # omits that prefix. Prepend it back so the stored reply + the assistant turn
+        # fed to the next round are the complete line the model actually produced.
+        if answer_anchor:
+            raw = answer_anchor + raw
         if grid_free:
             # no grid: parse colour + bet% directly, snap bet to nearest tier.
             choose_color, bet_frac, valid = parse_choice_simple3(raw, rng=fallback_rng)
-            slot = -1          # not applicable in simple3/3b
+            slot = -1          # not applicable in simple3/3b/3c
             choice_true = -1
             choice_percent = decimal_to_percentage(bet_frac)
         else:
