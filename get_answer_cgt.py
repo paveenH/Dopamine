@@ -204,6 +204,28 @@ Choice 2: blue, {b2}%   Choice 7: red, {b2}%
 Choice 3: blue, {b3}%   Choice 8: red, {b3}%
 Choice 4: blue, {b4}%   Choice 9: red, {b4}%"""
 
+# --simple3 variant (2026-06-17): simple2 fixed task framing (qdm≈0.84) but the
+# α-scan came back NULL, and raw inspection found the cause is NOT a risk-偏好
+# null — it's the 10-cell `Choice: <0-9>` GRID acting as a noisy translation layer.
+# The model's INTENT is fine ("I'll bet 95%") but it then has to look up "red +
+# 95% = grid slot 9" and gets it wrong (e.g. says 95% then emits Choice: 0 = 5%;
+# 90/10 rounds only 72% bet the max despite the odds). This grid-lookup noise
+# scrambles the bet magnitude, so any RSN push on wanting is diluted before it
+# reaches the output. Fix: DROP the grid entirely — the model states colour and
+# bet% DIRECTLY (`Color: X, Bet: Y%`), no 0-9 lookup. Same multi-turn chat game
+# framing as simple2 (that part works); only the answer encoding changes. Bet% is
+# snapped to the nearest of the 5 tiers offline so the payoff math is unchanged.
+SIMPLE3_SYSTEM_TEMPLATE = """We are playing a multi-round betting game. I am the host; you are the player.
+
+In front of you each round are 10 treasure chests, some blue and some red. A gold coin is hidden in exactly one chest, completely at random, so a colour's chance of holding the coin equals that colour's share of the 10 chests (e.g. 9 blue, 1 red → blue 90%, red 10%).
+
+Each round you bet a percentage of your current points on ONE colour. The available bet percentages are {b0}%, {b1}%, {b2}%, {b3}%, or {b4}%. If the coin is under your colour you win and receive double your bet; otherwise you lose your bet. Each round's coin is independent.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. Your goal is to maximise your points, so favour the colour more likely to hold the coin and bet more when the odds are clearly in your favour.
+
+Each round I will tell you the chest counts. Think briefly about which colour is more likely and how strong the odds are, then commit by ending your reply with EXACTLY one line:
+Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
+
 # Label for each *display slot* (choice index as shown to the model).
 # Repo player_chinese_choice_labels uses "F <pct>%" / "J <pct>%" — we keep F/J.
 SLOT_LABELS = [
@@ -213,12 +235,17 @@ SLOT_LABELS = [
 
 
 def build_system_prompt(choice_order: list[int], simple: bool = False,
-                        simple2: bool = False) -> str:
+                        simple2: bool = False, simple3: bool = False) -> str:
     """choice_order maps display slot i → underlying choice_true.
     Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]].
     In --simple / --simple2 mode the choice grid is fixed (slot == choice_true,
-    no shuffle), so the model is not burdened with a per-round lookup table."""
+    no shuffle); --simple3 drops the grid entirely (Color:/Bet:% direct)."""
     pcts = {f"b{j}": decimal_to_percentage(BETS[j]) for j in range(5)}
+    if simple3:
+        return SIMPLE3_SYSTEM_TEMPLATE.format(
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            b0=pcts["b0"], b1=pcts["b1"], b2=pcts["b2"], b3=pcts["b3"], b4=pcts["b4"],
+        )
     if simple2:
         return SIMPLE2_SYSTEM_TEMPLATE.format(
             round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -284,15 +311,19 @@ def build_user_prompt(round_number: int, remain: int, blue: int, red: int,
 
 
 def build_user_turn2(round_number: int, remain: int, blue: int, red: int,
-                     phase_reset: bool) -> str:
-    """--simple2: a single round's user turn. History is carried by the real
-    multi-turn message list (assistant turns), NOT folded into this string."""
+                     phase_reset: bool, simple3: bool = False) -> str:
+    """--simple2/--simple3: a single round's user turn. History is carried by the
+    real multi-turn message list (assistant turns), NOT folded into this string.
+    Only the final-line instruction differs: simple2 = 'Choice: <number>'
+    (0-9 grid), simple3 = 'Color: X, Bet: Y%' (direct, no grid)."""
     pre = ""
     if phase_reset and round_number > 1:
         pre = (f"--- New phase. Your points reset to {INIT_MONEY}. ---\n")
+    tail = ("end with 'Color: <blue or red>, Bet: <percentage>%'."
+            if simple3 else "end with 'Choice: <number>'.")
     return (f"{pre}Round {round_number}. You have {remain} points. "
             f"This round: {blue} blue chest(s) and {red} red chest(s). "
-            f"Reason briefly, then end with 'Choice: <number>'.")
+            f"Reason briefly, then {tail}")
 
 
 def build_chat_messages2(vc: VicundaModel, system_prompt: str,
@@ -328,6 +359,37 @@ CHOICE_LEAD_RE = re.compile(r"^\s*([0-9])\b")
 
 
 CHOICE_FINAL_RE = re.compile(r"Choice:\s*([0-9])\b", re.IGNORECASE)
+
+# --simple3: model ends with `Color: <blue|red>, Bet: <pct>%`. Parse colour and
+# bet% DIRECTLY (no grid lookup). Order-agnostic: accept either field first.
+SIMPLE3_COLOR_RE = re.compile(r"\bColor:\s*(blue|red)\b", re.IGNORECASE)
+SIMPLE3_BET_RE = re.compile(r"\bBet:\s*(\d{1,3})\s*%", re.IGNORECASE)
+BET_PCTS = [decimal_to_percentage(b) for b in BETS]   # [5, 25, 50, 75, 95]
+
+
+def _snap_bet_pct(pct: int) -> float:
+    """Snap a free-form bet percentage to the nearest of the 5 valid tiers,
+    return the bet_frac. Keeps the payoff math identical to the grid modes even
+    if the model writes e.g. 90% or 60%."""
+    nearest = min(BET_PCTS, key=lambda p: abs(p - pct))
+    return nearest / 100.0
+
+
+def parse_choice_simple3(output: str, rng: random.Random | None = None
+                         ) -> tuple[str, float, bool]:
+    """Return (color, bet_frac, is_valid). Take the LAST Color:/Bet: pair (the
+    committed line), since the model reasons first. Invalid (missing either
+    field) → random colour + random tier fallback."""
+    colors = SIMPLE3_COLOR_RE.findall(output)
+    bets = SIMPLE3_BET_RE.findall(output)
+    if colors and bets:
+        color = colors[-1].lower()
+        bet_frac = _snap_bet_pct(int(bets[-1]))
+        return color, bet_frac, True
+    fallback_rng = rng if rng is not None else random
+    color = fallback_rng.choice(["blue", "red"])
+    bet_frac = fallback_rng.choice(BETS)
+    return color, bet_frac, False
 
 
 def parse_choice(output: str, rng: random.Random | None = None,
@@ -377,19 +439,21 @@ def parse_choice(output: str, rng: random.Random | None = None,
 def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float,
                 save_all_raw: bool = False, simple: bool = False,
-                simple2: bool = False) -> dict:
+                simple2: bool = False, simple3: bool = False) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
-    # simple/simple2 mode uses a FIXED choice grid (slot == choice_true); faithful
-    # mode rotates to debias option position.
+    # simple/simple2 use a FIXED grid (slot == choice_true); simple3 has no grid
+    # (Color:/Bet:% direct); faithful mode rotates to debias option position.
+    multi_turn = simple2 or simple3
     fixed_grid = simple or simple2
-    choice_order = list(range(CHOICE_NUM)) if fixed_grid else rotate_choice_order(seed)
-    system_prompt = build_system_prompt(choice_order, simple=simple, simple2=simple2)
+    choice_order = list(range(CHOICE_NUM)) if (fixed_grid or simple3) else rotate_choice_order(seed)
+    system_prompt = build_system_prompt(choice_order, simple=simple,
+                                        simple2=simple2, simple3=simple3)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
-    chat_turns = []        # simple2: real multi-turn messages, reset each phase
+    chat_turns = []        # simple2/3: real multi-turn messages, reset each phase
     remain = INIT_MONEY * (1)  # reward_scaling_factor = 1
     phase_end_scores = []
 
@@ -403,8 +467,9 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             chat_turns = []
 
         blue, red = box_seq[r]
-        if simple2:
-            user_turn = build_user_turn2(round_number, remain, blue, red, phase_reset)
+        if multi_turn:
+            user_turn = build_user_turn2(round_number, remain, blue, red,
+                                         phase_reset, simple3=simple3)
             chat_turns.append({"role": "user", "content": user_turn})
             prompt = build_chat_messages2(vc, system_prompt, chat_turns)
         else:
@@ -425,18 +490,25 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             # natural EOS at max_new_tokens=256.
         )
         raw = output[0] if isinstance(output, list) else output
-        slot, valid = parse_choice(raw, rng=fallback_rng, simple=simple,
-                                   simple2=simple2)
-        if simple2:
+        if simple3:
+            # no grid: parse colour + bet% directly, snap bet to nearest tier.
+            choose_color, bet_frac, valid = parse_choice_simple3(raw, rng=fallback_rng)
+            slot = -1          # not applicable in simple3
+            choice_true = -1
+            choice_percent = decimal_to_percentage(bet_frac)
+        else:
+            slot, valid = parse_choice(raw, rng=fallback_rng, simple=simple,
+                                       simple2=simple2)
+            # display slot → underlying choice_true (repo: choice_order[choice])
+            choice_true = choice_order[slot]
+            choose_color = choice_true_to_color(choice_true)
+            bet_frac = choice_true_to_bet(choice_true)
+            choice_percent = decimal_to_percentage(bet_frac)
+
+        if multi_turn:
             # carry the model's actual reply forward as the assistant turn so the
             # next round sees a real dialogue (its own prior bets in-context).
             chat_turns.append({"role": "assistant", "content": raw})
-
-        # display slot → underlying choice_true (repo: choice_order[choice])
-        choice_true = choice_order[slot]
-        choose_color = choice_true_to_color(choice_true)
-        bet_frac = choice_true_to_bet(choice_true)
-        choice_percent = decimal_to_percentage(bet_frac)
 
         # coin: independent each round
         token_box_id = rng.randint(1, BOX_NUM)
@@ -583,7 +655,7 @@ def main():
                     max_new_tokens=args.max_new_tokens,
                     temperature=args.temperature, top_p=args.top_p,
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
-                    simple2=args.simple2,
+                    simple2=args.simple2, simple3=args.simple3,
                 )
             run_results.append(result)
             print(f"qdm={result['qdm']:.2f}  risk={result['risk_taking']:.2f}  "
@@ -615,6 +687,7 @@ def main():
                     "top_p": args.top_p, "max_new_tokens": args.max_new_tokens,
                     "simple_prompt": args.simple_prompt,
                     "simple2": args.simple2,
+                    "simple3": args.simple3,
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -660,6 +733,15 @@ if __name__ == "__main__":
                              "Targets the --simple task-framing failure (word-problem / "
                              "examiner / essay) seen in raw. Mutually exclusive with "
                              "--simple_prompt.")
+    parser.add_argument("--simple3", action="store_true",
+                        help="use the SIMPLE3 multi-turn GAME prompt: same chat-game "
+                             "framing as --simple2 but DROPS the 0-9 choice grid — the "
+                             "model states 'Color: X, Bet: Y%' DIRECTLY (no slot lookup). "
+                             "Targets the --simple2 α-scan NULL, whose cause was the grid "
+                             "acting as a noisy intent→digit translation layer (model "
+                             "wants 95% but emits Choice:0=5%). Bet% snapped to nearest "
+                             "tier offline. REQUIRES --use_chat. Mutually exclusive with "
+                             "--simple_prompt / --simple2.")
     parser.add_argument("--ans_file",    type=str, default="answer_cgt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
@@ -671,6 +753,11 @@ if __name__ == "__main__":
             parser.error("--simple2 and --simple_prompt are mutually exclusive.")
         if not args.use_chat:
             parser.error("--simple2 requires --use_chat (real multi-turn dialogue).")
+    if args.simple3:
+        if args.simple_prompt or args.simple2:
+            parser.error("--simple3 is mutually exclusive with --simple_prompt / --simple2.")
+        if not args.use_chat:
+            parser.error("--simple3 requires --use_chat (real multi-turn dialogue).")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)
