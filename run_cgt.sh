@@ -38,6 +38,11 @@
 #                                   #   faithful-port qdm≈0.5 is a prompt issue: if
 #                                   #   SIMPLE lifts qdm at 9:1, CGT is salvageable.
 #   bash run_cgt.sh --simple        # full sweep with the SIMPLE prompt (after verify passes)
+#   bash run_cgt.sh --verify2       # α=0, 5 runs, SIMPLE2 multi-turn GAME prompt (chat) +
+#                                   #   save_all_raw → answer_cgt_simple2_verify. Tests
+#                                   #   whether framing CGT as a chat dialogue fixes the
+#                                   #   --simple word-problem failure. Check qdm@9:1.
+#   bash run_cgt.sh --simple2       # full sweep with the SIMPLE2 prompt (after verify2 passes)
 #   nohup bash run_cgt.sh > cgt.log 2>&1 &
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -76,8 +81,9 @@ MAX_NEW_TOKENS=256        # natural EOS at this cap (no stop_strings). A </choic
 TEMPERATURE=1.0          # Near-Optimal default
 TOP_P=0.9
 ANS_FILE="answer_cgt"
-SIMPLE_FLAG=""           # set by --verify / --simple
-SAVE_RAW_FLAG=""         # set by --verify
+SIMPLE_FLAG=""           # set by --verify / --simple / --verify2
+SAVE_RAW_FLAG=""         # set by --verify / --verify2
+USE_CHAT_FLAG=""         # set by --verify2 (simple2 requires chat)
 
 # ==================== Mode overrides ====================
 # --pilot : α=0, 2 runs, near-random sanity check → separate answer_cgt_pilot dir
@@ -105,6 +111,35 @@ if [ "$1" == "--simple" ]; then
     ANS_FILE="answer_cgt_simple"
     SIMPLE_FLAG="--simple_prompt"
     echo "[SIMPLE] full sweep with SIMPLE prompt (${ANS_FILE})"
+fi
+
+# --verify2 : α=0, 5 runs, SIMPLE2 multi-turn GAME prompt (chat) + save every raw.
+# The --simple verify left qdm≈0.46 at 9:1 because the model read each round as an
+# isolated WORD PROBLEM (raw: 85% probability essays / examiner / Python, 0% clean
+# answers). --simple2 presents CGT as an ongoing chat dialogue so the <|assistant|>
+# turn frames "now it's your move"; reasoning stays allowed but the final line is
+# locked to 'Choice: <number>'. REQUIRES chat. Inspect qdm@9:1 + raw offline before
+# committing to a full --simple2 sweep. Steering-alignment caveat is deferred: the
+# α=0 baseline is the blocker, and (per Confidence Betting) chat-split helped there.
+MAX_NEW_TOKENS_OVERRIDE=""
+if [ "$1" == "--verify2" ]; then
+    CONFIGS="0-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple2_verify"
+    SIMPLE_FLAG="--simple2"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS_OVERRIDE=200   # room to reason, then commit Choice: <number>
+    echo "[VERIFY2] α=0, ${NUM_RUNS} runs, SIMPLE2 multi-turn GAME prompt + chat + save_all_raw (${ANS_FILE})"
+fi
+[ -n "$MAX_NEW_TOKENS_OVERRIDE" ] && MAX_NEW_TOKENS=$MAX_NEW_TOKENS_OVERRIDE
+
+# --simple2 : full sweep with the SIMPLE2 multi-turn game prompt (after --verify2 passes).
+if [ "$1" == "--simple2" ]; then
+    ANS_FILE="answer_cgt_simple2"
+    SIMPLE_FLAG="--simple2"
+    USE_CHAT_FLAG="--use_chat"
+    echo "[SIMPLE2] full sweep with SIMPLE2 multi-turn GAME prompt + chat (${ANS_FILE})"
 fi
 
 # ==================== Run ====================
@@ -136,6 +171,7 @@ python get_answer_cgt.py \
     --data "${DATA}" \
     --base_dir "${BASE_DIR}" \
     ${SIMPLE_FLAG} \
+    ${USE_CHAT_FLAG} \
     ${SAVE_RAW_FLAG}
 
 if [ $? -eq 0 ]; then
