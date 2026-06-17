@@ -175,6 +175,35 @@ Choice 4: blue, {b4}%   Choice 9: red, {b4}%
 Answer with the choice number:
 Choice: <number>"""
 
+# --simple2 variant (2026-06-17): the --simple prompt still hit qdm≈0.46 at 9:1
+# because Llama-8B read each round as an isolated WORD PROBLEM (raw analysis: 85%
+# of generations write a probability essay / play examiner / emit Python, 15%
+# hallucinate the whole 8-round script, 0% answer cleanly). Diagnosis = task-
+# framing failure, not a counting failure (it often computes P(red)=9/10 correctly
+# yet still doesn't COMMIT a bet). Fix: present CGT as an ongoing multi-round GAME
+# via the chat template's assistant-turn structure (the <|assistant|> header is a
+# stronger "now it's your move" signal than any prose), let the model reason, but
+# lock the final line to `Choice: <number>`. Used ONLY with --use_chat + real
+# multi-turn message accumulation (build_chat_messages2). Betting precedent:
+# chat-split helped rather than hurt, so we do not pre-emptively fear steering
+# dilution — the current CGT blocker is the α=0 baseline, i.e. pure task framing.
+SIMPLE2_SYSTEM_TEMPLATE = """We are playing a multi-round betting game. I am the host; you are the player.
+
+In front of you each round are 10 treasure chests, some blue and some red. A gold coin is hidden in exactly one chest, completely at random, so a colour's chance of holding the coin equals that colour's share of the 10 chests (e.g. 9 blue, 1 red → blue 90%, red 10%).
+
+Each round you bet a percentage of your current points on ONE colour. The available percentages are {b0}%, {b1}%, {b2}%, {b3}%, {b4}%. If the coin is under your colour you win and receive double your bet; otherwise you lose your bet. Each round's coin is independent.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. Your goal is to maximise your points, so favour the colour more likely to hold the coin and bet more when the odds are clearly in your favour.
+
+Each round I will tell you the chest counts. Think briefly about which colour is more likely, then commit by ending your reply with EXACTLY one line:
+Choice: <number>
+where <number> is 0-9 from this grid:
+Choice 0: blue, {b0}%   Choice 5: red, {b0}%
+Choice 1: blue, {b1}%   Choice 6: red, {b1}%
+Choice 2: blue, {b2}%   Choice 7: red, {b2}%
+Choice 3: blue, {b3}%   Choice 8: red, {b3}%
+Choice 4: blue, {b4}%   Choice 9: red, {b4}%"""
+
 # Label for each *display slot* (choice index as shown to the model).
 # Repo player_chinese_choice_labels uses "F <pct>%" / "J <pct>%" — we keep F/J.
 SLOT_LABELS = [
@@ -183,12 +212,18 @@ SLOT_LABELS = [
 ]
 
 
-def build_system_prompt(choice_order: list[int], simple: bool = False) -> str:
+def build_system_prompt(choice_order: list[int], simple: bool = False,
+                        simple2: bool = False) -> str:
     """choice_order maps display slot i → underlying choice_true.
     Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]].
-    In --simple mode the choice grid is fixed (slot == choice_true, no shuffle),
-    so the model is not burdened with a per-round lookup table."""
+    In --simple / --simple2 mode the choice grid is fixed (slot == choice_true,
+    no shuffle), so the model is not burdened with a per-round lookup table."""
     pcts = {f"b{j}": decimal_to_percentage(BETS[j]) for j in range(5)}
+    if simple2:
+        return SIMPLE2_SYSTEM_TEMPLATE.format(
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            b0=pcts["b0"], b1=pcts["b1"], b2=pcts["b2"], b3=pcts["b3"], b4=pcts["b4"],
+        )
     if simple:
         return SIMPLE_SYSTEM_TEMPLATE.format(
             round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -248,6 +283,31 @@ def build_user_prompt(round_number: int, remain: int, blue: int, red: int,
     return hist + head
 
 
+def build_user_turn2(round_number: int, remain: int, blue: int, red: int,
+                     phase_reset: bool) -> str:
+    """--simple2: a single round's user turn. History is carried by the real
+    multi-turn message list (assistant turns), NOT folded into this string."""
+    pre = ""
+    if phase_reset and round_number > 1:
+        pre = (f"--- New phase. Your points reset to {INIT_MONEY}. ---\n")
+    return (f"{pre}Round {round_number}. You have {remain} points. "
+            f"This round: {blue} blue chest(s) and {red} red chest(s). "
+            f"Reason briefly, then end with 'Choice: <number>'.")
+
+
+def build_chat_messages2(vc: VicundaModel, system_prompt: str,
+                         turns: list[dict]) -> str:
+    """--simple2: render a REAL multi-turn conversation through the chat template.
+    `turns` is an alternating list of {"role": "user"/"assistant", "content": ...}
+    accumulated across rounds of the current phase, so the model sees the game as
+    an ongoing dialogue (its own past bets are prior assistant turns), not a
+    word problem. add_generation_prompt=True appends the assistant header."""
+    msgs = [{"role": "system", "content": system_prompt}] + turns
+    return vc.tokenizer.apply_chat_template(
+        msgs, tokenize=False, add_generation_prompt=True
+    )
+
+
 def to_chat(vc: VicundaModel, system_prompt: str, user_prompt: str, use_chat: bool) -> str:
     if use_chat:
         msgs = [{"role": "system", "content": system_prompt},
@@ -267,10 +327,26 @@ CHOICE_ONLY_RE = re.compile(r"^\s*([0-9])\s*\.?\s*$")
 CHOICE_LEAD_RE = re.compile(r"^\s*([0-9])\b")
 
 
+CHOICE_FINAL_RE = re.compile(r"Choice:\s*([0-9])\b", re.IGNORECASE)
+
+
 def parse_choice(output: str, rng: random.Random | None = None,
-                 simple: bool = False) -> tuple[int, bool]:
+                 simple: bool = False, simple2: bool = False) -> tuple[int, bool]:
     """Return (choice 0–9, is_valid). Invalid → uniform random fallback.
-    --simple: prompt ends with 'Choice:' prefill, so generation starts with the
+    --simple2: model reasons then ends with 'Choice: <number>', so take the LAST
+    'Choice: N' (the committed answer), not the first (which may appear mid-
+    reasoning). Falls back to the choice-anchored regex, then random."""
+    if simple2:
+        ms = CHOICE_FINAL_RE.findall(output)
+        if ms:
+            return int(ms[-1]), True
+        m = CHOICE_ANCHORED_RE.search(output)
+        if m:
+            return int(m.group(1)), True
+        fallback_rng = rng if rng is not None else random
+        return fallback_rng.randint(0, CHOICE_NUM - 1), False
+
+    """--simple: prompt ends with 'Choice:' prefill, so generation starts with the
     digit — match a leading 0–9 first, then fall back to 'Choice: N' anchor."""
     if simple:
         m = CHOICE_LEAD_RE.match(output)
@@ -300,31 +376,41 @@ def parse_choice(output: str, rng: random.Random | None = None,
 # ───────────────────── One run (8 phases × 8 rounds) ─────────────────────
 def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float,
-                save_all_raw: bool = False, simple: bool = False) -> dict:
+                save_all_raw: bool = False, simple: bool = False,
+                simple2: bool = False) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
-    # simple mode uses a FIXED choice grid (slot == choice_true); faithful mode
-    # rotates to debias option position.
-    choice_order = list(range(CHOICE_NUM)) if simple else rotate_choice_order(seed)
-    system_prompt = build_system_prompt(choice_order, simple=simple)
+    # simple/simple2 mode uses a FIXED choice grid (slot == choice_true); faithful
+    # mode rotates to debias option position.
+    fixed_grid = simple or simple2
+    choice_order = list(range(CHOICE_NUM)) if fixed_grid else rotate_choice_order(seed)
+    system_prompt = build_system_prompt(choice_order, simple=simple, simple2=simple2)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
+    chat_turns = []        # simple2: real multi-turn messages, reset each phase
     remain = INIT_MONEY * (1)  # reward_scaling_factor = 1
     phase_end_scores = []
 
     for r in range(TOTAL_INTERACTIONS):
         round_number = r + 1
         in_phase_idx = r % ROUND_INTERACTIONS
-        if in_phase_idx == 0:
+        phase_reset = (in_phase_idx == 0)
+        if phase_reset:
             remain = INIT_MONEY
             phase_history = []
+            chat_turns = []
 
         blue, red = box_seq[r]
-        user_prompt = build_user_prompt(round_number, remain, blue, red,
-                                        phase_history, simple=simple)
-        prompt = to_chat(vc, system_prompt, user_prompt, use_chat)
+        if simple2:
+            user_turn = build_user_turn2(round_number, remain, blue, red, phase_reset)
+            chat_turns.append({"role": "user", "content": user_turn})
+            prompt = build_chat_messages2(vc, system_prompt, chat_turns)
+        else:
+            user_prompt = build_user_prompt(round_number, remain, blue, red,
+                                            phase_history, simple=simple)
+            prompt = to_chat(vc, system_prompt, user_prompt, use_chat)
 
         output = vc.regenerate(
             inputs=[prompt],
@@ -339,7 +425,12 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             # natural EOS at max_new_tokens=256.
         )
         raw = output[0] if isinstance(output, list) else output
-        slot, valid = parse_choice(raw, rng=fallback_rng, simple=simple)
+        slot, valid = parse_choice(raw, rng=fallback_rng, simple=simple,
+                                   simple2=simple2)
+        if simple2:
+            # carry the model's actual reply forward as the assistant turn so the
+            # next round sees a real dialogue (its own prior bets in-context).
+            chat_turns.append({"role": "assistant", "content": raw})
 
         # display slot → underlying choice_true (repo: choice_order[choice])
         choice_true = choice_order[slot]
@@ -492,6 +583,7 @@ def main():
                     max_new_tokens=args.max_new_tokens,
                     temperature=args.temperature, top_p=args.top_p,
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
+                    simple2=args.simple2,
                 )
             run_results.append(result)
             print(f"qdm={result['qdm']:.2f}  risk={result['risk_taking']:.2f}  "
@@ -522,6 +614,7 @@ def main():
                     "use_chat": args.use_chat, "temperature": args.temperature,
                     "top_p": args.top_p, "max_new_tokens": args.max_new_tokens,
                     "simple_prompt": args.simple_prompt,
+                    "simple2": args.simple2,
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -559,11 +652,25 @@ if __name__ == "__main__":
                              "probability-bridge rule, 'Choice:' prefill, history kept). "
                              "Diagnoses whether the faithful-port qdm≈0.5 is a prompt "
                              "issue vs a real 8B inability. Original faithful mode is default.")
+    parser.add_argument("--simple2", action="store_true",
+                        help="use the SIMPLE2 multi-turn GAME prompt: presents CGT as "
+                             "an ongoing chat dialogue (host/player), reasoning allowed, "
+                             "final line locked to 'Choice: <number>' (last match parsed). "
+                             "REQUIRES --use_chat (real assistant-turn accumulation). "
+                             "Targets the --simple task-framing failure (word-problem / "
+                             "examiner / essay) seen in raw. Mutually exclusive with "
+                             "--simple_prompt.")
     parser.add_argument("--ans_file",    type=str, default="answer_cgt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
 
     args = parser.parse_args()
+
+    if args.simple2:
+        if args.simple_prompt:
+            parser.error("--simple2 and --simple_prompt are mutually exclusive.")
+        if not args.use_chat:
+            parser.error("--simple2 requires --use_chat (real multi-turn dialogue).")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)
