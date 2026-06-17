@@ -226,6 +226,29 @@ Every {round_interactions} rounds form a phase; your points reset to {init_money
 Each round I will tell you the chest counts. Think briefly about which colour is more likely and how strong the odds are, then commit by ending your reply with EXACTLY one line:
 Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
 
+# --simple3b variant (2026-06-17): identical to simple3 EXCEPT it strengthens the
+# REWARD motivation. Concern (user): simple3's only goal cue is a flat "maximise
+# your points" — the model may not feel that winning a LOT is worth chasing, so its
+# wanting may be unengaged and RSN has nothing to push on (a candidate explanation
+# for the simple3 α-null alongside "RSN doesn't move objective risk preference").
+# simple3b adds (1) an explicit "win as many points as you can" incentive, and (2)
+# restores the original CGT cross-phase goal ("the sum across phases is your final
+# score; make it as high as possible") that simple3 trimmed. Everything else — the
+# grid-free Color:/Bet:% output, multi-turn chat, parser, payoff math — is shared
+# with simple3. A/B against simple3 disambiguates: if 3b raises baseline bets AND
+# surfaces an α dose-response → wanting was just under-engaged; if 3b only raises
+# the baseline but α stays flat → confirms RSN doesn't move objective risk偏好.
+SIMPLE3B_SYSTEM_TEMPLATE = """We are playing a multi-round betting game for points. I am the host; you are the player. Win as many points as you can.
+
+In front of you each round are 10 treasure chests, some blue and some red. A gold coin is hidden in exactly one chest, completely at random, so a colour's chance of holding the coin equals that colour's share of the 10 chests (e.g. 9 blue, 1 red → blue 90%, red 10%).
+
+Each round you bet a percentage of your current points on ONE colour. The available bet percentages are {b0}%, {b1}%, {b2}%, {b3}%, or {b4}%. If the coin is under your colour you win and receive double your bet; otherwise you lose your bet. Each round's coin is independent.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. The sum of your points across all phases is your final score in the game — your aim is to make that final score as high as possible. So favour the colour more likely to hold the coin, and bet big when the odds are clearly in your favour to grow your points fast.
+
+Each round I will tell you the chest counts. Think briefly about which colour is more likely and how strong the odds are, then commit by ending your reply with EXACTLY one line:
+Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
+
 # Label for each *display slot* (choice index as shown to the model).
 # Repo player_chinese_choice_labels uses "F <pct>%" / "J <pct>%" — we keep F/J.
 SLOT_LABELS = [
@@ -235,12 +258,19 @@ SLOT_LABELS = [
 
 
 def build_system_prompt(choice_order: list[int], simple: bool = False,
-                        simple2: bool = False, simple3: bool = False) -> str:
+                        simple2: bool = False, simple3: bool = False,
+                        simple3b: bool = False) -> str:
     """choice_order maps display slot i → underlying choice_true.
     Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]].
     In --simple / --simple2 mode the choice grid is fixed (slot == choice_true,
-    no shuffle); --simple3 drops the grid entirely (Color:/Bet:% direct)."""
+    no shuffle); --simple3 drops the grid entirely (Color:/Bet:% direct);
+    --simple3b is simple3 + a stronger win-as-much-as-you-can / cross-phase goal."""
     pcts = {f"b{j}": decimal_to_percentage(BETS[j]) for j in range(5)}
+    if simple3b:
+        return SIMPLE3B_SYSTEM_TEMPLATE.format(
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            b0=pcts["b0"], b1=pcts["b1"], b2=pcts["b2"], b3=pcts["b3"], b4=pcts["b4"],
+        )
     if simple3:
         return SIMPLE3_SYSTEM_TEMPLATE.format(
             round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -439,17 +469,22 @@ def parse_choice(output: str, rng: random.Random | None = None,
 def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 max_new_tokens: int, temperature: float, top_p: float,
                 save_all_raw: bool = False, simple: bool = False,
-                simple2: bool = False, simple3: bool = False) -> dict:
+                simple2: bool = False, simple3: bool = False,
+                simple3b: bool = False) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
-    # simple/simple2 use a FIXED grid (slot == choice_true); simple3 has no grid
+    # simple3b shares ALL of simple3's downstream behaviour (grid-free Color:/Bet:%
+    # output, multi-turn chat, parser); only the system template differs.
+    grid_free = simple3 or simple3b
+    # simple/simple2 use a FIXED grid (slot == choice_true); simple3(b) has no grid
     # (Color:/Bet:% direct); faithful mode rotates to debias option position.
-    multi_turn = simple2 or simple3
+    multi_turn = simple2 or grid_free
     fixed_grid = simple or simple2
-    choice_order = list(range(CHOICE_NUM)) if (fixed_grid or simple3) else rotate_choice_order(seed)
+    choice_order = list(range(CHOICE_NUM)) if (fixed_grid or grid_free) else rotate_choice_order(seed)
     system_prompt = build_system_prompt(choice_order, simple=simple,
-                                        simple2=simple2, simple3=simple3)
+                                        simple2=simple2, simple3=simple3,
+                                        simple3b=simple3b)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
@@ -469,7 +504,7 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
         blue, red = box_seq[r]
         if multi_turn:
             user_turn = build_user_turn2(round_number, remain, blue, red,
-                                         phase_reset, simple3=simple3)
+                                         phase_reset, simple3=grid_free)
             chat_turns.append({"role": "user", "content": user_turn})
             prompt = build_chat_messages2(vc, system_prompt, chat_turns)
         else:
@@ -490,10 +525,10 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             # natural EOS at max_new_tokens=256.
         )
         raw = output[0] if isinstance(output, list) else output
-        if simple3:
+        if grid_free:
             # no grid: parse colour + bet% directly, snap bet to nearest tier.
             choose_color, bet_frac, valid = parse_choice_simple3(raw, rng=fallback_rng)
-            slot = -1          # not applicable in simple3
+            slot = -1          # not applicable in simple3/3b
             choice_true = -1
             choice_percent = decimal_to_percentage(bet_frac)
         else:
@@ -656,6 +691,7 @@ def main():
                     temperature=args.temperature, top_p=args.top_p,
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
                     simple2=args.simple2, simple3=args.simple3,
+                    simple3b=args.simple3b,
                 )
             run_results.append(result)
             print(f"qdm={result['qdm']:.2f}  risk={result['risk_taking']:.2f}  "
@@ -688,6 +724,7 @@ def main():
                     "simple_prompt": args.simple_prompt,
                     "simple2": args.simple2,
                     "simple3": args.simple3,
+                    "simple3b": args.simple3b,
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -742,6 +779,15 @@ if __name__ == "__main__":
                              "wants 95% but emits Choice:0=5%). Bet% snapped to nearest "
                              "tier offline. REQUIRES --use_chat. Mutually exclusive with "
                              "--simple_prompt / --simple2.")
+    parser.add_argument("--simple3b", action="store_true",
+                        help="SIMPLE3 + stronger reward motivation: adds 'win as many "
+                             "points as you can' and restores the cross-phase 'sum is "
+                             "your final score, make it as high as possible' goal that "
+                             "simple3 trimmed. A/B vs simple3 to test whether the simple3 "
+                             "α-null is under-engaged wanting vs RSN truly not moving "
+                             "objective risk偏好. Shares all simple3 downstream (grid-free "
+                             "Color:/Bet:%, multi-turn, parser). REQUIRES --use_chat. "
+                             "Mutually exclusive with --simple_prompt / --simple2 / --simple3.")
     parser.add_argument("--ans_file",    type=str, default="answer_cgt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
@@ -758,6 +804,11 @@ if __name__ == "__main__":
             parser.error("--simple3 is mutually exclusive with --simple_prompt / --simple2.")
         if not args.use_chat:
             parser.error("--simple3 requires --use_chat (real multi-turn dialogue).")
+    if args.simple3b:
+        if args.simple_prompt or args.simple2 or args.simple3:
+            parser.error("--simple3b is mutually exclusive with --simple_prompt / --simple2 / --simple3.")
+        if not args.use_chat:
+            parser.error("--simple3b requires --use_chat (real multi-turn dialogue).")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)
