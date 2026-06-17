@@ -3,7 +3,9 @@
 ## Running
 
 - **EVOLvE ClothesShopping alpha scan** (@182) — No-Role, −8→+8, layers 11–20, 30 runs × 50 rounds. + 需要做统计分析 + STD可以作为一个观测指标 ✔
-- Confidence Betting GPQA alpha scan [running]
+- Confidence Betting GPQA alpha scan [running]  ✔
+- CGT simple2 九档 scan 跑测试中（−8→+8, 20 runs, chat multi-turn）；先前版本模型理解不了，现用 chat_template 救活 baseline
+- **CGT delay aversion** — 等 simple2 scan 跑完，看 risk_adj_slope / I_LC 有没有干净 dose-response 再决定是否做。要做就用「序贯 ascending/descending offer + accept 早晚」行为代理（比旧 gpqa_cot_delay 的 CoT 长度代理干净）
 
 ---
 
