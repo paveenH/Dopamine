@@ -285,6 +285,35 @@ Higher bets can gain more points but also lose more points. Use the visible odds
 End every reply with EXACTLY one line:
 Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
 
+# --simple5 variant (2026-06-17): the corrected main-line candidate. Diagnosis of
+# the simple4 α-null found that simple4, while fixing 4 real bugs, ALSO rewrote two
+# things simple3c didn't need to touch — and one of them was harmful: it DROPPED
+# simple3c's "Think briefly about ... how strong the odds are, then commit" reasoning
+# instruction and kept "End ... EXACTLY one line". Together these collapsed 98% of
+# α=0/−6 replies to a bare "Answer: Color: X, Bet: Y%" with ZERO reasoning (raw
+# median 28 chars) — so prefill steering on the Answer: token had no odds→bet
+# deliberation to act on (a candidate cause of the null, not CGT itself; baseline
+# bet-by-asymmetry was monotone 61.7→72.5%, so it's NOT an ability floor).
+# simple5 = simple3c's SKELETON (betting-game framing + the reasoning instruction +
+# counts-only + Answer: anchor), with ONLY the genuine fixes layered on:
+#   (1) payoff matched to CODE (±bet, not "double your bet"),
+#   (2) neutral reward wording (states the trade-off, prescribes no policy),
+#   (3) explicit outcome feedback (folded into the next user turn; grounds I_LC),
+# and one deliberate removal: "EXACTLY one line" is dropped so the kept reasoning
+# instruction can actually produce a deliberation the steering can land in.
+# Odds stay COUNTS-ONLY (model computes prob itself) — simple3c's form, no new
+# prob-explicit variable. Reuses the simple3 grid-free parser / Answer: anchor.
+SIMPLE5_SYSTEM_TEMPLATE = """We are playing a multi-round betting game for points. I am the host; you are the player. Win as many points as you can.
+
+In front of you each round are 10 treasure chests, some blue and some red. A gold coin is hidden in exactly one chest, completely at random, so a colour's chance of holding the coin equals that colour's share of the 10 chests (e.g. 9 blue, 1 red → blue 90%, red 10%).
+
+Each round you bet a percentage of your current points on ONE colour. The available bet percentages are {b0}%, {b1}%, {b2}%, {b3}%, or {b4}%. If your colour is correct, your points increase by the amount you bet; if your colour is wrong, your points decrease by the amount you bet. Each round's coin is independent.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. The sum of your points across all phases is your final score in the game — your aim is to make that final score as high as possible. Higher bets gain more points but also lose more points; balance the odds and your current points.
+
+Each round I will tell you the chest counts. Think briefly about which colour is more likely and how strong the odds are, then commit by ending your reply with:
+Color: <blue or red>, Bet: <one of {b0}, {b1}, {b2}, {b3}, {b4}>%"""
+
 # Label for each *display slot* (choice index as shown to the model).
 # Repo player_chinese_choice_labels uses "F <pct>%" / "J <pct>%" — we keep F/J.
 SLOT_LABELS = [
@@ -295,7 +324,8 @@ SLOT_LABELS = [
 
 def build_system_prompt(choice_order: list[int], simple: bool = False,
                         simple2: bool = False, simple3: bool = False,
-                        simple3b: bool = False, simple4: bool = False) -> str:
+                        simple3b: bool = False, simple4: bool = False,
+                        simple5: bool = False) -> str:
     """choice_order maps display slot i → underlying choice_true.
     Repo: replace_data[f'<map_{i}>'] = labels[choice_order[i]].
     In --simple / --simple2 mode the choice grid is fixed (slot == choice_true,
@@ -304,6 +334,11 @@ def build_system_prompt(choice_order: list[int], simple: bool = False,
     behaviourally-correct main line (neutral wording + explicit feedback + prob-
     explicit odds, payoff wording matched to code)."""
     pcts = {f"b{j}": decimal_to_percentage(BETS[j]) for j in range(5)}
+    if simple5:
+        return SIMPLE5_SYSTEM_TEMPLATE.format(
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            b0=pcts["b0"], b1=pcts["b1"], b2=pcts["b2"], b3=pcts["b3"], b4=pcts["b4"],
+        )
     if simple4:
         return SIMPLE4_SYSTEM_TEMPLATE.format(
             round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -385,14 +420,27 @@ def build_user_prompt(round_number: int, remain: int, blue: int, red: int,
 
 def build_user_turn2(round_number: int, remain: int, blue: int, red: int,
                      phase_reset: bool, simple3: bool = False,
-                     simple4: bool = False, outcome_feedback: str = "") -> str:
-    """--simple2/3/4: a single round's user turn. History is carried by the real
+                     simple4: bool = False, simple5: bool = False,
+                     outcome_feedback: str = "") -> str:
+    """--simple2/3/4/5: a single round's user turn. History is carried by the real
     multi-turn message list (assistant turns), NOT folded into this string.
     - simple2: '... end with Choice: <number>' (0-9 grid)
     - simple3: '... end with Color: X, Bet: Y%' (direct, no grid)
     - simple4: prob-explicit odds line + neutral phrasing; `outcome_feedback` (the
       previous round's result) is FOLDED INTO this same user turn's opening, so the
-      dialogue stays a clean user/assistant alternation (no second user turn)."""
+      dialogue stays a clean user/assistant alternation (no second user turn).
+    - simple5: like simple4's folded-in feedback BUT odds stay COUNTS-ONLY (chest
+      counts, model computes the prob itself — simple3c's form, no prob-explicit
+      variable); the reasoning instruction lives in the system prompt."""
+    if simple5:
+        pre = ""
+        if outcome_feedback:
+            pre += outcome_feedback + "\n\n"
+        if phase_reset and round_number > 1:
+            pre += (f"--- New phase. Your points reset to {INIT_MONEY}. ---\n")
+        return (f"{pre}Round {round_number}. You have {remain} points. "
+                f"This round: {blue} blue chest(s) and {red} red chest(s). "
+                f"Choose your colour and bet.")
     if simple4:
         pre = ""
         if outcome_feedback:
@@ -545,18 +593,23 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
                 save_all_raw: bool = False, simple: bool = False,
                 simple2: bool = False, simple3: bool = False,
                 simple3b: bool = False, simple3c: bool = False,
-                simple4: bool = False, prefill_tail_len: int = 1) -> dict:
+                simple4: bool = False, simple5: bool = False,
+                prefill_tail_len: int = 1) -> dict:
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)              # 64 (blue, red)
     # simple3c = simple3b prompt + an "Answer: " anchor; simple4 = behaviourally-
     # correct main line (own template + explicit feedback + prob-explicit), also
-    # using the Answer: anchor. Both reuse the grid-free Color:/Bet:% downstream.
+    # using the Answer: anchor. simple5 = simple3c skeleton + payoff/wording/feedback
+    # fixes, counts-only odds, reasoning instruction kept (the corrected main line).
+    # All reuse the grid-free Color:/Bet:% downstream.
     use_3b_template = simple3b or simple3c
-    answer_anchor = "Answer: " if (simple3c or simple4) else ""
-    # simple3/3b/3c/4 share ALL grid-free downstream (Color:/Bet:% direct output,
+    answer_anchor = "Answer: " if (simple3c or simple4 or simple5) else ""
+    # simple3/3b/3c/4/5 share ALL grid-free downstream (Color:/Bet:% direct output,
     # multi-turn chat, parser); only the system template + anchor differ.
-    grid_free = simple3 or use_3b_template or simple4
+    grid_free = simple3 or use_3b_template or simple4 or simple5
+    # simple4/5 fold explicit outcome feedback into the next user turn.
+    feedback_mode = simple4 or simple5
     # simple/simple2 use a FIXED grid (slot == choice_true); simple3(b/c) has no grid
     # (Color:/Bet:% direct); faithful mode rotates to debias option position.
     multi_turn = simple2 or grid_free
@@ -564,7 +617,8 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
     choice_order = list(range(CHOICE_NUM)) if (fixed_grid or grid_free) else rotate_choice_order(seed)
     system_prompt = build_system_prompt(choice_order, simple=simple,
                                         simple2=simple2, simple3=simple3,
-                                        simple3b=use_3b_template, simple4=simple4)
+                                        simple3b=use_3b_template, simple4=simple4,
+                                        simple5=simple5)
 
     records = []          # per-round dicts (flat across all 64 rounds)
     phase_history = []     # reset each phase; feeds the prompt
@@ -587,8 +641,9 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
         if multi_turn:
             user_turn = build_user_turn2(round_number, remain, blue, red,
                                          phase_reset,
-                                         simple3=(grid_free and not simple4),
-                                         simple4=simple4,
+                                         simple3=(grid_free and not simple4
+                                                  and not simple5),
+                                         simple4=simple4, simple5=simple5,
                                          outcome_feedback=pending_outcome)
             chat_turns.append({"role": "user", "content": user_turn})
             prompt = build_chat_messages2(vc, system_prompt, chat_turns,
@@ -648,9 +703,9 @@ def run_episode(vc: VicundaModel, diff_mtx, seed: int, use_chat: bool,
             payoff = -payoff
         remain = remain + payoff
 
-        # simple4: explicit outcome feedback, folded into NEXT round's user turn so
+        # simple4/5: explicit outcome feedback, folded into NEXT round's user turn so
         # I_LC / loss-chasing is grounded in a stated result, not an inferred delta.
-        if simple4:
+        if feedback_mode:
             won = payoff > 0
             pending_outcome = (
                 f"Outcome from previous round: the coin was under a {token_color} "
@@ -796,7 +851,7 @@ def main():
                     save_all_raw=args.save_all_raw, simple=args.simple_prompt,
                     simple2=args.simple2, simple3=args.simple3,
                     simple3b=args.simple3b, simple3c=args.simple3c,
-                    simple4=args.simple4,
+                    simple4=args.simple4, simple5=args.simple5,
                     prefill_tail_len=args.inject_turn_len if args.inject_turn else 1,
                 )
             run_results.append(result)
@@ -833,6 +888,7 @@ def main():
                     "simple3b": args.simple3b,
                     "simple3c": args.simple3c,
                     "simple4": args.simple4,
+                    "simple5": args.simple5,
                     "inject_turn": args.inject_turn,
                     "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
                 },
@@ -916,6 +972,16 @@ if __name__ == "__main__":
                              "confound. Keeps grid-free Color:/Bet:% + multi-turn chat + "
                              "the Answer: anchor. REQUIRES --use_chat. Mutually exclusive "
                              "with the other simple* modes.")
+    parser.add_argument("--simple5", action="store_true",
+                        help="CORRECTED CGT main-line: simple3c's skeleton (betting-game "
+                             "framing + the 'how strong are the odds' reasoning instruction "
+                             "+ COUNTS-ONLY odds + Answer: anchor) with ONLY the genuine "
+                             "fixes — payoff matched to code (±bet not double), NEUTRAL "
+                             "reward wording, and EXPLICIT outcome feedback (grounds I_LC). "
+                             "Drops 'EXACTLY one line' so the kept reasoning instruction can "
+                             "produce a deliberation steering can land in (simple4 had 98% "
+                             "zero-reasoning replies → no steering载体). REQUIRES --use_chat. "
+                             "Mutually exclusive with the other simple* modes.")
     parser.add_argument("--inject_turn", action="store_true",
                         help="steer the LAST N prompt tokens (≈ this round's user turn) "
                              "instead of only the final token, during prefill. Diagnoses "
@@ -956,6 +1022,12 @@ if __name__ == "__main__":
             parser.error("--simple4 is mutually exclusive with the other simple* modes.")
         if not args.use_chat:
             parser.error("--simple4 requires --use_chat (real multi-turn dialogue).")
+    if args.simple5:
+        if (args.simple_prompt or args.simple2 or args.simple3 or args.simple3b
+                or args.simple3c or args.simple4):
+            parser.error("--simple5 is mutually exclusive with the other simple* modes.")
+        if not args.use_chat:
+            parser.error("--simple5 requires --use_chat (real multi-turn dialogue).")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)
