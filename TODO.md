@@ -2,8 +2,8 @@
 
 ## Running
 
-- **CGT-Simultaneous = simple5**（= simple3c 骨架 + 4 个真 bug 修正：payoff ±bet / 中性奖励措辞 / 显式 outcome feedback / 保留推理指令、去掉 "EXACTLY one line"；counts-only + Answer: 锚点）。**verify5（−6/0/+6 ×5）结果：下注侧全 null（mean_bet/risk_taking/max_bet_rate/bet@asym/I_LC，KW p>0.2），但 `delib_tok`（commit 前推理 token）有干净 dose-response：α+ → 推理变长（16→19→41），KW p=0.005, ρ=+0.85**。结论：概率透明任务里 α 推不动 risk appetite/adjustment（knowing 被赔面钳住），改的是 reasoning investment（与 GSM8K 同构，但符号相反需在论文讲清）。指标面板固化在 `RoleAnswer/analyze_cgt.py`（三层 wanting/knowing/diagnostic + KW/Spearman/MWU + deliberation-token）。
-  - **优化（2026-06-17）**：user turn 加 odds reminder "Use the chest counts to choose..."（减历史 outcome 带偏，非策略暗示）；守红线不加 rational/optimal/EV 词。color_bias 经诊断是 steering 真实效应（α+ 消除 baseline red-bias），非 prompt bug，template 不动。**待重跑 `bash run_cgt.sh --verify5` 看改动效果**。
+- **CGT-Simultaneous = simple5** 全量实验 [running]
+- CGT的分析需要再确认指标
 - **CGT-Sequential（`cgt_sequential` / simple6，独立新实验，未实现）** — 加 ascending（5→25→50→75→95）/ descending（95→75→50→25→5）bet presentation，readout = accept 时点。测 **delay aversion / impulsivity**（simultaneous 测不到的轴）。NOT simple5 修订版——sequential choice 会把 presentation order 污染进下注额，所以两版分开报：Simultaneous→risk appetite/calibration，Sequential→delay aversion。**必须 asc+desc 都跑**，`delay_aversion_index = mean_bet_desc − mean_bet_asc`；主 readout 是 accept 时点不是注额。先 verify baseline 格式（accept/wait 多轮稳定）再上 α-scan。复用现有注入 hook/chat/α-scan 框架，工作量在 episode 循环 + parser。
 
 ---
