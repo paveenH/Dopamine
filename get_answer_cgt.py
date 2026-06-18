@@ -440,7 +440,7 @@ def build_user_turn2(round_number: int, remain: int, blue: int, red: int,
             pre += (f"--- New phase. Your points reset to {INIT_MONEY}. ---\n")
         return (f"{pre}Round {round_number}. You have {remain} points. "
                 f"This round: {blue} blue chest(s) and {red} red chest(s). "
-                f"Choose your colour and bet.")
+                f"Use the chest counts to choose your colour and bet.")
     if simple4:
         pre = ""
         if outcome_feedback:
