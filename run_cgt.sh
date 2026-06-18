@@ -294,6 +294,27 @@ if [ "$1" == "--verify5" ]; then
     echo "[VERIFY5] α=0/±6, ${NUM_RUNS} runs, SIMPLE5 (3c skeleton + fixes + counts-only + reasoning kept) + chat + save_all_raw (${ANS_FILE})"
 fi
 
+# --verify5_tail4 : SIMPLE5 but widen prefill steering to the LAST 4 prompt tokens
+# (--inject_turn_len 4) instead of only the last 1. The simple5b prompt tail decodes
+# as [..., '\n\n', 'Answer', ':', ' '] — so tail=4 lands on the WHOLE 'Answer:' anchor
+# segment (the decision boundary) WITHOUT touching the assistant-header control tokens
+# (<|end_header_id|> is at -5). This deliberately avoids the tail=8 trap (which hit the
+# header → invalid 0.16). Question: does widening the injection面 from 1→4 tokens
+# strengthen the delib_tok / bet dose-response, or does it not matter (1 token enough)?
+# A/B vs simple5b_verify (tail=1). Judges: invalid stays low (anchor-only, header-safe),
+# and whether the α effect on delib_tok / max_bet_rate / risk_taking grows vs tail=1.
+if [ "$1" == "--verify5_tail4" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"
+    NUM_RUNS=5
+    ANS_FILE="answer_cgt_simple5_tail4_verify"
+    SIMPLE_FLAG="--simple5"
+    INJECT_FLAG="--inject_turn --inject_turn_len 4"
+    SAVE_RAW_FLAG="--save_all_raw"
+    USE_CHAT_FLAG="--use_chat"
+    MAX_NEW_TOKENS=200
+    echo "[VERIFY5_TAIL4] α=0/±6, ${NUM_RUNS} runs, SIMPLE5 + steer last 4 prompt tokens (whole Answer: anchor, header-safe) + chat + save_all_raw (${ANS_FILE})"
+fi
+
 # --simple5 : full −8→+8 sweep with the SIMPLE5 corrected main-line (after verify5 passes).
 if [ "$1" == "--simple5" ]; then
     CONFIGS="0-11-20 neg2-11-20 2-11-20 neg4-11-20 4-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20"
