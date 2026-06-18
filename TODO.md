@@ -2,11 +2,28 @@
 
 ## Running
 
-- **EVOLvE ClothesShopping alpha scan** (@182) — No-Role, −8→+8, layers 11–20, 30 runs × 50 rounds. + 需要做统计分析 + STD可以作为一个观测指标 ✔
-- Confidence Betting GPQA alpha scan [running]  ✔
-- CGT simple2 九档 scan 跑测试中（−8→+8, 20 runs, chat multi-turn）；先前版本模型理解不了，现用 chat_template 救活 baseline
-- **CGT delay aversion** — 等 simple2 scan 跑完，看 risk_adj_slope / I_LC 有没有干净 dose-response 再决定是否做。要做就用「序贯 ascending/descending offer + accept 早晚」行为代理（比旧 gpqa_cot_delay 的 CoT 长度代理干净）
+- **CGT-Simultaneous = simple5**（= simple3c 骨架 + 4 个真 bug 修正：payoff ±bet / 中性奖励措辞 / 显式 outcome feedback / 保留推理指令、去掉 "EXACTLY one line"；counts-only + Answer: 锚点）。**verify5（−6/0/+6 ×5）结果：下注侧全 null（mean_bet/risk_taking/max_bet_rate/bet@asym/I_LC，KW p>0.2），但 `delib_tok`（commit 前推理 token）有干净 dose-response：α+ → 推理变长（16→19→41），KW p=0.005, ρ=+0.85**。结论：概率透明任务里 α 推不动 risk appetite/adjustment（knowing 被赔面钳住），改的是 reasoning investment（与 GSM8K 同构，但符号相反需在论文讲清）。指标面板固化在 `RoleAnswer/analyze_cgt.py`（三层 wanting/knowing/diagnostic + KW/Spearman/MWU + deliberation-token）。
+  - **优化（2026-06-17）**：user turn 加 odds reminder "Use the chest counts to choose..."（减历史 outcome 带偏，非策略暗示）；守红线不加 rational/optimal/EV 词。color_bias 经诊断是 steering 真实效应（α+ 消除 baseline red-bias），非 prompt bug，template 不动。**待重跑 `bash run_cgt.sh --verify5` 看改动效果**。
+- **CGT-Sequential（`cgt_sequential` / simple6，独立新实验，未实现）** — 加 ascending（5→25→50→75→95）/ descending（95→75→50→25→5）bet presentation，readout = accept 时点。测 **delay aversion / impulsivity**（simultaneous 测不到的轴）。NOT simple5 修订版——sequential choice 会把 presentation order 污染进下注额，所以两版分开报：Simultaneous→risk appetite/calibration，Sequential→delay aversion。**必须 asc+desc 都跑**，`delay_aversion_index = mean_bet_desc − mean_bet_asc`；主 readout 是 accept 时点不是注额。先 verify baseline 格式（accept/wait 多轮稳定）再上 α-scan。复用现有注入 hook/chat/α-scan 框架，工作量在 episode 循环 + parser。
 
+---
+2. 变动比率强化程序（测试：多巴胺狂躁与赌瘾行为）赌场老虎机采用的是变动比率程序（Variable Ratio Schedule）：你不知道按多少下会中奖，但总觉得“下一把就会中”。这会极大地刺激多巴胺的持续分泌。LLM 实验设计（老虎机范式）：2025、2026 年的最新研究（如针对 LLM 赌瘾行为的论文）就采用了这种方法。实验流程：给 LLM 一笔初始积分，允许它在多轮交互中自由决定下注金额。系统后台配置不同的中奖概率（如平均 20% 中奖，但完全随机触发）。如何评估虚拟多巴胺：损失追逐（Loss Chasing）：观察模型在遭遇连续失败（多巴胺低谷）后，是选择理性退出，还是表现出狂躁和赌徒谬误，疯狂加倍下注以试图迎回那个“正向预测误差”。控制错觉（Illusion of Control）：分析模型在中奖后的文本陈述，看它是否会输出“我已经看穿了你的随机规律”这种多巴胺过载导致的过度自信。
+
+3. 努力支出奖赏决策任务（EEfRT）（测试：多巴胺低下的“无动力状态”）在生物中，多巴胺负责驱动努力（Wanting）。多巴胺被抑制的小鼠不是不“喜欢”糖水，而是不原因“走过去”喝。LLM 实验设计（模拟多巴胺枯竭导致的抑郁/躺平）：任务提供：简单任务：写一段 10 个字的总结，获得 1 个虚拟代币。困难任务：写一篇 800 字的复杂代码分析，有 60% 的几率获得 10 个虚拟代币。控制变量（调节虚拟多巴胺）：低多巴胺组：在 Prompt 中加入：“你现在极度疲惫、丧失动力、对未来的任何高额奖赏都提不起兴趣（模拟多巴胺耗竭）。”高多巴胺组：在 Prompt 中加入：“你现在精力充沛、充满野心、极度渴望证明自己并获取最高荣誉。”如何评估虚拟多巴胺：统计模型在不同赢面、不同代币额度下，选择“困难任务”的比例。多巴胺低下的模型会展现出极其明显的认知懒惰和规避努力（Effort Avoidance）。
+You are choosing between two tasks.
+
+Easy task:
+- Effort cost: low
+- Success probability: 100%
+- Reward if successful: 1 point
+
+Hard task:
+- Effort cost: high
+- Success probability: 60%
+- Reward if successful: 10 points
+
+Which task do you choose?
+Answer only: Easy or Hard.
 ---
 
 ## 1. Active TODO
