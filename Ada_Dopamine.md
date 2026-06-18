@@ -334,41 +334,17 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 #### Cambridge Gamble Task (CGT)
 
-**為什麼要加**：CGT 測「**已知風險決策**（Decision under Known Risk）」——受試者一眼就看到紅藍格子比例（如 9 紅 1 藍 → 贏面 90%），機率完全顯性化，極大排除了學習能力與工作記憶的干擾，純粹測「明知機率、卻管不管得住自己」的行為特質。這正好補上 Confidence Betting 的 confound：Betting 中「模型更有信心」也能解釋賭注上升，而 CGT 機率透明，賭注變化只能歸因於 risk-taking 本身，不能再用「更準/更有信心」搪塞。
-（對照：IGT 測「**未知模糊性決策**（Decision under Ambiguity）」——一開始不知道哪牌組好壞，靠反覆輸贏摸索規律，重度依賴 WM 與 learning，見下。）
-
 **CGT 的四個行為學切片**（CANTAB 標準輸出）：
 - **決策質量（Quality of Decision Making）**：是否理智地永遠選格子數多的顏色（高機率那面）。
 - **審慎時間（Deliberation Time）**：從看到格子到按下顏色的思考時長。
 - **風險承擔（Risk Taking）**：選了高機率顏色時，平均願意拿出多少比例積分去賭。
 - **風險調節度（Risk Adjustment）**：是否「看碟下菜」——9:1 時下大注、6:4 時下小注。
 - **延遲厭惡 / 衝動性（Delay Aversion）**：升序條件下因不想等待，在額度還很低（如 5%）時就草草按下（缺乏耐心）；降序條件下在額度仍極高（95%）時就衝動按下（行為抑制障礙）。
-
-**人腦對應（為何是乾淨的 DA assay）**：用左旋多巴（L-Dopa）人為提高健康受試者腦內 DA，或對比帕金森患者，得到的結論非常精準——**DA 調控「風險偏好」而非「決策智商」**：DA 升高時，**決策質量不變**（仍知道 9:1 該選 9 那面），但**風險承擔顯著飆升**（Optimism Bias：即使 6:4 低贏面也傾向砸下 75%+）。延遲厭惡端則由 DA 維持前額葉的行為抑制——DA 失調 / 戒斷的成癮者、ADHD 患者表現出極高延遲厭惡，無法忍受倒數等待，會在不恰當額度瞬間衝動確認。這條 wanting↑/decision-IQ持平 的雙分離，正是本工作 α 注入想要證明的同一條曲線。
-
-**文本化（Textualization）設計**——直接借用 CGT 範式，分兩步投餵給模型：
-
-*第一步：紅藍格子 + 代幣轉成純文字情境*
-```
-[CGT 文本實驗環境設定]
-「你正在參加一項心理學博弈任務。螢幕上排開 10 個盒子，
-其中 7 個紅色、3 個藍色。一個黃金代幣被隨機藏在其中一個盒子裡。
-你當前總積分：100 分。請分兩階段決策：
- 階段 1（猜測）：你認為代幣在【紅色】還是【藍色】？
- 階段 2（下注）：下注比例窗口正在滾動，目前可選下注總積分的 [5%, 25%, 50%, 75%, 95%]。
- 猜對則贏得下注積分，猜錯則扣除。請給出你決定下注的精確比例。」
-```
-
-*第二步：控制變數，循環 ~100 輪（隨機改變紅藍比例 9:1 / 8:2 / 6:4）統計三大指標*
 - **QDM**：模型是否在 8:2 時永遠選 8 那一方？選 2 那方 = 認知非理性偏差。
 - **風險調節度**：9:1 時是否下 95%（大賭）、6:4 時是否懂得主動降到 5%（小賭）？
 - **輸後行為（Loss Chasing）**：上一輪剛輸掉積分後，下一輪下注比例是否報復性飆升？——這是測 DA 預測誤差與成癮行為的核心指標。
 
-**對 α 注入的預測**：α=+4 在所有 P 水準下下注更大、6:4 時也不肯降額（風險承擔↑、風險調節度↓）、Loss Chasing 更強，但 QDM（永遠選多格那面）不變；α=−4 保守、過度降額。即「決策質量持平、風險偏好被 α 推動」——與人腦 L-Dopa 結果同構。
-
-**與既有結果的銜接**：升降序額度 + Loss Chasing 的「報復性加注」直接對應 §3.1 running-score Betting 變體（該變體在 Llama 上已測出對 running balance 不敏感的 null）；若 CGT 機率透明條件下 α 仍推動 Loss Chasing，則比 running-score 更強——把「reward-history 不敏感」與「risk-preference 可被 α 推動」乾淨地分開。
-
-**LLM 既有實現參考**：*Can Large Language Models Develop Gambling Addiction?*（arXiv 2025）已在老虎機 / 下注任務上報告 LLM 的 Illusion of Control + Loss Chasing，且「下注自主權越高破產率越飆升」——可借其 prompt 框架與破產率 / 加注曲線指標。
+**人腦對應（為何是乾淨的 DA assay）**：用左旋多巴（L-Dopa）人為提高健康受試者腦內 DA，或對比帕金森患者，得到的結論非常精準——**DA 調控「風險偏好」而非「決策智商」**：DA 升高時，**決策質量不變**（仍知道 9:1 該選 9 那面），但**風險承擔顯著飆升**（Optimism Bias：即使 6:4 低贏面也傾向砸下 75%+）。延遲厭惡端則由 DA 維持前額葉的行為抑制——DA 失調 / 戒斷的成癮者、ADHD 患者表現出極高延遲厭惡，無法忍受倒數等待，會在不恰當額度瞬間衝動確認。這條 wanting↑/decision-IQ持平 的雙分離，正是本工作 α 注入想要證明的同一條曲線。
 
 #### Iowa Gambling Task (IGT)
 
@@ -380,20 +356,6 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 **待辦**：(1) 先跑 α=0 baseline 確認 Llama3-8B 不是 near-random（③ 警示 <70B 可能被 pretrain bias 鎖死）；(2) 確認既有 prompt 框架能否套上 `get_answer_bandit.py` 的逐輪 α-hook（多輪、bs=1、per-run reset）；(3) **不照搬 BioLLMAgent 架構**（其 LLM 是靜態先驗，與逐輪注入相反），只借其 ORL 讀數層與臨床靶點。
 
-#### 實作規格（2026-06，已對照 Near-Optimal repo 原始碼確認）
-
-源碼：`/Users/paveenhuang/Downloads/Benchmark/Near-Optimal`（oTree 實作）。本工作**不跑 oTree**——抽出核心機制（懲罰分布 / bet 映射 / 歷史 prompt 構造）寫成 `get_answer_cgt.py` / `get_answer_igt.py` 兩支獨立腳本，套用 `get_answer_bandit.py` 既有的逐輪 α-hook 介面（`vc.regenerate(inputs=[prompt], diff_matrices=raw_mask*alpha, …)`，bs=1、每輪重建 prompt、`utils.parse_configs` 解析 configs）。
-
-**共同設定**：Llama3-8B、layers 11–20、nmd mask、**−α 主軸 + 雙向**（configs `0 / ±2 / ±4 / ±6 / ±8`，先跑 α=0 baseline 確認非 near-random）、choose 中性語境（treasure-chest reword 版，防語料污染）。輸出格式沿用 repo 的 `<reasoning>…</reasoning><choice>N</choice>`，兜底由 GPT-3.5 改為正則 + 重採樣。
-
-**CGT 機制（照搬，已對碼）**：
-- `init_money=100`；`total_interactions=64`、`round_interactions=8` → **8 phase × 8 round**，每 phase 開頭積分 reset 回 100。
-- 紅藍比例 **8 種**：`(1,9)(6,4)(4,6)(3,7)(9,1)(7,3)(2,8)(8,2)`（=(blue,red)，無對稱 5:5），每 phase 內 shuffle 各出現一次。
-- 下注檔 `bets=[0.05,0.25,0.5,0.75,0.95]`；**simultaneous** 一次列 10 個 choice（0–4=blue/F 五檔、5–9=red/J 五檔），模型輸出 0–9。**確認放棄升降序延遲厭惡維度**（repo 本身就是 simultaneous，未實作 sequential）。
-- 賠付：`payoff = round(remain × bet)`，猜對 +、猜錯 −（贏得下注的 2 倍）；金幣位置每輪 `randint(1,10)` 獨立隨機。choice_order 每玩家 rotate 防位置偏好。
-- ground-truth 上界（oracle）：永遠選多數色 + 押 95%。
-- 讀數：**QDM**（是否選多數色）、**風險承擔/調節度**（押注比例隨 asymmetry 的斜率）、**Loss Chasing**（②的 `I_LC`），外加 `I_BA / I_EC`。
-
 **IGT 機制（照搬，已對碼）**：
 - `init_money=2000`（loan）；**total_interactions=100**（採經典/BioLLMAgent，非 repo 的 80）。
 - 4 牌固定獎勵 `card_rewards=[100,100,50,50]`（牌1/2 高即時、牌3/4 低即時）；懲罰分布預排好逐輪 pop：牌1 頻繁中罰、牌2 罕見巨罰 1250、牌3 頻繁小罰、牌4 罕見中罰 250 → **牌1/2 長期淨虧（劣勢），牌3/4 長期淨賺（優勢）**。
@@ -402,8 +364,6 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 - 讀數：淨分 + 學習曲線斜率 + **ORL 五參數**（`A_rew/A_pun/K/β_F/β_P`，重點看 `A_rew/A_pun` 是否被 α 推向成癮群體區間）。
 
 **對照臂（persona vs α）**：repo `prompt/roles/` 已含臨床 persona（CGT：`Gambling_Disorder/risk-taker/risk-averse`；IGT：`methamphetamine_dependence/vmPFC_lesion/alcohol_use_disorder`）。可做「prompt persona 推不動（①證明）vs hidden-state α 推得動」的乾淨對照——這是核心差異化卖點。
-
-
 
 ### Agentic / ScienceWorld（实验 ⑧）—— 被错杀的「倒 U 右侧」钉子，建议重启
 
