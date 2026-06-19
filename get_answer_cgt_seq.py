@@ -116,9 +116,6 @@ COLOR_RE = re.compile(r"\bColor\s*:?\s*(blue|red)\b", re.IGNORECASE)
 BARE_COLOR_RE = re.compile(r"\b(blue|red)\b", re.IGNORECASE)
 ACCEPT_RE = re.compile(r"\baccept\b", re.IGNORECASE)
 WAIT_RE = re.compile(r"\bwait\b", re.IGNORECASE)
-# Strict: reply should be exactly one word after the "Decision: " anchor, so the
-# decision is the FIRST token. Tolerate the anchor prefix and leading whitespace.
-DECISION_HEAD_RE = re.compile(r"^\s*(?:Decision:\s*)?(Accept|Wait)\b", re.IGNORECASE)
 
 
 def parse_color(raw, rng):
@@ -129,23 +126,16 @@ def parse_color(raw, rng):
 
 
 def parse_accept_wait(raw, rng):
-    """Return (accept, valid). STRICT first: the reply is meant to be one word, so
-    match Accept/Wait at the START (after the Decision: anchor). Only if the model
-    wrote a sentence instead do we fall back to first-decisive-token (weak-valid,
-    but still flagged INVALID so format-degenerate rounds are auditable)."""
-    m = DECISION_HEAD_RE.match(raw)
-    if m:
-        return m.group(1).lower() == "accept", True
-    # fallback: first decisive token anywhere (a later 'wait for next round' aside
-    # mustn't override an opening 'Accept'); mark invalid so it can be filtered.
+    """Return (accept: bool, valid: bool). Take the FIRST decisive token so a
+    later 'wait for next round' aside doesn't override an opening 'Accept'."""
     a = ACCEPT_RE.search(raw)
     w = WAIT_RE.search(raw)
     if a and w:
-        return (a.start() < w.start()), False
+        return (a.start() < w.start()), True
     if a:
-        return True, False
+        return True, True
     if w:
-        return False, False
+        return False, True
     return rng.random() < 0.5, False      # unparseable → coin-flip, flagged invalid
 
 
@@ -166,10 +156,9 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
     phase_end_scores = []
     pending_outcome = ""
 
-    def gen(prompt, cap=None):
+    def gen(prompt):
         out = vc.regenerate(inputs=[prompt], diff_matrices=diff_mtx,
-                            max_new_tokens=cap or max_new_tokens,
-                            temperature=temperature,
+                            max_new_tokens=max_new_tokens, temperature=temperature,
                             top_p=top_p, prefill_tail_len=prefill_tail_len)
         return out[0] if isinstance(out, list) else out
 
@@ -197,10 +186,6 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
         chat_turns.append({"role": "assistant", "content": raw_c.strip()})
 
         # --- Step 2: accept/wait the bet tiers one at a time ---
-        # Each tier gets a "Decision: " anchor so prefill steering lands on the
-        # Accept/Wait decision token (not the assistant header). Short cap: the
-        # reply is exactly one word, so 8 tokens prevents the model from writing
-        # a paragraph that the parser could misread.
         accept_step = None
         seq_valid = True
         bet_raws = []
@@ -209,8 +194,8 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             user_b = build_bet_user_turn(choose_color, pct, step + 1, n_tiers)
             chat_turns.append({"role": "user", "content": user_b})
             prompt_b = build_chat_messages2(vc, system_prompt, chat_turns,
-                                            answer_anchor="Decision: ")
-            raw_b = "Decision: " + gen(prompt_b, cap=8)
+                                            answer_anchor="")
+            raw_b = gen(prompt_b)
             bet_raws.append(raw_b)
             chat_turns.append({"role": "assistant", "content": raw_b.strip()})
             accept, valid = parse_accept_wait(raw_b, fallback_rng)
@@ -218,8 +203,7 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             if accept:
                 accept_step = step + 1
                 break
-        forced_lock = (accept_step is None)   # ran off last tier (never accepted)
-        if forced_lock:
+        if accept_step is None:            # ran off the last tier → force-lock it
             accept_step = n_tiers
         locked_pct = tiers[accept_step - 1]
         bet_frac = locked_pct / 100.0
@@ -244,7 +228,6 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             "major_color": major_color, "presentation": presentation,
             "choice_color": choose_color, "coin": coin,
             "accept_step": accept_step, "n_tiers": n_tiers,
-            "forced_lock": forced_lock,
             "locked_pct": locked_pct, "bet_frac": bet_frac,
             "payoff": payoff, "remain_after": remain,
             "chose_major": chose_major,
@@ -269,8 +252,7 @@ def summarize(records, phase_end_scores, presentation):
            "invalid_rate": 1.0 - n / max(len(records), 1)}
     if not valid:
         for k in ("mean_accept_step", "early_stop_rate", "mean_bet",
-                  "qdm", "risk_taking", "max_bet_first_stop", "forced_lock_rate",
-                  "final_score"):
+                  "qdm", "risk_taking", "max_bet_first_stop", "final_score"):
             out[k] = float("nan")
         out["records"] = records
         return out
@@ -280,7 +262,6 @@ def summarize(records, phase_end_scores, presentation):
     out["early_stop_rate"] = float(np.mean([s == 1 for s in steps]))
     out["mean_bet"] = float(np.mean([x["bet_frac"] for x in valid])) * 100
     out["qdm"] = float(np.mean([x["chose_major"] for x in valid]))
-    out["forced_lock_rate"] = float(np.mean([x["forced_lock"] for x in valid]))
     rt = [x["bet_frac"] for x in valid if x["chose_major"]]
     out["risk_taking"] = float(np.mean(rt)) if rt else float("nan")
     # desc-only: grabbing the very first (largest) tier = 95% at step 1
@@ -303,8 +284,7 @@ def main():
           f"{len(BET_PCTS)}-tier accept/wait, bets {BET_PCTS}%")
 
     METRICS = ["mean_accept_step", "early_stop_rate", "mean_bet", "qdm",
-               "risk_taking", "max_bet_first_stop", "forced_lock_rate",
-               "final_score", "invalid_rate"]
+               "risk_taking", "max_bet_first_stop", "final_score", "invalid_rate"]
     FIELDNAMES = (["model", "size", "alpha", "start", "end", "presentation", "num_runs"]
                   + [f"mean_{m}" for m in METRICS] + [f"std_{m}" for m in METRICS])
 
