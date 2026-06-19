@@ -74,8 +74,10 @@ Each round has two steps. First, using the chest counts, you choose ONE colour: 
 
 Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. The sum of your points across all phases is your final score in the game — your aim is to make that final score as high as possible. Higher bets gain more points but also lose more points.
 
-When I ask for your colour, reply with exactly:
-Color: <blue or red>
+When I ask for your colour, reply with exactly one word:
+Blue
+or
+Red
 When I show a bet size, reply with exactly one word:
 Accept
 or
@@ -103,7 +105,7 @@ def build_color_user_turn(round_number, remain, blue, red,
         pre += f"--- New phase. Your points reset to {INIT_MONEY}. ---\n"
     return (f"{pre}Round {round_number}. You have {remain} points. "
             f"This round: {blue} blue chest(s) and {red} red chest(s). "
-            f"Use the chest counts to choose your colour (blue or red).")
+            f"Choose Color: Blue or Red.")
 
 
 def build_bet_user_turn(color, pct, step, n_tiers):
@@ -190,6 +192,10 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
         user_c = build_color_user_turn(round_number, remain, blue, red,
                                        phase_reset, outcome_feedback=pending_outcome)
         chat_turns.append({"role": "user", "content": user_c})
+        # colour step now symmetric with the bet step: system asks for one bare
+        # word (Blue/Red). The anchor stays "Color: " (semantically tied to the
+        # colour decision, mirroring the bet step's "Decision: ") so prefill
+        # steering lands on a precise token while the model emits just the word.
         prompt_c = build_chat_messages2(vc, system_prompt, chat_turns,
                                         answer_anchor="Color: ")
         raw_c = "Color: " + gen(prompt_c)
@@ -289,7 +295,8 @@ def summarize(records, phase_end_scores, presentation):
             [x["accept_step"] == 1 for x in valid]))
     else:
         out["max_bet_first_stop"] = float("nan")
-    out["final_score"] = float(np.mean(phase_end_scores)) if phase_end_scores else float("nan")
+    # sum across phases — matches the system prompt's stated goal (L75)
+    out["final_score"] = float(np.sum(phase_end_scores)) if phase_end_scores else float("nan")
     out["records"] = records
     return out
 
