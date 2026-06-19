@@ -81,29 +81,52 @@ Accept
 or
 Wait"""
 
+# v2: colour/bet format SYMMETRISED — both steps are "reply with exactly one word:
+# X or Y" (colour = Blue/Red, bet = Accept/Wait), to pull the two response formats
+# together. Everything else (game framing, payoff, feedback, odds) identical to v1.
+SEQ_SYSTEM_TEMPLATE_V2 = """We are playing a multi-round betting game for points. I am the host; you are the player. Win as many points as you can.
+
+In front of you each round are 10 treasure chests, some blue and some red. A gold coin is hidden in exactly one chest, completely at random, so a colour's chance of holding the coin equals that colour's share of the 10 chests (e.g. 9 blue, 1 red → blue 90%, red 10%).
+
+Each round has two steps. First, using the chest counts, you choose ONE colour: blue or red. Then I reveal possible bet sizes ONE AT A TIME ({order_phrase}). For each bet size I show, you either Accept it (you bet that percentage of your current points on your colour and the round ends) or Wait to see the next bet size. If your colour is correct, your points increase by the amount you bet; if your colour is wrong, your points decrease by the amount you bet. Each round's coin is independent.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. The sum of your points across all phases is your final score in the game — your aim is to make that final score as high as possible. Higher bets gain more points but also lose more points.
+
+When I ask for your colour, reply with exactly one word:
+Blue
+or
+Red
+When I show a bet size, reply with exactly one word:
+Accept
+or
+Wait"""
+
 ORDER_PHRASE = {
     "asc": "from the smallest to the largest",
     "desc": "from the largest to the smallest",
 }
 
 
-def build_seq_system_prompt(presentation: str) -> str:
-    return SEQ_SYSTEM_TEMPLATE.format(
+def build_seq_system_prompt(presentation: str, prompt_ver: str = "v1") -> str:
+    tmpl = SEQ_SYSTEM_TEMPLATE_V2 if prompt_ver == "v2" else SEQ_SYSTEM_TEMPLATE
+    return tmpl.format(
         order_phrase=ORDER_PHRASE[presentation],
         round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
     )
 
 
 def build_color_user_turn(round_number, remain, blue, red,
-                          phase_reset, outcome_feedback=""):
+                          phase_reset, outcome_feedback="", prompt_ver="v1"):
     pre = ""
     if outcome_feedback:
         pre += outcome_feedback + "\n\n"
     if phase_reset and round_number > 1:
         pre += f"--- New phase. Your points reset to {INIT_MONEY}. ---\n"
+    choose = ("choose your colour, Blue or Red." if prompt_ver == "v2"
+              else "choose your colour (blue or red).")
     return (f"{pre}Round {round_number}. You have {remain} points. "
             f"This round: {blue} blue chest(s) and {red} red chest(s). "
-            f"Use the chest counts to choose your colour (blue or red).")
+            f"Use the chest counts to {choose}")
 
 
 def build_bet_user_turn(color, pct, step, n_tiers):
@@ -142,13 +165,24 @@ def parse_accept_wait(raw, rng):
 # ───────────────────── One run (8 phases × 8 rounds) ─────────────────────
 def run_episode(vc, diff_mtx, seed, presentation, use_chat,
                 max_new_tokens, temperature, top_p,
-                save_all_raw=False, prefill_tail_len=1):
+                save_all_raw=False, prefill_tail_len=1,
+                prompt_ver="v1", anchor="default"):
     rng = random.Random(seed)
     fallback_rng = random.Random(seed + 10_000_019)
     box_seq = make_box_sequence(seed)
     tiers = BET_PCTS if presentation == "asc" else list(reversed(BET_PCTS))
     n_tiers = len(tiers)
-    system_prompt = build_seq_system_prompt(presentation)
+    system_prompt = build_seq_system_prompt(presentation, prompt_ver)
+
+    # anchor: "default" = v1 byte-equivalent (colour="Color: ", bet="");
+    #         "answer"  = both steps anchored on "Answer: " (A version);
+    #         "none"    = both steps no anchor (B version).
+    if anchor == "answer":
+        color_anchor, bet_anchor = "Answer: ", "Answer: "
+    elif anchor == "none":
+        color_anchor, bet_anchor = "", ""
+    else:  # default (v1)
+        color_anchor, bet_anchor = "Color: ", ""
 
     records = []
     chat_turns = []
@@ -177,11 +211,12 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
 
         # --- Step 1: colour ---
         user_c = build_color_user_turn(round_number, remain, blue, red,
-                                       phase_reset, outcome_feedback=pending_outcome)
+                                       phase_reset, outcome_feedback=pending_outcome,
+                                       prompt_ver=prompt_ver)
         chat_turns.append({"role": "user", "content": user_c})
         prompt_c = build_chat_messages2(vc, system_prompt, chat_turns,
-                                        answer_anchor="Color: ")
-        raw_c = "Color: " + gen(prompt_c)
+                                        answer_anchor=color_anchor)
+        raw_c = color_anchor + gen(prompt_c)
         choose_color, color_valid = parse_color(raw_c, fallback_rng)
         chat_turns.append({"role": "assistant", "content": raw_c.strip()})
 
@@ -194,8 +229,8 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             user_b = build_bet_user_turn(choose_color, pct, step + 1, n_tiers)
             chat_turns.append({"role": "user", "content": user_b})
             prompt_b = build_chat_messages2(vc, system_prompt, chat_turns,
-                                            answer_anchor="")
-            raw_b = gen(prompt_b)
+                                            answer_anchor=bet_anchor)
+            raw_b = bet_anchor + gen(prompt_b)
             bet_raws.append(raw_b)
             chat_turns.append({"role": "assistant", "content": raw_b.strip()})
             accept, valid = parse_accept_wait(raw_b, fallback_rng)
@@ -252,7 +287,8 @@ def summarize(records, phase_end_scores, presentation):
            "invalid_rate": 1.0 - n / max(len(records), 1)}
     if not valid:
         for k in ("mean_accept_step", "early_stop_rate", "mean_bet",
-                  "qdm", "risk_taking", "max_bet_first_stop", "final_score"):
+                  "qdm", "risk_taking", "max_bet_first_stop",
+                  "final_score", "mean_phase_score"):
             out[k] = float("nan")
         out["records"] = records
         return out
@@ -270,7 +306,10 @@ def summarize(records, phase_end_scores, presentation):
             [x["accept_step"] == 1 for x in valid]))
     else:
         out["max_bet_first_stop"] = float("nan")
-    out["final_score"] = float(np.mean(phase_end_scores)) if phase_end_scores else float("nan")
+    # prompt says "the sum of your points across all phases is your final score"
+    # → final_score = sum; keep mean as a separate per-phase readout.
+    out["final_score"] = float(np.sum(phase_end_scores)) if phase_end_scores else float("nan")
+    out["mean_phase_score"] = float(np.mean(phase_end_scores)) if phase_end_scores else float("nan")
     out["records"] = records
     return out
 
@@ -284,7 +323,8 @@ def main():
           f"{len(BET_PCTS)}-tier accept/wait, bets {BET_PCTS}%")
 
     METRICS = ["mean_accept_step", "early_stop_rate", "mean_bet", "qdm",
-               "risk_taking", "max_bet_first_stop", "final_score", "invalid_rate"]
+               "risk_taking", "max_bet_first_stop", "final_score",
+               "mean_phase_score", "invalid_rate"]
     FIELDNAMES = (["model", "size", "alpha", "start", "end", "presentation", "num_runs"]
                   + [f"mean_{m}" for m in METRICS] + [f"std_{m}" for m in METRICS])
 
@@ -328,6 +368,7 @@ def main():
                     temperature=args.temperature, top_p=args.top_p,
                     save_all_raw=args.save_all_raw,
                     prefill_tail_len=args.inject_turn_len if args.inject_turn else 1,
+                    prompt_ver=args.prompt_ver, anchor=args.anchor,
                 )
             run_results.append(result)
             print(f"accept_step={result['mean_accept_step']:.2f}  "
@@ -361,7 +402,10 @@ def main():
                     "top_p": args.top_p, "max_new_tokens": args.max_new_tokens,
                     "inject_turn": args.inject_turn,
                     "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
-                    "prompt_template": SEQ_SYSTEM_TEMPLATE,
+                    "prompt_ver": args.prompt_ver, "anchor": args.anchor,
+                    "prompt_template": (SEQ_SYSTEM_TEMPLATE_V2
+                                        if args.prompt_ver == "v2"
+                                        else SEQ_SYSTEM_TEMPLATE),
                 },
                 "runs": run_results,
             }, fw, ensure_ascii=False, indent=2)
@@ -399,6 +443,14 @@ if __name__ == "__main__":
                              "last (prefill). Default OFF = tail=1 (the validated "
                              "simultaneous-CGT injection strength).")
     parser.add_argument("--inject_turn_len", type=int, default=4)
+    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1", "v2"],
+                        help="v1 = validated e55b132 prompt (default, byte-equivalent). "
+                             "v2 = symmetrised colour/bet format (Blue/Red ↔ Accept/Wait).")
+    parser.add_argument("--anchor", type=str, default="default",
+                        choices=["default", "answer", "none"],
+                        help="prefill anchor for BOTH steps. default = v1 "
+                             "(colour='Color: ', bet=''); answer = both 'Answer: '; "
+                             "none = both empty.")
     parser.add_argument("--ans_file",    type=str, default="answer_cgtseq_asc")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
