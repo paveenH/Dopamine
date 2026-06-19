@@ -289,8 +289,7 @@ def summarize(records, phase_end_scores, presentation):
             [x["accept_step"] == 1 for x in valid]))
     else:
         out["max_bet_first_stop"] = float("nan")
-    # sum across phases — matches the system prompt's stated goal (L75)
-    out["final_score"] = float(np.sum(phase_end_scores)) if phase_end_scores else float("nan")
+    out["final_score"] = float(np.mean(phase_end_scores)) if phase_end_scores else float("nan")
     out["records"] = records
     return out
 
