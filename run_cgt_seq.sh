@@ -42,24 +42,67 @@ PRESENTATION=""          # set by the mode flag below (required)
 ANS_FILE=""
 SAVE_RAW_FLAG="--save_all_raw"
 USE_CHAT_FLAG="--use_chat"
+PROMPT_VER="v1"          # v1 = validated e55b132 prompt; v2 = symmetrised format
+ANCHOR="default"         # default | answer | none (see get_answer_cgt_seq.py)
 
 # ==================== Modes ====================
+# --- v1 (validated e55b132 baseline) ---
 if [ "$1" == "--verify_asc" ]; then
     CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
     PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_verify"
-    echo "[VERIFY_ASC] α=0/±6, 5 runs, ascending (5→95)"
+    echo "[VERIFY_ASC] v1, α=0/±6, 5 runs, ascending (5→95)"
 elif [ "$1" == "--verify_desc" ]; then
     CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
     PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_verify"
-    echo "[VERIFY_DESC] α=0/±6, 5 runs, descending (95→5)"
+    echo "[VERIFY_DESC] v1, α=0/±6, 5 runs, descending (95→5)"
 elif [ "$1" == "--asc" ]; then
     PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc"
-    echo "[ASC] full −8→+8 sweep, ${NUM_RUNS} runs, ascending (5→95)"
+    echo "[ASC] v1, full −8→+8 sweep, ${NUM_RUNS} runs, ascending (5→95)"
 elif [ "$1" == "--desc" ]; then
     PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc"
-    echo "[DESC] full −8→+8 sweep, ${NUM_RUNS} runs, descending (95→5)"
+    echo "[DESC] v1, full −8→+8 sweep, ${NUM_RUNS} runs, descending (95→5)"
+
+# --- v2a: symmetrised prompt + "Answer: " anchor on BOTH steps ---
+elif [ "$1" == "--verify_v2a_asc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v2a_verify"
+    PROMPT_VER="v2"; ANCHOR="answer"
+    echo "[VERIFY_V2A_ASC] v2 + Answer: anchor, α=0/±6, 5 runs, asc"
+elif [ "$1" == "--verify_v2a_desc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v2a_verify"
+    PROMPT_VER="v2"; ANCHOR="answer"
+    echo "[VERIFY_V2A_DESC] v2 + Answer: anchor, α=0/±6, 5 runs, desc"
+
+# --- v2b: symmetrised prompt + NO anchor on either step ---
+elif [ "$1" == "--verify_v2b_asc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v2b_verify"
+    PROMPT_VER="v2"; ANCHOR="none"
+    echo "[VERIFY_V2B_ASC] v2 + no anchor, α=0/±6, 5 runs, asc"
+elif [ "$1" == "--verify_v2b_desc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v2b_verify"
+    PROMPT_VER="v2"; ANCHOR="none"
+    echo "[VERIFY_V2B_DESC] v2 + no anchor, α=0/±6, 5 runs, desc"
+
+# --- v2a / v2b full sweeps (only after a verify A/B picks the winner) ---
+elif [ "$1" == "--v2a_asc" ]; then
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v2a"; PROMPT_VER="v2"; ANCHOR="answer"
+    echo "[V2A_ASC] v2 + Answer: anchor, full −8→+8, ${NUM_RUNS} runs, asc"
+elif [ "$1" == "--v2a_desc" ]; then
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v2a"; PROMPT_VER="v2"; ANCHOR="answer"
+    echo "[V2A_DESC] v2 + Answer: anchor, full −8→+8, ${NUM_RUNS} runs, desc"
+elif [ "$1" == "--v2b_asc" ]; then
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v2b"; PROMPT_VER="v2"; ANCHOR="none"
+    echo "[V2B_ASC] v2 + no anchor, full −8→+8, ${NUM_RUNS} runs, asc"
+elif [ "$1" == "--v2b_desc" ]; then
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v2b"; PROMPT_VER="v2"; ANCHOR="none"
+    echo "[V2B_DESC] v2 + no anchor, full −8→+8, ${NUM_RUNS} runs, desc"
 else
     echo "Usage: bash run_cgt_seq.sh {--verify_asc|--verify_desc|--asc|--desc}"
+    echo "       v2a (Answer: anchor): --verify_v2a_asc|--verify_v2a_desc|--v2a_asc|--v2a_desc"
+    echo "       v2b (no anchor):      --verify_v2b_asc|--verify_v2b_desc|--v2b_asc|--v2b_desc"
     exit 1
 fi
 
@@ -82,6 +125,8 @@ python get_answer_cgt_seq.py \
     --mask_type "${MASK_TYPE}" \
     --configs ${CONFIGS} \
     --presentation "${PRESENTATION}" \
+    --prompt_ver "${PROMPT_VER}" \
+    --anchor "${ANCHOR}" \
     --num_runs "${NUM_RUNS}" \
     --max_new_tokens "${MAX_NEW_TOKENS}" \
     --temperature "${TEMPERATURE}" \
