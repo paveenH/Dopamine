@@ -99,10 +99,33 @@ elif [ "$1" == "--v2b_asc" ]; then
 elif [ "$1" == "--v2b_desc" ]; then
     PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v2b"; PROMPT_VER="v2"; ANCHOR="none"
     echo "[V2B_DESC] v2 + no anchor, full −8→+8, ${NUM_RUNS} runs, desc"
+
+# --- v3 (A1): v2b winner (symmetrised, no anchor) + EXPLICIT next-offer hint at
+#     each bet tier. Tests whether asc early-stop is strategic-delay vs impulsivity:
+#     v2b showed asc Wait reasoning NEVER mentions "wait = bigger bet" (0/539 at α=0),
+#     so the model didn't know the rule. v3 states it. If asc STILL early-stops → real
+#     impulsivity; if it starts strategic-waiting → v2b's early-stop was rule-ignorance.
+elif [ "$1" == "--verify_v3_asc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v3_verify"
+    PROMPT_VER="v3"; ANCHOR="none"
+    echo "[VERIFY_V3_ASC] v3 (v2b + next-offer hint), α=0/±6, 5 runs, asc"
+elif [ "$1" == "--verify_v3_desc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v3_verify"
+    PROMPT_VER="v3"; ANCHOR="none"
+    echo "[VERIFY_V3_DESC] v3 (v2b + next-offer hint), α=0/±6, 5 runs, desc"
+elif [ "$1" == "--v3_asc" ]; then
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v3"; PROMPT_VER="v3"; ANCHOR="none"
+    echo "[V3_ASC] v3 (v2b + next-offer hint), full −8→+8, ${NUM_RUNS} runs, asc"
+elif [ "$1" == "--v3_desc" ]; then
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v3"; PROMPT_VER="v3"; ANCHOR="none"
+    echo "[V3_DESC] v3 (v2b + next-offer hint), full −8→+8, ${NUM_RUNS} runs, desc"
 else
     echo "Usage: bash run_cgt_seq.sh {--verify_asc|--verify_desc|--asc|--desc}"
     echo "       v2a (Answer: anchor): --verify_v2a_asc|--verify_v2a_desc|--v2a_asc|--v2a_desc"
     echo "       v2b (no anchor):      --verify_v2b_asc|--verify_v2b_desc|--v2b_asc|--v2b_desc"
+    echo "       v3 (v2b + hint):      --verify_v3_asc|--verify_v3_desc|--v3_asc|--v3_desc"
     exit 1
 fi
 
