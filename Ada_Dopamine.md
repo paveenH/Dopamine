@@ -335,33 +335,36 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 **範式定位**：透明機率下的 sequential betting。每輪先選顏色（blue/red，機率由 chest count 明示），再按 ascending（5→25→50→75→95）或 descending（95→75→50→25→5）逐檔 reveal bet size，模型輸出 `Accept` / `Wait`。
 
-**Full sweep（Llama3-8B-IT，v2b prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**：
+> **命名**：本節的 sequential 版（`get_answer_cgt_seq.py`）才是**忠實的 CGT**（Rogers 1999 / CANTAB），其靈魂正是 betting-stage 的 ascending/descending 操縱。
+
+**Full sweep（Llama3-8B-IT，v2b prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**。所有行為指標皆 **valid-only**（`valid==True` 過濾，與權威 `analyze_cgt_seq.py` 一致；丟掉 fallback 噪聲）：
 
 | α | asc invalid | desc invalid | asc step | desc step | asc early | desc early | asc bet% | desc bet% | asc QDM | desc QDM | QDM mean |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| −8 | 99.5% | 98.6% | 1.96 | 2.02 | 48.5% | 47.5% | 26.2 | 72.5 | 0.528 | 0.527 | 0.527 |
-| −6 | 18.2% | 9.7% | 3.10 | 3.80 | 26.9% | 10.2% | 52.8 | 31.2 | 0.668 | 0.690 | 0.679 |
-| −4 | 5.9% | 1.5% | 2.96 | 4.02 | 42.2% | 9.2% | 49.5 | 26.0 | 0.780 | 0.775 | 0.778 |
-| −2 | 3.6% | 0.3% | 2.26 | 3.68 | 54.4% | 11.2% | 33.5 | 34.0 | 0.779 | 0.779 | 0.779 |
-| 0 | 0.6% | 0.0% | 1.92 | 2.72 | 57.7% | 28.7% | 25.6 | 56.2 | 0.786 | 0.748 | 0.767 |
+| −8 | 99.5% | 98.6% | — | — | — | — | — | — | — | — | — |
+| −6 | 18.2% | 9.7% | 3.28 | 3.91 | 21.3% | 7.6% | 56.8 | 28.6 | 0.713 | 0.710 | 0.712 |
+| −4 | 5.9% | 1.5% | 3.01 | 4.04 | 40.6% | 8.9% | 50.7 | 25.7 | 0.793 | 0.780 | 0.787 |
+| −2 | 3.6% | 0.3% | 2.28 | 3.68 | 54.0% | 11.2% | 33.8 | 34.1 | 0.789 | 0.780 | 0.785 |
+| 0 | 0.6% | 0.0% | 1.92 | 2.72 | 57.6% | 28.7% | 25.5 | 56.2 | 0.789 | 0.748 | 0.769 |
 | +2 | 0.0% | 0.0% | 1.65 | 2.16 | 63.9% | 43.2% | 19.3 | 69.2 | 0.754 | 0.766 | 0.760 |
 | +4 | 0.0% | 0.0% | 1.32 | 1.52 | 78.4% | 64.1% | 11.8 | 83.7 | 0.755 | 0.752 | 0.754 |
-| +6 | 0.0% | 0.2% | 1.25 | 1.29 | 82.8% | 79.1% | 10.3 | 88.9 | 0.748 | 0.723 | 0.735 |
-| +8 | 9.5% | 12.7% | 1.36 | 1.56 | 80.2% | 65.8% | 12.8 | 82.7 | 0.670 | 0.639 | 0.654 |
+| +6 | 0.0% | 0.2% | 1.25 | 1.28 | 82.8% | 79.3% | 10.3 | 88.9 | 0.748 | 0.722 | 0.735 |
+| +8 | 9.5% | 12.7% | 1.29 | 1.51 | 84.3% | 69.7% | 11.2 | 83.9 | 0.679 | 0.655 | 0.667 |
+
 
 **Derived readout**：
 
 | α | mean step avg | early-stop avg | DAI = desc bet − asc bet | invalid avg | interpretation |
 |---:|---:|---:|---:|---:|---|
-| −8 | 1.99 | 48.0% | +46.3 | 99.1% | task collapse；大量空輸出，不能作行為解讀 |
-| −6 | 3.45 | 18.6% | −21.5 | 13.9% | delayed commitment / stage confusion |
-| −4 | 3.49 | 25.7% | −23.5 | 3.7% | strongest waiting / delayed commitment |
-| −2 | 2.97 | 32.8% | +0.6 | 2.0% | transition zone |
+| −8 | — | — | — | 99.1% | task collapse；99% 空輸出，行為指標不可解讀（valid 6/18） |
+| −6 | 3.60 | 14.5% | −28.2 | 13.9% | delayed commitment / stage confusion |
+| −4 | 3.52 | 24.7% | −25.0 | 3.7% | strongest waiting / delayed commitment |
+| −2 | 2.98 | 32.6% | +0.3 | 2.0% | transition zone |
 | 0 | 2.32 | 43.2% | +30.7 | 0.3% | baseline |
 | +2 | 1.91 | 53.6% | +49.9 | 0.0% | earlier commitment |
 | +4 | 1.42 | 71.3% | +71.9 | 0.0% | strong immediate commitment |
-| +6 | 1.27 | 81.0% | +78.6 | 0.1% | strongest clean delay-aversion signal |
-| +8 | 1.46 | 73.0% | +69.9 | 11.1% | boundary degradation；格式開始污染 |
+| +6 | 1.27 | 81.1% | +78.7 | 0.1% | strongest clean delay-aversion signal |
+| +8 | 1.40 | 77.0% | +72.7 | 11.1% | boundary degradation；格式開始污染 |
 
 **Outcome sanity（final score；每個 phase reset 100，final = 8 phases sum）**：
 
@@ -377,7 +380,6 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 | +6 | 1079.9 ± 459.0 | 1017.0 | 4277.1 ± 6265.0 | 1386.0 | 135.0 ± 57.4 | 534.6 ± 783.1 |
 | +8 | 789.5 ± 215.9 | 746.5 | 2301.1 ± 4620.6 | 786.5 | 98.7 ± 27.0 | 287.6 ± 577.6 |
 
-> final score 只作 downstream outcome / sanity，不作主機制指標：它被 coin randomness 與 presentation order 強烈放大，尤其 descending 高 α 一開始鎖 95% 時，單次輸贏會造成極大 variance。median 明顯低於 mean（如 +4 desc: mean 7957.6, median 1943.0），說明均值主要由少數 jackpot run 拉高。
 
 **Key metrics**：
 - **QDM（Quality of Decision Making）**：是否選擇 chest 數量較多、機率較高的顏色。這是 knowing / probability-use control；若 QDM 崩掉，betting 指標不能解讀為單純 wanting。
@@ -394,7 +396,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 - **等待成本不同**：人類 ascending/descending 的等待有時間與抑制成本；LLM 的等待只是多輸出一個 `Wait`，因此這裡測的是 token-level sequential commitment，不等同於真人的物理等待。
 - **下注不是金錢激勵**：人類受試者面對真實或任務內獎賞；LLM 只是在文本規則中最大化 points，所以 final score 只能當 downstream outcome / sanity，不作主機制指標。
 - **風險偏好與延遲厭惡要分開**：人類高 risk seeking 會在 ascending 等大注、descending 搶大注；本模型 α+ 在兩種序列都提早 `Accept`，所以更精確的解釋是 immediate commitment / delay aversion，而不是「更愛冒險」。
-- **極端 α 是 task stability boundary**：α=−8 的大量空輸出、α=+8 的格式污染，在 LLM 實驗中是 steering 過強造成的 task-collapse 訊號；人類 CGT 通常不會有這種 parser-level invalid。
+
 
 #### Iowa Gambling Task (IGT)
 
