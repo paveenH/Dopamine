@@ -132,18 +132,20 @@ def build_color_user_turn(round_number, remain, blue, red,
 
 
 def build_bet_user_turn(color, pct, step, n_tiers, next_pct=None, prompt_ver="v1"):
-    base = (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
-            f"current points. Accept or Wait?")
-    if prompt_ver != "v3":
-        return base  # v1/v2 byte-identical
+    if prompt_ver != "v3":  # v1/v2 byte-identical
+        return (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
+                f"current points. Accept or Wait?")
     # v3 (A1): make the future offer EXPLICIT so "wait = larger/smaller bet" is
     # not something the model has to infer. asc → next is larger; desc → smaller.
+    # The hint goes BEFORE "Accept or Wait?" so the decision question stays the
+    # LAST sentence (prefill steering injects at the final token).
     if next_pct is None:
-        hint = " This is the last bet size; there is no later offer."
+        hint = "This is the last bet size; there is no later offer. "
     else:
         rel = "larger" if next_pct > pct else "smaller"
-        hint = f" If you Wait, the next bet size will be {next_pct}% ({rel})."
-    return base + hint
+        hint = f"If you Wait, the next bet size will be {next_pct}% ({rel}). "
+    return (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
+            f"current points. {hint}Accept or Wait?")
 
 
 # ───────────────────── Parsing ─────────────────────
