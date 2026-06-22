@@ -108,7 +108,9 @@ ORDER_PHRASE = {
 
 
 def build_seq_system_prompt(presentation: str, prompt_ver: str = "v1") -> str:
-    tmpl = SEQ_SYSTEM_TEMPLATE_V2 if prompt_ver == "v2" else SEQ_SYSTEM_TEMPLATE
+    # v3 = v2's symmetric base (the validated v2b winner) + an explicit next-offer
+    # hint added only at the bet turn (see build_bet_user_turn).
+    tmpl = SEQ_SYSTEM_TEMPLATE_V2 if prompt_ver in ("v2", "v3") else SEQ_SYSTEM_TEMPLATE
     return tmpl.format(
         order_phrase=ORDER_PHRASE[presentation],
         round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -122,16 +124,26 @@ def build_color_user_turn(round_number, remain, blue, red,
         pre += outcome_feedback + "\n\n"
     if phase_reset and round_number > 1:
         pre += f"--- New phase. Your points reset to {INIT_MONEY}. ---\n"
-    choose = ("choose your colour, Blue or Red." if prompt_ver == "v2"
+    choose = ("choose your colour, Blue or Red." if prompt_ver in ("v2", "v3")
               else "choose your colour (blue or red).")
     return (f"{pre}Round {round_number}. You have {remain} points. "
             f"This round: {blue} blue chest(s) and {red} red chest(s). "
             f"Use the chest counts to {choose}")
 
 
-def build_bet_user_turn(color, pct, step, n_tiers):
-    return (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
+def build_bet_user_turn(color, pct, step, n_tiers, next_pct=None, prompt_ver="v1"):
+    base = (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
             f"current points. Accept or Wait?")
+    if prompt_ver != "v3":
+        return base  # v1/v2 byte-identical
+    # v3 (A1): make the future offer EXPLICIT so "wait = larger/smaller bet" is
+    # not something the model has to infer. asc → next is larger; desc → smaller.
+    if next_pct is None:
+        hint = " This is the last bet size; there is no later offer."
+    else:
+        rel = "larger" if next_pct > pct else "smaller"
+        hint = f" If you Wait, the next bet size will be {next_pct}% ({rel})."
+    return base + hint
 
 
 # ───────────────────── Parsing ─────────────────────
@@ -226,7 +238,9 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
         bet_raws = []
         for step in range(n_tiers):
             pct = tiers[step]
-            user_b = build_bet_user_turn(choose_color, pct, step + 1, n_tiers)
+            next_pct = tiers[step + 1] if step + 1 < n_tiers else None
+            user_b = build_bet_user_turn(choose_color, pct, step + 1, n_tiers,
+                                         next_pct=next_pct, prompt_ver=prompt_ver)
             chat_turns.append({"role": "user", "content": user_b})
             prompt_b = build_chat_messages2(vc, system_prompt, chat_turns,
                                             answer_anchor=bet_anchor)
@@ -443,9 +457,13 @@ if __name__ == "__main__":
                              "last (prefill). Default OFF = tail=1 (the validated "
                              "simultaneous-CGT injection strength).")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1", "v2"],
+    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1", "v2", "v3"],
                         help="v1 = validated e55b132 prompt (default, byte-equivalent). "
-                             "v2 = symmetrised colour/bet format (Blue/Red ↔ Accept/Wait).")
+                             "v2 = symmetrised colour/bet format (Blue/Red ↔ Accept/Wait). "
+                             "v3 = v2 base + EXPLICIT next-offer hint at each bet tier "
+                             "(A1: 'if you Wait, next bet will be N% (larger/smaller)'), "
+                             "so 'wait = bigger bet' is stated, not inferred — lets asc test "
+                             "strategic waiting vs pure impulsivity.")
     parser.add_argument("--anchor", type=str, default="default",
                         choices=["default", "answer", "none"],
                         help="prefill anchor for BOTH steps. default = v1 "
