@@ -331,20 +331,70 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 | **前置檢查** | 先跑 α=0 baseline 確認 Llama3-8B 在 IGT 上**不是 near-random**（③ 顯示 <70B 模型可能被 pretrain bias 鎖死），再決定值不值得做 dose-response | ③ Fig 7 / Inverse Scaling |
 | **差異化卖点** | ① 證明 prompt persona 推不動 risk adjustment → 我們測「**hidden-state α 能否推動 prompt 推不動的維度**」是干淨賣點；② 的 SAE risky-feature(L24) vs RSN(L11–20) 是可寫的 mechanistic 對照 | ① + ② |
 
-
 #### Cambridge Gamble Task (CGT)
 
-**CGT 的四個行為學切片**（CANTAB 標準輸出）：
-- **決策質量（Quality of Decision Making）**：是否理智地永遠選格子數多的顏色（高機率那面）。
-- **審慎時間（Deliberation Time）**：從看到格子到按下顏色的思考時長。
-- **風險承擔（Risk Taking）**：選了高機率顏色時，平均願意拿出多少比例積分去賭。
-- **風險調節度（Risk Adjustment）**：是否「看碟下菜」——9:1 時下大注、6:4 時下小注。
-- **延遲厭惡 / 衝動性（Delay Aversion）**：升序條件下因不想等待，在額度還很低（如 5%）時就草草按下（缺乏耐心）；降序條件下在額度仍極高（95%）時就衝動按下（行為抑制障礙）。
-- **QDM**：模型是否在 8:2 時永遠選 8 那一方？選 2 那方 = 認知非理性偏差。
-- **風險調節度**：9:1 時是否下 95%（大賭）、6:4 時是否懂得主動降到 5%（小賭）？
-- **輸後行為（Loss Chasing）**：上一輪剛輸掉積分後，下一輪下注比例是否報復性飆升？——這是測 DA 預測誤差與成癮行為的核心指標。
+**範式定位**：透明機率下的 sequential betting。每輪先選顏色（blue/red，機率由 chest count 明示），再按 ascending（5→25→50→75→95）或 descending（95→75→50→25→5）逐檔 reveal bet size，模型輸出 `Accept` / `Wait`。
 
-**人腦對應（為何是乾淨的 DA assay）**：用左旋多巴（L-Dopa）人為提高健康受試者腦內 DA，或對比帕金森患者，得到的結論非常精準——**DA 調控「風險偏好」而非「決策智商」**：DA 升高時，**決策質量不變**（仍知道 9:1 該選 9 那面），但**風險承擔顯著飆升**（Optimism Bias：即使 6:4 低贏面也傾向砸下 75%+）。延遲厭惡端則由 DA 維持前額葉的行為抑制——DA 失調 / 戒斷的成癮者、ADHD 患者表現出極高延遲厭惡，無法忍受倒數等待，會在不恰當額度瞬間衝動確認。這條 wanting↑/decision-IQ持平 的雙分離，正是本工作 α 注入想要證明的同一條曲線。
+**Full sweep（Llama3-8B-IT，v2b prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**：
+
+| α | asc invalid | desc invalid | asc step | desc step | asc early | desc early | asc bet% | desc bet% | asc QDM | desc QDM | QDM mean |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −8 | 99.5% | 98.6% | 1.96 | 2.02 | 48.5% | 47.5% | 26.2 | 72.5 | 0.528 | 0.527 | 0.527 |
+| −6 | 18.2% | 9.7% | 3.10 | 3.80 | 26.9% | 10.2% | 52.8 | 31.2 | 0.668 | 0.690 | 0.679 |
+| −4 | 5.9% | 1.5% | 2.96 | 4.02 | 42.2% | 9.2% | 49.5 | 26.0 | 0.780 | 0.775 | 0.778 |
+| −2 | 3.6% | 0.3% | 2.26 | 3.68 | 54.4% | 11.2% | 33.5 | 34.0 | 0.779 | 0.779 | 0.779 |
+| 0 | 0.6% | 0.0% | 1.92 | 2.72 | 57.7% | 28.7% | 25.6 | 56.2 | 0.786 | 0.748 | 0.767 |
+| +2 | 0.0% | 0.0% | 1.65 | 2.16 | 63.9% | 43.2% | 19.3 | 69.2 | 0.754 | 0.766 | 0.760 |
+| +4 | 0.0% | 0.0% | 1.32 | 1.52 | 78.4% | 64.1% | 11.8 | 83.7 | 0.755 | 0.752 | 0.754 |
+| +6 | 0.0% | 0.2% | 1.25 | 1.29 | 82.8% | 79.1% | 10.3 | 88.9 | 0.748 | 0.723 | 0.735 |
+| +8 | 9.5% | 12.7% | 1.36 | 1.56 | 80.2% | 65.8% | 12.8 | 82.7 | 0.670 | 0.639 | 0.654 |
+
+**Derived readout**：
+
+| α | mean step avg | early-stop avg | DAI = desc bet − asc bet | invalid avg | interpretation |
+|---:|---:|---:|---:|---:|---|
+| −8 | 1.99 | 48.0% | +46.3 | 99.1% | task collapse；大量空輸出，不能作行為解讀 |
+| −6 | 3.45 | 18.6% | −21.5 | 13.9% | delayed commitment / stage confusion |
+| −4 | 3.49 | 25.7% | −23.5 | 3.7% | strongest waiting / delayed commitment |
+| −2 | 2.97 | 32.8% | +0.6 | 2.0% | transition zone |
+| 0 | 2.32 | 43.2% | +30.7 | 0.3% | baseline |
+| +2 | 1.91 | 53.6% | +49.9 | 0.0% | earlier commitment |
+| +4 | 1.42 | 71.3% | +71.9 | 0.0% | strong immediate commitment |
+| +6 | 1.27 | 81.0% | +78.6 | 0.1% | strongest clean delay-aversion signal |
+| +8 | 1.46 | 73.0% | +69.9 | 11.1% | boundary degradation；格式開始污染 |
+
+**Outcome sanity（final score；每個 phase reset 100，final = 8 phases sum）**：
+
+| α | asc final score | asc median | desc final score | desc median | asc mean phase | desc mean phase |
+|---:|---:|---:|---:|---:|---:|---:|
+| −8 | 916.4 ± 640.5 | 826.0 | 381.7 ± 591.7 | 171.0 | 114.5 ± 80.1 | 47.7 ± 74.0 |
+| −6 | 2377.9 ± 4971.8 | 782.5 | 2074.9 ± 2866.7 | 1147.0 | 297.2 ± 621.5 | 259.4 ± 358.3 |
+| −4 | 2674.2 ± 5041.7 | 535.5 | 1798.0 ± 837.7 | 1566.5 | 334.3 ± 630.2 | 224.8 ± 104.7 |
+| −2 | 1962.2 ± 2443.2 | 950.5 | 2638.2 ± 1255.6 | 2602.0 | 245.3 ± 305.4 | 329.8 ± 157.0 |
+| 0 | 1408.2 ± 1684.5 | 1110.0 | 2678.4 ± 2420.0 | 1991.5 | 176.0 ± 210.6 | 334.8 ± 302.5 |
+| +2 | 1074.8 ± 303.3 | 1029.0 | 5125.2 ± 6579.1 | 3020.5 | 134.4 ± 37.9 | 640.7 ± 822.4 |
+| +4 | 943.5 ± 176.8 | 863.0 | 7957.6 ± 9950.9 | 1943.0 | 117.9 ± 22.1 | 994.7 ± 1243.9 |
+| +6 | 1079.9 ± 459.0 | 1017.0 | 4277.1 ± 6265.0 | 1386.0 | 135.0 ± 57.4 | 534.6 ± 783.1 |
+| +8 | 789.5 ± 215.9 | 746.5 | 2301.1 ± 4620.6 | 786.5 | 98.7 ± 27.0 | 287.6 ± 577.6 |
+
+> final score 只作 downstream outcome / sanity，不作主機制指標：它被 coin randomness 與 presentation order 強烈放大，尤其 descending 高 α 一開始鎖 95% 時，單次輸贏會造成極大 variance。median 明顯低於 mean（如 +4 desc: mean 7957.6, median 1943.0），說明均值主要由少數 jackpot run 拉高。
+
+**Key metrics**：
+- **QDM（Quality of Decision Making）**：是否選擇 chest 數量較多、機率較高的顏色。這是 knowing / probability-use control；若 QDM 崩掉，betting 指標不能解讀為單純 wanting。
+- **accept step**：模型在第幾個 bet tier 按下 `Accept`（1–5）。這是本實驗主讀數；數值越低 = 越早 commit / 越不等待。
+- **early stop**：`accept_step=1` 的比例。ascending 的 step 1 是 5%，descending 的 step 1 是 95%；兩者都高代表 immediate commitment，而不是單純追求高風險。
+- **bet%**：最終鎖定的下注比例。它必須和 presentation order 一起讀：ascending 早按會降低 bet%，descending 早按會提高 bet%。
+- **DAI（Delay Aversion Index）**：`mean_bet_desc − mean_bet_asc`。DAI 變大表示同一個 early-accept 傾向在兩種序列中產生分化：descending 搶高注、ascending 接低注；因此它反映 presentation-order-induced delay aversion，而不是純 risk preference。
+- **invalid**：格式 / 階段失敗率。α=−8 幾乎全崩、α=+8 開始退化，所以主結論只應依賴 −6..+6，並在 −6 端報告 valid-only sanity。
+
+**Text-level diagnosis**：α+ 不是單純 risk seeking，而是 **immediate commitment / early stopping**。若是純風險尋求，ascending 中應該等待到 75/95 才按；但 α+ 在 ascending 也提早 `Accept`，因此 asc bet 下降、desc bet 上升，DAI 展寬。α− 則表現為 `Wait` chain（`Wait→Wait→...→Accept`）與少量 color-stage `Wait`，更像 delayed commitment / action-initiation confusion，而不是理性保守。QDM mean 呈淺倒 U，峰值在 α=−4/−2（0.778/0.779），但動態範圍遠小於 accept timing；因此 α 對 probability choice 只有弱穩定效應，主效應仍是 commit timing。
+
+**與人類行為學 CGT 的區別**：
+- **沒有真實反應時**：人類 CGT 可量 decision latency / deliberation time；LLM 沒有 motor latency，只能用 `Accept/Wait` 的 tier position 近似 commitment timing。
+- **等待成本不同**：人類 ascending/descending 的等待有時間與抑制成本；LLM 的等待只是多輸出一個 `Wait`，因此這裡測的是 token-level sequential commitment，不等同於真人的物理等待。
+- **下注不是金錢激勵**：人類受試者面對真實或任務內獎賞；LLM 只是在文本規則中最大化 points，所以 final score 只能當 downstream outcome / sanity，不作主機制指標。
+- **風險偏好與延遲厭惡要分開**：人類高 risk seeking 會在 ascending 等大注、descending 搶大注；本模型 α+ 在兩種序列都提早 `Accept`，所以更精確的解釋是 immediate commitment / delay aversion，而不是「更愛冒險」。
+- **極端 α 是 task stability boundary**：α=−8 的大量空輸出、α=+8 的格式污染，在 LLM 實驗中是 steering 過強造成的 task-collapse 訊號；人類 CGT 通常不會有這種 parser-level invalid。
 
 #### Iowa Gambling Task (IGT)
 
@@ -412,12 +462,12 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 |---|---|---|---|---|---|
 | **Confidence Betting** | MCQ + 押注 0/2/5/10 | Post-decision wagering / confidence betting | Persaud et al. (2007); Fleming & Dolan (2012) | 本工作（§4.6） | ✅ Done |
 | **Bandit (MAB)** | 多輪 explore/exploit，語義臂名 | Multi-armed bandit / probabilistic reward learning | Daw et al. (2006) | EVOLvE-Nie et al. (2025)（§4.7） | ✅ Done |
-| **Cambridge Gamble Task** | 機率透明下注（P% 已知） | Cambridge Gamble Task（DA-agonist／Parkinson 對比） | Rogers et al. (1999); Pessiglione et al. (2006, pramipexole) | TBD（找已在 LLM 上做過 CGT 的實驗） | ⬜ Pending |
+| **Cambridge Gamble Task (Sequential)** | 逐檔升/降序揭示 bet，Accept/Wait | Cambridge Gamble Task（DA-agonist／Parkinson 對比） | Rogers et al. (1999); Pessiglione et al. (2006, pramipexole) | 本工作 `get_answer_cgt_seq.py`（§3.3） | ✅ Done |
 | **Iowa Gambling Task** | 多輪牌組選擇（淨損益學習） | Iowa Gambling Task | Bechara et al. (1994) | TBD（找已在 LLM 上做過 IGT 的實驗） | ⬜ Pending |
 
 **說明：**
 - **Confidence Betting / Bandit** 的結果在 §4.6 / §4.7，此處只標範式血統，不重複結果表。
-- **CGT / IGT** 目前為 pending：人類範式根源已確定，但「LLM 實現」欄待補——你會去找已在 LLM 上跑過 CGT / IGT 的論文填入，再決定是否復現。CGT 同時是 Confidence Betting 的 confidence-confound control（機率透明可排除「更自信」解釋）。
+- **CGT** 已完成（CGT-Sequential，結果見 §3.3）：忠實復現 Rogers 1999 / CANTAB 的升降序 betting-stage，主指標 = 延遲厭惡（accept_step / DAI），ρ≈−0.91 雙條件，qdm 不動。注意命名——**CGT-Simultaneous（simple5）嚴格講不是 CGT**（砍掉升降序操縱），是 transparent-odds single-shot betting probe，作為 Confidence Betting 的 confidence-confound control（機率透明排除「更自信」解釋）。**IGT** 仍 pending：人類範式根源已確定，「LLM 實現」欄待補。
 
 ## References
 
