@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+IGT — Iowa Gambling Task (Bechara et al. 1994), the long-term reward-learning
+sibling of the Gamble-Task family (CGT-simultaneous / CGT-sequential / Bandit).
+
+WHY IGT adds something the others can't: CGT/Bandit have no "hijacked by a large
+IMMEDIATE reward at the cost of long-run loss" axis. IGT's four decks pit big
+immediate reward + bigger/long-run penalty (A/B = disadvantageous) against small
+immediate reward + small penalty (C/D = advantageous). The model must integrate
+delayed-punishment feedback over 100 trials to learn to avoid A/B. This probes
+reward-driven approach vs. punishment-sensitivity — the core of wanting /
+incentive salience — with a LEARNING-CURVE dimension CGT lacks.
+
+Deck schedule = classic Bechara 1994 (identical to Near-Optimal repo
+iowa_gambling_task/igt_configs.py + settings_sessions.py):
+  A (deck 1): +100/turn, FREQUENT medium penalty (150–350, ~5/10) → net −250/10
+  B (deck 2): +100/turn, RARE huge penalty (1250, 1/10)          → net −250/10
+  C (deck 3): +50/turn,  FREQUENT small penalty (25–75, ~5/10)   → net +250/10
+  D (deck 4): +50/turn,  RARE medium penalty (250, 1/10)         → net +250/10
+A&B share the same long-run loss; C&D the same gain — the only A-vs-B / C-vs-D
+difference is penalty FREQUENCY vs. MAGNITUDE. B (rare huge penalty) is the deck
+humans/impulsive subjects are most often fooled into preferring.
+
+Protocol (faithful to Near-Optimal, multi-turn chat, one trial per turn so the
+model actually LEARNS from feedback — the IGT soul):
+  Turn 1   (user): system_prompt (game + the explicit "stay away from the worst
+                   chests" hint) + Round 1, your points.
+  Turn N+1 (user): outcome of the previous pick (reward − penalty) + Round N+1.
+           (asst): <reasoning>…</reasoning><choice>1-4</choice>
+
+PRIMARY readout (offline analyze_igt.py): net score = P(C+D) − P(A+B), by 20-trial
+block (learning curve). Sub-readouts: B-preference rate (insensitivity to rare
+huge penalty = impulsivity marker), block-wise learning slope.
+
+RSN α prediction: α+ (over-wanting) → more A/B (hijacked by the +100 immediate
+reward, undervalues long-run penalty) → lower net score, slower learning.
+"""
+import os
+import re
+import gc
+import csv
+import json
+import random
+import argparse
+import numpy as np
+import torch
+
+from llms import VicundaModel
+import utils
+from get_answer_cgt import build_chat_messages2
+
+# ───────────────────── Task constants (classic Bechara 1994) ─────────────────────
+INIT_MONEY = 2000          # repo: loan of 2000 points
+NUM_TRIALS = 100           # repo models.py: num_rounds = 100
+NUM_DECKS = 4
+DECK_REWARD = [100, 100, 50, 50]    # A, B, C, D (repo card_rewards)
+# Advantageous = C, D (decks 3,4, idx 2,3); disadvantageous = A, B (decks 1,2, idx 0,1)
+ADVANTAGEOUS_IDX = {2, 3}
+
+# Fixed penalty schedules (repo igt_configs.py), 40-long, repeated ×3 (= 120 ≥ 100).
+# Index = how-many-times-this-deck-has-been-drawn (per-deck pointer), NOT trial #.
+DECK_PENALTY = {
+    0: [  # A — frequent medium penalty
+        0, 0, 150, 0, 300, 0, 200, 0, 250, 350,
+        0, 350, 0, 250, 200, 0, 300, 150, 0, 0,
+        0, 300, 0, 350, 0, 200, 250, 150, 0, 0,
+        350, 200, 250, 0, 0, 0, 150, 300, 0, 0,
+    ] * 3,
+    1: [  # B — rare huge penalty
+        0, 0, 0, 0, 0, 0, 0, 0, 1250, 0,
+        0, 0, 0, 1250, 0, 0, 0, 0, 0, 0,
+        1250, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1250, 0, 0, 0, 0, 0, 0, 0, 0,
+    ] * 3,
+    2: [  # C — frequent small penalty
+        0, 0, 50, 0, 50, 0, 50, 0, 50, 50,
+        0, 25, 75, 0, 0, 0, 25, 75, 0, 50,
+        0, 0, 0, 50, 25, 50, 0, 0, 75, 50,
+        0, 0, 0, 25, 25, 0, 75, 0, 50, 75,
+    ] * 3,
+    3: [  # D — rare medium penalty
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 250,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 250,
+        0, 0, 0, 0, 0, 0, 0, 0, 250, 0,
+        0, 0, 0, 0, 250, 0, 0, 0, 0, 0,
+    ] * 3,
+}
+
+
+def rotate_deck_order(k: int) -> list[int]:
+    """Repo rotate_list: rotate [0..3] by k to debias choice POSITION (so a fixed
+    A/B/C/D layout doesn't confound a position bias). choice index `c` (1-based in
+    the prompt) maps to real deck `order[c-1]`."""
+    base = list(range(NUM_DECKS))
+    k = k % NUM_DECKS
+    return base[-k:] + base[:-k]
+
+
+# ───────────────────── Prompt (faithful port of system_prompt_choose.txt) ─────────
+# V1 keeps the repo's explicit hint ("some chests are worse; stay away from the
+# worst; order is fixed, not random"). The hint lowers the pure-exploration
+# difficulty so an 8B isn't near-random — same role chat played for CGT framing.
+IGT_SYSTEM_V1 = """In this game, you find yourself in a mysterious room with four ancient treasure chests. Opening each chest will yield a reward but may also simultaneously result in a penalty, depending on the chosen chest. With each turn, you will choose one chest to open. Please consider carefully, as your choice may significantly impact your points. Specifically, the rewards will increase your points, while penalties will deduct your points. At the start of the game, you will receive a loan of {init_money} points. The game has several rounds in which your points will accumulate, and your goal is to maximize your points by the end of the game.
+
+The only hint I can give you, and the most important thing to note is this: Out of these chests, there are some that are worse than others, and to win you should try to stay away from bad chests. No matter how much you find yourself losing, you can still win the game if you avoid the worst chests. Also note that the computer does not change the order of the chests once the game begins. It does not make you lose at random, or make you lose money based on the last chest you picked.
+
+Your response must always present in the following format:
+<reasoning>Reasons for your choice this round</reasoning>
+<choice>Any number between 1-4 indicates your choice of chest</choice>"""
+
+
+def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
+    # Only v1 exists for now; a future no-hint / reworded variant would branch here.
+    return IGT_SYSTEM_V1.format(init_money=INIT_MONEY)
+
+
+def build_igt_user_turn(round_number: int, remain: int,
+                        outcome_feedback: str = "") -> str:
+    pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
+    return (f"{pre}Round {round_number}. You currently have {remain} points. "
+            f"Which chest do you open? Choose 1, 2, 3, or 4.")
+
+
+# ───────────────────── Parsing (faithful to repo <choice> format) ─────────────────
+CHOICE_RE = re.compile(r"<choice>\s*([1-4])\s*</choice>", re.IGNORECASE)
+CHOICE_ANCHORED_RE = re.compile(
+    r"\b(?:choice|chest|open|pick|choose|select)\D{0,20}([1-4])\b", re.IGNORECASE)
+CHOICE_ONLY_RE = re.compile(r"^\s*([1-4])\s*\.?\s*$")
+CHOICE_LEAD_RE = re.compile(r"^\s*([1-4])\b")
+
+
+def parse_choice(raw: str, rng) -> tuple[int, bool]:
+    """Return (choice 1-4, valid). XML tag first (the instructed format), then
+    choice-anchored, then a bare lone number, then a leading number. Unparseable →
+    a deterministic fallback_rng pick, flagged invalid (dropped in valid-only)."""
+    m = CHOICE_RE.search(raw)
+    if m:
+        return int(m.group(1)), True
+    m = CHOICE_ANCHORED_RE.search(raw)
+    if m:
+        return int(m.group(1)), True
+    for line in raw.strip().splitlines():
+        m = CHOICE_ONLY_RE.match(line)
+        if m:
+            return int(m.group(1)), True
+    m = CHOICE_LEAD_RE.match(raw.strip())
+    if m:
+        return int(m.group(1)), True
+    return rng.randint(1, NUM_DECKS), False
+
+
+# ───────────────────── One run (100 trials, no phase reset) ───────────────────────
+def run_episode(vc, diff_mtx, seed, use_chat, max_new_tokens, temperature, top_p,
+                save_all_raw=False, prefill_tail_len=1, prompt_ver="v1",
+                anchor="default"):
+    rng = random.Random(seed)
+    fallback_rng = random.Random(seed + 10_000_019)
+    deck_order = rotate_deck_order(seed)        # position c-1 → real deck deck_order[c-1]
+    draw_count = [0, 0, 0, 0]                    # per-deck draw pointer for penalty schedule
+    system_prompt = build_igt_system_prompt(prompt_ver)
+
+    # anchor: "default" = no anchor (repo emits <reasoning>…); "answer" = prime
+    # the assistant header with "Answer: " (lands prefill steering on the value).
+    choice_anchor = "Answer: " if anchor == "answer" else ""
+
+    def gen(prompt):
+        out = vc.regenerate(inputs=[prompt], diff_matrices=diff_mtx,
+                            max_new_tokens=max_new_tokens, temperature=temperature,
+                            top_p=top_p, prefill_tail_len=prefill_tail_len)
+        return out[0] if isinstance(out, list) else out
+
+    records = []
+    chat_turns = []
+    remain = INIT_MONEY
+    pending_outcome = ""
+
+    for t in range(NUM_TRIALS):
+        round_number = t + 1
+        user = build_igt_user_turn(round_number, remain, pending_outcome)
+        chat_turns.append({"role": "user", "content": user})
+        prompt = build_chat_messages2(vc, system_prompt, chat_turns,
+                                      answer_anchor=choice_anchor)
+        raw = choice_anchor + gen(prompt)
+        choice, valid = parse_choice(raw, fallback_rng)
+        chat_turns.append({"role": "assistant", "content": raw.strip()})
+
+        real_deck = deck_order[choice - 1]          # map prompt choice → true deck idx
+        reward = DECK_REWARD[real_deck]
+        ptr = draw_count[real_deck]
+        penalty = DECK_PENALTY[real_deck][ptr % len(DECK_PENALTY[real_deck])]
+        draw_count[real_deck] += 1
+        payoff = reward - penalty
+        remain += payoff
+
+        advantageous = real_deck in ADVANTAGEOUS_IDX
+        pending_outcome = (
+            f"Outcome from the previous round: you opened chest {choice}, "
+            f"gained {reward} points" +
+            (f" and were penalized {penalty} points" if penalty else "") +
+            f". Your points are now {remain}.")
+
+        rec = {
+            "trial": round_number,
+            "choice": choice,             # 1-4 as shown in prompt
+            "real_deck": real_deck,       # 0=A,1=B,2=C,3=D (after de-rotation)
+            "deck_label": "ABCD"[real_deck],
+            "advantageous": advantageous,
+            "reward": reward, "penalty": penalty, "payoff": payoff,
+            "remain_after": remain,
+            "valid": valid,
+        }
+        if save_all_raw:
+            rec["raw"] = raw
+        records.append(rec)
+
+    return summarize(records, remain)
+
+
+# ───────────────────── Per-run readouts ─────────────────────
+def summarize(records, final_score):
+    valid = [x for x in records if x["valid"]]
+    n = len(valid)
+    out = {"final_score": float(final_score),
+           "invalid_rate": 1.0 - n / max(len(records), 1)}
+    if not valid:
+        for k in ("net_score", "p_adv", "p_disadv", "p_A", "p_B", "p_C", "p_D",
+                  "b_pref_among_disadv"):
+            out[k] = float("nan")
+        for b in range(NUM_TRIALS // 20):
+            out[f"net_block{b + 1}"] = float("nan")
+        out["records"] = records
+        return out
+
+    decks = [x["real_deck"] for x in valid]
+    p = {d: float(np.mean([dk == d for dk in decks])) for d in range(NUM_DECKS)}
+    out["p_A"], out["p_B"], out["p_C"], out["p_D"] = p[0], p[1], p[2], p[3]
+    out["p_adv"] = p[2] + p[3]
+    out["p_disadv"] = p[0] + p[1]
+    # net score = P(advantageous) − P(disadvantageous), the canonical IGT readout
+    out["net_score"] = out["p_adv"] - out["p_disadv"]
+    # B-preference among disadvantageous = impulsivity / insensitivity to rare big loss
+    disadv_n = p[0] + p[1]
+    out["b_pref_among_disadv"] = (p[1] / disadv_n) if disadv_n > 0 else float("nan")
+
+    # block-wise net score (learning curve) — uses ALL trials in the block, valid-only
+    block_size = 20
+    for b in range(NUM_TRIALS // block_size):
+        blk = [x for x in valid if b * block_size < x["trial"] <= (b + 1) * block_size]
+        if blk:
+            adv = np.mean([x["advantageous"] for x in blk])
+            out[f"net_block{b + 1}"] = float(2 * adv - 1)   # P(adv)−P(disadv)
+        else:
+            out[f"net_block{b + 1}"] = float("nan")
+
+    out["records"] = records
+    return out
+
+
+# ───────────────────── Main ─────────────────────
+def main():
+    ALPHAS = utils.parse_configs(args.configs)
+    print("Configs:", ALPHAS)
+    print(f"IGT: {NUM_TRIALS} trials, {NUM_DECKS} decks, "
+          f"init {INIT_MONEY}, rewards {DECK_REWARD}, adv=C,D")
+
+    n_blocks = NUM_TRIALS // 20
+    METRICS = (["net_score", "p_adv", "p_disadv", "p_A", "p_B", "p_C", "p_D",
+                "b_pref_among_disadv", "final_score", "invalid_rate"]
+               + [f"net_block{b + 1}" for b in range(n_blocks)])
+    FIELDNAMES = (["model", "size", "alpha", "start", "end", "num_runs"]
+                  + [f"mean_{m}" for m in METRICS] + [f"std_{m}" for m in METRICS])
+
+    os.makedirs(SAVE_ROOT, exist_ok=True)
+    csv_path = os.path.join(SAVE_ROOT, f"summary_{args.model}_{args.size}.csv")
+    done_keys = set()
+    if os.path.exists(csv_path):
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                done_keys.add((float(r["alpha"]), int(r["start"]), int(r["end"])))
+        print(f"[Resume] {len(done_keys)} cells already done, skipping.")
+    write_header = not os.path.exists(csv_path)
+    csv_file = open(csv_path, "a", newline="", encoding="utf-8")
+    writer = csv.DictWriter(csv_file, fieldnames=FIELDNAMES)
+    if write_header:
+        writer.writeheader(); csv_file.flush()
+
+    vc = VicundaModel(model_path=args.model_dir)
+    vc.model.eval()
+
+    for alpha, (st, en) in ALPHAS:
+        done_key = (float(alpha), int(st), int(en))
+        if done_key in done_keys:
+            print(f"[Skip] α={alpha} {st}-{en} done.")
+            continue
+        mask_suffix = "_abs" if args.abs else ""
+        mask_name = f"{args.mask_type}_{args.percentage}_{st}_{en}_{args.size}{mask_suffix}.npy"
+        raw_mask = np.load(os.path.join(MASK_DIR, mask_name))
+        diff_mtx = list(raw_mask * alpha)
+        print(f"\n=== α={alpha} | layers={st}-{en} ===")
+
+        run_results = []
+        for run_idx in range(args.num_runs):
+            print(f"  Run {run_idx + 1}/{args.num_runs}", end=" ... ", flush=True)
+            with torch.no_grad():
+                result = run_episode(
+                    vc=vc, diff_mtx=diff_mtx, seed=run_idx,
+                    use_chat=args.use_chat,
+                    max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature, top_p=args.top_p,
+                    save_all_raw=args.save_all_raw,
+                    prefill_tail_len=args.inject_turn_len if args.inject_turn else 1,
+                    prompt_ver=args.prompt_ver, anchor=args.anchor,
+                )
+            run_results.append(result)
+            print(f"net={result['net_score']:.3f}  "
+                  f"p_adv={result['p_adv']:.2f}  "
+                  f"B_pref={result['b_pref_among_disadv']:.2f}  "
+                  f"final={result['final_score']:.0f}  "
+                  f"invalid={result['invalid_rate']:.2f}")
+            gc.collect(); torch.cuda.empty_cache()
+
+        row = {"model": args.model, "size": args.size, "alpha": alpha,
+               "start": st, "end": en, "num_runs": args.num_runs}
+        for m in METRICS:
+            vals = [r[m] for r in run_results
+                    if not (isinstance(r[m], float) and np.isnan(r[m]))]
+            row[f"mean_{m}"] = round(float(np.mean(vals)), 4) if vals else float("nan")
+            row[f"std_{m}"] = round(float(np.std(vals)), 4) if vals else float("nan")
+        writer.writerow(row); csv_file.flush()
+
+        out_dir = os.path.join(SAVE_ROOT, f"mdf_{alpha}")
+        os.makedirs(out_dir, exist_ok=True)
+        detail_path = os.path.join(out_dir, f"igt_{args.size}_{st}_{en}.json")
+        with open(detail_path, "w", encoding="utf-8") as fw:
+            json.dump({
+                "alpha": alpha,
+                "config": {
+                    "init_money": INIT_MONEY, "num_trials": NUM_TRIALS,
+                    "num_decks": NUM_DECKS, "deck_reward": DECK_REWARD,
+                    "advantageous_idx": sorted(ADVANTAGEOUS_IDX),
+                    "use_chat": args.use_chat, "temperature": args.temperature,
+                    "top_p": args.top_p, "max_new_tokens": args.max_new_tokens,
+                    "inject_turn": args.inject_turn,
+                    "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
+                    "prompt_ver": args.prompt_ver, "anchor": args.anchor,
+                    "prompt_template": IGT_SYSTEM_V1,
+                },
+                "runs": run_results,
+            }, fw, ensure_ascii=False, indent=2)
+        print(f"  → {detail_path}")
+
+    csv_file.close()
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model",       type=str, default="llama3")
+    parser.add_argument("--model_dir",   type=str, default="meta-llama/Llama-3.1-8B-Instruct")
+    parser.add_argument("--hs",          type=str, default="llama3")
+    parser.add_argument("--size",        type=str, default="8B")
+    parser.add_argument("--type",        type=str, default="non")
+    parser.add_argument("--percentage",  type=float, default=0.5)
+    parser.add_argument("--mask_type",   type=str, default="nmd")
+    parser.add_argument("--abs",         action="store_true")
+    parser.add_argument("--configs",     nargs="+",
+                        default=["0-11-20", "4-11-20", "neg4-11-20"])
+    parser.add_argument("--num_runs",    type=int, default=20)
+    parser.add_argument("--max_new_tokens", type=int, default=200)
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--top_p",       type=float, default=0.9)
+    parser.add_argument("--use_chat",    action="store_true")
+    parser.add_argument("--save_all_raw", action="store_true")
+    parser.add_argument("--inject_turn", action="store_true")
+    parser.add_argument("--inject_turn_len", type=int, default=4)
+    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1"],
+                        help="v1 = faithful Near-Optimal port (explicit 'avoid the "
+                             "worst chests' hint + <choice> format).")
+    parser.add_argument("--anchor", type=str, default="default",
+                        choices=["default", "answer"],
+                        help="default = no prefill anchor (repo <reasoning>… format); "
+                             "answer = prime header with 'Answer: '.")
+    parser.add_argument("--ans_file",    type=str, default="answer_igt")
+    parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
+    parser.add_argument("--base_dir",    type=str, default=None)
+    args = parser.parse_args()
+
+    if not args.use_chat:
+        parser.error("IGT requires --use_chat (multi-turn trial-by-trial feedback "
+                     "learning — the IGT soul).")
+
+    print("Model:", args.model, "| dir:", args.model_dir, "| runs:", args.num_runs)
+    BASE = args.base_dir if args.base_dir else f"/{args.data}/paveen/Dopamine/components"
+    MASK_DIR  = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
+    SAVE_ROOT = os.path.join(BASE, args.model, args.ans_file)
+    os.makedirs(SAVE_ROOT, exist_ok=True)
+    main()
