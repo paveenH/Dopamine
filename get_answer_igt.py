@@ -124,8 +124,16 @@ def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
 
 
 def build_igt_user_turn(round_number: int, remain: int,
-                        outcome_feedback: str = "") -> str:
+                        outcome_feedback: str = "", prompt_ver: str = "v1") -> str:
     pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
+    if prompt_ver == "v2":
+        # v2: per-turn "of {N}" progress anchor (the system prompt's total-length
+        # statement is easy to forget deep in a 100-round chat → premature-stop
+        # hallucination). Restating "Round N of 100" each turn keeps the model from
+        # declaring the game over early. Only change from v1.
+        return (f"{pre}Round {round_number} of {NUM_TRIALS}. You currently have "
+                f"{remain} points. Which chest do you open? End with one final "
+                f"line: Chest: N.")
     return (f"{pre}Round {round_number}. You currently have {remain} points. "
             f"Which chest do you open? End with 'Chest: N'.")
 
@@ -198,7 +206,8 @@ def run_episode(vc, diff_mtx, seed, use_chat, max_new_tokens, temperature, top_p
 
     for t in range(NUM_TRIALS):
         round_number = t + 1
-        user = build_igt_user_turn(round_number, remain, pending_outcome)
+        user = build_igt_user_turn(round_number, remain, pending_outcome,
+                                   prompt_ver=prompt_ver)
         chat_turns.append({"role": "user", "content": user})
         prompt = build_chat_messages2(vc, system_prompt, chat_turns,
                                       answer_anchor=choice_anchor)
@@ -366,6 +375,9 @@ def main():
                     "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
                     "prompt_ver": args.prompt_ver, "anchor": args.anchor,
                     "prompt_template": IGT_SYSTEM_V1,
+                    "user_turn_example": build_igt_user_turn(
+                        50, 1850, "Outcome from the previous round: …",
+                        prompt_ver=args.prompt_ver),
                 },
                 "runs": run_results,
             }, fw, ensure_ascii=False, indent=2)
@@ -395,10 +407,13 @@ if __name__ == "__main__":
     parser.add_argument("--save_all_raw", action="store_true")
     parser.add_argument("--inject_turn", action="store_true")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1"],
+    parser.add_argument("--prompt_ver", type=str, default="v2", choices=["v1", "v2"],
                         help="v1 = repo GAME framing + 'avoid the worst chests' hint, "
-                             "but CGT-simple5 OUTPUT format (NL brief reasoning + a "
-                             "final 'Chest: N' line, NOT the repo's <choice> XML).")
+                             "CGT-simple5 OUTPUT format (NL brief reasoning + a final "
+                             "'Chest: N' line, NOT the repo's <choice> XML); user turn "
+                             "= 'Round N.'. v2 = v1 + per-turn 'Round N of 100' progress "
+                             "anchor to kill late-round premature-stop hallucination "
+                             "(the only change; system prompt identical).")
     parser.add_argument("--anchor", type=str, default="default",
                         choices=["default", "chest"],
                         help="default = NO anchor (brief reasoning then 'Chest: N' — "
