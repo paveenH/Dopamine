@@ -5,7 +5,7 @@
 # by 20-trial block (learning curve). RSN α prediction: α+ → more A/B → lower net.
 #
 # Usage (verify baseline FIRST: confirm α=0 is not near-random, format parses):
-#   bash run_igt.sh --verify     # α=0/±6, 5 runs
+#   bash run_igt.sh --verify     # α=0/±4, 5 runs
 #   bash run_igt.sh --full       # full −8→+8 sweep, 20 runs (after verify)
 #   nohup bash run_igt.sh --full > igt_full.log 2>&1 &
 #
@@ -42,9 +42,9 @@ ANCHOR="default"
 
 # ==================== Modes ====================
 if [ "$1" == "--verify" ]; then
-    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
     ANS_FILE="answer_igt_verify"
-    echo "[VERIFY] v1, α=0/±6, 5 runs"
+    echo "[VERIFY] v1, α=0/±4, 5 runs"
 elif [ "$1" == "--full" ]; then
     ANS_FILE="answer_igt"
     echo "[FULL] v1, full −8→+8 sweep, ${NUM_RUNS} runs"
