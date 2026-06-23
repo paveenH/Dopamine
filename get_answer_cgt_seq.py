@@ -108,9 +108,9 @@ ORDER_PHRASE = {
 
 
 def build_seq_system_prompt(presentation: str, prompt_ver: str = "v1") -> str:
-    # v3 = v2's symmetric base (the validated v2b winner) + an explicit next-offer
+    # v3/v4 = v2's symmetric base (the validated v2b winner) + a per-tier trend
     # hint added only at the bet turn (see build_bet_user_turn).
-    tmpl = SEQ_SYSTEM_TEMPLATE_V2 if prompt_ver in ("v2", "v3") else SEQ_SYSTEM_TEMPLATE
+    tmpl = SEQ_SYSTEM_TEMPLATE_V2 if prompt_ver in ("v2", "v3", "v4") else SEQ_SYSTEM_TEMPLATE
     return tmpl.format(
         order_phrase=ORDER_PHRASE[presentation],
         round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
@@ -124,7 +124,7 @@ def build_color_user_turn(round_number, remain, blue, red,
         pre += outcome_feedback + "\n\n"
     if phase_reset and round_number > 1:
         pre += f"--- New phase. Your points reset to {INIT_MONEY}. ---\n"
-    choose = ("choose your colour, Blue or Red." if prompt_ver in ("v2", "v3")
+    choose = ("choose your colour, Blue or Red." if prompt_ver in ("v2", "v3", "v4")
               else "choose your colour (blue or red).")
     return (f"{pre}Round {round_number}. You have {remain} points. "
             f"This round: {blue} blue chest(s) and {red} red chest(s). "
@@ -132,18 +132,29 @@ def build_color_user_turn(round_number, remain, blue, red,
 
 
 def build_bet_user_turn(color, pct, step, n_tiers, next_pct=None, prompt_ver="v1"):
-    if prompt_ver != "v3":  # v1/v2 byte-identical
+    if prompt_ver not in ("v3", "v4"):  # v1/v2 byte-identical
         return (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
                 f"current points. Accept or Wait?")
-    # v3 (A1): make the future offer EXPLICIT so "wait = larger/smaller bet" is
-    # not something the model has to infer. asc → next is larger; desc → smaller.
-    # The hint goes BEFORE "Accept or Wait?" so the decision question stays the
-    # LAST sentence (prefill steering injects at the final token).
-    if next_pct is None:
-        hint = "This is the last bet size; there is no later offer. "
-    else:
-        rel = "larger" if next_pct > pct else "smaller"
-        hint = f"If you Wait, the next bet size will be {next_pct}% ({rel}). "
+    # Make the ascending/descending trend VISIBLE at each tier (human CGT shows the
+    # trend continuously, not once). Hint goes BEFORE "Accept or Wait?" so the
+    # decision question stays the LAST sentence (prefill injects at the final token).
+    #   v3 (A1): explicit next value — "the next bet size will be 25% (larger)".
+    #   v4 (A2): direction only, and WORDED WITHOUT "Wait" — "the next offer will be
+    #            larger." — v3's "If you Wait, ..." added a high-frequency 'Wait'
+    #            token that bled into the colour step (−α color-confusion ↑); v4
+    #            drops it. No explicit next value / no bound, just the trend.
+    if prompt_ver == "v4":
+        if next_pct is None:
+            hint = "This is the last offer. "
+        else:
+            rel = "larger" if next_pct > pct else "smaller"
+            hint = f"The next offer will be {rel}. "
+    else:  # v3 (A1)
+        if next_pct is None:
+            hint = "This is the last bet size; there is no later offer. "
+        else:
+            rel = "larger" if next_pct > pct else "smaller"
+            hint = f"If you Wait, the next bet size will be {next_pct}% ({rel}). "
     return (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
             f"current points. {hint}Accept or Wait?")
 
@@ -459,13 +470,15 @@ if __name__ == "__main__":
                              "last (prefill). Default OFF = tail=1 (the validated "
                              "simultaneous-CGT injection strength).")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1", "v2", "v3"],
+    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1", "v2", "v3", "v4"],
                         help="v1 = validated e55b132 prompt (default, byte-equivalent). "
                              "v2 = symmetrised colour/bet format (Blue/Red ↔ Accept/Wait). "
                              "v3 = v2 base + EXPLICIT next-offer hint at each bet tier "
-                             "(A1: 'if you Wait, next bet will be N% (larger/smaller)'), "
-                             "so 'wait = bigger bet' is stated, not inferred — lets asc test "
-                             "strategic waiting vs pure impulsivity.")
+                             "(A1: 'if you Wait, next bet will be N% (larger/smaller)'). "
+                             "v4 = v2 base + DIRECTION-only hint, no 'Wait' word, no value/bound "
+                             "(A2: 'the next offer will be larger/smaller.') — most faithful to "
+                             "human CGT (trend visible each tier) and avoids v3's −α color "
+                             "confusion from the extra 'Wait' token.")
     parser.add_argument("--anchor", type=str, default="default",
                         choices=["default", "answer", "none"],
                         help="prefill anchor for BOTH steps. default = v1 "
