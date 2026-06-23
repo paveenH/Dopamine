@@ -37,15 +37,16 @@ TOP_P=0.9
 ANS_FILE="answer_igt"
 SAVE_RAW_FLAG="--save_all_raw"
 USE_CHAT_FLAG="--use_chat"
-PROMPT_VER="v3"          # v3 = v2's "Round N of 100" anchor + end/final/conclude
-                         # trigger words removed (decision = '<Chest:N>' tag);
-                         # fixes the +4-specific "game has ended" premature-stop
+PROMPT_VER="v4"          # v4 = v2's "Round N of 100" anchor + NO end/final/conclude
+                         # words + plain "Chest: N" + explicit "First reason … then
+                         # give" so reasoning survives. (v3's <Chest:N> tag fixed
+                         # invalid but collapsed reasoning → round-robin; see get_answer_igt.py)
 ANCHOR="default"
 
 # ==================== Modes ====================
 if [ "$1" == "--verify" ]; then
     CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
-    ANS_FILE="answer_igt_v3_verify"
+    ANS_FILE="answer_igt_v4_verify"
     echo "[VERIFY] ${PROMPT_VER}, α=0/±4, 5 runs"
 elif [ "$1" == "--full" ]; then
     ANS_FILE="answer_igt"
