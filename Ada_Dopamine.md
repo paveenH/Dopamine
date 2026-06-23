@@ -336,7 +336,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 **範式定位**：透明機率下的 sequential betting。每輪先選顏色（blue/red，機率由 chest count 明示），再按 ascending（5→25→50→75→95）或 descending（95→75→50→25→5）逐檔 reveal bet size，模型輸出 `Accept` / `Wait`。
 
 > **命名**：本節的 sequential 版（`get_answer_cgt_seq.py`）才是**忠實的 CGT**（Rogers 1999 / CANTAB），其靈魂正是 betting-stage 的 ascending/descending 操縱。
-**主結果版本**：使用 **v4 prompt** 作為 paper 主線。v4 在每個 bet tier 只提示方向（`The next offer will be larger/smaller.`
+**主結果版本**：使用 **v4 prompt** 作為 paper 主線。v4 在每個 bet tier 只提示方向（`The next offer will be larger/smaller.`）。
 
 **Full sweep（Llama3-8B-IT，v4 prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**。
 
@@ -394,6 +394,25 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 - **α− 的 clean 區間表現為 delayed commitment。** −4 / −2 主要是 `Wait→Wait→...→Accept` chain；−6 開始出現 color-stage `Wait` 泄漏，說明負端不是單純理性保守，而是接近 stage-control failure。
 - **−8 是 stage-onset breakdown，而非低風險偏好。** v4 −8 的主要文本特徵是空輸出與階段錯位：asc valid = 0/1280，desc valid = 8/1280；`raw_color` empty 分別 1068/1280、1065/1280；乾淨 color 只有 185/1280、175/1280；color 階段泄漏 `Accept/Wait` 為 25/1280、35/1280；bet-stage 空輸出多達 2362 / 2387 條。少數非空長文本也不是正常推理，而是上下文回放或流程質疑（如 `Outcome from previous round...`、`I think you skipped an offer...`、`You can't accept a bet of 95% of 0 points...`）。因此 −8 應解釋為 under-wanting / initiation failure / stage-control collapse：模型無法穩定進入 Color / Accept-Wait 的動作格式。
 - **QDM 不是主效應。** clean range 內 QDM 約 0.71–0.78，動態範圍遠小於 accept timing；+8 QDM 掉到 0.66，屬於 positive overload / 格式退化。α 對 probability choice 只有弱穩定效應，主效應仍是 commit timing。
+
+**α × presentation interaction in commitment latency**
+
+`desc_step − asc_step`（clean range −4..+4 粗體；±6 / ±8 ⚠ 為 over-steer 帶，invalid 高，僅供參考）：
+
+| α | asc step | desc step | desc−asc | asc locked_bet | desc locked_bet |
+|---:|---:|---:|---:|---:|---:|
+| −6 ⚠ | 3.56 | 3.89 | +0.33 | 63.0% | 29.6% |
+| **−4** | 3.45 | 4.47 | **+1.02** | 60.3% | 16.2% |
+| **−2** | 3.03 | 3.79 | **+0.76** | — | — |
+| **0** | 2.63 | 2.97 | +0.34 | 41.8% | 50.5% |
+| **+2** | 2.05 | 2.20 | +0.15 | — | — |
+| **+4** | 1.63 | 1.53 | **−0.10** | 18.7% | 83.5% |
+| +6 ⚠ | 1.40 | 1.31 | −0.09 | — | — |
+| +8 ⚠ | 1.16 | 1.19 | +0.04 | 8.3% | 90.9% |
+
+**`desc_step − asc_step` 的符號隨 α 翻轉**: −α 在 descending 比在 ascending **更願意等**（desc_step − asc_step = +1.02 @α=−4），+α 在 descending 比在 ascending **更早 commit**（−0.10 @α=+4）。
+
+> The primary effect of α is monotonic control over commitment timing. A second-order interaction emerges in the ascending/descending contrast: relative to ascending, negative α waits *longer* under descending (desc−asc step = +1.02 at α=−4), while positive α commits *earlier* under descending (−0.10 at α=+4). The sign of desc−asc flips with α, so presentation order modulates commitment latency in an α-dependent direction.
 
 **與人類行為學 CGT 的區別**：
 - **沒有真實反應時**：人類 CGT 可量 decision latency / deliberation time；LLM 沒有 motor latency，只能用 `Accept/Wait` 的 tier position 近似 commitment timing。
