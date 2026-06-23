@@ -118,14 +118,46 @@ Each round, briefly think about which chests have been rewarding or costing you 
 Chest: <1, 2, 3, or 4>"""
 
 
+# V3 — premature-stop fix at the SOURCE, not via an absorbing-state breaker. v2's
+# per-turn "Round N of 100" anchor cured the α=0/−4 hallucination but NOT +4: at
+# +4, 99/100 of the invalid replies were "the game has ended / there is no Round N
+# / this round shouldn't exist" (118/500 such declarations at +4 vs 0/500 at −4,
+# 1/500 at 0). The "End with…" / "one final line" wording shares the
+# end/final/conclude semantic field, and +α amplifies control words — so the
+# format instruction itself was seeding the "this is the end" frame. V3 drops every
+# end/final/conclude trigger: the decision is a single self-closing tag
+# "<Chest:N>". This is NOT the CGT-faithful XML risk (that was a PAIRED-tag
+# <reasoning>…</reasoning> block the model derailed into filling with essays); a
+# lone terminal tag is closer to "Chest: N". Reasoning is still kept ON PURPOSE
+# (same two reasons as v1). Parser accepts BOTH "<Chest:2>" and the old "Chest: 2"
+# for back-compat with v1/v2 results.
+IGT_SYSTEM_V3 = """We are playing a multi-round game for points. In front of you are four treasure chests, numbered 1, 2, 3, and 4. Each round you open ONE chest. Opening a chest gives you a reward but may also cost you a penalty, depending on which chest you choose. Rewards increase your points; penalties deduct points. At the start of the game you receive a loan of {init_money} points. Your points accumulate across rounds, and your goal is to have as many points as possible by the end.
+
+The only hint I can give you, and the most important thing to note, is this: some of these chests are worse than others, and to win you should try to stay away from the bad chests. No matter how much you find yourself losing, you can still win if you avoid the worst chests. The chests do not change once the game begins; the computer does not make you lose at random, and your loss does not depend on the chest you picked last round.
+
+Each round, briefly think about which chests have been rewarding or costing you so far, then reply with exactly one tag:
+<Chest:N>
+where N is 1, 2, 3, or 4."""
+
+
 def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
-    # Only v1 exists for now; a future no-hint / reworded variant would branch here.
+    if prompt_ver == "v3":
+        return IGT_SYSTEM_V3.format(init_money=INIT_MONEY)
+    # v1 and v2 share the same system prompt (v2 only changes the user turn).
     return IGT_SYSTEM_V1.format(init_money=INIT_MONEY)
 
 
 def build_igt_user_turn(round_number: int, remain: int,
                         outcome_feedback: str = "", prompt_ver: str = "v1") -> str:
     pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
+    if prompt_ver == "v3":
+        # v3 = v2's "Round N of 100" progress anchor (kept — it cures the 0/−4
+        # premature-stop) with the end/final/conclude trigger words REMOVED from the
+        # format directive (the +4-specific "game has ended" hallucination source).
+        # Decision = a single self-closing tag, no "end"/"final line".
+        return (f"{pre}Round {round_number} of {NUM_TRIALS}. You currently have "
+                f"{remain} points. Which chest do you open? Reply with exactly one "
+                f"tag: <Chest:N>")
     if prompt_ver == "v2":
         # v2 vs v1 — TWO changes (not a clean single-variable diff; noted so a v2
         # invalid drop isn't mis-attributed):
@@ -144,11 +176,13 @@ def build_igt_user_turn(round_number: int, remain: int,
 
 
 # ───────────────────── Parsing (CGT-simple5 style: "Chest: N", take LAST) ──────────
-# The instructed format is a final "Chest: N" line. Take the LAST match so the
-# brief reasoning ("chest 2 cost me…") doesn't get mis-read as the decision —
-# exactly like CGT-simple2 taking the last "Choice: N". Fallbacks: an XML <choice>
-# tag (in case the model reverts to a known format), then a choice-anchored number,
-# then a lone-number line, then a leading number.
+# The instructed format is "Chest: N" (v1/v2) or the tag "<Chest:N>" (v3). CHEST_RE
+# matches BOTH ('<' is a non-word char so \bChest still anchors; ':' optional, ws
+# optional) — so v3 results parse with no parser change and stay back-compatible
+# with v1/v2. Take the LAST match so brief reasoning ("chest 2 cost me…") isn't
+# mis-read as the decision — like CGT-simple2 taking the last "Choice: N".
+# Fallbacks: an XML <choice> tag, a choice-anchored number, a lone-number line,
+# then a leading number.
 CHEST_RE = re.compile(r"\bChest\s*:?\s*([1-4])\b", re.IGNORECASE)
 CHOICE_XML_RE = re.compile(r"<choice>\s*([1-4])\s*</choice>", re.IGNORECASE)
 CHOICE_ANCHORED_RE = re.compile(
@@ -412,13 +446,18 @@ if __name__ == "__main__":
     parser.add_argument("--save_all_raw", action="store_true")
     parser.add_argument("--inject_turn", action="store_true")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v2", choices=["v1", "v2"],
+    parser.add_argument("--prompt_ver", type=str, default="v3",
+                        choices=["v1", "v2", "v3"],
                         help="v1 = repo GAME framing + 'avoid the worst chests' hint, "
                              "CGT-simple5 OUTPUT format (NL brief reasoning + a final "
                              "'Chest: N' line, NOT the repo's <choice> XML); user turn "
                              "= 'Round N.'. v2 = v1 + per-turn 'Round N of 100' progress "
-                             "anchor to kill late-round premature-stop hallucination "
-                             "(the only change; system prompt identical).")
+                             "anchor to kill the α=0/−4 late-round premature-stop "
+                             "hallucination. v3 = v2's anchor + the end/final/conclude "
+                             "trigger words REMOVED from the format directive (decision "
+                             "= a single tag '<Chest:N>') — fixes the +4-specific 'game "
+                             "has ended' hallucination v2's anchor could not suppress. "
+                             "Parser accepts both '<Chest:2>' and 'Chest: 2'.")
     parser.add_argument("--anchor", type=str, default="default",
                         choices=["default", "chest"],
                         help="default = NO anchor (brief reasoning then 'Chest: N' — "
