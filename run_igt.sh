@@ -7,7 +7,7 @@
 # Usage (verify baseline FIRST: confirm α=0 is not near-random, format parses):
 #   bash run_igt.sh --verify     # α=0/±4, 5 runs
 #   bash run_igt.sh --full       # full −8→+8 sweep, 20 runs (after verify)
-#   nohup bash run_igt.sh --full > igt_full.log 2>&1 &
+#   nohup bash run_igt.sh --full > igt_v4_full.log 2>&1 &
 #
 # Injection: tail=1 (validated CGT strength); inject_turn deliberately OFF.
 # chat is REQUIRED (trial-by-trial learning needs the multi-turn dialogue) — same
@@ -49,7 +49,7 @@ if [ "$1" == "--verify" ]; then
     ANS_FILE="answer_igt_v4_verify"
     echo "[VERIFY] ${PROMPT_VER}, α=0/±4, 5 runs"
 elif [ "$1" == "--full" ]; then
-    ANS_FILE="answer_igt"
+    ANS_FILE="answer_igt_v4"
     echo "[FULL] ${PROMPT_VER}, full −8→+8 sweep, ${NUM_RUNS} runs"
 else
     echo "Usage: bash run_igt.sh {--verify|--full}"
