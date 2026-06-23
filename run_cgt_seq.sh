@@ -121,11 +121,30 @@ elif [ "$1" == "--v3_asc" ]; then
 elif [ "$1" == "--v3_desc" ]; then
     PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v3"; PROMPT_VER="v3"; ANCHOR="none"
     echo "[V3_DESC] v3 (v2b + next-offer hint), full −8→+8, ${NUM_RUNS} runs, desc"
+
+# --- v4 (A2): v2b base + DIRECTION-only trend hint, no 'Wait' word, no value/bound.
+#     Most faithful to human CGT (asc/desc is a visible condition, not a hidden rule);
+#     drops v3's extra 'Wait' token that bled into the colour step (−α confusion ↑).
+elif [ "$1" == "--verify_v4_asc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v4_verify"; PROMPT_VER="v4"; ANCHOR="none"
+    echo "[VERIFY_V4_ASC] v4 (direction-only, no Wait word), α=0/±6, 5 runs, asc"
+elif [ "$1" == "--verify_v4_desc" ]; then
+    CONFIGS="0-11-20 neg6-11-20 6-11-20"; NUM_RUNS=5
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v4_verify"; PROMPT_VER="v4"; ANCHOR="none"
+    echo "[VERIFY_V4_DESC] v4 (direction-only, no Wait word), α=0/±6, 5 runs, desc"
+elif [ "$1" == "--v4_asc" ]; then
+    PRESENTATION="asc"; ANS_FILE="answer_cgtseq_asc_v4"; PROMPT_VER="v4"; ANCHOR="none"
+    echo "[V4_ASC] v4 (direction-only hint), full −8→+8, ${NUM_RUNS} runs, asc"
+elif [ "$1" == "--v4_desc" ]; then
+    PRESENTATION="desc"; ANS_FILE="answer_cgtseq_desc_v4"; PROMPT_VER="v4"; ANCHOR="none"
+    echo "[V4_DESC] v4 (direction-only hint), full −8→+8, ${NUM_RUNS} runs, desc"
 else
     echo "Usage: bash run_cgt_seq.sh {--verify_asc|--verify_desc|--asc|--desc}"
     echo "       v2a (Answer: anchor): --verify_v2a_asc|--verify_v2a_desc|--v2a_asc|--v2a_desc"
     echo "       v2b (no anchor):      --verify_v2b_asc|--verify_v2b_desc|--v2b_asc|--v2b_desc"
-    echo "       v3 (v2b + hint):      --verify_v3_asc|--verify_v3_desc|--v3_asc|--v3_desc"
+    echo "       v3 (A1, next value):  --verify_v3_asc|--verify_v3_desc|--v3_asc|--v3_desc"
+    echo "       v4 (A2, direction):   --verify_v4_asc|--verify_v4_desc|--v4_asc|--v4_desc"
     exit 1
 fi
 
