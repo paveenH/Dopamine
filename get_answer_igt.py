@@ -140,7 +140,31 @@ Each round, briefly think about which chests have been rewarding or costing you 
 where N is 1, 2, 3, or 4."""
 
 
+# V4 — corrects v3's collapse. v3 removed the end/final/conclude trigger words
+# (which fixed the +4 "game has ended" hallucination AND drove invalid to 0.00 at
+# every α) but the replacement format "reply with exactly one tag: <Chest:N>"
+# was so terminal that the model emitted a bare 9-char "<Chest:1>" with ZERO
+# reasoning (100% of replies, every α) — the exact CGT-simple4 failure: no
+# deliberation span → no learning (all four decks at 0.25, net=0.00, mechanical
+# 1,2,3,4 round-robin) → α completely flat. V4 keeps v3's two wins (the "Round N of
+# 100" anchor + NO end/final/conclude words) but FORCES the reasoning span back:
+# the decision goes back to a plain "Chest: N" (the tag was the collapse trigger),
+# preceded by an explicit "First reason in one sentence, then give…" — mirroring
+# CGT-simple5's "Think briefly … then reply", which is what recovered the α signal
+# there. So: brief reasoning is structurally required, and no end-frame trigger
+# word is present. Parser is unchanged (CHEST_RE already takes the LAST "Chest: N").
+IGT_SYSTEM_V4 = """We are playing a multi-round game for points. In front of you are four treasure chests, numbered 1, 2, 3, and 4. Each round you open ONE chest. Opening a chest gives you a reward but may also cost you a penalty, depending on which chest you choose. Rewards increase your points; penalties deduct points. At the start of the game you receive a loan of {init_money} points. Your points accumulate across rounds, and your goal is to gather as many points as you can.
+
+The only hint I can give you, and the most important thing to note, is this: some of these chests are worse than others, and to win you should try to stay away from the bad chests. No matter how much you find yourself losing, you can still win if you avoid the worst chests. The chests do not change once the game begins; the computer does not make you lose at random, and your loss does not depend on the chest you picked last round.
+
+Each round, first reason in one short sentence about which chests have been rewarding or costing you so far. Then, on a new line, give your choice as:
+Chest: N
+where N is 1, 2, 3, or 4."""
+
+
 def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
+    if prompt_ver == "v4":
+        return IGT_SYSTEM_V4.format(init_money=INIT_MONEY)
     if prompt_ver == "v3":
         return IGT_SYSTEM_V3.format(init_money=INIT_MONEY)
     # v1 and v2 share the same system prompt (v2 only changes the user turn).
@@ -150,6 +174,14 @@ def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
 def build_igt_user_turn(round_number: int, remain: int,
                         outcome_feedback: str = "", prompt_ver: str = "v1") -> str:
     pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
+    if prompt_ver == "v4":
+        # v4 = v3's "Round N of 100" anchor + NO end/final/conclude words, but the
+        # decision is a plain "Chest: N" (NOT the <Chest:N> tag, which collapsed
+        # reasoning) and is explicitly preceded by "First reason … then give" so the
+        # deliberation span the learning curve + prefill steering both need survives.
+        return (f"{pre}Round {round_number} of {NUM_TRIALS}. You currently have "
+                f"{remain} points. Which chest do you open? First reason in one "
+                f"sentence, then give your choice as Chest: N.")
     if prompt_ver == "v3":
         # v3 = v2's "Round N of 100" progress anchor (kept — it cures the 0/−4
         # premature-stop) with the end/final/conclude trigger words REMOVED from the
@@ -446,18 +478,20 @@ if __name__ == "__main__":
     parser.add_argument("--save_all_raw", action="store_true")
     parser.add_argument("--inject_turn", action="store_true")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v3",
-                        choices=["v1", "v2", "v3"],
+    parser.add_argument("--prompt_ver", type=str, default="v4",
+                        choices=["v1", "v2", "v3", "v4"],
                         help="v1 = repo GAME framing + 'avoid the worst chests' hint, "
                              "CGT-simple5 OUTPUT format (NL brief reasoning + a final "
-                             "'Chest: N' line, NOT the repo's <choice> XML); user turn "
-                             "= 'Round N.'. v2 = v1 + per-turn 'Round N of 100' progress "
-                             "anchor to kill the α=0/−4 late-round premature-stop "
-                             "hallucination. v3 = v2's anchor + the end/final/conclude "
-                             "trigger words REMOVED from the format directive (decision "
-                             "= a single tag '<Chest:N>') — fixes the +4-specific 'game "
-                             "has ended' hallucination v2's anchor could not suppress. "
-                             "Parser accepts both '<Chest:2>' and 'Chest: 2'.")
+                             "'Chest: N' line); user turn = 'Round N.'. v2 = v1 + "
+                             "per-turn 'Round N of 100' anchor (fixes α=0/−4 "
+                             "premature-stop). v3 = v2 + end/final/conclude words "
+                             "removed, decision = '<Chest:N>' tag (fixed +4 'game has "
+                             "ended' AND invalid→0, but the tag COLLAPSED reasoning → "
+                             "0% reasoning, mechanical round-robin, α flat — DO NOT "
+                             "USE). v4 = v2's anchor + NO end/final/conclude words + "
+                             "plain 'Chest: N' (not the tag) + explicit 'First reason "
+                             "… then give' so the deliberation span survives. Parser "
+                             "(CHEST_RE, take-LAST 'Chest: N') is shared by all.")
     parser.add_argument("--anchor", type=str, default="default",
                         choices=["default", "chest"],
                         help="default = NO anchor (brief reasoning then 'Chest: N' — "
