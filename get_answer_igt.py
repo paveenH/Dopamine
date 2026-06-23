@@ -97,17 +97,25 @@ def rotate_deck_order(k: int) -> list[int]:
     return base[-k:] + base[:-k]
 
 
-# ───────────────────── Prompt (faithful port of system_prompt_choose.txt) ─────────
-# V1 keeps the repo's explicit hint ("some chests are worse; stay away from the
-# worst; order is fixed, not random"). The hint lowers the pure-exploration
-# difficulty so an 8B isn't near-random — same role chat played for CGT framing.
-IGT_SYSTEM_V1 = """In this game, you find yourself in a mysterious room with four ancient treasure chests. Opening each chest will yield a reward but may also simultaneously result in a penalty, depending on the chosen chest. With each turn, you will choose one chest to open. Please consider carefully, as your choice may significantly impact your points. Specifically, the rewards will increase your points, while penalties will deduct your points. At the start of the game, you will receive a loan of {init_money} points. The game has several rounds in which your points will accumulate, and your goal is to maximize your points by the end of the game.
+# ───────────────────── Prompt ─────────────────────
+# V1 keeps the repo's GAME framing + the explicit hint ("some chests are worse;
+# stay away from the worst; order is fixed, not random"), but the OUTPUT FORMAT
+# follows CGT-simple5, NOT the repo's XML. CGT's faithful XML (<reasoning>…
+# </reasoning><choice>N</choice>) caused 85% off-task replies / 0% clean answers
+# (qdm≈0.5 NULL); switching to a multi-turn chat + a natural-language brief-
+# reasoning + a single decision line fixed it. IGT keeps brief reasoning ON
+# PURPOSE for two reasons: (1) trial-by-trial LEARNING needs the model to restate
+# which decks have cost it — without reasoning it reverts to a prior guess and the
+# learning curve (IGT's whole point over CGT/Bandit) collapses; (2) prefill-only
+# RSN steering needs a deliberation span to land in (CGT-simple4's near-zero-
+# reasoning replies killed the α signal; simple5 restored reasoning and recovered
+# it). So: NL brief reasoning + a final "Chest: N" line; parser takes the LAST one.
+IGT_SYSTEM_V1 = """We are playing a multi-round game for points. In front of you are four treasure chests, numbered 1, 2, 3, and 4. Each round you open ONE chest. Opening a chest gives you a reward but may also cost you a penalty, depending on which chest you choose. Rewards increase your points; penalties deduct points. At the start of the game you receive a loan of {init_money} points. Your points accumulate across rounds, and your goal is to have as many points as possible by the end.
 
-The only hint I can give you, and the most important thing to note is this: Out of these chests, there are some that are worse than others, and to win you should try to stay away from bad chests. No matter how much you find yourself losing, you can still win the game if you avoid the worst chests. Also note that the computer does not change the order of the chests once the game begins. It does not make you lose at random, or make you lose money based on the last chest you picked.
+The only hint I can give you, and the most important thing to note, is this: some of these chests are worse than others, and to win you should try to stay away from the bad chests. No matter how much you find yourself losing, you can still win if you avoid the worst chests. The chests do not change once the game begins; the computer does not make you lose at random, and your loss does not depend on the chest you picked last round.
 
-Your response must always present in the following format:
-<reasoning>Reasons for your choice this round</reasoning>
-<choice>Any number between 1-4 indicates your choice of chest</choice>"""
+Each round, briefly think about which chests have been rewarding or costing you so far, then end your reply with your choice on its own line, exactly:
+Chest: <1, 2, 3, or 4>"""
 
 
 def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
@@ -119,11 +127,17 @@ def build_igt_user_turn(round_number: int, remain: int,
                         outcome_feedback: str = "") -> str:
     pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
     return (f"{pre}Round {round_number}. You currently have {remain} points. "
-            f"Which chest do you open? Choose 1, 2, 3, or 4.")
+            f"Which chest do you open? End with 'Chest: N'.")
 
 
-# ───────────────────── Parsing (faithful to repo <choice> format) ─────────────────
-CHOICE_RE = re.compile(r"<choice>\s*([1-4])\s*</choice>", re.IGNORECASE)
+# ───────────────────── Parsing (CGT-simple5 style: "Chest: N", take LAST) ──────────
+# The instructed format is a final "Chest: N" line. Take the LAST match so the
+# brief reasoning ("chest 2 cost me…") doesn't get mis-read as the decision —
+# exactly like CGT-simple2 taking the last "Choice: N". Fallbacks: an XML <choice>
+# tag (in case the model reverts to a known format), then a choice-anchored number,
+# then a lone-number line, then a leading number.
+CHEST_RE = re.compile(r"\bChest\s*:?\s*([1-4])\b", re.IGNORECASE)
+CHOICE_XML_RE = re.compile(r"<choice>\s*([1-4])\s*</choice>", re.IGNORECASE)
 CHOICE_ANCHORED_RE = re.compile(
     r"\b(?:choice|chest|open|pick|choose|select)\D{0,20}([1-4])\b", re.IGNORECASE)
 CHOICE_ONLY_RE = re.compile(r"^\s*([1-4])\s*\.?\s*$")
@@ -131,10 +145,14 @@ CHOICE_LEAD_RE = re.compile(r"^\s*([1-4])\b")
 
 
 def parse_choice(raw: str, rng) -> tuple[int, bool]:
-    """Return (choice 1-4, valid). XML tag first (the instructed format), then
-    choice-anchored, then a bare lone number, then a leading number. Unparseable →
-    a deterministic fallback_rng pick, flagged invalid (dropped in valid-only)."""
-    m = CHOICE_RE.search(raw)
+    """Return (choice 1-4, valid). 'Chest: N' (LAST match) is the instructed
+    format; then XML, choice-anchored, lone-number line, leading number.
+    Unparseable → deterministic fallback_rng pick, flagged invalid (dropped in
+    valid-only)."""
+    ms = CHEST_RE.findall(raw)
+    if ms:
+        return int(ms[-1]), True
+    m = CHOICE_XML_RE.search(raw)
     if m:
         return int(m.group(1)), True
     m = CHOICE_ANCHORED_RE.search(raw)
@@ -160,9 +178,12 @@ def run_episode(vc, diff_mtx, seed, use_chat, max_new_tokens, temperature, top_p
     draw_count = [0, 0, 0, 0]                    # per-deck draw pointer for penalty schedule
     system_prompt = build_igt_system_prompt(prompt_ver)
 
-    # anchor: "default" = no anchor (repo emits <reasoning>…); "answer" = prime
-    # the assistant header with "Answer: " (lands prefill steering on the value).
-    choice_anchor = "Answer: " if anchor == "answer" else ""
+    # anchor: "default" = NO anchor (model writes brief reasoning then "Chest: N";
+    # this is the CGT-simple5 winner — an anchor here would suppress the reasoning
+    # span that both the learning readout and prefill steering need). "chest" =
+    # prime the header with "Chest: " (forces immediate commit, kills reasoning —
+    # kept only as an ablation, mirrors CGT-simple4's near-zero-reasoning failure).
+    choice_anchor = "Chest: " if anchor == "chest" else ""
 
     def gen(prompt):
         out = vc.regenerate(inputs=[prompt], diff_matrices=diff_mtx,
@@ -375,12 +396,15 @@ if __name__ == "__main__":
     parser.add_argument("--inject_turn", action="store_true")
     parser.add_argument("--inject_turn_len", type=int, default=4)
     parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1"],
-                        help="v1 = faithful Near-Optimal port (explicit 'avoid the "
-                             "worst chests' hint + <choice> format).")
+                        help="v1 = repo GAME framing + 'avoid the worst chests' hint, "
+                             "but CGT-simple5 OUTPUT format (NL brief reasoning + a "
+                             "final 'Chest: N' line, NOT the repo's <choice> XML).")
     parser.add_argument("--anchor", type=str, default="default",
-                        choices=["default", "answer"],
-                        help="default = no prefill anchor (repo <reasoning>… format); "
-                             "answer = prime header with 'Answer: '.")
+                        choices=["default", "chest"],
+                        help="default = NO anchor (brief reasoning then 'Chest: N' — "
+                             "the CGT-simple5 winner). chest = prime header with "
+                             "'Chest: ' (forces immediate commit, kills reasoning; "
+                             "ablation only).")
     parser.add_argument("--ans_file",    type=str, default="answer_igt")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
