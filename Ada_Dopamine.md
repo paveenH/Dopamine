@@ -336,49 +336,49 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 **範式定位**：透明機率下的 sequential betting。每輪先選顏色（blue/red，機率由 chest count 明示），再按 ascending（5→25→50→75→95）或 descending（95→75→50→25→5）逐檔 reveal bet size，模型輸出 `Accept` / `Wait`。
 
 > **命名**：本節的 sequential 版（`get_answer_cgt_seq.py`）才是**忠實的 CGT**（Rogers 1999 / CANTAB），其靈魂正是 betting-stage 的 ascending/descending 操縱。
+**主結果版本**：使用 **v4 prompt** 作為 paper 主線。v4 在每個 bet tier 只提示方向（`The next offer will be larger/smaller.`
 
-**Full sweep（Llama3-8B-IT，v2b prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**。所有行為指標皆 **valid-only**（`valid==True` 過濾，與權威 `analyze_cgt_seq.py` 一致；丟掉 fallback 噪聲）：
+**Full sweep（Llama3-8B-IT，v4 prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**。
 
-| α | asc invalid | desc invalid | asc step | desc step | asc early | desc early | asc bet% | desc bet% | asc QDM | desc QDM | QDM mean |
+| α | asc invalid | desc invalid | asc step | desc step | step avg | asc step1 | desc step1 | DAI(bet) | asc QDM | desc QDM | QDM mean |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| −8 | 99.5% | 98.6% | — | — | — | — | — | — | — | — | — |
-| −6 | 18.2% | 9.7% | 3.28 | 3.91 | 21.3% | 7.6% | 56.8 | 28.6 | 0.713 | 0.710 | 0.712 |
-| −4 | 5.9% | 1.5% | 3.01 | 4.04 | 40.6% | 8.9% | 50.7 | 25.7 | 0.793 | 0.780 | 0.787 |
-| −2 | 3.6% | 0.3% | 2.28 | 3.68 | 54.0% | 11.2% | 33.8 | 34.1 | 0.789 | 0.780 | 0.785 |
-| 0 | 0.6% | 0.0% | 1.92 | 2.72 | 57.6% | 28.7% | 25.5 | 56.2 | 0.789 | 0.748 | 0.769 |
-| +2 | 0.0% | 0.0% | 1.65 | 2.16 | 63.9% | 43.2% | 19.3 | 69.2 | 0.754 | 0.766 | 0.760 |
-| +4 | 0.0% | 0.0% | 1.32 | 1.52 | 78.4% | 64.1% | 11.8 | 83.7 | 0.755 | 0.752 | 0.754 |
-| +6 | 0.0% | 0.2% | 1.25 | 1.28 | 82.8% | 79.3% | 10.3 | 88.9 | 0.748 | 0.722 | 0.735 |
-| +8 | 9.5% | 12.7% | 1.29 | 1.51 | 84.3% | 69.7% | 11.2 | 83.9 | 0.679 | 0.655 | 0.667 |
-
+| −8 | 100.0% | 99.4% | — | 3.75 | — | — | 12.5% | — | — | 0.75 | — |
+| −6 | 22.8% | 14.1% | 3.56 | 3.89 | 3.73 | 20.6% | 10.8% | −33.38 | 0.70 | 0.72 | 0.71 |
+| −4 | 7.0% | 1.6% | 3.45 | 4.47 | 3.96 | 32.9% | 3.7% | −44.14 | 0.75 | 0.78 | 0.77 |
+| −2 | 1.8% | 0.2% | 3.03 | 3.79 | 3.41 | 33.7% | 12.2% | −18.84 | 0.79 | 0.78 | 0.78 |
+| 0 | 0.0% | 0.0% | 2.63 | 2.97 | 2.80 | 37.4% | 25.9% | +8.77 | 0.76 | 0.75 | 0.76 |
+| +2 | 0.0% | 0.0% | 2.05 | 2.20 | 2.12 | 48.4% | 42.8% | +40.01 | 0.76 | 0.75 | 0.75 |
+| +4 | 0.0% | 0.0% | 1.63 | 1.53 | 1.58 | 60.9% | 65.3% | +64.77 | 0.74 | 0.71 | 0.73 |
+| +6 | 0.2% | 0.3% | 1.40 | 1.31 | 1.36 | 71.2% | 77.7% | +74.76 | 0.74 | 0.73 | 0.73 |
+| +8 | 20.2% | 18.1% | 1.16 | 1.19 | 1.17 | 86.9% | 87.7% | +82.61 | 0.67 | 0.65 | 0.66 |
 
 **Derived readout**：
 
-| α | mean step avg | early-stop avg | DAI = desc bet − asc bet | invalid avg | interpretation |
+| α | mean step avg | step1 avg | DAI = desc bet − asc bet | invalid avg | interpretation |
 |---:|---:|---:|---:|---:|---|
-| −8 | — | — | — | 99.1% | task collapse；99% 空輸出，行為指標不可解讀（valid 6/18） |
-| −6 | 3.60 | 14.5% | −28.2 | 13.9% | delayed commitment / stage confusion |
-| −4 | 3.52 | 24.7% | −25.0 | 3.7% | strongest waiting / delayed commitment |
-| −2 | 2.98 | 32.6% | +0.3 | 2.0% | transition zone |
-| 0 | 2.32 | 43.2% | +30.7 | 0.3% | baseline |
-| +2 | 1.91 | 53.6% | +49.9 | 0.0% | earlier commitment |
-| +4 | 1.42 | 71.3% | +71.9 | 0.0% | strong immediate commitment |
-| +6 | 1.27 | 81.1% | +78.7 | 0.1% | strongest clean delay-aversion signal |
-| +8 | 1.40 | 77.0% | +72.7 | 11.1% | boundary degradation；格式開始污染 |
+| −8 | — | — | — | 99.7% | boundary collapse；stage-onset breakdown，行為指標不可解讀 |
+| −6 | 3.73 | 15.7% | −33.38 | 18.5% | delayed commitment + stage confusion；不納入 clean fit |
+| −4 | 3.96 | 18.3% | −44.14 | 4.3% | clean delayed commitment / strongest waiting |
+| −2 | 3.41 | 23.0% | −18.84 | 1.0% | negative-side transition |
+| 0 | 2.80 | 31.7% | +8.77 | 0.0% | baseline |
+| +2 | 2.12 | 45.6% | +40.01 | 0.0% | earlier commitment |
+| +4 | 1.58 | 63.1% | +64.77 | 0.0% | strong immediate commitment |
+| +6 | 1.36 | 74.5% | +74.76 | 0.3% | strongest clean delay-aversion signal |
+| +8 | 1.17 | 87.3% | +82.61 | 19.2% | positive overload；dirty / malformed generation starts |
 
 **Outcome sanity（final score；每個 phase reset 100，final = 8 phases sum）**：
 
 | α | asc final score | asc median | desc final score | desc median | asc mean phase | desc mean phase |
 |---:|---:|---:|---:|---:|---:|---:|
-| −8 | 916.4 ± 640.5 | 826.0 | 381.7 ± 591.7 | 171.0 | 114.5 ± 80.1 | 47.7 ± 74.0 |
-| −6 | 2377.9 ± 4971.8 | 782.5 | 2074.9 ± 2866.7 | 1147.0 | 297.2 ± 621.5 | 259.4 ± 358.3 |
-| −4 | 2674.2 ± 5041.7 | 535.5 | 1798.0 ± 837.7 | 1566.5 | 334.3 ± 630.2 | 224.8 ± 104.7 |
-| −2 | 1962.2 ± 2443.2 | 950.5 | 2638.2 ± 1255.6 | 2602.0 | 245.3 ± 305.4 | 329.8 ± 157.0 |
-| 0 | 1408.2 ± 1684.5 | 1110.0 | 2678.4 ± 2420.0 | 1991.5 | 176.0 ± 210.6 | 334.8 ± 302.5 |
-| +2 | 1074.8 ± 303.3 | 1029.0 | 5125.2 ± 6579.1 | 3020.5 | 134.4 ± 37.9 | 640.7 ± 822.4 |
-| +4 | 943.5 ± 176.8 | 863.0 | 7957.6 ± 9950.9 | 1943.0 | 117.9 ± 22.1 | 994.7 ± 1243.9 |
-| +6 | 1079.9 ± 459.0 | 1017.0 | 4277.1 ± 6265.0 | 1386.0 | 135.0 ± 57.4 | 534.6 ± 783.1 |
-| +8 | 789.5 ± 215.9 | 746.5 | 2301.1 ± 4620.6 | 786.5 | 98.7 ± 27.0 | 287.6 ± 577.6 |
+| −8 | — | — | 1947.0 ± 2547.1 | 649.0 | — | 243.4 ± 318.4 |
+| −6 | 891.7 ± 1177.6 | 626.5 | 1509.5 ± 1174.4 | 1210.5 | 111.5 ± 147.2 | 188.7 ± 146.8 |
+| −4 | 3716.2 ± 6562.2 | 733.0 | 1498.9 ± 574.5 | 1403.5 | 464.5 ± 820.3 | 187.4 ± 71.8 |
+| −2 | 4305.2 ± 5650.9 | 1796.0 | 1872.7 ± 807.4 | 1731.5 | 538.2 ± 706.4 | 234.1 ± 100.9 |
+| 0 | 1374.3 ± 1133.8 | 985.5 | 2615.4 ± 2088.2 | 1597.5 | 171.8 ± 141.7 | 326.9 ± 261.0 |
+| +2 | 1215.8 ± 418.6 | 1227.5 | 5857.6 ± 7206.4 | 3240.5 | 152.0 ± 52.3 | 732.2 ± 900.8 |
+| +4 | 1070.8 ± 376.6 | 1024.5 | 5323.5 ± 7566.6 | 1049.0 | 133.9 ± 47.1 | 665.4 ± 945.8 |
+| +6 | 1020.4 ± 304.3 | 964.0 | 2059.4 ± 3677.4 | 804.0 | 127.5 ± 38.0 | 257.4 ± 459.7 |
+| +8 | 925.3 ± 171.1 | 897.0 | 2787.9 ± 6200.2 | 535.0 | 115.7 ± 21.4 | 348.5 ± 775.0 |
 
 
 **Key metrics**：
@@ -387,9 +387,13 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 - **early stop**：`accept_step=1` 的比例。ascending 的 step 1 是 5%，descending 的 step 1 是 95%；兩者都高代表 immediate commitment，而不是單純追求高風險。
 - **bet%**：最終鎖定的下注比例。它必須和 presentation order 一起讀：ascending 早按會降低 bet%，descending 早按會提高 bet%。
 - **DAI（Delay Aversion Index）**：`mean_bet_desc − mean_bet_asc`。DAI 變大表示同一個 early-accept 傾向在兩種序列中產生分化：descending 搶高注、ascending 接低注；因此它反映 presentation-order-induced delay aversion，而不是純 risk preference。
-- **invalid**：格式 / 階段失敗率。α=−8 幾乎全崩、α=+8 開始退化，所以主結論只應依賴 −6..+6，並在 −6 端報告 valid-only sanity。
+- **invalid**：格式 / 階段失敗率。α=−8 幾乎全崩、α=+8 開始退化；主結論依賴 clean range **−6..+6**。
 
-**Text-level diagnosis**：α+ 不是單純 risk seeking，而是 **immediate commitment / early stopping**。若是純風險尋求，ascending 中應該等待到 75/95 才按；但 α+ 在 ascending 也提早 `Accept`，因此 asc bet 下降、desc bet 上升，DAI 展寬。α− 則表現為 `Wait` chain（`Wait→Wait→...→Accept`）與少量 color-stage `Wait`，更像 delayed commitment / action-initiation confusion，而不是理性保守。QDM mean 呈淺倒 U，峰值在 α=−4/−2（0.778/0.779），但動態範圍遠小於 accept timing；因此 α 對 probability choice 只有弱穩定效應，主效應仍是 commit timing。
+**Text-level diagnosis**：
+- **α+ 不是單純 risk seeking，而是 immediate commitment / early stopping。** 若是純風險尋求，ascending 中應該等待到 75/95 才按；但 α+ 在 ascending 也提早 `Accept`，因此 asc bet 下降、desc bet 上升，DAI 展寬。v4 已明確告知未來方向（`next offer will be larger/smaller`），所以早停不是 rule-ignorance artifact，而是 action-commitment / delay-aversion phenotype。
+- **α− 的 clean 區間表現為 delayed commitment。** −4 / −2 主要是 `Wait→Wait→...→Accept` chain；−6 開始出現 color-stage `Wait` 泄漏，說明負端不是單純理性保守，而是接近 stage-control failure。
+- **−8 是 stage-onset breakdown，而非低風險偏好。** v4 −8 的主要文本特徵是空輸出與階段錯位：asc valid = 0/1280，desc valid = 8/1280；`raw_color` empty 分別 1068/1280、1065/1280；乾淨 color 只有 185/1280、175/1280；color 階段泄漏 `Accept/Wait` 為 25/1280、35/1280；bet-stage 空輸出多達 2362 / 2387 條。少數非空長文本也不是正常推理，而是上下文回放或流程質疑（如 `Outcome from previous round...`、`I think you skipped an offer...`、`You can't accept a bet of 95% of 0 points...`）。因此 −8 應解釋為 under-wanting / initiation failure / stage-control collapse：模型無法穩定進入 Color / Accept-Wait 的動作格式。
+- **QDM 不是主效應。** clean range 內 QDM 約 0.71–0.78，動態範圍遠小於 accept timing；+8 QDM 掉到 0.66，屬於 positive overload / 格式退化。α 對 probability choice 只有弱穩定效應，主效應仍是 commit timing。
 
 **與人類行為學 CGT 的區別**：
 - **沒有真實反應時**：人類 CGT 可量 decision latency / deliberation time；LLM 沒有 motor latency，只能用 `Accept/Wait` 的 tier position 近似 commitment timing。
