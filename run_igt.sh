@@ -37,7 +37,7 @@ TOP_P=0.9
 ANS_FILE="answer_igt"
 SAVE_RAW_FLAG="--save_all_raw"
 USE_CHAT_FLAG="--use_chat"
-PROMPT_VER="v1"
+PROMPT_VER="v2"          # v2 = per-turn "Round N of 100" anchor (premature-stop fix)
 ANCHOR="default"
 
 # ==================== Modes ====================
