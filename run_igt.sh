@@ -37,17 +37,19 @@ TOP_P=0.9
 ANS_FILE="answer_igt"
 SAVE_RAW_FLAG="--save_all_raw"
 USE_CHAT_FLAG="--use_chat"
-PROMPT_VER="v2"          # v2 = per-turn "Round N of 100" anchor (premature-stop fix)
+PROMPT_VER="v3"          # v3 = v2's "Round N of 100" anchor + end/final/conclude
+                         # trigger words removed (decision = '<Chest:N>' tag);
+                         # fixes the +4-specific "game has ended" premature-stop
 ANCHOR="default"
 
 # ==================== Modes ====================
 if [ "$1" == "--verify" ]; then
     CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
-    ANS_FILE="answer_igt_verify"
-    echo "[VERIFY] v1, α=0/±4, 5 runs"
+    ANS_FILE="answer_igt_v3_verify"
+    echo "[VERIFY] ${PROMPT_VER}, α=0/±4, 5 runs"
 elif [ "$1" == "--full" ]; then
     ANS_FILE="answer_igt"
-    echo "[FULL] v1, full −8→+8 sweep, ${NUM_RUNS} runs"
+    echo "[FULL] ${PROMPT_VER}, full −8→+8 sweep, ${NUM_RUNS} runs"
 else
     echo "Usage: bash run_igt.sh {--verify|--full}"
     exit 1
