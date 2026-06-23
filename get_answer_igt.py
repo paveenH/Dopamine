@@ -127,10 +127,15 @@ def build_igt_user_turn(round_number: int, remain: int,
                         outcome_feedback: str = "", prompt_ver: str = "v1") -> str:
     pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
     if prompt_ver == "v2":
-        # v2: per-turn "of {N}" progress anchor (the system prompt's total-length
-        # statement is easy to forget deep in a 100-round chat → premature-stop
-        # hallucination). Restating "Round N of 100" each turn keeps the model from
-        # declaring the game over early. Only change from v1.
+        # v2 vs v1 — TWO changes (not a clean single-variable diff; noted so a v2
+        # invalid drop isn't mis-attributed):
+        #   (1) PRIMARY: per-turn "of {N}" progress anchor — the system prompt's
+        #       total-length statement is easy to forget deep in a 100-round chat →
+        #       late-round premature-stop hallucination ("the game ended at round
+        #       54"). Restating "Round N of 100" each turn keeps it going to 100.
+        #   (2) minor: "End with one final line: Chest: N." (was "End with
+        #       'Chest: N'.") — nudges the answer onto its own final line. Carried
+        #       in together per user 2026-06-23; kept, not isolated.
         return (f"{pre}Round {round_number} of {NUM_TRIALS}. You currently have "
                 f"{remain} points. Which chest do you open? End with one final "
                 f"line: Chest: N.")
