@@ -177,7 +177,47 @@ Chest: N
 where N is 1, 2, 3, or 4."""
 
 
+# V6 — the INVITATION (not COMMAND) middle ground between v4 and v5.
+# v4's "First reason in one sentence, then give …" is a two-step FORMAT CONTRACT:
+# the model treats reasoning as a mandatory deliverable, which risks PERFORMATIVE
+# reasoning (a sentence written to satisfy the instruction, decoupled from the
+# real decision — and a deliberation span that may be inert to α). v5 (no cognitive
+# cue at all) collapses to a bare 9-char "Chest: N" round-robin (no span for
+# prefill steering to land in). v6 invites thinking with a classic CoT trigger
+# WITHOUT making the reasoning a required format product — closer to how the model
+# spontaneously deliberates. Two variants:
+#   v6a = "Think step by step" (the canonical CoT trigger).
+#   v6b = "Think from the previous outcomes about which chest to open" — points
+#         attention at the FEEDBACK HISTORY (the inductive-learning action IGT
+#         actually probes) WITHOUT pre-supplying an evaluation frame. (An earlier
+#         draft used CGT-simple5's "think briefly about which chests have been
+#         rewarding or costing you", but that hands the model the reward/cost axis
+#         and invites label-style boilerplate; "from the previous outcomes" leaves
+#         the model to derive the frame itself → a cleaner reasoning probe.)
+# Both keep v4/v5's protections (Round N of 100 anchor, no end/final/conclude
+# words, no anchor). Parser unchanged (take-LAST "Chest: N").
+IGT_SYSTEM_V6A = """We are playing a multi-round game for points. In front of you are four treasure chests, numbered 1, 2, 3, and 4. Each round you open ONE chest. Opening a chest gives you a reward but may also cost you a penalty, depending on which chest you choose. Rewards increase your points; penalties deduct points. At the start of the game you receive a loan of {init_money} points. Your points accumulate across rounds, and your goal is to gather as many points as you can.
+
+The only hint I can give you, and the most important thing to note, is this: some of these chests are worse than others, and to win you should try to stay away from the bad chests. No matter how much you find yourself losing, you can still win if you avoid the worst chests. The chests do not change once the game begins; the computer does not make you lose at random, and your loss does not depend on the chest you picked last round.
+
+Each round, think step by step, then answer with:
+Chest: N
+where N is 1, 2, 3, or 4."""
+
+IGT_SYSTEM_V6B = """We are playing a multi-round game for points. In front of you are four treasure chests, numbered 1, 2, 3, and 4. Each round you open ONE chest. Opening a chest gives you a reward but may also cost you a penalty, depending on which chest you choose. Rewards increase your points; penalties deduct points. At the start of the game you receive a loan of {init_money} points. Your points accumulate across rounds, and your goal is to gather as many points as you can.
+
+The only hint I can give you, and the most important thing to note, is this: some of these chests are worse than others, and to win you should try to stay away from the bad chests. No matter how much you find yourself losing, you can still win if you avoid the worst chests. The chests do not change once the game begins; the computer does not make you lose at random, and your loss does not depend on the chest you picked last round.
+
+Each round, think from the previous outcomes about which chest to open, then answer with:
+Chest: N
+where N is 1, 2, 3, or 4."""
+
+
 def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
+    if prompt_ver == "v6a":
+        return IGT_SYSTEM_V6A.format(init_money=INIT_MONEY)
+    if prompt_ver == "v6b":
+        return IGT_SYSTEM_V6B.format(init_money=INIT_MONEY)
     if prompt_ver == "v5":
         return IGT_SYSTEM_V5.format(init_money=INIT_MONEY)
     if prompt_ver == "v4":
@@ -191,6 +231,19 @@ def build_igt_system_prompt(prompt_ver: str = "v1") -> str:
 def build_igt_user_turn(round_number: int, remain: int,
                         outcome_feedback: str = "", prompt_ver: str = "v1") -> str:
     pre = (outcome_feedback + "\n\n") if outcome_feedback else ""
+    if prompt_ver == "v6a":
+        # v6a = invitation CoT trigger ("Think step by step"), not v4's command
+        # "First reason … then give". Keeps the Round N of 100 anchor; no end-words.
+        return (f"{pre}Round {round_number} of {NUM_TRIALS}. You currently have "
+                f"{remain} points. Which chest do you open? Think step by step, "
+                f"then answer with Chest: N.")
+    if prompt_ver == "v6b":
+        # v6b = invitation that points at the FEEDBACK HISTORY ("from the previous
+        # outcomes") without pre-supplying a reward/cost frame. Same anchor / no
+        # end-words as v6a.
+        return (f"{pre}Round {round_number} of {NUM_TRIALS}. You currently have "
+                f"{remain} points. Think from the previous outcomes about which "
+                f"chest to open, then answer as Chest: N.")
     if prompt_ver == "v5":
         # v5 = v4's progress anchor + no end/final/conclude words, but removes the
         # explicit "First reason..." instruction. This keeps the prompt closer to
@@ -501,8 +554,8 @@ if __name__ == "__main__":
     parser.add_argument("--save_all_raw", action="store_true")
     parser.add_argument("--inject_turn", action="store_true")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v4",
-                        choices=["v1", "v2", "v3", "v4", "v5"],
+    parser.add_argument("--prompt_ver", type=str, default="v6b",
+                        choices=["v1", "v2", "v3", "v4", "v5", "v6a", "v6b"],
                         help="v1 = repo GAME framing + 'avoid the worst chests' hint, "
                              "CGT-simple5 OUTPUT format (NL brief reasoning + a final "
                              "'Chest: N' line); user turn = 'Round N.'. v2 = v1 + "
@@ -513,9 +566,15 @@ if __name__ == "__main__":
                              "0% reasoning, mechanical round-robin, α flat — DO NOT "
                              "USE). v4 = v2's anchor + NO end/final/conclude words + "
                              "plain 'Chest: N' (not the tag) + explicit 'First reason "
-                             "… then give' so the deliberation span survives. v5 = v4 "
-                             "without explicit reasoning instruction; user turn uses "
-                             "'Answer as Chest: N'. Parser "
+                             "… then give' so the deliberation span survives (but "
+                             "this COMMAND style risks performative reasoning). v5 = "
+                             "v4 without any reasoning cue ('Answer as Chest: N') — "
+                             "COLLAPSED to bare round-robin like v3. v6a/v6b = the "
+                             "INVITATION middle ground: a 'Think…' CoT cue that does "
+                             "NOT make reasoning a required format product. v6a = "
+                             "'Think step by step'; v6b = 'Think from the previous "
+                             "outcomes about which chest to open' (points at feedback "
+                             "history, no reward/cost frame; DEFAULT). Parser "
                              "(CHEST_RE, take-LAST 'Chest: N') is shared by all.")
     parser.add_argument("--anchor", type=str, default="default",
                         choices=["default", "chest"],
