@@ -66,19 +66,38 @@ def is_hedge(text: str) -> bool:
 # ---------------------------------------------------------------------------
 # Prompt builder
 # ---------------------------------------------------------------------------
-SYSTEM_PROMPT = (
-    "You are a science experiment agent. "
+# NOTE: the historical prompt opened with "You are a science experiment agent."
+# That persona line was dropped (same de-roling rationale as the Bandit No-Role
+# port): a role primer shifts the activation distribution the NMD mask was
+# extracted on and confounds the steering. Both system prompts below are
+# persona-free; legacy is therefore NOT byte-identical to the −4/0/+4 results
+# under sciworld/mdf_*, so do not compare ACC across the persona boundary.
+LEGACY_SYSTEM_PROMPT = (
     "You will receive an observation and a numbered list of valid actions. "
     "Output ONLY the exact text of one action from the list. "
     "Do not explain, do not add punctuation, do not output anything else."
 )
 
-def build_prompt(obs: str, valid_actions: list[str], history: list[tuple[str, str]]) -> str:
+ACTION_LINE_SYSTEM_PROMPT = (
+    "You will receive an observation and a numbered list of valid actions. "
+    "Choose one valid action.\n\n"
+    "When I ask for your action, reply with exactly one line:\n"
+    "Action: <copy one action from the list>\n\n"
+    "The text after Action: must exactly match one action from the list."
+)
+
+def build_prompt(
+    obs: str,
+    valid_actions: list[str],
+    history: list[tuple[str, str]],
+    prompt_style: str = "legacy",
+) -> str:
     """
     Build a text prompt from current observation + valid actions + short history.
     History: list of (action, outcome) pairs (last 3 steps).
     """
-    lines = [SYSTEM_PROMPT, ""]
+    system_prompt = ACTION_LINE_SYSTEM_PROMPT if prompt_style == "action_line" else LEGACY_SYSTEM_PROMPT
+    lines = [system_prompt, ""]
     if history:
         lines.append("Recent steps:")
         for act, outcome in history[-3:]:
@@ -91,8 +110,22 @@ def build_prompt(obs: str, valid_actions: list[str], history: list[tuple[str, st
     for i, a in enumerate(valid_actions):
         lines.append(f"  {i+1}. {a}")
     lines.append("")
-    lines.append("Your action:")
+    if prompt_style == "action_line":
+        lines.append("Your action. Reply as Action: <copy one action from the list>.")
+    else:
+        lines.append("Your action:")
     return "\n".join(lines)
+
+
+def render_prompt(vc: VicundaModel, prompt: str, use_chat: bool) -> str:
+    """Render ScienceWorld prompt either as raw text or a one-turn chat."""
+    if not use_chat:
+        return prompt
+    return vc.tokenizer.apply_chat_template(
+        [{"role": "user", "content": prompt}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
 
 
 def parse_action(response: str, valid_actions: list[str]) -> str:
@@ -100,7 +133,15 @@ def parse_action(response: str, valid_actions: list[str]) -> str:
     Match model output to the closest valid action.
     Priority: exact match → substring match → first valid action (fallback).
     """
-    resp = response.strip().lower()
+    resp_raw = response.strip()
+    # Newer ScienceWorld prompts may ask for a terminal "Action: ..." line,
+    # analogous to IGT's "Chest: N" anchor. Parse the last such line before
+    # falling back to legacy exact/substring/number matching.
+    action_matches = re.findall(r"(?im)^\s*Action:\s*(.+?)\s*$", resp_raw)
+    if action_matches:
+        resp_raw = action_matches[-1].strip()
+
+    resp = resp_raw.lower()
 
     # Exact match
     for a in valid_actions:
@@ -133,6 +174,9 @@ def run_episode(
     diff_mtx: list[np.ndarray],
     max_steps: int,
     max_new_tokens: int,
+    prompt_style: str,
+    use_chat: bool,
+    save_trace: bool,
 ) -> dict:
     """Run one episode and return metrics."""
     env.load(task_name, variation)
@@ -141,6 +185,7 @@ def run_episode(
     history = []
     scores = []
     step_hedges = []
+    trace = []
     abandoned = False
     final_score = 0.0
 
@@ -154,9 +199,10 @@ def run_episode(
         ]
 
 
-        prompt = build_prompt(obs, valid_actions, history)
+        prompt = build_prompt(obs, valid_actions, history, prompt_style=prompt_style)
+        rendered_prompt = render_prompt(vc, prompt, use_chat=use_chat)
         response = vc.regenerate(
-            inputs=[prompt],
+            inputs=[rendered_prompt],
             diff_matrices=diff_mtx,
             max_new_tokens=max_new_tokens,
             temperature=0.0,
@@ -165,29 +211,56 @@ def run_episode(
 
         step_hedges.append(1 if is_hedge(response) else 0)
 
-        if is_abandon(response):
+        abandon = is_abandon(response)
+        if abandon:
             abandoned = True
+            if save_trace:
+                trace.append({
+                    "step": step,
+                    "observation": obs,
+                    "valid_actions": valid_actions,
+                    "raw_response": response,
+                    "parsed_action": None,
+                    "abandoned": True,
+                    "score": final_score,
+                })
             break
 
         action = parse_action(response, valid_actions)
         if step == 0:
             print(f"    [dbg] response={repr(response[:80])}  →  action={repr(action)}")
+        obs_before = obs
         obs, reward, done, info = env.step(action)
         score = info.get("score", reward)
         final_score = score
         scores.append(score)
+        if save_trace:
+            trace.append({
+                "step": step,
+                "observation": obs_before,
+                "valid_actions": valid_actions,
+                "raw_response": response,
+                "parsed_action": action,
+                "next_observation": obs,
+                "reward": reward,
+                "score": score,
+                "done": done,
+            })
         history.append((action, obs))
 
         if done:
             break
 
-    return {
+    result = {
         "final_score": final_score,
         "steps": len(scores),
         "abandoned": abandoned,
         "hedge_rate": float(np.mean(step_hedges)) if step_hedges else 0.0,
         "score_trajectory": scores,
     }
+    if save_trace:
+        result["trace"] = trace
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +317,9 @@ def main():
                         diff_mtx=diff_mtx,
                         max_steps=args.max_steps,
                         max_new_tokens=args.max_new_tokens,
+                        prompt_style=args.prompt_style,
+                        use_chat=args.use_chat,
+                        save_trace=args.save_trace,
                     )
                 episode_results.append(result)
                 print(f"score={result['final_score']:.1f}  steps={result['steps']}  abandon={result['abandoned']}")
@@ -330,6 +406,13 @@ if __name__ == "__main__":
                         help="Max steps per episode")
     parser.add_argument("--max_new_tokens", type=int, default=32,
                         help="Max tokens for action generation")
+    parser.add_argument("--prompt_style", type=str, default="legacy",
+                        choices=["legacy", "action_line"],
+                        help="legacy = old exact-action prompt. action_line = IGT/CGT-style Action: anchor.")
+    parser.add_argument("--use_chat", action="store_true",
+                        help="Render each ScienceWorld step through tokenizer.apply_chat_template.")
+    parser.add_argument("--save_trace", action="store_true",
+                        help="Save per-step observation, raw response, parsed action, and score.")
     parser.add_argument("--jar_path", type=str, default="",
                         help="Path to ScienceWorld JAR file (leave empty to use bundled JAR)")
     parser.add_argument("--ans_file", type=str, default="answer_sciworld")
