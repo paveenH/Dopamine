@@ -3,7 +3,7 @@
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 DATA="data1"
-BASE_DIR="/${DATA}/paveen/RolePlaying/components"
+BASE_DIR="/${DATA}/paveen/Dopamine/components"
 
 MODEL_NAME="llama3"
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
