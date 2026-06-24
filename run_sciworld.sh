@@ -29,22 +29,21 @@ COMMON_ARGS=(
     --task_nums ${TASK_NUMS}
     --num_episodes "${EPISODES}"
     --max_steps 50
-    # action_line still asks for one Action: line, but ScienceWorld actions can
-    # be long; 64 avoids truncating the action text without inviting long CoT.
-    --max_new_tokens 64
-    --prompt_style "action_line"
+    # action_number asks for a single integer, then maps it to valid_actions[n-1].
+    --max_new_tokens 16
+    --prompt_style "action_number"
     --save_trace
     --data "${DATA}"
     --base_dir "${BASE_DIR}"
 )
 
-echo "[1/2] ScienceWorld action-line RAW probe"
+echo "[1/2] ScienceWorld action-number RAW probe"
 python get_answer_sciworld.py \
     "${COMMON_ARGS[@]}" \
-    --ans_file "answer_sciworld_actionline_raw_probe"
+    --ans_file "answer_sciworld_actionnumber_raw_probe"
 
-echo "[2/2] ScienceWorld action-line CHAT probe"
+echo "[2/2] ScienceWorld action-number CHAT probe"
 python get_answer_sciworld.py \
     "${COMMON_ARGS[@]}" \
     --use_chat \
-    --ans_file "answer_sciworld_actionline_chat_probe"
+    --ans_file "answer_sciworld_actionnumber_chat_probe"
