@@ -131,6 +131,99 @@ def build_prompt(
     return "\n".join(lines)
 
 
+def get_system_prompt(prompt_style: str) -> str:
+    if prompt_style == "action_line":
+        return ACTION_LINE_SYSTEM_PROMPT
+    if prompt_style == "action_number":
+        return ACTION_NUMBER_SYSTEM_PROMPT
+    return LEGACY_SYSTEM_PROMPT
+
+
+def build_user_turn(
+    task_name: str,
+    obs: str,
+    valid_actions: list[str],
+    step: int,
+    include_task: bool = False,
+    prompt_style: str = "legacy",
+    obs_char_limit: int = 0,
+) -> str:
+    lines = []
+    if include_task:
+        lines.append(f"Task: {task_name}.")
+        lines.append("")
+    lines.append(f"Step {step + 1}.")
+    obs_text = obs.strip()
+    # ScienceWorld observations can be long room dumps; under rolling chat these
+    # accumulate across turns and blow up the single-step prefill (the OOM cause,
+    # since KV cache is per-step not cumulative). Truncate when a limit is set.
+    if obs_char_limit and len(obs_text) > obs_char_limit:
+        obs_text = obs_text[:obs_char_limit] + " …[truncated]"
+    lines.append(f"Observation:\n{obs_text}")
+    lines.append("")
+    lines.append("Valid actions:")
+    for i, a in enumerate(valid_actions):
+        lines.append(f"  {i+1}. {a}")
+    lines.append("")
+    if prompt_style == "action_number":
+        lines.append("Your action number:")
+    elif prompt_style == "action_line":
+        lines.append("Your action. Reply as Action: <copy one action from the list>.")
+    else:
+        lines.append("Your action:")
+    return "\n".join(lines)
+
+
+def build_rolling_chat_messages(
+    prompt_style: str,
+    task_name: str,
+    obs: str,
+    valid_actions: list[str],
+    step: int,
+    turn_history: list[dict],
+    history_window: int,
+    obs_char_limit: int = 0,
+) -> list[dict]:
+    """True ScienceWorld chat: environment=user, model action=assistant.
+
+    Keep the latest K full turns. Older turns are compressed to a short user
+    summary so context does not grow linearly across 50-step episodes. Only the
+    last `history_window` turns carry a full `user_turn` string (run_episode
+    drops the rest), so `old` here is rendered from the compact summary fields.
+    """
+    messages = [{"role": "system", "content": get_system_prompt(prompt_style)}]
+
+    old = turn_history[:-history_window] if history_window > 0 else turn_history
+    recent = turn_history[-history_window:] if history_window > 0 else []
+    prefix = ""
+    if old:
+        lines = [f"Task: {task_name}.", "Earlier actions summary:"]
+        for h in old:
+            lines.append(
+                f"Step {h['step'] + 1}: chose {h['assistant_reply']} "
+                f"({h['action']}); score {h['score']}."
+            )
+        prefix = "\n".join(lines) + "\n\n"
+
+    for i, h in enumerate(recent):
+        content = (prefix + h["user_turn"]) if i == 0 else h["user_turn"]
+        prefix = ""
+        messages.append({"role": "user", "content": content})
+        messages.append({"role": "assistant", "content": h["assistant_reply"]})
+
+    current_user = build_user_turn(
+        task_name=task_name,
+        obs=obs,
+        valid_actions=valid_actions,
+        step=step,
+        include_task=(not turn_history),
+        prompt_style=prompt_style,
+        obs_char_limit=obs_char_limit,
+    )
+    messages.append({"role": "user", "content": prefix + current_user})
+    return messages
+
+
 def render_prompt(vc: VicundaModel, prompt: str, use_chat: bool) -> str:
     """Render ScienceWorld prompt either as raw text or a one-turn chat."""
     if not use_chat:
@@ -142,9 +235,10 @@ def render_prompt(vc: VicundaModel, prompt: str, use_chat: bool) -> str:
     )
 
 
-def parse_action(response: str, valid_actions: list[str]) -> tuple[str, str]:
+def parse_action(response: str, valid_actions: list[str]) -> tuple[str, str, int | None]:
     """
-    Match model output to the closest valid action. Returns (action, parse_type).
+    Match model output to the closest valid action. Returns
+    (action, parse_type, action_number).
 
     Order: take the FIRST anchored decision line ("Action: ..." or "<n>") so a
     repeated/looping generation ("Action: 7  Action: 7  …") resolves to its first
@@ -155,6 +249,16 @@ def parse_action(response: str, valid_actions: list[str]) -> tuple[str, str]:
     is what silently mapped "Action: 7" → "look around".
     """
     resp_raw = response.strip()
+
+    # Highest-priority path for action_number. If the model starts with an
+    # integer and then hallucinates environment text ("1\nYou open..."), take
+    # the opening integer and ignore the rest.
+    m0 = re.match(r"^\s*(\d+)\b", resp_raw)
+    if m0:
+        idx = int(m0.group(1)) - 1
+        if 0 <= idx < len(valid_actions):
+            return valid_actions[idx], "number", idx + 1
+
     # Anchored "Action: <x>" line (the action_line prompt). Take the FIRST match
     # so a looped "Action: 7 Action: 7 …" collapses to one decision.
     action_matches = re.findall(r"(?im)^\s*Action:\s*(.+?)\s*$", resp_raw)
@@ -171,26 +275,26 @@ def parse_action(response: str, valid_actions: list[str]) -> tuple[str, str]:
     if re.fullmatch(r"\d+", resp):
         idx = int(resp) - 1
         if 0 <= idx < len(valid_actions):
-            return valid_actions[idx], "number"
+            return valid_actions[idx], "number", idx + 1
 
     # Exact match
-    for a in valid_actions:
+    for i, a in enumerate(valid_actions):
         if resp == a.lower():
-            return a, "exact"
+            return a, "exact", i + 1
 
     # Substring match (only meaningful for multi-char action text, never a digit)
-    for a in valid_actions:
+    for i, a in enumerate(valid_actions):
         if a.lower() in resp or resp in a.lower():
-            return a, "substring"
+            return a, "substring", i + 1
 
     # Last-resort number anywhere in the text
     m = re.search(r"\b(\d+)\b", resp)
     if m:
         idx = int(m.group(1)) - 1
         if 0 <= idx < len(valid_actions):
-            return valid_actions[idx], "number"
+            return valid_actions[idx], "number", idx + 1
 
-    return valid_actions[0], "fallback"
+    return valid_actions[0], "fallback", 1
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +310,9 @@ def run_episode(
     max_new_tokens: int,
     prompt_style: str,
     use_chat: bool,
+    chat_mode: str,
+    history_window: int,
+    obs_char_limit: int,
     save_trace: bool,
 ) -> dict:
     """Run one episode and return metrics."""
@@ -213,6 +320,7 @@ def run_episode(
     obs, info = env.reset()
 
     history = []
+    turn_history = []
     scores = []
     step_hedges = []
     trace = []
@@ -229,14 +337,37 @@ def run_episode(
         ]
 
 
-        prompt = build_prompt(obs, valid_actions, history, prompt_style=prompt_style)
-        rendered_prompt = render_prompt(vc, prompt, use_chat=use_chat)
+        if use_chat and chat_mode == "rolling":
+            messages = build_rolling_chat_messages(
+                prompt_style=prompt_style,
+                task_name=task_name,
+                obs=obs,
+                valid_actions=valid_actions,
+                step=step,
+                turn_history=turn_history,
+                history_window=history_window,
+                obs_char_limit=obs_char_limit,
+            )
+            prompt = messages[-1]["content"]
+            rendered_prompt = vc.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        else:
+            prompt = build_prompt(obs, valid_actions, history, prompt_style=prompt_style)
+            rendered_prompt = render_prompt(vc, prompt, use_chat=use_chat)
+        prompt_tokens = (
+            len(vc.tokenizer(rendered_prompt, add_special_tokens=False).input_ids)
+            if save_trace else None
+        )
         response = vc.regenerate(
             inputs=[rendered_prompt],
             diff_matrices=diff_mtx,
             max_new_tokens=max_new_tokens,
             temperature=0.0,
             prefill_only=True,
+            stop_strings=["\n"] if prompt_style == "action_number" else None,
         )[0]
 
         step_hedges.append(1 if is_hedge(response) else 0)
@@ -256,7 +387,7 @@ def run_episode(
                 })
             break
 
-        action, parse_type = parse_action(response, valid_actions)
+        action, parse_type, action_number = parse_action(response, valid_actions)
         if step == 0:
             print(f"    [dbg] response={repr(response[:80])}  →  action={repr(action)} ({parse_type})")
         obs_before = obs
@@ -272,12 +403,27 @@ def run_episode(
                 "raw_response": response,
                 "parsed_action": action,
                 "parse_type": parse_type,
+                "action_number": action_number,
+                "prompt_tokens": prompt_tokens,
                 "next_observation": obs,
                 "reward": reward,
                 "score": score,
                 "done": done,
             })
         history.append((action, obs))
+        turn_history.append({
+            "step": step,
+            "user_turn": prompt,
+            "assistant_reply": str(action_number),
+            "action": action,
+            "score": score,
+        })
+        # Free the full user_turn text of turns that have fallen out of the
+        # rolling window — they are only ever rendered from the compact summary
+        # fields, so retaining the long obs/action strings just leaks RAM across
+        # the 50-step episode.
+        if history_window > 0 and len(turn_history) > history_window:
+            turn_history[-(history_window + 1)]["user_turn"] = None
 
         if done:
             break
@@ -350,6 +496,9 @@ def main():
                         max_new_tokens=args.max_new_tokens,
                         prompt_style=args.prompt_style,
                         use_chat=args.use_chat,
+                        chat_mode=args.chat_mode,
+                        history_window=args.history_window,
+                        obs_char_limit=args.obs_char_limit,
                         save_trace=args.save_trace,
                     )
                 episode_results.append(result)
@@ -375,7 +524,7 @@ def main():
                 "num_episodes": len(episode_results),
                 "mean_score": round(float(np.mean(scores)), 3),
                 "std_score": round(float(np.std(scores)), 3),
-                "success_rate": round(float(np.mean([s >= 100 for s in scores])), 3),
+                "success_rate": round(float(np.mean([s > 0 for s in scores])), 3),
                 "abandon_rate": round(float(np.mean(abandons)), 3),
                 "mean_steps": round(float(np.mean(steps)), 1),
                 "mean_hedge_rate": round(float(np.mean(hedges)), 4),
@@ -443,6 +592,15 @@ if __name__ == "__main__":
                               "action_number = reply with valid action number, then map to action text."))
     parser.add_argument("--use_chat", action="store_true",
                         help="Render each ScienceWorld step through tokenizer.apply_chat_template.")
+    parser.add_argument("--chat_mode", type=str, default="single",
+                        choices=["single", "rolling"],
+                        help="single = one chat turn per step with text history; rolling = true user/assistant turns with sliding window.")
+    parser.add_argument("--history_window", type=int, default=8,
+                        help="For --chat_mode rolling, keep this many recent full user/assistant turns. "
+                             "Lower this if the rolling prefill OOMs (ScienceWorld obs are long).")
+    parser.add_argument("--obs_char_limit", type=int, default=600,
+                        help="Truncate each observation to this many chars under --chat_mode rolling "
+                             "(0 = no limit). Caps the per-step prefill size that causes OOM.")
     parser.add_argument("--save_trace", action="store_true",
                         help="Save per-step observation, raw response, parsed action, and score.")
     parser.add_argument("--jar_path", type=str, default="",
