@@ -423,6 +423,36 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 #### Iowa Gambling Task (IGT)
 
+**Metric design before result interpretation**：
+
+IGT 不是純 risk-preference task；它同時混合了 reward-guided learning、exploration / exploitation、punishment sensitivity 與 task-control。因此結果解讀必須先分層：先確認 prompt 版本是否真的產生 learning curve，再在有效版本內看 DA-relevant 的局部獎懲反應。
+
+| Layer | Metric | Definition | DA / α prediction | Why it matters |
+|---|---|---|---|---|
+| **Version validity** | `block-wise net` | 每 20 trials 一個 block，`P(C+D) - P(A+B)` | 有效版本應由早期低值逐步上升 | IGT 的標準 learning curve；先判斷 prompt 是否真的在學 |
+| **Version validity** | `learn_slope` | `net_block5 - net_block1` | 有效版本 > 0 | 壓縮版 learning curve，方便跨 α / prompt 比較 |
+| **Version validity** | `last50_net` | 後 50 trials 的 `P(C+D) - P(A+B)` | 有效 exploit 應 > 0 | 看後期是否進入穩定避開壞牌階段 |
+| **Version validity** | `last50_entropy` / `switch_rate` | 後期選牌熵 / 換牌率 | 有效 exploit 應下降 | 區分「學會 exploit」與「四牌輪選」 |
+| **Version validity** | `learning_text_rate` / `bare_chest_only_rate` | raw text 是否提到 history / learning；是否只輸出 `Chest:N` | 有效 prompt 應有 history-grounded deliberation | 防止 v5 式格式自動機被誤讀成行為結果 |
+| **Local punishment sensitivity** | `return_to_B_after_bigloss@K` | 選 B 且吃到 1250 巨罰後，接下來 K 輪內是否回到 B（K=3/5） | DA↑ / +α 若更衝動，應上升 | 比 `post_bigloss_switch_rate` 更有區分度；不被「模型本來就每輪換牌」飽和 |
+| **Local punishment sensitivity** | `post_bigloss_switch_rate` | B 巨罰後下一輪是否離開 B | DA↑ 預測下降，但可能飽和 | 只作輔助；若 `switch_rate` 本身很高，該指標會接近 1.0 而失去分辨力 |
+| **Local punishment sensitivity** | `big_penalty_exposure` | 每局踩到 1250 巨罰的次數 | DA↑ / reward-trap 若更強，應上升 | 衡量是否反覆暴露於罕見大懲罰 |
+| **Reward / punishment asymmetry** | `win_stay_rate` | 上一輪 `payoff > 0` 後，下一輪重複同一 chest 的比例 | DA↑ 應上升 | 對應正 RPE / reward learning；不需先學會全局好壞牌。⚠ 受 baseline switch_rate 污染——模型本就高 switch 時此率天然偏低 |
+| **Reward / punishment asymmetry** | `lose_shift_rate` | 上一輪 `payoff < 0` 後，下一輪換離該 chest 的比例 | DA↑ 應下降 | 對應負 RPE / punishment learning；Frank-style DA readout。⚠ 模型本就高 switch（IGT 實測 0.67–0.79）時會飽和接近 1.0，同 `post_bigloss_switch` 的病——勿單讀 |
+| **Reward / punishment asymmetry** | `switch_rate` (baseline) | 全程換牌率 | — | win_stay/lose_shift 的**必讀對照基線**；只有相對 baseline 偏移才算 RPE 信號 |
+| **Reward / punishment asymmetry** | `ws_ls_asymmetry` | `win_stay_rate - lose_shift_rate` | DA↑ 應上升 | **主讀數**：差值抵消「模型本來就愛換牌」的 baseline switch 偏置，比兩個絕對率可信；最直接的 reward-over-punishment learning imbalance 指標 |
+| **Reward / punishment asymmetry** | `lose_shift_after_bigloss` | 只在 1250 巨罰後計算 lose-shift | DA↑ 若懲罰不敏感，應下降 | 對最大懲罰仍不 shift 是最強 impulse / punishment-insensitivity signature |
+| **Immediate reward pull** | `high_reward_deck_pull` | `P(A+B) / P(C+D)` = `p_disadv/p_adv`，**是 net_score 的比值變形、非獨立指標** | DA↑ 若追逐即時獎賞，應上升 | 簡單檢查高即時 reward 是否拉動選擇；但 = net 的變形且會與 learning 混淆，勿當新證據重複 count |
+| **Immediate reward pull** | `B_pref_among_disadv` | 在 A/B 中選 B 的比例 | DA↑ 若偏好低頻大罰但高即時獎賞，可能上升 | B 是 IGT 的典型 trap deck；需配合 `return_to_B_after_bigloss` 解讀 |
+| **Task-control diagnostics** | `invalid_rate` / `parse_fail_rate` / `premature_stop_rate` | 格式失敗、解析失敗、未完成 100 trials | 極端 α 可能上升 | 排除 under-wanting / over-steer collapse 被誤讀成風險偏好 |
+
+**win/lose 判定**：以單輪 `payoff = reward − penalty` 的正負判定。因 reward 恆正（A/B=+100、C/D=+50），`payoff=0` 幾乎不存在，故 **lose 輪 ≡ `penalty > reward`（主要是踩到罰，尤其 1250 巨罰）**；win/lose 只在 valid→valid 相鄰輪計（中間有 invalid 打斷則跳過該對）。
+
+**Interpretation rule**：
+- 若只有 `net_score / p_adv` 改變，保守解釋為 **reward-guided learning / exploitation 改變**，不能直接說 risk preference。
+- 若 `return_to_B_after_bigloss`、`win_stay_rate` 上升且 `lose_shift_rate` 下降，才更接近 **DA-like reward-over-punishment asymmetry**。
+- 若 `last50_entropy` 高、`switch_rate` 高、`p_A/p_B/p_C/p_D ≈ 0.25`，則是 v5 式 **mechanical cycling / no learning**，不進入 DA 解讀。
+
 
 ### Agentic / ScienceWorld（实验 ⑧）—— 被错杀的「倒 U 右侧」钉子，建议重启
 
