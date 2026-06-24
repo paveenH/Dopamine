@@ -86,6 +86,13 @@ ACTION_LINE_SYSTEM_PROMPT = (
     "The text after Action: must exactly match one action from the list."
 )
 
+ACTION_NUMBER_SYSTEM_PROMPT = (
+    "You will receive an observation and a numbered list of valid actions. "
+    "Choose one valid action.\n\n"
+    "When I ask for your action, reply with exactly one integer.\n"
+    "The integer must be the number of one valid action in the current list."
+)
+
 def build_prompt(
     obs: str,
     valid_actions: list[str],
@@ -96,7 +103,12 @@ def build_prompt(
     Build a text prompt from current observation + valid actions + short history.
     History: list of (action, outcome) pairs (last 3 steps).
     """
-    system_prompt = ACTION_LINE_SYSTEM_PROMPT if prompt_style == "action_line" else LEGACY_SYSTEM_PROMPT
+    if prompt_style == "action_line":
+        system_prompt = ACTION_LINE_SYSTEM_PROMPT
+    elif prompt_style == "action_number":
+        system_prompt = ACTION_NUMBER_SYSTEM_PROMPT
+    else:
+        system_prompt = LEGACY_SYSTEM_PROMPT
     lines = [system_prompt, ""]
     if history:
         lines.append("Recent steps:")
@@ -112,6 +124,8 @@ def build_prompt(
     lines.append("")
     if prompt_style == "action_line":
         lines.append("Your action. Reply as Action: <copy one action from the list>.")
+    elif prompt_style == "action_number":
+        lines.append("Your action number:")
     else:
         lines.append("Your action:")
     return "\n".join(lines)
@@ -128,39 +142,55 @@ def render_prompt(vc: VicundaModel, prompt: str, use_chat: bool) -> str:
     )
 
 
-def parse_action(response: str, valid_actions: list[str]) -> str:
+def parse_action(response: str, valid_actions: list[str]) -> tuple[str, str]:
     """
-    Match model output to the closest valid action.
-    Priority: exact match → substring match → first valid action (fallback).
+    Match model output to the closest valid action. Returns (action, parse_type).
+
+    Order: take the FIRST anchored decision line ("Action: ..." or "<n>") so a
+    repeated/looping generation ("Action: 7  Action: 7  …") resolves to its first
+    intent, then resolve it. A reply that is a BARE NUMBER (the model selecting by
+    list index, e.g. "Action: 7") must go through the number path BEFORE substring
+    matching — substring matching a single digit against the action texts mis-fires
+    (any action containing that digit, or the first action, gets returned), which
+    is what silently mapped "Action: 7" → "look around".
     """
     resp_raw = response.strip()
-    # Newer ScienceWorld prompts may ask for a terminal "Action: ..." line,
-    # analogous to IGT's "Chest: N" anchor. Parse the last such line before
-    # falling back to legacy exact/substring/number matching.
+    # Anchored "Action: <x>" line (the action_line prompt). Take the FIRST match
+    # so a looped "Action: 7 Action: 7 …" collapses to one decision.
     action_matches = re.findall(r"(?im)^\s*Action:\s*(.+?)\s*$", resp_raw)
+    if not action_matches:
+        # action_number / loose: also accept an inline "Action: 7" not on its own line.
+        action_matches = re.findall(r"(?i)Action:\s*([^\n]+?)(?:\s{2,}|$)", resp_raw)
     if action_matches:
-        resp_raw = action_matches[-1].strip()
+        resp_raw = action_matches[0].strip().rstrip(".")
 
     resp = resp_raw.lower()
+
+    # Number path FIRST when the reply is (essentially) just an index. This is the
+    # intended parse for --prompt_style action_number and for "Action: <n>".
+    if re.fullmatch(r"\d+", resp):
+        idx = int(resp) - 1
+        if 0 <= idx < len(valid_actions):
+            return valid_actions[idx], "number"
 
     # Exact match
     for a in valid_actions:
         if resp == a.lower():
-            return a
+            return a, "exact"
 
-    # Substring match
+    # Substring match (only meaningful for multi-char action text, never a digit)
     for a in valid_actions:
         if a.lower() in resp or resp in a.lower():
-            return a
+            return a, "substring"
 
-    # Fallback: look for action number
+    # Last-resort number anywhere in the text
     m = re.search(r"\b(\d+)\b", resp)
     if m:
         idx = int(m.group(1)) - 1
         if 0 <= idx < len(valid_actions):
-            return valid_actions[idx]
+            return valid_actions[idx], "number"
 
-    return valid_actions[0]
+    return valid_actions[0], "fallback"
 
 
 # ---------------------------------------------------------------------------
@@ -226,9 +256,9 @@ def run_episode(
                 })
             break
 
-        action = parse_action(response, valid_actions)
+        action, parse_type = parse_action(response, valid_actions)
         if step == 0:
-            print(f"    [dbg] response={repr(response[:80])}  →  action={repr(action)}")
+            print(f"    [dbg] response={repr(response[:80])}  →  action={repr(action)} ({parse_type})")
         obs_before = obs
         obs, reward, done, info = env.step(action)
         score = info.get("score", reward)
@@ -241,6 +271,7 @@ def run_episode(
                 "valid_actions": valid_actions,
                 "raw_response": response,
                 "parsed_action": action,
+                "parse_type": parse_type,
                 "next_observation": obs,
                 "reward": reward,
                 "score": score,
@@ -407,8 +438,9 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=32,
                         help="Max tokens for action generation")
     parser.add_argument("--prompt_style", type=str, default="legacy",
-                        choices=["legacy", "action_line"],
-                        help="legacy = old exact-action prompt. action_line = IGT/CGT-style Action: anchor.")
+                        choices=["legacy", "action_line", "action_number"],
+                        help=("legacy = old exact-action prompt. action_line = Action: text anchor. "
+                              "action_number = reply with valid action number, then map to action text."))
     parser.add_argument("--use_chat", action="store_true",
                         help="Render each ScienceWorld step through tokenizer.apply_chat_template.")
     parser.add_argument("--save_trace", action="store_true",
