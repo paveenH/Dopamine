@@ -453,6 +453,7 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 - 若 `return_to_B_after_bigloss`、`win_stay_rate` 上升且 `lose_shift_rate` 下降，才更接近 **DA-like reward-over-punishment asymmetry**。
 - 若 `last50_entropy` 高、`switch_rate` 高、`p_A/p_B/p_C/p_D ≈ 0.25`，則是 v5 式 **mechanical cycling / no learning**，不進入 DA 解讀。
 
+>**IGT = boundary condition, not a clean wanting assay.** Dopamine acts on two timescales: *tonic* DA sets incentive salience / "wanting" (Berridge) — the channel RSN α is hypothesized to modulate, with direct outlets in bet size, commitment timing, and delay tolerance — whereas *phasic* DA encodes the reward-prediction error (Schultz) that drives trial-by-trial feedback learning. IGT's core demand is the latter (phasic RPE + VMPFC value integration + memory over delayed punishments), so the weak, unstable α effects here are consistent with a **channel mismatch**: tonic wanting shifts immediate commitment and reward pursuit but does not implement the phasic teaching signal needed for long-horizon deck learning. This is a boundary on the dopamine hypothesis, not a failure of it — though it stays **provisional** until a phasic-style positive control shows the same IGT pipeline *can* be moved by an intervention targeting feedback learning.
 
 ### Agentic / ScienceWorld（实验 ⑧）—— 被错杀的「倒 U 右侧」钉子，建议重启
 
