@@ -427,7 +427,7 @@ if __name__ == "__main__":
     if args.base_dir:
         BASE = args.base_dir
     else:
-        BASE = f"/{args.data}/paveen/RolePlaying/components"
+        BASE = f"/{args.data}/paveen/Dopamine/components"
 
     MASK_DIR = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
     SAVE_ROOT = os.path.join(BASE, args.model, args.ans_file)
