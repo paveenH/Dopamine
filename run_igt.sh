@@ -37,22 +37,37 @@ TOP_P=0.9
 ANS_FILE="answer_igt"
 SAVE_RAW_FLAG="--save_all_raw"
 USE_CHAT_FLAG="--use_chat"
-PROMPT_VER="v4"          # v4 = v2's "Round N of 100" anchor + NO end/final/conclude
-                         # words + plain "Chest: N" + explicit "First reason … then
-                         # give" so reasoning survives. (v3's <Chest:N> tag fixed
-                         # invalid but collapsed reasoning → round-robin; see get_answer_igt.py)
+PROMPT_VER="v4"          # overridden per-mode below
 ANCHOR="default"
+# v4 = command "First reason … then give" (risks performative reasoning).
+# v6a/v6b = invitation: v6a "Think step by step"; v6b "Think from the previous
+# outcomes about which chest to open" (points at feedback history, no reward/cost
+# frame) — reasoning is INVITED not a required format product. v5 (no cue) collapsed.
 
 # ==================== Modes ====================
-if [ "$1" == "--verify" ]; then
-    CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
+if [ "$1" == "--verify" ]; then        # v4 (command-style) verify
+    PROMPT_VER="v4"; CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
     ANS_FILE="answer_igt_v4_verify"
     echo "[VERIFY] ${PROMPT_VER}, α=0/±4, 5 runs"
-elif [ "$1" == "--full" ]; then
-    ANS_FILE="answer_igt_v4"
+elif [ "$1" == "--verify6a" ]; then     # v6a "Think step by step"
+    PROMPT_VER="v6a"; CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
+    ANS_FILE="answer_igt_v6a_verify"
+    echo "[VERIFY] ${PROMPT_VER} (Think step by step), α=0/±4, 5 runs"
+elif [ "$1" == "--verify6b" ]; then     # v6b "Think from the previous outcomes …"
+    PROMPT_VER="v6b"; CONFIGS="0-11-20 neg4-11-20 4-11-20"; NUM_RUNS=5
+    ANS_FILE="answer_igt_v6b_verify"
+    echo "[VERIFY] ${PROMPT_VER} (from previous outcomes), α=0/±4, 5 runs"
+elif [ "$1" == "--full" ]; then         # v4 full
+    PROMPT_VER="v4"; ANS_FILE="answer_igt_v4"
+    echo "[FULL] ${PROMPT_VER}, full −8→+8 sweep, ${NUM_RUNS} runs"
+elif [ "$1" == "--full6a" ]; then
+    PROMPT_VER="v6a"; ANS_FILE="answer_igt_v6a"
+    echo "[FULL] ${PROMPT_VER}, full −8→+8 sweep, ${NUM_RUNS} runs"
+elif [ "$1" == "--full6b" ]; then
+    PROMPT_VER="v6b"; ANS_FILE="answer_igt_v6b"
     echo "[FULL] ${PROMPT_VER}, full −8→+8 sweep, ${NUM_RUNS} runs"
 else
-    echo "Usage: bash run_igt.sh {--verify|--full}"
+    echo "Usage: bash run_igt.sh {--verify|--verify6a|--verify6b|--full|--full6a|--full6b}"
     exit 1
 fi
 
