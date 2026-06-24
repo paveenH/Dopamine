@@ -98,6 +98,7 @@ def build_prompt(
     valid_actions: list[str],
     history: list[tuple[str, str]],
     prompt_style: str = "legacy",
+    obs_char_limit: int = 0,
 ) -> str:
     """
     Build a text prompt from current observation + valid actions + short history.
@@ -116,7 +117,10 @@ def build_prompt(
             lines.append(f"  > {act}")
             lines.append(f"    {outcome[:120]}")
         lines.append("")
-    lines.append(f"Observation:\n{obs.strip()}")
+    obs_text = obs.strip()
+    if obs_char_limit and len(obs_text) > obs_char_limit:
+        obs_text = obs_text[:obs_char_limit] + " …[truncated]"
+    lines.append(f"Observation:\n{obs_text}")
     lines.append("")
     lines.append("Valid actions:")
     for i, a in enumerate(valid_actions):
@@ -355,7 +359,13 @@ def run_episode(
                 add_generation_prompt=True,
             )
         else:
-            prompt = build_prompt(obs, valid_actions, history, prompt_style=prompt_style)
+            prompt = build_prompt(
+                obs,
+                valid_actions,
+                history,
+                prompt_style=prompt_style,
+                obs_char_limit=obs_char_limit,
+            )
             rendered_prompt = render_prompt(vc, prompt, use_chat=use_chat)
         prompt_tokens = (
             len(vc.tokenizer(rendered_prompt, add_special_tokens=False).input_ids)
@@ -383,6 +393,7 @@ def run_episode(
                     "raw_response": response,
                     "parsed_action": None,
                     "abandoned": True,
+                    "prompt_tokens": prompt_tokens,
                     "score": final_score,
                 })
             break
