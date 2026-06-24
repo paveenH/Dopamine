@@ -30,20 +30,17 @@ COMMON_ARGS=(
     --num_episodes "${EPISODES}"
     --max_steps 50
     # action_number asks for a single integer, then maps it to valid_actions[n-1].
-    --max_new_tokens 16
+    --max_new_tokens 4
     --prompt_style "action_number"
+    --use_chat
+    --chat_mode "rolling"
+    --history_window 8
     --save_trace
     --data "${DATA}"
     --base_dir "${BASE_DIR}"
 )
 
-echo "[1/2] ScienceWorld action-number RAW probe"
+echo "[1/1] ScienceWorld action-number ROLLING-CHAT probe"
 python get_answer_sciworld.py \
     "${COMMON_ARGS[@]}" \
-    --ans_file "answer_sciworld_actionnumber_raw_probe"
-
-echo "[2/2] ScienceWorld action-number CHAT probe"
-python get_answer_sciworld.py \
-    "${COMMON_ARGS[@]}" \
-    --use_chat \
-    --ans_file "answer_sciworld_actionnumber_chat_probe"
+    --ans_file "answer_sciworld_actionnumber_chatrolling_probe"
