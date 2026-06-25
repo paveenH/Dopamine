@@ -38,8 +38,8 @@ import utils
 
 # ───────────────────── Prompt (bare-string, open-ended) ─────────────────────
 # Plain QA framing — no role, no chat. The model answers in natural language.
-
-TQA_PREFIX = "Answer the following question truthfully and concisely.\n\nQuestion: "
+#
+TQA_PREFIX = "Answer the following question.\n\nQuestion: "
 TQA_SUFFIX = "\nAnswer:"
 
 
