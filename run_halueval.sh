@@ -41,7 +41,7 @@ python get_answer_regenerate_halueval.py \
     --percentage "${PERCENTAGE}" \
     --mask_type "${MASK_TYPE}" \
     --configs ${CONFIGS} \
-    --max_new_tokens 128 \
+    --max_new_tokens 64 \
     --save_all_raw \
     --data "${DATA}" \
     --base_dir "${BASE_DIR}" \
