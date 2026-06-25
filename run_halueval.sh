@@ -21,10 +21,8 @@ PERCENTAGE=0.5
 
 N_SAMPLES=300
 # Full −8→+8 sweep on the SAME 600-item file (do NOT re-sample — keep the cells comparable).
-# 0 / +4 / −4 already ran (greedy = deterministic, identical) → only the 6 new cells here.
-# Full set kept for reference:
-#   "neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 0-11-20 2-11-20 4-11-20 6-11-20 8-11-20"
-CONFIGS="neg8-11-20 neg6-11-20 neg2-11-20 2-11-20 6-11-20 8-11-20"
+# All 9 cells re-run at max_new_tokens=128 so raw generated text is comparable across α.
+CONFIGS="neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 0-11-20 2-11-20 4-11-20 6-11-20 8-11-20"
 
 # Build dataset if missing
 if [ ! -f "${BASE_DIR}/benchmark/halueval_qa_disc.json" ]; then
