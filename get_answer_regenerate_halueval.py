@@ -189,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("--configs", nargs="*", default=["0-11-20", "4-11-20", "neg4-11-20"])
     parser.add_argument("--mask_type", type=str, default="nmd")
     parser.add_argument("--ans_file", type=str, default="answer_halueval")
-    parser.add_argument("--max_new_tokens", type=int, default=128)
+    parser.add_argument("--max_new_tokens", type=int, default=64)
     parser.add_argument("--save_all_raw", action="store_true")
     parser.add_argument("--data", type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir", type=str, default=None)
