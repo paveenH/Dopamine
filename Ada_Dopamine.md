@@ -450,7 +450,7 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 >**IGT = boundary condition, not a clean wanting assay.** Dopamine acts on two timescales: *tonic* DA sets incentive salience / "wanting" (Berridge) — the channel RSN α is hypothesized to modulate, with direct outlets in bet size, commitment timing, and delay tolerance — whereas *phasic* DA encodes the reward-prediction error (Schultz) that drives trial-by-trial feedback learning. IGT's core demand is the latter (phasic RPE + VMPFC value integration + memory over delayed punishments), so the weak, unstable α effects here are consistent with a **channel mismatch**: tonic wanting shifts immediate commitment and reward pursuit but does not implement the phasic teaching signal needed for long-horizon deck learning. This is a boundary on the dopamine hypothesis, not a failure of it — though it stays **provisional** until a phasic-style positive control shows the same IGT pipeline *can* be moved by an intervention targeting feedback learning.
 
-### IGT 全量結果（Llama3-8B, v6b, −8→+8 × 20 runs/cell, 100 trials/run）
+#### IGT Full Results（Llama3-8B, v6b, −8→+8 × 20 runs/cell, 100 trials/run）
 
 每格為 20 runs 的 mean；KW = Kruskal–Wallis 跨 9 個 α 的 p；ρ = Spearman 對 α 的相關。
 
@@ -493,7 +493,7 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 > In IGT's invitation-style v6b setting, α shows a mixed inverted-U-like profile with an optimum around **+2**: mild positive α aids the trial-and-error exploration the task needs, while stronger +α overshoots into unstable switching and history-neglect. A forced-reasoning control (v4) localises this overshoot to an **engagement** drop rather than a clean change in value computation — externally supplying a deliberation span restores the value/risk readouts to n.s., while `delib_tok` remains shortened under +α. So α moves *how much the model is willing to deliberate*, and IGT's +2 peak is the working point where that willingness best matches the task's exploration demand.
 
-### 跨任務總結：同一條 α-wanting 軸，不同任務有不同最優工作點
+### 3.4 Cross-Task Summary — One α-Wanting Axis, Task-Specific Working Points
 
 把 Bandit、IGT、GSM8K 並排，最能說明 RSN α 調的是 **working point**，而非單調的「能力」：三個任務在各自主要設定下的最優 α 系統性漂移（Bandit ≈ +6、IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。
 
@@ -505,6 +505,46 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 > Different tasks expose different behavioral outlets of the same α-controlled wanting axis. In each task's primary setting, the optimal α shifts systematically with the task's wanting demand: **Bandit** rewards positive α because reward pursuit is the dominant demand; **GSM8K** rewards negative α because reasoning stability and delayed commitment dominate; **IGT** sits between them, requiring both exploration and controlled feedback integration, so a mild positive **α ≈ +2** is the optimum and stronger positive α overshoots into unstable switching. The systematic shift of the optimal α across tasks (+6 / +2 / −6) — rather than any single monotone "more α is better" — is itself the evidence that α tunes a **motivational working point, not a capability**: every task is an inverted-U whose peak migrates with the task's wanting demand, and both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching). A forced-reasoning control on IGT (v4) further localises its +α overshoot to an *engagement* drop (the model declining to deliberate) rather than a change in value computation.
 
+### 3.5 Boundary Experiment — HaluEval
+
+**定位**：HaluEval 這裡不是測「模型自己是否產生 hallucination」，而是測 **verification / challenge engagement**：給定 knowledge、question、answer，模型是否願意指出 answer 含有 hallucinated / unsupported information。這更接近「離開默認接受（No）的行動閾值」，而非 factual generation 本身。
+
+**Prompt**：
+
+```
+You are judging whether an answer to a question contains hallucinated (factually incorrect or unsupported) information.
+
+{knowledge/question/answer}
+Does the answer contain hallucinated information? Answer with a single word, Yes or No.
+Answer:
+```
+
+**結果（Llama3-8B, HaluEval-QA, 300 source rows × right/hallucinated = 600 judgments, layers 11–20）**：
+
+| α | acc | Yes rate | hallucination recall (`Yes given hall`) | FNR (`No given hall`) | FPR (`Yes given right`) | invalid |
+|---:|---:|---:|---:|---:|---:|---:|
+| −8 | 51.3 | 1.3 | 2.7 | 97.3 | 0.0 | 0.0 |
+| −6 | 55.5 | 5.5 | 11.0 | 89.0 | 0.0 | 0.0 |
+| −4 | 59.3 | 9.3 | 18.7 | 81.3 | 0.0 | 0.2 |
+| −2 | 61.6 | 11.7 | 23.3 | 76.7 | 0.0 | 0.2 |
+| 0 | 61.9 | 12.7 | 24.7 | 75.3 | 0.7 | 0.2 |
+| **+2** | **63.1** | 13.8 | **27.0** | **73.0** | 0.7 | 0.2 |
+| +4 | 62.8 | 14.2 | **27.0** | **73.0** | 1.3 | 0.0 |
+| +6 | 57.7 | 10.2 | 18.2 | 81.8 | 2.4 | 1.8 |
+| +8 | 60.2 | **14.8** | **27.1** | **72.9** | **5.7** | **10.3** |
+
+**文本診斷**：
+
+- **−α = default acceptance / low challenge**：極端負向幾乎全部回答 No（−8: Yes rate 1.3%），即使 answer 明顯錯，也常寫成「No. The answer is correct」或把數字錯誤說成 minor error。例如正確年份 1946、answer 寫 1945 時，−8/0 仍說「one year off is not hallucinated」。
+- **+2/+4 = 最佳 verification engagement**：模型更願意指出錯誤（hallucination recall 27.0%），但 right answer 的誤傷仍低（FPR 0.7/1.3），format control 也穩定。這是 HaluEval 的有效工作點。
+- **+8 = over-challenge + format instability**：recall 仍高，但 FPR 升到 5.7%、invalid 升到 10.3%。文本常先輸出實體或長解釋再給 Yes，甚至對 right answer 也生成「contains hallucinated information」；這不是更強判別力，而是過度 verification / task-control collapse。
+
+**結論**：
+
+> HaluEval shows that positive α lowers the threshold for challenging an answer: the model becomes less willing to accept by default and more willing to say "Yes, this contains hallucinated information." Moderate positive α (+2/+4) improves hallucination recall with little false-positive cost, while excessive α (+8) turns into over-challenge and format instability. This is a verification-engagement effect, not evidence that +α makes the model itself hallucinate less or more.
+
+因此 HaluEval 應放在 **boundary / side-effect evidence**：它補充說明 α 調的是 action/commitment threshold。支持 **wanting↑ = engagement/commitment↑，但不等於 factual calibration↑**。
+
 
 ## 備選與待補充 Benchmark
 
@@ -512,8 +552,6 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 | Benchmark | 核心特性 | 對應 wanting 維度 | 優先度 |
 | --- | --- | --- | --- |
-| **HaluEval** | 專門測幻覺，直接捕捉 over-wanting → hallucination 後果 | +α over-wanting 的最直接結果指標 | ✅ 高 |
-| **TruthfulQA-Generation**（open-ended） | 現有實驗只用 MC1/MC2，generation 版更直接看 over-generation artifact | over-wanting → hallucination，補充 MC 版 | ✅ 高 |
 | **StrategyQA** | 多步 yes/no 推理，answer 格式乾淨 | effort engagement（多步推理意願） | ✅ 可嘗試 |
 | **WinoGrande** | 常識判斷 + 高不確定性，容易出現 hedging；對 commitment 抑制效果敏感 | willingness to commit | 🔶 中 |
 | **HotpotQA**（2-hop subset） | 多跳推理，需要持續 effort 維持推理鏈 | effort persistence（Progressive Ratio 的語言版） | 🔶 中 |
