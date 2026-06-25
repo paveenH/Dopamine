@@ -3,7 +3,7 @@
 # Standalone pipeline — does not touch any existing task's loader/runner.
 #
 # Step 0 (once): build the dataset JSON from HF social_i_qa validation (1954 items).
-#   python data_socialiqa.py --out "${BASE_DIR}/socialiqa/socialiqa.json"
+#   python data_socialiqa.py --out "${BASE_DIR}/benchmark/socialiqa.json"
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
@@ -21,9 +21,9 @@ PERCENTAGE=0.5
 CONFIGS="0-11-20 4-11-20 neg4-11-20"
 
 # Build dataset if missing
-if [ ! -f "${BASE_DIR}/socialiqa/socialiqa.json" ]; then
+if [ ! -f "${BASE_DIR}/benchmark/socialiqa.json" ]; then
     echo "[setup] building SocialIQA JSON (validation, 1954 items)"
-    python data_socialiqa.py --out "${BASE_DIR}/socialiqa/socialiqa.json"
+    python data_socialiqa.py --out "${BASE_DIR}/benchmark/socialiqa.json"
 fi
 
 echo "[run] SocialIQA generation, α = ${CONFIGS}"

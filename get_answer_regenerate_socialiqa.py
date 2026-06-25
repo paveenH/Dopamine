@@ -125,7 +125,7 @@ def main():
     ALPHAS = utils.parse_configs(args.configs)
     print("Configs:", ALPHAS)
 
-    data_path = os.path.join(SIQA_DIR, "socialiqa.json")
+    data_path = SIQA_PATH
     blob = utils.load_json(data_path)
     base_data = blob["data"] if isinstance(blob, dict) and "data" in blob else blob
     print(f"[INFO] loaded {len(base_data)} SocialIQA items from {data_path}")
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         BASE = f"/{args.data}/paveen/Dopamine/components"
 
     MASK_DIR = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
-    SIQA_DIR = os.path.join(BASE, "socialiqa")
+    SIQA_PATH = os.path.join(BASE, "benchmark", "socialiqa.json")
     SAVE_ROOT = os.path.join(BASE, args.model, args.ans_file)
     os.makedirs(SAVE_ROOT, exist_ok=True)
     main()

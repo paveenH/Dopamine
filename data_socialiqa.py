@@ -75,7 +75,7 @@ def main():
     ap.add_argument("--split", type=str, default="validation",
                     help="HF split with gold labels (validation = 1954 items).")
     ap.add_argument("--out", type=str,
-                    default="/data1/paveen/Dopamine/components/socialiqa/socialiqa.json")
+                    default="/data1/paveen/Dopamine/components/benchmark/socialiqa.json")
     ap.add_argument("--cache_dir", type=str, default=None)
     ap.add_argument("--limit", type=int, default=0, help="0 = all")
     args = ap.parse_args()
