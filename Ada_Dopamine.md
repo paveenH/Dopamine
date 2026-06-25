@@ -450,23 +450,49 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 >**IGT = boundary condition, not a clean wanting assay.** Dopamine acts on two timescales: *tonic* DA sets incentive salience / "wanting" (Berridge) — the channel RSN α is hypothesized to modulate, with direct outlets in bet size, commitment timing, and delay tolerance — whereas *phasic* DA encodes the reward-prediction error (Schultz) that drives trial-by-trial feedback learning. IGT's core demand is the latter (phasic RPE + VMPFC value integration + memory over delayed punishments), so the weak, unstable α effects here are consistent with a **channel mismatch**: tonic wanting shifts immediate commitment and reward pursuit but does not implement the phasic teaching signal needed for long-horizon deck learning. This is a boundary on the dopamine hypothesis, not a failure of it — though it stays **provisional** until a phasic-style positive control shows the same IGT pipeline *can* be moved by an intervention targeting feedback learning.
 
-### Agentic / ScienceWorld（实验 ⑧）—— 被错杀的「倒 U 右侧」钉子，建议重启
+### IGT 全量結果（Llama3-8B, v6b, −8→+8 × 20 runs/cell, 100 trials/run）
 
-**为什么值得记录**：betting / bandit 都是**单步**任务，只能展示倒 U 的左半 + 顶点（+α 有益、wanting–knowing 分离）。**唯一能展示倒 U 右半（mania-zone 过载崩溃）的是长序列 agentic rollout**——而这个数据已经跑出来了，结论干净，却因为「−α 没按预测上升 abandonment」被整体 Skip。
+每格為 20 runs 的 mean；KW = Kruskal–Wallis 跨 9 個 α 的 p；ρ = Spearman 對 α 的相關。
 
-**已有结果（Llama3-8B-IT，layers 11–20，TOP=20，30 tasks × 5 episodes = 150 ep/cond，`Ada_Dopamine1.md` §4.9）**：
+| metric | α=−8 | α=−6 | α=−4 | α=−2 | α=0 | α=+2 | α=+4 | α=+6 | α=+8 | KW p | ρ |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `learn_slope` | 0.42 | <u>0.49</u> | 0.28 | 0.36 | 0.24 | **0.52** | 0.03 | 0.09 | 0.00 | 0.003 | −0.26 |
+| `last50_net` | 0.25 | **0.30** | 0.20 | 0.23 | 0.23 | <u>0.29</u> | 0.04 | −0.00 | −0.02 | 0.024 | −0.26 |
+| `net_score` | 0.18 | <u>0.19</u> | 0.14 | <u>0.19</u> | 0.15 | **0.22** | 0.02 | −0.01 | −0.03 | 0.002 | −0.30 |
+| `final_score` (median) | **1950** | 1738 | **1950** | 1750 | 1712 | <u>1812</u> | 1488 | 1500 | 1475 | 0.014 | −0.28 |
+| `final_score` (CV) | <u>0.45</u> | **0.48** | 0.29 | 0.39 | 0.33 | 0.33 | 0.36 | 0.33 | 0.25 | — | — |
+| `switch_rate` | 0.34 | 0.30 | 0.32 | 0.42 | 0.58 | 0.36 | 0.78 | <u>0.79</u> | **0.94** | <0.001 | +0.55 |
+| `max_run_len` | 12.8 | **16.8** | <u>14.0</u> | 9.8 | 11.1 | 11.9 | 5.1 | 4.5 | 2.0 | <0.001 | −0.55 |
+| `win_stay_rate` | 0.79 | **0.84** | <u>0.82</u> | 0.71 | 0.50 | 0.76 | 0.27 | 0.26 | 0.07 | <0.001 | −0.57 |
+| `ws_ls_asymmetry` | −0.19 | **−0.09** | <u>−0.12</u> | −0.29 | −0.43 | −0.21 | −0.73 | −0.71 | −0.89 | <0.001 | −0.56 |
+| `return_to_B_5_rate` | 0.19 | 0.07 | 0.02 | 0.21 | 0.50 | 0.20 | 0.71 | <u>0.74</u> | **0.93** | <0.001 | +0.59 |
+| `return_to_B_3_rate` | 0.04 | 0.00 | 0.00 | 0.02 | 0.01 | 0.02 | <u>0.11</u> | **0.13** | <u>0.11</u> | 0.020 | +0.22 |
+| `big_penalty_exposure` | <u>3.25</u> | 2.85 | **3.35** | 3.00 | 3.10 | 3.15 | <u>3.25</u> | 3.15 | 2.85 | 0.830 | −0.09 |
+| `b_pref_among_disadv` | <u>0.70</u> | 0.59 | **0.71** | 0.65 | 0.64 | 0.66 | 0.58 | 0.56 | 0.48 | <0.001 | −0.38 |
+| `delib_tok` | 44.0 | **57.6** | <u>51.2</u> | 42.6 | 29.8 | 44.1 | 18.9 | 19.8 | 0.9 | <0.001 | −0.49 |
+| `learning_text_rate` | <u>0.69</u> | **0.76** | 0.66 | 0.59 | 0.41 | 0.65 | 0.27 | 0.19 | 0.00 | <0.001 | −0.55 |
+| `bare_chest_only_rate` | 0.00 | 0.00 | 0.00 | 0.15 | 0.45 | 0.15 | <u>0.55</u> | <u>0.55</u> | **0.85** | <0.001 | +0.59 |
 
-| 条件 | mean_score | std | success%（score>0） | penalty%（score=−100） | 30 任务里得分最高 |
+**Interpretation (v6b)**：
+
+IGT v6b 不支持「+α 單調提高風險偏好 / reward learning」的簡單說法；更準確的結果是 **α 調節 exploration–exploitation 與 history integration**。`α=+2` 是正向 steering 中唯一仍保留 learning curve 的點：`net_score` 最高、`learn_slope` 最高，且 `last50_net` 接近峰值，說明 IGT 這種需要試錯的任務可能受益於**適度 activation / 適度探索**。但再往上（`+4/+6/+8`）就越過最優點：`switch_rate` 單調上升、`max_run_len` 與 `win_stay_rate` 下降、`learning_text_rate` 下降、`bare_chest_only_rate` 上升，表現為**無意義換牌 / action instability / history-integration collapse**，而不是有效探索。
+
+負 α 端則不是「躺平」：`switch_rate` 較低、`max_run_len` 較長、`win_stay_rate` 較高，說明模型更能 stick / exploit，文本也更常顯式引用 history。這可以解讀為較冷靜、較穩定的 feedback integration；代價是探索性較低，可能更早鎖定策略。
+
+因此，IGT 最適合作為 **tonic/phasic boundary condition**：輕度 +α 可提供試錯任務所需的 activation，但強 +α 主要破壞長程 feedback learning；這和 Betting / CGT 中更直接的 wanting readout 不同。主結論應寫成：**mild positive α helps exploration-dependent learning, while strong positive α collapses into unstable switching and loss of history grounding.**
+
+### 跨任務總結：同一條 α-wanting 軸，不同任務有不同最優工作點
+
+把 Bandit、IGT、GSM8K 並排，最能說明 RSN α 調的是 **wanting 的工作點（working point）**，而非單調的「能力」：三個任務的最優 α 系統性漂移（Bandit ≈ +6、IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。
+
+| 任務 | 主導需求 | 最優 α | +α 行為 | −α 行為 | 失敗模式 |
 |---|---|---|---|---|---|
-| α=−4 | **6.21** | 9.60 | **56.0%** | 0.0% | 20/30 |
-| α=0 | 5.87 | 9.10 | 55.3% | 0.0% | 10/30 |
-| α=+4 | **−6.38** | 31.00 | **24.0%** | **9.3%** | **0/30** |
+| **Bandit** | reward pursuit / exploit-explore（透明獎勵、短反饋、小動作空間） | **≈ +6** | 更願追高回報臂、更快 exploit 已發現的好臂 | 退縮、放棄追獎 | +8 過載崩潰（散）/ −α 動機不足 |
+| **IGT** | exploration + history integration / punishment sensitivity（兩種相反需求並存） | **≈ +2** | 輕度有助試錯探索；過強 → 無意義換牌、忘歷史、回 B trap | 較能 stick/exploit、顯式引用歷史，但探索性低、更早鎖策略 | 兩端皆崩：+端「散」/ −端高方差「垮」 |
+| **GSM8K** | arithmetic stability / commitment timing（瓶頸非探索，而是別搶答、別過度復查） | **≈ −6** | 搶答、early-####、答完放不下的 loop | 更冷靜、延遲 commit、更穩定 | +α over-wanting → 抢答 / −過度則動機不足 |
 
-**重新框定（关键）**：原 Skip 理由是「−α → abandonment↑、success↓」未观察到。但这恰恰是**对的方向**——betting/bandit/GSM8K 已证 neutral Llama 处于 over-wanting 区（GSM8K No-CoT 峰在 α=−4），所以 −4 让 agentic 更谨慎、略好（6.21 > 5.87）完全自洽，本就不该期待 abandonment↑。这个实验真正测到的不是「−α→放弃」，而是「**+α 在 50 步序列上把 over-wanting 推过阈值 → 冲动执行 → −100 惩罚暴增、得分崩溃（+5.87→−6.38，std 9→31，0/30 任务最佳）**」，即 Yerkes-Dodson 右侧下降的**最强、最剧烈**证据（比 MCQ 难题退化剧烈得多，因长序列累积冲动误判）。
+> Different tasks expose different behavioral outlets of the same α-controlled wanting axis. Bandit rewards positive α because reward pursuit is the dominant demand; GSM8K rewards negative α because reasoning stability and delayed commitment dominate; IGT sits between them, requiring both exploration and controlled feedback integration, so mild positive α can help but stronger positive α collapses into unstable switching. The systematic shift of the optimal α across tasks (+6 / +2 / −6) — rather than any single monotone "more α is better" — is itself the evidence that α tunes a **motivational working point, not a capability**: every task is an inverted-U whose peak migrates with the task's wanting demand, and both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching).
 
-**唯一待补**：penalty 来源归因。§4.9 已定位 penalty 集中在 4 类需精确识别/测量的任务（identify-life-stages / measure-melting-point / lifespan / test-conductivity），但「冲动误判 vs 任务结构本身罚分」两种解释当前无法区分。**补法**：只跑这 4 个 penalty 高发任务 × 5 ep × 3 α（0/+4/−4）+ per-step score-trace dump，即可分离 penalty 是否由 +α 的冲动 action 触发。规模 ≈ 4×5×~50×3 ≈ 3000 串行 forward（≈ 一遍 bandit 量级），远小于全量 30 任务的 ~22.5k。
-
-**成本提示**：agentic 是这批实验里单位算力最贵的——多步 rollout，每步 bs=1 依赖上一步环境反馈，不可 batch；`max_steps=50`、`max_new_tokens=32`。全量 30×5×50×3 ≈ 22.5k 串行 forward + 每步 ScienceWorld env step 开销。针对性复现那颗钉子只需 ~1/7 的量。脚本：`get_answer_sciworld.py` / `run_sciworld.sh`（现脚本已被砍成 `--task_nums 28 29` + 单 α 的分片小批形态）。
 
 ## 備選與待補充 Benchmark
 
