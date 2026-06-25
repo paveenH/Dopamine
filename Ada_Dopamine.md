@@ -473,25 +473,37 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 | `learning_text_rate` | <u>0.69</u> | **0.76** | 0.66 | 0.59 | 0.41 | 0.65 | 0.27 | 0.19 | 0.00 | <0.001 | −0.55 |
 | `bare_chest_only_rate` | 0.00 | 0.00 | 0.00 | 0.15 | 0.45 | 0.15 | <u>0.55</u> | <u>0.55</u> | **0.85** | <0.001 | +0.59 |
 
-**Interpretation (v6b)**：
+**Interpretation (v6b = 自然狀態主線；v4 = 外力對照)**：
 
-IGT v6b 不支持「+α 單調提高風險偏好 / reward learning」的簡單說法；更準確的結果是 **α 調節 exploration–exploitation 與 history integration**。`α=+2` 是正向 steering 中唯一仍保留 learning curve 的點：`net_score` 最高、`learn_slope` 最高，且 `last50_net` 接近峰值，說明 IGT 這種需要試錯的任務可能受益於**適度 activation / 適度探索**。但再往上（`+4/+6/+8`）就越過最優點：`switch_rate` 單調上升、`max_run_len` 與 `win_stay_rate` 下降、`learning_text_rate` 下降、`bare_chest_only_rate` 上升，表現為**無意義換牌 / action instability / history-integration collapse**，而不是有效探索。
+方法學立場：**v6b（邀請式，"think about which chest…"）是無外力干預的自然狀態，是 IGT 的主結果；v4（命令式，"First reason … then give"）是外力強制推理的對照——它人為補上了高 α 自己不願花的 deliberation，因此用來「解釋 v6b 為何長這樣」，而不是用來否定 v6b 的行為結果。**
 
-負 α 端則不是「躺平」：`switch_rate` 較低、`max_run_len` 較長、`win_stay_rate` 較高，說明模型更能 stick / exploit，文本也更常顯式引用 history。這可以解讀為較冷靜、較穩定的 feedback integration；代價是探索性較低，可能更早鎖定策略。
+**v6b 主結果：`α=+2` 是正向 steering 的最優工作點（峰）。** `net_score`、`learn_slope` 在 +2 最高、`last50_net` 接近峰值——在自然狀態下，IGT 這種需要試錯的任務受益於**適度 activation / 適度探索**。越過 +2（`+4/+6/+8`）即過載：`switch_rate`↑、`max_run_len`↓、`win_stay_rate`↓、`learning_text_rate`↓、`bare_chest_only_rate`↑，從有效探索退化為**無意義換牌 + 不回顧 history**。負 α 端不是躺平而是**冷靜固守**：`switch_rate` 低、`max_run_len` 長、`win_stay` 高、文本更常引用 history，代價是探索性低、更早鎖策略。**這就是 +2 倒 U：自然狀態下 IGT 有明確的 wanting 工作點。**
 
-因此，IGT 最適合作為 **tonic/phasic boundary condition**：輕度 +α 可提供試錯任務所需的 activation，但強 +α 主要破壞長程 feedback learning；這和 Betting / CGT 中更直接的 wanting readout 不同。主結論應寫成：**mild positive α helps exploration-dependent learning, while strong positive α collapses into unstable switching and loss of history grounding.**
+把 α 的效應拆成三層，可以看清「+2 峰」由什麼構成，以及 v4 對照說明了什麼：
+
+| 層 | +α | −α | v4（外力強制推理）對照說明 |
+|---|---|---|---|
+| **exploration drive** | ↑ 想試新牌（`switch_rate`↑、`max_run_len`↓） | ↓ 固守同一牌（`max_run_len`↑） | 真 wanting 信號：若只是「懶得想」，最省力是固守同一張，而非主動換牌——頻繁換有成本，說明有 exploration drive 在推 |
+| **engagement / consideration** | ↓ 不願深思、不回顧 history（`delib_tok`↓、`learning_text_rate`↓） | ↑ 願花認知、顯式引用 history | 即使外力強制寫推理，+α 仍把推理寫得更短（`delib_tok` v4 ρ=−0.34, p<0.001）→ engagement↓ 是 α 的內在傾向，不是 prompt artifact |
+| **value computation** | - | - | v4 全 null |
+
+**關鍵洞察**：v6b（自然）把 **exploration↑ 和 engagement↓ 疊在一起**，這正是自然狀態下 +α 過載的真實樣貌（`switch`↑、`win_stay`↓、`learning_text`→0 共線）；v4 用外力**摁住 engagement↓ 這一層**，剩下的純 exploration 不再顯著（`switch` v4 p=0.14、`net` p=0.56）。即：
+
+> +α 的可見行為 = exploration drive × engagement。
+
+> In IGT's natural (unforced, v6b) setting, α shows a clean inverted-U with an optimum at **+2**: mild positive α aids the trial-and-error exploration the task needs, while stronger +α overshoots into unstable switching and history-neglect. A forced-reasoning control (v4) localises this overshoot to an **engagement** drop rather than a change in value computation — externally supplying the deliberation that high-α declines to spend restores the value/risk readouts to n.s., while `delib_tok` stays shortened under +α. So α moves *how much the model is willing to deliberate*, and IGT's +2 peak is the working point where that willingness best matches the task's exploration demand.
 
 ### 跨任務總結：同一條 α-wanting 軸，不同任務有不同最優工作點
 
-把 Bandit、IGT、GSM8K 並排，最能說明 RSN α 調的是 **wanting 的工作點（working point）**，而非單調的「能力」：三個任務的最優 α 系統性漂移（Bandit ≈ +6、IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。
+把 Bandit、IGT、GSM8K 並排，最能說明 RSN α 調的是 **working point**，而非單調的「能力」：三個任務（自然狀態下）的最優 α 系統性漂移（Bandit ≈ +6、IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。
 
 | 任務 | 主導需求 | 最優 α | +α 行為 | −α 行為 | 失敗模式 |
 |---|---|---|---|---|---|
 | **Bandit** | reward pursuit / exploit-explore（透明獎勵、短反饋、小動作空間） | **≈ +6** | 更願追高回報臂、更快 exploit 已發現的好臂 | 退縮、放棄追獎 | +8 過載崩潰（散）/ −α 動機不足 |
-| **IGT** | exploration + history integration / punishment sensitivity（兩種相反需求並存） | **≈ +2** | 輕度有助試錯探索；過強 → 無意義換牌、忘歷史、回 B trap | 較能 stick/exploit、顯式引用歷史，但探索性低、更早鎖策略 | 兩端皆崩：+端「散」/ −端高方差「垮」 |
+| **IGT** | exploration + history integration（兩種相反需求並存） | **≈ +2** | 輕度有助試錯探索；過強 → 無意義換牌、忘歷史、回 B trap | 較能 stick/exploit、顯式引用歷史，但探索性低、更早鎖策略 | 兩端皆崩：+端「散」/ −端高方差「垮」 |
 | **GSM8K** | arithmetic stability / commitment timing（瓶頸非探索，而是別搶答、別過度復查） | **≈ −6** | 搶答、early-####、答完放不下的 loop | 更冷靜、延遲 commit、更穩定 | +α over-wanting → 抢答 / −過度則動機不足 |
 
-> Different tasks expose different behavioral outlets of the same α-controlled wanting axis. Bandit rewards positive α because reward pursuit is the dominant demand; GSM8K rewards negative α because reasoning stability and delayed commitment dominate; IGT sits between them, requiring both exploration and controlled feedback integration, so mild positive α can help but stronger positive α collapses into unstable switching. The systematic shift of the optimal α across tasks (+6 / +2 / −6) — rather than any single monotone "more α is better" — is itself the evidence that α tunes a **motivational working point, not a capability**: every task is an inverted-U whose peak migrates with the task's wanting demand, and both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching).
+> Different tasks expose different behavioral outlets of the same α-controlled wanting axis. In each task's natural setting, the optimal α shifts systematically with the task's wanting demand: **Bandit** rewards positive α because reward pursuit is the dominant demand; **GSM8K** rewards negative α because reasoning stability and delayed commitment dominate; **IGT** sits between them, requiring both exploration and controlled feedback integration, so a mild positive **α ≈ +2** is the optimum and stronger positive α overshoots into unstable switching. The systematic shift of the optimal α across tasks (+6 / +2 / −6) — rather than any single monotone "more α is better" — is itself the evidence that α tunes a **motivational working point, not a capability**: every task is an inverted-U whose peak migrates with the task's wanting demand, and both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching). A forced-reasoning control on IGT (v4) further localises its +α overshoot to an *engagement* drop (the model declining to deliberate) rather than a change in value computation.
 
 
 ## 備選與待補充 Benchmark
