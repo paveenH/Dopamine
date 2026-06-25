@@ -512,7 +512,6 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 | Benchmark | 核心特性 | 對應 wanting 維度 | 優先度 |
 | --- | --- | --- | --- |
-| **SocialIQA** | 社會情境推理，自然有 abstention 空間；對 social pressure 敏感 | effort engagement × social pressure 交叉驗證 | ✅ 高 |
 | **HaluEval** | 專門測幻覺，直接捕捉 over-wanting → hallucination 後果 | +α over-wanting 的最直接結果指標 | ✅ 高 |
 | **TruthfulQA-Generation**（open-ended） | 現有實驗只用 MC1/MC2，generation 版更直接看 over-generation artifact | over-wanting → hallucination，補充 MC 版 | ✅ 高 |
 | **StrategyQA** | 多步 yes/no 推理，answer 格式乾淨 | effort engagement（多步推理意願） | ✅ 可嘗試 |
