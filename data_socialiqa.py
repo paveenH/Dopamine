@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SocialIQA (social_i_qa) -> single MMLU-Pro-like JSON (3-choice).
+SocialIQA (lighteval/siqa) -> single MMLU-Pro-like JSON (3-choice).
 
-- Loads the HF `social_i_qa` validation split (1954 items WITH gold labels).
+- Loads the HF `lighteval/siqa` validation split (1954 items WITH gold labels).
+  lighteval/siqa is a pure-Parquet mirror of allenai/social_i_qa (identical
+  fields); the script-based originals are rejected by newer `datasets`.
   NOTE: the test split (~2224 items) is unlabeled, so it cannot be used for
   accuracy — validation is the only labeled eval set.
 - Each item: context + question + 3 answer choices (A/B/C).
@@ -80,9 +82,12 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="0 = all")
     args = ap.parse_args()
 
-    print(f"[LOAD] social_i_qa :: {args.split}")
-    ds = load_dataset("social_i_qa", split=args.split, cache_dir=args.cache_dir,
-                      trust_remote_code=True)
+    # lighteval/siqa is a pure-Parquet mirror (same fields as allenai/social_i_qa:
+    # context/question/answerA/answerB/answerC/label[1-based str]); the original
+    # social_i_qa / allenai/social_i_qa are loading-script datasets that newer
+    # `datasets` versions reject ("Dataset scripts are no longer supported").
+    print(f"[LOAD] lighteval/siqa :: {args.split}")
+    ds = load_dataset("lighteval/siqa", split=args.split, cache_dir=args.cache_dir)
     n = len(ds)
     print(f"[INFO] {args.split}: {n} rows")
 
