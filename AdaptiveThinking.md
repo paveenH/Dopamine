@@ -130,29 +130,41 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 #### 2.1 Core Idea
 
-RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（dynamic calibration），而非單純的抑制或鼓勵。多巴胺不直接控制「穩定輸出」，而是根據任務狀態即時維持在最佳 signal-to-noise ratio 的區間（Yerkes-Dodson）。RSN 在 LLM 中扮演相同角色：動態調整模型的 wanting（incentive salience），而非干預 knowing。
+RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（dynamic calibration），可以理解為一個 **state-level gain knob**：調節模型在當下狀態中有多願意啟動、投入、承諾、持續檢查或停止，而不是直接改寫模型能表徵的知識與推理能力。因此，RSN / α steering 的核心對象不是 `knowing`，而是 `wanting`。這與 incentive salience 的神經科學框架一致：多巴胺不等於「快樂」或「正確」，而是把某個目標、線索或行動賦予更高的動機顯著性。
+
+這個 framing 也意味著：最佳 α 不是固定常數，而是任務相依的工作點。需要探索、下注、嘗試或持續追求回報的任務，可能需要較高 wanting；需要克制、驗算、延遲承諾或避免 premature commitment 的任務，可能需要較低 wanting。RSN 的理論角色是移動這個工作點，而不是保證 accuracy 單調上升。
 
 #### 2.2 神經科學類比
 
 | 概念 | 神經科學 | RSN 對應 |
 |------|---------|---------|
-| Tonic Dopamine | 個體基礎多巴胺濃度 | 每個模型的 baseline wanting 水平 |
-| Gain Control | 多巴胺調節行動閾值（commitment-to-action threshold），而非直接影響知識表徵 | α 作為雙向增益旋鈕（bidirectional gain knob）：正向降低決策閾值（解鎖潛在知識），負向提升閾值（誘發猶豫）（Paper §4.3, §5.1） |
-| Commitment to Action | 多巴胺決定行動閾值，不決定品質 | α 控制 wanting（decisiveness），不直接控制 knowing（factual accuracy） |
+| Tonic Dopamine | 個體基礎多巴胺濃度，決定背景動機、投入程度與行動準備度 | 模型的 baseline wanting / engagement level |
+| Phasic Dopamine | 對 cue、reward prediction error、任務節點的短暫反應 | decode 過程中的局部 spike / transition signal |
+| Incentive Salience | 讓某個目標或行動變得「值得追求」 | 把某個 answer/action candidate 推向更高 commitment priority |
+| Gain Control | 調節 action threshold、effort allocation、verification tendency，而非直接寫入知識 | α 作為 bidirectional state-gain knob，改變 initiation / commitment / persistence / stopping tendency |
 
-#### 2.3 心流信號的定義
+#### 2.3 雙向失調與任務相依最優點
 
-> 高位的平穩——像一條流動平緩、水量充足的大河，而不是乾涸的河床，也不是隨時會潰堤的洪流。
+RSN / α steering 應被理解為在 wanting 軸上雙向移動模型狀態。這條軸不是「越高越好」，而是存在任務相依的 optimal zone：
 
-- **Tonic dopamine**：對應 EMA 的均值水平，是持續的背景驅動力
-- **Phasic dopamine**：對應 raw x_decode 的 spike，是推理節點的確認信號——不是噪聲，不應消除
+- **Wanting 過低**：可能表現為啟動不足、欠承諾、過早放棄、無法形成穩定答案候選，或在多個候選之間無法收束。
+- **Wanting 適中**：模型既願意投入與探索，又能在足夠證據後形成穩定承諾。
+- **Wanting 過高**：可能表現為過早承諾、過度追求 reward/action、反覆檢查、放不下已完成答案，或把錯誤 prior 包裝成更有力的生成。
 
-心流目標不是讓 EMA 完全水平不動（信號本來就是從山上往下流），而是：
-- **High Tonic**：EMA 維持在 x_prefill 的高比例（≥ 0.65）
-- **Micro-Phasic**：spike 頻繁但幅度相對 EMA 受控（spike/EMA ≤ 1.5）
-- **Flat RPE**：無大型噴發，EMA 下降平緩而非斷崖
+因此，同一個 α 方向在不同任務中可以有不同效果。對需要 exploration / reward pursuit 的任務，較高 wanting 可能更接近最佳點；對需要 deliberation / verification / delayed commitment 的任務，較低 wanting 可能更接近最佳點。理論上，RSN 的作用不是提供一個通用的「更好」方向，而是揭示不同任務對 wanting level 的需求曲線。
 
-δ_tonic 應以比例（deviation / x_prefill）而非絕對值定義，才能跨任務通用。
+#### 2.4 RSN Trajectory 的定位
+
+RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首先被視為 **diagnostic readout**，用來描述模型在解碼過程中的 engagement / commitment / release dynamics。它不是一個可以直接最大化或固定成某種形狀的 accuracy objective。
+
+在這個框架下：
+
+- **Tonic component**：對應持續背景 drive，可用 EMA 近似。
+- **Phasic component**：對應局部 decode 節點的 spike，不應一概視為噪聲。
+- **Release dynamics**：模型何時從高 engagement 狀態退出，可能比單純的起點高度更有解釋力。
+- **Shape ≠ capability**：trajectory shape 可以反映 state，但不能替代 reasoning content、verifier feedback 或外部工具提供的 capacity。
+
+因此，trajectory 分析的目標不是尋找一條固定的「理想曲線」，而是回答三個問題：不同 prompt / role / α 是否移動 state；這些 state 如何影響 initiation、commitment、verification 與 stopping；以及這些變化是否與任務需求相匹配。
 
 ---
 
@@ -160,27 +172,10 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（d
 
 #### 3.1 RSN Signal Definition
 
-在每個 decode step t，提取 RSN 對應 neurons 在 middle layers 的 activation，投影到 RSN(sparse mask) 作為 scalar 信號：
-
-```
-x_t = mean_l( h_t[l] · nmd_mask[l] )   # 跨 middle layers 平均投影
-ema_t = α_ema × ema_{t-1} + (1 - α_ema) × x_t   # α_ema = 0.95
-
-h_t[l] += α_t × nmd_mask[l]            # steering：直接加 raw mask
-```
-
-**逐層獨立計算**：每個 middle layer (l ∈ [11, 20]) 獨立做投影 `h_t[l] · nmd_mask[l]` 得到一個 scalar，再對 10 層取平均。每層的 `nmd_mask[l]` 是該層獨立預先計算的「dopamine-like neurons」方向。
-
-**nmd_mask 的稀疏性**：mask 是 shape `[H]` 的稀疏實值向量——top-0.5% 位置保留 NMD score（mean-difference 強度），其餘位置歸零。實際內積：
-```
-h_t[l] · nmd_mask[l] = Σ_{i ∈ top-0.5%} h_t[l][i] × score_i
-```
-僅在約 20 個被選中的 neurons 上累加，不被其他 neurons 的雜訊干擾。Steering 時 `+α × nmd_mask[l]` 也只改寫這 20 個位置，對模型整體狀態的擾動最小。
-
 **Tracking 與 Steering 共用同一個 mask**：x_t 的變化量與 α_t 的施力在同一尺度，閉環控制不需要跨 scale calibration。注入 +α 會直接讓下一步的 `x_{t+1}` 增加 `α × ||mask||²`（對 Llama3-8B 約 0.7），這是穩定性分析能解析計算的物理基礎。
 
 **EMA 的雙重作用**：
-1. **物理對應**：raw `x_t` 是 phasic（瞬時脈衝），`ema_t` 是 tonic（持續基線），對應神經科學中的 tonic vs phasic dopamine 二分。控制 EMA = 控制 tonic dopamine baseline。
+1. **物理對應**：raw `x_t` 是 phasic，`ema_t` 是 tonic，對應神經科學中的 tonic vs phasic dopamine 二分。控制 EMA = 控制 tonic dopamine baseline。
 2. **抗 1-step lag**：EMA 每步最多移動 `(1-α_ema) × x_t ≈ 0.03·xp`，遠慢於 raw `x_t` 的 ±50% 波動。配合 1-step 控制 lag（見下文），開環增益從 raw signal 上的 ~1.43（發散）降到 EMA 上的 ~0.05·k1（k1<20 都穩定）。EMA 不是「為控制而加」，但它讓控制系統在 lag 約束下仍可穩定。
 
 **1-step lag 的物理來源**：實作用兩個 hook——
