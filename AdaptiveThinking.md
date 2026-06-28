@@ -281,6 +281,3 @@ step t+1:
 
 ## 4. Observed Results
 
-<!-- 待填：state（role / CoT / α）是否移動 trajectory 與多指標信號的觀察結果。
-     主軸 = state 對比（CoT vs No-CoT、persona），correct/wrong 為輔助對照。 -->
-
