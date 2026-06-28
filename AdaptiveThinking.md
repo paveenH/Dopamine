@@ -31,8 +31,6 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 ## RSN as Dopaminergic Adaptive Calibration
 
----
-
 ### 1. 相關文獻
 
 #### 1.1 Adaptive Reasoning
@@ -134,8 +132,6 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（dynamic calibration），而非單純的抑制或鼓勵。多巴胺不直接控制「穩定輸出」，而是根據任務狀態即時維持在最佳 signal-to-noise ratio 的區間（Yerkes-Dodson）。RSN 在 LLM 中扮演相同角色：動態調整模型的 wanting（incentive salience），而非干預 knowing。
 
-跨模型方向不一致（Llama3 over-wanting、Qwen3 under-wanting）正是因為不同模型有不同的底層 dopamine baseline，因此需要**即時繪製每個模型的多巴胺水平曲線**，再根據曲線動態平衡，而非使用靜態固定 α。
-
 #### 2.2 神經科學類比
 
 | 概念 | 神經科學 | RSN 對應 |
@@ -144,23 +140,12 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（d
 | Gain Control | 多巴胺調節行動閾值（commitment-to-action threshold），而非直接影響知識表徵 | α 作為雙向增益旋鈕（bidirectional gain knob）：正向降低決策閾值（解鎖潛在知識），負向提升閾值（誘發猶豫）（Paper §4.3, §5.1） |
 | Commitment to Action | 多巴胺決定行動閾值，不決定品質 | α 控制 wanting（decisiveness），不直接控制 knowing（factual accuracy） |
 
-#### 2.3 Yerkes-Dodson 雙向校準框架
-
-不同模型有不同的預設多巴胺基線：
-
-| 模型基線 | GSM8K No-CoT 最佳 α | 方向 |
-|----------|---------------------|------|
-| Over-wanting（Llama3-8B） | α = −4（74.3%） | 需要抑制 |
-| Under-wanting（Qwen3-8B/14B） | α = +4（universally best） | 需要激勵 |
-
-靜態 α 不可移植，需要**先測量模型的 baseline 曲線再決定調控方向**。
-
-#### 2.4 心流信號的定義
+#### 2.3 心流信號的定義
 
 > 高位的平穩——像一條流動平緩、水量充足的大河，而不是乾涸的河床，也不是隨時會潰堤的洪流。
 
-- **Tonic dopamine**（基礎濃度）：對應 EMA 的均值水平，是持續的背景驅動力
-- **Phasic dopamine**（脈衝）：對應 raw x_decode 的 spike，是推理節點的確認信號——不是噪聲，不應消除
+- **Tonic dopamine**：對應 EMA 的均值水平，是持續的背景驅動力
+- **Phasic dopamine**：對應 raw x_decode 的 spike，是推理節點的確認信號——不是噪聲，不應消除
 
 心流目標不是讓 EMA 完全水平不動（信號本來就是從山上往下流），而是：
 - **High Tonic**：EMA 維持在 x_prefill 的高比例（≥ 0.65）
