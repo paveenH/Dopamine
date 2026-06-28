@@ -545,25 +545,6 @@ Answer:
 
 因此 HaluEval 應放在 **boundary / side-effect evidence**：它補充說明 α 調的是 action/commitment threshold。支持 **wanting↑ = engagement/commitment↑，但不等於 factual calibration↑**。
 
-
-## 備選與待補充 Benchmark
-
-以下 benchmark 尚未納入主要實驗，按照與多巴胺框架的契合度整理。
-
-| Benchmark | 核心特性 | 對應 wanting 維度 | 優先度 |
-| --- | --- | --- | --- |
-| **StrategyQA** | 多步 yes/no 推理，answer 格式乾淨 | effort engagement（多步推理意願） | ✅ 可嘗試 |
-| **WinoGrande** | 常識判斷 + 高不確定性，容易出現 hedging；對 commitment 抑制效果敏感 | willingness to commit | 🔶 中 |
-| **HotpotQA**（2-hop subset） | 多跳推理，需要持續 effort 維持推理鏈 | effort persistence（Progressive Ratio 的語言版） | 🔶 中 |
-| **MATH**（難題子集，Level 4–5） | 比 GSM8K 更難，steering 可動空間更小 | wanting-limited reasoning 的上限測試 | 🔶 中（模型能力上限問題） |
-| **OpenbookQA** | 開放書本問答，需要知識檢索意願 | 與 ARC-c 重疊度高，優先度較低 | 🔻 低 |
-
-**補充說明：**
-- **SocialIQA + Pressure 交叉**：可配合 Kim et al.（EMNLP 2024）的壓力框架，測試 social pressure prompt × RSN steering 的交互效果，直接對比 prompt-level 與 hidden-state-level 的 wanting 操控
-- **HaluEval**：作為 +α 副作用的量化指標，補充目前「+α 提升 willingness 但降低 accuracy」的解釋鏈
-- **TruthfulQA-Generation**：open-ended 版的 over-generation artifact 更純粹，不受 MC 格式的 forced-choice 干擾
-
-
 ## 5. Human Behaviour Simulation
 
 本節登記每個行為學實驗**對應的經典人類／動物行為學範式**及其文獻根源，把我們的 LLM 實驗 anchor 到神經科學傳統（與 §4 互補：§4 報告我們做了什麼、結果如何；§5 標明它的人類範式血統）。實驗的完整結果與分析仍在各自的 §4.x 小節，此處只做對應與 cite。
