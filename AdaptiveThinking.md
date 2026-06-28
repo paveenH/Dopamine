@@ -166,11 +166,9 @@ RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首
 
 因此，trajectory 分析的目標不是尋找一條固定的「理想曲線」，而是回答三個問題：不同 prompt / role / α 是否移動 state；這些 state 如何影響 initiation、commitment、verification 與 stopping；以及這些變化是否與任務需求相匹配。
 
-## 3. Method Design
+## 3. 信號定義
 
-### 3.1 RSN Signal Definition
-
-#### 3.1.1 Projection Signal
+### 3.1 Projection Signal
 
 RSN signal 是把 middle-layer hidden state 投影到 sparse NMD mask 上得到的 per-token scalar。對每個 decode step `t`：
 
@@ -188,7 +186,7 @@ ema_t = β · ema_{t-1} + (1 - β) · x_t
 
 這裡的 `mean_l` 是逐層先獨立投影，再對 middle layers 取平均；不是把所有 layer 拼接後做一次投影。
 
-#### 3.1.2 Mask and Layer Alignment
+### 3.2 Mask and Layer Alignment
 
 NMD mask 按 layer 獨立計算，每層只保留 top sparse neurons。實際內積為：
 
@@ -206,7 +204,7 @@ saved mask row i      ↔ decoder_layers[i] output
 
 因此，無論是 signal observation 還是 static steering，最乾淨的對齊方式都是在 decoder layer output space 上讀取 / 注入。這能避免把「第 L 層 output 上學到的方向」錯放到同一層 input space 裡。
 
-##### 3.1.3 Three Modes of Use
+### 3.3 Three Modes of Use
 
 同一個 RSN mask 可以被用在三種不同模式；三者應明確分開：
 
@@ -218,7 +216,7 @@ saved mask row i      ↔ decoder_layers[i] output
 
 Observation-only 和 static steering 是目前最穩定、最可比的兩種用途。Closed-loop control 則是獨立的控制實驗，不應被視為 signal definition 本身。
 
-##### 3.1.4 EMA Interpretation
+### 3.4 EMA Interpretation
 
 EMA 的角色是把 noisy token-level `x_t` 轉成慢變的 tonic-like trajectory。它有兩個用途：
 
@@ -227,7 +225,7 @@ EMA 的角色是把 noisy token-level `x_t` 轉成慢變的 tonic-like trajector
 
 但 EMA 不是生物多巴胺的直接量測，也不是 universal accuracy target。`β=0.95` 對應約 20 token 的時間常數，適合長生成中的 state smoothing；對很短的 action-output 任務則未必穩定。因此，EMA 應被解讀為 **tonic-state approximation**，而不是「越高越好」的 objective。
 
-##### 3.1.5 Closed-loop Caveat: 1-step Lag
+### 3.5 Closed-loop Caveat: 1-step Lag
 
 只有 closed-loop control 模式存在嚴格的 1-step lag。其物理來源是控制器必須先完成當前 token 的 forward，才能觀測 `x_t` 並計算下一步的 `α_{t+1}`：
 
@@ -244,7 +242,7 @@ step t+1:
 
 因此，feedback 永遠基於上一 token 的 observation，作用於下一 token。對慢變的 EMA，這個 lag 尚可接受；對 1–2 token 內自然消退的 raw spike，逐 token feedback 容易追尾並造成振盪。這是 Phase 2 closed-loop 設計需要單獨處理的控制問題，不是 observation-only signal analysis 的限制。
 
-#### 3.1.6 Multi-Metric Signal Suite 
+### 3.6 Multi-Metric Signal Suite
 
 **Per-step raw trajectories**
 
@@ -279,7 +277,11 @@ step t+1:
 | **B. Correct vs Wrong** | curve mean by group | 輔助：與對錯的關係。⚠ 差異多為難度副產品（會做的題 release 快），非 state/DA 結論 |
 | **C. Mask** (NMD vs Random) | curve mean by mask | RSN-specificity control (僅對 `rsn_ema` 有意義) |
 
+---
 
+## 4. 觀察結果
 
+<!-- 待填：state（role / CoT / α）是否移動 trajectory 與多指標信號的觀察結果。
+     主軸 = state 對比（CoT vs No-CoT、persona），correct/wrong 為輔助對照。 -->
 
 
