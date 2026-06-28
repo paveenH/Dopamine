@@ -31,7 +31,7 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 # RSN as Dopaminergic Adaptive Calibration
 
-## 1. 相關文獻
+## 1. Related Literature
 
 ### 1.1 Adaptive Reasoning
 
@@ -126,7 +126,7 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 ---
 
-## 2. 核心理論框架
+## 2. Core Theoretical Framework
 
 ### 2.1 Core Idea
 
@@ -134,7 +134,7 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（d
 
 這個 framing 也意味著：最佳 α 不是固定常數，而是任務相依的工作點。需要探索、下注、嘗試或持續追求回報的任務，可能需要較高 wanting；需要克制、驗算、延遲承諾或避免 premature commitment 的任務，可能需要較低 wanting。RSN 的理論角色是移動這個工作點，而不是保證 accuracy 單調上升。
 
-### 2.2 神經科學類比
+### 2.2 Neuroscience Analogy
 
 | 概念 | 神經科學 | RSN 對應 |
 |------|---------|---------|
@@ -143,7 +143,7 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（d
 | Incentive Salience | 讓某個目標或行動變得「值得追求」 | 把某個 answer/action candidate 推向更高 commitment priority |
 | Gain Control | 調節 action threshold、effort allocation、verification tendency，而非直接寫入知識 | α 作為 bidirectional state-gain knob，改變 initiation / commitment / persistence / stopping tendency |
 
-### 2.3 雙向失調與任務相依最優點
+### 2.3 Bidirectional Dysregulation and Task-Dependent Optimum
 
 RSN / α steering 應被理解為在 wanting 軸上雙向移動模型狀態。這條軸不是「越高越好」，而是存在任務相依的 optimal zone：
 
@@ -153,7 +153,7 @@ RSN / α steering 應被理解為在 wanting 軸上雙向移動模型狀態。�
 
 因此，同一個 α 方向在不同任務中可以有不同效果。對需要 exploration / reward pursuit 的任務，較高 wanting 可能更接近最佳點；對需要 deliberation / verification / delayed commitment 的任務，較低 wanting 可能更接近最佳點。理論上，RSN 的作用不是提供一個通用的「更好」方向，而是揭示不同任務對 wanting level 的需求曲線。
 
-### 2.4 RSN Trajectory 的定位
+### 2.4 Positioning of the RSN Trajectory
 
 RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首先被視為 **diagnostic readout**，用來描述模型在解碼過程中的 engagement / commitment / release dynamics。它不是一個可以直接最大化或固定成某種形狀的 accuracy objective。
 
@@ -166,7 +166,7 @@ RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首
 
 因此，trajectory 分析的目標不是尋找一條固定的「理想曲線」，而是回答三個問題：不同 prompt / role / α 是否移動 state；這些 state 如何影響 initiation、commitment、verification 與 stopping；以及這些變化是否與任務需求相匹配。
 
-## 3. 信號定義
+## 3. Signal Definition
 
 ### 3.1 Projection Signal
 
@@ -279,9 +279,8 @@ step t+1:
 
 ---
 
-## 4. 觀察結果
+## 4. Observed Results
 
 <!-- 待填：state（role / CoT / α）是否移動 trajectory 與多指標信號的觀察結果。
      主軸 = state 對比（CoT vs No-CoT、persona），correct/wrong 為輔助對照。 -->
-
 
