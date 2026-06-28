@@ -250,13 +250,18 @@ step t+1:
 
 **Per-step raw trajectories**
 
-| Metric | Computation | Interpretation |
-|--------|------|---------|
-| `rsn_ema` | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive |
-| `entropy_decode` |`-Σ p log p` over vocab | wanting (vocabulary spread) |
-| `top1_decode` | `max(softmax(logits))` | output certainty |
-| `margin_decode` | `top1 - top2` | output certainty (nearly collinear with top1; optional) |
-| `info_gain_decode` | `H_{t-1} - H_t` | reasoning efficiency (paper 03) |
+- `rsn_ema` 來自 **middle-layer HS 投影到 sparse NMD mask** 上的 scalar（RSN 子空間活動 = wanting / drive）。
+- `entropy / top1 / margin / info_gain` 來自 **final-layer whole hidden state**（非 mask）過 `RMSNorm + lm_head` 重建出的**真實 next-token logits**，再 softmax；即模型真實輸出分布。它們度量的是 **confidence / decisiveness**。
+
+| Metric | Source | Computation | Interpretation |
+|--------|--------|------|---------|
+| `rsn_ema` | middle HS · **NMD mask** | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive (RSN subspace) |
+| `entropy_decode` | **full final HS** → lm_head | `-Σ p log p` over vocab | confidence / decisiveness (inverse) |
+| `top1_decode` | **full final HS** → lm_head | `max(softmax(logits))` = MSP | confidence / decisiveness |
+| `margin_decode` | **full final HS** → lm_head | `top1 - top2` | confidence / decisiveness (≈collinear w/ top1; optional) |
+| `info_gain_decode` | **full final HS** → lm_head | `H_{t-1} - H_t` | reasoning efficiency (paper 03) |
+
+> 注意：`rsn_ema` 是 mask 子空間投影（wanting）；entropy/top1/margin/info_gain 是整條 HS 重建真實 logits（confidence），兩者**不共用 mask**。這個來源分離正是 wanting（internal drive）與其 confidence（output decisiveness）表現的對照基礎。
 
 **Derived trajectories**
 
@@ -272,16 +277,9 @@ step t+1:
 
 | Axis | Measurement | Purpose |
 |------|---------|------|
-| **A. Role** (Neutral / Expert / Non-Expert / ...) | curve mean ± std band | Role-prompt sensitivity |
-| **B. Correct vs Wrong** | curve mean by group | Predictive relation with correctness |
-| **C. Mask** (NMD vs Random) | curve mean by mask | RSN-specificity control (mainly for `rsn_ema`) |
-
-**Cross-metric relationships**
-
-- **Pearson correlation matrix** (per-sample, per-role): shared variance across metrics
-- **r(metric, correct)** ranked: predictive strength for correctness
-- **Partial correlation** r(RSN, correct | entropy): RSN's independent predictive signal after controlling for entropy
-- **r(metric, RSN)**: coupling between each metric and the RSN trajectory
+| **A. State** (Role: Neutral/Expert/Non-Expert/Teacher · CoT vs No-CoT · α-dose) | curve mean ± std band, KW/MWU + Cohen's d between states | **主要目的**：信號對 state 的敏感度（wanting/confidence 是否被 state 移動）|
+| **B. Correct vs Wrong** | curve mean by group | 輔助：與對錯的關係。⚠ 差異多為難度副產品（會做的題 release 快），非 state/DA 結論 |
+| **C. Mask** (NMD vs Random) | curve mean by mask | RSN-specificity control (僅對 `rsn_ema` 有意義) |
 
 
 #### 3.2 Phase 2 控制方案
