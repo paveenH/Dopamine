@@ -7,8 +7,8 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 **Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/AGENTS.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work.
 
 **Required reading before non-trivial changes:**
-- `AdaptativeThinking0529.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed.
-- `AdaptativeThinking.md` — Phases 1–2, Plans A–H3 (full design rationale, failure analyses, integrated conclusion that decode-time shape control is measurable but does not robustly recover CoT-level accuracy), Yerkes–Dodson framing, EMA + 1-step-lag physics
+- `AdaDopamine_gsm8k.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed.
+- `AdaptiveThinking.md` — Phases 1–2, Plans A–H3 (full design rationale, failure analyses, integrated conclusion that decode-time shape control is measurable but does not robustly recover CoT-level accuracy), Yerkes–Dodson framing, EMA + 1-step-lag physics
 - `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` — literature & mapping
 - `~/AGENTS.md` — running commands and data-directory map
 
@@ -37,7 +37,7 @@ A typical experiment is one of the `get_answer_*.py` / `get_action_*.py` entry-p
 - `FLOOR_RATIO` — multi-purpose target ratio. Tonic floor (A/C), EMA homeostasis target (E), peak target (H1: 1.5, H2: 1.25, H3: 1.35)
 - `PLATEAU_END_RATIO` — slope endpoint for B; H2/H3 reuse it as the trapezoid end level (default 0.75·xp)
 - `AVG_GEN_LEN` — defines T for B's plateau slope and H2/H3's trapezoid decay endpoint
-- `--plan {none,static,A,B,C,D,E,F,G,H1,H2,H3}` selects controller (case-sensitive; see `AdaptativeThinking.md` §3.2)
+- `--plan {none,static,A,B,C,D,E,F,G,H1,H2,H3}` selects controller (case-sensitive; see `AdaptiveThinking.md` §3.2)
 - H1 / H2 / H3 hardcode their window/segment boundaries inside `_compute_alpha()` — there are no `--h1_window` or trapezoid-segment CLI flags. Edit the constants in `closed_loop_gsm8k.py` if you need to sweep them.
 
 When tweaking a plan, modify the `.sh` not the `.py` — the script is committed and reproducible. Past runs are kept commented (not deleted) in `run_closed_loop_gsm8k.sh` so the full sweep history is recoverable.
@@ -68,6 +68,6 @@ Mistral3 needs `transformers` from main + `mistral-common>=1.8.6` (already in `s
 - Don't refactor `llms.VicundaModel` loading branches casually — Mistral3, dream-diffusion and CausalLM each rely on slightly different hook surfaces.
 - Don't change `template.py` strings in place; add a new variant — Phase 1 baselines are tied to exact prompt wording.
 - New plans go in `closed_loop_gsm8k.py` behind a new `--plan` value (added to the `choices=[...]` list and as a branch in `_compute_alpha()`); keep prior plans callable for ablation reproducibility.
-- The injection–observation loop has a hard 1-step lag (pre-hook injects `α_t` before forward; post-hook reads `x_t`/`ema_t` after, so `α_{t+1}` is decided from `x_t`). Any new controller must assume `α` based on step-`t` observation only takes effect at step `t+1` — controllers that try to react to fast (per-token) signal changes diverge (see Plan D failure in `AdaptativeThinking.md` §4.3).
+- The injection–observation loop has a hard 1-step lag (pre-hook injects `α_t` before forward; post-hook reads `x_t`/`ema_t` after, so `α_{t+1}` is decided from `x_t`). Any new controller must assume `α` based on step-`t` observation only takes effect at step `t+1` — controllers that try to react to fast (per-token) signal changes diverge (see Plan D failure in `AdaptiveThinking.md` §4.3).
 - Tracking projection and steering injection share the same `nmd_mask` (sparse, ~0.5% of neurons per layer). This co-design means injecting `+α` directly raises next-step `x_{t+1}` by `α × ‖mask‖²` — do not change one without the other.
 - Result file naming includes plan + k1 + k2 + ema_alpha + layer range, so renaming any of these breaks the analysis scripts (`analyze_plan{D,EF,G,H1,H2,H3}.py` filter by exact filename).
