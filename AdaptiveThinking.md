@@ -172,43 +172,103 @@ RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首
 
 #### 3.1 RSN Signal Definition
 
-**Tracking 與 Steering 共用同一個 mask**：x_t 的變化量與 α_t 的施力在同一尺度，閉環控制不需要跨 scale calibration。注入 +α 會直接讓下一步的 `x_{t+1}` 增加 `α × ||mask||²`（對 Llama3-8B 約 0.7），這是穩定性分析能解析計算的物理基礎。
+##### 3.1.1 Projection Signal
 
-**EMA 的雙重作用**：
-1. **物理對應**：raw `x_t` 是 phasic，`ema_t` 是 tonic，對應神經科學中的 tonic vs phasic dopamine 二分。控制 EMA = 控制 tonic dopamine baseline。
-2. **抗 1-step lag**：EMA 每步最多移動 `(1-α_ema) × x_t ≈ 0.03·xp`，遠慢於 raw `x_t` 的 ±50% 波動。配合 1-step 控制 lag（見下文），開環增益從 raw signal 上的 ~1.43（發散）降到 EMA 上的 ~0.05·k1（k1<20 都穩定）。EMA 不是「為控制而加」，但它讓控制系統在 lag 約束下仍可穩定。
+RSN signal 是把 middle-layer hidden state 投影到 sparse NMD mask 上得到的 per-token scalar。對每個 decode step `t`：
 
-**1-step lag 的物理來源**：實作用兩個 hook——
-- `register_forward_pre_hook`：在 layer forward **之前** 注入 α（必須在 attention 計算前才能改 K/V cache）
-- `register_forward_hook`：在 layer forward **之後** 讀取 `h_t`，計算 `x_t`、`ema_t`、決定下一步 α
+```text
+x_t = mean_l( h_t[l] · m_l )
+ema_t = β · ema_{t-1} + (1 - β) · x_t
+```
 
-時序為：`step t: 注入 α_t → forward → 觀測 x_t → 計算 α_{t+1}`。所以 α 永遠基於「上一步觀測」、作用於「下一步生成」，這是物理因果性的硬約束（不可消除）。Plan D 失敗就是因為控制器反應延遲（1 步）≥ raw 信號自然持續時間（1-2 步），詳見 §4.3。
+其中：
+- `h_t[l]` 是第 `l` 個 middle decoder layer 在 token `t` 的 hidden state。
+- `m_l` 是該 layer 對應的 sparse NMD mask / direction。
+- `x_prefill` 是最後一個 prompt token 的 RSN projection，用作 sample-level starting state。
+- `x_t` 是 decode-time raw projection，保留 token-level phasic fluctuation。
+- `ema_t` 是 `x_t` 的 smoothed trajectory，作為 tonic-like diagnostic readout。
 
-#### 3.1b Multi-Metric Signal Suite — Validation Pipeline SOP
+這裡的 `mean_l` 是逐層先獨立投影，再對 middle layers 取平均；不是把所有 layer 拼接後做一次投影。
 
-Phase 1b 起，分析不再只用 RSN dopamine 單一信號，而是並排測量 5 個 per-step trajectory + 衍生 curve + sample scalar，並做跨 metric 相關性分析。流程固化如下。
+##### 3.1.2 Mask and Layer Alignment
 
-**第一層：Per-step raw trajectories（5 個）**
+NMD mask 按 layer 獨立計算，每層只保留 top sparse neurons。實際內積為：
 
-| Metric | 來源 | 計算 | 物理對應 |
-|--------|------|------|---------|
-| `rsn_ema` | HDF5 raw HS + NMD mask | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive |
-| `entropy_decode` | HDF5 final-layer HS + lm_head | `-Σ p log p` over vocab | wanting (vocabulary spread) |
-| `top1_decode` | 同上 | `max(softmax(logits))` | output certainty |
-| `margin_decode` | 同上 | `top1 - top2` | output certainty（與 top1 共線 r≈+0.99，可省）|
-| `info_gain_decode` | 同上 | `H_{t-1} - H_t` | reasoning efficiency（paper 03）|
+```text
+h_t[l] · m_l = Σ_i h_t[l][i] × m_l[i]
+```
 
-**第二層：衍生 trajectories（從第一層算出）**
+mask 的 layer index 對齊 decoder layer **output** hidden state，而不是 layer input。對 Llama-style HF hidden states：
+
+```text
+hidden_states[0]      = embedding output
+hidden_states[i + 1]  = decoder_layers[i] output
+saved mask row i      ↔ decoder_layers[i] output
+```
+
+因此，無論是 signal observation 還是 static steering，最乾淨的對齊方式都是在 decoder layer output space 上讀取 / 注入。這能避免把「第 L 層 output 上學到的方向」錯放到同一層 input space 裡。
+
+##### 3.1.3 Three Modes of Use
+
+同一個 RSN mask 可以被用在三種不同模式；三者應明確分開：
+
+| Mode | 目的 | α | Hook / timing | 用途 |
+|---|---|---:|---|---|
+| Observation-only tracking | 只讀取 `x_t` / `ema_t`，不干預模型 | 0 | forward output readout | signal validation、role / CoT / correct-vs-wrong trajectory analysis |
+| Static steering | 固定 α 改變 state-level gain | fixed α | output-side addition `h_t[l] += α m_l` | GSM8K / MATH α scan、behavioral steering |
+| Closed-loop control | 根據 trajectory 即時調 α | dynamic `α_t` | observation → next-step intervention | Phase 2 waveform-control experiments |
+
+Observation-only 和 static steering 是目前最穩定、最可比的兩種用途。Closed-loop control 則是獨立的控制實驗，不應被視為 signal definition 本身。
+
+##### 3.1.4 EMA Interpretation
+
+EMA 的角色是把 noisy token-level `x_t` 轉成慢變的 tonic-like trajectory。它有兩個用途：
+
+1. **診斷用途**：描述模型的 engagement / commitment / release dynamics。
+2. **控制用途（歷史 Phase 2）**：作為比 raw `x_t` 更慢、更穩定的 feedback variable。
+
+但 EMA 不是生物多巴胺的直接量測，也不是 universal accuracy target。`β=0.95` 對應約 20 token 的時間常數，適合長生成中的 state smoothing；對很短的 action-output 任務則未必穩定。因此，EMA 應被解讀為 **tonic-state approximation**，而不是「越高越好」的 objective。
+
+##### 3.1.5 Closed-loop Caveat: 1-step Lag
+
+只有 closed-loop control 模式存在嚴格的 1-step lag。其物理來源是控制器必須先完成當前 token 的 forward，才能觀測 `x_t` 並計算下一步的 `α_{t+1}`：
+
+```text
+step t:
+  apply α_t
+  forward
+  observe x_t / ema_t
+  compute α_{t+1}
+
+step t+1:
+  apply α_{t+1}
+```
+
+因此，feedback 永遠基於上一 token 的 observation，作用於下一 token。對慢變的 EMA，這個 lag 尚可接受；對 1–2 token 內自然消退的 raw spike，逐 token feedback 容易追尾並造成振盪。這是 Phase 2 closed-loop 設計需要單獨處理的控制問題，不是 observation-only signal analysis 的限制。
+
+#### 3.1.6 Multi-Metric Signal Suite 
+
+**Per-step raw trajectories**
+
+| Metric | 計算 | 物理對應 |
+|--------|------|---------|
+| `rsn_ema` | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive |
+| `entropy_decode` |`-Σ p log p` over vocab | wanting (vocabulary spread) |
+| `top1_decode` | `max(softmax(logits))` | output certainty |
+| `margin_decode` | `top1 - top2` | output certainty（與 top1 共線 r≈+0.99，可省）|
+| `info_gain_decode` | `H_{t-1} - H_t` | reasoning efficiency（paper 03）|
+
+**衍生 trajectories（從第一層算出）**
 
 - `normalized_ema` = `ema_t / x_prefill`
 - `cumulative_entropy_reduction` = `H_0 - H_t`（paper 03 InfoGain 累積版）
 - `rolling_conf_variance` = `std(top1[t-W:t])`，W=10（paper 05）
 
-**第三層：Per-sample scalars（trajectory 聚合）**
+**Per-sample scalars（trajectory 聚合）**
 
 `late_tonic`, `early_peak`, `mean_entropy`, `mean_top1`, `mean_margin`, `info_gain_mean`, `entropy_prefill`, `top1_prefill`, `margin_prefill`
 
-**第四層：對比矩陣（3 個獨立 axis）**
+**對比矩陣（3 個獨立 axis）**
 
 | Axis | 度量方式 | 意義 |
 |------|---------|------|
@@ -216,7 +276,7 @@ Phase 1b 起，分析不再只用 RSN dopamine 單一信號，而是並排測量
 | **B. Correct vs Wrong** | curve mean by group | 信號對 acc 的預測力 |
 | **C. Mask** (NMD vs Random) | curve mean by mask | 信號的 RSN-specificity（僅對 rsn_ema 有意義）|
 
-**第五層：Cross-metric 關係**
+**Cross-metric 關係**
 
 - **Pearson correlation matrix** (per-sample, per-role): 量化指標間共享方差
 - **r(metric, correct)** ranked: 排序預測力
