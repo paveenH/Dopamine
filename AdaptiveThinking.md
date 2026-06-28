@@ -29,11 +29,11 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
   AdaThink.md — Reasoning model trace-level 分析框架（Thinking Curve 執行細節）
 -->
 
-## RSN as Dopaminergic Adaptive Calibration
+# RSN as Dopaminergic Adaptive Calibration
 
-### 1. 相關文獻
+## 1. 相關文獻
 
-#### 1.1 Adaptive Reasoning
+### 1.1 Adaptive Reasoning
 
 - **01.nips2025.Reasoning Models Better Express Their Confidence**
   Reasoning models show better verbalized confidence calibration than non-reasoning counterparts, and calibration improves as CoT unfolds. The most relevant point for this project is that slow thinking seems to support uncertainty refinement, not just longer answer generation.
@@ -71,7 +71,7 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 - **12.2026.Reasoning emerges from constrained inference manifolds in large language models**
   This paper argues that LLM reasoning trajectories collapse into low-dimensional, information-preserving hidden-state manifolds. It is relevant because it supports the view that reasoning should be diagnosed from internal dynamics, not only from CoT text or final-answer accuracy. For this project, intrinsic dimension / information-volume style features may serve as additional router features for adaptive thinking, complementary to RSN projection, entropy, confidence variance, and early decode slope.
 
-#### 1.2 Dopamine Neuroscience
+### 1.2 Dopamine Neuroscience
 
 - **Tonic dopamine and biases in value learning** (NC 2025)
   高水平多巴胺增加 D1 受體敏感性，促進積極預期學習（樂觀）；低水平則增加對消極結果的敏感性（悲觀）。
@@ -112,13 +112,13 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 **小結 / 限制**：目前 flow-dopamine 文獻支持「dopaminergic reward system 與 flow proneness / flow-like engagement 相關」，但尚未直接提供人類 flow 狀態下 dopamine release 的完整時序波形。因此本文中的 early peak → plateau → slow decay 是基於 dopamine reward-task dynamics 與 flow fMRI/review 的功能性類比，不應表述為已被直接量測的 biological dopamine waveform。
 
-#### 1.3 Mechanistic Alignment / State vs Capacity
+### 1.3 Mechanistic Alignment / State vs Capacity
 
 - **State and capacity in neural models of cognition and consciousness** (Trends Open 2026) — https://www.sciencedirect.com/science/article/pii/S311734702600012X
   這篇綜述提出 state × capacity 雙軸框架，用來區分神經網路模型到底只是行為/腦活動上像人，還是真的能提供機制解釋。State 指固定架構當下如何運行，例如 gain、noise、attention、decision threshold、normalization；capacity 指模型原則上能表徵什麼，例如 depth、recurrence、context length、multimodality、external memory。
   - 對本專案的定位：RSN / α steering 應被表述為 **state-level gain control**，主要調節 willingness-to-act、decisiveness、engagement、commitment threshold，而不是 capacity-level upgrade。
 
-#### 1.4 Other
+### 1.4 Other
 - RouteMoA: Dynamic Routing without Pre-Inference Boosts Efficient Mixture-of-Agents (ACL2026)
 - **Theory of Agent (ToA): Why "being correct" is not enough for Agents** (ICML 2026 Position Paper) — https://arxiv.org/abs/2506.00886
   這篇把 Agent 行為統一建模為 **internal reasoning vs external action/tool use** 之間的 epistemic effort allocation。核心不是只問 Agent 能不能答對，而是問它是否能根據自身 knowledge boundary `Q_int`、任務不確定性與成本比 `β`，合理決定什麼時候自己想、什麼時候調用工具、什麼時候停止。
@@ -126,15 +126,15 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 ---
 
-### 2. 核心理論框架
+## 2. 核心理論框架
 
-#### 2.1 Core Idea
+### 2.1 Core Idea
 
 RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（dynamic calibration），可以理解為一個 **state-level gain knob**：調節模型在當下狀態中有多願意啟動、投入、承諾、持續檢查或停止，而不是直接改寫模型能表徵的知識與推理能力。因此，RSN / α steering 的核心對象不是 `knowing`，而是 `wanting`。這與 incentive salience 的神經科學框架一致：多巴胺不等於「快樂」或「正確」，而是把某個目標、線索或行動賦予更高的動機顯著性。
 
 這個 framing 也意味著：最佳 α 不是固定常數，而是任務相依的工作點。需要探索、下注、嘗試或持續追求回報的任務，可能需要較高 wanting；需要克制、驗算、延遲承諾或避免 premature commitment 的任務，可能需要較低 wanting。RSN 的理論角色是移動這個工作點，而不是保證 accuracy 單調上升。
 
-#### 2.2 神經科學類比
+### 2.2 神經科學類比
 
 | 概念 | 神經科學 | RSN 對應 |
 |------|---------|---------|
@@ -143,7 +143,7 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制（d
 | Incentive Salience | 讓某個目標或行動變得「值得追求」 | 把某個 answer/action candidate 推向更高 commitment priority |
 | Gain Control | 調節 action threshold、effort allocation、verification tendency，而非直接寫入知識 | α 作為 bidirectional state-gain knob，改變 initiation / commitment / persistence / stopping tendency |
 
-#### 2.3 雙向失調與任務相依最優點
+### 2.3 雙向失調與任務相依最優點
 
 RSN / α steering 應被理解為在 wanting 軸上雙向移動模型狀態。這條軸不是「越高越好」，而是存在任務相依的 optimal zone：
 
@@ -153,7 +153,7 @@ RSN / α steering 應被理解為在 wanting 軸上雙向移動模型狀態。�
 
 因此，同一個 α 方向在不同任務中可以有不同效果。對需要 exploration / reward pursuit 的任務，較高 wanting 可能更接近最佳點；對需要 deliberation / verification / delayed commitment 的任務，較低 wanting 可能更接近最佳點。理論上，RSN 的作用不是提供一個通用的「更好」方向，而是揭示不同任務對 wanting level 的需求曲線。
 
-#### 2.4 RSN Trajectory 的定位
+### 2.4 RSN Trajectory 的定位
 
 RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首先被視為 **diagnostic readout**，用來描述模型在解碼過程中的 engagement / commitment / release dynamics。它不是一個可以直接最大化或固定成某種形狀的 accuracy objective。
 
@@ -166,13 +166,11 @@ RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首
 
 因此，trajectory 分析的目標不是尋找一條固定的「理想曲線」，而是回答三個問題：不同 prompt / role / α 是否移動 state；這些 state 如何影響 initiation、commitment、verification 與 stopping；以及這些變化是否與任務需求相匹配。
 
----
+## 3. Method Design
 
-### 3. 方法設計
+### 3.1 RSN Signal Definition
 
-#### 3.1 RSN Signal Definition
-
-##### 3.1.1 Projection Signal
+#### 3.1.1 Projection Signal
 
 RSN signal 是把 middle-layer hidden state 投影到 sparse NMD mask 上得到的 per-token scalar。對每個 decode step `t`：
 
@@ -190,7 +188,7 @@ ema_t = β · ema_{t-1} + (1 - β) · x_t
 
 這裡的 `mean_l` 是逐層先獨立投影，再對 middle layers 取平均；不是把所有 layer 拼接後做一次投影。
 
-##### 3.1.2 Mask and Layer Alignment
+#### 3.1.2 Mask and Layer Alignment
 
 NMD mask 按 layer 獨立計算，每層只保留 top sparse neurons。實際內積為：
 
