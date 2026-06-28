@@ -623,50 +623,6 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 > - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature(either)` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
 > - **但 MATH 的 premature(either)绝对量本就低**(No-CoT 仅 13–29,GSM8K No-CoT 是 195–232):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
 
-## 4. Phase 1b: Dopamine Signal Proxy Validation
-
-### 4.0 Motivation for re-run & core questions
-
-§2 的行为学发现（α−4 = 低 wanting = 放得下、α+4 = 高 wanting = 放不下；expert/persona 同向抬高 commitment）全部是**生成 trace 上的行为观测**。Phase 1b 要回答的是它的**机制对应**：
-
-1. **信号方向性**：本轮先看 persona / CoT 条件（expert、non_expert、primary_teacher、neutral No-CoT/CoT）是否在 NMD 投影信号上呈现稳定的 early-peak / late-tonic 差异。`α=±4` signal 是下一轮 static-steering 对照，不在本轮 5 个 HDF5 内。
-2. **RSN-specificity**：expert-vs-non_expert 的信号 gap 是 **NMD mask 特有**，还是**任何同稀疏度的随机投影**都会显示？→ Axis C：NMD mask vs `diff_random_*` mask 并排。若随机 mask 也有同样 gap，则"RSN 信号"只是一般性的 role-prompt 漂移，而非多巴胺特异方向。
-3. **跨指标关系**：RSN 信号 vs entropy/top1/margin/info_gain 的相关与 partial correlation（控制 confidence 后 RSN 的独立预测力）。
-
-### 4.1 Experimental setup (same prompts as §1/§2 for comparability)
-
-- 模型 Llama3.1-8B-Instruct，GSM8K No-CoT 主线 + CoT 对照，300 samples，EMA α=0.95，Layer 11–20。
-- 角色：`an expert` / `a non expert` / `a primary school teacher` / `neutral`（No-CoT）/ `neutral`（CoT）= 5 runs。
-- Prompt 与 §1 的 `get_answer_regenerate_gsm8k.py` α=0 **完全相同**（无 honest、带 `####`、plain 主线措辞、neutral→neutral / role→neg），题目顺序一致。
-- 生成路径不同：本轮 tracker 是 `bs=1 greedy`；§1 行为结果是 batched regenerate。两边统一 `max_new_tokens=768`，但仍须注意 bs=1 vs padding batch 的生成差异；若要做逐题行为-信号相关，使用本轮 HDF5 自带的 bs=1 generation 重新提取行为指标。
-- 采集：`track_hidden_states.py`（bs=1 greedy）存 selective HDF5（middle 9 + final = 10 层）至独立 `${RUN_TAG}` 目录 → `extract_signal_json.py`（NMD）+ `extract_signal_json_remask.py`（random）+ `extract_entropy_confidence.py`。
-- **前置 sanity**：跑 `sanity_mask_indexing.py` 确认 layer-offset 已修（旧 5/30 signal 的废弃原因）。
-
-### 4.2 Results (TBD)
-
-> ⏳ HS 重采集 + 重投影完成后填入。预期表格骨架：
-
-**A. Role axis（NMD mask，correct/wrong 分组）**
-
-| 条件 | Acc | EarlyPk(corr) | LateT(corr) | EarlyPk(wrong) | LateT(wrong) |
-|------|-----|---------------|-------------|----------------|--------------|
-| neutral No-CoT | — | — | — | — | — |
-| expert | — | — | — | — | — |
-| non_expert | — | — | — | — | — |
-| primary_teacher | — | — | — | — | — |
-| neutral CoT | — | — | — | — | — |
-
-**B. Mask axis（RSN-specificity 检验，expert−non_expert gap）**
-
-| Mask | ΔEarlyPk | ΔLateT | AUROC(role) | Cohen's d | 结论 |
-|------|----------|--------|-------------|-----------|------|
-| NMD | — | — | — | — | — |
-| random | — | — | — | — | — |
-
-→ 待判定：NMD gap 是否显著大于 random gap（= 信号是否 RSN-specific）。
-
-**C. Cross-metric（per-role Pearson + partial r(RSN, correct \| entropy)）**：待填。
-
 ## References
 
 **神经科学：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.3 / §2.4 / §3.6 的机制锚，DA→anxiety 有通路特异性，主要支持 +α 端的「过度警觉 / 放不下」）
