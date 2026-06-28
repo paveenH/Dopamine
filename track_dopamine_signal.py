@@ -80,6 +80,7 @@ class DopamineTracker:
         layer_start: int,
         layer_end: int,
         ema_alpha: float = 0.95,
+        steer_alpha: float = 0.0,
     ):
         self.rsn_mask = rsn_mask          # (L_model, H)
         self.layer_start = layer_start
@@ -89,6 +90,19 @@ class DopamineTracker:
         # Raw mask vectors (no normalization) — same scale as steering.
         # See utils.mask_slice_for for the layer_start-1 offset rationale.
         self.directions = utils.mask_slice_for(rsn_mask, layer_start, layer_end).astype(np.float32)
+
+        # Optional prefill-only steering. steer_alpha==0 (default) → pure
+        # observer (byte-identical to the old read-only tracker). When != 0,
+        # inject α × mask[l] into the last prompt token of each middle layer's
+        # OUTPUT (L>1 only) — same output-side injection as
+        # get_answer_regenerate_*.py / llms._regenerate_prefill_only, so the
+        # mask (extracted from decoder_layers[l] OUTPUT) lands on the matching
+        # layer (NO one-layer offset; a pre-hook would misalign by one layer).
+        # Injection happens INSIDE the observation hook, before projecting, so
+        # the recorded x_t reflects the POST-injection signal (matches the
+        # co-design identity x_{t+1} += α·‖mask‖²). steer_dirs == directions.
+        self.steer_alpha = steer_alpha
+        self.steer_dirs = self.directions if steer_alpha != 0.0 else None
 
         # Runtime state (reset per sample)
         self._hooks = []
@@ -128,6 +142,19 @@ class DopamineTracker:
             def hook(_module, _input, output):
                 hs = output[0] if isinstance(output, tuple) else output
                 # hs: (B=1, L, H)  — batch_size forced to 1 during tracking
+                modified = False
+
+                # Prefill-only steering: inject α × mask[l] into the last prompt
+                # token of THIS layer's output (L>1), in-place so it propagates
+                # downstream. Done before projecting → x_t observes post-injection.
+                if self.steer_alpha != 0.0 and hs.shape[1] > 1:
+                    diff = torch.as_tensor(
+                        self.steer_alpha * self.steer_dirs[local_idx],
+                        device=hs.device, dtype=hs.dtype,
+                    )
+                    hs[:, -1, :] += diff
+                    modified = True
+
                 vec = hs[0, -1, :].detach().float().cpu().numpy()  # (H,)
                 self._pending[local_idx] = vec
 
@@ -155,6 +182,12 @@ class DopamineTracker:
                         self._layer_projs.append(per_layer)
 
                     self._pending.clear()
+
+                if modified:
+                    if isinstance(output, tuple):
+                        return (hs,) + output[1:]
+                    return hs
+                return None
 
             return hook
 
@@ -248,7 +281,11 @@ def main():
         layer_start=args.layer_start,
         layer_end=args.layer_end,
         ema_alpha=args.ema_alpha,
+        steer_alpha=args.alpha,
     )
+    if args.alpha != 0.0:
+        print(f"Prefill-only steering ON: α={args.alpha} × {args.mask_type} mask, "
+              f"output-side, layers {args.layer_start}-{args.layer_end}")
 
     results = []
 
@@ -319,9 +356,17 @@ def main():
     # legacy filenames keep working.
     role_tag = "" if args.role == "neutral" else f"_{args.role}"
     mask_tag = "" if args.mask_type == "nmd" else f"_{args.mask_type}"
+    # α-tag: omitted at α=0 (legacy/baseline filenames unchanged). Matches the
+    # _aneg{n}/_a{n} convention used by the old track_hidden_states.py.
+    if args.alpha == 0.0:
+        alpha_tag = ""
+    elif args.alpha < 0:
+        alpha_tag = f"_aneg{abs(args.alpha):g}"
+    else:
+        alpha_tag = f"_a{args.alpha:g}"
     out_path = os.path.join(
         SAVE_DIR,
-        f"dopamine_signal_{args.task}_{args.size}_{tag}{role_tag}{mask_tag}"
+        f"dopamine_signal_{args.task}_{args.size}_{tag}{role_tag}{alpha_tag}{mask_tag}"
         f"_ema{args.ema_alpha}_L{args.layer_start}-{args.layer_end}.json",
     )
     with open(out_path, "w", encoding="utf-8") as fw:
@@ -338,6 +383,8 @@ def main():
                     "mask_type": args.mask_type,
                     "role": args.role,
                     "character": character,
+                    "steer_alpha": args.alpha,
+                    "steer_mode": "prefill_only_output" if args.alpha != 0.0 else "none",
                     "n_samples": len(results),
                     "accuracy": round(correct_n / total * 100, 2),
                     "cot": args.cot,
@@ -374,6 +421,10 @@ if __name__ == "__main__":
     parser.add_argument("--test_file", type=str, required=True)
     parser.add_argument("--n_samples", type=int, default=300)
     parser.add_argument("--cot", action="store_true")
+    parser.add_argument("--alpha", type=float, default=0.0,
+                        help="Prefill-only steering strength (× mask). 0 = pure "
+                             "observer (default, byte-identical to legacy runs); "
+                             "!=0 = output-side injection on layers [start,end).")
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top_p", type=float, default=0.9)
