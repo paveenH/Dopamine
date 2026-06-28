@@ -387,3 +387,49 @@ The Personality Illusion: Revealing Dissociation Between Self-Reports & Behavior
 2. **共享刺激集**：要做 fMRI RSA，需要設計一批「人腦和 LLM 都能做、且能對齊的」刺激——這是最難的設計問題。
 3. **RLHF 實驗的模型可得性**：Tülu-3 SFT checkpoint 是否可以下載？Zephyr-α/β 是否仍在 HuggingFace？
 4. **Paper 路線**：獨立 paper vs 延伸現有 RSN paper？前者需要 RLHF + 腦對應；後者可以先出。
+---
+## TODO
+
+排序原則：先驗證 RSN/dopamine signal 本身，再看 α=-4 為什麼有效，最後才做 router、reasoning model 和大 benchmark。
+
+1. expert vs non-expert vs neutral (non-cot)：看RSN curve是不是有差異 ✔
+2. expert vs non-expert vs neutral (non-cot)： Other metrics & Random mask ✔ 
+3. 更新Expert的設定 + 多指標分析 neutral (cot & non-cot)
+
+1. Validate dopamine signal proxy: selected RSN vs random projection, CoT vs No-CoT.
+
+2. Validate dopamine signal proxy: selected RSN vs random projection, expert vs non-expert vs neutral.
+
+3. 功能神經元 baseline：用 Language-sensitive / Emotion-sensitive neurons 做對比，檢驗 role-sensitive neurons 的獨特性和必要性。
+
+4. Check Llama3-8B curves under static α=-4 / α=+4，對比 α=0、CoT、No-CoT。
+
+5. 提前干預 / prefill intervention：比較 last prefill token、decode step 0、decode-time 全程注入；看曲線和 acc 是否不同。
+
+6. Multi-metric tracking：除了 RSN activation，也同步收集 MSP / confidence logit、entropy、constrained entropy、logit margin、E-option logit / abstention probability。
+
+7. Calibration on RSN-steered outputs：算 ECE / Brier / AUROC，檢查 α steering 是否造成 unwarranted certainty。
+
+8. Probe validation：分開做 knowledge probe 和 commitment / decisiveness probe，確認 RSN 主要改的是 knowing 還是 willingness-to-act。
+
+9. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
+   - RSN features: x_prefill, RSN projection mean / variance, middle-layer RSN activation, role-sensitive direction projection, first 5-10 decode token RSN slope
+   - uncertainty features: MSP, entropy, constrained entropy, logit margin, E-option logit / abstention probability
+   - baselines: entropy threshold, MSP threshold, answer logit margin, question length, random routing, always CoT, always No-CoT
+
+10. 加入 frequency feature：參考 ICLR2026 Balanced Thinking，用 step-level confidence variance / local fluctuation 區分 overthinking 和 underthinking。
+
+11. 加入 InfoBias & InfoGain：參考 NIPS2025 Think or Not，先作為 diagnostic / baseline，不急著變成主控制器。
+
+12. Base model & reasoning model：先做 Llama3-Base vs Llama3-IT；reasoning model 等前面 signal / intervention 站穩後再做。
+
+13. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
+
+14. RLHF 和 dopamine 出現的關係：整理 Notion `Model Analysis; Hallucination & Origin -> 15. Origin Analysis`，看 post-training 是否 sharpen 了 decisiveness axis。
+
+15. Benchmark scale-up：數學推理先做 AIME24、AIME25、AMC23、MATH-500、Minerva、OlympiadBench；再考慮 GPQA-D、LiveCodeBench。
+
+MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
+
+与正确答案之间的互信息
+---
