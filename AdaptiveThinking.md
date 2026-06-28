@@ -250,60 +250,39 @@ step t+1:
 
 **Per-step raw trajectories**
 
-| Metric | 計算 | 物理對應 |
+| Metric | Computation | Interpretation |
 |--------|------|---------|
 | `rsn_ema` | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive |
 | `entropy_decode` |`-Σ p log p` over vocab | wanting (vocabulary spread) |
 | `top1_decode` | `max(softmax(logits))` | output certainty |
-| `margin_decode` | `top1 - top2` | output certainty（與 top1 共線 r≈+0.99，可省）|
-| `info_gain_decode` | `H_{t-1} - H_t` | reasoning efficiency（paper 03）|
+| `margin_decode` | `top1 - top2` | output certainty (nearly collinear with top1; optional) |
+| `info_gain_decode` | `H_{t-1} - H_t` | reasoning efficiency (paper 03) |
 
-**衍生 trajectories（從第一層算出）**
+**Derived trajectories**
 
 - `normalized_ema` = `ema_t / x_prefill`
-- `cumulative_entropy_reduction` = `H_0 - H_t`（paper 03 InfoGain 累積版）
-- `rolling_conf_variance` = `std(top1[t-W:t])`，W=10（paper 05）
+- `cumulative_entropy_reduction` = `H_0 - H_t` (cumulative InfoGain; paper 03)
+- `rolling_conf_variance` = `std(top1[t-W:t])`, W=10 (paper 05)
 
-**Per-sample scalars（trajectory 聚合）**
+**Per-sample scalar summaries**
 
 `late_tonic`, `early_peak`, `mean_entropy`, `mean_top1`, `mean_margin`, `info_gain_mean`, `entropy_prefill`, `top1_prefill`, `margin_prefill`
 
-**對比矩陣（3 個獨立 axis）**
+**Comparison axes**
 
-| Axis | 度量方式 | 意義 |
+| Axis | Measurement | Purpose |
 |------|---------|------|
-| **A. Role** (Neutral / Expert / Non-Expert / ...) | curve mean ± std band | 信號對 role prompt 的敏感度 |
-| **B. Correct vs Wrong** | curve mean by group | 信號對 acc 的預測力 |
-| **C. Mask** (NMD vs Random) | curve mean by mask | 信號的 RSN-specificity（僅對 rsn_ema 有意義）|
+| **A. Role** (Neutral / Expert / Non-Expert / ...) | curve mean ± std band | Role-prompt sensitivity |
+| **B. Correct vs Wrong** | curve mean by group | Predictive relation with correctness |
+| **C. Mask** (NMD vs Random) | curve mean by mask | RSN-specificity control (mainly for `rsn_ema`) |
 
-**Cross-metric 關係**
+**Cross-metric relationships**
 
-- **Pearson correlation matrix** (per-sample, per-role): 量化指標間共享方差
-- **r(metric, correct)** ranked: 排序預測力
-- **Partial correlation** r(RSN, correct | entropy): 控制混淆後 RSN 的獨立預測力
-- **r(metric, RSN)** 一欄: 量化各指標與 dopamine 的耦合
+- **Pearson correlation matrix** (per-sample, per-role): shared variance across metrics
+- **r(metric, correct)** ranked: predictive strength for correctness
+- **Partial correlation** r(RSN, correct | entropy): RSN's independent predictive signal after controlling for entropy
+- **r(metric, RSN)**: coupling between each metric and the RSN trajectory
 
-**標準輸出**
-
-JSON（server）：
-- `dopamine_signal_<task>_<size>_<mode>_<role>[_<mask>]_ema0.95_L11-20.json` — RSN signal + per-layer
-- `metrics_<task>_<size>_<mode>_<role>_ema0.95_L11-20.json` — entropy/top1/margin/info_gain
-
-Plot（本地）：
-- `<task>_<mode>_curves.png` — 7 curves × correct/wrong (14 panels)
-- `<task>_<mode>_prefill.png` — 3 prefill scalar boxplot
-- `<task>_<mode>_summary.png` — sample-level bars
-- `<task>_<mode>_correlation.png` — cross-metric Pearson per role
-
-**命名規範**：`<task>_<size>_<mode>[_<role>][_<mask>]_ema<a>_L<l1>-<l2>.json`。缺省 role=neutral / mask=nmd 可省略，便於與既有 baseline 平級放置。
-
-**Pipeline 步驟（每次新對比軸跑一輪）**:
-
-1. **Server**: `track_hidden_states.py --role <role>` → raw HS (HDF5)
-2. **Server**: `extract_signal_json.py --mask_path <NMD>` + `extract_signal_json_remask.py --mask_path <random>` → dopamine / random signal JSON
-3. **Server**: `extract_entropy_confidence.py` → entropy/confidence JSON
-4. **scp** 三個 JSON 到本地 `./signal/`
-5. **本地**: `analyze_multi_metric.py` → 4 plot + stdout 統計表
 
 #### 3.2 Phase 2 控制方案
 
