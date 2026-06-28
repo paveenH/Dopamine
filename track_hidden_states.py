@@ -172,9 +172,36 @@ class HiddenStateRecorder:
         for storage_i, model_i in enumerate(self.layer_indices):
             model_to_storage.setdefault(model_i, []).append(storage_i)
 
+        # Middle-layer model index -> local mask row. The saved mask slice is
+        # aligned as saved row i <-> decoder_layers[i] <-> hidden_states[i+1].
+        middle_to_local = {
+            model_i: local_i
+            for local_i, model_i in enumerate(middle_idxs)
+        }
+
         def make_hook(model_idx: int):
             def hook(_module, _input, output):
                 hs = output[0] if isinstance(output, tuple) else output
+                modified = False
+
+                # Optional prefill-only steering on MIDDLE layer OUTPUTS.
+                # Do this before recording so HDF5 stores the same hidden state
+                # that downstream layers actually receive, matching
+                # llms._regenerate_prefill_only's output-side intervention.
+                if (
+                    self.steer_alpha != 0.0
+                    and hs.shape[1] > 1
+                    and model_idx in middle_to_local
+                ):
+                    local_idx = middle_to_local[model_idx]
+                    diff = torch.as_tensor(
+                        self.steer_alpha * self.steer_dirs[local_idx],
+                        device=hs.device,
+                        dtype=hs.dtype,
+                    )
+                    hs[:, -1, :] += diff
+                    modified = True
+
                 # hs: (B=1, L, H). Store ALL tokens of this forward (fp16).
                 hs_np = hs[0].detach().to(torch.float16).cpu().numpy()
                 for storage_i in model_to_storage[model_idx]:
@@ -207,41 +234,18 @@ class HiddenStateRecorder:
 
                     self._pending.clear()
 
+                if modified:
+                    if isinstance(output, tuple):
+                        return (hs,) + output[1:]
+                    return hs
+                return None
+
             return hook
 
         # Register post-hook (observation) once per unique model layer index
         for model_idx in sorted(model_to_storage.keys()):
             h = decoder_layers[model_idx].register_forward_hook(make_hook(model_idx))
             self._hooks.append(h)
-
-        # Optional prefill-only steering pre-hook on MIDDLE layers only.
-        # Injects α × mask[l] into the last prompt token (L>1) before the layer
-        # forward, so it perturbs the prefill that decode attends to — identical
-        # to get_answer_regenerate_*.py. No-op during decode (L==1) and when
-        # steer_alpha==0 (no pre-hook registered at all).
-        if self.steer_alpha != 0.0:
-            middle_model_idxs = list(utils.decoder_layer_range(self.layer_start, self.layer_end))
-
-            def make_steer_pre_hook(middle_local_idx: int):
-                dir_vec = self.steer_dirs[middle_local_idx]  # (H,) fp32
-
-                def pre_hook(module, args_in):
-                    hs = args_in[0] if isinstance(args_in, tuple) else args_in
-                    if hs.shape[1] <= 1:        # decode step: skip
-                        return None
-                    diff = torch.as_tensor(
-                        self.steer_alpha * dir_vec, device=hs.device, dtype=hs.dtype
-                    )
-                    hs[:, -1, :] += diff        # last prompt token only
-                    return None                 # in-place; keep original args
-
-                return pre_hook
-
-            for local_i, model_idx in enumerate(middle_model_idxs):
-                hp = decoder_layers[model_idx].register_forward_pre_hook(
-                    make_steer_pre_hook(local_i)
-                )
-                self._hooks.append(hp)
 
     def detach(self):
         for h in self._hooks:
