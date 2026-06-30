@@ -124,8 +124,6 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
   這篇把 Agent 行為統一建模為 **internal reasoning vs external action/tool use** 之間的 epistemic effort allocation。核心不是只問 Agent 能不能答對，而是問它是否能根據自身 knowledge boundary `Q_int`、任務不確定性與成本比 `β`，合理決定什麼時候自己想、什麼時候調用工具、什麼時候停止。
   - 關鍵警示：如果 post-training 只獎勵 final correctness，Agent 會自然漂向過度外包（over-delegation / overacting），短期正確率高但內部能力不成長；因此 agentic RL/SFT 應加入 process-level cost / effort-aware reward，而不是只看 answer accuracy。
 
----
-
 ## 2. Core Theoretical Framework
 
 ### 2.1 Core Idea
@@ -155,16 +153,11 @@ RSN / α steering 應被理解為在 wanting 軸上雙向移動模型狀態。�
 
 ### 2.4 Positioning of the RSN Trajectory
 
-RSN trajectory（如 `x_t`、EMA、early peak、late level、decay rate）應首先被視為 **diagnostic readout**，用來描述模型在解碼過程中的 engagement / commitment / release dynamics。它不是一個可以直接最大化或固定成某種形狀的 accuracy objective。
-
-在這個框架下：
+RSN trajectory 視為 **diagnostic readout**，用來描述模型在解碼過程中的 engagement / commitment / release dynamics。
 
 - **Tonic component**：對應持續背景 drive，可用 EMA 近似。
 - **Phasic component**：對應局部 decode 節點的 spike，不應一概視為噪聲。
-- **Release dynamics**：模型何時從高 engagement 狀態退出，可能比單純的起點高度更有解釋力。
-- **Shape ≠ capability**：trajectory shape 可以反映 state，但不能替代 reasoning content、verifier feedback 或外部工具提供的 capacity。
 
-因此，trajectory 分析的目標不是尋找一條固定的「理想曲線」，而是回答三個問題：不同 prompt / role / α 是否移動 state；這些 state 如何影響 initiation、commitment、verification 與 stopping；以及這些變化是否與任務需求相匹配。
 
 ## 3. Signal Definition
 
@@ -204,28 +197,17 @@ saved mask row i      ↔ decoder_layers[i] output
 
 因此，無論是 signal observation 還是 static steering，最乾淨的對齊方式都是在 decoder layer output space 上讀取 / 注入。這能避免把「第 L 層 output 上學到的方向」錯放到同一層 input space 裡。
 
-### 3.3 Three Modes of Use
 
-同一個 RSN mask 可以被用在三種不同模式；三者應明確分開：
-
-| Mode | 目的 | α | Hook / timing | 用途 |
-|---|---|---:|---|---|
-| Observation-only tracking | 只讀取 `x_t` / `ema_t`，不干預模型 | 0 | forward output readout | signal validation、role / CoT / correct-vs-wrong trajectory analysis |
-| Static steering | 固定 α 改變 state-level gain | fixed α | output-side addition `h_t[l] += α m_l` | GSM8K / MATH α scan、behavioral steering |
-| Closed-loop control | 根據 trajectory 即時調 α | dynamic `α_t` | observation → next-step intervention | Phase 2 waveform-control experiments |
-
-Observation-only 和 static steering 是目前最穩定、最可比的兩種用途。Closed-loop control 則是獨立的控制實驗，不應被視為 signal definition 本身。
-
-### 3.4 EMA Interpretation
+### 3.3 EMA Interpretation
 
 EMA 的角色是把 noisy token-level `x_t` 轉成慢變的 tonic-like trajectory。它有兩個用途：
 
 1. **診斷用途**：描述模型的 engagement / commitment / release dynamics。
-2. **控制用途（歷史 Phase 2）**：作為比 raw `x_t` 更慢、更穩定的 feedback variable。
+2. **控制用途**：作為比 raw `x_t` 更慢、更穩定的 feedback variable。
 
-但 EMA 不是生物多巴胺的直接量測，也不是 universal accuracy target。`β=0.95` 對應約 20 token 的時間常數，適合長生成中的 state smoothing；對很短的 action-output 任務則未必穩定。因此，EMA 應被解讀為 **tonic-state approximation**，而不是「越高越好」的 objective。
+`β=0.95` 對應約 20 token 的時間常數，適合長生成中的 state smoothing；對很短的 action-output 任務則未必穩定。因此，EMA 應被解讀為 **tonic-state approximation**。
 
-### 3.5 Closed-loop Caveat: 1-step Lag
+### 3.4 Closed-loop Caveat: 1-step Lag
 
 只有 closed-loop control 模式存在嚴格的 1-step lag。其物理來源是控制器必須先完成當前 token 的 forward，才能觀測 `x_t` 並計算下一步的 `α_{t+1}`：
 
@@ -240,24 +222,22 @@ step t+1:
   apply α_{t+1}
 ```
 
-因此，feedback 永遠基於上一 token 的 observation，作用於下一 token。對慢變的 EMA，這個 lag 尚可接受；對 1–2 token 內自然消退的 raw spike，逐 token feedback 容易追尾並造成振盪。這是 Phase 2 closed-loop 設計需要單獨處理的控制問題，不是 observation-only signal analysis 的限制。
+因此，feedback 永遠基於上一 token 的 observation，作用於下一 token。對慢變的 EMA，這個 lag 尚可接受；對 1–2 token 內自然消退的 raw spike，逐 token feedback 容易追尾並造成振盪。
 
-### 3.6 Multi-Metric Signal Suite
+### 3.5 Multi-Metric Signal Suite
 
 **Per-step raw trajectories**
 
 - `rsn_ema` 來自 **middle-layer HS 投影到 sparse NMD mask** 上的 scalar（RSN 子空間活動 = wanting / drive）。
-- `entropy / top1 / margin / info_gain` 來自 **final-layer whole hidden state**（非 mask）過 `RMSNorm + lm_head` 重建出的**真實 next-token logits**，再 softmax；即模型真實輸出分布。它們度量的是 **confidence / decisiveness**。
+- `entropy / top1 / margin / info_gain` 來自 **final-layer whole hidden state**，`RMSNorm + lm_head` 重建出的**真實 next-token logits**，再 softmax；即模型真實輸出分布。它們度量的是 **confidence / decisiveness**。
 
 | Metric | Source | Computation | Interpretation |
 |--------|--------|------|---------|
 | `rsn_ema` | middle HS · **NMD mask** | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive (RSN subspace) |
-| `entropy_decode` | **full final HS** → lm_head | `-Σ p log p` over vocab | confidence / decisiveness (inverse) |
-| `top1_decode` | **full final HS** → lm_head | `max(softmax(logits))` = MSP | confidence / decisiveness |
-| `margin_decode` | **full final HS** → lm_head | `top1 - top2` | confidence / decisiveness (≈collinear w/ top1; optional) |
-| `info_gain_decode` | **full final HS** → lm_head | `H_{t-1} - H_t` | reasoning efficiency (paper 03) |
-
-> 注意：`rsn_ema` 是 mask 子空間投影（wanting）；entropy/top1/margin/info_gain 是整條 HS 重建真實 logits（confidence），兩者**不共用 mask**。這個來源分離正是 wanting（internal drive）與其 confidence（output decisiveness）表現的對照基礎。
+| `entropy_decode` | **last layer HS** | `-Σ p log p` over vocab | confidence / decisiveness (inverse) |
+| `top1_decode` | **last layer HS** | `max(softmax(logits))` = MSP | confidence / decisiveness |
+| `margin_decode` | **last layer HS** | `top1 - top2` | confidence / decisiveness (≈collinear w/ top1; optional) |
+| `info_gain_decode` | **last layer HS** | `H_{t-1} - H_t` | reasoning efficiency (paper 03) |
 
 **Derived trajectories**
 
