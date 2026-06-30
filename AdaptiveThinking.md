@@ -260,16 +260,34 @@ step t+1:
 
 ## 4. Observed Results Phase1
 
+**Headline.** Across every state contrast, the differences are a **launch-phase** phenomenon: they live in the prefill (last prompt token) and the first ~10–25% of decode, then converge onto a shared late plateau (wanting ≈ 0.18, raw entropy ≈ 0.05, top1 ≈ 0.99; late-level KW p > 0.06). The model's role / CoT condition shapes *how it starts and engages*, not how it sustains generation. This is the observational counterpart to "early peak = commitment signal" (§2.4): the discriminative window is the onset, and the late tonic plateau is state-invariant.
+
 ### 4.1 Data Scope and Reading Convention
 
+Plots: `RoleAnswer/plot_phase1_state.py` (overlay + diff, prefill drawn as point 0; EMA-smoothed for trend, `--raw` for unsmoothed). Statistics: per-port Cohen's d recomputed inline in `RoleAnswer/`.
+
 Readout convention:
-- `prefill` = the last prompt token before generation.
+- `prefill` = the last prompt token before generation (point 0 in the trajectory plots).
 - `early` = the first 20% of decode.
 - `μ` = the full decode mean.
 - Effect sizes are Cohen's d against neutral No-CoT unless stated otherwise.
-- `rsn_ema` / `early_peak` / `early_slope` = RSN wanting signal from middle-layer NMD projection.
-- `entropy`, `top1`, and `margin` = confidence / decisiveness signals reconstructed from final-layer logits. For entropy, raw `entropy ↑` means more uncertain; when comparing with confidence, we use `-entropy` so positive means more decisive.
-- Accuracy is the knowing axis and is intentionally not the main readout here.
+
+**Three signal groups** (5 metrics → 3 axes; see §3.5 for sources):
+- **wanting** = `rsn_ema` / `x_decode`: middle-layer HS projected on the sparse NMD mask = the RSN / drive axis.
+- **head decisiveness** = `top1` ≈ `margin`: reads only the top 1–2 tokens of the output distribution.
+- **global uncertainty** = `entropy` ≈ `info_gain`: reads the whole distribution including the tail. `info_gain = −ΔH` (per-step entropy change); its tok0 value ≈ 2–3 is just the prefill→tok0 entropy collapse, not a steady-state level.
+
+
+**Prefill absolute means** (the decision-moment snapshot, before any decode). These ground the two reversal claims below:
+
+| state | wanting | entropy | top1 | margin |
+|---|---:|---:|---:|---:|
+| neutral No-CoT | 0.566 | 3.92 | 0.196 | 0.101 |
+| neutral CoT | 0.569 | 4.26 | 0.171 | 0.081 |
+| expert | 0.565 | 3.83 | 0.227 | 0.137 |
+| non_expert | 0.535 | 3.77 | 0.237 | 0.137 |
+
+Two facts read off this table: (1) **CoT starts more hesitant** — at prefill its entropy is highest (4.26) and its top1/margin are *lowest* (0.171/0.081 < No-CoT's 0.196/0.101), confirming the §4.2 "launch cautious" reading. (2) On the wanting axis, **expert (0.565) > non_expert (0.535)** at prefill, matching the mask direction (mask = expert − non_expert), even though this ordering reverses in decode (below).
 
 ### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
 
@@ -300,5 +318,4 @@ The clean persona contrast is `expert` vs `non_expert`. This comparison removes 
 | entropy / top1 / margin prefill | all ns | no reliable initial confidence split |
 | entropy / top1 / margin early or μ | all ns | no sustained confidence split during decode |
 
-Interpretation: **expert vs non_expert is mainly a wanting timing difference, not a confidence difference**. Expert has the higher last-prompt-token RSN projection, but non_expert shows a faster early decode rise. Final-logit confidence metrics are essentially flat between the two roles. This supports the dissociation claim: RSN wanting is not reducible to output confidence.
 
