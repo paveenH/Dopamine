@@ -257,7 +257,48 @@ step t+1:
 | **B. Correct vs Wrong** | curve mean by group | 輔助：與對錯的關係。⚠ 差異多為難度副產品（會做的題 release 快），非 state/DA 結論 |
 | **C. Mask** (NMD vs Random) | curve mean by mask | RSN-specificity control (僅對 `rsn_ema` 有意義) |
 
----
 
 ## 4. Observed Results Phase1
+
+### 4.1 Data Scope and Reading Convention
+
+Readout convention:
+- `prefill` = the last prompt token before generation.
+- `early` = the first 20% of decode.
+- `μ` = the full decode mean.
+- Effect sizes are Cohen's d against neutral No-CoT unless stated otherwise.
+- `rsn_ema` / `early_peak` / `early_slope` = RSN wanting signal from middle-layer NMD projection.
+- `entropy`, `top1`, and `margin` = confidence / decisiveness signals reconstructed from final-layer logits. For entropy, raw `entropy ↑` means more uncertain; when comparing with confidence, we use `-entropy` so positive means more decisive.
+- Accuracy is the knowing axis and is intentionally not the main readout here.
+
+### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
+
+CoT produces the clearest state effect. It does not simply raise confidence at the prompt boundary; instead, it changes the early decode dynamics.
+
+| Metric | prefill | early decode | decode μ |
+|---|---:|---:|---:|
+| wanting: `early_peak` / `early_slope` | `x_prefill` d=+0.03 ns | `early_peak` d=+0.77; `early_slope` d=+0.50 | wanting remains elevated; late level ns |
+| raw entropy | d=+0.36, more hesitant at start | d=-0.78, more decisive after reasoning begins | d=-0.26 |
+| top1 | d=-0.17 ns | d=+0.42 | d=+0.05 ns |
+| margin | d=-0.14 ns | d=+0.25 | ns |
+| token-level entropy delta | no prefill value | d=+0.15 | d=+0.09 |
+
+>d = (CoT mean - No-CoT mean) / pooled standard deviation
+
+>Interpretation: **CoT = process-level reshaping**. The model begins less committed at the prompt boundary, then the first decode window sharply increases both wanting and confidence. Wanting remains elevated over the full generation, while confidence gains mostly concentrate in the early window.
+
+### 4.3 Persona: Expert vs Non-Expert
+
+The clean persona contrast is `expert` vs `non_expert`. This comparison removes the neutral baseline and asks whether the two role prompts create a stable confidence or wanting difference.
+
+| Metric | expert − non_expert | Main pattern |
+|---|---:|---|
+| `x_prefill` wanting | d=+0.27 | expert starts with a higher prompt-boundary wanting signal |
+| `early_peak` wanting | d=-0.14 ns | peak height is not reliably different |
+| `early_slope` wanting | d=-0.38 | non_expert rises faster once decoding begins |
+| `late_level` wanting | d=+0.02 ns | no sustained late difference |
+| entropy / top1 / margin prefill | all ns | no reliable initial confidence split |
+| entropy / top1 / margin early or μ | all ns | no sustained confidence split during decode |
+
+Interpretation: **expert vs non_expert is mainly a wanting timing difference, not a confidence difference**. Expert has the higher last-prompt-token RSN projection, but non_expert shows a faster early decode rise. Final-logit confidence metrics are essentially flat between the two roles. This supports the dissociation claim: RSN wanting is not reducible to output confidence.
 
