@@ -260,7 +260,7 @@ step t+1:
 
 ## 4. Observed Results Phase1
 
-**Headline.** Across every state contrast, the differences are a **launch-phase** phenomenon: they live in the prefill (last prompt token) and the first ~10–25% of decode, then converge onto a shared late plateau (wanting ≈ 0.18, raw entropy ≈ 0.05, top1 ≈ 0.99; late-level KW p > 0.06). The model's role / CoT condition shapes *how it starts and engages*, not how it sustains generation. This is the observational counterpart to "early peak = commitment signal" (§2.4): the discriminative window is the onset, and the late tonic plateau is state-invariant.
+**Headline.** 在每一组 state 对比里,差异都是一个 **launch-phase** 现象:它们集中在 prefill(最后一个 prompt token)和 decode 的前 ~10–25%,之后收敛到一个共享的 late plateau(wanting ≈ 0.18,raw entropy ≈ 0.05,top1 ≈ 0.99;late-level KW p > 0.06)。模型的 role / CoT 条件决定的是它*怎么起跑、怎么投入*,而不是它怎么维持生成。
 
 ### 4.1 Data Scope and Reading Convention
 
@@ -291,8 +291,6 @@ Two facts read off this table: (1) **CoT starts more hesitant** — at prefill i
 
 ### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
 
-CoT produces the clearest state effect. It does not simply raise confidence at the prompt boundary; instead, it changes the early decode dynamics.
-
 | Metric | prefill | early decode | decode μ |
 |---|---:|---:|---:|
 | wanting: `early_peak` / `early_slope` | `x_prefill` d=+0.03 ns | `early_peak` d=+0.77; `early_slope` d=+0.50 | wanting remains elevated; late level ns |
@@ -301,13 +299,13 @@ CoT produces the clearest state effect. It does not simply raise confidence at t
 | margin | d=-0.14 ns | d=+0.25 | ns |
 | token-level entropy delta | no prefill value | d=+0.15 | d=+0.09 |
 
->d = (CoT mean - No-CoT mean) / pooled standard deviation
+>d = (CoT mean − No-CoT mean) / pooled standard deviation
 
->Interpretation: **CoT = process-level reshaping**. The model begins less committed at the prompt boundary, then the first decode window sharply increases both wanting and confidence. Wanting remains elevated over the full generation, while confidence gains mostly concentrate in the early window.
+>**CoT = process-level reshaping**: 模型在 prompt boundary 起步时更不笃定,然后第一个 decode 窗口同时把 wanting 和 confidence 急剧拉高。wanting 在整段生成里维持高位,而 confidence 的增益主要集中在 early window。
 
-### 4.3 Persona: Expert vs Non-Expert
+### 4.3 Persona
 
-The clean persona contrast is `expert` vs `non_expert`. This comparison removes the neutral baseline and asks whether the two role prompts create a stable confidence or wanting difference.
+#### Expert vs Non-Expert
 
 | Metric | expert − non_expert | Main pattern |
 |---|---:|---|
@@ -318,4 +316,21 @@ The clean persona contrast is `expert` vs `non_expert`. This comparison removes 
 | entropy / top1 / margin prefill | all ns | no reliable initial confidence split |
 | entropy / top1 / margin early or μ | all ns | no sustained confidence split during decode |
 
+**expert vs non_expert 主要是 wanting 的时间差异,不是 confidence 差异**: expert 在最后一个 prompt token 上 wanting 更高(0.565 > 0.535),但这个排序在 **prefill→tok0 边界处反转**:decode tok0 处 non_expert(≈0.652)反超 expert(≈0.617),并在之后保持更快的 early rise。两个 role 的 final-logit confidence 指标基本持平。
+
+#### All roles
+
+>:`RoleAnswer/llama3/dopamine/plots_eot/phase1_roles_<metric>.png`。
+
+| state | prefill | tok0 | early 0–10% | mid 10–25% | late | peak | peak − last | acc |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| neutral | 0.566 | 0.596 | 0.597 | 0.382 | 0.176 | 1.002 | 0.436 | 60.0% |
+| expert | 0.565 | 0.617 | 0.620 | 0.415 | 0.180 | 1.016 | 0.451 | 57.0% |
+| non_expert | 0.535 | 0.652 | 0.666 | 0.456 | 0.178 | 1.055 | 0.520 | 66.0% |
+| primary_teacher | 0.550 | 0.564 | 0.633 | 0.462 | 0.219 | 1.040 | 0.489 | 68.7% |
+
+- **prefill 各 role 基本持平**(0.55–0.57;non_expert 略最低)。persona 在 decision moment 几乎不动 wanting。
+- **early/mid 才是 role 拉开的地方**,而且是一个梯度:neutral < expert < primary_teacher < non_expert(early-wanting 最高)。
+- **primary_teacher 是 shared-plateau 规律的唯一例外。** 其余 role 都衰减到共享的 late plateau(≈0.18);teacher 衰减最慢,而且是唯一一个 **late plateau 被抬高(≈0.22)、一路撑到 token 100** 的 role。它是唯一的「sustained-engagement」型,另外三个都是「early-pulse then release」。
+- **peak − last(launch bounce)** 排序为 neutral(0.436)< expert(0.451)< teacher(0.489)< non_expert(0.520)。non_expert 起点最低却弹得最高——这正是 expert→non decode 反转的量化形式:non_expert 的特征是 **launch bounce 最大**,而不是 baseline 更高。
 
