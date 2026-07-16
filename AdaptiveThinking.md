@@ -260,8 +260,6 @@ step t+1:
 
 ## 4. Observed Results Phase1
 
-**Headline.** 在每一组 state 对比里,差异都是一个 **launch-phase** 现象:它们集中在 prefill(最后一个 prompt token)和 decode 的前 ~10–25%,之后收敛到一个共享的 late plateau(wanting ≈ 0.18,raw entropy ≈ 0.05,top1 ≈ 0.99;late-level KW p > 0.06)。模型的 role / CoT 条件决定的是它*怎么起跑、怎么投入*,而不是它怎么维持生成。
-
 ### 4.1 Data Scope and Reading Convention
 
 Plots: `RoleAnswer/plot_phase1_state.py` (overlay + diff, prefill drawn as point 0; EMA-smoothed for trend, `--raw` for unsmoothed). Statistics: per-port Cohen's d recomputed inline in `RoleAnswer/`.
