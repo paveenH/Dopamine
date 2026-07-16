@@ -278,51 +278,33 @@ Readout convention:
 
 ### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
 
-Cohen's d + MWU significance, **CoT − No-CoT** (+ = CoT higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Three time ports: prefill / early (0–20% decode) / decode μ.
+Cohen's d + MWU significance, **CoT − No-CoT** (+ = CoT higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Decode split into four length-normalised quartiles Q1–Q4; prefill column shows the raw starting means `No-CoT→CoT` alongside its d.
 
-prefill column shows the raw starting means `No-CoT→CoT` with d + significance; early/μ show d + significance only.
+| Metric | prefill (No-CoT→CoT) | Q1 0–25% | Q2 25–50% | Q3 50–75% | Q4 75–100% |
+|---|---|---:|---:|---:|---:|
+| wanting | 0.566→0.569 (+0.03 ns) | **+0.91\*\*\*** | **+0.55\*\*\*** | +0.14\*\* | +0.08 ns |
+| entropy (raw, ↑ = more uncertain) | 3.92→4.26 (**+0.36\*\*\***) | **−0.70\*\*\*** | +0.14\*\*\* | −0.08\*\*\* | −0.03\*\* |
+| top1 | 0.196→0.171 (−0.17 ns) | **+0.32\*\*\*** | **−0.21\*\*\*** | +0.03\*\*\* | +0.01\*\* |
+| margin | 0.101→0.081 (−0.14 ns) | +0.16\* | **−0.24\*\*\*** | +0.03\*\*\* | +0.01\*\* |
+| info_gain (−ΔH) | — | +0.11\*\*\* | +0.07 ns | +0.07 ns | −0.05 ns |
 
-| Metric | prefill (No-CoT→CoT) | early (0–20%) | decode μ |
-|---|---|---:|---:|
-| wanting | 0.566→0.569 (d=+0.03 ns) | **d=+0.83\*\*\*** | **d=+0.54\*\*\*** |
-| entropy (raw, ↑ = more uncertain) | 3.92→4.26 (**d=+0.36\*\*\***) | **d=−0.78\*\*\*** | **d=−0.26\*\*\*** |
-| top1 | 0.196→0.171 (d=−0.17 ns) | **d=+0.41\*\*\*** | d=+0.05 ns |
-| margin | 0.101→0.081 (d=−0.14 ns) | **d=+0.25\*\*\*** | d=−0.04 ns |
-| info_gain (−ΔH) | — | **d=+0.13\*\*\*** | **d=+0.09\*\*\*** |
-
->**CoT = process-level reshaping **。在 prompt boundary（prefill），CoT 只加宽 global uncertainty（entropy +0.36\*\*\*），对 wanting / decisiveness 不动（ns）—— 起跑时唯一的变化是「更犹豫」。一旦 decode 开始,第一个 window 同时把 **wanting**（+0.83\*\*\*,Phase 1 全表最大效应）和 **confidence**（top1 +0.41、margin +0.25、entropy 更笃定 −0.78）急剧拉高。到 decode μ,pattern **按轴分裂**:wanting 维持显著升高（+0.54\*\*\*),而 head decisiveness（top1/margin）回落到 ns —— **持续效应落在 wanting / drive 轴,confidence 的增益只是 early-window transient（早窗瞬态）**。
->
->CoT 不是简单「让模型更自信」,而是**先降后升的 engagement 重塑** —— prefill 处压低确定性(不抢答)、early 处同时点燃 wanting 与 confidence、后段只把 wanting 留下来维持 engagement。
+>**CoT = process-level reshaping**。四分位口径把 launch-phase 结构完整展开:
+>- **wanting = 一条干净的单调衰减梯度**:prefill 不动（+0.03 ns）→ Q1 峰值 +0.91\*\*\*（Phase 1 全表最大效应）→ Q2 +0.55 → Q3 +0.14 → Q4 +0.08（收敛到共享 plateau）。
+>- **confidence = Q1 正 / Q2 负 的瞬态翻转**:top1/margin 在 Q1 显著为正（CoT 更笃定,+0.32 / +0.16),Q2 翻成显著为负（top1 −0.21、margin −0.24,此时 No-CoT 反而更笃定),Q3/Q4 收敛。
 
 ### 4.3 Persona
 
 #### Expert vs Non-Expert
 
-Cohen's d + MWU significance, **expert − non_expert** (+ = expert higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Same three time ports.
+Cohen's d + MWU significance, **expert − non_expert** (+ = expert higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Decode split into four length-normalised quartiles Q1–Q4.
 
-| Metric | prefill | early (0–20%) | decode μ |
-|---|---:|---:|---:|
-| wanting | **d=+0.27\*\*** | **d=−0.27\*\*** | d=−0.07 ns |
-| entropy | d=+0.05 ns | d=+0.11 ns | d=+0.04 ns |
-| top1 | d=−0.06 ns | d=+0.02 ns | d=+0.03 ns |
-| margin | d=−0.06 ns | d=+0.07 ns | d=+0.05 ns |
-| info_gain | — | d=+0.06 ns | d=−0.09 ns |
+| Metric | prefill | Q1 0–25% | Q2 25–50% | Q3 50–75% | Q4 75–100% |
+|---|---:|---:|---:|---:|---:|
+| wanting | **+0.27\*\*** | **−0.24\*** | −0.01 ns | +0.01 ns | +0.01 ns |
+| entropy | +0.05 ns | +0.12 ns | +0.06 ns | −0.06 ns | −0.03 ns |
+| top1 | −0.06 ns | +0.00 ns | −0.03 ns | +0.08 ns | +0.06 ns |
+| margin | −0.06 ns | +0.05 ns | −0.01 ns | +0.08 ns | +0.06 ns |
+| info_gain | — | +0.04 ns | −0.03 ns | +0.06 ns | −0.07 ns |
 
-**expert vs non_expert 是一个纯 wanting 的时间差异,confidence 三轴全程 ns。** wanting 是唯一显著的指标,而且**符号在 prefill→early 之间翻转**:prefill 处 expert 更高(d=+0.27\*\*,对齐 mask 方向 expert−non),但 early decode 处 non_expert 反超(d=−0.27\*\*),到 decode μ 差异消散(ns)。所有 confidence 指标(entropy/top1/margin/info_gain)在三口径下**没有一格显著** —— 两个 role 的输出笃定度完全无法区分。这就是 dissociation 最干净的形态:persona 只在 wanting 轴上留下一个"起点高、随即反超"的瞬态,在 confidence 轴上什么都没留下。
-
-#### All roles
-
->:`RoleAnswer/llama3/dopamine/plots_eot/phase1_roles_<metric>.png`。
-
-| state | prefill | tok0 | early 0–10% | mid 10–25% | late | peak | peak − last | acc |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| neutral | 0.566 | 0.596 | 0.597 | 0.382 | 0.176 | 1.002 | 0.436 | 60.0% |
-| expert | 0.565 | 0.617 | 0.620 | 0.415 | 0.180 | 1.016 | 0.451 | 57.0% |
-| non_expert | 0.535 | 0.652 | 0.666 | 0.456 | 0.178 | 1.055 | 0.520 | 66.0% |
-| primary_teacher | 0.550 | 0.564 | 0.633 | 0.462 | 0.219 | 1.040 | 0.489 | 68.7% |
-
-- **prefill 各 role 基本持平**(0.55–0.57;non_expert 略最低)。persona 在 decision moment 几乎不动 wanting。
-- **early/mid 才是 role 拉开的地方**,而且是一个梯度:neutral < expert < primary_teacher < non_expert(early-wanting 最高)。
-- **primary_teacher 是 shared-plateau 规律的唯一例外。** 其余 role 都衰减到共享的 late plateau(≈0.18);teacher 衰减最慢,而且是唯一一个 **late plateau 被抬高(≈0.22)、一路撑到 token 100** 的 role。它是唯一的「sustained-engagement」型,另外三个都是「early-pulse then release」。
-- **peak − last(launch bounce)** 排序为 neutral(0.436)< expert(0.451)< teacher(0.489)< non_expert(0.520)。non_expert 起点最低却弹得最高——这正是 expert→non decode 反转的量化形式:non_expert 的特征是 **launch bounce 最大**,而不是 baseline 更高。
+**expert vs non_expert 是一个纯 wanting 的、极短暂的时间差异,confidence 四轴 × 五口径全程 ns。** wanting 是唯一显著的指标,而且**只活在 prefill 和 Q1 两个口径,且符号翻转**:prefill 处 expert 更高（+0.27\*\*,对齐 mask 方向 expert−non),Q1 处 non_expert 反超（−0.24\*),**Q2 起完全消散**（−0.01/+0.01/+0.01 全 ns）。所有 confidence 指标(entropy/top1/margin/info_gain)在五个口径下**没有一格显著** —— 两个 role 的输出笃定度完全无法区分。这就是 dissociation 最干净的形态:persona 只在 wanting 轴的 **prefill→Q1 边界**留下一个"起点高、随即反超"的瞬态,Q2 之后连 wanting 都归零,confidence 轴则自始至终什么都没有。
 
