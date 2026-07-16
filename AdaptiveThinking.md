@@ -280,15 +280,19 @@ Readout convention:
 
 Cohen's d + MWU significance, **CoT − No-CoT** (+ = CoT higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Three time ports: prefill / early (0–20% decode) / decode μ.
 
-| Metric | prefill | early (0–20%) | decode μ |
-|---|---:|---:|---:|
-| wanting | d=+0.03 ns | **d=+0.83\*\*\*** | **d=+0.54\*\*\*** |
-| entropy (raw, ↑ = more uncertain) | **d=+0.36\*\*\*** | **d=−0.78\*\*\*** | **d=−0.26\*\*\*** |
-| top1 | d=−0.17 ns | **d=+0.41\*\*\*** | d=+0.05 ns |
-| margin | d=−0.14 ns | **d=+0.25\*\*\*** | d=−0.04 ns |
+prefill column shows the raw starting means `No-CoT→CoT` with d + significance; early/μ show d + significance only.
+
+| Metric | prefill (No-CoT→CoT) | early (0–20%) | decode μ |
+|---|---|---:|---:|
+| wanting | 0.566→0.569 (d=+0.03 ns) | **d=+0.83\*\*\*** | **d=+0.54\*\*\*** |
+| entropy (raw, ↑ = more uncertain) | 3.92→4.26 (**d=+0.36\*\*\***) | **d=−0.78\*\*\*** | **d=−0.26\*\*\*** |
+| top1 | 0.196→0.171 (d=−0.17 ns) | **d=+0.41\*\*\*** | d=+0.05 ns |
+| margin | 0.101→0.081 (d=−0.14 ns) | **d=+0.25\*\*\*** | d=−0.04 ns |
 | info_gain (−ΔH) | — | **d=+0.13\*\*\*** | **d=+0.09\*\*\*** |
 
->**CoT = process-level reshaping**. At the prompt boundary CoT only widens uncertainty (entropy +0.36\*\*\*), leaving wanting / decisiveness untouched (ns). Once decode begins, the first window sharply lifts both **wanting** (+0.83\*\*\*, the largest effect in Phase 1) and **confidence** (top1 +0.41, margin +0.25, entropy more decisive −0.78). By decode μ the pattern **splits by axis**: wanting stays significantly elevated (+0.54\*\*\*) but head-decisiveness (top1/margin) falls back to ns — the sustained effect is on the wanting/drive axis, the confidence gain is an early-window transient.
+>**CoT = process-level reshaping **。在 prompt boundary（prefill），CoT 只加宽 global uncertainty（entropy +0.36\*\*\*），对 wanting / decisiveness 不动（ns）—— 起跑时唯一的变化是「更犹豫」。一旦 decode 开始,第一个 window 同时把 **wanting**（+0.83\*\*\*,Phase 1 全表最大效应）和 **confidence**（top1 +0.41、margin +0.25、entropy 更笃定 −0.78）急剧拉高。到 decode μ,pattern **按轴分裂**:wanting 维持显著升高（+0.54\*\*\*),而 head decisiveness（top1/margin）回落到 ns —— **持续效应落在 wanting / drive 轴,confidence 的增益只是 early-window transient（早窗瞬态）**。
+>
+>CoT 不是简单「让模型更自信」,而是**先降后升的 engagement 重塑** —— prefill 处压低确定性(不抢答)、early 处同时点燃 wanting 与 confidence、后段只把 wanting 留下来维持 engagement。
 
 ### 4.3 Persona
 
