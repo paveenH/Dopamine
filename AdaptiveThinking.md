@@ -276,45 +276,35 @@ Readout convention:
 - **global uncertainty** = `entropy` ≈ `info_gain`: reads the whole distribution including the tail. `info_gain = −ΔH` (per-step entropy change); its tok0 value ≈ 2–3 is just the prefill→tok0 entropy collapse, not a steady-state level.
 
 
-**Prefill absolute means** (the decision-moment snapshot, before any decode). These ground the two reversal claims below:
-
-| state | wanting | entropy | top1 | margin |
-|---|---:|---:|---:|---:|
-| neutral No-CoT | 0.566 | 3.92 | 0.196 | 0.101 |
-| neutral CoT | 0.569 | 4.26 | 0.171 | 0.081 |
-| expert | 0.565 | 3.83 | 0.227 | 0.127 |
-| non_expert | 0.535 | 3.77 | 0.237 | 0.137 |
-
-Two facts read off this table: (1) **CoT starts more hesitant** — at prefill its entropy is highest (4.26) and its top1/margin are *lowest* (0.171/0.081 < No-CoT's 0.196/0.101), confirming the §4.2 "launch cautious" reading. (2) On the wanting axis, **expert (0.565) > non_expert (0.535)** at prefill, matching the mask direction (mask = expert − non_expert), even though this ordering reverses in decode (below).
-
 ### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
 
-| Metric | prefill | early decode | decode μ |
+Cohen's d + MWU significance, **CoT − No-CoT** (+ = CoT higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Three time ports: prefill / early (0–20% decode) / decode μ.
+
+| Metric | prefill | early (0–20%) | decode μ |
 |---|---:|---:|---:|
-| wanting: `early_peak` / `early_slope` | `x_prefill` d=+0.03 ns | `early_peak` d=+0.77; `early_slope` d=+0.50 | wanting remains elevated; late level ns |
-| raw entropy | d=+0.36, more hesitant at start | d=-0.78, more decisive after reasoning begins | d=-0.26 |
-| top1 | d=-0.17 ns | d=+0.42 | d=+0.05 ns |
-| margin | d=-0.14 ns | d=+0.25 | ns |
-| token-level entropy delta | no prefill value | d=+0.15 | d=+0.09 |
+| wanting | d=+0.03 ns | **d=+0.83\*\*\*** | **d=+0.54\*\*\*** |
+| entropy (raw, ↑ = more uncertain) | **d=+0.36\*\*\*** | **d=−0.78\*\*\*** | **d=−0.26\*\*\*** |
+| top1 | d=−0.17 ns | **d=+0.41\*\*\*** | d=+0.05 ns |
+| margin | d=−0.14 ns | **d=+0.25\*\*\*** | d=−0.04 ns |
+| info_gain (−ΔH) | — | **d=+0.13\*\*\*** | **d=+0.09\*\*\*** |
 
->d = (CoT mean − No-CoT mean) / pooled standard deviation
-
->**CoT = process-level reshaping**: 模型在 prompt boundary 起步时更不笃定,然后第一个 decode 窗口同时把 wanting 和 confidence 急剧拉高。wanting 在整段生成里维持高位,而 confidence 的增益主要集中在 early window。
+>**CoT = process-level reshaping**. At the prompt boundary CoT only widens uncertainty (entropy +0.36\*\*\*), leaving wanting / decisiveness untouched (ns). Once decode begins, the first window sharply lifts both **wanting** (+0.83\*\*\*, the largest effect in Phase 1) and **confidence** (top1 +0.41, margin +0.25, entropy more decisive −0.78). By decode μ the pattern **splits by axis**: wanting stays significantly elevated (+0.54\*\*\*) but head-decisiveness (top1/margin) falls back to ns — the sustained effect is on the wanting/drive axis, the confidence gain is an early-window transient.
 
 ### 4.3 Persona
 
 #### Expert vs Non-Expert
 
-| Metric | expert − non_expert | Main pattern |
-|---|---:|---|
-| `x_prefill` wanting | d=+0.27 | expert starts with a higher prompt-boundary wanting signal |
-| `early_peak` wanting | d=-0.14 ns | peak height is not reliably different |
-| `early_slope` wanting | d=-0.38 | non_expert rises faster once decoding begins |
-| `late_level` wanting | d=+0.02 ns | no sustained late difference |
-| entropy / top1 / margin prefill | all ns | no reliable initial confidence split |
-| entropy / top1 / margin early or μ | all ns | no sustained confidence split during decode |
+Cohen's d + MWU significance, **expert − non_expert** (+ = expert higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Same three time ports.
 
-**expert vs non_expert 主要是 wanting 的时间差异,不是 confidence 差异**: expert 在最后一个 prompt token 上 wanting 更高(0.565 > 0.535),但这个排序在 **prefill→tok0 边界处反转**:decode tok0 处 non_expert(≈0.652)反超 expert(≈0.617),并在之后保持更快的 early rise。两个 role 的 final-logit confidence 指标基本持平。
+| Metric | prefill | early (0–20%) | decode μ |
+|---|---:|---:|---:|
+| wanting | **d=+0.27\*\*** | **d=−0.27\*\*** | d=−0.07 ns |
+| entropy | d=+0.05 ns | d=+0.11 ns | d=+0.04 ns |
+| top1 | d=−0.06 ns | d=+0.02 ns | d=+0.03 ns |
+| margin | d=−0.06 ns | d=+0.07 ns | d=+0.05 ns |
+| info_gain | — | d=+0.06 ns | d=−0.09 ns |
+
+**expert vs non_expert 是一个纯 wanting 的时间差异,confidence 三轴全程 ns。** wanting 是唯一显著的指标,而且**符号在 prefill→early 之间翻转**:prefill 处 expert 更高(d=+0.27\*\*,对齐 mask 方向 expert−non),但 early decode 处 non_expert 反超(d=−0.27\*\*),到 decode μ 差异消散(ns)。所有 confidence 指标(entropy/top1/margin/info_gain)在三口径下**没有一格显著** —— 两个 role 的输出笃定度完全无法区分。这就是 dissociation 最干净的形态:persona 只在 wanting 轴上留下一个"起点高、随即反超"的瞬态,在 confidence 轴上什么都没留下。
 
 #### All roles
 
