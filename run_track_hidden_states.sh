@@ -18,11 +18,13 @@ set -euo pipefail
 #  10) GSM8K No-CoT  role=neutral  α=+8
 #  11) GSM8K No-CoT  role=neutral  α=-8     (α=-8 = oscillation collapse; §2.3)
 #  12) GSM8K CoT     role=neutral  α=-4     (CoT steering trajectory)
+#  13) GSM8K No-CoT  role=neutral  α=+2     (fills the ±2 gap in the dose curve)
+#  14) GSM8K No-CoT  role=neutral  α=-2     (fills the ±2 gap in the dose curve)
 #
-# Runs 1–7 are ALREADY COLLECTED on this machine (phase1b_eot). The new cells
-# 8–12 extend the ±α dose-response axis (±6/±8) and add a CoT −4 trajectory so
-# the §2.3 oscillation collapse (α=-8) and §1.1 acc peak (α=-6) have HS to back
-# the text-only findings. Use START_FROM=8 to collect only the new runs.
+# Runs 1–7 are ALREADY COLLECTED on this machine (phase1b_eot). Runs 8–12
+# extend the ±α dose-response axis (±6/±8) and add a CoT −4 trajectory. Runs
+# 13–14 backfill ±2 so the No-CoT dose curve is dense around the −4/−6 peak
+# region. Use START_FROM=13 to collect ONLY the new ±2 runs.
 #
 # Output: HDF5 files under ${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}/
 # (α=0 runs untagged; steered runs carry _a<k> / _aneg<k>; CoT carries _cot.)
@@ -59,12 +61,13 @@ ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
 # The generation path (vc.generate_one) inherits the fix via self.terminators
 # automatically — no code change to track_hidden_states.py.
 #   START_FROM=8  → skip the done runs 1–7, collect ONLY the new ±6/±8/CoT-4 runs.
-#   START_FROM=13 → SKIP all HS collection, run only offline Step 2/3 extraction
+#   START_FROM=13 → collect ONLY the ±2 backfill runs (13–14).
+#   START_FROM=15 → SKIP all HS collection, run only offline Step 2/3 extraction
 #                   over HDF5 already in H5_DIR.
 START_FROM="${START_FROM:-1}"
 # SKIP_EXTRACT=1 → run ONLY the HS-collection runs and STOP before Step 2/3
 # offline extraction (so you can re-collect a single run, e.g. START_FROM=11,
-# without re-extracting JSON for all H5). Extract later with START_FROM=13.
+# without re-extracting JSON for all H5). Extract later with START_FROM=15.
 SKIP_EXTRACT="${SKIP_EXTRACT:-0}"
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
@@ -234,21 +237,39 @@ fi
 # (CoT α=-4) be compared against No-CoT α=-4 on the HS level.
 if [ "${START_FROM}" -le 12 ]; then
   echo ""
-  echo "[12/12] GSM8K CoT    | role=neutral | α=-4 (prefill-only)"
+  echo "[12/14] GSM8K CoT    | role=neutral | α=-4 (prefill-only)"
   python track_hidden_states.py ${BASE_ARGS} --role neutral --cot --alpha -4
   echo "[Done] neutral CoT α=-4"
+fi
+
+# ── Runs 13–14: backfill ±2 in the No-CoT dose-response trajectory ──
+# Same neutral prompt as Run 3, prefill-only steering at ±2. Fills the gap
+# between α=0 and ±4 so the dose curve is dense through the −4/−6 peak region.
+# Files tag _a2 / _aneg2, sitting beside the existing ±4/±6/±8 runs.
+if [ "${START_FROM}" -le 13 ]; then
+  echo ""
+  echo "[13/14] GSM8K No-CoT | role=neutral | α=+2 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha 2
+  echo "[Done] neutral α=+2"
+fi
+
+if [ "${START_FROM}" -le 14 ]; then
+  echo ""
+  echo "[14/14] GSM8K No-CoT | role=neutral | α=-2 (prefill-only)"
+  python track_hidden_states.py ${BASE_ARGS} --role neutral --alpha -2
+  echo "[Done] neutral α=-2"
 fi
 
 # ==================================================================
 # Step 2/3: offline re-projection (SOP §3.1b). All three extractors are
 # DIRECTORY-level (glob hs_*.h5), so each runs ONCE over ALL HDF5 files
-# (now 12: neutral/role α=0 + neutral ±4/±6/±8 + CoT −4) — no per-role loop.
+# (now 14: neutral/role α=0 + neutral ±2/±4/±6/±8 + CoT −4) — no per-role loop.
 # ==================================================================
 
 if [ "${SKIP_EXTRACT}" = "1" ]; then
   echo ""
   echo "[skip] SKIP_EXTRACT=1 — HS collection done, stopping before Step 2/3."
-  echo "       Run extraction later with: START_FROM=13 bash run_track_hidden_states.sh"
+  echo "       Run extraction later with: START_FROM=15 bash run_track_hidden_states.sh"
   echo "Done (HS only): $(date)"
   exit 0
 fi
