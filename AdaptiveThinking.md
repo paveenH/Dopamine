@@ -294,7 +294,7 @@ Cohen's d + MWU significance, **CoT − No-CoT** (+ = CoT higher; `***` p<.001, 
 
 ### 4.3 Persona
 
-#### Expert vs Non-Expert
+**Expert vs Non-Expert**
 
 Cohen's d + MWU significance, **expert − non_expert** (+ = expert higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Decode split into four length-normalised quartiles Q1–Q4.
 
@@ -308,3 +308,59 @@ Cohen's d + MWU significance, **expert − non_expert** (+ = expert higher; `***
 
 **expert vs non_expert 是一个纯 wanting 的、极短暂的时间差异,confidence 四轴 × 五口径全程 ns。** wanting 是唯一显著的指标,而且**只活在 prefill 和 Q1 两个口径,且符号翻转**:prefill 处 expert 更高（+0.27\*\*,对齐 mask 方向 expert−non),Q1 处 non_expert 反超（−0.24\*),**Q2 起完全消散**（−0.01/+0.01/+0.01 全 ns）。所有 confidence 指标(entropy/top1/margin/info_gain)在五个口径下**没有一格显著** —— 两个 role 的输出笃定度完全无法区分。这就是 dissociation 最干净的形态:persona 只在 wanting 轴的 **prefill→Q1 边界**留下一个"起点高、随即反超"的瞬态,Q2 之后连 wanting 都归零,confidence 轴则自始至终什么都没有。
 
+### 4.4 α-Steering: A Linear Wanting Knob Driving Inverted-U Behavior
+
+---
+我提议先不写新内容、先把 trajectory 这段拆成一个清晰的三层阶梯，每层写清"问题 / 证据标准 / 现状"：
+
+层	问题	证据标准	现状
+L1 观测（descriptive）	生成过程中 wanting/confidence 信号长什么样？被 state 怎么移动？	state 间 Cohen's d + 显著性	已有：CoT/persona 表已成，结论=调制集中在 early window，late 共享
+L2 动力学结构（structural）	这个时序结构里，哪部分像 tonic、哪部分像 phasic？early peak / plateau / residual 能不能对应 DA 波形？	能定义并分离 tonic 分量（EMA）与 phasic 分量（p_t = x_t − EMA_{t−1}），且各自有独立的行为/难度相关	半成品：§4.4 提的 p_t residual 是这层，但还没跑
+L3 计算对应（computational）	phasic 分量是否满足 RPE 的签名定义（signed、意外>预期、omission 转负）？tonic 分量是否 track vigor？	Bandit 里 Q-learning δ_t 拟合 + 事件锁定 + 四象限因果对照	纯设计：§4.4 后半，未做
+这样拆完，你现在卡在 L1→L2 的过渡：L1 结果已经有了，但还没把它重新组织成"tonic/phasic 分离"的语言，就直接跳到了 L3 的 Bandit-RPE 宏图。
+
+我的具体建议是：先把 L2 做扎实，它成本最低、且是 L3 的前提。 具体就是在现有的 GSM8K Phase-1 信号数据上（不用重跑），算 p_t = x_t − EMA_{t−1} 这个 phasic residual，验证三件事：
+
+它是否集中在启动期（和你 L1 已经发现的 "early window 调制" 是否是同一个东西）；
+early phasic peak 高度是否预测抢答 timing 和正确率（这个 GSM8K 有 label，能做）；
+它在 state 间（CoT/persona/α）的差异，是不是就是 L1 那张表的"early Q1 大效应"换个读法。
+如果这三点成立，你就有了一个干净的中间结论："L1 观测到的 early-window state 效应 = phasic-like transient；late plateau = 各 state 共享的 tonic baseline"——这直接把神经科学的 tonic/phasic 二分落到你已有的数据上，而不需要先去啃 Bandit-RPE 那套大工程。L3 (Bandit RPE) 就成了"锦上添花的因果升级"，而不是"trajectory 能不能站得住"的命门。
+---
+当前 wanting 信号的完整定义（精确版）
+对每个 decode step t，当前的 x_t 是：
+
+
+x_t = mean_l ( Σ_i  h_t[l][i] · m_l[i] )
+其中 m_l = 该层 NMD mask 的原始行（.astype(float32)，没有归一化），只在 top-0.5% 的神经元上非零；mean_l 是对中层 11–20 这 10 层各自点积后取算术平均；ema_t = 0.95·ema_{t−1} + 0.05·x_t，prefill 值作 seed。
+
+这里有 5 个隐含的设计选择，每一个都可以是优化点。 我按"对 wanting 表征影响从大到小"排：
+
+① mask 是 expert − non_expert 的方向，但投影用的是带符号原始 Δμ 幅值加权点积
+这是最根本的一点。m_l[i] = Δμ_l[i]（top-0.5% 保留、其余置零），所以 h_t·m_l = Σ h_t[i]·Δμ[i]。含义是：每个被选中的神经元，按它在 expert−non 上的平均位移大小加权，再乘当前激活。
+
+这不是"h 在单位 RSN 方向上的投影"，而是"h 和 Δμ 的未归一化内积"。所以 x_t 的量纲里混了两样东西：(a) 当前 h 沿 wanting 方向走了多远，(b) 各神经元 Δμ 的绝对尺度。不同 sample 之间、甚至不同层之间，(b) 是固定的（mask 不变），但层间 Δμ 尺度差异会让某几层主导 mean。
+优化空间：要不要把 m_l 归一化到单位范数（m_l/‖m_l‖），让 x_t 变成纯粹的"沿 wanting 方向的坐标"？这会改变量纲，但让 tonic/phasic 的幅度在层间可比。当前 CLAUDE.md 里明确说"投影和 steering 共享同一个未归一化 mask"是 by design（co-design identity x_{t+1} += α·‖mask‖²），所以归一化会破坏 steering 的自洽——但观测信号可以用归一化版本，steering 仍用原始版本，两者不必绑死。这是一个干净的、零重跑成本的 re-analysis（HDF5 里存了 per-layer 投影，甚至存了原始 HS）。
+② mean_l 对 10 层做等权平均 —— 但 paper 说 divergence 峰在中层，各层贡献不等
+当前把 layer 11–20 等权平均成一个标量。但母 paper 的 localization 图显示 divergence 在中层内部也不是平的（peak 11–19）。等权平均会：
+
+把"信号强的层"和"信号弱的层"混成一个数，摊薄了真正承载 wanting 的层。
+丢掉了层间的时序/深度结构——wanting 可能在某些层先起、某些层后起，等权平均把这个 collapse 掉了。
+优化空间：
+
+(a) 用 ‖m_l‖² 或 divergence 强度做加权平均，而非等权；
+(b) 干脆不平均，保留 per-layer 曲线（数据里已经有 x_decode_per_layer），看 wanting 是不是有"层间传播"结构——这可能正是 phasic 起始的更精细读法。
+③ EMA seed 用 prefill、β=0.95 固定 —— tonic 基线的定义耦合了 prefill
+ema 从 x_prefill 起步。这意味着 tonic baseline 的起点被 prompt 的最后一个 token 决定了。而 §4.3 的结论恰恰是"persona 的效应几乎只活在 prefill→Q1"——也就是说 prefill 本身是被 state 强烈调制的点，用它做 EMA seed，会把 state 效应"注入"到整条 tonic 曲线的初始段。
+
+优化空间：tonic baseline 到底该不该包含 prefill？如果目的是分离"起点偏置（prefill）vs 生成中的持续 drive（decode plateau）"，可能应该用decode 后段的稳态（比如 Q4 均值）作为 tonic 基准，而不是 prefill-seeded EMA。这直接关系到你 L2 想算的 p_t = x_t − EMA_{t−1} 里 EMA 是什么。
+
+④ 信号是绝对投影值，没有 per-model / per-sample 基线归一
+x_t 是绝对标量。跨 role/α 比较时靠的是 same-machine + Cohen's d。但"多巴胺"框架里，真正有意义的往往是相对基线的偏移（tonic 是相对个体 baseline，phasic 是相对预期）。当前 normalized_ema = ema_t / x_prefill 已经在做一点归一，但除以 prefill 又回到 ③ 的问题。
+
+优化空间：wanting 的"零点"该定在哪？是 neutral role 的 baseline？是 random-mask 投影的期望？定义一个有神经科学意义的零点，比绝对值更能支撑"tonic 偏移"的叙事。
+
+⑤ 只投影到一个 mask 方向 —— wanting 是标量，但 DA 系统是多维的
+当前 wanting 被压成一个标量（10 层平均的一个数）。这对"tonic level"够用，但如果想区分 tonic vs phasic 是不同的神经群（神经科学上 tonic/phasic 由不同放电模式承载），单方向投影无法分离。
+
+优化空间（较进阶，可能超出当前需要）：是否存在"phasic 方向"和"tonic 方向"的分离——比如 correct−wrong 的 Δμ vs expert−non 的 Δμ 是不是正交？这是后话，先不展开。
+---
