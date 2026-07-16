@@ -282,7 +282,7 @@ Readout convention:
 |---|---:|---:|---:|---:|
 | neutral No-CoT | 0.566 | 3.92 | 0.196 | 0.101 |
 | neutral CoT | 0.569 | 4.26 | 0.171 | 0.081 |
-| expert | 0.565 | 3.83 | 0.227 | 0.137 |
+| expert | 0.565 | 3.83 | 0.227 | 0.127 |
 | non_expert | 0.535 | 3.77 | 0.237 | 0.137 |
 
 Two facts read off this table: (1) **CoT starts more hesitant** — at prefill its entropy is highest (4.26) and its top1/margin are *lowest* (0.171/0.081 < No-CoT's 0.196/0.101), confirming the §4.2 "launch cautious" reading. (2) On the wanting axis, **expert (0.565) > non_expert (0.535)** at prefill, matching the mask direction (mask = expert − non_expert), even though this ordering reverses in decode (below).
