@@ -149,9 +149,7 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制，�
 - 時間尺度 **毫秒~秒**——一個尖峰後迅速消失。
 - 編碼**事件**，且不只一種：**RPE**（獎勵預測誤差，需獎勵）、**salience / novelty**（顯著、新奇、關鍵線索，**無需獎勵**）、**決策節點**（下決心那一下）。
 
-**Ramping** 是 tonic / phasic 之外常被忽略的第三個時間尺度，也是近年最活躍的前沿概念——朝目標逼近時多巴胺濃度的**持續單調爬升**（Howe et al. 2013 Nature：大鼠接近遠處獎勵時 DA 隨**距離與獎勵大小 scale** 地 ramp）。它不是恆定 tonic、也不是瞬時 spike，而是「朝完成推進的速度 / 勁頭」= **vigor**；其本質常被理解為**價值函數的梯度 / goal proximity**（「離算完還差多少步」）。
-
-Ramping 屬 tonic 還是 phasic，學界有兩個並行的前沿假說（都對本專案有工程啟發）：
+**Ramping** 是 tonic / phasic 之外常被忽略的第三個時間尺度，也是近年最活躍的前沿概念——朝目標逼近時多巴胺濃度的**持續單調爬升**（Howe et al. 2013 Nature：大鼠接近遠處獎勵時 DA 隨**距離與獎勵大小 scale** 地 ramp）。它不是恆定 tonic、也不是瞬時 spike，而是「朝完成推進的速度 / 勁頭」= **vigor**；其本質常被理解為**價值函數的梯度 / goal proximity**（「離算完還差多少步」）。Ramping 屬 tonic 還是 phasic，學界有兩個並行的前沿假說：
 - **假說 A — TD-error 長程積分（Gershman 2014, Neural Computation, Harvard）**：ramping 是密集微小正向 phasic 脈衝在時間上的積分；對 goal proximity 做**凸 / 二次變換**即近似得到觀測到的**線性 ramp**（Weber's-law 式的空間壓縮）。映射：解釋了「單點 phasic 沒變，但 α 改變了脈衝在長程上的累積係數」。
 - **假說 B — 局部環路流體動力學（Mohebi et al.）**：即使切斷 VTA 胞體放電（soma spiking），紋狀體軸突末梢仍能經局部（膽鹼能 / 谷氨酸能）控制漏出 DA 形成 ramp——DA ramp 可**獨立於 VTA 單元放電**。映射：prefill 最後一刻注入的 α 正像這種「不改微觀內核、卻改變整條後續序列釋放速率」的環境參數。
 
