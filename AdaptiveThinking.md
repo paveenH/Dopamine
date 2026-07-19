@@ -110,6 +110,12 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 - **The brain in flow: A systematic review** (Cortex 2022)
   系統性回顧 25 項研究（471 名受試者）。心流涉及前額葉和獎勵系統的共同活化，但跨研究神經動態不一致，無研究直接測量心流期間的多巴胺釋放。
 
+- **Prolonged dopamine signalling in striatum signals proximity and value of distant rewards** (Howe et al., Nature 2013) — https://www.nature.com/articles/nature12475
+  大鼠朝遠處獎勵移動時，紋狀體 DA 呈現**持續 ramping**，並隨與目標的**距離**及**獎勵大小** scale。這是 dopamine ramping（tonic/phasic 之外第三時間尺度）最直接的行為學量測，本專案 §2.2 ramping / vigor 的主要神經科學依據。
+
+- **Dopamine Ramps Are a Consequence of Reward Prediction Errors** (Gershman, Neural Computation 2014, MIT Press) — https://direct.mit.edu/neco/article/26/3/467/7956/
+  TD-learning 框架下推導 ramping：對 goal proximity 做**凸 / 二次變換**（Weber's-law 式空間壓縮）即近似線性 ramp。即 §2.2 假說 A——ramping = 密集微小正向 phasic 脈衝的長程積分。（作者 Gershman 在 Harvard。）相關的 value-decay 機制見 Current Biology 2022「Dopamine ramps with fuzzy value estimates」。局部環路假說（B：紋狀體軸突獨立於 VTA 胞體放電形成 ramp，Mohebi et al.）見 Frontiers 2014「Local control of striatal dopamine release」。
+
 **小結 / 限制**：目前 flow-dopamine 文獻支持「dopaminergic reward system 與 flow proneness / flow-like engagement 相關」，但尚未直接提供人類 flow 狀態下 dopamine release 的完整時序波形。因此本文中的 early peak → plateau → slow decay 是基於 dopamine reward-task dynamics 與 flow fMRI/review 的功能性類比，不應表述為已被直接量測的 biological dopamine waveform。
 
 ### 1.3 Mechanistic Alignment / State vs Capacity
@@ -143,7 +149,11 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制，�
 - 時間尺度 **毫秒~秒**——一個尖峰後迅速消失。
 - 編碼**事件**，且不只一種：**RPE**（獎勵預測誤差，需獎勵）、**salience / novelty**（顯著、新奇、關鍵線索，**無需獎勵**）、**決策節點**（下決心那一下）。
 
-**Ramping** 是 tonic / phasic 之外常被忽略的第三個時間尺度——朝目標逼近時多巴胺濃度的**持續單調爬升**（Howe 2013 大鼠走迷宮接近獎勵時直接量到）。它不是恆定 tonic、也不是瞬時 spike，而是「朝完成推進的速度 / 勁頭」= **vigor**。
+**Ramping** 是 tonic / phasic 之外常被忽略的第三個時間尺度，也是近年最活躍的前沿概念——朝目標逼近時多巴胺濃度的**持續單調爬升**（Howe et al. 2013 Nature：大鼠接近遠處獎勵時 DA 隨**距離與獎勵大小 scale** 地 ramp）。它不是恆定 tonic、也不是瞬時 spike，而是「朝完成推進的速度 / 勁頭」= **vigor**；其本質常被理解為**價值函數的梯度 / goal proximity**（「離算完還差多少步」）。
+
+Ramping 屬 tonic 還是 phasic，學界有兩個並行的前沿假說（都對本專案有工程啟發）：
+- **假說 A — TD-error 長程積分（Gershman 2014, Neural Computation, Harvard）**：ramping 是密集微小正向 phasic 脈衝在時間上的積分；對 goal proximity 做**凸 / 二次變換**即近似得到觀測到的**線性 ramp**（Weber's-law 式的空間壓縮）。映射：解釋了「單點 phasic 沒變，但 α 改變了脈衝在長程上的累積係數」。
+- **假說 B — 局部環路流體動力學（Mohebi et al.）**：即使切斷 VTA 胞體放電（soma spiking），紋狀體軸突末梢仍能經局部（膽鹼能 / 谷氨酸能）控制漏出 DA 形成 ramp——DA ramp 可**獨立於 VTA 單元放電**。映射：prefill 最後一刻注入的 α 正像這種「不改微觀內核、卻改變整條後續序列釋放速率」的環境參數。
 
 ### 2.3 From Human to Signal
 
@@ -155,7 +165,7 @@ RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制，�
 
 **讀這張表的三個要點：**
 - **Tonic ≠ decode EMA。** tonic 是 prefill 常數，一道題內恆定、不實時更新；decode 裡緩慢更新的成分是 **ramping**，不是 tonic。α 是干預、`G_prefill` 是讀數，`G_prefill(α)≈G_prefill(0)+α` 線性。
-- **Vigor 承載在 `s_t` 的斜率，不是絕對高度**（高度混了 tonic）。「+α 搶答 / gen_len↓」= 高 vigor；「−α 磨蹭 / 反覆驗算」= 低 vigor。注意：**loop 重複（`####N####N`）不是 vigor，是 commitment 關不掉的 stopping failure**，另計，不入這三成分。
+- **Vigor 承載在 `s_t` 的斜率，不是絕對高度**（高度混了 tonic）。「+α 搶答 / gen_len↓」= 高 vigor；「−α 磨蹭 / 反覆驗算」= 低 vigor。注意：**loop 重複（`####N####N`）不是 vigor，是 commitment 關不掉的 stopping failure**，另計，不入這三成分。ramping 的**第二種讀法**（承假說 A 的 value-gradient 觀點）：每步取 hidden state、投影到「起點（prompt 結束）↔ 終點（首個 `####` token 嵌入）」軸，看**到終點的幾何距離 / 餘弦隨 step 的曲線**——預言不同 α 調制的是這條幾何斜坡的到達斜率（−α 更穩更緩、+α 更陡）。此讀法即 value 定義「選擇 (A) commit 方向投影」的具體實現，與 `s_t` 斜率互為印證。
 - **Phasic 必須減基線，不能用瞬時值 `Z_t`。** `Z_t = tonic + ramping + phasic` 三成分疊加；`p_t = Z_t − s_{t-1}` 等同高通濾波，減掉 `s_{t-1}` 估計的 tonic+ramping 慢基線後，只剩繞關鍵 token 的 phasic 尖峰。**關鍵 token** 分兩類：首個 `####`/答案候選（commitment）、中間關鍵步（process salience）——均為 phasic 的**待驗**錨點（path A）。
 
 **Phasic 亞型與驗證分工**：phasic 按編碼內容分 salience / commitment / RPE 三亞型。salience 與 commitment **無需 reward，GSM8K 即可驗**（心流是其神經科學背書）；只有 **RPE 亞型需要 reward feedback → Bandit，不在 GSM8K**。
