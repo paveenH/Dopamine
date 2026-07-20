@@ -220,6 +220,8 @@ Z_t = mean_l(z_{t,l})
 
 Reference `μ_l^ref` 與 `σ_l^ref` 在所有 role、α、token 與 event 中固定，不隨條件重新估計，才能保留條件間與 generation 階段間的真實差異。
 
+**坐標分工**：涉及 α 單位的定量陳述（dose linearity、`boundary_jump` 回彈比例、steering calibration，即 H1）一律在 `G` 坐標；涉及 trajectory 形狀的分析（`s_t` slope、`p_t` residual，即 H2/H3）在 `Z` 坐標，以確保 layer-fair、不被個別大尺度 layer 主導。
+
 **Layer alignment**：mask row `l` 對齊 `decoder_layers[l]` 的 **output**。Signal observation 與 steering injection 必須使用同一 output space，避免一層 offset。
 
 ### 3.3 Temporal Signal Decomposition
@@ -237,10 +239,10 @@ T = G_prefill
 prefill 到第一個 decode token 的回彈另記為：
 
 ```text
-boundary_jump = Z_0 - Z_prefill
+boundary_jump = G_0 - G_prefill
 ```
 
-`boundary_jump` 用來描述 task-entry pulse 如何進入自然 decode dynamics。
+`boundary_jump` 用來描述 task-entry pulse 如何進入自然 decode dynamics；在 `G` 坐標計算，以與 H1 引用的 α-單位回彈比例（約 95%）保持一致。
 
 #### 3.3.2 Ramping / Vigor
 
@@ -325,7 +327,7 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 
 ## 4. Observed Results Phase1
 
-### 4.1 Data Scope and Reading Convention
+### 4.1 Wrong vs Right
 
 Plots: `RoleAnswer/plot_phase1_state.py` (overlay + diff, prefill drawn as point 0; EMA-smoothed for trend, `--raw` for unsmoothed). Statistics: per-port Cohen's d recomputed inline in `RoleAnswer/`.
 
