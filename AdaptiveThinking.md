@@ -346,25 +346,58 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 | α0_cot | 67.7 | 69.0 | −1.3 |
 | α−4_cot | 82.7 | 85.0 | −2.3 |
 
-### 4.1 Wrong vs Right
+### 4.1 Correct vs Incorrect Responses
 
+Correctness 不是主要 intervention axis；本節將其作為 **outcome analysis**，檢驗 RSN dynamics 與 task performance 的關係。分析使用 neutral No-CoT（180 correct / 120 incorrect）與 CoT（203 / 97）；commit 定義為首個 `####`，若不存在則使用首個 answer candidate。
+
+#### Commit Timing
+
+在具有可辨識 commit marker 的 responses 中，correct responses 並未更早提交答案。其 median commit step 顯著晚於 incorrect responses（No-CoT: 180 / 117；CoT: 203 / 94）：
+
+| Condition | Correct | Incorrect | MWU p |
+|---|---:|---:|---:|
+| No-CoT | 101 | 56 | 0.006 |
+| CoT | 203 | 96 | 0.00014 |
+
+因此，length-normalized trajectory 中的 correct / incorrect 差異不能簡單歸因於「correct 更早完成」。相反地，在可辨識 commit 的 samples 中，incorrect responses 較早形成 answer candidate。
+
+#### Commit-Aligned Dynamics
+
+將各 sample 對齊至自己的 commit step（`t=0`）後，可觀察到三個主要模式：
+
+1. **Pre-commit slow RSN state**：Commit-aligned slow RSN dynamics：correct 組在 commit 前維持較高`s_t`；commit 後則下降得更快，約在 10–15 tokens 後低於 incorrect 組。前者表示組間差異不只是 commit timing 錯位，後者則提示 correct responses 在答案形成後具有更快的 state release / termination dynamics。
+2. **Commit-centered transition**：`Z_t`、`s_t`、`p_t` 與 entropy / top1 / margin 均在 commit 附近快速變化。這支持 commit marker 對應一個明顯的 generation-state transition。
+3. **Post-commit separation**：correct 組呈現較強的 `s_t` decline 與較完整的 confidence recovery；incorrect 組下降較慢、恢復較弱，可能反映不同的 termination dynamics。
+
+| Signal family | Main observation | Interpretation |
+|---|---|---|
+| `s_t` / `Z_t` | correct 在 commit 前較高，commit 後下降較深 | slow RSN dynamics 與 response outcome 相關 |
+| `p_t` | commit window 有明顯 pulse / dip，但兩組在 commit 前無穩定分離 | 對局部 state transition 敏感，不是穩定 correctness predictor |
+| entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition |
+| info gain | commit 附近波動，但組間結構不穩定 | 僅作 distributional-change diagnostic |
+
+Prefill readouts 幾乎不區分 correctness（`G_prefill`、`Z_prefill` 的 effect size 接近零），而 `p_t` 的組間差異也未在 No-CoT 與 CoT 中穩定重現。因此，目前最可靠的結果是：**correctness 主要與 commit 前後的 slow RSN trajectory 相關，而不是 task-entry gain 或單一 phasic amplitude。**
+
+此結果仍可能受到 question difficulty 影響；要判斷 `s_t` 是否提供超越難度的獨立訊息，需進一步進行 difficulty-matched analysis 或 per-sample regression。RSN 與 logit metrics 來自不同表徵空間，應分開分析，不將多個派生曲線視為彼此獨立的證據。
+
+#### Figures
+
+| Figure | Alignment / signals | Main finding |
+|---|---|---|
+| `fig41_suite_rsn.png` | Length-normalized `Z_t / s_t / p_t` | correct 組 early slow RSN state 較高，之後下降更快；`p_t` 無穩定組間分離 |
+| `fig41_suite_logit_nocot.png` | Length-normalized No-CoT logit metrics | incorrect 組 entropy / confidence volatility 略高、top1 / margin 略低；info gain 無穩定差異 |
+| `fig41_suite_logit_cot.png` | Length-normalized CoT logit metrics | 大致重現 No-CoT pattern；confidence 差異存在但弱於 slow RSN 差異 |
+| `fig41_commit_aligned_st.png` | `s_t` aligned to first commit | correct 在 commit 前較高，commit 後下降更快，約 10–15 tokens 後低於 incorrect |
+| `fig41_commit_aligned_suite_nocot.png` | Commit-aligned No-CoT RSN + logit suite | commit 附近出現共同 state transition；`p_t` 有 pulse / dip，但 confidence 對 correctness 的分離較弱 |
+| `fig41_commit_aligned_suite_cot.png` | Commit-aligned CoT RSN + logit suite | 重現 commit-centered transition 與 correct 組較快的 post-commit release |
+
+**Overall:** correctness 主要與 commit 前後的 **slow RSN trajectory** 相關；task-entry gain、單一 phasic amplitude 與 confidence metrics 均不是穩定的 correctness predictor。六張圖來自同一批資料的兩種對齊方式，應視為互補分析，而非六份獨立證據。
+
+**Boundary:** commit-centered logit change 可能部分來自 `####` / answer-format transition；slow RSN difference 仍需 difficulty-matched analysis 驗證。
 
 
 ### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
 
-Cohen's d + MWU significance, **CoT − No-CoT** (+ = CoT higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Decode split into four length-normalised quartiles Q1–Q4; prefill column shows the raw starting means `No-CoT→CoT` alongside its d.
-
-| Metric | prefill (No-CoT→CoT) | Q1 0–25% | Q2 25–50% | Q3 50–75% | Q4 75–100% |
-|---|---|---:|---:|---:|---:|
-| wanting | 0.566→0.569 (+0.03 ns) | **+0.91\*\*\*** | **+0.55\*\*\*** | +0.14\*\* | +0.08 ns |
-| entropy (raw, ↑ = more uncertain) | 3.92→4.26 (**+0.36\*\*\***) | **−0.70\*\*\*** | +0.14\*\*\* | −0.08\*\*\* | −0.03\*\* |
-| top1 | 0.196→0.171 (−0.17 ns) | **+0.32\*\*\*** | **−0.21\*\*\*** | +0.03\*\*\* | +0.01\*\* |
-| margin | 0.101→0.081 (−0.14 ns) | +0.16\* | **−0.24\*\*\*** | +0.03\*\*\* | +0.01\*\* |
-| info_gain (−ΔH) | — | +0.11\*\*\* | +0.07 ns | +0.07 ns | −0.05 ns |
-
->**CoT = process-level reshaping**。四分位口径把 launch-phase 结构完整展开:
->- **wanting = 一条干净的单调衰减梯度**:prefill 不动（+0.03 ns）→ Q1 峰值 +0.91\*\*\*（Phase 1 全表最大效应）→ Q2 +0.55 → Q3 +0.14 → Q4 +0.08（收敛到共享 plateau）。
->- **confidence = Q1 正 / Q2 负 的瞬态翻转**:top1/margin 在 Q1 显著为正（CoT 更笃定,+0.32 / +0.16),Q2 翻成显著为负（top1 −0.21、margin −0.24,此时 No-CoT 反而更笃定),Q3/Q4 收敛。
 
 ### 4.3 Persona
 
