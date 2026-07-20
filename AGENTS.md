@@ -39,13 +39,14 @@ Behavioral guidelines to reduce common LLM coding mistakes. **Tradeoff:** these 
 
 ## Project
 
-**Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/AGENTS.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work.
+**Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/CLAUDE.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work. The definitive, continuously-updated repo brief is `CLAUDE.md` (its Claude twin) — when this file and `CLAUDE.md` disagree, `CLAUDE.md` wins; keep the two in sync when editing repo conventions.
 
 **Required reading before non-trivial changes:**
-- `AdaDopamine_gsm8k.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed.
-- `AdaptiveThinking.md` — Phases 1–2, Plans A–H3 (full design rationale, failure analyses, integrated conclusion that decode-time shape control is measurable but does not robustly recover CoT-level accuracy), Yerkes–Dodson framing, EMA + 1-step-lag physics
+- `AdaDopamine_gsm8k.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed (`<|eot_id|>` terminator fix + symmetrized templates); the eot re-run is the authoritative data.
+- `AdaptiveThinking.md` — Phases 1–2, Plans A–H3 (design rationale, failure analyses, decode-time shape control ≠ acc control), Yerkes–Dodson framing, EMA + 1-step-lag physics, and the current three-component (tonic/ramping/phasic) + gain-coordinate (G/Z) signal framework.
+- `AdaDopamine.md` / `AdaDopamine_bp.md` — behavioral-validation stage (wanting-proxy suite: Betting, Bandit, CGT, IGT, …); `_bp` holds the raw prior results the curated doc only summarizes.
 - `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` — literature & mapping
-- `~/AGENTS.md` — running commands and data-directory map
+- `~/CLAUDE.md` — running commands and data-directory map
 
 ## Architecture: how a run is wired together
 
@@ -85,10 +86,21 @@ When tweaking a plan, modify the `.sh` not the `.py` — the script is committed
 - `analysis_*` and `analyze_*` are post-hoc plotting; never call them from training-style scripts.
 - `mean/mean_diff.py` is the canonical diff-vector builder — other `mean/mean_*.py` are ablations (consistent / pairs / dice / per-layer).
 - `harness.py` + `hf_rsn.py` plug into [lm-evaluation-harness] for benchmark-suite eval.
+- **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`) — all consumers import from here; do not redefine locally.
+- The behavioral-economics / wanting-proxy entry-points (bet / delay / effort / bandit / cgt / cgt_seq / igt / reversal / crt / trait) operationalize "wanting" as overt decisions, not accuracy; each has its own output tree and (mostly) its own `RoleAnswer/analyze_*` parser. See `AdaDopamine.md` §4 before touching one.
+
+## Steering-alignment convention (load-bearing)
+
+- **Default = bare-string; do NOT pass `--use_chat`.** The NMD mask / diff vectors are extracted on bare-string prompts, so steering must inject into the same bare activation distribution. `apply_chat_template` shifts the residual geometry and dilutes steering. The only deliberate `--use_chat` exceptions are the betting scripts (`run_gpqa_bet.sh` / `run_mmlu_bet.sh` + `_running`) and CGT chat modes — treated as a feature there, not a confound. Many `.py` carry a `use_chat` arg their `.sh` never passes: "has the flag" ≠ "enabled" — check the `.sh`.
+- **Steering is prefill-only + output-side.** `regenerate(prefill_only=True)` injects `α×mask` at the last prompt token's OUTPUT (`hs[:, -1, :] += diff`); decode is untouched. Trackers (`track_dopamine_signal.py` / `track_hidden_states.py`) inject via `register_forward_hook` on the layer OUTPUT inside the same observation hook (post-injection signal). Never re-introduce an INPUT-side pre-hook for steering — it causes a one-layer mask misalignment (the pre-2026-06-28 bug; all pre-fix α≠0 signal/HS data is layer-misaligned).
 
 ## Server / data layout
 
-Current GSM8K re-runs run on `/data1/paveen/Dopamine/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Older experiments still have hard-coded `WORK_DIR=/data1/paveen/RolePlaying`; migrate them only when re-running that experiment family.
+Current GSM8K re-runs run on `/data1/paveen/Dopamine/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Older experiments still have hard-coded `WORK_DIR=/data1/paveen/RolePlaying`; migrate them only when re-running that experiment family. The server `benchmark/` tree is FLAT single-files (`mmlu_all.json`, `gpqa_train.json`, …), not per-dataset subdirs.
+
+## Offline analysis workspace
+
+Analysis + plotting live OUTSIDE this repo at `~/Documents/RSNResult/RoleAnswer/` (relocated 2026-07-16 from `~/Downloads/RSNResult/`; not in git). **Run its scripts with `python3.10`** (the bare `python3` there lacks numpy). Authoritative accuracy = `analyze_first_last_acc.py` (GSM8K first-`####` / MATH last-`\boxed{}`, fallback chain; pass `--gsm8k_root llama3/gsm8k`) — NOT the inline `correct_*`/`pred_answer` fields the generation scripts store. `phase1_gain.py` recomputes the signal in fixed G (α-unit) / Z (layer-fair) gain coordinates from the stored per-layer projections without touching the server.
 
 ## Environment
 
@@ -100,6 +112,7 @@ Mistral3 needs `transformers` from main + `mistral-common>=1.8.6` (already in `s
 
 ## Editing guidance
 
+- **Layer-indexing offset (read before touching any hook/mask code).** `LAYER_START`/`LAYER_END` follow HF hidden_states semantics (index 0 = embedding, 1..N = decoder-layer outputs). Saved masks drop the embedding row (`detection/nmd.py: mask[1:]`), so saved-index `i` ↔ `decoder_layers[i]` ↔ `hidden_states[i+1]`. Use `utils.mask_slice_for(mask, ls, le)` and `utils.decoder_layer_range(ls, le)` (they encode the `-1` offset) instead of raw `mask[ls:le]` / `range(ls, le)`. Verify on the server with `sanity_mask_indexing.py` before changing layer-indexing code (this is the offset bug fixed 2026-05-30).
 - Don't refactor `llms.VicundaModel` loading branches casually — Mistral3, dream-diffusion and CausalLM each rely on slightly different hook surfaces.
 - Don't change `template.py` strings in place; add a new variant — Phase 1 baselines are tied to exact prompt wording.
 - New plans go in `closed_loop_gsm8k.py` behind a new `--plan` value (added to the `choices=[...]` list and as a branch in `_compute_alpha()`); keep prior plans callable for ablation reproducibility.
