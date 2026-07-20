@@ -327,20 +327,27 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 
 ## 4. Observed Results Phase1
 
+### 4.0 Acc
+
+**signal vs gsm8k original —— 跨機/batch 偏差存證**：
+
+| cond | signal | original | Δ |
+|---|---:|---:|---:|
+| α−8 | 40.7 | 40.3 | +0.4 |
+| α−6 | 79.7 | 78.0 | +1.7 |
+| α−4 | 74.3 | 73.0 | +1.3 |
+| **α0** | **60.0** | **60.0** | **0.0** |
+| α+4 | 51.3 | 55.3 | −4.0 |
+| α+6 | 51.7 | 55.0 | −3.3 |
+| α+8 | 49.7 | 53.7 | −4.0 |
+| α0·expert | 57.0 | 58.0 | −1.0 |
+| α0·non_exp | 66.0 | 68.0 | −2.0 |
+| α0·teacher | 68.7 | 68.0 | +0.7 |
+| α0_cot | 67.7 | 69.0 | −1.3 |
+| α−4_cot | 82.7 | 85.0 | −2.3 |
+
 ### 4.1 Wrong vs Right
 
-Plots: `RoleAnswer/plot_phase1_state.py` (overlay + diff, prefill drawn as point 0; EMA-smoothed for trend, `--raw` for unsmoothed). Statistics: per-port Cohen's d recomputed inline in `RoleAnswer/`.
-
-Readout convention:
-- `prefill` = the last prompt token before generation (point 0 in the trajectory plots).
-- `early` = the first 20% of decode.
-- `μ` = the full decode mean.
-- Effect sizes are Cohen's d against neutral No-CoT unless stated otherwise.
-
-**Three signal groups** (5 metrics → 3 axes; see §3.4 for sources):
-- **wanting** = `rsn_ema` / `x_decode`: middle-layer HS projected on the sparse NMD mask = the RSN / drive axis.
-- **head decisiveness** = `top1` ≈ `margin`: reads only the top 1–2 tokens of the output distribution.
-- **global uncertainty** = `entropy` ≈ `info_gain`: reads the whole distribution including the tail. `info_gain = −ΔH` (per-step entropy change); its tok0 value ≈ 2–3 is just the prefill→tok0 entropy collapse, not a steady-state level.
 
 
 ### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
