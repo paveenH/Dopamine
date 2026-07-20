@@ -132,45 +132,47 @@ Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum
 
 ## 2. Core Theoretical Framework
 
-### 2.1 Core Idea
+### 2.1 Project Positioning
 
-RSN（Role-Sensitive Neurons）的行為類比多巴胺的雙向校準機制，可以理解為一個 **state-level gain knob**：調節模型在當下狀態中有多願意啟動、投入、承諾、持續檢查或停止，而不是直接改寫模型能表徵的知識與推理能力。因此，RSN / α steering 的核心對象是 `wanting`，不是 `knowing`。
+RSN（Role-Sensitive Neurons）被視為一個 **state-level gain control**：它調節模型在當下有多願意啟動、投入、承諾、繼續檢查或停止，而不是直接增加模型的知識或推理 capacity。本文以 `wanting` 描述這類 action-readiness / commitment tendency，並將 dopamine 作為**功能類比與可檢驗假說**。
 
-### 2.2 Human Side: Tonic and Phasic Dopamine
+### 2.2 Temporal Components
 
-**Tonic（張力性 / 背景多巴胺）**
-- 多巴胺神經元自發放電維持的、弥散在突觸**外**的背景濃度；作用於高親和力 D2 受體。
-- 時間尺度 **分鐘~小時**——是一條緩慢起伏的水位線，不是尖峰。
-- 決定**背景動機、精力、行動準備度**。低 tonic → anhedonia / 拖延 / bradykinesia（under-wanting）。
-- **它不編碼內容，只設定背景增益 / 提交閾值。** 在一次任務執行的時間尺度內基本恆定，**不實時更新**。
+本研究提出一個三成分假說，將 generation dynamics 分為 **task-entry tonic、ramping 與 decode-time phasic**：
 
-**Phasic（相位性 / 爆發多巴胺）**
-- 疊加在 tonic 水位**之上**的快速 burst / dip；burst 放電 → 突觸**內**濃度毫秒飆升 → DAT 秒清；作用於低親和力受體。
-- 時間尺度 **毫秒~秒**——一個尖峰後迅速消失。
-- 編碼**事件**，且不只一種：**RPE**（獎勵預測誤差，需獎勵）、**salience / novelty**（顯著、新奇、關鍵線索，**無需獎勵**）、**決策節點**（下決心那一下）。
+| Component | Functional interpretation | Operational signal | Main prediction |
+|---|---|---|---|
+| **Task-entry tonic** | 進入任務時設定初始增益與 commitment threshold | `G_prefill` | α 改變起始狀態，並影響後續解題與提交策略 |
+| **Ramping / Vigor** | 解碼期間朝目標推進的速度與 effort intensity | `s_t = EMA(Z_t)` 的斜率 | 斜率越陡，推進與 commitment 越快 |
+| **Phasic** | decode 中相對慢基線的快速 pulse / dip | `p_t = Z_t - s_{t-1}` | 與慢變的 `s_t` 分離，呈現 token-level transient |
 
-**Ramping** 是 tonic / phasic 之外常被忽略的第三個時間尺度，也是近年最活躍的前沿概念——朝目標逼近時多巴胺濃度的**持續單調爬升**（Howe et al. 2013 Nature：大鼠接近遠處獎勵時 DA 隨**距離與獎勵大小 scale** 地 ramp）。它不是恆定 tonic、也不是瞬時 spike，而是「朝完成推進的速度 / 勁頭」= **vigor**；其本質常被理解為**價值函數的梯度 / goal proximity**（「離算完還差多少步」）。Ramping 屬 tonic 還是 phasic，學界有兩個並行的前沿假說：
-- **假說 A — TD-error 長程積分（Gershman 2014, Neural Computation, Harvard）**：ramping 是密集微小正向 phasic 脈衝在時間上的積分；對 goal proximity 做**凸 / 二次變換**即近似得到觀測到的**線性 ramp**（Weber's-law 式的空間壓縮）。映射：解釋了「單點 phasic 沒變，但 α 改變了脈衝在長程上的累積係數」。
-- **假說 B — 局部環路流體動力學（Mohebi et al.）**：即使切斷 VTA 胞體放電（soma spiking），紋狀體軸突末梢仍能經局部（膽鹼能 / 谷氨酸能）控制漏出 DA 形成 ramp——DA ramp 可**獨立於 VTA 單元放電**。映射：prefill 最後一刻注入的 α 正像這種「不改微觀內核、卻改變整條後續序列釋放速率」的環境參數。
+在此模型中，`G_prefill` 設定 generation 的初始條件，不作為 decode trajectory 的持續加數；decode 期間的信號表示為：
 
-### 2.3 From Human to Signal
+```text
+Z_t = s_t + p_t
+```
 
-| 成分 | 人體 | 時間性質 | 是否 decode 中更新 | 信號量 |
-|------|------|---------|------------------|--------|
-| **Tonic** | 背景水位 / 閾值設定| 一道題內恆定 | **否**，進題時設好 | **`G_prefill`**（per-sample 常數） |
-| **Ramping / Vigor** | 朝目標推進的速度 / 勁頭 | 緩慢漂移 | **是**| **`s_t` 的斜率**（decode EMA 爬升快慢） |
-| **Phasic** | 關鍵節點 | 尖峰 | **是** | **`p_t = Z_t − s_{t-1}`** 在關鍵 token 處 |
+其中 `s_t` 表示慢變的 ramping / vigor component，`p_t` 表示相對慢基線的 phasic component。
 
-**讀這張表的三個要點：**
-- **Tonic ≠ decode EMA。** tonic 是 prefill 常數，一道題內恆定、不實時更新；decode 裡緩慢更新的成分是 **ramping**，不是 tonic。α 是干預、`G_prefill` 是讀數，`G_prefill(α)≈G_prefill(0)+α` 線性。
-- **Vigor 承載在 `s_t` 的斜率，不是絕對高度**（高度混了 tonic）。「+α 搶答 / gen_len↓」= 高 vigor；「−α 磨蹭 / 反覆驗算」= 低 vigor。注意：**loop 重複（`####N####N`）不是 vigor，是 commitment 關不掉的 stopping failure**，另計，不入這三成分。ramping 的**第二種讀法**（承假說 A 的 value-gradient 觀點）：每步取 hidden state、投影到「起點（prompt 結束）↔ 終點（首個 `####` token 嵌入）」軸，看**到終點的幾何距離 / 餘弦隨 step 的曲線**——預言不同 α 調制的是這條幾何斜坡的到達斜率（−α 更穩更緩、+α 更陡）。此讀法即 value 定義「選擇 (A) commit 方向投影」的具體實現，與 `s_t` 斜率互為印證。
-- **Phasic 必須減基線，不能用瞬時值 `Z_t`。** `Z_t = tonic + ramping + phasic` 三成分疊加；`p_t = Z_t − s_{t-1}` 等同高通濾波，減掉 `s_{t-1}` 估計的 tonic+ramping 慢基線後，只剩繞關鍵 token 的 phasic 尖峰。**關鍵 token** 分兩類：首個 `####`/答案候選（commitment）、中間關鍵步（process salience）——均為 phasic 的**待驗**錨點（path A）。
+### 2.3 Working Hypotheses
 
-**Phasic 亞型與驗證分工**：phasic 按編碼內容分 salience / commitment / RPE 三亞型。salience 與 commitment **無需 reward，GSM8K 即可驗**（心流是其神經科學背書）；只有 **RPE 亞型需要 reward feedback → Bandit，不在 GSM8K**。
+**H1 — Prefill steering acts through initial-condition / boundary-gating.**
 
-**value 定義的未鎖自由度**：
-- **(A) 投影方向**：wanting NMD mask（現在）vs 朝 `####`/commit 方向——若 commit 處 wanting mask 平而 commit 方向有峰，phasic 是「提交方向」而非「wanting 方向」。
-- **(B) 基線時間尺度 β**：`s_t` 現用 β=0.95（承自舊碼，未針對分離 commit transient 調過）。β 劃定 tonic/ramping 與 phasic 的分界；event-align 後 `p_t` 若平，可能是 transient 落進基線 → 掃 β∈{0.9,0.95,0.98}。
+α 只在最後一個 prompt token 注入一次，直接改變 `G_prefill`，但 decode 不再持續注入。現有三項觀察為：
+
+1. `G_prefill` 隨 α 近線性移動；
+2. 到 `decode[0]` 時約 95% 回彈；
+3. 後續各 α 的 `G_decode` trajectory 基本重合。
+
+**Prefill-only 已顯著改變行為，而 `G_decode` 重合 → 支持 initial-condition / boundary-gating。** α 在 generation boundary 設定 task-level gain 與 commitment regime，後續效應經由 KV cache、早期 token 選擇與 autoregressive path dependence 保留。
+
+**H2 — Slow decode dynamics encode ramping / vigor.**
+
+`s_t` 的斜率表示模型朝答案推進的 vigor。預測較陡的斜率對應較短 generation length、較早 commitment 與較高推進強度。分析時同時控制 output length 與 response format，以區分 vigor 和單純的提前停止。
+
+**H3 — Fast decode residuals encode phasic dynamics.**
+
+`p_t` 表示相對 slow baseline 的快速 phasic change，用來分離 decode 中的 pulse / dip 與 `s_t` 的慢變趨勢。第一步先驗證 `p_t` 是否具有穩定的快時間尺度結構；其後再探索它與中間推理步、答案形成、commitment 或其他 generation events 的關係，目前不預設特定 event anchor。
 
 
 ## 3. Signal Definition
