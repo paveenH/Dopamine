@@ -177,101 +177,150 @@ Z_t = s_t + p_t
 
 ## 3. Signal Definition
 
-### 3.1 Projection Signal
+### 3.1 Signal Architecture
 
-RSN signal 是把 middle-layer hidden state 投影到 sparse NMD mask 上得到的 per-token scalar。對每個 decode step `t`：
+信號分成三個層級：
 
-```text
-x_t = mean_l( h_t[l] · m_l )
-ema_t = β · ema_{t-1} + (1 - β) · x_t
-```
+1. **RSN state signal**：middle-layer hidden states 在 NMD direction 上的活動，用來描述 task-entry gain 與 decode dynamics。
+2. **Output-distribution signal**：由 final-layer logits 計算 entropy、top1、margin 與 information change，用來描述 confidence / decisiveness。
+3. **Behavioral readout**：accuracy、generation length、commitment timing 與 stopping failure，用來檢驗內部信號是否對應可觀察行為。
 
-其中：
-- `h_t[l]` 是第 `l` 個 middle decoder layer 在 token `t` 的 hidden state。
-- `m_l` 是該 layer 對應的 sparse NMD mask / direction。
-- `x_prefill` 是最後一個 prompt token 的 RSN projection，用作 sample-level starting state。
-- `x_t` 是 decode-time raw projection，保留 token-level phasic fluctuation。
-- `ema_t` 是 `x_t` 的 smoothed trajectory，作為 tonic-like diagnostic readout。
+RSN signal 是主軸；logit metrics 用於判斷 wanting 是否只是 confidence 的另一種表示；behavioral metrics 則提供外部效度。
 
-這裡的 `mean_l` 是逐層先獨立投影，再對 middle layers 取平均；不是把所有 layer 拼接後做一次投影。
+### 3.2 RSN Projection and Gain Coordinates
 
-### 3.2 Mask and Layer Alignment
-
-NMD mask 按 layer 獨立計算，每層只保留 top sparse neurons。實際內積為：
+對 token `t`、middle layer `l`，先計算原始投影：
 
 ```text
-h_t[l] · m_l = Σ_i h_t[l][i] × m_l[i]
+r_{t,l} = h_{t,l} · m_l
 ```
 
-mask 的 layer index 對齊 decoder layer **output** hidden state，而不是 layer input。對 Llama-style HF hidden states：
+其中 `h_{t,l}` 是 decoder layer output hidden state，`m_l` 是同一 output space 中的 sparse NMD direction。每層先獨立投影，再進行跨層聚合。
+
+為了固定零點、保留 α 的干預單位並避免少數 layer 因尺度較大而主導聚合，使用 neutral、α=0、No-CoT 的 prefill distribution 作為 reference：
 
 ```text
-hidden_states[0]      = embedding output
-hidden_states[i + 1]  = decoder_layers[i] output
-saved mask row i      ↔ decoder_layers[i] output
+μ_l^ref = E[r_{prefill,l} | neutral, α=0, No-CoT]
+g_{t,l} = (r_{t,l} - μ_l^ref) / ||m_l||²
+σ_l^ref = Std[g_{prefill,l} | neutral, α=0, No-CoT]
+z_{t,l} = g_{t,l} / σ_l^ref
 ```
 
-因此，無論是 signal observation 還是 static steering，最乾淨的對齊方式都是在 decoder layer output space 上讀取 / 注入。這能避免把「第 L 層 output 上學到的方向」錯放到同一層 input space 裡。
-
-
-### 3.3 EMA Interpretation
-
-EMA 的角色是把 noisy token-level `x_t` 轉成慢變的 tonic-like trajectory。它有兩個用途：
-
-1. **診斷用途**：描述模型的 engagement / commitment / release dynamics。
-2. **控制用途**：作為比 raw `x_t` 更慢、更穩定的 feedback variable。
-
-`β=0.95` 對應約 20 token 的時間常數，適合長生成中的 state smoothing；對很短的 action-output 任務則未必穩定。因此，EMA 應被解讀為 **tonic-state approximation**。
-
-### 3.4 Closed-loop Caveat: 1-step Lag
-
-只有 closed-loop control 模式存在嚴格的 1-step lag。其物理來源是控制器必須先完成當前 token 的 forward，才能觀測 `x_t` 並計算下一步的 `α_{t+1}`：
+由此得到兩種跨層 readout：
 
 ```text
-step t:
-  apply α_t
-  forward
-  observe x_t / ema_t
-  compute α_{t+1}
-
-step t+1:
-  apply α_{t+1}
+G_t = mean_l(g_{t,l})
+Z_t = mean_l(z_{t,l})
 ```
 
-因此，feedback 永遠基於上一 token 的 observation，作用於下一 token。對慢變的 EMA，這個 lag 尚可接受；對 1–2 token 內自然消退的 raw spike，逐 token feedback 容易追尾並造成振盪。
+| Signal | Role |
+|---|---|
+| `G_t` | 保留 α-equivalent unit；用於 steering calibration、dose linearity 與 intervention sanity check |
+| `Z_t` | 各層先標準化後聚合；作為主要 observational trajectory，避免 layer-scale dominance |
 
-### 3.5 Multi-Metric Signal Suite
+Reference `μ_l^ref` 與 `σ_l^ref` 在所有 role、α、token 與 event 中固定，不隨條件重新估計，才能保留條件間與 generation 階段間的真實差異。
 
-**Per-step raw trajectories**
+**Layer alignment**：mask row `l` 對齊 `decoder_layers[l]` 的 **output**。Signal observation 與 steering injection 必須使用同一 output space，避免一層 offset。
 
-- `rsn_ema` 來自 **middle-layer HS 投影到 sparse NMD mask** 上的 scalar（RSN 子空間活動 = wanting / drive）。
-- `entropy / top1 / margin / info_gain` 來自 **final-layer whole hidden state**，`RMSNorm + lm_head` 重建出的**真實 next-token logits**，再 softmax；即模型真實輸出分布。它們度量的是 **confidence / decisiveness**。
+### 3.3 Temporal Signal Decomposition
 
-| Metric | Source | Computation | Interpretation |
-|--------|--------|------|---------|
-| `rsn_ema` | middle HS · **NMD mask** | `mean_l(h_t[middle]·mask[l])` → EMA(α=0.95) | wanting / drive (RSN subspace) |
-| `entropy_decode` | **last layer HS** | `-Σ p log p` over vocab | confidence / decisiveness (inverse) |
-| `top1_decode` | **last layer HS** | `max(softmax(logits))` = MSP | confidence / decisiveness |
-| `margin_decode` | **last layer HS** | `top1 - top2` | confidence / decisiveness (≈collinear w/ top1; optional) |
-| `info_gain_decode` | **last layer HS** | `H_{t-1} - H_t` | reasoning efficiency (paper 03) |
+#### 3.3.1 Task-Entry Tonic
 
-**Derived trajectories**
+最後一個 prompt token 的 gain 定義為：
 
-- `normalized_ema` = `ema_t / x_prefill`
-- `cumulative_entropy_reduction` = `H_0 - H_t` (cumulative InfoGain; paper 03)
-- `rolling_conf_variance` = `std(top1[t-W:t])`, W=10 (paper 05)
+```text
+T = G_prefill
+```
 
-**Per-sample scalar summaries**
+`T` 是 task-entry tonic 的主 readout，表示 generation boundary 上的初始 gain / commitment set point。`Z_prefill` 可作為 layer-fair 的 condition comparison；`G_prefill` 則保留 α 單位，作為主要 calibration signal。
 
-`late_tonic`, `early_peak`, `mean_entropy`, `mean_top1`, `mean_margin`, `info_gain_mean`, `entropy_prefill`, `top1_prefill`, `margin_prefill`
+prefill 到第一個 decode token 的回彈另記為：
 
-**Comparison axes**
+```text
+boundary_jump = Z_0 - Z_prefill
+```
 
-| Axis | Measurement | Purpose |
-|------|---------|------|
-| **A. State** (Role: Neutral/Expert/Non-Expert/Teacher · CoT vs No-CoT · α-dose) | curve mean ± std band, KW/MWU + Cohen's d between states | **主要目的**：信號對 state 的敏感度（wanting/confidence 是否被 state 移動）|
-| **B. Correct vs Wrong** | curve mean by group | 輔助：與對錯的關係。⚠ 差異多為難度副產品（會做的題 release 快），非 state/DA 結論 |
-| **C. Mask** (NMD vs Random) | curve mean by mask | RSN-specificity control (僅對 `rsn_ema` 有意義) |
+`boundary_jump` 用來描述 task-entry pulse 如何進入自然 decode dynamics。
+
+#### 3.3.2 Ramping / Vigor
+
+在 decode 內，對 `Z_t` 建立 slow component：
+
+```text
+s_0 = Z_0
+s_t = β · s_{t-1} + (1 - β) · Z_t
+```
+
+`s_t` 只由 decode token 初始化與更新，不以 prefill 作 EMA seed。主要 readout 是 `s_t` 的 trajectory slope，而不是其絕對高度：
+
+```text
+vigor_slope = slope(s_t)
+```
+
+後續可分別估計 early、middle、late slope；β 與 window 的精確設定留待 sensitivity analysis。
+
+#### 3.3.3 Phasic
+
+decode-time fast component 定義為相對上一時刻 slow baseline 的 residual：
+
+```text
+p_t = Z_t - s_{t-1},  t ≥ 1
+```
+
+`p_t > 0` 表示瞬時高於 slow baseline 的 pulse，`p_t < 0` 表示瞬時 dip。現階段先把它視為 decode 中的 phasic signal，優先檢驗其 amplitude、variability 與時間結構；之後再分析它是否與特定 reasoning / commitment event 對齊，不預先指定 event anchor。
+
+第一階段使用以下 summaries：
+
+- `phasic_pos_peak = max(p_t)`
+- `phasic_neg_peak = min(p_t)`
+- `phasic_abs_mean = mean(|p_t|)`
+- `phasic_std = std(p_t)`
+
+### 3.4 Multi-Metric Signal Suite
+
+單一 RSN trajectory 不能區分 wanting、confidence、task performance 與 response failure，因此使用下列 multi-metric suite：
+
+| Family | Metric | Source / computation | Main interpretation |
+|---|---|---|---|
+| **Task-entry state** | `G_prefill` | α-unit RSN gain at last prompt token | task-entry tonic / intervention strength |
+| **Task-entry state** | `Z_prefill` | layer-standardized gain at last prompt token | layer-fair boundary state |
+| **Boundary transition** | `boundary_jump` | `Z_0 - Z_prefill` | prefill pulse 的回彈 / carry-over |
+| **Slow decode** | `s_t` | decode-only EMA of `Z_t` | slow generation dynamics |
+| **Ramping / vigor** | `vigor_slope` | slope of `s_t` | 推進速度與 effort intensity |
+| **Phasic** | `p_t` | `Z_t - s_{t-1}` | fast pulse / dip relative to slow baseline |
+| **Uncertainty** | `entropy_decode` | `-Σ_v q_t(v) log q_t(v)` | next-token uncertainty；越低通常越 decisive |
+| **Confidence** | `top1_decode` | `max_v q_t(v)` | maximum next-token probability |
+| **Confidence** | `margin_decode` | `top1 - top2` | local choice separation；與 top1 高度相關，作輔助 |
+| **Distributional change** | `info_gain_decode` | `H_{t-1} - H_t` | token-to-token uncertainty reduction，不直接等同 reasoning quality |
+| **Cumulative change** | `cumulative_entropy_reduction` | `H_0 - H_t` | 相對 generation 起點的累積 certainty change |
+| **Confidence stability** | `rolling_conf_variance` | `Std(top1[t-W:t])` | local confidence volatility |
+| **Task performance** | `accuracy` | answer correctness | knowing / task success |
+| **Behavioral vigor** | `generation_length`, `commit_position` | output tokens；首次答案標記位置 | 推進與 commitment timing |
+| **Stopping control** | `loop_rate`, `post_commit_tokens`, `eos_failure` | output pattern diagnostics | stopping failure；不併入 vigor 或 phasic |
+
+Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden state 經 final norm + `lm_head` 得到的真實 next-token logits 計算；RSN metrics 則來自 middle-layer sparse subspace。兩組信號來源不同，必須分開解讀。
+
+### 3.5 Analysis Protocol
+
+每個 sample 同時保存三種資料：
+
+1. **Boundary snapshot**：`G_prefill`、`Z_prefill`、`boundary_jump` 與 prefill logit metrics。
+2. **Full token trajectory**：`Z_t`、`s_t`、`p_t`、entropy、top1、margin 與 info gain。
+3. **Scalar outcome**：accuracy、generation length、commit position、format validity 與 stopping diagnostics。
+
+不同長度的回答以各自實際 decode length 映射到 `0–100%` progress 後再做 group trajectory comparison；完整 token-step 曲線另行保留，用於 early-step 與局部 pulse 分析，不以 `max_new_tokens` padding。
+
+主要比較軸為：
+
+| Axis | Purpose |
+|---|---|
+| **α dose** | 檢驗 intervention strength、boundary state 與行為的 dose-response |
+| **CoT vs No-CoT** | 檢驗 process scaffold 如何改變 task-entry 與 decode dynamics |
+| **Expert vs Non-Expert** | 檢驗 persona state 對 RSN signal 的自然調制 |
+| **Correct vs Wrong** | 檢驗 signal 與 performance 的關係；作 outcome analysis，不單獨推論 dopamine |
+| **NMD vs Random mask** | 檢驗 trajectory 是否具有 RSN-direction specificity |
+
+舊版 `x_t`、prefill-seeded `ema_t`、`ema_t / x_prefill` 與 `late_tonic` 可保留作 reproduction / ablation，但不再作為新框架的主要 tonic 或 ramping 定義。
 
 
 ## 4. Observed Results Phase1
@@ -286,7 +335,7 @@ Readout convention:
 - `μ` = the full decode mean.
 - Effect sizes are Cohen's d against neutral No-CoT unless stated otherwise.
 
-**Three signal groups** (5 metrics → 3 axes; see §3.5 for sources):
+**Three signal groups** (5 metrics → 3 axes; see §3.4 for sources):
 - **wanting** = `rsn_ema` / `x_decode`: middle-layer HS projected on the sparse NMD mask = the RSN / drive axis.
 - **head decisiveness** = `top1` ≈ `margin`: reads only the top 1–2 tokens of the output distribution.
 - **global uncertainty** = `entropy` ≈ `info_gain`: reads the whole distribution including the tail. `info_gain = −ΔH` (per-step entropy change); its tok0 value ≈ 2–3 is just the prefill→tok0 entropy collapse, not a steady-state level.
