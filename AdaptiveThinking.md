@@ -286,9 +286,9 @@ p_t = Z_t - s_{t-1},  t ≥ 1
 |---|---|---|---|
 | **Task-entry state** | `G_prefill` | α-unit RSN gain at last prompt token | task-entry tonic / intervention strength |
 | **Task-entry state** | `Z_prefill` | layer-standardized gain at last prompt token | layer-fair boundary state |
-| **Boundary transition** | `boundary_jump` | `Z_0 - Z_prefill` | prefill pulse 的回彈 / carry-over |
-| **Slow decode** | `s_t` | decode-only EMA of `Z_t` | slow generation dynamics |
-| **Ramping / vigor** | `vigor_slope` | slope of `s_t` | 推進速度與 effort intensity |
+| **Boundary transition** | `boundary_jump` | `G_0 - G_prefill`（G 坐標） | prefill pulse 的回彈 / carry-over |
+| **Slow decode** | `s_t` | decode-only EMA of `Z_t`，seed `s_0 = Z_0` | post-launch slow generation dynamics |
+| **Relaxation slope** | `vigor_slope` | slope of `s_t` | slow decode component 的下降速度（見下方 naming 說明） |
 | **Phasic** | `p_t` | `Z_t - s_{t-1}` | fast pulse / dip relative to slow baseline |
 | **Uncertainty** | `entropy_decode` | `-Σ_v q_t(v) log q_t(v)` | next-token uncertainty；越低通常越 decisive |
 | **Confidence** | `top1_decode` | `max_v q_t(v)` | maximum next-token probability |
@@ -376,7 +376,20 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 | entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition |
 | info gain | commit 附近波動，但組間結構不穩定 | 僅作 distributional-change diagnostic |
 
-Prefill readouts 幾乎不區分 correctness（`G_prefill`、`Z_prefill` 的 effect size 接近零），而 `p_t` 的組間差異也未在 No-CoT 與 CoT 中穩定重現。因此，目前最可靠的結果是：**correctness 主要與 commit 前後的 slow RSN trajectory 相關，而不是 task-entry gain 或單一 phasic amplitude。**
+#### Ramping / Vigor（H2）
+
+以三分量框架逐一對 correctness 檢驗，ramping（`vigor_slope` = decode `s_t` 的 OLS 斜率）作為獨立 readout（per-sample，Cohen's d / AUROC）：
+
+| Readout | 分量 | No-CoT d (AUROC) | CoT d (AUROC) | 方向 |
+|---|---|---:|---:|---|
+| `G_prefill` / `Z_prefill` | **tonic** | −0.11 (0.47) | +0.03 (0.51) | ≈ 0，不區分 correctness |
+| `vigor_slope` | **ramping** | −0.17 (0.44) | −0.26 (0.35) | correct 斜率更負（下降更陡） |
+| `Z_late` | ramping 終點 | −0.35 (0.41) | −0.36 (0.42) | correct plateau 更低 |
+| `p_early_std` | **phasic** | −0.34 (0.40) | +0.03 (0.48) | 不穩定，跨條件換號 |
+
+`s_t` 在兩組都隨 decode **下降**（launch peak 後的 relaxation，斜率為負），而 **correct 組下降得略陡**（`vigor_slope` 更負，d≈−0.17 / −0.26），並收斂到更低的 `Z_late`（d≈−0.35，兩條件一致）。方向在 No-CoT 與 CoT 一致，但 effect size 偏小。這與 commit-aligned 觀察相互印證：correct 在 commit 前維持較高 `s_t`、commit 後 release 更快——即 correct 的 wanting 是「起點不特別高，但下降更果斷」的一條軌跡，而非全程更高的 DC offset。
+
+**三分量小結**：對 correctness 而言，**tonic ≈ 0（prefill 不區分）**，**phasic 不穩定（`p_t` 跨條件換號）**，唯一方向一致的是 **ramping（`s_t` 斜率 + `Z_late` 終點）**——correctness 主要編碼在 slow RSN 軌跡的**下降段/收斂位置**，而不是 task-entry gain 或單次 phasic amplitude。
 
 此結果仍可能受到 question difficulty 影響；要判斷 `s_t` 是否提供超越難度的獨立訊息，需進一步進行 difficulty-matched analysis 或 per-sample regression。RSN 與 logit metrics 來自不同表徵空間，應分開分析，不將多個派生曲線視為彼此獨立的證據。
 
@@ -396,7 +409,7 @@ Prefill readouts 幾乎不區分 correctness（`G_prefill`、`Z_prefill` 的 eff
 **Boundary:** commit-centered logit change 可能部分來自 `####` / answer-format transition；slow RSN difference 仍需 difficulty-matched analysis 驗證。
 
 
-### 4.2 CoT vs No-CoT: Process-Level Early-Window Amplification
+### 4.2 CoT vs No-CoT
 
 
 ### 4.3 Persona
