@@ -2,6 +2,7 @@
 ---
 
 ## 1. Active TODO
+0. 直接看Cot在neurons上的改变 copy过去的结果
 1. 补充alpha的结果
 2. **Trajectory 曲線** — 改用差值（diff）看看。 -> 更符合多巴胺的应该是差值
 3. **Capitulation** — 這部分先不要放，之後再考慮是不是要直接 Generation 看看（可能可以找到 reflection？）。主要原因是上升和下降都會有合理的解釋 → 可能可以用來分析 Llama3 和 Qwen3 的不同。
