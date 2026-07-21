@@ -376,23 +376,6 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 | entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition |
 | info gain | commit 附近波動，但組間結構不穩定 | 僅作 distributional-change diagnostic |
 
-#### Ramping / Vigor（H2）
-
-以三分量框架逐一對 correctness 檢驗，ramping（`vigor_slope` = decode `s_t` 的 OLS 斜率）作為獨立 readout（per-sample，Cohen's d / AUROC）：
-
-| Readout | 分量 | No-CoT d (AUROC) | CoT d (AUROC) | 方向 |
-|---|---|---:|---:|---|
-| `G_prefill` / `Z_prefill` | **tonic** | −0.11 (0.47) | +0.03 (0.51) | ≈ 0，不區分 correctness |
-| `vigor_slope` | **ramping** | −0.17 (0.44) | −0.26 (0.35) | correct 斜率更負（下降更陡） |
-| `Z_late` | ramping 終點 | −0.35 (0.41) | −0.36 (0.42) | correct plateau 更低 |
-| `p_early_std` | **phasic** | −0.34 (0.40) | +0.03 (0.48) | 不穩定，跨條件換號 |
-
-`s_t` 在兩組都隨 decode **下降**（launch peak 後的 relaxation，斜率為負），而 **correct 組下降得略陡**（`vigor_slope` 更負，d≈−0.17 / −0.26），並收斂到更低的 `Z_late`（d≈−0.35，兩條件一致）。方向在 No-CoT 與 CoT 一致，但 effect size 偏小。這與 commit-aligned 觀察相互印證：correct 在 commit 前維持較高 `s_t`、commit 後 release 更快——即 correct 的 wanting 是「起點不特別高，但下降更果斷」的一條軌跡，而非全程更高的 DC offset。
-
-**三分量小結**：對 correctness 而言，**tonic ≈ 0（prefill 不區分）**，**phasic 不穩定（`p_t` 跨條件換號）**，唯一方向一致的是 **ramping（`s_t` 斜率 + `Z_late` 終點）**——correctness 主要編碼在 slow RSN 軌跡的**下降段/收斂位置**，而不是 task-entry gain 或單次 phasic amplitude。
-
-此結果仍可能受到 question difficulty 影響；要判斷 `s_t` 是否提供超越難度的獨立訊息，需進一步進行 difficulty-matched analysis 或 per-sample regression。RSN 與 logit metrics 來自不同表徵空間，應分開分析，不將多個派生曲線視為彼此獨立的證據。
-
 #### Figures
 
 | Figure | Alignment / signals | Main finding |
@@ -400,7 +383,6 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 | `fig41_suite_rsn.png` | Length-normalized `Z_t / s_t / p_t` | correct 組 early slow RSN state 較高，之後下降更快；`p_t` 無穩定組間分離 |
 | `fig41_suite_logit_nocot.png` | Length-normalized No-CoT logit metrics | incorrect 組 entropy / confidence volatility 略高、top1 / margin 略低；info gain 無穩定差異 |
 | `fig41_suite_logit_cot.png` | Length-normalized CoT logit metrics | 大致重現 No-CoT pattern；confidence 差異存在但弱於 slow RSN 差異 |
-| `fig41_commit_aligned_st.png` | `s_t` aligned to first commit | correct 在 commit 前較高，commit 後下降更快，約 10–15 tokens 後低於 incorrect |
 | `fig41_commit_aligned_suite_nocot.png` | Commit-aligned No-CoT RSN + logit suite | commit 附近出現共同 state transition；`p_t` 有 pulse / dip，但 confidence 對 correctness 的分離較弱 |
 | `fig41_commit_aligned_suite_cot.png` | Commit-aligned CoT RSN + logit suite | 重現 commit-centered transition 與 correct 組較快的 post-commit release |
 
@@ -408,9 +390,166 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 
 **Boundary:** commit-centered logit change 可能部分來自 `####` / answer-format transition；slow RSN difference 仍需 difficulty-matched analysis 驗證。
 
-
 ### 4.2 CoT vs No-CoT
 
+#### Scope
+
+只分析 **neutral、α=0、相同 300 道 GSM8K**。两组除 CoT 增加 `Let's think step by step.` 外，其余生成条件一致。
+> 本节重点是：CoT 如何改变 task-entry state 与 generation dynamics？
+
+#### Task-Entry Tonic
+
+| Readout | Question |
+|---|---|
+| `G_prefill` | CoT 是否改变 task-entry gain？ |
+| `Z_prefill` | layer-fair 坐标下是否复现？ |
+| `boundary_jump_G` | CoT 是否改变 prefill 到 decode[0] 的状态转换？ |
+
+统计采用 paired mean difference、bootstrap 95% CI、Cohen’s `d_z` 和 Wilcoxon signed-rank（Step 1 已確認兩組為同一批 300 題、索引對齊，故用 paired）。
+
+**結果：CoT 在 task-entry 就抬高了 tonic wanting**
+
+| Readout | No-CoT | CoT | ΔCoT−No | 95% CI | `d_z` | Wilcoxon p |
+|---|---:|---:|---:|---:|---:|---:|
+| `G_prefill` | 0.000 | 0.071 | **+0.071** | [0.058, 0.085] | **0.59** | 1.9e-19 |
+| `Z_prefill` | 0.000 | 0.158 | **+0.158** | [0.138, 0.178] | **0.89** | 1.1e-32 |
+| `boundary_jump_G` | 0.167 | 0.094 | **−0.073** | [−0.138, −0.006] | −0.13 | 2.4e-02 |
+
+1. **`G_prefill`：CoT 顯著抬高 task-entry gain。** +0.071 α 單位，`d_z`=0.59（中等偏強），CI 不含 0。No-CoT 的 0.000 是因為它本身就是參考基準（`μ_l^ref` 定義在 neutral-α0-No-CoT prefill），故此列讀的是「CoT 相對 No-CoT baseline 的偏移」。意義：光是 prompt 多一句 `Let's think step by step.`，在**尚未 decode**、last token 同為 `Answer:` 的情況下，就已抬高 wanting——純 context 效應（前文 CoT instruction 改變了 last-token 的 residual 狀態）。
+
+2. **`Z_prefill`：layer-fair 坐標下更強，複現且放大。** +0.158，`d_z`=**0.89**（強）。比 `G_prefill` 的 `d_z` 還大 → 這個抬升在各層比較均勻（layer-fair 不被單個大 mask 層稀釋，反而聚合出更一致的信號）。效應是真的，不是某一兩層的假象。
+
+3. **`boundary_jump_G`：CoT 反而縮小 prefill→decode[0] 的跳變。** No-CoT 跳 +0.167，CoT 只跳 +0.094，Δ=−0.073，但 `d_z`=−0.13（弱）。這是 §4.1 co-design identity 的直接後果——`G_decode[0] ≈ G_prefill +（自然 pulse）`。CoT 把起點 `G_prefill` 抬高，而 decode[0] 的絕對高度兩組相近，所以「還要往上跳的空間」變小；亦即 CoT 把一部分 launch pulse **提前**到 prefill，decode 開場少跳一點。effect 弱，屬記錄性。
+
+> **小結：CoT 的效應在 task-entry（prefill）就已建立**——它把 tonic wanting 顯著抬高（`Z_prefill` d_z=0.89），prefill→decode 的邊界跳變相應縮小（弱）。CoT 不是「decode 中途才發力」，而是**從任務進入的第一刻就重置了 gain 基線**。
+
+分析腳本：`analyze_cot_step2_tonic.py`。
+
+#### Step 3：Slow Decode Dynamics
+
+主信号：
+
+```text
+s_0 = Z_0
+s_t = βs_{t-1} + (1-β)Z_t
+```
+
+比较：
+
+- `Z_early / Z_middle / Z_late`
+- `s_t` early、middle、late mean
+- full、early、late slope
+- `s_t` AUC
+- launch-to-late relaxation magnitude
+
+当前曲线如果整体下降，统一称为 **slow decode dynamics / relaxation**；只有观察到 decode 内持续上升时才称为 ramping。
+
+---
+
+#### Step 4：Fast Phasic Component
+
+比较：
+
+- `phasic_pos_peak`
+- `phasic_neg_peak`
+- `phasic_abs_mean`
+- `phasic_std`
+- early / middle / late phasic amplitude
+
+本节暂时不做 commit alignment，也不预设特定 event。目标只是回答：
+
+> CoT 是否改变 fast residual 的强度和时间分布？
+
+如果 `p_t` 无稳定差异，应明确写成 CoT 主要改变 slow component，而非 fast transient。
+
+---
+
+#### Step 5：Wanting–Confidence Relationship
+
+同步分析 final-logit metrics：
+
+- entropy
+- top1
+- margin
+- information gain
+- rolling confidence variance
+
+按以下窗口报告：
+
+| Window | Meaning |
+|---|---|
+| Prefill | task-entry confidence |
+| Early 0–25% | reasoning launch |
+| Middle 25–75% | reasoning process |
+| Late 75–100% | answer convergence |
+
+主要判定：
+
+- RSN 与 confidence 同时改变：CoT couples wanting and confidence。
+- RSN 改变而 confidence 不变：支持 wanting–confidence dissociation。
+- confidence 只在 early 改变：CoT 的 decisiveness effect 是短暂启动效应。
+
+---
+
+#### Step 6：Two Time Axes
+
+必须同时画：
+
+1. **Length-normalized trajectory**：每个回答自身映射至 `0–100%`。
+2. **Absolute decode-step trajectory**：至少前 100 tokens。
+
+第一张比较完整生成阶段，第二张检查 early difference 是否由 CoT 回答更长、归一化压缩造成。
+
+Prefill 单独画在 decode 之前；不要重新使用 prefill-seeded EMA。
+
+---
+
+#### Step 7：Behavioral Anchoring
+
+不重新做完整行为学分析，只引用已有结果：
+
+- α=0 No-CoT accuracy：60.0%
+- α=0 CoT accuracy：69.0%
+- CoT 明显增加 stepwise structure；
+- generation length、抢答和 commit marker 的口径差异沿用 `AdaDopamine_gsm8k.md` 的限制说明。
+
+这些结果只作为 external behavioral anchor，不从 signal JSON 重算 accuracy。
+
+---
+
+#### Outputs
+
+**表 1：Three-component summary**
+
+| Metric | No-CoT | CoT | Paired Δ | `d_z` | p/FDR |
+|---|---:|---:|---:|---:|---:|
+| `G_prefill` | | | | | |
+| `boundary_jump_G` | | | | | |
+| slow slope | | | | | |
+| `Z_late` | | | | | |
+| phasic peaks/std | | | | | |
+
+**表 2：Multi-metric temporal summary**
+
+每行一个 RSN/logit metric，每列为 prefill、early、middle、late 的 CoT−No-CoT effect。
+
+**图：**
+
+1. Task-entry `G_prefill` 与 `boundary_jump_G`
+2. `Z_t / s_t / p_t` length-normalized curves
+3. CoT−No-CoT paired difference curves
+4. 前 100 absolute decode steps
+5. Entropy/top1/margin/info-gain suite
+
+### 最终要回答的核心问题
+
+1. CoT 是否在进入 generation 前就改变 `G_prefill`？
+2. CoT 的主要影响落在 slow dynamics 还是 fast phasic residual？
+3. 差异集中在 early decode，还是贯穿整个回答？
+4. RSN wanting 与 confidence 是耦合还是可分离？
+5. 这些内部变化能否与已有的 CoT accuracy gain 和 stepwise structure 对应？
+
+这版不把 correctness subgroup 当主轴，能够保持 CoT 与 No-CoT 的完整、对称比较。
 
 ### 4.3 Persona
 
