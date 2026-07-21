@@ -348,16 +348,16 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 
 ### 4.1 Correct vs Incorrect Responses
 
-Correctness 不是主要 intervention axis；本節將其作為 **outcome analysis**，檢驗 RSN dynamics 與 task performance 的關係。分析使用 neutral No-CoT（180 correct / 120 incorrect）與 CoT（203 / 97）；commit 定義為首個 `####`，若不存在則使用首個 answer candidate。
+Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc grouping），非受控 intervention condition；本節將其作為 **outcome analysis**，描述 RSN dynamics 與 task performance 的相關結構，而非因果證據。分析使用 neutral No-CoT（180 correct / 120 incorrect）與 CoT（203 / 97）；commit 定義為首個 `####`，若不存在則使用首個 answer candidate。具可辨識 commit marker 的樣本較少（wrong 組尤然）：No-CoT 180 correct / 117 wrong，CoT 203 correct / 94 wrong。
 
 #### Commit Timing
 
-在具有可辨識 commit marker 的 responses 中，correct responses 並未更早提交答案。其 median commit step 顯著晚於 incorrect responses（No-CoT: 180 / 117；CoT: 203 / 94）：
+在具有可辨識 commit marker 的 responses 中，correct responses 並未更早提交答案。其 median commit step 顯著晚於 incorrect responses：
 
-| Condition | Correct | Incorrect | MWU p |
-|---|---:|---:|---:|
-| No-CoT | 101 | 56 | 0.006 |
-| CoT | 203 | 96 | 0.00014 |
+| Condition | n (correct / wrong) | Correct median | Incorrect median | MWU p |
+|---|---:|---:|---:|---:|
+| No-CoT | 180 / 117 | 101 | 56 | 0.006 |
+| CoT | 203 / 94 | 203 | 96 | 0.00014 |
 
 因此，length-normalized trajectory 中的 correct / incorrect 差異不能簡單歸因於「correct 更早完成」。相反地，在可辨識 commit 的 samples 中，incorrect responses 較早形成 answer candidate。
 
@@ -365,15 +365,15 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 
 將各 sample 對齊至自己的 commit step（`t=0`）後，可觀察到三個主要模式：
 
-1. **Pre-commit slow RSN state**：Commit-aligned slow RSN dynamics：correct 組在 commit 前維持較高`s_t`；commit 後則下降得更快，約在 10–15 tokens 後低於 incorrect 組。前者表示組間差異不只是 commit timing 錯位，後者則提示 correct responses 在答案形成後具有更快的 state release / termination dynamics。
-2. **Commit-centered transition**：`Z_t`、`s_t`、`p_t` 與 entropy / top1 / margin 均在 commit 附近快速變化。這支持 commit marker 對應一個明顯的 generation-state transition。
-3. **Post-commit separation**：correct 組呈現較強的 `s_t` decline 與較完整的 confidence recovery；incorrect 組下降較慢、恢復較弱，可能反映不同的 termination dynamics。
+1. **Pre-commit slow RSN state**：correct 組在 commit 前維持較高、較持久的 `s_t`；commit 後則下降得更快，約在 10–15 tokens 後低於 incorrect 組。前者表示組間差異不只是 commit timing 錯位，後者則提示 correct responses 在答案形成後具有更快的 state release / termination dynamics。此屬**描述性差異**，不宜單向解讀為「高 `s_t` 導致答對」——同樣相容的路徑是：模型對可解的題較早形成可行思路（perceived solvability / viable reasoning path）→ sustained engagement → 較晚 commit → 較高正確率，即 engagement 與 correctness 可能同受題目可解性驅動。
+2. **Commit-centered transition**：`Z_t`、`s_t`、`p_t` 與 entropy / top1 / margin 均在 commit 附近快速變化。這支持 commit marker 對應一個明顯的 generation-state transition；但 `####` 本身即改變 token distribution，故 entropy / top1 / margin 的變化可能部分來自**格式轉換**，不能全數歸因於 confidence 的實質改變。
+3. **Post-commit separation**：correct 組呈現較強的 `s_t` decline 與較完整的 confidence recovery；incorrect 組下降較慢、恢復較弱，可能反映不同的 termination dynamics（confidence recovery 無 CI，屬描述性觀察）。
 
 | Signal family | Main observation | Interpretation |
 |---|---|---|
-| `s_t` / `Z_t` | correct 在 commit 前較高，commit 後下降較深 | slow RSN dynamics 與 response outcome 相關 |
-| `p_t` | commit window 有明顯 pulse / dip，但兩組在 commit 前無穩定分離 | 對局部 state transition 敏感，不是穩定 correctness predictor |
-| entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition |
+| `s_t` / `Z_t` | correct 在 commit 前較高，commit 後下降較深 | slow RSN dynamics 與 response outcome 描述性相關 |
+| `p_t` | commit window 有明顯 pulse / dip，但兩組在 commit 前無穩定分離 | 通用 transition signal，非穩定 correctness predictor（不作 RPE 解讀） |
+| entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition，部分來自 `####` 格式轉換 |
 | info gain | commit 附近波動，但組間結構不穩定 | 僅作 distributional-change diagnostic |
 
 #### Figures
@@ -386,7 +386,9 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 | `fig41_commit_aligned_suite_nocot.png` | Commit-aligned No-CoT RSN + logit suite | commit 附近出現共同 state transition；`p_t` 有 pulse / dip，但 confidence 對 correctness 的分離較弱 |
 | `fig41_commit_aligned_suite_cot.png` | Commit-aligned CoT RSN + logit suite | 重現 commit-centered transition 與 correct 組較快的 post-commit release |
 
-**Overall:** correctness 主要與 commit 前後的 **slow RSN trajectory** 相關；task-entry gain、單一 phasic amplitude 與 confidence metrics 均不是穩定的 correctness predictor。六張圖來自同一批資料的兩種對齊方式，應視為互補分析，而非六份獨立證據。
+**Overall:** correct / incorrect responses 在 commit 前後的 **slow RSN dynamics** 上存在描述性差異——correct 組 pre-commit `s_t` 較高、較持久，post-commit release 較快；task-entry gain、單一 phasic amplitude 與 confidence metrics 均不是穩定的 correctness predictor。這些圖來自同一批資料的兩種對齊方式，應視為互補分析，而非獨立證據。
+
+> This pattern is **consistent with** adaptive engagement and termination dynamics, but may reflect perceived solvability or the availability of a coherent reasoning path rather than a direct causal effect of wanting on accuracy. 三種因果方向無法在此區分：(1) engagement↑ 促成答對；(2) 題目可解 → engagement↑；(3) 難度/熟悉度同時影響 engagement 與正確率。本節支持「RSN tracks engagement during viable reasoning」，但**不能單獨證明**「更高 dopamine → 更高正確率」——Dopamine 的主證據仍來自 α intervention、dose-response 與行為學實驗。
 
 **Boundary:** commit-centered logit change 可能部分來自 `####` / answer-format transition；slow RSN difference 仍需 difficulty-matched analysis 驗證。
 
