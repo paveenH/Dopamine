@@ -511,30 +511,34 @@ Step 2 處理 slow component `s_t`；本節看 **fast residual** `p_t = Z_t − 
 
 #### Step 4：Wanting–Confidence Relationship
 
-同步分析 final-logit metrics：
+**基座警示（load-bearing）：wanting 與 output-distribution confidence 建在不同基座,不同圖、不同表,不可疊。** wanting（Step 2/3 的 `s_t`/`p_t`）= **中層 HS · 稀疏 NMD mask**（約 0.5% 神經元）的投影;本節的 confidence proxy（entropy / top1 / margin / info_gain）= **最終層 HS → RMSNorm → 全 lm_head → 全 128k vocab softmax,無 mask** 的真實 next-token 輸出分布。這些指標衡量的是 next-token distribution 的集中程度 / decisiveness,不是模型對最終答案正確性的 epistemic confidence。本節只報 confidence-proxy 軸;wanting 的數字從 Step 2/3 引用,用於下方 dissociation 判定,不重新入本表。
 
-- entropy
-- top1
-- margin
-- information gain
-- rolling confidence variance
+**窗口口徑：Prefill 快照 + pre-commit 內 Q1–Q4。** 每題先用第一個 `####`（或 answer-candidate fallback）截出 pre-commit span,再在其內部四等分 Q1–Q4。**不用全 decode 固定百分位**:97% 樣本撞 max_new_tokens、尾段是 `#### N …` 死循環,固定 Late 75–100% 會測到 loop 而非 answer convergence。Prefill 單獨畫在 decode 之前。paired（同 300 題,index 對齊）、`d_z`、bootstrap 95% CI、Wilcoxon;pre-commit 主分析限於兩組都有有效 commit 的交集 n=203（median pre-commit 長度 No-CoT 120 / CoT 214 tokens）。因此結果描述的是 **both-condition committed subset**,不能直接外推至無有效 commit 的失敗樣本。
 
-按以下窗口报告：
+**主結果:output-distribution confidence proxies 分窗 CoT−No-CoT。**
 
-| Window | Meaning |
-|---|---|
-| Prefill | task-entry confidence |
-| Early 0–25% | reasoning launch |
-| Middle 25–75% | reasoning process |
-| Late 75–100% | answer convergence |
+| Metric | Prefill | Q1 (launch) | Q2 | Q3 | Q4 (convergence) |
+|---|---:|---:|---:|---:|---:|
+| entropy | **+0.340** (0.64)*** | **−0.247** (−0.71)*** | −0.146 (−0.53)*** | −0.129 (−0.41)*** | −0.177 (−0.55)*** |
+| top1 | −0.025 (−0.23)** | **+0.054** (0.60)*** | +0.031 (0.41)*** | +0.028 (0.32)*** | +0.041 (0.44)*** |
+| margin | −0.020 (−0.16)* | **+0.065** (0.53)*** | +0.035 (0.34)*** | +0.034 (0.29)*** | +0.055 (0.41)*** |
+| info_gain | — | −0.026 (−0.10)*** | −0.001 (−0.01) ns | −0.002 (−0.01) ns | +0.002 (0.01)*** |
+| roll_std | — | −0.019 (−0.44)*** | −0.024 (−0.44)*** | −0.019 (−0.32)*** | −0.027 (−0.44)*** |
 
-主要判定：
+（每格 = ΔCoT−No (`d_z`) 顯著;info_gain / roll_std 無 prefill 快照,故 Prefill 欄留空。實際共有 **23 個可檢驗比較**:entropy/top1/margin 各 5 個窗口,info_gain/roll_std 各 4 個窗口。entropy/top1/margin 與 roll_std 的主要 pre-commit 效應在 FDR 校正後穩定;info_gain Q2–Q4 的 `d_z`≈0.01,即使 raw p 顯著也屬 **practically null**,不作實質解讀。）
 
-- RSN 与 confidence 同时改变：CoT couples wanting and confidence。
-- RSN 改变而 confidence 不变：支持 wanting–confidence dissociation。
-- confidence 只在 early 改变：CoT 的 decisiveness effect 是短暂启动效应。
+**讀法:**
 
----
+1. **Prefill 與 pre-commit 方向相反,不是矛盾。** 任務入口 CoT entropy **更高**、top1/margin **略低**(d_z≈−0.2)——CoT 準備展開推理,入口不急於確定;一旦進入推理段(Q1 起),CoT entropy 全程更低、top1/margin 全程更高,即輸出分布**更 decisive**。
+2. **效應最強在 Q1(launch),Q2–Q4 衰減但不消失。** entropy Q1 d_z=−0.71 → Q3 −0.41;top1 Q1 0.60 → Q3 0.32。這與「discriminative window 主要在啟動段」一致,但 CoT 的 decisiveness **貫穿整個 pre-commit,並非只是短暫啟動效應**。不過 Q1–Q4 是每個回答自身的 length-normalized quartile,而 CoT pre-commit 明顯更長;「launch 最強」仍須用 Step 5 的 absolute decode-step trajectory 排除時間拉伸效應。
+3. **`roll_std` 全程更低(d_z≈−0.44):** CoT 的 top1 波動更平穩,與 entropy↓ 同向;它是 confidence-proxy 的 temporal variability,不是獨立的 confidence 構念。
+4. **`info_gain` 幾乎全程 null:** 只有 Q1 有可忽略的小效應(d_z=−0.10),Q2–Q4 `d_z`≈0——per-step entropy change 對 CoT/No-CoT 不敏感,主要效應體現在 distribution level(entropy/top1/margin)與 top1 variability(roll_std),不在增量。
+
+> **與 dopamine 的關係(dissociation 判定)。** wanting(Step 2 `s_t`)與 confidence proxy 在 CoT 下**同向增強**(wanting `Z_prefill` d_z=0.89 / `s_early` d_z=0.83;Q1 top1 d_z=0.60),但這只是兩個不同基座對 CoT 的共同響應,不能證明 wanting 與 confidence 是同一量或存在直接因果關係。當前最直接的 dissociation 證據來自 §4.3 persona comparison:role prompt 移動 wanting,而 entropy/top1/margin/info_gain 全程無顯著差異。這是 **prompt-manipulation evidence**,不是 α intervention。只有在 α-steering 條件下以同一套 confidence 指標確認「wanting 隨 α 移動而 confidence 不動」,才能把它升級為 causal dissociation。本節本身只證明 **CoT 同時提高 wanting 與 output decisiveness**,不證明 wanting=confidence。
+
+> **口徑注意(避免與舊記錄打架):** CLAUDE.md 曾記「CoT top1 Q1→Q2 變號(+0.32→−0.21)」——那是**全 decode 固定百分位 μ** 口徑;本表是 **pre-commit 內 quartile** 口徑,top1 全程為正(+0.054→+0.031→…→+0.041),不變號。兩者窗口定義不同,不衝突;本節採 pre-commit 口徑(避開 loop 污染)。
+
+**圖**：`fig42_step4_confidence.png`（5-panel:entropy / top1 / margin / info_gain / roll_std,各畫 Prefill + pre-commit Q1–Q4 的 CoT vs No-CoT 兩線,`***` 標顯著 quartile）。**confidence 軸單獨一張,不與 wanting `s_t`/`p_t` 疊**（不同基座）。圖中可見:Prefill(灰阴影)CoT entropy 高、top1 低,兩線交叉;Q1 起 CoT entropy 全程更低、top1/margin 更高、roll_std 更低;info_gain 除 Q1 外兩線重合。**分析腳本**：`analyze_cot_step4_confidence.py`（讀 `metrics_gsm8k_8B_{nocot,cot}_ema0.95_L11-20.json`,pre-commit commit 定位複用 `analyze_wrong_right_commit.py` 的 `char_to_step`/`commit_char`,paired Q1–Q4 + Prefill;`roll_std` 為 top1 的 window=10 滾動標準差,現算）。
 
 #### Step 5：Two Time Axes
 
