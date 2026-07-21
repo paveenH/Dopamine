@@ -397,7 +397,7 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 只分析 **neutral、α=0、相同 300 道 GSM8K**。两组除 CoT 增加 `Let's think step by step.` 外，其余生成条件一致。
 > 本节重点是：CoT 如何改变 task-entry state 与 generation dynamics？
 
-#### Task-Entry Tonic
+#### Step 1: Task-Entry Tonic
 
 | Readout | Question |
 |---|---|
@@ -425,7 +425,7 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 
 分析腳本：`analyze_cot_step2_tonic.py`。
 
-#### Step 3：Slow Decode Dynamics
+#### Step 2: Slow Decode Dynamics
 
 主信号：
 
@@ -444,9 +444,7 @@ s_t = βs_{t-1} + (1-β)Z_t
 
 当前曲线如果整体下降，统一称为 **slow decode dynamics / relaxation**；只有观察到 decode 内持续上升时才称为 ramping。
 
----
-
-#### Step 4：Fast Phasic Component
+#### Step 3：Fast Phasic Component
 
 比较：
 
@@ -464,7 +462,7 @@ s_t = βs_{t-1} + (1-β)Z_t
 
 ---
 
-#### Step 5：Wanting–Confidence Relationship
+#### Step 4：Wanting–Confidence Relationship
 
 同步分析 final-logit metrics：
 
@@ -491,7 +489,7 @@ s_t = βs_{t-1} + (1-β)Z_t
 
 ---
 
-#### Step 6：Two Time Axes
+#### Step 5：Two Time Axes
 
 必须同时画：
 
@@ -504,7 +502,7 @@ Prefill 单独画在 decode 之前；不要重新使用 prefill-seeded EMA。
 
 ---
 
-#### Step 7：Behavioral Anchoring
+#### Step 6：Behavioral Anchoring
 
 不重新做完整行为学分析，只引用已有结果：
 
