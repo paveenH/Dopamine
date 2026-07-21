@@ -434,15 +434,34 @@ s_0 = Z_0
 s_t = βs_{t-1} + (1-β)Z_t
 ```
 
-比较：
+统计同 Step 1：paired（同 300 題、索引對齊）、bootstrap 95% CI、Cohen's `d_z`、Wilcoxon signed-rank。
 
-- `Z_early / Z_middle / Z_late`
-- `s_t` early、middle、late mean
-- full、early、late slope
-- `s_t` AUC
-- launch-to-late relaxation magnitude
+**方法決定：clean vs full 雙 regime。** Step 1 audit 發現 **97% 樣本撞 767 max_new_tokens 截斷，commit 後 70–85% 是 `#### N …` 退化 loop**（loop-onset ≈ 第 2 個 `####`：No-CoT ~17% / CoT ~29%）。故每個指標算兩遍：
+- **clean** = `decode[0]` → loop-onset，真實推理段（**正文以此為準**）
+- **full** = 全程 0→767，含 loop 尾（僅作對照，展示 loop 如何污染 late-window）
 
-当前曲线如果整体下降，统一称为 **slow decode dynamics / relaxation**；只有观察到 decode 内持续上升时才称为 ramping。
+**結果（ΔCoT−No，`d_z`；*** p<.001 / ** p<.01 / ns）**
+
+| Readout | clean Δ (`d_z`) | full Δ (`d_z`) |
+|---|---:|---:|
+| `Z_early` | +0.423 (0.61) *** | +0.711 (0.85) *** |
+| `Z_middle` | +0.277 (0.27) *** | +0.308 (0.43) *** |
+| `Z_late` | +0.265 (0.25) *** | +0.163 (0.25) *** |
+| `s_auc`（≈ AUC/len） | +0.291 (0.34) *** | +0.393 (0.64) *** |
+| `slope_full` | +0.001 (0.13) ** | **−0.001 (−0.38) ***（反號）** |
+| `slope_late` | +0.001 (0.10) ns | −0.000 (−0.19) *** |
+| **`relax_mag`**（late−early） | **−0.103 (−0.12) ns** | **−0.492 (−0.59) ***** |
+| `span_len`（loop 前長度） | +94.2 (0.26) *** | −3.6 (−0.03) ns |
+
+1. **CoT = level shift，不是 shape change（主結論，clean 段）。** CoT 把整條 `s_t` 平移抬高——`s_auc` +0.29 ***，三窗口（early +0.42 / mid +0.28 / late +0.27）一致顯著為正；但**不改變斜率**（clean `slope_full` d_z=0.13、`slope_late` ns），兩組下降速率相同，只是 CoT 整體高一截。真實推理段還更長（`span_len` +94 步 ***）。
+
+2. **「CoT relaxation 更陡」是 loop 假象（clean/full 反號）。** full 說 relaxation 大幅加劇（`relax_mag` −0.49 ***，`slope_full` 反號 d_z=−0.38 ***）；但切到 clean 真實推理段，效應**消失**（`relax_mag` −0.10 **ns**）。證實 §4.1 此前看到的「更陡 relaxation」主體來自 767 後的 loop 塌陷，不是推理。
+
+3. **抬升在 commit 前就全程建立（commit-aligned）。** commit 對齊後，CoT 在 **commit 之前**就整段高出 No-CoT ~+0.4 且平坦（不是 commit 後才分開）；commit 後兩組平行下滑（再證 level shift），CoT 僅多一個略深的瞬時 release 谷（commit 後 0~10 步，之後重合）。
+
+> **小結：CoT 對 slow decode 的效應是一次 level shift，而非 shape change**——它把整條 wanting 軌跡平移抬高（`s_auc` +0.29，各窗口一致正）、推理段更長（+94 步），但**不改變 relaxation 斜率**（clean slope ns）。此抬升在 task-entry（Step 1 `Z_prefill` d_z=0.89）就鎖定，貫穿整個 commit-前推理段，非 decode 過程中動態生成。命名：clean 段無持續上升、slope 又 ns → 是 **level-shifted slow decay**，不叫 ramping，也不稱「relaxation 加劇」。
+
+**圖**：`fig42_step3_slow_st.png`（clean/full 並排，loop 污染圖示）、`fig42_step3_commit_st.png`（commit-aligned level + slope）。分析腳本：`analyze_cot_step3_slow.py`。
 
 #### Step 3：Fast Phasic Component
 
