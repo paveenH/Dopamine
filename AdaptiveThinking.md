@@ -397,7 +397,7 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 只分析 **neutral、α=0、相同 300 道 GSM8K**。两组除 CoT 增加 `Let's think step by step.` 外，其余生成条件一致。
 > 本节重点是：CoT 如何改变 task-entry state 与 generation dynamics？
 
-#### Step 1: Task-Entry Tonic
+#### Step 1: Task-Entry Tonic-like Gain
 
 | Readout | Question |
 |---|---|
@@ -407,7 +407,9 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 
 统计采用 paired mean difference、bootstrap 95% CI、Cohen’s `d_z` 和 Wilcoxon signed-rank（Step 1 已確認兩組為同一批 300 題、索引對齊，故用 paired）。
 
-**結果：CoT 在 task-entry 就抬高了 tonic wanting**
+> 注意：`G_prefill` 讀的是 generation boundary 的**最後一個 prompt token**，不是整個任務期間的恆定 tonic state；故此小節測的是 task-entry tonic-**like** gain，而非嚴格意義的 tonic baseline。
+
+**結果：CoT 在 generation boundary 就抬高了 RSN state**
 
 | Readout | No-CoT | CoT | ΔCoT−No | 95% CI | `d_z` | Wilcoxon p |
 |---|---:|---:|---:|---:|---:|---:|
@@ -417,11 +419,11 @@ Correctness 不是主要 intervention axis；本節將其作為 **outcome analys
 
 1. **`G_prefill`：CoT 顯著抬高 task-entry gain。** +0.071 α 單位，`d_z`=0.59（中等偏強），CI 不含 0。No-CoT 的 0.000 是因為它本身就是參考基準（`μ_l^ref` 定義在 neutral-α0-No-CoT prefill），故此列讀的是「CoT 相對 No-CoT baseline 的偏移」。意義：光是 prompt 多一句 `Let's think step by step.`，在**尚未 decode**、last token 同為 `Answer:` 的情況下，就已抬高 wanting——純 context 效應（前文 CoT instruction 改變了 last-token 的 residual 狀態）。
 
-2. **`Z_prefill`：layer-fair 坐標下更強，複現且放大。** +0.158，`d_z`=**0.89**（強）。比 `G_prefill` 的 `d_z` 還大 → 這個抬升在各層比較均勻（layer-fair 不被單個大 mask 層稀釋，反而聚合出更一致的信號）。效應是真的，不是某一兩層的假象。
+2. **`Z_prefill`：layer-fair 坐標下複現，且對逐層標準化穩健。** +0.158，`d_z`=**0.89**（強）。`d_z` 比 `G_prefill` 大，說明這個抬升**經 layer-wise standardization 後依然穩健，不是單靠少數 large-scale 層撐起來的**（Z-score 會放大低方差層的貢獻，故 `d_z` 增大只能推斷「非由大尺度層獨佔」，**不能**直接讀成「各層更均勻」——後者須另查 per-layer effect）。
 
-3. **`boundary_jump_G`：CoT 反而縮小 prefill→decode[0] 的跳變。** No-CoT 跳 +0.167，CoT 只跳 +0.094，Δ=−0.073，但 `d_z`=−0.13（弱）。這是 §4.1 co-design identity 的直接後果——`G_decode[0] ≈ G_prefill +（自然 pulse）`。CoT 把起點 `G_prefill` 抬高，而 decode[0] 的絕對高度兩組相近，所以「還要往上跳的空間」變小；亦即 CoT 把一部分 launch pulse **提前**到 prefill，decode 開場少跳一點。effect 弱，屬記錄性。
+3. **`boundary_jump_G`：CoT 反而縮小 prefill→decode[0] 的跳變。** No-CoT 跳 +0.167，CoT 只跳 +0.094，Δ=−0.073，但 `d_z`=−0.13（弱）。數據上兩組 decode[0] 的絕對高度高度接近（No-CoT `G_decode[0]`≈0.167；CoT ≈0.071+0.094=0.165），CoT 的差異**提前出現在 prefill**，故起點抬高後 decode 開場「還要往上跳的空間」變小。注意此處比較的是 α=0 的 CoT/No-CoT，**沒有注入 α**，因此這只是觀察到的邊界轉換差異，不能歸因於 §4.1 的 co-design steering identity。effect 弱，屬記錄性。
 
-> **小結：CoT 的效應在 task-entry（prefill）就已建立**——它把 tonic wanting 顯著抬高（`Z_prefill` d_z=0.89），prefill→decode 的邊界跳變相應縮小（弱）。CoT 不是「decode 中途才發力」，而是**從任務進入的第一刻就重置了 gain 基線**。
+> **小結：CoT-related RSN elevation 在 generation boundary 就已可偵測。** CoT 抬高 `G_prefill` / `Z_prefill`，而兩組 `G_decode[0]` 到達相近水平，於是 CoT 下的 boundary jump 較小。這支持一個 task-entry gain difference，但**不足以斷定 `G_prefill` 單獨決定後續 decode dynamics**。
 
 分析腳本：`analyze_cot_step2_tonic.py`。
 
@@ -438,34 +440,44 @@ s_t = βs_{t-1} + (1-β)Z_t
 
 **方法決定：三段切分。** Step 1 audit 發現 **97% 樣本撞 767 max_new_tokens 截斷，commit 後 70–85% 是 `#### N …` 退化 loop**。一條軌跡實際含三段，須分開分析（不可把後兩段當推理）：
 
-- **pre-commit** = decode start → 第 1 個 `####`（純推理段，**正文主分析**）
+- **pre-first-commit** = decode start → 第 1 個 `####`（由首個 `####` 定義；無標記者退回 first answer candidate，**正文主分析**）
 - **pre-repeat** = decode start → 第 2 個 `####`（含首次提交後文字，**不是**純推理）
 - **loop tail** / **full** = 第 2 個 `####` → 767（重複尾，僅作污染診斷）
 
-**結果（ΔCoT−No，`d_z`；*** p<.001 / ** p<.01 / * p<.05 / ns）**
+> **端點來源兩組不對稱。** 用真 `####` 的樣本：No-CoT 243/300、CoT 285/300；退回 answer-candidate 者 No-CoT 54、CoT 12（兩組都各 3 個連 candidate 都無、退回全文）。故「pre-first-commit」不等於「純推理段」，且兩組 endpoint 定義不完全同構——下方另附 **strict-`####` paired subset** 敏感度檢驗（僅取兩組都有真 `####` 的題）確認結論不因 fallback 差異而變。
 
-| Readout | **pre-commit** | pre-repeat | full |
-|---|---:|---:|---:|
-| `Z_early` | +0.398 (0.57) *** | +0.423 (0.61) *** | +0.711 (0.85) *** |
-| `Z_middle` | +0.445 (0.47) *** | +0.277 (0.27) *** | +0.308 (0.43) *** |
-| `Z_late` | +0.423 (0.45) *** | +0.265 (0.25) *** | +0.163 (0.25) *** |
-| `s_auc`（≈ AUC/len） | +0.393 (0.49) *** | +0.291 (0.34) *** | +0.393 (0.64) *** |
-| `slope_full` | +0.002 (0.14) ** | +0.001 (0.13) ** | **−0.001 (−0.38) ***（反號）** |
-| `slope_late` | +0.000 (0.03) ns | +0.001 (0.10) ns | −0.000 (−0.19) *** |
-| **`relax_mag`**（late−early） | **+0.099 (0.14) \*** | −0.103 (−0.12) ns | **−0.492 (−0.59) ***** |
-| `span_len` | +56.6 (0.18) *** | +94.2 (0.26) *** | −3.6 (−0.03) ns |
+**結果（ΔCoT−No，`d_z`；显著性以 `***` p<.001 / `**` p<.01 / `*` p<.05 / ns 单独一列标注）**
 
-**判定 level vs shape 的裁決檢驗**（pre-commit 段，`fig42_step2_shape_test.png`）：對每個 sample 減去自身 `s_0` 得 centered `s̃_t = s_t − s_0`，若 CoT / No-CoT 兩條 centered 曲線重合則為純 level shift。實測**不重合**：No-CoT 在 pre-commit 段就明顯 relax（`s̃` 掉到 −0.44），CoT 幾乎不 relax（前 ~30% 持平/微升，僅掉 −0.17），centered 差全程穩定 +0.25~0.30（paired，顯著>0）。
+本节标题为 Slow Decode Dynamics，故主表优先报告 slow component（`s_t`）；`Z_t = slow + fast residual`，`Z_*` 作未经滤波的 supporting readout。
 
-1. **CoT 顯著抬高整條 slow RSN state，early 最強。** 三窗口 level 一致顯著為正（`Z_early` d_z=0.57 → `Z_middle/late` 0.47/0.45；`s_auc` +0.39 d_z=0.49）。這是最穩健的效應。
+| Slow readout | **pre-commit** | 显著 | pre-repeat | 显著 | full | 显著 |
+|---|---:|:--|---:|:--|---:|:--|
+| `s_early` | +0.328 (0.45) | *** | +0.354 (0.51) | *** | +0.661 (0.83) | *** |
+| `s_middle` | +0.421 (0.46) | *** | +0.268 (0.26) | *** | +0.352 (0.48) | *** |
+| `s_late` | +0.427 (0.46) | *** | +0.251 (0.24) | *** | +0.169 (0.25) | *** |
+| `s_mean`（=mean s_t，等价 normalized AUC，非积分） | +0.393 (0.49) | *** | +0.291 (0.34) | *** | +0.393 (0.64) | *** |
+| `slope_full` | +0.002 (0.14) | ** | +0.001 (0.13) | ** | −0.001 (−0.38) | *** 反号 |
+| `slope_late` | +0.000 (0.03) | ns | +0.001 (0.10) | ns | −0.000 (−0.19) | *** |
+| `relax_mag`（late−early） | +0.099 (0.14) | * | −0.103 (−0.12) | ns | −0.492 (−0.59) | *** |
+| `span_len` | +56.6 (0.18) | *** | +94.2 (0.26) | *** | −3.6 (−0.03) | ns |
 
-2. **slope / 總 relaxation 幅度差異小。** `slope_full` d_z=0.14（弱）、`slope_late` **ns**；`relax_mag` d_z=0.14（`*`，方向為 CoT relax **更小**——維持更久）。所以差異以 level 為主，但**並非純平移**：centered 檢驗顯示 CoT 在 pre-commit 段 relax 得更少，存在殘餘 shape 差異（CoT 讓 wanting 維持更久）。
+Supporting（未滤波 `Z_*`，pre-commit）：`Z_early` +0.398 (0.57) ***、`Z_middle` +0.445 (0.47) ***、`Z_late` +0.423 (0.45) ***——与 `s_*` 同向、同量级。
+
+**控制 1｜strict-`####` paired subset（n=233，两组都有真 `####`）：结论不因 fallback 差异而变。** pre-commit level 全部维持显著正（`s_early` +0.253 d_z=0.36 ***、`s_mean` +0.255 d_z=0.35 ***、`Z_*` d_z≈0.32–0.47 ***），`relax_mag` 仍 **ns**（+0.019）。即端点定义的两组不对称不是 level 效应的来源。
+
+**判定 level vs shape 的裁決檢驗**（pre-commit 段，`fig42_step2_shape_test.png`）：對每個 sample 減去自身 `s_0` 得 centered `s̃_t = s_t − s_0`，若 CoT / No-CoT 兩條 centered 曲線重合則為純 level shift。實測**不重合**：No-CoT 在 pre-commit 段就明顯 relax，CoT 幾乎不 relax，centered 差全程穩定 +0.25~0.30（paired，顯著>0）。
+
+**控制 2｜absolute-token-step centered（不做长度归一化）：残余 shape 在真实 token-time 中同样成立。** length-normalized 会把 CoT 更长的 pre-commit span（+56.6 tok）压到同一 0–100%，同一百分比不对应同一绝对 step。故改在**前 50 / 100 个绝对 decode token**上量 centered relaxation：token 50，No-CoT `s_50−s_0`=−0.129 vs CoT +0.054（Δ+0.183，d_z=0.21，p=5e-4）；token 100，−0.299 vs −0.018（Δ+0.281，d_z=0.29，p=5e-4）。**CoT relax 更弱这一残余 shape 在绝对 token-time 中重现，不只是归一化坐标的假象。**
+
+1. **CoT 顯著抬高整條 slow RSN state。** 三窗口 `s_*` level 一致顯著為正（`s_early` d_z=0.45、`s_middle/late` 0.46/0.46；`s_mean` +0.39 d_z=0.49）。這是最穩健的效應。
+
+2. **scalar slope / 總 relaxation 幅度差異小，但轨迹层面有中等残余 shape。** `slope_full` d_z=0.14（弱）、`slope_late` **ns**；`relax_mag` d_z=0.14（`*`）。更準確的表述：**scalar 摘要（slope / relaxation）效應小，而 length-normalized centered trajectory 揭示一個中等的殘餘 shape 差異——CoT 比 No-CoT 更久維持其 early slow-state level（centered 差 +0.25~0.30，且经绝对 token-step 控制后仍成立）。**
 
 3. **full 只能診斷污染，不能作結論。** full 的 `relax_mag` −0.49 ***、`slope_full` 反號（d_z=−0.38 ***）源於重複尾嚴重污染整段軌跡；一旦切到 pre-commit 即消失。**注意**：此 CoT/No-CoT 的污染診斷，不能直接推斷 §4.1 correct/incorrect 的下降也是 loop 假象——那是另一條比較軸，需各自檢驗。
 
-> **小結（level-dominant modulation）**：CoT produces a robust elevation of the slow RSN state, strongest during early decoding and persisting into the pre-repeat span. After excluding the repeated-answer tail, differences in slope and total relaxation magnitude are small or non-significant. The current evidence therefore favors **level-dominant slow-state modulation** over stronger relaxation or upward ramping. CoT-related elevation is already detectable at task entry (Step 1 `Z_prefill` d_z=0.89) and remains present during pre-commit decoding；由於 CoT instruction 一路存在於 KV cache，不能據此斷言後續差異完全由 `G_prefill` 決定或「非 decode 中動態生成」。centered 檢驗顯示殘餘 shape 差異（CoT relax 更少），故稱 level-dominant 而非 pure level shift。
+> **小結（level-dominant，非纯平移）**：CoT raises the RSN state at the generation boundary and maintains a higher slow decode level before commitment. The effect is **level-dominant but not a pure level shift**: after excluding the repeated-answer tail, scalar slope and relaxation summaries show small effects, whereas the length-normalized centered trajectory reveals a moderate residual shape difference — CoT maintains its early slow-state level longer than No-CoT. This residual shape survives both a strict-`####` subset and an absolute-token-step control. CoT-related elevation is already detectable at task entry (Step 1 `Z_prefill` d_z=0.89) and **remains present during pre-commit decoding**；由於 CoT instruction 一路存在於 KV cache，不能據此斷言後續差異完全由 `G_prefill` 決定或「非 decode 中動態生成」。
 
-**圖**：`fig42_step2_shape_test.png`（pre-commit level-vs-shape 裁決：raw + paired diff / baseline-centered）、`fig42_step3_slow_st.png`（pre-repeat/full 並排 loop 污染圖示）、`fig42_step3_commit_st.png`（commit-aligned level + slope）。分析腳本：`analyze_cot_step3_slow.py`。
+**圖**：`fig42_step2_shape_test.png`（pre-commit level-vs-shape 裁決：raw + paired diff / baseline-centered）、`fig42_step3_slow_st.png`（pre-repeat/full 並排 loop 污染圖示）、`fig42_step3_commit_st.png`（commit-aligned level + slope）。分析腳本：`analyze_cot_step3_slow.py`（`--plots` 出图；控制 1/2 随主程序打印）。
 
 #### Step 3：Fast Phasic Component
 
