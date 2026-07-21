@@ -474,6 +474,8 @@ s_t = βs_{t-1} + (1-β)Z_t
 
 **圖**：`fig42_step3_slow_st.png`（三個互斥階段並排 s_t）、`fig42_step2_shape_test.png`（pre-commit level-vs-shape 裁決：raw + paired diff / baseline-centered）、`fig42_step3_commit_st.png`（commit-aligned level + slope）。分析腳本：`analyze_cot_step3_slow.py`（`report_stages` 出主表，`--plots` 出图；strict / abs-step 控制與 full 診斷隨主程序打印）。
 
+> **圖例 n 與主表 n 不同（口徑差異，非錯誤）。** 主表每格是 **paired** 統計（僅取兩組同一題都在該階段有效的交集），故 pre-commit n=281 / post-commit n=144 / loop tail n=141。`fig42_step3_slow_st.png` 的均值帶用**各組獨立可用的全部軌跡（unpaired）**畫，故圖例 n 較大且兩組不等（pre-commit 298/281、post-commit 184/231、loop tail 219/189）。形態展示用 unpaired（軌跡越多帶越穩），顯著性檢驗用 paired（消除題間變異）——兩者都正確，只是不同用途。
+
 #### Step 3：Fast Phasic Component
 
 比较：
