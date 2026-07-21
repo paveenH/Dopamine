@@ -478,18 +478,20 @@ s_t = βs_{t-1} + (1-β)Z_t
 
 > **圖例 n 與主表 n 不同（口徑差異，非錯誤）。** 主表每格是 **paired** 統計（僅取兩組同一題都在該階段有效的交集），故 pre-commit n=281 / post-commit n=144 / loop tail n=141。`fig42_step3_slow_st.png` 的均值帶用**各組獨立可用的全部軌跡（unpaired）**畫，故圖例 n 較大且兩組不等（pre-commit 298/281、post-commit 184/231、loop tail 219/189）。形態展示用 unpaired（軌跡越多帶越穩），顯著性檢驗用 paired（消除題間變異）——兩者都正確，只是不同用途。
 
-#### Step 3：Fast Phasic Component
+#### Step 3：Fast Residual Dynamics
 
-Step 2 處理 slow component `s_t`；本節看 **fast residual** `p_t = Z_t − s_{t-1}`。`p_t` 由 Step 2 **同一條**「整條 decode 一次 EMA」得出後，切進**同樣三個互斥階段**（1st / 2nd `####` 為界），故與 slow 段口徑一致、可直接對照。不做 commit alignment、不預設特定 event——只問 CoT 是否改變 fast residual 的**強度與時間分佈**。指標：`phasic_abs_mean`（平均幅度）、`phasic_std`（波動）、`phasic_pos_peak` / `phasic_neg_peak`（正/負極值）。統計同 Step 2（paired、bootstrap 95% CI、`d_z`、Wilcoxon；每段只配對兩組都有效的題）。
+Step 2 處理 slow component `s_t`；本節看 **fast residual** `p_t = Z_t − s_{t-1}`——一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t` 由 Step 2 **同一條**「整條 decode 一次 EMA」得出後，切進**同樣三個互斥階段**（1st / 2nd `####` 為界），故與 slow 段口徑一致、可直接對照。不做 commit alignment、不預設特定 event——只問 CoT 是否改變 fast residual 的**強度與時間分佈**。指標：`phasic_abs_mean`（平均幅度）、`phasic_std`（波動）、`phasic_pos_peak` / `phasic_neg_peak`（正/負極值）。統計同 Step 2（paired、bootstrap 95% CI、`d_z`、Wilcoxon；每段只配對兩組都有效的題）。
 
-**主結果：三個互斥階段的 fast phasic（ΔCoT−No，`d_z`）**
+> **口徑警示：`p_t` 是高通殘差,兩類 confound 使極值（`pos/neg_peak`）不可直接當獨立證據。** (1) **EMA lag**：`s_t`（β=0.95）滯後於 `Z_t`,故 `Z_t` 持續下降時 `p_t` 機械性地變深負——這正是 slow drop 的鏡像,而非獨立 transient。Step 2 已證 CoT/correct 組 commit 後 `s_t` 下降更陡,所以它們 `neg_peak` 更深**幾乎是必然**,可能只是 Step 2「release 更快」的重複測量。(2) **segment-length bias**：`min/max` 是極值,樣本越長越易撞到更極端值,而 CoT pre-commit 長約 29 tokens。故本節**主證據放在 `abs_mean` / `std`（分布矩,對 length / 單點 lag 遠不敏感）**;`pos/neg_peak` 僅記錄,採信須補 length-matched + quantile（q01/q99 代替 min/max）驗證。
+
+**主結果：三個互斥階段的 fast residual（ΔCoT−No，`d_z`）。主證據 = `abs_mean` / `std`;`pos/neg_peak` 受雙 confound（見上警示）,僅記錄。**
 
 | Stage | Readout | No-CoT | CoT | ΔCoT−No | `d_z` | 显著 | 含義 |
 |---|---|---:|---:|---:|---:|:--|---|
-| **pre-commit** (n=281) | `abs_mean` | 0.763 | 0.818 | **+0.056** | 0.42 | *** | CoT 推理段 fast 幅度更大 |
-| | `std` | 0.928 | 1.019 | **+0.092** | **0.63** | *** | CoT 瞬時波動明顯更強 |
-| | `pos_peak` | 2.108 | 2.350 | +0.242 | 0.41 | *** | 正向尖峰更高 |
-| | `neg_peak` | −2.583 | −3.311 | **−0.728** | **−0.82** | *** | **負向尖峰深得多（全節最大效應，且不對稱偏負）** |
+| **pre-commit** (n=281) | `abs_mean` | 0.763 | 0.818 | **+0.056** | 0.42 | *** | **主證據**：CoT 推理段 fast residual 幅度更大 |
+| | `std` | 0.928 | 1.019 | **+0.092** | **0.63** | *** | **主證據**：CoT 瞬時波動明顯更強 |
+| | `pos_peak` | 2.108 | 2.350 | +0.242 | 0.41 | *** | 正向極值更大（受 length bias,僅記錄） |
+| | `neg_peak` | −2.583 | −3.311 | **−0.728** | **−0.82** | *** | 負尾更深,但受 **EMA-lag + length 雙 confound**,非獨立證據（須 length-matched + q01 驗證） |
 | **post-commit** (n=144) | `abs_mean` | 0.789 | 0.717 | −0.072 | −0.19 | * | 反轉：CoT 略弱 |
 | | `std` | 0.701 | 0.642 | −0.059 | −0.18 | * | |
 | | `pos_peak` | 0.598 | 0.513 | −0.084 | −0.09 | ns | |
@@ -499,9 +501,11 @@ Step 2 處理 slow component `s_t`；本節看 **fast residual** `p_t = Z_t − 
 | | `pos_peak` | 1.322 | 0.983 | −0.339 | −0.48 | *** | CoT loop 尖峰更低 |
 | | `neg_peak` | −2.398 | −2.356 | +0.042 | 0.06 | ns | |
 
-> **小結**：The answer to "does CoT touch the fast residual or only the slow level?" is **both**, and the phasic change is **stage-localized and sign-asymmetric**. During **pre-commit** (answer formation) CoT amplifies the fast transient on every readout — higher variance (`std` d_z=0.63) and, most strongly, **deeper negative spikes** (`neg_peak` d_z=−0.82, the single largest effect in §4.2). After commitment the sign **reverses**: in post-commit and the loop tail CoT's fast residual is *weaker* (loop-tail `std` d_z=−0.33, `pos_peak` d_z=−0.48), consistent with Step 2's "CoT releases faster / stops sooner" — less phasic churn in the degenerate tail. So CoT does not merely lift the slow tonic level; it also **injects a stronger, downward-skewed phasic signal specifically during reasoning**, then damps it once the answer is committed. Caveat: `neg_peak` is bounded below by the token-level Z range, so its magnitude is real but the −0.73 gap should be read as "CoT reaches deeper negative excursions", not a calibrated depth.
+> **小結**：CoT affects both the slow RSN state and its fast residual. During **pre-commit** (answer formation) CoT increases residual magnitude and variability (`abs_mean` d_z=0.42; `std` d_z=0.63), with the effect concentrated in the negative tail. After commitment, residual variability **decreases** (post-commit `abs_mean`/`std` d_z≈−0.18; loop-tail `std` d_z=−0.33, `pos_peak` d_z=−0.48), consistent with Step 2's faster state release and reduced loop-related churn. These results establish **stage-dependent fast RSN dynamics**, but do **not** yet identify an event-locked or dopamine-specific phasic signal. Two clarifications: (i) the post-commit "reversal" is a reversal of the *CoT−No-CoT variability gap*, not a sign flip of `p_t` itself — in the figure post-commit CoT's mean residual is actually *more negative*; (ii) "negative-tail-heavy" is not yet "downward-skewed": the deeper `neg_peak` is confounded by EMA lag and segment length, and true skew (skewness / |q01|−q99 / neg-vs-pos excursion ratio) has not been computed. Peak effects require length-matched validation, and `p_t` remains sensitive to EMA lag and the choice of β.
+>
+> **與 dopamine 的關係（弱、候選）**：`CoT → process engagement / intermediate updating 增強 → fast residual variability 增強 → commit 後快速釋放並降低 churn`，與 process salience / cognitive updating / commitment-related phasic-**like** dynamics 相容。但 GSM8K 無 reward feedback → **不能解讀為 RPE**;未做 event alignment → **不能證明是 salience burst**。等 event alignment + pseudo-event control + β sensitivity + length-matched extreme analysis 通過後,方可升級為 **Event-Locked Phasic-Like Component**。
 
-**圖**：`fig42_step3_phasic.png`（三階段並排 `p_t` 均值帶）。**注意**：pre-commit 的 CoT 效應在 **dispersion（`std`/`neg_peak`）而非 mean**，故均值帶兩條在 pre-commit 大致重疊——本圖只示 mean 軌跡（可見 launch 負向瞬態、post-commit CoT 更負、loop tail 初段深谷），幅度/極值差異須看上表 `std`/`neg_peak` 欄。分析腳本：同 `analyze_cot_step3_slow.py`（`report_phasic_stages` 出本表，隨主程序打印）。
+**圖**：`fig42_step3_phasic.png`（三階段並排 `p_t` 均值帶）。**注意**：pre-commit 的 CoT 效應在 **dispersion（`std`）而非 mean**，故均值帶兩條在 pre-commit 大致重疊——本圖只示 mean 軌跡（可見 launch 負向瞬態、post-commit CoT 更負、loop tail 初段深谷），幅度差異須看上表 `std` 欄。分析腳本：同 `analyze_cot_step3_slow.py`（`report_phasic_stages` 出本表，隨主程序打印）。
 
 ---
 
