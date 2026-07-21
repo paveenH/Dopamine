@@ -542,53 +542,26 @@ Step 2 處理 slow component `s_t`；本節看 **fast residual** `p_t = Z_t − 
 
 #### Step 5：Two Time Axes
 
-必须同时画：
+**目的:sanity check,不是新指標。** 同一個 wanting 信號 `s_t`(中層 HS·NMD mask → Z → 單條 full-decode EMA,seed=decode[0],**非 prefill-seeded**),畫在兩個時間軸上,檢驗 Step 2「CoT 抬高 early wanting」是不是 length-normalization 造出來的假象。
 
-1. **Length-normalized trajectory**：每个回答自身映射至 `0–100%`。
-2. **Absolute decode-step trajectory**：至少前 100 tokens。
+**三面板(`fig42_step5_timeaxes.png`):**
 
-第一张比较完整生成阶段，第二张检查 early difference 是否由 CoT 回答更长、归一化压缩造成。
+1. **(A1) length-normalized — PRE-COMMIT(主圖,loop-free):** 每題 `s_t` 在 pre-commit span(0 → 1st `####`)內歸一化到 0–100%(No-CoT n=242 / CoT n=247)。
+2. **(A2) length-normalized — FULL decode(診斷):** 同樣歸一化但跨全 decode(0 → end,n=300)——展示 late % 是 loop,不作主讀。
+3. **(B) absolute decode-step — 前 100 tokens(不歸一化):** 檢驗 early gap 是否 real。
 
-Prefill 单独画在 decode 之前；不要重新使用 prefill-seeded EMA。
+Prefill 畫成 decode 前的單一 ◆ 點,**不 folded 進 EMA**(No-CoT Z=0.000 是 reference 定義;CoT Z=+0.158)。band = bootstrap 95% CI(per-condition unpaired,與 Step 3 軌跡圖同口徑;paired 顯著性在 Step 2/4 表)。
 
----
+**結果:**
 
-#### Step 6：Behavioral Anchoring
+- **(A1) CoT 整條 pre-commit `s_t` 明顯高於 No-CoT,CI 帶全程不重疊**(CoT ≈ +0.35 vs No-CoT ≈ 0,0–100% 貫穿)——確認 Step 2 的 tonic 抬高不是 late-window 或 loop 效應。
+- **(A2) 兩條在 ≈40% 後暴跌至 −1.5 附近**——這是 max_new_tokens loop 尾巴(97% 撞 cap),**證實全 decode 固定百分位的 late 窗口測的是死循環,不是 answer convergence**,呼應 §4.2 audit 與本 Step 4 不用固定 Q4 的決定。
+- **(B) absolute 軸上 CoT 從第 0 步即領先,gap 全程維持並擴大**(前 25 步 `s_t`:No-CoT 0.064 / CoT 0.261,**ΔCoT−No = +0.197**;No-CoT 隨步數下滑而 CoT 保持高位)。**early 差異在絕對軸真實存在 → 不是 CoT 回答更長、歸一化壓縮造成的假象。**
 
-不重新做完整行为学分析，只引用已有结果：
+> **小結:** Step 2 的 early wanting gap 在 length-normalized(pre-commit)與 absolute(前 100 tokens)兩個軸上都成立,且 full-decode % 圖獨立證實 late-% 是 loop 污染——確立「CoT 抬高 task-entry / 早期 tonic wanting」為 robust,而非時間軸口徑的產物。
 
-- α=0 No-CoT accuracy：60.0%
-- α=0 CoT accuracy：69.0%
-- CoT 明显增加 stepwise structure；
-- generation length、抢答和 commit marker 的口径差异沿用 `AdaDopamine_gsm8k.md` 的限制说明。
+**分析腳本**：`analyze_cot_step5_timeaxes.py`（複用 `phase1_gain` 的 `sample_aggregate`/`four_part` + `analyze_wrong_right_commit` 的 commit 定位;pre-commit / full / absolute 三軸,Prefill 單點）。
 
-这些结果只作为 external behavioral anchor，不从 signal JSON 重算 accuracy。
-
----
-
-#### Outputs
-
-**表 1：Three-component summary**
-
-| Metric | No-CoT | CoT | Paired Δ | `d_z` | p/FDR |
-|---|---:|---:|---:|---:|---:|
-| `G_prefill` | | | | | |
-| `boundary_jump_G` | | | | | |
-| slow slope | | | | | |
-| `Z_late` | | | | | |
-| phasic peaks/std | | | | | |
-
-**表 2：Multi-metric temporal summary**
-
-每行一个 RSN/logit metric，每列为 prefill、early、middle、late 的 CoT−No-CoT effect。
-
-**图：**
-
-1. Task-entry `G_prefill` 与 `boundary_jump_G`
-2. `Z_t / s_t / p_t` length-normalized curves
-3. CoT−No-CoT paired difference curves
-4. 前 100 absolute decode steps
-5. Entropy/top1/margin/info-gain suite
 
 ### 最终要回答的核心问题
 
