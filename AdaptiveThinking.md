@@ -472,18 +472,38 @@ Confidence 現以**與 wanting 相同的三段切分**（pre-commit / post-commi
 
 ### 4.3 Persona
 
-**Expert vs Non-Expert**
+**只比較 Expert vs Non-Expert**（α=0、No-CoT、同 300 GSM8K questions、index-paired），沿用 §4.2 完整流程：task-entry gain → stage RSN（s_t/p_t 三段）→ confidence stage controls → commit-centered 主圖 + pseudo-event control + paired forest。contrast = Expert − Non-Expert（正 = expert 方向）。Persona 是 **prompt manipulation**；即使出現 wanting–confidence dissociation，也**不**視為 α intervention 的因果證據。腳本 `analyze_persona.py`，主圖 `fig43_persona_main.png`（C2-centered / lifecycle 進 Supplement）。
 
-Cohen's d + MWU significance, **expert − non_expert** (+ = expert higher; `***` p<.001, `**` p<.01, `*` p<.05, ns; n=300). Decode split into four length-normalised quartiles Q1–Q4.
+**核心結論：persona 效應是一個 task-entry (prefill) 偏置，基本不進入 answer formation**——與 CoT（效應貫穿整個 pre-commit）形成鮮明對照。
 
-| Metric | prefill | Q1 0–25% | Q2 25–50% | Q3 50–75% | Q4 75–100% |
-|---|---:|---:|---:|---:|---:|
-| wanting | **+0.27\*\*** | **−0.24\*** | −0.01 ns | +0.01 ns | +0.01 ns |
-| entropy | +0.05 ns | +0.12 ns | +0.06 ns | −0.06 ns | −0.03 ns |
-| top1 | −0.06 ns | +0.00 ns | −0.03 ns | +0.08 ns | +0.06 ns |
-| margin | −0.06 ns | +0.05 ns | −0.01 ns | +0.08 ns | +0.06 ns |
-| info_gain | — | +0.04 ns | −0.03 ns | +0.06 ns | −0.07 ns |
+**(1) Task-entry gain（最大效應所在）。** paired Δ(Exp−Non)：
 
-**expert vs non_expert 是一个纯 wanting 的、极短暂的时间差异,confidence 四轴 × 五口径全程 ns。** wanting 是唯一显著的指标,而且**只活在 prefill 和 Q1 两个口径,且符号翻转**:prefill 处 expert 更高（+0.27\*\*,对齐 mask 方向 expert−non),Q1 处 non_expert 反超（−0.24\*),**Q2 起完全消散**（−0.01/+0.01/+0.01 全 ns）。所有 confidence 指标(entropy/top1/margin/info_gain)在五个口径下**没有一格显著** —— 两个 role 的输出笃定度完全无法区分。这就是 dissociation 最干净的形态:persona 只在 wanting 轴的 **prefill→Q1 边界**留下一个"起点高、随即反超"的瞬态,Q2 之后连 wanting 都归零,confidence 轴则自始至终什么都没有。
+| readout | Δ | d_z | |
+|---|---:|---:|---|
+| G_prefill | +0.161 | **+2.81** | *** |
+| Z_prefill | +0.284 | **+3.17** | *** |
+| boundary_jump_Z | −0.265 | −0.54 | *** |
+
+Prefill 處 expert 方向的 gain 極大（d_z>2.8）；但 `boundary_jump` 為**負**：expert 在 prefill 已高，進 decode 時跳得反而小（non_expert 靠 boundary jump 追上）。效應集中於入口。**口徑警示**：NMD mask 本身即來自 Expert−Non-expert contrast（MMLU），因此這一步更接近**跨任務 manipulation check**（方向從 MMLU 泛化到 GSM8K），而非完全獨立的新發現。
+
+**(2) Stage RSN：進入 decode 後效應幾乎消散。** pre_commit slow `s_t mean` Δ=−0.066、**d_z=−0.10、ns**——prefill 的大 gap 到 pre-commit slow state 已不顯著（圖中 commit 前甚至 Non-expert 略高）；pre_commit fast `p_t` dispersion（abs_mean d_z=−0.15、std d_z=−0.17，expert 略低）為小而顯著；post_commit / loop_tail 基本全 ns。可保留一個**候選解釋**（不作正式結論）：non-expert 的低 task-entry gain 進入生成後觸發某種 compensatory engagement；但當前差異不顯著。
+
+**(3) Confidence stage controls（pre-commit，同 boundary，n=194）。** entropy Δ=+0.057 **d_z=+0.35\*\*\***、top1 d_z=−0.27\*\*\*、margin d_z=−0.22\*\*。**正確表述不是「persona 不影響 confidence」，而是一個方向性分離**：expert persona 大幅拉高 task-entry RSN gain，卻**未**帶來更高的 pre-commit output decisiveness，若有變化反而是**弱反向**（expert 略不 decisive）。post/loop 飽和僅作診斷。
+
+**(4) Pseudo-event control。** 對齊到隨機內部步時，commit 處的 sharp `s_t` 斷崖**消失**（Panel D 平緩），證明主圖 commit transition 是 **event-localized**。但目前只能稱為 **`####`-specific / answer-marker transition**，尚未排除 token class 與 answer-format transition，因此**不能**直接命名為 cognitive commitment signal。
+
+**(5) Same-time boundary 對照（最乾淨的檢驗，prefill 同一時刻，paired Exp−Non）。** 用 metrics JSON 已存的 `*_prefill` 標量，在**同一 prompt token 上同一時刻**比較 RSN gain 與 output confidence：
+
+| readout @ prefill | Δ | d_z | |
+|---|---:|---:|---|
+| G_prefill (RSN gain) | +0.161 | **+2.81** | *** |
+| Z_prefill (RSN gain) | +0.284 | **+3.17** | *** |
+| prefill entropy | +0.052 | +0.18 | ** |
+| prefill top1 | −0.010 | −0.15 | ** |
+| prefill margin | −0.010 | −0.12 | * |
+
+同時刻 RSN gain 被拉到 d_z≈3，而 output confidence 弱反向（entropy↑）或可忽略（top1/margin d_z≈−0.13）；兩基座量級差一個數量級、方向相反，且與 pre-commit 全段方向一致（非窗口選擇產物）。這消除了 §4.3 早先「task-entry gain vs pre-commit 全段 confidence」的跨時間窗混淆，支持 **RSN gain ≠ sustained output decisiveness** 的 boundary-level 陳述。
+
+**與 CoT 的對比 = temporal and directional separation（暫不升級為「更乾淨的 dissociation」）。** CoT：task-entry gain → **sustained** pre-commit engagement（wanting↑ 且 confidence↑，兩基座同向）；Persona：task-entry gain → 進 decode 後**迅速消散**，甚至弱反向。共同結論：**RSN 對 task state 敏感，但只有某些 manipulation 會真正進入 reasoning dynamics**。因此 §4.3 對整個 project 的價值不在證明 dopamine，而在把 RSN 定位為 **task-entry state / gain readout**——prompt 在入口激活 RSN，並不必然代表持續的推理投入；dopamine 解釋仍主要依賴 §4.4 α dose-response 與行為學結果，而非 persona 本身。（Llama3-8B、GSM8K、α=0；圖 `fig43_persona_main.png` legend 位置微調後定稿，數字不變。）
 
 ### 4.4 α-Steering: A Linear Wanting Knob Driving Inverted-U Behavior
