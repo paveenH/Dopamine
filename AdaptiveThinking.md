@@ -653,7 +653,7 @@ Accuracy 的 quadratic fit 優於 linear fit（`R²=0.352` vs `0.147`），但�
 
 ### 4.5 CoT × α=−4: Signal Interaction Analysis
 
-**目標：** 檢驗 `α=−4` 如何調制 CoT 的內部信號動力學。這是一個 **2×2 單劑量 factorial**（`{No-CoT, CoT} × {α=0, α=−4}`），只能判斷 additive / redundant / interactive，**不能**推斷 CoT 條件下的最佳 α 或 dose-response 曲線。行為結果直接引用 `AdaDopamine_gsm8k.md` §2.5/§2.5.1，本節不重複展開。
+**目標：** 檢驗 `α=−4` 如何調制 CoT 的內部信號動力學。這是一個 **2×2 單劑量 factorial**（`{No-CoT, CoT} × {α=0, α=−4}`），只能判斷 approximately additive / attenuation / interaction，**不能**推斷 CoT 條件下的最佳 α 或 dose-response 曲線（例如 CoT 是否移動 §4.4 的倒 U 峰位——需補採 CoT × dose signal 才能回答）。行為結果直接引用 `AdaDopamine_gsm8k.md` §2.5/§2.5.1，本節不重複展開。
 
 **Scope 與口徑。** 四組同 300 道 GSM8K、index-paired（已驗證 common=300）；reference μ/σ 固定 = neutral α=0 No-CoT prefill（同 §4.2–4.4）。因四組全 paired，交互效應（difference-in-differences）以 **per-question** 計算再 Wilcoxon 檢驗，而非僅比四個 cell 平均：
 
@@ -661,40 +661,48 @@ Accuracy 的 quadratic fit 優於 linear fit（`R²=0.352` vs `0.147`），但�
 DiD_q = (cot_-4 − cot_0) − (nocot_-4 − nocot_0)   [每題 q]
 ```
 
-inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.7，與 §2.5.1 行為（182：60/73/69/85）同向、量級一致；cot_−4 為四組最高。分析腳本 `analyze_cot_alpha.py`，主圖 `fig45_main_2x2.png`。
+inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.7，與 §2.5.1 行為（182：60/73/69/85）同向、量級一致。分析腳本 `analyze_cot_alpha.py`，主圖 `fig45_slow_centered.png` / `fig45_fast_centered.png`（四 cell C1-centered 疊圖）。
 
-**核心結論：16 個 readout 的 DiD 交互項全部 ns —— CoT 與 α=−4 是兩個可疊加、無顯著交互的信號 manipulation，但主導權隨時相翻轉（入口 α 主導 / decode CoT 主導）。**
+**核心結論（時間重心結構）。** 兩個 manipulation 的影響落在**不同的時間重心**上，而非簡單「正交可疊加」：
 
-#### Step 1 — Task-Entry Gain：純 additive（co-design identity）
+```text
+Task entry   :  α effect  ≫  CoT effect
+Decode / commitment formation : CoT effect ≫ α effect
+Confidence output :  CoT 與 α=−4 大體呈 approximately additive
+```
 
-| readout | nocot_0 | nocot_−4 | cot_0 | cot_−4 | α效應\|No-CoT | α效應\|CoT | DiD |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `G_prefill` | 0.000 | −6.802 | 0.071 | −6.703 | −6.80 | −6.78 | +0.028 |
-| `Z_prefill` | 0.000 | −13.107 | 0.158 | −12.903 | −13.11 | −13.06 | +0.046 |
-| `boundary_jump_G` | 0.167 | 6.987 | 0.094 | 6.988 | +6.82 | +6.89 | +0.074 (ns) |
+即 **α 直接控制 generation-boundary gain；CoT 主要重塑展開後的 reasoning dynamics；兩者最終共同提高 output decisiveness。** 統計上：**decode-stage 的 DiD 均不顯著；task-entry `G_prefill/Z_prefill` 存在統計顯著但量級極小的偏離（約佔 α 主效應 0.4%），實質意義上仍接近 additive。** 因此本節的可靠結論建立在**顯著的主效應（主導權翻轉）**之上，而非任何 DiD 判定；「approximately additive」不等於證明兩種機制獨立，單一 α=−4 亦不能證明整個干預機制皆可獨立疊加。
 
-α 效應幾乎不受 CoT 影響（G_prefill −6.80 vs −6.78），CoT 效應也幾乎不受 α 影響——這是 §4.4 co-design identity（`G_prefill(α) ≈ G_prefill(0) + α·‖mask‖²`）的直接推論：α 在 prefill 加一個固定量，與 CoT 無關。**入口是 α 主導（|Δ|≈6.8）、CoT 次要（|Δ|≈0.07–0.16）。** G/Z 的 DiD 雖帶星號，但那是 n=300 + 極小配對方差造成的，**量級僅約 0.4%**——判定以量級比為準，不單看 d_z/p。
+#### Step 1 — Task-Entry Gain：approximately additive，α 主導
 
-#### Step 2 — Commitment-Centered Slow State：CoT 主導，α 呈 window 依賴冗餘
-
-以 C1 為中心，三段窗口的 `s_t mean`（contrast 值為 α 或 CoT simple effect）：
-
-| Window | nocot_0 | nocot_−4 | cot_0 | cot_−4 | CoT效應(主) | α效應\|No-CoT | α效應\|CoT | 判定 |
+| readout | nocot_0 | nocot_−4 | cot_0 | cot_−4 | α效應\|No-CoT | α效應\|CoT | DiD | DiD 顯著性 |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| `[-50,-20]` early (n=142) | −0.063 | 0.097 | 0.465 | 0.506 | +0.53*** | +0.159** | +0.040 **ns** | **redundant** |
-| `[-20,0]` commit (n=170) | −0.033 | 0.120 | 0.478 | 0.591 | +0.51*** | +0.153** | +0.113* | additive |
-| `[0,+20]` release (n=170) | −0.321 | −0.207 | −0.041 | 0.083 | +0.28*** | +0.114*** | +0.124** | additive |
+| `G_prefill` | 0.000 | −6.802 | 0.071 | −6.703 | −6.80 | −6.78 | +0.028 | *** but ≈0.4% of α |
+| `Z_prefill` | 0.000 | −13.107 | 0.158 | −12.903 | −13.11 | −13.06 | +0.046 | *** but ≈0.4% of α |
+| `boundary_jump_G` | 0.167 | 6.987 | 0.094 | 6.988 | +6.82 | +6.89 | +0.074 | ns |
 
-- **decode 內 CoT 絕對主導**（d_z 0.55–0.86），α=−4 次要（d_z 0.11–0.30），量級差 3–5 倍——與 Step 1 入口（α 主導）**正好相反**。兩個 manipulation 作用在不同時相。
-- **α 的邊際效應呈 window 依賴 saturation 梯度**：early answer-formation 處 α=−4 的抬升被 CoT 吸收（α 效應轉 ns，CoT 已把 early `s_t` 拉到 0.47、無額外空間）→ commit / release 才恢復獨立作用（additive）。所有 DiD 仍 ns（early DiD 最接近，Δ=−0.119, p=.14）。
-- release `s_t slope` 上 α 無穩定效應（No-CoT / CoT 皆 ns），CoT 則使 release 稍陡（d_z≈−0.5***）。
-- **cot_−4 在三窗皆四組最高**（0.506 / 0.591 / +0.083）→ 信號級對應 §2.5.1「−4+CoT 全表最高」。
+α 效應幾乎不受 CoT 影響（G_prefill −6.80 vs −6.78），與 §4.4 co-design identity（`G_prefill(α) ≈ G_prefill(0) + α·‖mask‖²`，α 在 prefill 加一個與 CoT 無關的固定量）一致。**入口是 α 主導（|Δ|≈6.8）、CoT 次要（|Δ|≈0.07–0.16）。** G/Z 的 DiD 帶星號是 **statistical interaction**（n=300 + 極小配對方差可偵測到微小系統偏離），但其 **practical** 量級僅約 α 主效應的 0.4%——因此判為 **approximately additive**，不寫成 ns（effect 小 ≠ 不顯著），也不寫成「純 additive」。
+
+#### Step 2 — Commitment-Centered Slow State：CoT 主導，early window α 效應減弱（attenuation trend）
+
+以 C1 為中心，三段窗口的 `s_t mean`：
+
+| Window | nocot_0 | nocot_−4 | cot_0 | cot_−4 | CoT效應(主) | α效應\|No-CoT | α效應\|CoT | DiD |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `[-50,-20]` early (n=142) | −0.063 | 0.097 | 0.465 | 0.506 | +0.53*** | +0.159** | +0.040 ns | attenuation trend (DiD p=.14, ns) |
+| `[-20,0]` commit (n=170) | −0.033 | 0.120 | 0.478 | 0.591 | +0.51*** | +0.153** | +0.113* | approx. additive |
+| `[0,+20]` release (n=170) | −0.321 | −0.207 | −0.041 | 0.083 | +0.28*** | +0.114*** | +0.124** | approx. additive |
+
+- **decode 內 CoT 絕對主導**（d_z 0.55–0.86），α=−4 次要（d_z 0.11–0.30），量級差 3–5 倍——與 Step 1 入口（α 主導）**正好相反**，構成上述時間重心翻轉。
+- **early window 的 α 效應在 CoT 下由顯著（+0.159\*\*）降為 ns（+0.040）**，descriptive 上像 CoT 已把 early `s_t` 拉到 0.47、α 無額外空間的 saturation；但 **early 的 DiD 本身不顯著（p=.14）**，而「一顯著 + 一 ns」不等於兩者顯著不同——因此只記為 **attenuation trend**，redundancy/saturation 保留為**候選解釋**，不正式判定。commit / release 兩窗 α 效應維持（approximately additive）。
+- release `s_t slope` 上 α 無穩定效應（No-CoT / CoT 皆 ns），CoT 則使 release 稍陡（d_z≈−0.5\*\*\*）。
+- **cot_−4 在三窗 `s_t` 皆為四組最高**（0.506 / 0.591 / +0.083），且伴隨四組最高 acc（82.7）。**此處只作 co-occurrence 陳述**——§4.4 已證 signal 高不必然行為好（存在 nonlinear working point），故不將 cot_−4 的高 `s_t` 解讀為「解釋」或「複現」其高 acc，亦不暗示中介關係。
 
 #### Step 3 — Fast Residual Dynamics：CoT 主導，DiD 全 ns
 
-`p_t abs_mean` / `std`：主效應仍是 CoT（early abs_mean +0.092\*\*\*、std +0.143\*\*\*；release abs_mean +0.178\*\*\*），α=−4 邊際弱，early window 出現冗餘趨勢（α 效應在 CoT 下轉 ns），commit / release 各窗 **DiD 全部 ns**。`p_t` 僅作 fast residual dynamics 判讀，不命名為 phasic dopamine。（腳本對 std-release 標 super-additive，但 DiD Δ=−0.006 ns 屬噪聲，不採信。）
+`p_t abs_mean` / `std`：主效應仍是 CoT（early abs_mean +0.092\*\*\*、std +0.143\*\*\*；release abs_mean +0.178\*\*\*），α=−4 邊際弱，early window 呈與 Step 2 同向的 attenuation trend（α 效應在 CoT 下轉 ns），commit / release **DiD 全部 ns**。`p_t` 僅作 fast residual dynamics 判讀，不命名為 phasic dopamine。
 
-#### Step 4 — Confidence Controls：完美 additive
+#### Step 4 — Confidence Controls：near-additive
 
 pre-commit `[-20,0]`（與 wanting 分表；post/loop 飽和不讀）：
 
@@ -704,28 +712,29 @@ pre-commit `[-20,0]`（與 wanting 分表；post/loop 飽和不讀）：
 | top1 | 0.840 | 0.863 | 0.894 | 0.916 | +0.024*** | +0.022** | −0.002 (ns) |
 | margin | 0.753 | 0.785 | 0.830 | 0.859 | +0.032** | +0.029** | −0.003 (ns) |
 
-α 效應在 CoT / No-CoT 下**幾乎一模一樣**（entropy −0.087 vs −0.086），DiD Δ≈0 全 ns——教科書式 additive。兩者都朝更 decisive 方向疊加，**cot_−4 最確定**（entropy 0.253 最低、top1 0.916 最高）。即 α=−4 **同時**改變 CoT 的 RSN state 與 output decisiveness，兩軸皆 additive；這與 §4.4 結論一致（α 非 selective wanting intervention）。
+α 效應在 CoT / No-CoT 下幾乎相同（entropy −0.087 vs −0.086），DiD Δ≈0 全 ns —— **near-additive**。兩者都朝更 decisive 方向疊加，cot_−4 在這四格中最確定（entropy 0.253 最低、top1 0.916 最高）。即 α=−4 **同時**改變 CoT 的 RSN state 與 output decisiveness，兩軸皆 near-additive；與 §4.4 結論一致（α 非 selective wanting intervention）。
 
 #### Step 5 — Integrated Signal Interpretation
 
 ```text
 CoT process  ×  α=−4 task-entry intervention
-  → task-entry gain :  additive（入口 α 主導，線性疊加，co-design identity）
-  → slow s_t        :  CoT 主導；α early-redundant → commit/release-additive
+  → task-entry gain :  approximately additive（入口 α 主導；co-design identity）
+  → slow s_t        :  CoT 主導；early α-attenuation trend（候選 redundancy）→ commit/release approx. additive
   → fast p_t        :  CoT 主導；α 弱，DiD 全 ns
-  → output confidence: additive（α 效應不隨 CoT 變），共朝更 decisive
+  → output confidence: near-additive（α 效應不隨 CoT 變），共朝更 decisive
 ```
 
-CoT 與 α=−4 是兩個**可疊加、無顯著交互**的信號 manipulation：入口 α 主導、decode CoT 主導，唯一的非平凡結構是 slow `s_t` 的 window 依賴冗餘（early 被 CoT 吸收、後段恢復）。cot_−4 在 `s_t` 與 confidence 上均為四組最高，於信號層複現行為 §2.5.1 的「兩槓桿正交可疊加、−4+CoT 全表最高」。
+> **CoT and α=−4 are approximately additive at task entry and confidence output, while decode-stage dynamics are dominated by CoT. No reliable decode-stage interaction is detected; the early slow-state attenuation under CoT remains a descriptive redundancy candidate.**
 
-**限定。** 本節僅單 α 劑量，**不能**推斷 CoT 條件下的 dose-response 或最佳 α（例如 CoT 是否移動倒 U 峰位——需補採 CoT × dose signal 才能回答）。DiD 顯著性受 n=300 + 極小配對方差影響（入口 \*\*\* 但量級可忽略），判定一律以量級比為準。這是 computational/behavioral analogy，非生物多巴胺機制的直接證明。
+本節真正有價值的不是「正交雙槓桿」，而是**兩個 manipulation 的時間重心不同**：α 直接控制 generation-boundary gain（入口 α≫CoT）；CoT 主要重塑展開後的 commitment-formation dynamics（decode CoT≫α）；兩者最終在 output decisiveness 上共同抬升（approximately additive）。cot_−4 在 `s_t` 與 confidence 上均為四格最高，且與最高 acc co-occur。
+
+**限定。** 單 α 劑量，**不能**推斷 CoT 下的 dose-response 或最佳 α。所有 DiD 顯著性受 n=300 + 極小配對方差影響（入口 \*\*\* 但量級可忽略）：statistical 與 practical interaction 須分開讀，判定以量級比為準。「無顯著交互」不等於證明兩機制獨立。這是 computational/behavioral analogy，非生物多巴胺機制的直接證明。
 
 #### Figures and Analysis Files
 
 | Figure | Role |
 |---|---|
-| `fig45_main_2x2.png` | 四個 key readout 的 2×2 factorial（平行線 ⇒ additive） |
-| `fig45_slow_centered.png` | 四 cell C1-centered `s_t` 疊圖 |
+| `fig45_slow_centered.png` | 四 cell C1-centered `s_t` 疊圖（主圖：CoT 抬高整條、α 次要調制） |
 | `fig45_fast_centered.png` | 四 cell C1-centered `p_t` 疊圖 |
 
-分析腳本：`analyze_cot_alpha.py`（`--part entry/slow/fast/confidence/mainfig/all`）；raw stdout：`fig45_results.txt`；結果記錄：`fig45_SUMMARY.md`。
+分析腳本：`analyze_cot_alpha.py`（`--part entry/slow/fast/confidence/all`）；raw stdout：`fig45_results.txt`；結果記錄：`fig45_SUMMARY.md`。DiD 的 verdict 標籤（additive/redundant/…）僅為量級比啟發式，非顯著性判定，不可單獨當結論。
