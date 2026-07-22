@@ -527,21 +527,15 @@ Persona 呈現三段式結構：
 
 因此 §4.3 的主要貢獻是揭示 **Persona 與 CoT 具有不同的 temporal and representational modulation profiles**。CoT 在 pre-commit 同時提高 slow RSN engagement 與 output-distribution decisiveness，屬於較明顯的 **joint wanting–confidence modulation**；Persona 的主要效應則集中於 RSN/wanting 軸的時間重分配——從 task-entry gain、commitment-formation reversal 到 post-commit release。Persona 並非完全不影響 confidence：Non-Expert 在 pre-commit 略為更 decisive，但其效應明顯弱於 RSN gain，且較為局部。因此較準確的結論是：**CoT 同時調制 wanting 與 confidence，而 Persona 主要重組 wanting dynamics，並伴隨較弱的 confidence change。** 這支持 RSN 作為不同於 output confidence 的 dynamic state/gain readout，但 dopamine-specific 的因果證據仍主要來自 §4.4 α dose-response 與行為學結果。
 
-### 4.4 α-Steering: A Linear Wanting Knob Driving Inverted-U Behavior
-Llama3-8B, GSM8K, No-CoT neutral, 9 α cells (−8…+8), V1 gain coords.
-Script: `analyze_alpha_dose.py` (`--part validity/slow/fast/confidence/integrated/mainfig`).
-Raw stdout: `fig44_results.txt`. Figures: `fig44_{validity,slow,fast,confidence,integrated,dose_main}.png`.
+### 4.4 α-Steering: Linear Task-Entry Gain and a Nonlinear Behavioral Working Point
 
-口径 (沿用 §4.2/§4.3):
-- reference μ/σ 固定 = neutral α=0 No-CoT prefill.
-- dose 主曲线 (validity/integrated) 用各 α **全量** n=300.
-- 事件窗 (slow/fast/confidence) = **每档 α vs α=0 各自 common-valid paired** d_z (NOT 全 9 档共同交集 — 极端 α 会缩 n).
-- acc = **inline 184** (各 α 自己的 `correct` 字段); 不配 182 dose 表.
-- commit = 首个 `####` ∪ 首个 answer-candidate (char_to_step/commit_char, 同 §4.1/4.3).
+本節分析 Llama3-8B 在 GSM8K、neutral No-CoT 條件下的 9 個 α doses（−8 至 +8）。α 是施加在既定 NMD/RSN 方向上的 intervention；本節首先將其視為 **task-entry RSN gain manipulation**，再檢驗其是否形成與 wanting / commitment 相容的下游動力學。
 
----
+分析沿用 §4.2/§4.3 的 gain coordinates 與 commit locator：reference μ/σ 固定為 neutral α=0 No-CoT prefill；dose calibration 使用各 α 全量 300 題；slow/fast/confidence 則以每個 α 與 α=0 的 common-valid questions 進行 paired comparison，避免 −8 壓縮全 9 檔共同交集。Commit 定義為首個 `####`，缺失時使用 first answer-candidate fallback。
 
-## (1) Intervention validity — α 是线性对称 wanting knob
+本節 signal–behavior alignment 使用同批 server-184 inline `correct`；production accuracy 仍以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 的 server-182 offline first-`####` 口徑為準。兩套數值不可混算，但 dose 形狀一致，離散最佳點均在 α=−6。
+
+#### Task-Entry Intervention Validity
 
 | α | n | acc(184) | G_prefill | Z_prefill | boundary_jump_G |
 |---:|---:|---:|---:|---:|---:|
@@ -555,22 +549,15 @@ Raw stdout: `fig44_results.txt`. Figures: `fig44_{validity,slow,fast,confidence,
 | +6 | 300 | 51.7 | +9.4779 | +18.7204 | −9.4322 |
 | +8 | 300 | 49.7 | +12.5354 | +24.8320 | −12.4419 |
 
-> `acc(184)` = 各 α 自己的 inline `correct` 字段 (bs=1, 184 机), **不与 182 dose 表配** (CLAUDE.md 184-vs-182 坑); 信号列 (G/Z/boundary_jump) 为 n=300 全量. acc 与信号列同机同批, 只作 §4.4 内部 signal↔behavior 对齐. **acc 是倒U (离散峰 −6 = 79.7%), 而 G_prefill/Z_prefill 单调线性** — 一表并读即见「线性输入 → 倒U输出」的分离.
+`G_prefill` 隨 α 近乎完美線性（slope=1.648、intercept=−0.296、`R²=0.9992`），`Z_prefill` 結果一致（`R²=0.9997`）。正負方向近似對稱，但負側幅度在高 dose 略大。這建立了清楚的 manipulation check：**α 線性控制 generation boundary 上的 RSN gain**。
 
-- **G_prefill ~ α : slope=1.648, intercept=−0.296, R²=0.9992** (p=3.7e−12).
-- Z_prefill ~ α : slope=3.206, R²=0.9997.
-- **方向近对称, 负侧幅度略大**: asym(=+|a|与−|a|之和) 单调增 −0.11(|2|)→−0.42(|4|)→−0.82(|6|)→−1.31(|8|).
-- **boundary_jump 与 prefill gain 反向、量级相当** (+13→−12.4): decode 起点几乎抵消 prefill 注入 → H1 initial-condition/boundary-gating 在 dose 上成立.
+`boundary_jump_G` 與 `G_prefill` 反向且量級接近，表示一次性 prefill 注入到 `decode[0]` 時大幅弛豫。這與 **initial-condition / boundary-gating** 假說一致：α 改變 generation 的起始條件，而不是以固定 additive offset 留在整條 decode trajectory。此結果定位了非線性轉換發生在 generation boundary 之後，但尚不能證明 boundary rebound 本身造成後續行為差異。
 
-**结论**: α 是线性、方向近对称的 task-entry gain manipulation. (§4.2/4.3 无 dose 线性 → 这是 §4.4 独有.)
+#### Commitment-Formation RSN Dynamics
 
----
+α 對 slow state 的主要影響集中在 pre-commit。下表為每個 α 相對 α=0 的 paired comparison：
 
-## (3) Slow RSN s_t — 倒U, 峰在 −6 (paired Δ = α−0)
-
-**pre-commit s_t level**:
-
-| α | n | mean(a) | Δ vs 0 | d_z | p |
+| α | paired n | mean `s_t` | Δ vs 0 | `d_z` | exploratory p |
 |---:|---:|---:|---:|---:|---|
 | −8 | 229 | −0.573 | −0.325 | −0.418 | *** (崩) |
 | **−6** | 291 | +0.260 | **+0.449** | **+0.584** | *** |
@@ -582,13 +569,11 @@ Raw stdout: `fig44_results.txt`. Figures: `fig44_{validity,slow,fast,confidence,
 | +6 | 298 | −0.415 | −0.229 | −0.323 | *** |
 | +8 | 298 | −0.347 | −0.161 | −0.221 | *** |
 
-- **decode 内 slow s_t level 是倒U, 峰 −6 (d_z=+0.58\*\*\*)**, 两侧下降; −8 崩 (n↓229, 反向).
-- pre-commit relax (`end_minus_start`): +α relax 更多 (+4 d_z=−0.18\*\*\*); −6/−8 relax 更少.
-- **post-commit release: 除 −8(崩) 外全 ns** → α 主要动 pre-commit level, 不动 release dynamics.
+這不是平滑、對稱的標準 inverted-U，而是 **asymmetric peaked working-point response**：−6 形成明顯峰值，−4 至正 α 大致隨 α 增加而下降，−8 則進入另一種崩潰區。C1-centered trajectories 顯示此分離主要發生在答案形成期；越過 C1 後，各 α 共同下降並逐步收斂。Post-commit release 除 −8 外均接近 null，因此 α 並未普遍改寫全程 RSN 水位，而是選擇性地重組 commitment formation。
 
----
+Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（例如 +4 `d_z=−0.18`），但該 readout 同時受起點水平影響，只作 slow-state shape 的輔助證據。
 
-## (4) Fast residual p_t — dispersion 只在 −6 升 (paired Δ = α−0)
+#### Fast Residual Dynamics
 
 **pre p_t std**:
 
@@ -599,31 +584,23 @@ Raw stdout: `fig44_results.txt`. Figures: `fig44_{validity,slow,fast,confidence,
 | −4 | 298 | +0.026 | +0.176 | ** |
 | −2…+8 | | ~0 | \|d_z\|<0.09 | ns |
 
-- p_t dispersion (abs_mean/std) **只在 −6 附近显著升高**, 正 α 全 ns.
-- 与 §4.2 口径一致 (fast 主证据限 abs_mean/std, 极值不主读).
-- 再次把峰指向 −6: slow level / fast dispersion / acc 三者峰位一致.
+Fast residual 提供一致但較窄的輔助證據：−6 的 pre-commit `p_t std` 明顯升高，−4 只有小效應，其餘 doses 接近 null。最佳工作點因而同時伴隨較高 slow-state level 與較強 fast-residual dispersion。
 
----
+與 §4.2 相同，fast component 的主讀數限於 `abs_mean/std`，不使用易受長度與 EMA lag 影響的極值。`p_t` 仍是 EMA high-pass residual，C1 附近的共同轉折也可能包含 `####`/answer-marker effect，不能直接命名為 phasic dopamine。
 
-## (5) Wanting–Confidence controls — ⚠ confidence 也倒U、峰 −6 (pre-commit, paired)
+#### Output-Distribution Confidence Controls
 
-| metric | −6 Δ | −6 d_z | +4 Δ | +4 d_z | 形状 |
+| Metric | α=−6 Δ vs 0 | `d_z` | α=+4 Δ vs 0 | `d_z` | Pattern |
 |---|---:|---:|---:|---:|---|
-| entropy | −0.174 | **−0.718\*\*\*** | +0.063 | +0.304\*\*\* | 倒U (−6 最确定) |
-| top1 | +0.039 | **+0.643\*\*\*** | −0.012 | −0.248\*\*\* | 倒U (−6 峰) |
-| margin | +0.048 | **+0.593\*\*\*** | −0.014 | −0.214\*\*\* | 倒U (−6 峰) |
+| entropy | −0.174 | **−0.718** | +0.063 | +0.304 | −6 最確定 |
+| top1 | +0.039 | **+0.643** | −0.012 | −0.248 | −6 達峰 |
+| margin | +0.048 | **+0.593** | −0.014 | −0.214 | −6 達峰 |
 
-- **confidence 不是弱/非单调, 而是也倒U、峰在 −6** (−6 更确定, 正 α 更不确定).
-- **量级与 wanting 相当** (−6: s_t d_z=+0.58 vs top1 d_z=+0.64) — 不像 persona 差一个数量级.
+α 的下游效應並非 selective wanting modulation。Pre-commit confidence 在 −6 同樣達到最佳工作點，且 effect size 與 slow RSN state 相當（−6：`s_t d_z=0.58`、top1 `d_z=0.64`、entropy `d_z=−0.72`）。正 α 則表現為 entropy 較高、top1/margin 較低。
 
-**载重结论 (诚实负结果)**:
-> §4.4 里 α **同时**提升 wanting (s_t) 和 output decisiveness (confidence), 两者同向共调、量级相当 —— 像 §4.2 CoT, **不是** selective wanting intervention.
-> 干净的 wanting–confidence 解离仍**只来自 §4.3 persona** (gain d_z≈3 vs confidence d_z≈0.15).
-> confidence 图/表画的是 pre-commit 段均值; post/loop 饱和不读 (§4.2).
+因此 α 雖然直接施加在 RSN/NMD 方向上，進入 decode 後卻共同重組 **RSN engagement 與 output decisiveness**。這與 §4.2 CoT 的 joint wanting–confidence modulation 相似，不支持「α 只改 wanting、不動 confidence」的強版本。§4.3 Persona 的 task-entry RSN effect 遠大於同時點 confidence effect，仍是目前較清楚的 representational separation；但本研究尚未取得 wanting–confidence 的 causal dissociation。Post-commit confidence 受 answer-loop saturation 影響，仍不作實質解讀。
 
----
-
-## (6) Integrated — acc 倒U 由 slow s_t (非线性 prefill gain) 追踪
+#### Signal–Behavior Alignment
 
 | α | acc(184) | G_prefill | early_s_t |
 |---:|---:|---:|---:|
@@ -637,23 +614,39 @@ Raw stdout: `fig44_results.txt`. Figures: `fig44_{validity,slow,fast,confidence,
 | +6 | 51.7 | +9.48 | −0.550 |
 | +8 | 49.7 | +12.54 | −0.558 |
 
-- **acc = 倒U**: quadratic R²=0.352 ≫ linear R²=0.147 (a=−0.23<0). 二次拟合 peak≈−1.9 被 −8 崩溃点右拉; **离散峰在 −6 (79.7%)** = 上报值 (同 §4.0).
-- **acc vs G_prefill r=−0.37** (线性 prefill gain **不**追踪倒U — 符合预期).
-- **acc vs early_s_t r=+0.74** (decode 内 slow s_t 才追踪 acc 倒U).
+Accuracy 的 quadratic fit 優於 linear fit（`R²=0.352` vs `0.147`），但擬合峰值約 α=−1.9，與離散最高點 −6 不一致，說明資料不適合被描述成平滑、對稱的標準 inverted-U。更準確的形狀是：**−6 尖銳最佳點、−8 低端崩潰、正 α 端逐步下降後趨平**。
 
----
+在 9 個 dose-level aggregates 上，inline accuracy 與 `G_prefill` 的相關較弱（`r=−0.37`），與 `early_s_t` 的相關較高（`r=+0.74`）。因此行為表現更接近 decode 期間形成的 commitment state，而不是 task-entry gain 的絕對大小。不過 `r=0.74` 只有 9 個 aggregate points，只能稱為 dose-level covariation，不能作為 `s_t` 中介 accuracy 的證據。
 
-## 机制链闭环 (§4.4 独有贡献)
+#### Integrated Interpretation
 
-**α 线性推 task-entry gain (R²=0.999) → 但 decode 内 slow s_t 是倒U、峰 −6 → 正是 slow s_t (非线性 prefill gain) 追踪行为 acc 倒U (r=+0.74 vs −0.37).**
-即: 线性输入 → 倒U输出, 转折发生在 prefill→decode 之间 (boundary rebound 抵消线性注入, decode 动力学自行形成倒U).
+§4.4 最重要的結果是找到了**線性干預如何轉化為非線性內部與行為狀態**：
 
-三失效区分 (Plan 第 6 步):
-- 正常范围 (−4…+2): adaptive calibration, s_t 随 α 单调微调.
-- 过低 α (−8): commitment-formation collapse — s_t 反向崩, commit marker 缺失 (n 229/300), 对应 §2.4 answer-candidate oscillation.
-- 过高 α (+6/+8): premature commitment — s_t 单调降, confidence 变差.
+```text
+α
+→ linear task-entry RSN gain (G_prefill, R²=0.999)
+→ nonlinear commitment-formation state (pre-commit s_t)
+→ joint change in output decisiveness
+→ asymmetric behavioral working point
+```
 
-## 待定 / 口径注记
-- slow/fast/confidence 三张 dose 图目前画 **mean(a) 绝对均值** (看形状); 显著性引 stdout 的 **paired Δ/d_z/p**. 若要严谨可改画 paired Δ.
-- fig44_dose_main.png (A) 图例只标 6 档; 补全 9 档或换 colorbar 待定.
-- −8 各指标 n 掉到 ~103–229 = under-wanting collapse, 正文需标注.
+三個工作區可暫時區分為：
+
+1. **Adaptive range（−4 至 +2）：** α 對 commitment-formation state 進行較平滑的校準。
+2. **Extreme negative（−8）：** 進入 commitment-formation collapse；event-centered 分析只保留仍可定位 C1 的條件子樣本，必須與 C1-analyzable rate 及文本中的 answer-candidate oscillation 共同解讀。
+3. **High positive（+6/+8）：** pre-commit slow state 與 confidence 均較差；其 premature-commitment 解讀來自獨立的 commit-position / behavioral metrics，不能只由本節 trajectory 推斷。
+
+整體而言，α 是可靠的 **task-entry RSN gain intervention**，但其有效作用不是「gain 越高越好」，而是將模型推入不同的 commitment-formation working point。這與 task-dependent dopamine/wanting calibration 及 Yerkes–Dodson framing 相容，但目前建立的是 computational and behavioral analogy，而非生物多巴胺機制的直接證明。
+
+#### Figures and Analysis Files
+
+| Figure | Role |
+|---|---|
+| `fig44_dose_main.png` | C1-centered `s_t` / `p_t` / entropy 與 dose-level working point 主圖 |
+| `fig44_validity.png` | α 對 `G_prefill` / `Z_prefill` 的線性 manipulation check |
+| `fig44_slow.png` | pre/post-commit slow-state paired comparisons |
+| `fig44_fast.png` | fast-residual dispersion controls |
+| `fig44_confidence.png` | entropy / top1 / margin confidence controls |
+| `fig44_integrated.png` | inline accuracy、task-entry gain 與 early `s_t` 的 dose-level 對齊 |
+
+分析腳本：`analyze_alpha_dose.py`（`--part validity/slow/fast/confidence/integrated/mainfig`）；raw stdout：`fig44_results.txt`。目前 slow/fast/confidence dose figures 顯示 absolute means，統計採 paired α-vs-0 comparisons；confirmatory reporting 前需統一改為 paired Δ/CI，並對 dose × metric comparisons 做 FDR correction。`fig44_dose_main.png` 的 trajectory panels 只顯示部分代表 doses；圖註應標示「selected α cells shown; all 9 doses used in dose-response panels」。
