@@ -3,58 +3,7 @@
 
 ## 1. Active TODO
 0. 直接看Cot在neurons上的改变 copy过去的结果
-
-## 2. Dopamine-Relevance Tiers (experiment triage)
-
-实验按"与 tonic-DA wanting 的关系强度"分三档。
-
-### A 档：直接测 wanting，是 dopamine 框架的承重墙（关系最强）
-
-| 实验 | 为什么是直接 dopamine 证据 |
-|---|---|
-| **Confidence Betting (⑤)** | 非语言下注行为大幅位移、accuracy 不动 = 教科书式 wanting–knowing 分离 |
-| **Bandit (⑥)** | tonic DA 调 explore/exploit；WorstFrac 同步↓ 排除混淆，−4 干净 effort-withdrawal |
-| **Agentic (⑧)** | 长序列倒 U 右侧（+α 过载崩溃）——唯一能测 mania-zone 的 |
-| **GSM8K/MATH α-scan** | accuracy 维度独立复现倒 U（−4/−6 峰，±8 崩） |
-
-### B 档：间接 / 副作用 / 边界证据（关系绕了一层，不是没关系）
-
-| 实验 | 与 dopamine 的关系性质 |
-|---|---|
-| **MMLU-E abstention** | 测 action threshold（答/不答），是 wanting 的下游行为，不是 wanting 本身。母 paper 的核心，但 §4.0 自标"中强；只是答/不答" |
-| **Pressure & Capitulation (①)** | §4.2：社会压力走 HPA→cortisol→PFC DA，是 PFC goal-maintenance，与 tonic DA 间接；+steering 降 cap 也可能是 output sharpening 而非 wanting。CLAUDE.md 已据此移出主线 |
-| **Willingness / Confidence self-report (0–9)** | 口头自评 = PFC 认知评估，理论上是错的 proxy（Berridge wanting 是非意识的）；数据也证实 willingness −4 反向。保留为负控，不是 wanting 证据 |
-| **TruthfulQA / FACTOR / HaluEval** | 测 over-wanting → hallucination 的副作用，不是 wanting 强度本身 |
-| **CGT / IGT** | 概率透明赌博，是 betting 的 confidence-confound 对照控制，本身也测 risk-taking——相关，但定位是"排除混淆"而非"主证据" |
-
-## 3. Benchmark Tiers and Pending Extensions
-
-| Dataset / Experiment | Status | Dopamine relevance | Judgment |
-|---|---|---|---|
-| **MMLU-E Abstention** | ✅ Done | action threshold / willingness to answer | 中强；但只是答/不答 |
-| **GSM8K / MATH α scan** | ✅ Done | commitment timing, over-/under-wanting in reasoning | 重要主结果；但不是纯 dopamine assay |
-| **GSM-NoOp / GSM-Symbolic** | 🔶 Pending | salience gating / distractor suppression / variable tracking | 可做机制扩展；但仍是 accuracy proxy，非 effort-expenditure 主证据（见 §4 Effort 说明） |
-| **BBH tracking tasks** | 🔶 Pending | working memory / set-shifting | 神经认知相关；但偏 PFC working memory |
-| **TruthfulQA-Generation / HaluEval** | 🔶 Pending | over-wanting → hallucination / over-generation | 可测副作用；不是纯 wanting |
-| **Effort-based Task Choice（实验 C）** | ❌ 范式过弱 | effort willingness | 方向对、范式太弱：二选一无强度维度、无真实成本-报酬耦合、单 token argmax 杀掉动态；测到的是 preference/anchor 不是 effort expenditure。须重做强版，见 §4 |
-| **CRT（实验 D）** | ❌ Done-null | cognitive effort avoidance | 三个 α（0/+4/−4）choice_S2_rate 全 = 0.571，steering 完全无作用，放弃 |
-| **Agentic / ScienceWorld（实验 ⑧）** | 🔶 Done-but-shelved → **建议重启** | 长序列 goal persistence；**倒 U 右侧（mania-zone 过载崩溃）** | **被错杀**：原以「结果不符预测」搁置，实为整套记录里唯一干净的 Yerkes-Dodson 右侧证据。须重新框定 + 补 penalty 来源归因，见 §4 |
-
----
-
-## 4. Pending: a stronger effort paradigm
-
-**夠强的 effort 范式应具备：** within-task、可连续调节、付出与报酬真实耦合、能定位放弃点（breakpoint）。
-
-1. **Progressive Ratio 语言版**（effort 文献黄金标准 = breakpoint）：任务链上每多走一步成本递增（如多跳 HotpotQA / 连续加深解题），测模型在哪一步放弃 → α 应移动 breakpoint。HotpotQA 可作 PR 语言版载体。
-
----
-
-## 5. Comparison with §2 behavioral findings (TBD)
-
-待信号出来后，把 §2 的行为方向（α+4/expert 高 wanting）与 §4 的 RSN 投影信号方向并排，确认"行为上的想不想"是否对应"隐状态投影的高低"，以及这种对应是否 NMD-specific。
-
----
+1. 测一下焦虑和心理学量表
 
 ## 6. Reference: candidate anxiety / mental-health benchmarks
 
@@ -73,85 +22,6 @@
 | **SMHD** | Large Reddit user-level dataset; includes anxiety and depression diagnosis labels | Mental-health condition classification from user posts | Useful if we want anxiety/depression recognition from naturalistic text, not self-report state | [SMHD resource](https://ir.cs.georgetown.edu/resources/smhd.html) |
 | **IMHI / MentaLLaMA benchmark** | 100K+ instruction-style mental-health samples | Mental-health intent / risk / support / diagnosis-style tasks | Useful for testing whether α changes mental-health reasoning or safety behavior | [MentaLLaMA paper/project](https://arxiv.org/abs/2309.13567) |
 | **eRisk** | Yearly shared-task datasets; size varies by task/year | Early risk detection for depression, self-harm, anorexia, etc. | Good for longitudinal mental-health detection, but less directly tied to anxiety-like model state | [eRisk overview](https://erisk.irlab.org/) |
----
-### Agentic / ScienceWorld（实验 ⑧）—— 被错杀的「倒 U 右侧」钉子，建议重启
-
-**为什么值得记录**：betting / bandit 都是**单步**任务，只能展示倒 U 的左半 + 顶点（+α 有益、wanting–knowing 分离）。**唯一能展示倒 U 右半（mania-zone 过载崩溃）的是长序列 agentic rollout**——而这个数据已经跑出来了，结论干净，却因为「−α 没按预测上升 abandonment」被整体 Skip。
-
-**已有结果（Llama3-8B-IT，layers 11–20，TOP=20，30 tasks × 5 episodes = 150 ep/cond，`Ada_Dopamine1.md` §4.9）**：
-
-| 条件 | mean_score | std | success%（score>0） | penalty%（score=−100） | 30 任务里得分最高 |
-|---|---|---|---|---|---|
-| α=−4 | **6.21** | 9.60 | **56.0%** | 0.0% | 20/30 |
-| α=0 | 5.87 | 9.10 | 55.3% | 0.0% | 10/30 |
-| α=+4 | **−6.38** | 31.00 | **24.0%** | **9.3%** | **0/30** |
-
-**重新框定（关键）**：原 Skip 理由是「−α → abandonment↑、success↓」未观察到。但这恰恰是**对的方向**——betting/bandit/GSM8K 已证 neutral Llama 处于 over-wanting 区（GSM8K No-CoT 峰在 α=−4），所以 −4 让 agentic 更谨慎、略好（6.21 > 5.87）完全自洽，本就不该期待 abandonment↑。这个实验真正测到的不是「−α→放弃」，而是「**+α 在 50 步序列上把 over-wanting 推过阈值 → 冲动执行 → −100 惩罚暴增、得分崩溃（+5.87→−6.38，std 9→31，0/30 任务最佳）**」，即 Yerkes-Dodson 右侧下降的**最强、最剧烈**证据（比 MCQ 难题退化剧烈得多，因长序列累积冲动误判）。
-
-**唯一待补**：penalty 来源归因。§4.9 已定位 penalty 集中在 4 类需精确识别/测量的任务（identify-life-stages / measure-melting-point / lifespan / test-conductivity），但「冲动误判 vs 任务结构本身罚分」两种解释当前无法区分。**补法**：只跑这 4 个 penalty 高发任务 × 5 ep × 3 α（0/+4/−4）+ per-step score-trace dump，即可分离 penalty 是否由 +α 的冲动 action 触发。规模 ≈ 4×5×~50×3 ≈ 3000 串行 forward（≈ 一遍 bandit 量级），远小于全量 30 任务的 ~22.5k。
-
-**成本提示**：agentic 是这批实验里单位算力最贵的——多步 rollout，每步 bs=1 依赖上一步环境反馈，不可 batch；`max_steps=50`、`max_new_tokens=32`。全量 30×5×50×3 ≈ 22.5k 串行 forward + 每步 ScienceWorld env step 开销。针对性复现那颗钉子只需 ~1/7 的量。脚本：`get_answer_sciworld.py` / `run_sciworld.sh`（现脚本已被砍成 `--task_nums 28 29` + 单 α 的分片小批形态）。
-
----
-<!-- 主線導覽（三份文檔共用，每份開頭都有）
-
-整條研究主線（四段）：
-  RSN
-    → 行為學多巴胺（Behavioral Dopamine）← Ada_Dopamine.md
-        → 腦科學多巴胺（Brain Dopamine）← 本文檔 §五
-            → 多巴胺與思考曲線（Dopamine & Thinking Curve）← AdaptativeThinking.md
-
-  附：AdaThink.md 是 Thinking Curve 的額外延伸驗證（學弟執行），不在主線框架內。
-
-【本文檔定位】
-兩個角色：
-  1. 實驗 Roadmap（§三–§六）：整理已完成的 Tier-A/B/C 實驗結果，規劃下一步
-     方向 A（行為學延伸）、方向 B（腦科學 RSA）、方向 C（RLHF 機制）。
-  2. 腦科學升華（§五）：從行為類比進一步論證 RSN Δh 表徵是否對應
-     ventral striatum / vmPFC，而非語言區——這是從「功能類比」升級到
-     「表徵對應」的關鍵一步。
-
-【前後段的任務】
-Ada_Dopamine.md：行為學基礎驗證（wanting/knowing 解離、Bandit、Pressure）。
-AdaptativeThinking.md：最終升華——thinking trace 中的多巴胺動力學，
-透過 LLM 實驗模擬人腦思考過程的 motivation dynamics。
-
-關聯文件：
-  Ada_Dopamine.md — 行為學理論框架與實驗結果
-  AdaptativeThinking.md — Thinking Curve + 閉環控制實驗（Phase 1-2）
-  AdaThink.md — Reasoning model trace-level 分析框架
--->
-
-# Related work 
-The Personality Illusion: Revealing Dissociation Between Self-Reports & Behavior in LLMs (ResponsibleFM @ NeurIPS 2025)
-
-# Dopamine Framework — Research Roadmap
-
-*May 2026 — 接續 Dopamine.md 的後續實驗規劃*
-
-關聯文件：`/Users/paveenhuang/Downloads/RolePlaying/Dopamine.md`
-
----
-
-## 四、方向 A：行為學基礎實驗
-
-**目標**：建立三個行為學 anchor，對應多巴胺文獻中最經典的範式
-
----
-
-### A2. Confidence Betting — Alpha Sweep & 延伸
-
-| 子實驗 | 內容 | 目的 |
-|---|---|---|
-| Alpha sweep α∈{−8,−4,−2,0,+2,+4,+8} | MMLU + GPQA | 畫出 mean_bet 倒 U 形狀 |
-| Known-correct subset | 三條件都答對的 sample | 純 wanting 證據（排除正確率 confound） |
-| Loss-aversion framing | Gain frame vs Loss frame（同 EV） | 高 DA → loss aversion↓；prospect theory 連結 |
-
----
-
-### A3. Bandit — 逐輪收斂曲線（zero-cost）
-
-從現有 30×50 數據畫出 round-by-round OptFrac 均值曲線（α=0/+4/−4 三條線），直觀顯示 α=+4 的加速收斂。這是比單一數字更有說服力的可視化。
 
 ---
 
@@ -214,15 +84,6 @@ The Personality Illusion: Revealing Dissociation Between Self-Reports & Behavior
 | + 公開 fMRI RSA（striatum > Broca） | Nature Machine Intelligence / PNAS |
 | + 合作設計共享刺激集 + neural encoding | Nature Neuroscience / Neuron |
 
----
-
-## 六、方向 C：RLHF 機制
-
-**核心假設**：DA-like wanting axis 只在 RLHF 後出現。Base 無此軸（或反轉），SFT 部分引入，DPO/RLHF 完全引入。
-
-**這是整篇 paper 的 punchline**：把 RSN 從「Llama3-IT specific pattern」升級為「RLHF 引入的 functional structure」，直接連到 RLHF mechanism interpretability。
-
----
 
 ### C1. RLHF 階段拆解（最高優先）
 
