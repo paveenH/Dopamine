@@ -1,9 +1,56 @@
 # TODO
 ---
 
+
 ## 1. Active TODO
 0. 直接看Cot在neurons上的改变 copy过去的结果
 1. 测一下焦虑和心理学量表
+
+---
+## TODO
+
+排序原則：先驗證 RSN/dopamine signal 本身，再看 α=-4 為什麼有效，最後才做 router、reasoning model 和大 benchmark。
+
+1. expert vs non-expert vs neutral (non-cot)：看RSN curve是不是有差異 ✔
+2. expert vs non-expert vs neutral (non-cot)： Other metrics & Random mask ✔ 
+3. 更新Expert的設定 + 多指標分析 neutral (cot & non-cot)
+
+1. Validate dopamine signal proxy: selected RSN vs random projection, CoT vs No-CoT.
+
+2. Validate dopamine signal proxy: selected RSN vs random projection, expert vs non-expert vs neutral.
+
+3. 功能神經元 baseline：用 Language-sensitive / Emotion-sensitive neurons 做對比，檢驗 role-sensitive neurons 的獨特性和必要性。
+
+4. Check Llama3-8B curves under static α=-4 / α=+4，對比 α=0、CoT、No-CoT。
+
+5. 提前干預 / prefill intervention：比較 last prefill token、decode step 0、decode-time 全程注入；看曲線和 acc 是否不同。
+
+6. Multi-metric tracking：除了 RSN activation，也同步收集 MSP / confidence logit、entropy、constrained entropy、logit margin、E-option logit / abstention probability。
+
+7. Calibration on RSN-steered outputs：算 ECE / Brier / AUROC，檢查 α steering 是否造成 unwarranted certainty。
+
+8. Probe validation：分開做 knowledge probe 和 commitment / decisiveness probe，確認 RSN 主要改的是 knowing 還是 willingness-to-act。
+
+9. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
+   - RSN features: x_prefill, RSN projection mean / variance, middle-layer RSN activation, role-sensitive direction projection, first 5-10 decode token RSN slope
+   - uncertainty features: MSP, entropy, constrained entropy, logit margin, E-option logit / abstention probability
+   - baselines: entropy threshold, MSP threshold, answer logit margin, question length, random routing, always CoT, always No-CoT
+
+10. 加入 frequency feature：參考 ICLR2026 Balanced Thinking，用 step-level confidence variance / local fluctuation 區分 overthinking 和 underthinking。
+
+11. 加入 InfoBias & InfoGain：參考 NIPS2025 Think or Not，先作為 diagnostic / baseline，不急著變成主控制器。
+
+12. Base model & reasoning model：先做 Llama3-Base vs Llama3-IT；reasoning model 等前面 signal / intervention 站穩後再做。
+
+13. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
+
+14. RLHF 和 dopamine 出現的關係：整理 Notion `Model Analysis; Hallucination & Origin -> 15. Origin Analysis`，看 post-training 是否 sharpen 了 decisiveness axis。
+
+15. Benchmark scale-up：數學推理先做 AIME24、AIME25、AMC23、MATH-500、Minerva、OlympiadBench；再考慮 GPQA-D、LiveCodeBench。
+
+MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
+
+与正确答案之间的互信息
 
 ## 6. Reference: candidate anxiety / mental-health benchmarks
 
@@ -156,55 +203,6 @@
 | 13 | **Pressure × Confidence Dissociation** | 區分 DA-like commitment vs confidence |
 | 14 | **Task Difficulty × RSN Activation（現有數據）** | DA effort/uncertainty 對應 |
 
----
-
-### A4. Pressure × Confidence Dissociation（低成本，conceptually critical）
-
-**動機**：區分 RSN steering 找到的是 "confidence"（認知層自我評估）還是 "DA-like commitment signal"（行為驅動力）。兩者在靜態任務（Betting）上行為相似，但在對抗壓力情境下應該解離。
-
-**設計**：在現有 Pressure & Capitulation 實驗架構上加一個條件：
-
-| 條件 | 操作 | 預測 |
-|---|---|---|
-| α=0（baseline） | 無 steering | cap rate 53.87%（Soft） |
-| α=+4（RSN） | RSN steering | cap rate↓ 17.57% |
-| "you are confident" prompt | System prompt 加入 confidence instruction | **預測：cap rate 無顯著下降，甚至不變** |
-| "you are unconfident" prompt | 對照 | cap rate↑ |
-
-**核心預測**：
-- Confidence prompt 在壓力下**仍然投降**——因為 RLHF 訓練了社交服從性，"confident" 只是表層 claim，遇到權威/社交壓力仍會讓步
-- RSN α=+4 **抵抗壓力**——操縱的是更底層的 commitment signal，不走語言表層
-
-**若成立，可說明**：
-> RSN 找到的不是 confidence axis，而是一個在社交壓力下仍能維持行為一致性的 DA-like commitment signal。Confidence 是貝葉斯後驗（知道自己知道什麼）；RSN wanting 是行為驅動力（讓行動持續的動力，即使環境反對）——兩者在壓力情境下解離。
-
-**對應多巴胺框架**：DA 的 incentive salience 不是 "knowing you're right"，而是 "being driven to act on what you want"——即使信息不完整、即使被反對。
-
-**成本**：Pressure 架構已有，加 prompt 條件即可，約半個 GPU day。
-
----
-
-### A5. Task Difficulty × RSN Activation（offline analysis，零成本）
-
-**動機**：多巴胺與 effort cost 和 reward prediction error 相關——困難任務需要更高的 DA 信號來「克服不確定性」。若 RSN 確實類比 tonic DA，應在困難題目下顯示更高的 x_prefill 或 EMA 激活。
-
-**數據來源**：Phase 1 已有的 hidden states HDF5（neutral role，300 samples，MMLU/GPQA）
-
-**分析步驟**：
-1. 對 MMLU/GPQA 題目按難度分層——以模型整體正確率作為難度代理（easy: acc > 80%，medium: 40–80%，hard: acc < 40%）
-2. 在每個難度組內提取 neutral role 的 RSN 激活（x_prefill 或 tonic EMA 均值）
-3. 比較各難度組的激活分布（Mann-Whitney U test）
-4. 對照：correct vs wrong 樣本在同一難度組內的激活差異
-
-**預測**：
-- hard > medium > easy（RSN 激活隨難度單調增加）
-- 若成立 → 支持 RSN 作為 effort/uncertainty signal 的解讀
-- 若不成立 → RSN 純粹是 wanting，與難度無關（同樣值得記錄）
-
-**注意**：無需重跑實驗，直接從現有 Phase 1 HDF5 做 offline 分析。
-
----
-
 ## 八、Paper 框架
 
 **標題候選：**
@@ -233,57 +231,3 @@
 | + 行為層次腦對齊 | Nature Machine Intelligence / PNAS |
 | + fMRI RSA（striatum 特異性） | Nature Neuroscience / Neuron |
 
----
-
-## 九、關鍵待決問題
-
-1. **Cambridge Gamble Task 設計**：LLM 版本需要「機率透明」的 prompt，如何確保模型不用先驗知識而是真的基於給定機率決策？
-2. **共享刺激集**：要做 fMRI RSA，需要設計一批「人腦和 LLM 都能做、且能對齊的」刺激——這是最難的設計問題。
-3. **RLHF 實驗的模型可得性**：Tülu-3 SFT checkpoint 是否可以下載？Zephyr-α/β 是否仍在 HuggingFace？
-4. **Paper 路線**：獨立 paper vs 延伸現有 RSN paper？前者需要 RLHF + 腦對應；後者可以先出。
----
-## TODO
-
-排序原則：先驗證 RSN/dopamine signal 本身，再看 α=-4 為什麼有效，最後才做 router、reasoning model 和大 benchmark。
-
-1. expert vs non-expert vs neutral (non-cot)：看RSN curve是不是有差異 ✔
-2. expert vs non-expert vs neutral (non-cot)： Other metrics & Random mask ✔ 
-3. 更新Expert的設定 + 多指標分析 neutral (cot & non-cot)
-
-1. Validate dopamine signal proxy: selected RSN vs random projection, CoT vs No-CoT.
-
-2. Validate dopamine signal proxy: selected RSN vs random projection, expert vs non-expert vs neutral.
-
-3. 功能神經元 baseline：用 Language-sensitive / Emotion-sensitive neurons 做對比，檢驗 role-sensitive neurons 的獨特性和必要性。
-
-4. Check Llama3-8B curves under static α=-4 / α=+4，對比 α=0、CoT、No-CoT。
-
-5. 提前干預 / prefill intervention：比較 last prefill token、decode step 0、decode-time 全程注入；看曲線和 acc 是否不同。
-
-6. Multi-metric tracking：除了 RSN activation，也同步收集 MSP / confidence logit、entropy、constrained entropy、logit margin、E-option logit / abstention probability。
-
-7. Calibration on RSN-steered outputs：算 ECE / Brier / AUROC，檢查 α steering 是否造成 unwarranted certainty。
-
-8. Probe validation：分開做 knowledge probe 和 commitment / decisiveness probe，確認 RSN 主要改的是 knowing 還是 willingness-to-act。
-
-9. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
-   - RSN features: x_prefill, RSN projection mean / variance, middle-layer RSN activation, role-sensitive direction projection, first 5-10 decode token RSN slope
-   - uncertainty features: MSP, entropy, constrained entropy, logit margin, E-option logit / abstention probability
-   - baselines: entropy threshold, MSP threshold, answer logit margin, question length, random routing, always CoT, always No-CoT
-
-10. 加入 frequency feature：參考 ICLR2026 Balanced Thinking，用 step-level confidence variance / local fluctuation 區分 overthinking 和 underthinking。
-
-11. 加入 InfoBias & InfoGain：參考 NIPS2025 Think or Not，先作為 diagnostic / baseline，不急著變成主控制器。
-
-12. Base model & reasoning model：先做 Llama3-Base vs Llama3-IT；reasoning model 等前面 signal / intervention 站穩後再做。
-
-13. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
-
-14. RLHF 和 dopamine 出現的關係：整理 Notion `Model Analysis; Hallucination & Origin -> 15. Origin Analysis`，看 post-training 是否 sharpen 了 decisiveness axis。
-
-15. Benchmark scale-up：數學推理先做 AIME24、AIME25、AMC23、MATH-500、Minerva、OlympiadBench；再考慮 GPQA-D、LiveCodeBench。
-
-MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
-
-与正确答案之间的互信息
----
