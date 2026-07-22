@@ -376,16 +376,6 @@ Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc g
 | entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition，部分來自 `####` 格式轉換 |
 | info gain | commit 附近波動，但組間結構不穩定 | 僅作 distributional-change diagnostic |
 
-#### Figures
-
-| Figure | Alignment / signals | Main finding |
-|---|---|---|
-| `fig41_suite_rsn.png` | Length-normalized `Z_t / s_t / p_t` | correct 組 early slow RSN state 較高，之後下降更快；`p_t` 無穩定組間分離 |
-| `fig41_suite_logit_nocot.png` | Length-normalized No-CoT logit metrics | incorrect 組 entropy / confidence volatility 略高、top1 / margin 略低；info gain 無穩定差異 |
-| `fig41_suite_logit_cot.png` | Length-normalized CoT logit metrics | 大致重現 No-CoT pattern；confidence 差異存在但弱於 slow RSN 差異 |
-| `fig41_commit_aligned_suite_nocot.png` | Commit-aligned No-CoT RSN + logit suite | commit 附近出現共同 state transition；`p_t` 有 pulse / dip，但 confidence 對 correctness 的分離較弱 |
-| `fig41_commit_aligned_suite_cot.png` | Commit-aligned CoT RSN + logit suite | 重現 commit-centered transition 與 correct 組較快的 post-commit release |
-
 **Overall:** correct / incorrect responses 在 commit 前後的 **slow RSN dynamics** 上存在描述性差異——correct 組 pre-commit `s_t` 較高、較持久，post-commit release 較快；task-entry gain、單一 phasic amplitude 與 confidence metrics 均不是穩定的 correctness predictor。這些圖來自同一批資料的兩種對齊方式，應視為互補分析，而非獨立證據。
 
 > This pattern is **consistent with** adaptive engagement and termination dynamics, but may reflect perceived solvability or the availability of a coherent reasoning path rather than a direct causal effect of wanting on accuracy. 三種因果方向無法在此區分：(1) engagement↑ 促成答對；(2) 題目可解 → engagement↑；(3) 難度/熟悉度同時影響 engagement 與正確率。本節支持「RSN tracks engagement during viable reasoning」，但**不能單獨證明**「更高 dopamine → 更高正確率」——Dopamine 的主證據仍來自 α intervention、dose-response 與行為學實驗。
@@ -394,184 +384,91 @@ Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc g
 
 ### 4.2 CoT vs No-CoT
 
-#### Scope
+#### Scope and Analysis Framework
 
-只分析 **neutral、α=0、相同 300 道 GSM8K**。两组除 CoT 增加 `Let's think step by step.` 外，其余生成条件一致。
-> 本节重点是：CoT 如何改变 task-entry state 与 generation dynamics？
+只分析 **neutral、α=0、相同 300 道 GSM8K**。兩組除 CoT 增加 `Let's think step by step.` 外，其餘生成條件一致。統計統一採 paired mean difference、bootstrap 95% CI、Cohen's `d_z` 與 Wilcoxon signed-rank；軌跡圖的 bootstrap band 則使用各條件可用樣本作描述性展示。
 
-#### Step 1: Task-Entry Tonic-like Gain
+本節依序觀察三類訊號：task-entry gain（`G_prefill` / `Z_prefill`）、slow RSN state（`s_t`）與 fast residual（`p_t`）。`s_t` / `p_t` 建於中層 sparse NMD projection；entropy / top1 / margin 則來自最終輸出分布，只作獨立 confidence-proxy 對照。
 
-| Readout | Question |
-|---|---|
-| `G_prefill` | CoT 是否改变 task-entry gain？ |
-| `Z_prefill` | layer-fair 坐标下是否复现？ |
-| `boundary_jump_G` | CoT 是否改变 prefill 到 decode[0] 的状态转换？ |
+由於 **97% 樣本撞 767 max-token cap**，且大量 commit 後文字退化為 `#### N ...` 重複，decode 以第 1、2 個 `####` 切成三個互斥階段：
 
-统计采用 paired mean difference、bootstrap 95% CI、Cohen’s `d_z` 和 Wilcoxon signed-rank（Step 1 已確認兩組為同一批 300 題、索引對齊，故用 paired）。
+- **pre-commit** = decode start → 第 1 個 `####`（**答案形成**，正文主分析）
+- **post-commit** = 第 1 個 `####` → 第 2 個 `####`（**提交後延續生成 / state release**）
+- **loop tail** = 第 2 個 `####` → generation end（**stopping failure**，僅作診斷）
+- *full = 三段之和*（僅用於展示 loop contamination，不作機制結論）
 
-> 注意：`G_prefill` 讀的是 generation boundary 的**最後一個 prompt token**，不是整個任務期間的恆定 tonic state；故此小節測的是 task-entry tonic-**like** gain，而非嚴格意義的 tonic baseline。
+`s_t = EMA(Z_t)` 在整條 decode 上只計算一次（`s_0=Z_0`），`p_t=Z_t-s_{t-1}` 再由同一條軌跡取得；三階段不重新 seed。C1/C2-centered 圖只是放大兩個階段邊界，不構成另一套切分。C2-based 分析只涵蓋具有第二個 `####` 的 loop-prone subset，因此屬診斷性結果。
 
-**結果：CoT 在 generation boundary 就抬高了 RSN state**
+#### Integrated RSN Dynamics
+
+**Task-entry gain.** CoT 在尚未 decode 時已提高 generation-boundary RSN state：
 
 | Readout | No-CoT | CoT | ΔCoT−No | 95% CI | `d_z` | Wilcoxon p |
 |---|---:|---:|---:|---:|---:|---:|
 | `G_prefill` | 0.000 | 0.071 | **+0.071** | [0.058, 0.085] | **0.59** | 1.9e-19 |
 | `Z_prefill` | 0.000 | 0.158 | **+0.158** | [0.138, 0.178] | **0.89** | 1.1e-32 |
-| `boundary_jump_G` | 0.167 | 0.094 | **−0.073** | [−0.138, −0.006] | −0.13 | 2.4e-02 |
+| `boundary_jump_G` | 0.167 | 0.094 | −0.073 | [−0.138, −0.006] | −0.13 | 2.4e-02 |
 
-1. **`G_prefill`：CoT 顯著抬高 task-entry gain。** +0.071 α 單位，`d_z`=0.59（中等偏強），CI 不含 0。No-CoT 的 0.000 是因為它本身就是參考基準（`μ_l^ref` 定義在 neutral-α0-No-CoT prefill），故此列讀的是「CoT 相對 No-CoT baseline 的偏移」。意義：光是 prompt 多一句 `Let's think step by step.`，在**尚未 decode**、last token 同為 `Answer:` 的情況下，就已抬高 wanting——純 context 效應（前文 CoT instruction 改變了 last-token 的 residual 狀態）。
+No-CoT 的 `G_prefill=0` / `Z_prefill=0` 來自 reference 定義。CoT effect 在 α-unit 與 layer-standardized 坐標中均成立，且兩組 `G_decode[0]` 幾乎相同（約 0.17）；因此主要差異已在 boundary 出現，`boundary_jump_G` 只呈現弱小的補償性縮減。`G_prefill` 是最後一個 prompt token 的 task-entry **tonic-like readout**，不能單獨證明後續 decode state 完全由該點決定。
 
-2. **`Z_prefill`：layer-fair 坐標下複現，且對逐層標準化穩健。** +0.158，`d_z`=**0.89**（強）。`d_z` 比 `G_prefill` 大，說明這個抬升**經 layer-wise standardization 後依然穩健，不是單靠少數 large-scale 層撐起來的**（Z-score 會放大低方差層的貢獻，故 `d_z` 增大只能推斷「非由大尺度層獨佔」，**不能**直接讀成「各層更均勻」——後者須另查 per-layer effect）。
+**Slow and fast RSN results by stage.** 下表把原本分散的 `s_t` 與 `p_t` 結果放在同一時間軸；fast-residual 主證據限於 `abs_mean` / `std`，極值因 length bias 與 EMA lag 不作主讀。
 
-3. **`boundary_jump_G`：CoT 反而縮小 prefill→decode[0] 的跳變。** No-CoT 跳 +0.167，CoT 只跳 +0.094，Δ=−0.073，但 `d_z`=−0.13（弱）。數據上兩組 decode[0] 的絕對高度高度接近（No-CoT `G_decode[0]`≈0.167；CoT ≈0.071+0.094=0.165），CoT 的差異**提前出現在 prefill**，故起點抬高後 decode 開場「還要往上跳的空間」變小。注意此處比較的是 α=0 的 CoT/No-CoT，**沒有注入 α**，因此這只是觀察到的邊界轉換差異，不能歸因於 §4.1 的 co-design steering identity。effect 弱，屬記錄性。
+| Stage | Slow RSN `s_t` | Fast residual `p_t` | Functional reading |
+|---|---|---|---|
+| **pre-commit** (n=281) | mean Δ=**+0.471**, `d_z`=**0.65**; `end−start` Δ=+0.228, `d_z`=0.27 | `abs_mean` Δ=+0.056, `d_z`=0.42; `std` Δ=+0.092, `d_z`=**0.63** | CoT 維持較高、較少 relax 的 answer-formation state，且 fast residual dispersion 較強 |
+| **post-commit** (n=144) | `end−start` Δ=**−0.166**, `d_z`=−0.31 | `abs_mean` / `std` 小幅反轉（`d_z`=−0.19 / −0.18） | CoT 在首次提交後釋放較快，fast variability 差異同步減弱 |
+| **loop tail** (n=141) | mean Δ=+0.185, `d_z`=0.32；tail 短 **83.6 tokens**, `d_z`=−0.51 | `std` Δ=−0.083, `d_z`=−0.33 | 低 RSN state 下的 stopping failure；CoT tail 較短、churn 較低，只作診斷 |
 
-> **小結：CoT-related RSN elevation 在 generation boundary 就已可偵測。** CoT 抬高 `G_prefill` / `Z_prefill`，而兩組 `G_decode[0]` 到達相近水平，於是 CoT 下的 boundary jump 較小。這支持一個 task-entry gain difference，但**不足以斷定 `G_prefill` 單獨決定後續 decode dynamics**。
+CoT 的主效應是 **level-dominant but not a pure shift**：task entry 已升高（`Z_prefill d_z`=0.89），pre-commit slow level 仍維持明顯差距（`d_z`=0.65），而 No-CoT 在答案形成期間 relax 得更多。strict-`####` subset（n=233）確認 pre-commit level effect 不依賴 fallback；absolute-token control 亦重現較弱的 CoT relaxation，因此不是單由長度歸一化製造。由於 CoT instruction 持續存在於 KV cache，這些觀察不能證明後續差異完全由 `G_prefill` 單點造成。
 
-分析腳本：`analyze_cot_step2_tonic.py`。
+**Commit-centered boundaries.** C1 前 CoT `s_t` 維持高位，C1 後兩組共同快速下降，但 CoT 保留較高 offset；`p_t` 同時出現明顯負向 transition。C2-centered 圖重現近似結構，顯示第二個 `####` 也伴隨 marker-locked transition，但尚不能證明它是獨立的 loop-onset mechanism。C1/C2 都涉及 `####` / answer-format 改變，因此 fast transition 仍需 token-class-matched pseudo-event control。
 
-#### Step 2: Slow Decode Dynamics
+**Full-decode diagnostic.** 若把整條 767-token decode 當作一段，slow slope 與 relaxation 會被 loop tail 反轉；full trajectory 因此只展示污染，不代表正常 reasoning 的 late stage。
 
-主信号：
+`p_t` 是 EMA high-pass residual，不是已識別的 biological phasic dopamine。其 pre-commit `abs_mean` / `std` 效應在 FDR 後穩定，但 post-commit 小效應不宜強調；`pos/neg_peak` 同時受 segment length 與 EMA lag 影響，不能作獨立證據，也不能由較深負尾推斷 downward skew。
 
-```text
-s_0 = Z_0
-s_t = βs_{t-1} + (1-β)Z_t
-```
+Event alignment 現已顯示 C1/C2 附近存在 marker-locked residual transition，但它同時伴隨 entropy spike / top1 dip，且 C2 幾乎複製 C1，因此可能包含 answer-format transition。現階段最穩健的結論仍是 **stage-dependent fast RSN dynamics**。若要升級為 commitment-related phasic-like component，仍需 pseudo-event / token-class control、length-matched quantile、`β∈{0.90,0.95,0.98}` sensitivity、其他 baseline estimator，以及 NMD-mask vs random-mask specificity。GSM8K 沒有 reward feedback，因此此處不能作 RPE 解讀。
 
-统计同 Step 1：paired（同 300 題、索引對齊）、bootstrap 95% CI、Cohen's `d_z`、Wilcoxon signed-rank。
+#### Output-Distribution Confidence Controls
 
-**方法決定：三個互斥功能階段。** Step 1 audit 發現 **97% 樣本撞 767 max_new_tokens 截斷，commit 後 70–85% 是 `#### N …` 退化 loop**。與其對「累計區間」再切 early/middle/late（重疊、重複計同一批 token），改把整條 decode 用兩個 marker（第 1、第 2 個 `####`）切成**互不重疊的三個功能階段**，每段有明確行為意義：
+**基座警示（load-bearing）：RSN wanting 與 confidence proxy 不可視為同一訊號或疊在同一軸。** 前者是中層 hidden states 對 sparse NMD mask 的投影；後者是最終層經 RMSNorm、full lm_head 與全詞彙 softmax 後的 next-token distribution。entropy / top1 / margin 衡量 output decisiveness，不是最終答案的 epistemic confidence。
 
-- **pre-commit** = decode start → 第 1 個 `####`（**答案形成**，正文主分析）
-- **post-commit** = 第 1 個 `####` → 第 2 個 `####`（**提交後延續生成 / state release**）
-- **loop tail** = 第 2 個 `####` → generation end（**stopping failure**，僅作診斷）
-- *full = 三段之和*（僅示範「不切段會產生什麼污染」，不作機制結論）
+Confidence 現以**與 wanting 相同的三段切分**（pre-commit / post-commit / loop-tail，用同一組 1st/2nd `####` boundary）分析，使兩軸可在同一 stage boundary 下比較 measurement pattern。主分析限於兩組都有有效 commit 的 paired subset（pre-commit n=203；post/loop 因需有效 2nd `####` 降至 n=144/141，屬 C2-valid subset）。每格為 ΔCoT−No（括號內 `d_z`）。
 
-> **口徑：`s_t` 只算一次。** slow EMA `s_t = βs_{t-1}+(1-β)Z_t`（`s_0=Z_0`）在**整條 decode 上算一次**，三段從同一條 `s_t` 切片取值——各段 level 因此共用同一基線、可直接互比（不對每段重新 seed EMA）。
->
-> **端點來源兩組不對稱。** 用真 `####` 者：No-CoT 243/300、CoT 285/300；退回 answer-candidate 者 No-CoT 57、CoT 15。故 pre-commit 端點定義兩組不完全同構——下附 **strict-`####` paired subset**（僅取兩組都有真 `####` 的題）確認結論不因 fallback 差異而變。統計同 Step 1：paired、bootstrap 95% CI、`d_z`、Wilcoxon（每段只配對兩組都有效的題，故各段 n 不同）。
+**表 A：三段 stage means（與 wanting 同 boundary，paired）。**
 
-**主結果：三個互斥階段（ΔCoT−No，`d_z`；`***` p<.001 / `**` p<.01 / `*` p<.05 / ns）**
+| Metric | pre_commit (live) | post_commit（飽和·診斷） | loop_tail（飽和·診斷） |
+|---|---:|---:|---:|
+| entropy | **−0.176** (−0.83)*** | −0.052 (−0.06) ns | +0.074 (0.10)*** |
+| top1 | **+0.039** (0.74)*** | +0.019 (0.09) ns | −0.014 (−0.10)*** |
+| margin | **+0.048** (0.66)*** | +0.024 (0.08) ns | −0.018 (−0.11)*** |
+| info_gain | −0.005 (−0.07)*** | −0.240 (−0.37)*** | −0.032 (−0.11)*** |
+| roll_std | **−0.023** (−0.63)*** | −0.058 (−0.51)*** | +0.002 (0.04)*** |
 
-| Stage | Readout | No-CoT | CoT | ΔCoT−No | `d_z` | 显著 | 行為含義 |
-|---|---|---:|---:|---:|---:|:--|---|
-| **pre-commit** (n=281) | `mean` | −0.204 | +0.267 | **+0.471** | **0.65** | *** | CoT 顯著抬高推理段整體 wanting level（最穩健效應） |
-| | `slope` | −0.001 | +0.000 | +0.002 | 0.14 | ** | 段內斜率差異弱 |
-| | `end−start` | −0.258 | −0.030 | **+0.228** | 0.27 | *** | **No-CoT 在推理段內明顯 relax，CoT 幾乎不 relax → 殘餘 shape** |
-| | `length` | 250.6 | 279.5 | +28.8 | 0.10 | *** | CoT 推理段稍長 |
-| **post-commit** (n=144) | `mean` | −0.187 | −0.014 | +0.173 | 0.17 | * | level 差異縮小 |
-| | `end−start` | −0.138 | −0.304 | **−0.166** | −0.31 | *** | **CoT 提交後掉得更多 → 較快 state release** |
-| | `length` | 76.2 | 124.2 | +48.0 | 0.17 | ns | |
-| **loop tail** (n=141) | `mean` | −1.421 | −1.236 | +0.185 | 0.32 | *** | loop 段 level 低（診斷用，非 wanting 結論） |
-| | `length` | 619.0 | 535.4 | **−83.6** | −0.51 | *** | **CoT loop 尾更短 → 較早停止（stopping failure 較輕）** |
-
-**pre-commit shape：兩條獨立證據。** 主表 `end−start`（+0.228 d_z=0.27 ***，末10%−首10%均值）已把「CoT relax 更少」量成一個標量。另有兩個 length-normalization-independent 控制佐證同一結論：
-
-- **strict-`####` subset（n=233）**：pre-commit `mean` +0.255 d_z=0.35 ***、`slope` 弱、`relax`(end−start 同類) 仍近 ns（strict 子集 `relax_mag`=+0.019 ns）——結論不因 fallback 差異而變。
-- **absolute-token-step**（不做長度歸一化）：前 50 token，centered `s_50−s_0` No-CoT −0.129 vs CoT +0.054（Δ+0.183 d_z=0.21 p=5e-4）；前 100 token，−0.299 vs −0.018（Δ+0.281 d_z=0.29 p=5e-4）。**「CoT relax 更弱」在真實 token-time 中重現，不只是歸一化坐標的假象。**
-
-**full（不切段）只用來示範污染。** 若把整條 767 當一段，`relax_mag`=−0.49 d_z=−0.59 ***、`slope` 反號（d_z=−0.38 ***）——這全來自 loop tail 嚴重下拉整段軌跡，一旦切到 pre-commit 即消失。**注意**：此污染診斷屬 CoT/No-CoT 軸，不能直接推斷 §4.1 correct/incorrect 的下降也是 loop 假象（另一條比較軸，需各自檢驗）。
-
-> **小結（level-dominant，非纯平移）**：CoT raises the RSN state at the generation boundary and maintains a higher slow decode level throughout answer formation (pre-commit `mean` d_z=0.65). The effect is **level-dominant but not a pure level shift**: within the pre-commit stage, No-CoT relaxes while CoT barely does (`end−start` d_z=0.27), a residual shape that survives both a strict-`####` subset and an absolute-token-step control. After commitment CoT releases *faster* (post-commit `end−start` d_z=−0.31) and its stopping failure is milder (loop tail 短 83 tokens). CoT-related elevation is already detectable at task entry (Step 1 `Z_prefill` d_z=0.89) and **remains present during pre-commit decoding**；由於 CoT instruction 一路存在於 KV cache，不能據此斷言後續差異完全由 `G_prefill` 決定或「非 decode 中動態生成」。
-
-**圖**：`fig42_step3_slow_st.png`（三個互斥階段並排 s_t）、`fig42_step2_shape_test.png`（pre-commit level-vs-shape 裁決：raw + paired diff / baseline-centered）、`fig42_step3_commit_st.png`（commit-aligned level + slope）。分析腳本：`analyze_cot_step3_slow.py`（`report_stages` 出主表，`--plots` 出图；strict / abs-step 控制與 full 診斷隨主程序打印）。
-
-> **圖例 n 與主表 n 不同（口徑差異，非錯誤）。** 主表每格是 **paired** 統計（僅取兩組同一題都在該階段有效的交集），故 pre-commit n=281 / post-commit n=144 / loop tail n=141。`fig42_step3_slow_st.png` 的均值帶用**各組獨立可用的全部軌跡（unpaired）**畫，故圖例 n 較大且兩組不等（pre-commit 298/281、post-commit 184/231、loop tail 219/189）。形態展示用 unpaired（軌跡越多帶越穩），顯著性檢驗用 paired（消除題間變異）——兩者都正確，只是不同用途。
-
-#### Step 3：Fast Residual Dynamics
-
-Step 2 處理 slow component `s_t`；本節看 **fast residual** `p_t = Z_t − s_{t-1}`——一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t` 由 Step 2 **同一條**「整條 decode 一次 EMA」得出後，切進**同樣三個互斥階段**（1st / 2nd `####` 為界），故與 slow 段口徑一致、可直接對照。不做 commit alignment、不預設特定 event——只問 CoT 是否改變 fast residual 的**強度與時間分佈**。指標：`phasic_abs_mean`（平均幅度）、`phasic_std`（波動）、`phasic_pos_peak` / `phasic_neg_peak`（正/負極值）。統計同 Step 2（paired、bootstrap 95% CI、`d_z`、Wilcoxon；每段只配對兩組都有效的題）。
-
-> **口徑警示：`p_t` 是高通殘差,兩類 confound 使極值（`pos/neg_peak`）不可直接當獨立證據。** (1) **EMA lag**：`s_t`（β=0.95）滯後於 `Z_t`,故 `Z_t` 持續下降時 `p_t` 機械性地變深負——這正是 slow drop 的鏡像,而非獨立 transient。因為 CoT commit 後 slow-state 下降更陡（Step 2），更深的 residual 可能部分只反映 `p_t` 與滯後 EMA baseline 之間的**數學耦合**。(2) **segment-length bias**：`min/max` 是極值,樣本越長越易撞到更極端值,而 CoT pre-commit 長約 29 tokens。故本節**主證據放在 `abs_mean` / `std`——它們對 length / 單點 lag 遠比 `min/max` 不敏感,但仍受 segment composition、serial dependence 與 EMA baseline 影響,並非完全 robust**;`pos/neg_peak` 僅記錄,採信須補 length-matched + quantile（q01/q99 代替 min/max）驗證。
->
-> **多重比較口徑：** 本表 3 stages × 4 metrics = 12 次 Wilcoxon,星號為 **uncorrected exploratory p**。pre-commit 四項 p 在 3e-23 ~ 6e-6 量級,FDR 校正後穩定存活;真正只靠 raw-`*` 撐著的是 post-commit 的小效應（`abs_mean`/`std` p≈3e-2），confirmatory 前不宜強調。
-
-**主結果：三個互斥階段的 fast residual（ΔCoT−No，`d_z`）。主證據 = `abs_mean` / `std`;`pos/neg_peak` 受雙 confound（見上警示）,僅記錄。**
-
-| Stage | Readout | No-CoT | CoT | ΔCoT−No | `d_z` | 显著 | 含義 |
-|---|---|---:|---:|---:|---:|:--|---|
-| **pre-commit** (n=281) | `abs_mean` | 0.763 | 0.818 | **+0.056** | 0.42 | *** | **主證據**：CoT 推理段 fast residual 幅度更大 |
-| | `std` | 0.928 | 1.019 | **+0.092** | **0.63** | *** | **主證據**：CoT 瞬時波動明顯更強 |
-| | `pos_peak` | 2.108 | 2.350 | +0.242 | 0.41 | *** | 正向極值更大（受 length bias,僅記錄） |
-| | `neg_peak` | −2.583 | −3.311 | **−0.728** | **−0.82** | *** | 負向極值更大,但受 **EMA-lag + length 雙 confound**,非獨立證據（不得據此下「效應集中於負尾」結論;須 length-matched + q01 驗證） |
-| **post-commit** (n=144) | `abs_mean` | 0.789 | 0.717 | −0.072 | −0.19 | * | 反轉：CoT 略弱 |
-| | `std` | 0.701 | 0.642 | −0.059 | −0.18 | * | |
-| | `pos_peak` | 0.598 | 0.513 | −0.084 | −0.09 | ns | |
-| | `neg_peak` | −1.528 | −1.516 | +0.013 | 0.02 | ns | |
-| **loop tail** (n=141) | `abs_mean` | 0.459 | 0.420 | −0.039 | −0.14 | ** | 反轉：CoT 較弱 |
-| | `std` | 0.595 | 0.511 | −0.083 | −0.33 | *** | loop 段 CoT 波動更小 |
-| | `pos_peak` | 1.322 | 0.983 | −0.339 | −0.48 | *** | CoT loop 尖峰更低 |
-| | `neg_peak` | −2.398 | −2.356 | +0.042 | 0.06 | ns | |
-
-> **Summary:** CoT affects both the slow RSN state and its fast residual. During pre-commit answer formation, CoT increases residual magnitude and variability (`abs_mean` `d_z`=0.42; `std` `d_z`=0.63). The larger negative extreme is exploratory and requires length-matched quantile analysis. After commitment, this CoT−No-CoT variability difference reverses, with lower residual variability during post-commit and loop-tail stages. This reduction co-occurs with faster slow-state release and shorter loop tails, but does not independently establish the same mechanism. The present results establish **stage-dependent fast RSN dynamics**, not yet an event-locked or dopamine-specific phasic signal. Two clarifications: (i) the post-commit reversal is of the *CoT−No-CoT variability gap*, not a sign flip of `p_t` itself; (ii) "negative-tail-heavy" is not yet "downward-skewed" — true skew (skewness / |q01|−|q99| / neg-vs-pos excursion ratio) has not been computed. Peak effects require length-matched validation, and `p_t` remains sensitive to EMA lag and the choice of β.
->
-> **與 dopamine 的關係（弱、候選）**：`CoT → process engagement / intermediate updating 增強 → fast residual variability 增強 → commit 後快速釋放並降低 churn`，與 process salience / cognitive updating / commitment-related phasic-**like** dynamics 相容。但 GSM8K 無 reward feedback → **不能解讀為 RPE**;未做 event alignment → **不能證明是 salience burst**。升級為 **Event-Locked Phasic-Like Component** 前須通過：semantic event alignment;position / token-class matched pseudo-events;length-matched quantile analysis;`β ∈ {0.90, 0.95, 0.98}` 與其他 baseline estimator 的 sensitivity;**NMD mask vs random mask（RSN-specificity 對照,接 Phase 1b `diff_random_*` 主線）**;multiple-comparison（FDR）校正。
-
-**圖**：`fig42_step3_phasic.png`（三階段並排 `p_t` 均值帶）。**注意**：主效應在 **dispersion（`std` / `abs_mean`）而非 mean**，故均值帶兩條在 pre-commit 大致重疊是**預期**的——本圖只示 mean 軌跡（可見 launch 負向瞬態、post-commit CoT 更負、loop tail 初段深谷），幅度差異須看上表 `std` 欄。**待補主效應圖**：paired `abs_mean` / `std` 分布（或每題 CoT−No-CoT paired difference），不再只依賴均值軌跡。分析腳本：同 `analyze_cot_step3_slow.py`（`report_phasic_stages` 出本表，隨主程序打印）。
-
-#### Step 4：Wanting–Confidence Relationship
-
-**基座警示（load-bearing）：wanting 與 output-distribution confidence 建在不同基座,不同圖、不同表,不可疊。** wanting（Step 2/3 的 `s_t`/`p_t`）= **中層 HS · 稀疏 NMD mask**（約 0.5% 神經元）的投影;本節的 confidence proxy（entropy / top1 / margin / info_gain）= **最終層 HS → RMSNorm → 全 lm_head → 全 128k vocab softmax,無 mask** 的真實 next-token 輸出分布。這些指標衡量的是 next-token distribution 的集中程度 / decisiveness,不是模型對最終答案正確性的 epistemic confidence。本節只報 confidence-proxy 軸;wanting 的數字從 Step 2/3 引用,用於下方 dissociation 判定,不重新入本表。
-
-**窗口口徑：Prefill 快照 + pre-commit 內 Q1–Q4。** 每題先用第一個 `####`（或 answer-candidate fallback）截出 pre-commit span,再在其內部四等分 Q1–Q4。**不用全 decode 固定百分位**:97% 樣本撞 max_new_tokens、尾段是 `#### N …` 死循環,固定 Late 75–100% 會測到 loop 而非 answer convergence。Prefill 單獨畫在 decode 之前。paired（同 300 題,index 對齊）、`d_z`、bootstrap 95% CI、Wilcoxon;pre-commit 主分析限於兩組都有有效 commit 的交集 n=203（median pre-commit 長度 No-CoT 120 / CoT 214 tokens）。因此結果描述的是 **both-condition committed subset**,不能直接外推至無有效 commit 的失敗樣本。
-
-**主結果:output-distribution confidence proxies 分窗 CoT−No-CoT。**
-
-| Metric | Prefill | Q1 (launch) | Q2 | Q3 | Q4 (convergence) |
-|---|---:|---:|---:|---:|---:|
-| entropy | **+0.340** (0.64)*** | **−0.247** (−0.71)*** | −0.146 (−0.53)*** | −0.129 (−0.41)*** | −0.177 (−0.55)*** |
-| top1 | −0.025 (−0.23)** | **+0.054** (0.60)*** | +0.031 (0.41)*** | +0.028 (0.32)*** | +0.041 (0.44)*** |
-| margin | −0.020 (−0.16)* | **+0.065** (0.53)*** | +0.035 (0.34)*** | +0.034 (0.29)*** | +0.055 (0.41)*** |
-| info_gain | — | −0.026 (−0.10)*** | −0.001 (−0.01) ns | −0.002 (−0.01) ns | +0.002 (0.01)*** |
-| roll_std | — | −0.019 (−0.44)*** | −0.024 (−0.44)*** | −0.019 (−0.32)*** | −0.027 (−0.44)*** |
-
-（每格 = ΔCoT−No (`d_z`) 顯著;info_gain / roll_std 無 prefill 快照,故 Prefill 欄留空。實際共有 **23 個可檢驗比較**:entropy/top1/margin 各 5 個窗口,info_gain/roll_std 各 4 個窗口。entropy/top1/margin 與 roll_std 的主要 pre-commit 效應在 FDR 校正後穩定;info_gain Q2–Q4 的 `d_z`≈0.01,即使 raw p 顯著也屬 **practically null**,不作實質解讀。）
-
-**讀法:**
-
-1. **Prefill 與 pre-commit 方向相反,不是矛盾。** 任務入口 CoT entropy **更高**、top1/margin **略低**(d_z≈−0.2)——CoT 準備展開推理,入口不急於確定;一旦進入推理段(Q1 起),CoT entropy 全程更低、top1/margin 全程更高,即輸出分布**更 decisive**。
-2. **效應最強在 Q1(launch),Q2–Q4 衰減但不消失。** entropy Q1 d_z=−0.71 → Q3 −0.41;top1 Q1 0.60 → Q3 0.32。這與「discriminative window 主要在啟動段」一致,但 CoT 的 decisiveness **貫穿整個 pre-commit,並非只是短暫啟動效應**。不過 Q1–Q4 是每個回答自身的 length-normalized quartile,而 CoT pre-commit 明顯更長;「launch 最強」仍須用 Step 5 的 absolute decode-step trajectory 排除時間拉伸效應。
-3. **`roll_std` 全程更低(d_z≈−0.44):** CoT 的 top1 波動更平穩,與 entropy↓ 同向;它是 confidence-proxy 的 temporal variability,不是獨立的 confidence 構念。
-4. **`info_gain` 幾乎全程 null:** 只有 Q1 有可忽略的小效應(d_z=−0.10),Q2–Q4 `d_z`≈0——per-step entropy change 對 CoT/No-CoT 不敏感,主要效應體現在 distribution level(entropy/top1/margin)與 top1 variability(roll_std),不在增量。
-
-> **與 dopamine 的關係(dissociation 判定)。** wanting(Step 2 `s_t`)與 confidence proxy 在 CoT 下**同向增強**(wanting `Z_prefill` d_z=0.89 / `s_early` d_z=0.83;Q1 top1 d_z=0.60),但這只是兩個不同基座對 CoT 的共同響應,不能證明 wanting 與 confidence 是同一量或存在直接因果關係。當前最直接的 dissociation 證據來自 §4.3 persona comparison:role prompt 移動 wanting,而 entropy/top1/margin/info_gain 全程無顯著差異。這是 **prompt-manipulation evidence**,不是 α intervention。只有在 α-steering 條件下以同一套 confidence 指標確認「wanting 隨 α 移動而 confidence 不動」,才能把它升級為 causal dissociation。本節本身只證明 **CoT 同時提高 wanting 與 output decisiveness**,不證明 wanting=confidence。
-
-> **口徑注意(避免與舊記錄打架):** CLAUDE.md 曾記「CoT top1 Q1→Q2 變號(+0.32→−0.21)」——那是**全 decode 固定百分位 μ** 口徑;本表是 **pre-commit 內 quartile** 口徑,top1 全程為正(+0.054→+0.031→…→+0.041),不變號。兩者窗口定義不同,不衝突;本節採 pre-commit 口徑(避開 loop 污染)。
-
-**圖**：`fig42_step4_confidence.png`（5-panel:entropy / top1 / margin / info_gain / roll_std,各畫 Prefill + pre-commit Q1–Q4 的 CoT vs No-CoT 兩線,`***` 標顯著 quartile）。**confidence 軸單獨一張,不與 wanting `s_t`/`p_t` 疊**（不同基座）。圖中可見:Prefill(灰阴影)CoT entropy 高、top1 低,兩線交叉;Q1 起 CoT entropy 全程更低、top1/margin 更高、roll_std 更低;info_gain 除 Q1 外兩線重合。**分析腳本**：`analyze_cot_step4_confidence.py`（讀 `metrics_gsm8k_8B_{nocot,cot}_ema0.95_L11-20.json`,pre-commit commit 定位複用 `analyze_wrong_right_commit.py` 的 `char_to_step`/`commit_char`,paired Q1–Q4 + Prefill;`roll_std` 為 top1 的 window=10 滾動標準差,現算）。
-
-#### Step 5：Two Time Axes
-
-**目的:sanity check,不是新指標。** 同一個 wanting 信號 `s_t`(中層 HS·NMD mask → Z → 單條 full-decode EMA,seed=decode[0],**非 prefill-seeded**),畫在兩個時間軸上,檢驗 Step 2「CoT 抬高 early wanting」是不是 length-normalization 造出來的假象。
-
-**三面板(`fig42_step5_timeaxes.png`):**
-
-1. **(A1) length-normalized — PRE-COMMIT(主圖,loop-free):** 每題 `s_t` 在 pre-commit span(0 → 1st `####`)內歸一化到 0–100%(No-CoT n=242 / CoT n=247)。
-2. **(A2) length-normalized — FULL decode(診斷):** 同樣歸一化但跨全 decode(0 → end,n=300)——展示 late % 是 loop,不作主讀。
-3. **(B) absolute decode-step — 前 100 tokens(不歸一化):** 檢驗 early gap 是否 real。
-
-Prefill 畫成 decode 前的單一 ◆ 點,**不 folded 進 EMA**(No-CoT Z=0.000 是 reference 定義;CoT Z=+0.158)。band = bootstrap 95% CI(per-condition unpaired,與 Step 3 軌跡圖同口徑;paired 顯著性在 Step 2/4 表)。
-
-**結果:**
-
-- **(A1) CoT 整條 pre-commit `s_t` 明顯高於 No-CoT,CI 帶全程不重疊**(CoT ≈ +0.35 vs No-CoT ≈ 0,0–100% 貫穿)——確認 Step 2 的 tonic 抬高不是 late-window 或 loop 效應。
-- **(A2) 兩條在 ≈40% 後暴跌至 −1.5 附近**——這是 max_new_tokens loop 尾巴(97% 撞 cap),**證實全 decode 固定百分位的 late 窗口測的是死循環,不是 answer convergence**,呼應 §4.2 audit 與本 Step 4 不用固定 Q4 的決定。
-- **(B) absolute 軸上 CoT 從第 0 步即領先,gap 全程維持並擴大**(前 25 步 `s_t`:No-CoT 0.064 / CoT 0.261,**ΔCoT−No = +0.197**;No-CoT 隨步數下滑而 CoT 保持高位)。**early 差異在絕對軸真實存在 → 不是 CoT 回答更長、歸一化壓縮造成的假象。**
-
-> **小結:** Step 2 的 early wanting gap 在 length-normalized(pre-commit)與 absolute(前 100 tokens)兩個軸上都成立,且 full-decode % 圖獨立證實 late-% 是 loop 污染——確立「CoT 抬高 task-entry / 早期 tonic wanting」為 robust,而非時間軸口徑的產物。
-
-**分析腳本**：`analyze_cot_step5_timeaxes.py`（複用 `phase1_gain` 的 `sample_aggregate`/`four_part` + `analyze_wrong_right_commit` 的 commit 定位;pre-commit / full / absolute 三軸,Prefill 單點）。
+**Stage 結論（load-bearing）。** entropy/top1/margin 的 CoT−No-CoT 效應**只在 pre_commit 可穩定判讀**（d_z=0.66–0.83）；進入 post_commit 後掉到 ns，loop_tail 只剩 |d_z|≈0.10 的殘量。主要原因是**測量飽和**：degenerate `#### N #### N` loop 內 top1≈0.98、entropy≈0.12，已無足夠 dynamic range。post/loop 的星號多半只反映 saturation 附近的細微變動，**不是可解讀的 confidence 效應**（info_gain post_commit 的負值來自 loop 內近零 surprise；roll_std 則反映趨近飽和天花板時的方差收縮）。因此本節確認的是 **pre-commit output-decisiveness effect**。同一 stage boundary 下，wanting 在 commit 後仍可測，而 confidence proxy 已失去分辨力；這是兩套讀數的 **measurement contrast**，但不能單獨作為 construct dissociation 的證據。
 
 
-### 最终要回答的核心问题
+#### Integrated Interpretation
 
-1. CoT 是否在进入 generation 前就改变 `G_prefill`？
-2. CoT 的主要影响落在 slow dynamics 还是 fast phasic residual？
-3. 差异集中在 early decode，还是贯穿整个回答？
-4. RSN wanting 与 confidence 是耦合还是可分离？
-5. 这些内部变化能否与已有的 CoT accuracy gain 和 stepwise structure 对应？
+1. **Task entry:** CoT 在 generation boundary 前已提高 RSN gain（`G_prefill d_z`=0.59；`Z_prefill d_z`=0.89）。
+2. **Answer formation:** CoT 在 pre-commit 維持較高 slow RSN level，且 fast residual dispersion 較強。這支持 sustained process engagement；effect 以 level 為主，但仍有較弱的 shape difference。
+3. **Commitment and release:** C1 後兩組共同進入 slow-state decline；CoT 的 post-commit release 較快。C1/C2 的 fast transition 尚不能排除 `####` / answer-format effect，因此只稱 commitment-centered residual transition。此階段的 confidence proxy 已接近格式循環造成的飽和，不能用來判斷 release 是否伴隨 confidence change。
+4. **Stopping failure:** loop tail 會反轉 full-decode trajectory；CoT tail 較短且 residual variability 較低，但這是 stopping diagnostic，不作正常 reasoning 或 dopamine level 的主結論。
+5. **Wanting vs confidence:** CoT 在 pre-commit 同時提高 RSN engagement 與 output decisiveness，證明兩軸會被同一 prompt manipulation 共同調制；但兩者使用不同表徵基座，且 post-commit confidence proxy 飽和，因此本節既不證明兩者是同一構念，也不構成 dissociation 或直接因果證據。較乾淨的 dissociation 來自 §4.3 persona comparison；causal dissociation 仍需 α intervention 下的同軸檢驗。
 
-这版不把 correctness subgroup 当主轴，能够保持 CoT 与 No-CoT 的完整、对称比较。
+整體而言，CoT 的最強 RSN 證據是 **task-entry gain + sustained pre-commit engagement + post-commit release**；confidence control 則只支持 **pre-commit output decisiveness 提高**，commit 後不作實質解讀。Fast residual 與 process salience / cognitive updating / commitment-related phasic-like dynamics 相容，但仍缺 event specificity 與 random-mask controls；Dopamine-specific 的主要因果證據仍需來自 α intervention、dose-response 與行為學實驗。
+
+#### Figures and Analysis Files
+
+| Figure | Role |
+|---|---|
+| `fig42_5panel_s_t.png` | C1/C2-centered 與三階段 lifecycle 的 slow RSN 主圖 |
+| `fig42_5panel_p_t.png` | 同一時間框架下的 fast residual；主看 dispersion 與 marker transition |
+| `fig42_5panel_entropy.png` / `fig42_5panel_top1.png` | 獨立 confidence-proxy controls |
+| `fig42_B_lifecycle.png` | C2 / full loop contamination 診斷 |
+| `fig42_step2_shape_test.png` | pre-commit level-vs-shape robustness |
+
+分析腳本：`analyze_cot_step2_tonic.py`、`analyze_cot_step3_slow.py`、`analyze_cot_step4_confidence.py`、`analyze_cot_5panel.py`、`analyze_cot_figB_lifecycle.py`。
 
 ### 4.3 Persona
 
