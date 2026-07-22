@@ -484,13 +484,15 @@ Confidence 現以**與 wanting 相同的三段切分**（pre-commit / post-commi
 | Z_prefill | +0.284 | **+3.17** | *** |
 | boundary_jump_Z | −0.265 | −0.54 | *** |
 
-Prefill 處 expert 方向的 gain 極大（d_z>2.8）；但 `boundary_jump` 為**負**：expert 在 prefill 已高，進 decode 時跳得反而小（non_expert 靠 boundary jump 追上）。效應集中於入口。**口徑警示**：NMD mask 本身即來自 Expert−Non-expert contrast（MMLU），因此這一步更接近**跨任務 manipulation check**（方向從 MMLU 泛化到 GSM8K），而非完全獨立的新發現。
+Prefill 處 expert 方向的 gain 極大（d_z>2.8），效應集中於入口。`boundary_jump_Z = Z_0 - Z_prefill` 的 contrast 為負，表示兩組進入 decode 時的差距縮小；但此量與 `Z_prefill` 存在代數耦合，不能獨立解讀為補償機制。**口徑警示**：NMD mask 本身即來自 Expert−Non-expert contrast（MMLU），因此這一步更接近**跨任務 manipulation check**（方向從 MMLU 泛化到 GSM8K），而非完全獨立的新發現。
 
-**(2) Stage RSN：進入 decode 後效應幾乎消散。** pre_commit slow `s_t mean` Δ=−0.066、**d_z=−0.10、ns**——prefill 的大 gap 到 pre-commit slow state 已不顯著（圖中 commit 前甚至 Non-expert 略高）；pre_commit fast `p_t` dispersion（abs_mean d_z=−0.15、std d_z=−0.17，expert 略低）為小而顯著；post_commit / loop_tail 基本全 ns。可保留一個**候選解釋**（不作正式結論）：non-expert 的低 task-entry gain 進入生成後觸發某種 compensatory engagement；但當前差異不顯著。
+**(2) Stage RSN：進入 decode 後效應幾乎消散。** pre_commit slow `s_t mean` Δ=−0.066、**d_z=−0.10、ns**——prefill 的大 gap 到 pre-commit slow state 已不顯著；pre_commit fast `p_t` dispersion（abs_mean d_z=−0.15、std d_z=−0.17，expert 略低）為小而顯著；post_commit / loop_tail 基本全 ns。因此主結論限於 **persona 未形成 sustained answer-formation RSN difference**，不由局部曲線推断 compensatory engagement。
 
 **(3) Confidence stage controls（pre-commit，同 boundary，n=194）。** entropy Δ=+0.057 **d_z=+0.35\*\*\***、top1 d_z=−0.27\*\*\*、margin d_z=−0.22\*\*。**正確表述不是「persona 不影響 confidence」，而是一個方向性分離**：expert persona 大幅拉高 task-entry RSN gain，卻**未**帶來更高的 pre-commit output decisiveness，若有變化反而是**弱反向**（expert 略不 decisive）。post/loop 飽和僅作診斷。
 
 **(4) Pseudo-event control。** 對齊到隨機內部步時，commit 處的 sharp `s_t` 斷崖**消失**（Panel D 平緩），證明主圖 commit transition 是 **event-localized**。但目前只能稱為 **`####`-specific / answer-marker transition**，尚未排除 token class 與 answer-format transition，因此**不能**直接命名為 cognitive commitment signal。
+
+> **Open question — commit-proximal reversal.** C1-centered curves visually suggest that Non-Expert may show lower entropy / higher top1 near C1 and a deeper post-commit `s_t` release. However, the plotted valid-sample sets are not identical（Expert n=219；Non-Expert n=236），and the paired full pre-commit `s_t` effect is already small and non-significant（`d_z`=−0.10）。Confirming a local reversal requires paired `d_z` / bootstrap CI on the common-valid subset over `[−50,−10]`、`[−20,0]` 與 `[0,+20]` windows. Until then, this pattern remains a candidate observation rather than an independent positive claim.
 
 **(5) Same-time boundary 對照（最乾淨的檢驗，prefill 同一時刻，paired Exp−Non）。** 用 metrics JSON 已存的 `*_prefill` 標量，在**同一 prompt token 上同一時刻**比較 RSN gain 與 output confidence：
 
