@@ -3,11 +3,6 @@
 
 ## 1. Active TODO
 0. 直接看Cot在neurons上的改变 copy过去的结果
-1. 补充alpha的结果
-2. **Trajectory 曲線** — 改用差值（diff）看看。 -> 更符合多巴胺的应该是差值
-3. **Capitulation** — 這部分先不要放，之後再考慮是不是要直接 Generation 看看（可能可以找到 reflection？）。主要原因是上升和下降都會有合理的解釋 → 可能可以用來分析 Llama3 和 Qwen3 的不同。
-
----
 
 ## 2. Dopamine-Relevance Tiers (experiment triage)
 
@@ -31,8 +26,6 @@
 | **Willingness / Confidence self-report (0–9)** | 口头自评 = PFC 认知评估，理论上是错的 proxy（Berridge wanting 是非意识的）；数据也证实 willingness −4 反向。保留为负控，不是 wanting 证据 |
 | **TruthfulQA / FACTOR / HaluEval** | 测 over-wanting → hallucination 的副作用，不是 wanting 强度本身 |
 | **CGT / IGT** | 概率透明赌博，是 betting 的 confidence-confound 对照控制，本身也测 risk-taking——相关，但定位是"排除混淆"而非"主证据" |
-
----
 
 ## 3. Benchmark Tiers and Pending Extensions
 
