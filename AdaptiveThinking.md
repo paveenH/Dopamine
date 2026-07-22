@@ -472,40 +472,59 @@ Confidence 現以**與 wanting 相同的三段切分**（pre-commit / post-commi
 
 ### 4.3 Persona
 
-**只比較 Expert vs Non-Expert**（α=0、No-CoT、同 300 GSM8K questions、index-paired），沿用 §4.2 完整流程：task-entry gain → stage RSN（s_t/p_t 三段）→ confidence stage controls → commit-centered 主圖 + pseudo-event control + paired forest。contrast = Expert − Non-Expert（正 = expert 方向）。Persona 是 **prompt manipulation**；即使出現 wanting–confidence dissociation，也**不**視為 α intervention 的因果證據。腳本 `analyze_persona.py`，主圖 `fig43_persona_main.png`（C2-centered / lifecycle 進 Supplement）。
+只比較 **Expert vs Non-Expert**（α=0、No-CoT、同 300 GSM8K questions、index-paired），contrast = Expert − Non-Expert（正值表示 Expert 較高）。沿用 §4.2 的 task-entry、三階段 RSN、confidence control 與 commit-centered 流程。Persona 是 **prompt manipulation**，不是 α intervention；本節描述自然 state modulation，不提供 steering 的因果證據。分析腳本為 `analyze_persona.py`，主圖為 `fig43_persona_main.png`，C2-centered 與 full lifecycle 僅作 Supplement。
 
-**核心結論：persona 效應是一個 task-entry (prefill) 偏置，基本不進入 answer formation**——與 CoT（效應貫穿整個 pre-commit）形成鮮明對照。
+**核心結果：Persona 不是單一的高低位移，而是 temporal redistribution。** Expert 在 task entry 具有極高 RSN gain；進入 decode 後，此排序在 commitment formation 附近反轉為 Non-Expert `s_t` 較高，並在 commit 後表現為更快的 state release。這與 CoT 的 sustained pre-commit elevation 是不同的調制模式。
 
-**(1) Task-entry gain（最大效應所在）。** paired Δ(Exp−Non)：
+#### Task-Entry Gain and Same-Time Confidence
 
-| readout | Δ | d_z | |
+Paired Δ(Expert−Non-Expert)：
+
+| Readout @ prefill | Δ | `d_z` | Interpretation |
 |---|---:|---:|---|
-| G_prefill | +0.161 | **+2.81** | *** |
-| Z_prefill | +0.284 | **+3.17** | *** |
-| boundary_jump_Z | −0.265 | −0.54 | *** |
+| `G_prefill` | +0.161 | **+2.81** | Expert task-entry gain 大幅升高 |
+| `Z_prefill` | +0.284 | **+3.17** | layer-standardized 結果一致 |
+| `boundary_jump_Z` | −0.265 | −0.54 | decode 起點差距縮小；與 `Z_prefill` 代數耦合，不作獨立機制證據 |
+| entropy | +0.052 | +0.18 | Expert 略高 entropy |
+| top1 | −0.010 | −0.15 | 弱反向 |
+| margin | −0.010 | −0.12 | 弱反向 |
 
-Prefill 處 expert 方向的 gain 極大（d_z>2.8），效應集中於入口。`boundary_jump_Z = Z_0 - Z_prefill` 的 contrast 為負，表示兩組進入 decode 時的差距縮小；但此量與 `Z_prefill` 存在代數耦合，不能獨立解讀為補償機制。**口徑警示**：NMD mask 本身即來自 Expert−Non-expert contrast（MMLU），因此這一步更接近**跨任務 manipulation check**（方向從 MMLU 泛化到 GSM8K），而非完全獨立的新發現。
+同一 prefill token 上，RSN gain 的 effect size 約 `d_z=3`，output-distribution confidence proxy 則僅有 `|d_z|≤0.18` 的弱反向，支持 **task-entry RSN gain 不可化約為 output decisiveness**。但 NMD mask 本身來自 MMLU Expert−Non-Expert contrast，因此此結果主要是**跨任務 manipulation check**，不是完全獨立的發現。
 
-**(2) Stage RSN：進入 decode 後效應幾乎消散。** pre_commit slow `s_t mean` Δ=−0.066、**d_z=−0.10、ns**——prefill 的大 gap 到 pre-commit slow state 已不顯著；pre_commit fast `p_t` dispersion（abs_mean d_z=−0.15、std d_z=−0.17，expert 略低）為小而顯著；post_commit / loop_tail 基本全 ns。因此主結論限於 **persona 未形成 sustained answer-formation RSN difference**，不由局部曲線推断 compensatory engagement。
+#### Commit-Centered Paired Analysis
 
-**(3) Confidence stage controls（pre-commit，同 boundary，n=194）。** entropy Δ=+0.057 **d_z=+0.35\*\*\***、top1 d_z=−0.27\*\*\*、margin d_z=−0.22\*\*。**正確表述不是「persona 不影響 confidence」，而是一個方向性分離**：expert persona 大幅拉高 task-entry RSN gain，卻**未**帶來更高的 pre-commit output decisiveness，若有變化反而是**弱反向**（expert 略不 decisive）。post/loop 飽和僅作診斷。
+現有 C1 locator（首個 `####`；缺失時使用 answer-candidate fallback）下，Expert 有 219/300、Non-Expert 有 236/300 個 C1-analyzable responses；共同有效 194 題，Expert-only 25、Non-Expert-only 42、neither 39。Non-Expert 的 analyzable rate 高 5.7 percentage points，paired exact `p=0.0498`，屬邊界顯著的行為診斷。
 
-**(4) Pseudo-event control。** 對齊到隨機內部步時，commit 處的 sharp `s_t` 斷崖**消失**（Panel D 平緩），證明主圖 commit transition 是 **event-localized**。但目前只能稱為 **`####`-specific / answer-marker transition**，尚未排除 token class 與 answer-format transition，因此**不能**直接命名為 cognitive commitment signal。
+為排除原始 C1 圖兩組 valid-sample composition 不同，以下只在 common-valid questions 上，以每組自己的 C1 為中心計算完整 paired windows：
 
-> **Open question — commit-proximal reversal.** C1-centered curves visually suggest that Non-Expert may show lower entropy / higher top1 near C1 and a deeper post-commit `s_t` release. However, the plotted valid-sample sets are not identical（Expert n=219；Non-Expert n=236），and the paired full pre-commit `s_t` effect is already small and non-significant（`d_z`=−0.10）。Confirming a local reversal requires paired `d_z` / bootstrap CI on the common-valid subset over `[−50,−10]`、`[−20,0]` 與 `[0,+20]` windows. Until then, this pattern remains a candidate observation rather than an independent positive claim.
+| Window | Readout | Expert | Non-Expert | ΔExp−Non | `d_z` | p | Reading |
+|---|---|---:|---:|---:|---:|---:|---|
+| `[−50,−10]` | `s_t mean` | 0.114 | 0.241 | −0.126 | −0.247 | .023 | 較早的 pre-commit reversal，探索性 |
+| `[−20,0]` | `s_t mean` | 0.137 | 0.278 | **−0.141** | **−0.278** | **.0013** | Non-Expert commitment-formation state 較高 |
+| `[0,+20]` | `s_t slope` | −0.046 | −0.056 | **+0.009** | **+0.291** | **.0004** | Non-Expert post-commit release 更快 |
+| `[0,+20]` | `p_t abs_mean` | 1.039 | 1.130 | **−0.091** | **−0.248** | **.0016** | Non-Expert release transient 較強 |
+| `[−20,0]` | entropy | 0.482 | 0.439 | +0.043 | +0.167 | .010 | Non-Expert 較 decisive，但效應較弱 |
 
-**(5) Same-time boundary 對照（最乾淨的檢驗，prefill 同一時刻，paired Exp−Non）。** 用 metrics JSON 已存的 `*_prefill` 標量，在**同一 prompt token 上同一時刻**比較 RSN gain 與 output confidence：
+在 3 windows × 7 readouts 的 21 項 exploratory comparisons 中，經 BH-FDR 後最穩定的是三項：`[−20,0] s_t mean`、`[0,+20] s_t slope` 與 `[0,+20] p_t abs_mean`；較早的 `[−50,−10] s_t` 與 entropy effect 只作輔助。這證明 reversal 不是由 Expert n=219 / Non-Expert n=236 的樣本組成差異製造。
 
-| readout @ prefill | Δ | d_z | |
-|---|---:|---:|---|
-| G_prefill (RSN gain) | +0.161 | **+2.81** | *** |
-| Z_prefill (RSN gain) | +0.284 | **+3.17** | *** |
-| prefill entropy | +0.052 | +0.18 | ** |
-| prefill top1 | −0.010 | −0.15 | ** |
-| prefill margin | −0.010 | −0.12 | * |
+全 pre-commit 平均仍接近 null（`s_t mean d_z=−0.10, ns`），並不與上述結果矛盾：Persona effect **不是貫穿整段的固定 offset**，而是集中在 commitment formation 與 release，整段平均會將局部差異稀釋。Pre-commit fast-residual dispersion 只有小效應（`abs_mean d_z=−0.15`；`std d_z=−0.17`）；post-commit / loop-tail 的全階段均值大致為 null。
 
-同時刻 RSN gain 被拉到 d_z≈3，而 output confidence 弱反向（entropy↑）或可忽略（top1/margin d_z≈−0.13）；兩基座量級差一個數量級、方向相反，且與 pre-commit 全段方向一致（非窗口選擇產物）。這消除了 §4.3 早先「task-entry gain vs pre-commit 全段 confidence」的跨時間窗混淆，支持 **RSN gain ≠ sustained output decisiveness** 的 boundary-level 陳述。
+#### Event and Confidence Controls
 
-**與 CoT 的對比 = temporal and directional separation（暫不升級為「更乾淨的 dissociation」）。** CoT：task-entry gain → **sustained** pre-commit engagement（wanting↑ 且 confidence↑，兩基座同向）；Persona：task-entry gain → 進 decode 後**迅速消散**，甚至弱反向。共同結論：**RSN 對 task state 敏感，但只有某些 manipulation 會真正進入 reasoning dynamics**。因此 §4.3 對整個 project 的價值不在證明 dopamine，而在把 RSN 定位為 **task-entry state / gain readout**——prompt 在入口激活 RSN，並不必然代表持續的推理投入；dopamine 解釋仍主要依賴 §4.4 α dose-response 與行為學結果，而非 persona 本身。（Llama3-8B、GSM8K、α=0；圖 `fig43_persona_main.png` legend 位置微調後定稿，數字不變。）
+全 pre-commit confidence control 顯示 Expert entropy 較高（`d_z=+0.35`）、top1 / margin 較低（`d_z=−0.27 / −0.22`），方向上表示 Non-Expert 較 decisive；post-commit 與 loop-tail 受 `#### N #### N` saturation 污染，只作診斷。
+
+Random interior pseudo-event 不出現 C1 的 sharp `s_t` transition，說明變化是 event-localized；但 C2-centered 圖幾乎複製 C1，且兩者都伴隨 `####` / answer-format transition，因此目前只能稱為 **answer-marker-centered dynamics**，不能直接命名為 biological commitment signal。
+
+#### Integrated Interpretation
+
+Persona 呈現三段式結構：
+
+1. **Task entry:** Expert 具有極高 RSN gain，但沒有相應的 output decisiveness 增益。
+2. **Commitment formation:** 在 common-valid paired subset 中，Non-Expert 的 slow RSN state 反超。
+3. **State release:** Non-Expert 在 C1 後下降更快，fast-residual amplitude 也更大。
+
+這提供了 Non-Expert accuracy 高於 Expert（68% vs 58%）的一個候選機制：**較低的入口 gain、較高的 commitment-formation engagement，以及較快的 post-commit release**。但本節仍未證明這三個 readouts 中介 accuracy；確認中介路徑需要分析 Expert-Wrong → Non-Expert-Correct 的 discordant items，或進行 gain-matched `role × α` rescue/cancellation experiment。
+
+因此 §4.3 的主要貢獻是揭示 **Persona 與 CoT 具有不同的 temporal modulation profile**：CoT 形成 sustained process engagement；Persona 則重新分配 task-entry、commitment formation 與 release 的狀態。這支持 RSN 作為 dynamic state/gain readout，但 dopamine-specific 的因果證據仍主要來自 §4.4 α dose-response 與行為學結果。
 
 ### 4.4 α-Steering: A Linear Wanting Knob Driving Inverted-U Behavior
