@@ -738,3 +738,11 @@ CoT process  ×  α=−4 task-entry intervention
 | `fig45_fast_centered.png` | 四 cell C1-centered `p_t` 疊圖 |
 
 分析腳本：`analyze_cot_alpha.py`（`--part entry/slow/fast/confidence/all`）；raw stdout：`fig45_results.txt`；結果記錄：`fig45_SUMMARY.md`。DiD 的 verdict 標籤（additive/redundant/…）僅為量級比啟發式，非顯著性判定，不可單獨當結論。
+
+## 5. Conclusion
+
+本研究辨識出一組可調節 LLM reasoning state 的 **Role-Sensitive Neurons (RSNs)**。它們主要反映 task engagement、action readiness 與 commitment dynamics，而不是直接儲存知識或提升推理 capacity。觀察結果顯示，CoT、Persona 與 answer commitment 會以不同的時間模式調制 RSN state；其中 CoT 主要提高 pre-commit engagement，Persona 主要重組 task-entry、commitment formation 與 post-commit release 的時間分配。
+
+更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
+
+因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。後續仍需跨模型、跨任務與更具神經科學特異性的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
