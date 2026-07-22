@@ -528,3 +528,132 @@ Persona 呈現三段式結構：
 因此 §4.3 的主要貢獻是揭示 **Persona 與 CoT 具有不同的 temporal and representational modulation profiles**。CoT 在 pre-commit 同時提高 slow RSN engagement 與 output-distribution decisiveness，屬於較明顯的 **joint wanting–confidence modulation**；Persona 的主要效應則集中於 RSN/wanting 軸的時間重分配——從 task-entry gain、commitment-formation reversal 到 post-commit release。Persona 並非完全不影響 confidence：Non-Expert 在 pre-commit 略為更 decisive，但其效應明顯弱於 RSN gain，且較為局部。因此較準確的結論是：**CoT 同時調制 wanting 與 confidence，而 Persona 主要重組 wanting dynamics，並伴隨較弱的 confidence change。** 這支持 RSN 作為不同於 output confidence 的 dynamic state/gain readout，但 dopamine-specific 的因果證據仍主要來自 §4.4 α dose-response 與行為學結果。
 
 ### 4.4 α-Steering: A Linear Wanting Knob Driving Inverted-U Behavior
+Llama3-8B, GSM8K, No-CoT neutral, 9 α cells (−8…+8), V1 gain coords.
+Script: `analyze_alpha_dose.py` (`--part validity/slow/fast/confidence/integrated/mainfig`).
+Raw stdout: `fig44_results.txt`. Figures: `fig44_{validity,slow,fast,confidence,integrated,dose_main}.png`.
+
+口径 (沿用 §4.2/§4.3):
+- reference μ/σ 固定 = neutral α=0 No-CoT prefill.
+- dose 主曲线 (validity/integrated) 用各 α **全量** n=300.
+- 事件窗 (slow/fast/confidence) = **每档 α vs α=0 各自 common-valid paired** d_z (NOT 全 9 档共同交集 — 极端 α 会缩 n).
+- acc = **inline 184** (各 α 自己的 `correct` 字段); 不配 182 dose 表.
+- commit = 首个 `####` ∪ 首个 answer-candidate (char_to_step/commit_char, 同 §4.1/4.3).
+
+---
+
+## (1) Intervention validity — α 是线性对称 wanting knob
+
+| α | n | acc(184) | G_prefill | Z_prefill | boundary_jump_G |
+|---:|---:|---:|---:|---:|---:|
+| −8 | 300 | 40.7 | −13.8454 | −26.4543 | +13.0577 |
+| −6 | 300 | **79.7** | −10.2980 | −19.7427 | +10.5488 |
+| −4 | 300 | 74.3 | −6.8022 | −13.1072 | +6.9866 |
+| −2 | 300 | 68.3 | −3.3519 | −6.4887 | +3.4912 |
+| 0 | 300 | 60.0 | 0.0000 | 0.0000 | +0.1675 |
+| +2 | 300 | 55.3 | +3.2393 | +6.3403 | −3.0544 |
+| +4 | 300 | 51.3 | +6.3835 | +12.5583 | −6.2388 |
+| +6 | 300 | 51.7 | +9.4779 | +18.7204 | −9.4322 |
+| +8 | 300 | 49.7 | +12.5354 | +24.8320 | −12.4419 |
+
+> `acc(184)` = 各 α 自己的 inline `correct` 字段 (bs=1, 184 机), **不与 182 dose 表配** (CLAUDE.md 184-vs-182 坑); 信号列 (G/Z/boundary_jump) 为 n=300 全量. acc 与信号列同机同批, 只作 §4.4 内部 signal↔behavior 对齐. **acc 是倒U (离散峰 −6 = 79.7%), 而 G_prefill/Z_prefill 单调线性** — 一表并读即见「线性输入 → 倒U输出」的分离.
+
+- **G_prefill ~ α : slope=1.648, intercept=−0.296, R²=0.9992** (p=3.7e−12).
+- Z_prefill ~ α : slope=3.206, R²=0.9997.
+- **方向近对称, 负侧幅度略大**: asym(=+|a|与−|a|之和) 单调增 −0.11(|2|)→−0.42(|4|)→−0.82(|6|)→−1.31(|8|).
+- **boundary_jump 与 prefill gain 反向、量级相当** (+13→−12.4): decode 起点几乎抵消 prefill 注入 → H1 initial-condition/boundary-gating 在 dose 上成立.
+
+**结论**: α 是线性、方向近对称的 task-entry gain manipulation. (§4.2/4.3 无 dose 线性 → 这是 §4.4 独有.)
+
+---
+
+## (3) Slow RSN s_t — 倒U, 峰在 −6 (paired Δ = α−0)
+
+**pre-commit s_t level**:
+
+| α | n | mean(a) | Δ vs 0 | d_z | p |
+|---:|---:|---:|---:|---:|---|
+| −8 | 229 | −0.573 | −0.325 | −0.418 | *** (崩) |
+| **−6** | 291 | +0.260 | **+0.449** | **+0.584** | *** |
+| −4 | 298 | −0.033 | +0.154 | +0.228 | *** |
+| −2 | 298 | −0.122 | +0.065 | +0.143 | ns |
+| 0 | 298 | −0.186 | 0 | 0 | — |
+| +2 | 297 | −0.248 | −0.062 | −0.123 | ns |
+| +4 | 298 | −0.308 | −0.121 | −0.191 | ** |
+| +6 | 298 | −0.415 | −0.229 | −0.323 | *** |
+| +8 | 298 | −0.347 | −0.161 | −0.221 | *** |
+
+- **decode 内 slow s_t level 是倒U, 峰 −6 (d_z=+0.58\*\*\*)**, 两侧下降; −8 崩 (n↓229, 反向).
+- pre-commit relax (`end_minus_start`): +α relax 更多 (+4 d_z=−0.18\*\*\*); −6/−8 relax 更少.
+- **post-commit release: 除 −8(崩) 外全 ns** → α 主要动 pre-commit level, 不动 release dynamics.
+
+---
+
+## (4) Fast residual p_t — dispersion 只在 −6 升 (paired Δ = α−0)
+
+**pre p_t std**:
+
+| α | n | Δ vs 0 | d_z | p |
+|---:|---:|---:|---:|---|
+| −8 | 229 | −0.010 | −0.059 | ns |
+| **−6** | 291 | **+0.066** | **+0.452** | *** |
+| −4 | 298 | +0.026 | +0.176 | ** |
+| −2…+8 | | ~0 | \|d_z\|<0.09 | ns |
+
+- p_t dispersion (abs_mean/std) **只在 −6 附近显著升高**, 正 α 全 ns.
+- 与 §4.2 口径一致 (fast 主证据限 abs_mean/std, 极值不主读).
+- 再次把峰指向 −6: slow level / fast dispersion / acc 三者峰位一致.
+
+---
+
+## (5) Wanting–Confidence controls — ⚠ confidence 也倒U、峰 −6 (pre-commit, paired)
+
+| metric | −6 Δ | −6 d_z | +4 Δ | +4 d_z | 形状 |
+|---|---:|---:|---:|---:|---|
+| entropy | −0.174 | **−0.718\*\*\*** | +0.063 | +0.304\*\*\* | 倒U (−6 最确定) |
+| top1 | +0.039 | **+0.643\*\*\*** | −0.012 | −0.248\*\*\* | 倒U (−6 峰) |
+| margin | +0.048 | **+0.593\*\*\*** | −0.014 | −0.214\*\*\* | 倒U (−6 峰) |
+
+- **confidence 不是弱/非单调, 而是也倒U、峰在 −6** (−6 更确定, 正 α 更不确定).
+- **量级与 wanting 相当** (−6: s_t d_z=+0.58 vs top1 d_z=+0.64) — 不像 persona 差一个数量级.
+
+**载重结论 (诚实负结果)**:
+> §4.4 里 α **同时**提升 wanting (s_t) 和 output decisiveness (confidence), 两者同向共调、量级相当 —— 像 §4.2 CoT, **不是** selective wanting intervention.
+> 干净的 wanting–confidence 解离仍**只来自 §4.3 persona** (gain d_z≈3 vs confidence d_z≈0.15).
+> confidence 图/表画的是 pre-commit 段均值; post/loop 饱和不读 (§4.2).
+
+---
+
+## (6) Integrated — acc 倒U 由 slow s_t (非线性 prefill gain) 追踪
+
+| α | acc(184) | G_prefill | early_s_t |
+|---:|---:|---:|---:|
+| −8 | 40.7 | −13.85 | −0.405 |
+| **−6** | **79.7** | −10.30 | +0.055 |
+| −4 | 74.3 | −6.80 | −0.329 |
+| −2 | 68.3 | −3.35 | −0.404 |
+| 0 | 60.0 | 0.00 | −0.421 |
+| +2 | 55.3 | +3.24 | −0.433 |
+| +4 | 51.3 | +6.38 | −0.460 |
+| +6 | 51.7 | +9.48 | −0.550 |
+| +8 | 49.7 | +12.54 | −0.558 |
+
+- **acc = 倒U**: quadratic R²=0.352 ≫ linear R²=0.147 (a=−0.23<0). 二次拟合 peak≈−1.9 被 −8 崩溃点右拉; **离散峰在 −6 (79.7%)** = 上报值 (同 §4.0).
+- **acc vs G_prefill r=−0.37** (线性 prefill gain **不**追踪倒U — 符合预期).
+- **acc vs early_s_t r=+0.74** (decode 内 slow s_t 才追踪 acc 倒U).
+
+---
+
+## 机制链闭环 (§4.4 独有贡献)
+
+**α 线性推 task-entry gain (R²=0.999) → 但 decode 内 slow s_t 是倒U、峰 −6 → 正是 slow s_t (非线性 prefill gain) 追踪行为 acc 倒U (r=+0.74 vs −0.37).**
+即: 线性输入 → 倒U输出, 转折发生在 prefill→decode 之间 (boundary rebound 抵消线性注入, decode 动力学自行形成倒U).
+
+三失效区分 (Plan 第 6 步):
+- 正常范围 (−4…+2): adaptive calibration, s_t 随 α 单调微调.
+- 过低 α (−8): commitment-formation collapse — s_t 反向崩, commit marker 缺失 (n 229/300), 对应 §2.4 answer-candidate oscillation.
+- 过高 α (+6/+8): premature commitment — s_t 单调降, confidence 变差.
+
+## 待定 / 口径注记
+- slow/fast/confidence 三张 dose 图目前画 **mean(a) 绝对均值** (看形状); 显著性引 stdout 的 **paired Δ/d_z/p**. 若要严谨可改画 paired Δ.
+- fig44_dose_main.png (A) 图例只标 6 档; 补全 9 档或换 colorbar 待定.
+- −8 各指标 n 掉到 ~103–229 = under-wanting collapse, 正文需标注.
