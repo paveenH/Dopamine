@@ -31,8 +31,9 @@ SEEDS="1 2 3 4 5 6 7 8 9 10"
 for s in $SEEDS; do
   echo "==================== seed=$s ===================="
   # 1) build the mask (nmd.py appends _seed$s when seed != 42)
+  #    --logits => save under mask/llama3_non_logits (where NMD + seed42 live)
   python detection/nmd.py \
-    --mask_type diff_random --seed "$s" \
+    --mask_type diff_random --seed "$s" --logits \
     --model "$MODEL" --size "$SIZE" --type "$TYPE" --hs "$HS" \
     --percentage "$PCT" --start_layer "$LS" --end_layer "$LE" \
     --base_dir "$BASE_DIR"
