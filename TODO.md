@@ -1,60 +1,26 @@
 # TODO
----
+0. Trajectory：看一些没有平均的raw samples的曲线是什么样子 关注关键点（commit/answer）
+1. Trajectory：直接看Cot在neurons上的改变 copy COT的曲线
+2. Trajectory：预测commit，然后再commit前后进行干预；需要
+2. Trajectory：signal部分补充random-mask的对比
+3. Behaviour: 测一下焦虑和心理学量表
+3. Behaviour: 测一下和人类的行为学对齐关系
+4. RLHF: RLHF 和 dopamine 出現的關係：整理 Notion `Model Analysis; Hallucination & Origin -> 15. Origin Analysis`，看 post-training 是否 sharpen 了 decisiveness axis。
 
+# Follow-up
 
-## 1. Active TODO
-0. 直接看Cot在neurons上的改变 copy过去的结果
-1. 测一下焦虑和心理学量表
-
----
-## TODO
-
-排序原則：先驗證 RSN/dopamine signal 本身，再看 α=-4 為什麼有效，最後才做 router、reasoning model 和大 benchmark。
-
-1. expert vs non-expert vs neutral (non-cot)：看RSN curve是不是有差異 ✔
-2. expert vs non-expert vs neutral (non-cot)： Other metrics & Random mask ✔ 
-3. 更新Expert的設定 + 多指標分析 neutral (cot & non-cot)
-
-1. Validate dopamine signal proxy: selected RSN vs random projection, CoT vs No-CoT.
-
-2. Validate dopamine signal proxy: selected RSN vs random projection, expert vs non-expert vs neutral.
-
-3. 功能神經元 baseline：用 Language-sensitive / Emotion-sensitive neurons 做對比，檢驗 role-sensitive neurons 的獨特性和必要性。
-
-4. Check Llama3-8B curves under static α=-4 / α=+4，對比 α=0、CoT、No-CoT。
-
-5. 提前干預 / prefill intervention：比較 last prefill token、decode step 0、decode-time 全程注入；看曲線和 acc 是否不同。
-
-6. Multi-metric tracking：除了 RSN activation，也同步收集 MSP / confidence logit、entropy、constrained entropy、logit margin、E-option logit / abstention probability。
-
-7. Calibration on RSN-steered outputs：算 ECE / Brier / AUROC，檢查 α steering 是否造成 unwarranted certainty。
-
-8. Probe validation：分開做 knowledge probe 和 commitment / decisiveness probe，確認 RSN 主要改的是 knowing 還是 willingness-to-act。
-
-9. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
+0. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
    - RSN features: x_prefill, RSN projection mean / variance, middle-layer RSN activation, role-sensitive direction projection, first 5-10 decode token RSN slope
    - uncertainty features: MSP, entropy, constrained entropy, logit margin, E-option logit / abstention probability
+   - frequency/dynamic features（參考 ICLR2026 Balanced Thinking）: step-level confidence variance, local fluctuation，用來區分 overthinking / underthinking
+   - info-theoretic features（參考 NIPS2025 Think or Not）: InfoBias, InfoGain，先作 diagnostic / baseline，不急著當主控制器
    - baselines: entropy threshold, MSP threshold, answer logit margin, question length, random routing, always CoT, always No-CoT
 
-10. 加入 frequency feature：參考 ICLR2026 Balanced Thinking，用 step-level confidence variance / local fluctuation 區分 overthinking 和 underthinking。
+1. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
 
-11. 加入 InfoBias & InfoGain：參考 NIPS2025 Think or Not，先作為 diagnostic / baseline，不急著變成主控制器。
 
-12. Base model & reasoning model：先做 Llama3-Base vs Llama3-IT；reasoning model 等前面 signal / intervention 站穩後再做。
 
-13. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
-
-14. RLHF 和 dopamine 出現的關係：整理 Notion `Model Analysis; Hallucination & Origin -> 15. Origin Analysis`，看 post-training 是否 sharpen 了 decisiveness axis。
-
-15. Benchmark scale-up：數學推理先做 AIME24、AIME25、AMC23、MATH-500、Minerva、OlympiadBench；再考慮 GPQA-D、LiveCodeBench。
-
-MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
-
-与正确答案之间的互信息
-
-## 6. Reference: candidate anxiety / mental-health benchmarks
-
-（为「α+ → over-wanting / anxiety」一侧寻找直接 state self-report 探针时的候选清单。）
+# Reference: candidate anxiety / mental-health benchmarks
 
 | Benchmark / Scale | # Items / Samples | What It Tests | Why It May Be Useful Here | Source |
 |---|---:|---|---|---|
@@ -70,11 +36,9 @@ MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
 | **IMHI / MentaLLaMA benchmark** | 100K+ instruction-style mental-health samples | Mental-health intent / risk / support / diagnosis-style tasks | Useful for testing whether α changes mental-health reasoning or safety behavior | [MentaLLaMA paper/project](https://arxiv.org/abs/2309.13567) |
 | **eRisk** | Yearly shared-task datasets; size varies by task/year | Early risk detection for depression, self-harm, anorexia, etc. | Good for longitudinal mental-health detection, but less directly tied to anxiety-like model state | [eRisk overview](https://erisk.irlab.org/) |
 
----
+# Brain
 
-## 五、方向 B：人腦 RSA
-
-### B1. 理論框架
+## B1. 理論框架
 
 **RSA（Representational Similarity Analysis）核心邏輯：**
 1. 給模型和人腦看同樣刺激
@@ -83,11 +47,9 @@ MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
 
 **我們的預測**：RSN Δh 方向上的 RDM 應與 **ventral striatum / vmPFC** 相關，而與語言區（Broca / Wernicke）不相關。這直接說明 RSN 操縱的是 reward 表徵，不是語言表徵。
 
----
+## B2. 兩條執行路徑
 
-### B2. 兩條執行路徑
-
-#### 路徑 A：公開 fMRI 數據 + RSA（1–2 個月）
+### 路徑 A：公開 fMRI 數據 + RSA（1–2 個月）
 
 **推薦數據集：**
 
@@ -105,74 +67,43 @@ MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
 
 **關鍵挑戰**：LLM 刺激（MCQ 題目）和 fMRI 刺激（賭注任務）的對齊——需要設計一批「LLM 和人腦都能做」的共享刺激集。
 
-#### 路徑 B：行為層次對齊（1–2 週，不需要 fMRI）
+### 路徑 B：行為層次對齊（1–2 週，不需要 fMRI）
 
-找已發表的人類行為數據（帕金森 vs 健康人 vs amphetamine 組的 Cambridge Gamble / Iowa Gambling Task），做定量比對：
+找已發表的人類行為數據（帕金森 vs 健康人 vs DA-agonist 組的 Cambridge Gamble / Iowa Gambling Task），與我們的 α 劑量比對：
 
 | 組別 | 人腦 DA 狀態 | 預測對應 α |
 |---|---|---|
-| 帕金森患者 | 低 tonic DA | α=−4 |
-| 健康控制 | 正常 DA | α=0 |
-| DA 激動劑組 | 高 DA | α=+4 |
+| 帕金森未服藥 | 低 tonic DA | α<0 |
+| 健康控制 | 正常 DA | α≈0 |
+| DA 激動劑 / L-Dopa ON | 高 DA | α>0 |
 
-計算我們的 α=-4/0/+4 行為向量和這三組人的行為向量的相關係數。
+#### 文獻偵察結論（2026-07-23，已查）
 
-**可用公開數據**：
-- [617人 Iowa Gambling Task 數據](https://openpsychologydata.metajnl.com/articles/jopd.ak)（純行為，完全公開）
-- 帕金森 CGT 文獻（Djamshidian et al. 2010 等，有公開行為數據）
+**① 方向學高度一致（可寫，定性）。** 人類 DA 藥理學在 gambling task 上的方向與我們的 α 預測完全對齊：
+- α+ (高DA) → 更衝動 / 早承諾 / delay aversion↑：Multiple Modes 2013（高 levodopa 劑量 → delay aversion↑）；Cools 2003（L-Dopa ON → 理性決策但衝動下注）；Riba/Pizzagalli 2008（pramipexole → boost 後保守傾向消失，更 reward-seeking）。**直接對上我們 CGT-Sequential 的 α+ → accept_step↓ / DAI 展寬。**
+- α− (低DA / 未服藥帕金森) → risk-averse / 保守；DA 治療才轉向 risk-taking。
 
----
+**② 嚴格「三組行為向量相關係數」做不了。** 查過的三篇關鍵文獻都沒有可對齊的 trial-level 或乾淨組均值表：Riba 2008 只報聚合百分比（placebo 47% vs pramipexole 49%，n.s.，核心效應在 boost 試次，無 mean bet/SD）；Multiple Modes 2013 只有 patients-vs-controls 總體、無 ON/OFF 分組、無 CGT 子量表 mean/SD；Cools 2003 結論為文字性。→ 缺三組可比數值向量，原設想的相關表無法計算。
 
-### B3. 預期結論層次
+**③ 落地形態改為「藥理學方向定性對齊」**：一段 correspondence-to-human-DA-pharmacology 敘述 + 一張定性對照表（未服藥帕金森↔α−；agonist/L-Dopa↔α+；我們的 α 在 CGT-seq / IGT 上再現人類 DA 方向）。夠撐 EMNLP/NeurIPS discussion 一節，但為定性方向複現，非定量 RSA。措辭停在行為層，勿跳神經層。嚴格定量須寫信向作者（Cools / Djamshidian 組）要 raw data（合作級，非 1–2 週自辦）。
 
-| 結果 | 投稿目標 |
-|---|---|
-| 行為層次對齊成立 | EMNLP / NeurIPS |
-| + 公開 fMRI RSA（striatum > Broca） | Nature Machine Intelligence / PNAS |
-| + 合作設計共享刺激集 + neural encoding | Nature Neuroscience / Neuron |
+#### ★ 可做的定量版本：用 Steingroever 617人常模校準 α 軸零點
+
+反過來用「只有健康人常模」這個限制：掃 α∈{−8…+8}，看哪個 α 的 IGT 行為**分布**與 617 名健康人最接近。
+- 若最佳對齊 α≈0 → **數據驗證**出 α=0 baseline = 人類正常 DA 水平（比「假設 α=0=健康人」強），順勢錨定 α−=帕金森方向、α+=agonist 方向，間接補上缺的兩組。
+- 對齊在分布層做：主讀數 = 逐 block 學習曲線（net_block1–5，形狀 RMSE/相關）或 net_score 整體分布（KS / Wasserstein）。指標口徑與 `analyze_igt.py` 一致（net_score / net_block / deck preference = IGT 標準指標，與 Steingroever 可比）。
+- **關鍵前提（待確認）**：須挑 Steingroever 中用**經典 Bechara 100-trial payoff scheme** 的子集（我們的 IGT 是這個），否則學習曲線不可比；並確認其提供 trial-level 選牌序列（才能算 block 曲線）。
+- 零 GPU（IGT 各 α 數據已有）、零合作門檻（公開可下載）。措辭：「α axis 的行為零點與人類健康常模一致」，勿 over-claim 到神經層。
+
+**可用公開數據 / 文獻**：
+- [617人 Iowa Gambling Task 數據（Steingroever et al.）](https://openpsychologydata.metajnl.com/articles/jopd.ak)（純行為，完全公開；健康常模，用於零點校準）
+- Riba, Krämer, Heldmann, Richter, Münte (2008) *Dopamine Agonist Increases Risk Taking but Blunts Reward-Related Brain Activity*, PLOS ONE — [PMC2423613](https://pmc.ncbi.nlm.nih.gov/articles/PMC2423613/)
+- *Multiple Modes of Impulsivity in Parkinson's Disease* (2013), PLOS ONE — [10.1371/journal.pone.0085747](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0085747)
+- Cools, Barker, Sahakian, Robbins (2003) — L-Dopa ON/OFF CGT（理性決策但衝動下注）
+- 帕金森 CGT/IGT 文獻（Djamshidian et al. 2010/2011；DBS ON/OFF delay aversion, PMC3439437）— 多為論文表格均值，非 raw data
 
 
-### C1. RLHF 階段拆解（最高優先）
-
-**實驗設計**：在每個模型上跑 Confidence Betting（最乾淨的指標）
-
-| 模型 | 訓練階段 | 預測 |
-|---|---|---|
-| Llama3-8B-Base | Pretrain only | mean_bet 對 α 不敏感，或方向反轉 |
-| Tülu-3-8B-SFT | Base + SFT | 部分敏感 |
-| Tülu-3-8B-DPO | Base + SFT + DPO | 完全敏感，模式接近 Llama3-IT |
-| Llama3-8B-IT | Full RLHF | 現有結果（anchor） |
-
-**第二個 SFT vs DPO 對照**：Zephyr-7B-α (SFT) vs Zephyr-7B-β (DPO)
-
-**若假設成立**：一張 4×3 表（model × α）就足以撐起 RLHF mechanism claim。
-
----
-
-### C2. RSN Mask 適配性驗證
-
-**問題**：目前 Base 反轉可能只是「IT-mask 不適配 Base」的假象。
-
-**實驗**：
-- 在 Llama3-Base 上重新 localize RSN → 得到 Base-localized mask
-- 比較 Base-mask vs IT-mask 的 overlap 和方向夾角
-- 若 Base-mask 仍方向反轉/無效 → DA axis 確實 RLHF-induced
-- 若 Base-mask 正常 → axis 在 Base 已存在，IT-mask 不適配
-
----
-
-### C3. Baseline 排除（必做，reviewer 必問）
-
-| Baseline | 問題 | 預測 |
-|---|---|---|
-| Random direction steering（同 norm） | 任何擾動都有這個效果？ | 破壞 accuracy，不產生 wanting–knowing 解離 |
-| PCA 第一主成分 | 主成分也能做到？ | 部分有效但較雜 |
-| Prompt-level "be more confident" | Prompt 也能達到？ | 改 mean_bet 同時改 accuracy（無解離） |
-| LAT probe direction | 已知 confidence probe 能做到？ | 可能部分重疊，需比較 |
-
----
-
-## 七、優先級排程
+# PLAN
 
 ### Phase 1（2 週內，低成本或 zero-cost）
 
@@ -203,31 +134,4 @@ MATH-500GSM8KMinerva-MathAIME24AMC23OlympiadBench
 | 13 | **Pressure × Confidence Dissociation** | 區分 DA-like commitment vs confidence |
 | 14 | **Task Difficulty × RSN Activation（現有數據）** | DA effort/uncertainty 對應 |
 
-## 八、Paper 框架
-
-**標題候選：**
-> *"Tuning the Wanting Axis: Dopamine-Like Incentive Salience in RLHF-Trained Language Models"*
-
-**結構：**
-
-| 章節 | 內容 | 對應實驗 |
-|---|---|---|
-| 1. Introduction | wanting–knowing decoupling 是核心問題 | — |
-| 2. Background | Berridge incentive salience、RSN 方法 | — |
-| 3. Wanting–Knowing Dissociation | Betting + Cambridge Gamble（排除信心解釋） | A1, Cambridge Gamble |
-| 4. Dynamic Wanting: Bandit | 逐輪收斂、exploitation 加速 | A2 |
-| 5. Yerkes-Dodson Inverted-U | Alpha sweep + Hallucination right-tail | A sweep |
-| 6. RLHF as the Origin | Base→SFT→DPO→IT 梯度 | C1 |
-| 7. Brain RSA | 行為層次對齊 + fMRI RDM 相關 | B |
-| 8. Mechanism Validation | Random/PCA/Prompt baselines | C3 |
-| 9. Limitations | Phasic DA、agentic、reversal、self-report | Tier-C |
-| 10. Applications | Calibration、hallucination control | — |
-
-**目標刊物：**
-
-| 組合 | 目標 |
-|---|---|
-| 行為學 + RLHF（無腦） | NeurIPS / ICLR |
-| + 行為層次腦對齊 | Nature Machine Intelligence / PNAS |
-| + fMRI RSA（striatum 特異性） | Nature Neuroscience / Neuron |
 
