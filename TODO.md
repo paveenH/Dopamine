@@ -28,18 +28,10 @@ RSN neurons
    - `G_prefill` 随 α 近乎线性。
    - 行为不是由 `G_prefill` 绝对值直接决定，而是经过非线性的 pre-commit `s_t` state。
    - `early_s_t` 与 dose-level accuracy 同步，但目前只是 9 个剂量点的 covariation，不能称为中介机制。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:603)
-   - α 同时改变 confidence，因此不能说 RSN 是完全独立于 confidence 的纯 wanting knob。
    - `p_t` 目前只是 fast residual，尚不能称为 phasic dopamine。
    - 当前最合适的总论断仍是 **controllable latent gain mechanism / computational analogue**。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:742)
 ---
 ## TODO
-
-### 0. Analysis Freeze and Reporting Rules
-
-- 将现有 300 题作为 **exploratory set**；指标、窗口和预测方向确定后，再用未参与设计的样本作 confirmatory replication。
-- 固定当前 `G/Z` gain coordinates、commit locator 和 first-answer accuracy 口径；不同 server / extractor 的 accuracy 不混算。
-- 所有主结果同时报告 paired effect、95% CI、effect size 和 FDR-corrected p；不以单独星号或 dose-level correlation 作为机制证据。
-- 区分三类证据：observational readout、offline direction specificity、causal steering；三者不互相替代。
 
 ### 1. RSN Direction Specificity（最高优先级，zero/low GPU）
 

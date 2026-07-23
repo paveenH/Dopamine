@@ -178,7 +178,11 @@ if __name__ == "__main__":
     mask_dir = os.path.join(BASE_DIR, "mask", mask_suffix)
     os.makedirs(mask_dir, exist_ok=True)
 
-    mask_name = f"{args.mask_type}_{args.percentage}_{args.start_layer}_{args.end_layer}_{args.size}.npy"
+    # For random/diff_random, append the seed so multiple null draws don't overwrite each other.
+    seed_tag = ""
+    if args.mask_type in ("random", "diff_random") and args.seed != 42:
+        seed_tag = f"_seed{args.seed}"
+    mask_name = f"{args.mask_type}_{args.percentage}_{args.start_layer}_{args.end_layer}_{args.size}{seed_tag}.npy"
     mask_path = os.path.join(mask_dir, mask_name)
     np.save(mask_path, mask)
     print(f"Saved {args.mask_type} mask → {mask_path}")
