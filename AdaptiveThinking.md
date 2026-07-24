@@ -739,10 +739,68 @@ CoT process  ×  α=−4 task-entry intervention
 
 分析腳本：`analyze_cot_alpha.py`（`--part entry/slow/fast/confidence/all`）；raw stdout：`fig45_results.txt`；結果記錄：`fig45_SUMMARY.md`。DiD 的 verdict 標籤（additive/redundant/…）僅為量級比啟發式，非顯著性判定，不可單獨當結論。
 
+### 4.6 RSN Direction Specificity: A diff_random Null Distribution
+
+前面 §4.1–4.5 的所有 state 效應都是在 **NMD/RSN 方向**上投影得到的。一個必須回答的對照問題是：**這些效應是 NMD 方向特有的，還是任意一個稀疏方向都會出現同樣的 state 差異？** 若後者成立，則本文的信號結論須降級為一般性的 sparse-state effect，而非 RSN-specific。
+
+**方法（offline re-projection null，zero-GPU；不重新 steering）。** 因果雙向 steering 的有效性已在 RSN 母論文中驗證（+α / −α 對 answer distribution 的影響），本節**只問信號是否 NMD-特異**，故不重新注入，而是把**同一批已存的 HDF5 hidden states** 對不同 mask 離線重投影：
+
+- **Null = `diff_random`**（`detection/nmd.py:get_diff_random_mask`）：**隨機位置**，但取值來自真實 role-diff。因此其 per-layer norm 天然約為 NMD 的 ¼（NMD 挑 top-|diff|，diff_random 挑隨機位置）——這個 norm gap 是**設計使然**，是 NMD「取 top-k」操作的正確對照，**不做 norm-match**。這與 ±1 的 `random` mask 不同。
+- **每個 mask 用自己的 reference**：μ/σ 來自它自己的 neutral-No-CoT prefill，`‖m_l‖²` 來自它自己——這是 load-bearing 的公平性設計，使得「raw projection 尺度較大」不能為 NMD 買到假優勢。
+- 每個 state contrast 化約為一個 scalar effect（同 300 questions 的 paired `d_z`），再把 NMD 的 |effect| 放進 **10 draw（seed 1–10）+ 既有 seed=42 = 共 11 個 diff_random draw** 構成的 null 分布，報 percentile 與單邊 empirical p（N=11 下的 p 地板 = 1/12 ≈ 0.083）。讀數沿用 §4：`G_prefill`、pre-commit `s_t` mean/slope、`p_t` abs_mean/std（commit-centered 圖僅作時間定位）。
+
+**結果。**
+
+| Contrast | Readout | NMD `d_z` | null mean | null max | pctile | p_emp |
+|---|---|---:|---:|---:|---:|---:|
+| CoT vs No-CoT | `G_prefill` | 0.592 | 0.505 | 1.537 | 45% | 0.583 |
+| | `s_pre_mean` | 0.492 | −0.109 | 0.593 | 73% | 0.333 |
+| | `s_pre_slope` | 0.139 | −0.087 | 0.356 | 45% | 0.583 |
+| | `p_abs_mean` | 0.307 | 0.002 | 0.432 | 82% | 0.250 |
+| | `p_std` | 0.498 | 0.102 | 0.535 | 91% | 0.167 |
+| Expert vs Non-Expert | `G_prefill` | **2.805** | 1.478 | 2.407 | **100%** | **0.083** |
+| | `s_pre_mean` | −0.174 | 0.128 | 0.371 | 45% | 0.583 |
+| | `s_pre_slope` | −0.235 | −0.028 | 0.181 | 100% | 0.083 |
+| | `p_abs_mean` | −0.234 | −0.116 | 0.229 | 100% | 0.083 |
+| | `p_std` | −0.250 | −0.170 | 0.332 | 82% | 0.250 |
+| α=−4 vs 0 | `G_prefill` | **−77.85** | −2.95 | 7.16 | **100%** | **0.083** |
+| | `s_pre_mean` | 0.229 | 0.006 | 0.236 | 91% | 0.167 |
+| | `s_pre_slope` | −0.014 | 0.031 | 0.189 | 9% | 0.917 |
+| | `p_abs_mean` | 0.095 | 0.079 | 0.199 | 64% | 0.417 |
+| | `p_std` | 0.175 | 0.105 | 0.208 | 82% | 0.250 |
+| α=−6 vs 0 | `G_prefill` | **−71.97** | −2.99 | 6.87 | **100%** | **0.083** |
+| | `s_pre_mean` | 0.509 | −0.024 | 0.397 | 100% | 0.083 |
+| | `s_pre_slope` | 0.057 | −0.065 | 0.309 | 18% | 0.833 |
+| | `p_abs_mean` | 0.195 | 0.058 | 0.425 | 64% | 0.417 |
+| | `p_std` | 0.375 | 0.162 | 0.447 | 82% | 0.250 |
+| α=+4 vs 0 | `G_prefill` | **80.02** | 2.74 | 5.74 | **100%** | **0.083** |
+| | `s_pre_mean` | −0.187 | −0.006 | 0.203 | 91% | 0.167 |
+| | `s_pre_slope` | −0.038 | −0.040 | 0.111 | 45% | 0.583 |
+| | `p_abs_mean` | 0.022 | −0.012 | 0.145 | 0% | 1.000 |
+| | `p_std` | 0.000 | −0.037 | 0.199 | 0% | 1.000 |
+
+（pctile = null draw 中 |effect| 小於 NMD 的比例；p_emp = 單邊 empirical p。）
+
+**兩層結論，須分開讀：**
+
+1. **`G_prefill`（task-entry gain）是強 NMD-特異的。** 在所有 α-dose 上 NMD `d_z` 達 ±72–80，而 null 僅 ±3–7（pctile 100%，p_emp 打滿 N=11 地板 0.083）；Expert vs Non-Expert 亦然。但這是 **co-design identity** 的必然結果（`x_prefill(α) ≈ x_prefill(0) + α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大），且 NMD mask 本身即抽自該方向——因此它更接近一個 **manipulation check**，而非「信號 NMD-特異」的獨立證據。
+
+2. **decode 內部的 slow/fast 動態（`s_t` / `p_t`）未通過特異性檢驗。** 沒有任何一個 decode-內部讀數在**多個 contrast 上穩定**超出 null：個別 cell 到 pctile 100%（如 α=−6 的 `s_pre_mean`、Expert 的 `s_pre_slope`），但換一個 contrast 就落回 45%、甚至 9%/18%（進入 null 內部）；α=+4 的 `p_abs_mean` / `p_std` 甚至 pctile 0%（NMD 弱於所有 null draw）。也就是說，**任意 diff_random 稀疏方向能做出同量級、甚至更強的 decode-stage state 差異。**
+
+**判定（對應完成標準）。** 完成標準要求「NMD 主效應穩定高於 random null，且不只由少數 layer/condition 驅動」。據此：
+- **task-entry gain：通過**，但性質限定為 co-design / manipulation-check，不過度聲稱信號特異；
+- **decode-stage `s_t` / `p_t`：不通過 → 降級為 general sparse-state effect**，不聲稱 NMD 方向特異。
+
+這是一個誠實且有信息量的**負結果**：RSN 方向在**任務入口的 gain 定位**上特異，但**進入 decode 後的 wanting 軌跡動態，任何稀疏投影都能複現**——說明 §4.1–4.5 觀察到的 decode-stage state 效應，主要是「稀疏子空間投影」的普遍性質，而非 NMD 獨有。**限定：** 本節僅 Llama3-8B、僅 offline re-projection（不含 random-direction 的因果 steering 對照，後者是另一個獨立問題），null 為 N=11。
+
+分析腳本：`analyze_rsn_specificity.py`（`python3.10`，讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/random/seed{1..10}/` diff_random draws）；null 由 `run_random_null.sh`（server-side，zero-GPU）生成。
+
 ## 5. Conclusion
 
 本研究辨識出一組可調節 LLM reasoning state 的 **Role-Sensitive Neurons (RSNs)**。它們主要反映 task engagement、action readiness 與 commitment dynamics，而不是直接儲存知識或提升推理 capacity。觀察結果顯示，CoT、Persona 與 answer commitment 會以不同的時間模式調制 RSN state；其中 CoT 主要提高 pre-commit engagement，Persona 主要重組 task-entry、commitment formation 與 post-commit release 的時間分配。
 
 更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
 
-因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。後續仍需跨模型、跨任務與更具神經科學特異性的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
+因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。
+
+方向特異性亦須限定（§4.6）：diff_random null 顯示 **task-entry gain（`G_prefill`）是 NMD-特異的**（但屬 co-design / manipulation-check 性質），而 **decode-stage 的 `s_t` / `p_t` 動態未通過特異性檢驗，須降級為 general sparse-state effect**——任意稀疏投影皆能複現同量級的 decode-stage state 差異。後續仍需跨模型、跨任務、含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
