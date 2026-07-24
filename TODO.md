@@ -74,6 +74,12 @@ STAI-State 20 items × α∈{−8,−6,−4,−2,0,+2,+4,+6,+8}
 
 **完成标准：** `α effect on STAI-State > STAI-Trait > neutral control`，reverse-key 后方向一致，并与至少一个非自评 anxiety-like behavior 同步；否则解释为 response bias。
 
+Barratt 冲动性量表 (BIS-11)
+轻躁狂症状清单 (HCL-32)
+自评量表：强迫症问卷修订版 (OCI-R) 或 帕多瓦量表 (PI-WSUR)
+行为测试（硬指标）：威斯康星卡片分类测验 (WCST, Wisconsin Card Sorting Test) 的文本变体
+Wisconsin Card Sorting Test (WCST-64) 参考-Cognitive.RolePlaying.2025.Visual Large Language Models Exhibit Human-Level Cognitive Flexibility in the Wisconsin Card Sorting Test / icmlworkhop2024.Cognitive Flexibility of Large Language Models (不建议)
+
 ### 4. Direction-Specific Causal Controls
 
 **目标：** 证明行为 working point 来自 RSN 方向，而不是一般 hidden-state perturbation。
