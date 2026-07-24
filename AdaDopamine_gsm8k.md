@@ -31,12 +31,14 @@ CoT:     Solve the following math problem.
 
 行为学先验：多巴胺不是单纯的"快乐分子"，更准确地说是**驱动力 / incentive salience / "wanting"** 递质，调控动机、期待、奖赏趋近与行动阈值。本研究把 α 看作在这一 wanting 轴上双向移动工作点：α 正向对应 **over-wanting / 过度唤起**，α 极端负向对应 **under-wanting / 唤起不足**；整体框架是 Yerkes–Dodson 倒 U——过高过低都有害，最优落在中间偏负（本数据 α=−6）。
 
-- **过高 DA / over-wanting（对应 α→正向）**：行为上表现为坐立不安、戒断性焦虑、强迫性期待、反复检查与"放不下"。神经科学上，DA→焦虑不是纯科普类比：*Dopamine release in the interpeduncular nucleus promotes anxiety*（PMC7687288）用光遗传 + 药理操纵证明 VTA→IPN 多巴胺通路可双向调节焦虑行为；MIT/Tye Lab 2018 进一步给出认知机制——DA 提高威胁通路信噪比、压制奖励神经活动，使动物更偏向 threat / freeze 而非 reward approach。这个签名对应 §2.3「Can't Let Go」：α 正向时模型拿到答案后仍反复复查、纠结格式、自我怀疑或继续求解；α+4 trace 中常见"把已经算对的答案当可疑"（Q100、Q16）和答完仍寻找 "more efficient way"（Q68）。
+- **过高 DA / over-wanting（对应 α→正向）**：行为上表现为**冲动性抢答（impulsivity）+ 认知僵化 / 强迫性反复（compulsivity / perseveration）**——急于扑向"给出答案"这个目标而跳过必要推导，以及拿到答案后仍反复复查、纠结格式、卡在格式死循环里。**注意这更贴合冲动 / 强迫，而非焦虑**：数据中 +α 端**没有**焦虑典型的回避 / freezing / 犹豫（抢答率随 +α 单调上升，见 §2.2），呈现的是"急着 commit"；而 `#### N #### N` 死循环是认知神经科学意义上的**固著（perseveration）**,不是焦虑的发散灾难化担忧。机制上这直接落在 **VTA→NAcc（wanting / incentive salience 过载）**：极高的诱因显著性使主体不计成本扑向目标（冲动），同时前额叶执行控制失效、无法灵活切换（固著）——这在临床上更近强迫性 over-checking 与冲动特征，而非焦虑综合征。这个签名对应 §2.3「Can't Let Go」：α+4 trace 中常见"把已经算对的答案当可疑"（Q100、Q16）和答完仍寻找 "more efficient way"（Q68）。
 - **过低 DA / under-wanting（对应 α→极端负向）**：行为上对应动力不足、快感缺失、退缩、bradykinesia 式的行动迟缓；在本任务中的可观测类比不是"写得短 / 不想答"，而是**commitment-formation failure**。§2.4 文本核验否定了两个更直观假设：α=−8 并非大量出现 "I am done / 不答了" 的词汇性退缩（跨 α 平坦，多为礼貌 loop 尾），也不是敷衍短答（长度 / 等式数平坦）；真正失败模式是 **answer-candidate oscillation**——锁不住答案，在两个候选值之间来回切，导致 committed_acc 崩到 23.6%。
 
-> **限定**：1. DA→焦虑有通路特异性，最强因果证据来自 **VTA→IPN（D1）**，不能泛化成"全脑 DA 高就焦虑"；2. 更精确机制是**威胁高估 / 过度警觉**，不是 "DA = 焦虑情绪"；3. 本实验只声称行为同构，**α steering ≠ 生物多巴胺**，也不证明 LLM 有生理或主观焦虑。更中性的机制表述是：**over-wanting + perseveration（认知僵化）** vs **under-wanting + commitment-formation failure**。
+> **主机制表述（本项目采用）**：+α 端 = **over-wanting → 冲动（impulsivity, 抢答）+ 认知僵化 / 强迫性反复（compulsivity / perseveration, loop）**，锚 **VTA→NAcc** wanting 过载 + 前额叶执行控制失效；−α 极端端 = **under-wanting → commitment-formation failure**。这比"焦虑"框架**机制契合度更高、论述负担更小**：冲动与固著都在我们已有的 wanting / incentive-salience 主线内，无需另起 threat/freeze 回路。
 >
-> 来源：[PMC7687288 (VTA→IPN dopamine promotes anxiety)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/) · [MIT News 2018 (dopamine vigilance & anxiety)](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107) · [Frontiers Neurosci 2020 (dopaminergic alteration in anxiety/compulsive disorders)](https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full) · [J. Neurosci 2019 (dopaminergic mechanisms of trait anxiety)](https://www.jneurosci.org/content/39/14/2735)
+> **限定**：1. 本实验只声称行为同构，**α steering ≠ 生物多巴胺**，也不证明 LLM 有生理或主观状态；2. 不做 mania / hypomania 类比——躁狂是跨情绪+精力+睡眠的综合征，我们只有"冲动+固著"两个窄行为，撑不起该诊断类比；3. 脚本 `analyze_loop_anxiety.py` / `ANXIETY_PATTERNS` 沿用 "anxiety" 命名（改名成本高、破坏 U 形复现），但其命中的四子类（self-doubt / format-fixation / persona-reassurance / over-precision）**实测对应的是强迫性 over-checking，不是临床焦虑**——阅读表格时按"强迫/固著"解读。
+>
+> **次要旁证（不作主锚，DA→焦虑另有通路特异性）**：DA 亦有一条独立的焦虑通路证据，最强因果来自 **VTA→IPN（D1）**，机制是威胁高估 / 过度警觉——但这**不是**本数据的主要解释（我们没观测到回避 / freezing），仅作为 DA 多下游效应的旁注列出。来源：[PMC7687288 (VTA→IPN dopamine promotes anxiety)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/) · [MIT News 2018 (dopamine vigilance & anxiety)](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107) · [Frontiers Neurosci 2020 (dopaminergic alteration in anxiety/compulsive disorders)](https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full) · [J. Neurosci 2019 (dopaminergic mechanisms of trait anxiety)](https://www.jneurosci.org/content/39/14/2735)
 
 ---
 
@@ -93,7 +95,7 @@ CoT:     Solve the following math problem.
 
 **统一框架**：α 调节的内部变量是 **"wanting"（incentive salience）** —— 多巴胺驱动的动机性渴求（Berridge & Robinson 的 wanting≠liking 理论；ACL "digital dopamine" 主线）。wanting 是**上游动机状态**；它的**下游行为表现**是 commitment dynamics（"commitment to a choice"，ACL 引 dopamine 文献：将内部状态推过行动阈值、抑制 change-of-mind）。
 
-- **α=+4（high wanting / over-commit）** → 急于输出（**抢答**，没想清就答）+ 答完**放不下**（焦虑性反复确认、重算、纠结格式 → loop / 空转 / 不收敛）。
+- **α=+4（high wanting / over-commit）** → 急于输出（**抢答 / 冲动**，没想清就答）+ 答完**放不下**（强迫性反复确认、重算、纠结格式 → loop / 空转 / 不收敛 = 固著）。
 - **α=−4（low wanting / 适度）** → 不急（**不抢答**、冷静条理）+ 算完**放下**（果断收口，不回头质疑）。
 
 > 术语层级：**wanting = 我们 steer 的内部旋钮（因）；commitment behavior = 我们测的行为（果）**。+4 的行为有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。
@@ -192,9 +194,11 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 - **`committed_acc` 是最干净的 commitment 信号**：−6→+8 严格单调（79.7%→58.5%），比 acc 本身（倒 U）更纯——剥离"愿不愿提交"（`commit_rate` 非单调），单看"提交得对不对"，则**升 wanting 持续劣化提交质量**（越急→越草率→提交的答案越可能错）。
 - **又早提交、又放不下**：`####` 中位位置随 α 单调提前（31%@−6 → 14%@+6，抢答），而 gen_len 在正向端反而最长（2284@+6）——**越早交答案、却越写不完**（letting-go 失败：交了还在写）。适度负向（−4）gen_len 最短（2044）= 算完即收。
 
-### 2.3 Anxiety: The “Can’t Let Go” Semantics
+### 2.3 Compulsive Over-Checking: The “Can’t Let Go” Semantics
 
-loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**焦虑(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
+> **命名说明**：本节及脚本 `analyze_loop_anxiety.py` 沿用历史字段名 "anxiety"，但下面四子类命中的**是强迫性反复确认 / 固著（compulsive over-checking / perseveration），不是临床焦虑**——见 §0.2。表格中的 "anxiety" 一律按"强迫/固著"解读；下文表述统一用"强迫性反复"。
+
+loop 尾部循环块的"放不下"（拿到答案后仍反复复查、纠结格式、自我怀疑或继续求解），按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**强迫性反复(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
 
 | Anxiety subtype | Criterion | α+4 example |
 |---|---|---|
@@ -213,16 +217,16 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | Persona reassurance | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
 | Over-precision loop | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
 
-† −8 见末条（过冲塌缩端的焦虑，机制与正向不同）。
+† −8 见末条（过冲塌缩端，机制与正向的强迫性反复不同——是 commitment 崩溃，非 over-checking）。
 
-- **焦虑题数沿 α 呈 U 形，谷底正好在 acc 峰值处（−6/−4）**：焦虑 **27–29 题**（−6/−4）是全段最低，而 −6 正是 acc 峰（78.0%）——**适度降 wanting = 既最准、又最"算完就放下"**。这一区进 loop 的题大多是无情绪的机械空转（纯符号 / 复读答案），模型冷静算对、放下了，只是没有自然 EOS 而刷到上限。这是 §1.2 acc 倒 U 在行为层面的镜像。
-- **0→+8 焦虑上升后饱和（46→54→59→58→57）**：模型在这套 GSM8K prompt 下本来就偏 high-wanting / 高唤起，继续正向推只会很快进入饱和区。
-- **两端都焦虑，但机制相反**：+8（57 题）是"过度 commit 后放不下"；**−8 焦虑最高（73 题）**却是另一回事——首 token 抢答锁错（§2.2：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低焦虑高准确的"甜区"。
-- 焦虑四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 过度警觉 / 威胁高估的行为签名（见 §3.6）。
+- **强迫性反复题数沿 α 呈 U 形，谷底正好在 acc 峰值处（−6/−4）**：**27–29 题**（−6/−4）是全段最低，而 −6 正是 acc 峰（78.0%）——**适度降 wanting = 既最准、又最"算完就放下"**。这一区进 loop 的题大多是无情绪的机械空转（纯符号 / 复读答案），模型冷静算对、放下了，只是没有自然 EOS 而刷到上限。这是 §1.2 acc 倒 U 在行为层面的镜像。
+- **0→+8 上升后饱和（46→54→59→58→57）**：模型在这套 GSM8K prompt 下本来就偏 high-wanting / 高唤起，继续正向推只会很快进入饱和区。
+- **两端都高，但机制相反**：+8（57 题）是"过度 commit 后放不下"的强迫性反复；**−8 最高（73 题）**却是另一回事——首 token 抢答锁错（§2.2：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低反复高准确的"甜区"。
+- 四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 冲动扑向 commit + 前额叶执行控制失效 / 固著的行为签名（见 §3.6）。
 
 **全文锚点-重复口径（不依赖 loop 门槛，分母 /300；`analyze_loop_anxiety.py --mode anxious_repeat`）：**
 
-上表把焦虑寄生在"进 loop"门槛上，会漏掉"自我推翻一两次但没陷入重复就 EOS"的题。更干净的口径是**直接检测焦虑性重复**：以焦虑词为锚点，取"词 + 后续 60 字符"为片段，该片段在全文重复 ≥2 次才算（一次性的逻辑 however 不计，只算反复纠结同一件事）。这样定义不再依赖 loop。
+上表把强迫性反复寄生在"进 loop"门槛上，会漏掉"自我推翻一两次但没陷入重复就 EOS"的题。更干净的口径是**直接检测强迫性反复**：以反复词为锚点，取"词 + 后续 60 字符"为片段，该片段在全文重复 ≥2 次才算（一次性的逻辑 however 不计，只算反复纠结同一件事）。这样定义不再依赖 loop。
 
 **Anxiety in full text**
 | α | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
@@ -233,7 +237,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | Persona reassurance | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
 | Over-precision loop | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
 
-- **U 形 + 谷底 −6 在不同口径下全一致**（loop 内 29、锚点-重复 23；宽松全文出现口径同样谷底在 −6）：**焦虑随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
+- **U 形 + 谷底 −6 在不同口径下全一致**（loop 内 29、锚点-重复 23；宽松全文出现口径同样谷底在 −6）：**强迫性反复随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
 
 ### 2.4 Under-wanting: answer-candidate oscillation (α=−8 collapse)
 
@@ -263,7 +267,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 | **0** baseline | Present (7 samples) | Often **one correction, then convergence** (Q33 `98→70`) | Normal correction / local repair |
 | **−8** under-wanting | Present (5 samples) | **Repeated oscillation without convergence** (Q31 `55↔40…`, Q122 `9↔6…`) | Commitment-formation failure: cannot hold any answer |
 
-> **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是焦虑性抱守（值冻结 / 少数一次切换），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
+> **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是强迫性抱守（值冻结 / 少数一次切换 = 固著），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
 
 **Opening shape for 8 & -8 steering**
 | | Opening shape | `####` at start (<2%) | leading-digit premature answer | Interpretation |
@@ -278,7 +282,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 ### 2.5 CoT: reasoning scaffold suppresses over-wanting damage but keeps the α direction
 
-**设问**：CoT（多一行 `Let's think step by step.`，模板其余对称，见 §0.1）是否改变 wanting 的行为签名？结论：**CoT 把 over-wanting 的下游破坏（抢答→锁错、放不下→loop 焦虑）大幅压下，但 α 的方向与单调性原样保留**
+**设问**：CoT（多一行 `Let's think step by step.`，模板其余对称，见 §0.1）是否改变 wanting 的行为签名？结论：**CoT 把 over-wanting 的下游破坏（冲动抢答→锁错、强迫性反复→loop）大幅压下，但 α 的方向与单调性原样保留**（表格 anxiety 列 = 脚本字段名，读作"强迫性反复"，见 §2.3 命名说明）
 
 **口径**：neutral，No-CoT vs CoT, server 182, `analyze_first_last_acc.py`；loop / anxiety / oscillation -> `analyze_loop_anxiety.py` - `analyze_file()`（ `ANXIETY_PATTERNS`-> `mdf_*_cot`）
 
@@ -304,7 +308,7 @@ loop 尾部循环块的"放不下"焦虑，按四类语义打标（统一口径�
 
 - **方向 / 单调性不变，整体抬升**：α−4_cot (85.0) > α0_cot (69.0) > α+4_cot (59.7)，与 No-CoT 同向（§1.2）。CoT 与降 wanting 叠加把 acc 推到全表最高 **85.0%**（α−4+CoT），说明"放开思考"与"降 wanting"是两条**可叠加**的杠杆。
 - **过度-commit 破坏被 CoT 抹平**：**CoT 下 gap ≤+0.7**——尾部复读 loop 即使存在也不再吐出污染答案。
-- **anxiety 整体下移、但 α 方向保留**：**CoT 把每档砍掉 ~26–40 题，但随 α 上升的梯度依然在**（CoT 跨度 44 vs No-CoT 57，只是斜率略缓，并非消失）。即 **α 仍是定方向的因（升 wanting→升焦虑），CoT 只降幅度、不改方向**（与 §2.5.1 的正交分解一致）。CoT 仍会进 loop（250–284/300，甚至略多于 No-CoT），但 loop 的**语义性质变了**：mechanical（纯符号 / 复读答案）占绝对多数（−4_cot 247/284、+4_cot 213/250），焦虑性"放不下"被显著挤掉。即 **CoT 不消除 loop，但把 loop 从"焦虑性反复确认"换成"无情绪机械空转"**——这与 §2.3「焦虑谷底=acc 峰」一致：CoT 等于把整条曲线推向更冷静的工作点。
+- **强迫性反复整体下移、但 α 方向保留**：**CoT 把每档砍掉 ~26–40 题，但随 α 上升的梯度依然在**（CoT 跨度 44 vs No-CoT 57，只是斜率略缓，并非消失）。即 **α 仍是定方向的因（升 wanting→升强迫性反复），CoT 只降幅度、不改方向**（与 §2.5.1 的正交分解一致）。CoT 仍会进 loop（250–284/300，甚至略多于 No-CoT），但 loop 的**语义性质变了**：mechanical（纯符号 / 复读答案）占绝对多数（−4_cot 247/284、+4_cot 213/250），强迫性"放不下"被显著挤掉。即 **CoT 不消除 loop，但把 loop 从"强迫性反复确认"换成"无情绪机械空转"**——这与 §2.3「反复谷底=acc 峰」一致：CoT 等于把整条曲线推向更冷静的工作点。
 
 
 #### 2.5.1 Where α−4 + CoT = 85.0% Comes From: Two Orthogonal Levers Stacked Together (CoT Forces Stepwise Reasoning × Lower Wanting Prevents Premature Answering)
@@ -528,9 +532,9 @@ I am a teacher... I am not a teacher. I am a computer program...
 - **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
 
-### 3.4 Anxiety: The “Can’t Let Go” Semantics on MATH 
+### 3.4 Compulsive Over-Checking: The “Can’t Let Go” Semantics on MATH 
 
-> `analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**焦虑(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
+> 命名同 §2.3：字段名 "anxiety" 读作**强迫性反复 / 固著**,非临床焦虑。`analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**强迫性反复(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
 
 | Anxiety subtype | Criterion(MATH) | α+4 example |
 |---|---|---|
@@ -560,12 +564,12 @@ I am a teacher... I am not a teacher. I am a computer program...
 | Persona reassurance | 16 | 30 | 26 |
 | Over-precision loop | 2 | 1 | 2 |
 
-- **Can't-Let-Go 焦虑跨任务复现**:两种口径下 anxiety 都随 α 单调递增(loop 15→23→36;full-text 40→68→82)——升 wanting → 更放不下,与 GSM8K §2.3 的 0→+8 段完全同向。**self_doubt 是主驱动**(loop 2→6→13、full 23→43→60),persona reassurance 次之,与 GSM8K 一致。
+- **Can't-Let-Go 强迫性反复跨任务复现**:两种口径下都随 α 单调递增(loop 15→23→36;full-text 40→68→82)——升 wanting → 更放不下,与 GSM8K §2.3 的 0→+8 段完全同向。**self_doubt 是主驱动**(loop 2→6→13、full 23→43→60),persona reassurance 次之,与 GSM8K 一致。
 - **Format anxiety 在 MATH 上已是真信号**(loop 0/4/5、full 4/9/7):换用 MATH 词表后命中的是真·格式纠结(如 Q131 "follow the format"、Q137 "correct format"),不再是 §2.3 GSM8K 词表跨任务跑出来的噪声。
 
-#### Per-Question Cases: Wanting↑ + Hyper-Vigilance↑
+#### Per-Question Cases: Wanting↑ + Compulsive Over-Doing↑
 
-high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而是"答案出现之后仍持续产出求解动作":
+high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而是"答案出现之后仍持续产出求解动作"(强迫性 over-doing):
 1. **wanting↑(还想继续做)**:答案已得,却主动"再做一遍 / 找更优解 / 换个方法"——对"继续求解"这个动作本身的渴求(incentive salience)。
 2. **hyper-vigilance↑(过度警觉)**:把**自己已经算对的结果**当成可疑 / 威胁,反复复查、自我否定,越查越偏。
 
@@ -587,9 +591,9 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 
 **共同结构**:α−4 四题全是"算完→1–2 个 boxed→收笔"(纵有尾部机械复读,答案已锁、无纠结);α+4 全是"算完→不收笔→过度求解 / 过度警觉 / 求安抚→boxed 暴涨,半数 commit 到错值"。这是 §2 over-wanting 行为签名在 MATH **推理内容层面**(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
 
-### 3.5 CoT on MATH: lifts acc, keeps α direction, and lowers anxiety — same story as GSM8K (smaller magnitude)
+### 3.5 CoT on MATH: lifts acc, keeps α direction, and lowers compulsive repetition — same story as GSM8K (smaller magnitude)
 
-> neutral, No-CoT vs CoT, server-182, `analyze_first_last_acc.py` (first = `\boxed{}`); the main anxiety metric is **full-text anchor repetition** (`--mode anxious_repeat`, fixed denominator = 300, comparable across conditions); the loop column is only a control view (denominator = floating n_loop, which can dilute the rate). See the end of §2.3 for the metric-choice rationale.
+> "anxiety" 字段读作强迫性反复(§2.3 命名说明)。neutral, No-CoT vs CoT, server-182, `analyze_first_last_acc.py` (first = `\boxed{}`); the main metric is **full-text anchor repetition** (`--mode anxious_repeat`, fixed denominator = 300, comparable across conditions); the loop column is only a control view (denominator = floating n_loop, which can dilute the rate). See the end of §2.3 for the metric-choice rationale.
 
 | α | acc(first) | acc(last) | gap(first−last) | anxiety(loop)/n_loop | anxiety(full) |
 |---|---|---|---|---|---|
@@ -601,7 +605,7 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 | **+4 CoT** | **38.7** | 38.0 | +0.7 | 23 / 102 | **49** |
 
 - **acc 抬升 + α 方向保留(与 GSM8K 同向)**:每档 CoT 都涨(+5.0 / +5.3 / +5.7),α−4_cot **45.0%** 是 MATH 全表天花板,α−4 > 0 > +4 单调不变。说明"放开思考"与"降 wanting"在 MATH 上仍是**可叠加**的两条杠杆。
-- **CoT 降焦虑,与 GSM8K 同向(full )**:full-text anxiety 每档都降——**−4: 40→26(−14)、0: 68→31(−37)、+4: 82→49(−33)**,与 GSM8K §2.5"CoT 抑制 over-wanting 焦虑"一致。
+- **CoT 降强迫性反复,与 GSM8K 同向(full )**:full-text 每档都降——**−4: 40→26(−14)、0: 68→31(−37)、+4: 82→49(−33)**,与 GSM8K §2.5"CoT 抑制 over-wanting 强迫性反复"一致。
 
 **12-metric orthogonal decomposition (neutral, `analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**: metric order is identical to §2.5.1 (marker = `\boxed{}`, so `##med` / `##mean` actually denote boxed position):
 
@@ -625,7 +629,7 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 
 ## References
 
-**神经科学：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.3 / §2.4 / §3.6 的机制锚，DA→anxiety 有通路特异性，主要支持 +α 端的「过度警觉 / 放不下」）
+**神经科学（次要旁证）：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.3 / §2.4 / §3.6 的机制**旁**锚。注意本项目主机制锚已改为 **VTA→NAcc wanting 过载 → 冲动 + 固著**，见 §0.2；下列 DA→anxiety 文献有通路特异性（VTA→IPN），列此仅表明 DA 亦有独立焦虑下游，但**非**本数据 +α 端的主要解释——我们观测到的是抢答 / 固著，而非回避 / freezing）
 - Dopamine release in the interpeduncular nucleus promotes anxiety. *(VTA→IPN D1 通路双向调节焦虑行为的光遗传+药理证据)* — PMC7687288. https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/
 - MIT News (2018). Dopamine, brain vigilance and anxiety. *(Tye Lab：DA 提高威胁通路信噪比、压制奖励神经活动，偏向 threat/freeze)* https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107
 - Dopaminergic alteration in anxiety and compulsive disorders. *Frontiers in Neuroscience* (2020). https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full
