@@ -73,6 +73,62 @@ def get_diff_random_mask(
     return mask[1:, :]
 
 
+def _ortho_gauss_layer(d_sub: np.ndarray, target_norm: float,
+                       rng: np.random.Generator, max_tries: int = 100) -> np.ndarray:
+    """One layer's orthogonal-Gaussian sparse values on a k-position support.
+
+    d_sub = dense role-diff Δ_l restricted to those k positions (float64).
+    Returns m_sub (k,) s.t.  m_sub·d_sub = 0  and  ||m_sub|| = target_norm.
+    Re-draws (not divides) if ||d_sub|| or the post-projection ||m_sub|| is tiny.
+    """
+    d_sub = np.asarray(d_sub, dtype=np.float64)
+    dn2 = float(d_sub @ d_sub)
+    if dn2 < 1e-12:
+        raise ValueError("||d_sub||^2 too small — degenerate support, resample support")
+    for _ in range(max_tries):
+        g = rng.standard_normal(d_sub.shape[0]).astype(np.float64)
+        m = g - (float(g @ d_sub) / dn2) * d_sub      # project out the Δ direction
+        mn = float(np.sqrt(m @ m))
+        if mn > 1e-8:
+            return m * (target_norm / mn)             # norm-match (preserves ⊥)
+    raise RuntimeError("orthogonal component vanished repeatedly — resample support")
+
+
+def get_ortho_gauss_mask(diff_char: np.ndarray, diff_none: np.ndarray,
+                         top_k: int, start: int, end: int, seed: int,
+                         on_support: bool) -> np.ndarray:
+    """ORTHO-GAUSS: per layer, Gaussian sparse values that are EXACTLY orthogonal
+    to that layer's dense role-diff Δ_l and norm-matched to the NMD mask row.
+
+    on_support=True  -> reuse NMD's top-|Δ| positions (same-support null)
+    on_support=False -> random positions DISJOINT from NMD's (off-support null)
+
+    Returns (L-1, H), embedding row removed (same convention as the others).
+    """
+    diff = (diff_char - diff_none).squeeze(0).squeeze(0).astype(np.float64)  # (L, H)
+    L, H = diff.shape
+    rng = np.random.default_rng(seed)
+    mask = np.zeros_like(diff)
+    k = max(1, int(top_k))
+
+    for l in range(L):
+        if not (start <= l < end):
+            continue
+        vec = diff[l]
+        nmd_idx = np.argsort(np.abs(vec))[-k:]                 # NMD support this layer
+        nmd_norm = float(np.sqrt(np.sum(vec[nmd_idx] ** 2)))   # NMD row norm (match target)
+        if on_support:
+            idx = nmd_idx
+        else:
+            pool = np.setdiff1d(np.arange(H), nmd_idx, assume_unique=False)
+            idx = rng.choice(pool, k, replace=False)           # disjoint from NMD
+        d_sub = vec[idx]                                        # dense Δ on these positions
+        m_sub = _ortho_gauss_layer(d_sub, nmd_norm, rng)
+        mask[l, idx] = m_sub
+
+    return mask[1:, :]
+
+
 def get_sparse_fv_mask(diff_char: np.ndarray, diff_none: np.ndarray,
                        top_k: int, start: int, end: int) -> np.ndarray:
     """
@@ -135,8 +191,11 @@ if __name__ == "__main__":
         "--mask_type",
         type=str,
         default="nmd",
-        choices=["nmd", "random", "diff_random", "sparse_fv"],
-        help="Which mask to save: nmd / random / diff_random",
+        choices=["nmd", "random", "diff_random", "sparse_fv",
+                 "ortho_gauss_same", "ortho_gauss_off"],
+        help="Which mask to save: nmd / random / diff_random / sparse_fv / "
+             "ortho_gauss_same (⊥ Gaussian on NMD support) / "
+             "ortho_gauss_off (⊥ Gaussian off NMD support)",
     )
 
     args = parser.parse_args()
@@ -168,19 +227,55 @@ if __name__ == "__main__":
         mask = get_diff_random_mask(diff_char, diff_none, top_k, args.start_layer, args.end_layer, seed=args.seed)
     elif args.mask_type == "sparse_fv":
         mask = get_sparse_fv_mask(diff_char, diff_none, top_k, args.start_layer, args.end_layer)
+    elif args.mask_type in ("ortho_gauss_same", "ortho_gauss_off"):
+        mask = get_ortho_gauss_mask(diff_char, diff_none, top_k,
+                                    args.start_layer, args.end_layer, seed=args.seed,
+                                    on_support=(args.mask_type == "ortho_gauss_same"))
     else:
         raise ValueError(f"Unknown mask_type: {args.mask_type}")
 
     print(f"{args.mask_type} Mask shape: {mask.shape}")  # (L-1, H)
+
+    # ---- acceptance guards (ortho-gauss only): per-layer ⊥, norm-match, k nonzeros ----
+    if args.mask_type in ("ortho_gauss_same", "ortho_gauss_off"):
+        diff_full = (diff_char - diff_none).squeeze(0).squeeze(0).astype(np.float64)  # (L,H)
+        nmd_full = get_nmd_mask(diff_char, diff_none, top_k, args.start_layer, args.end_layer)
+        max_cos = 0.0
+        for row in range(mask.shape[0]):                 # saved rows: 0 <-> HF layer 1
+            l = row + 1                                  # dense-diff index (incl. embedding)
+            if not (args.start_layer <= l < args.end_layer):
+                continue
+            m_l = mask[row].astype(np.float64)
+            d_l = diff_full[l]
+            nz = np.flatnonzero(m_l)
+            assert nz.size == top_k, f"layer {l}: {nz.size} nonzeros, expected {top_k}"
+            nmd_nz = np.flatnonzero(nmd_full[row])
+            if args.mask_type == "ortho_gauss_same":
+                assert np.array_equal(np.sort(nz), np.sort(nmd_nz)), \
+                    f"layer {l}: same-support must match NMD support exactly"
+            else:
+                assert np.intersect1d(nz, nmd_nz).size == 0, \
+                    f"layer {l}: off-support must be disjoint from NMD support"
+            denom = (np.linalg.norm(m_l) * np.linalg.norm(d_l))
+            cos = abs(float(m_l @ d_l) / denom) if denom > 0 else 0.0
+            max_cos = max(max_cos, cos)
+            nm, nn = np.linalg.norm(m_l), np.linalg.norm(nmd_full[row])
+            assert abs(nm - nn) < 1e-4 * max(nn, 1.0), \
+                f"layer {l}: norm {nm:.4g} != NMD norm {nn:.4g}"
+        print(f"[ortho guard] max |cos(m_l, Δ_l)| over layers = {max_cos:.2e}")
+        assert max_cos < 1e-5, f"orthogonality broke on reload dtype: max cos {max_cos:.2e}"
 
     # Save
     mask_suffix = f"{args.model}_{args.type}_logits" if args.logits else f"{args.model}_{args.type}"
     mask_dir = os.path.join(BASE_DIR, "mask", mask_suffix)
     os.makedirs(mask_dir, exist_ok=True)
 
-    # For random/diff_random, append the seed so multiple null draws don't overwrite each other.
+    # For seed-driven null masks, append the seed so multiple draws don't overwrite.
+    # ortho_gauss_* ALWAYS tag the seed (there is no canonical seed=42 baseline for them).
     seed_tag = ""
-    if args.mask_type in ("random", "diff_random") and args.seed != 42:
+    if args.mask_type in ("ortho_gauss_same", "ortho_gauss_off"):
+        seed_tag = f"_seed{args.seed}"
+    elif args.mask_type in ("random", "diff_random") and args.seed != 42:
         seed_tag = f"_seed{args.seed}"
     mask_name = f"{args.mask_type}_{args.percentage}_{args.start_layer}_{args.end_layer}_{args.size}{seed_tag}.npy"
     mask_path = os.path.join(mask_dir, mask_name)
