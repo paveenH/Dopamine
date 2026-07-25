@@ -771,12 +771,14 @@ CoT process  ×  α=−4 task-entry intervention
 
 commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現：每個 contrast 的 NMD 曲線在 commit（step 0）附近急轉——commit 前一個平台、commit 後單調鬆弛；11 條 null 在 commit 處**未形成與 NMD 同等強度的 signed transition**（`s_t` null 近平坦，`p_t` null 有結構但幅度較弱）。CoT 的 `p_t` 更在 commit 出現一個 −0.7 的單步 event-locked spike（呼應 §4.2「commit = 多信號 phasic 節點」的 RSN 側證據）。
 
+**Leave-one-layer-out（不由少數 layer 驅動）。** 對 NMD mask 逐一踢掉 9 個 middle layer（L11–19）之一、在剩 8 層上重算兩個 primary 的 signed window mean：全部 10 個 (contrast × primary) cell 在**任一單層被踢掉後皆保持符號不變**（no sign flip），且 LOO 的 min/max 與 full 同側不跨 0（例：α=−6 `s_pre_mean` full=+0.437，LOO 範圍 [+0.334, +0.621]；`p_post_mean` full=−0.264，範圍 [−0.374, −0.211]）。最具影響力的單層為 L11，但踢除後效應仍穩健——故此時間效應**不由任一單層驅動**（滿足完成標準中「不只由少數 layer 驅動」一項）。
+
 **兩層結論（分開讀）。**
 
 1. **task-entry raw gain（`G_prefill`）**：NMD 遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這是 **co-design identity**（`x_prefill(α) ≈ x_prefill(0)+α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大）+ mask 本身抽自該方向，屬 **manipulation check**，非獨立證據。
 2. **commitment-locked temporal organization（`s_t`/`p_t` 軌跡）**：**這是 NMD 可能真正特異的部分**——commit 前後帶符號的結構化走向（幅度/水平）穩定超出 random-support null，且在注入與自然 state 上一致；是否另有獨立於幅度的形狀差異仍待定。
 
-**限定（本輪結論為 preliminary）。** (i) null 為 **support-selection null**，只證「top-|diff| 支撐 vs 隨機 role-diff 支撐」不同，**尚未**證「role-diff 方向 vs 任意無關方向」——後者需一組 generic-direction null（Gaussian/±1、shuffled-weight、same-support sign-shuffle、orthogonal）。（註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，**不代表「符號—位置對應」不重要**；sign-shuffle 仍能檢驗該對應，列為次優先而非已知無判別力。）(ii) **當前 11 draws 已參與指標選擇，屬 exploratory**；欲作正式顯著性宣稱，應在**凍結指標後另生成獨立的 ≥99 個 confirmatory draws**（N=99 → p 地板 ~0.01），而非把當前 draws 直接追加。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) per-layer / leave-one-layer-out 尚未做——**不可**聲稱「已排除少數 layer 驅動」。
+**限定（本輪結論為 preliminary）。** (i) null 為 **support-selection null**，只證「top-|diff| 支撐 vs 隨機 role-diff 支撐」不同，**尚未**證「role-diff 方向 vs 任意無關方向」——後者需一組 generic-direction null（Gaussian/±1、shuffled-weight、same-support sign-shuffle、orthogonal）。（註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，**不代表「符號—位置對應」不重要**；sign-shuffle 仍能檢驗該對應，列為次優先而非已知無判別力。）(ii) **當前 11 draws 已參與指標選擇，屬 exploratory**；欲作正式顯著性宣稱，應在**凍結指標後另生成獨立的 ≥99 個 confirmatory draws**（N=99 → p 地板 ~0.01），而非把當前 draws 直接追加。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) leave-one-layer-out 已做且通過（見上），故「不只由少數 layer 驅動」一項已滿足；但 per-layer 對照僅在 NMD 側檢驗軌跡穩健性，尚未與 null 做逐層對照。
 
 分析腳本：`analyze_rsn_specificity.py`（`python3.10`；帶符號 commit-aligned temporal 指標 + LOO-RMS；`--plot` 出全部 5 張 commit-centered 圖）。讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/random/seed{1..10}/`；null 由 `run_random_null.sh`（server-side，zero-GPU）生成。
 
