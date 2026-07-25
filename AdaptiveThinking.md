@@ -739,61 +739,51 @@ CoT process  ×  α=−4 task-entry intervention
 
 分析腳本：`analyze_cot_alpha.py`（`--part entry/slow/fast/confidence/all`）；raw stdout：`fig45_results.txt`；結果記錄：`fig45_SUMMARY.md`。DiD 的 verdict 標籤（additive/redundant/…）僅為量級比啟發式，非顯著性判定，不可單獨當結論。
 
-### 4.6 RSN Direction Specificity: A diff_random Null Distribution
+### 4.6 RSN Direction Specificity: A random-support role-diff null (preliminary)
 
-前面 §4.1–4.5 的所有 state 效應都是在 **NMD/RSN 方向**上投影得到的。一個必須回答的對照問題是：**這些效應是 NMD 方向特有的，還是任意一個稀疏方向都會出現同樣的 state 差異？** 若後者成立，則本文的信號結論須降級為一般性的 sparse-state effect，而非 RSN-specific。
+前面 §4.1–4.5 的所有 state 效應都是在 **NMD/RSN 方向**上投影得到的。一個必須回答的對照問題是：**這些效應是 NMD 方向特有的，還是任意一個稀疏方向都會出現同樣的 state 差異？**
 
-**方法（offline re-projection null，zero-GPU；不重新 steering）。** 因果雙向 steering 的有效性已在 RSN 母論文中驗證（+α / −α 對 answer distribution 的影響），本節**只問信號是否 NMD-特異**，故不重新注入，而是把**同一批已存的 HDF5 hidden states** 對不同 mask 離線重投影：
+**這一節回答的是一個受限版本的問題。** 本節的 null 是一個 **support-selection null**，不是完整的 direction-specificity null：它只隨機化「選哪些 neuron」（support），取值仍來自同一個真實 role-diff，因此始終停留在 role-diff 子空間內。它能回答的是「**top-|diff| 這組支撐是否特殊**」，**不能**回答「role-diff 方向 vs 任意無關方向是否特殊」——後者需要另一個 generic-direction null（相同 sparsity/norm 的 Gaussian/±1、或落在子空間外的方向），列為後續工作。因此本節結論標為 **preliminary**。
 
-- **Null = `diff_random`**（`detection/nmd.py:get_diff_random_mask`）：**隨機位置**，但取值來自真實 role-diff。因此其 per-layer norm 天然約為 NMD 的 ¼（NMD 挑 top-|diff|，diff_random 挑隨機位置）——這個 norm gap 是**設計使然**，是 NMD「取 top-k」操作的正確對照，**不做 norm-match**。這與 ±1 的 `random` mask 不同。
-- **每個 mask 用自己的 reference**：μ/σ 來自它自己的 neutral-No-CoT prefill，`‖m_l‖²` 來自它自己——這是 load-bearing 的公平性設計，使得「raw projection 尺度較大」不能為 NMD 買到假優勢。
-- 每個 state contrast 化約為一個 scalar effect（同 300 questions 的 paired `d_z`），再把 NMD 的 |effect| 放進 **10 draw（seed 1–10）+ 既有 seed=42 = 共 11 個 diff_random draw** 構成的 null 分布，報 percentile 與單邊 empirical p（N=11 下的 p 地板 = 1/12 ≈ 0.083）。讀數沿用 §4：`G_prefill`、pre-commit `s_t` mean/slope、`p_t` abs_mean/std（commit-centered 圖僅作時間定位）。
+**方法（offline re-projection null）。** 因果雙向 steering 的有效性已在 RSN 母論文中驗證，本節只做離線重投影：把**同一批已存的 HDF5 hidden states** 對不同 mask 重投影：
 
-**結果。**
+- **Null = random-support role-diff draw**（`detection/nmd.py:get_diff_random_mask`）：**隨機位置**，取值來自真實 role-diff。其 per-layer norm 天然約為 NMD 的 ¼（NMD 挑 top-|diff|），此 norm gap 是 NMD「取 top-k」操作的正確對照，**不做 norm-match**；與 ±1 的 `random` mask 不同。
+- **每個 mask 用自己的 reference**：μ/σ 來自它自己的 neutral-No-CoT prefill，`‖m_l‖²` 來自它自己，使「raw projection 尺度較大」不能為 NMD 買到假優勢。（注意：在 decode 的 Z 座標下 `‖m‖²` 於標準化中相消，故 norm gap 不影響 decode 讀數；它只影響 `G_prefill`。）
+- Null = **10 draw（seed 1–10）+ seed=42 = N=11**，empirical p 地板 = 1/12 ≈ 0.083。故本輪只讀 **effect 與 ordering**，不作正式顯著性宣稱。
 
-| Contrast | Readout | NMD `d_z` | null mean | null max | pctile | p_emp |
-|---|---|---:|---:|---:|---:|---:|
-| CoT vs No-CoT | `G_prefill` | 0.592 | 0.505 | 1.537 | 45% | 0.583 |
-| | `s_pre_mean` | 0.492 | −0.109 | 0.593 | 73% | 0.333 |
-| | `s_pre_slope` | 0.139 | −0.087 | 0.356 | 45% | 0.583 |
-| | `p_abs_mean` | 0.307 | 0.002 | 0.432 | 82% | 0.250 |
-| | `p_std` | 0.498 | 0.102 | 0.535 | 91% | 0.167 |
-| Expert vs Non-Expert | `G_prefill` | **2.805** | 1.478 | 2.407 | **100%** | **0.083** |
-| | `s_pre_mean` | −0.174 | 0.128 | 0.371 | 45% | 0.583 |
-| | `s_pre_slope` | −0.235 | −0.028 | 0.181 | 100% | 0.083 |
-| | `p_abs_mean` | −0.234 | −0.116 | 0.229 | 100% | 0.083 |
-| | `p_std` | −0.250 | −0.170 | 0.332 | 82% | 0.250 |
-| α=−4 vs 0 | `G_prefill` | **−77.85** | −2.95 | 7.16 | **100%** | **0.083** |
-| | `s_pre_mean` | 0.229 | 0.006 | 0.236 | 91% | 0.167 |
-| | `s_pre_slope` | −0.014 | 0.031 | 0.189 | 9% | 0.917 |
-| | `p_abs_mean` | 0.095 | 0.079 | 0.199 | 64% | 0.417 |
-| | `p_std` | 0.175 | 0.105 | 0.208 | 82% | 0.250 |
-| α=−6 vs 0 | `G_prefill` | **−71.97** | −2.99 | 6.87 | **100%** | **0.083** |
-| | `s_pre_mean` | 0.509 | −0.024 | 0.397 | 100% | 0.083 |
-| | `s_pre_slope` | 0.057 | −0.065 | 0.309 | 18% | 0.833 |
-| | `p_abs_mean` | 0.195 | 0.058 | 0.425 | 64% | 0.417 |
-| | `p_std` | 0.375 | 0.162 | 0.447 | 82% | 0.250 |
-| α=+4 vs 0 | `G_prefill` | **80.02** | 2.74 | 5.74 | **100%** | **0.083** |
-| | `s_pre_mean` | −0.187 | −0.006 | 0.203 | 91% | 0.167 |
-| | `s_pre_slope` | −0.038 | −0.040 | 0.111 | 45% | 0.583 |
-| | `p_abs_mean` | 0.022 | −0.012 | 0.145 | 0% | 1.000 |
-| | `p_std` | 0.000 | −0.037 | 0.199 | 0% | 1.000 |
+**兩種讀數，必須分開。** 早先僅用**無符號** scalar（`|d_z|`、`p_t` abs_mean/std）比較，得到「decode 動態不特異」的結論——但那是**指標選錯造成的假陰性**：無符號聚合把「NMD 軌跡在 commit 前後有結構化的正／負走向」平均掉了，只留下「波動多大」。改用**帶符號、commit-aligned** 的軌跡指標後，結論反轉。
 
-（pctile = null draw 中 |effect| 小於 NMD 的比例；p_emp = 單邊 empirical p。）
+**(a) 無符號 fluctuation（舊指標，作對照）。** 同一個 `p_t` 信號，在無符號表裡多數 contrast 落在 null 內部（`p_abs_mean` pctile 64–82%，α=+4 甚至 0%）——看起來「不特異」。這正是為何無符號聚合會漏掉時間結構，**不能**用來否證特異性。
 
-**兩層結論，須分開讀：**
+**(b) 帶符號 temporal specificity（本節主結果）。** commit-aligned、Z 單位，窗口 pre=`[−40,0)`、post=`[0,+10]`；每個 mask 用自己 reference，共用同一 K-gate（`K=max(30,⌈0.15·n⌉)`）。兩個 primary 讀數 `s_pre_mean`（commit 前 slow-state）與 `p_post_mean`（commit 後 fast-residual）：
 
-1. **`G_prefill`（task-entry gain）是強 NMD-特異的。** 在所有 α-dose 上 NMD `d_z` 達 ±72–80，而 null 僅 ±3–7（pctile 100%，p_emp 打滿 N=11 地板 0.083）；Expert vs Non-Expert 亦然。但這是 **co-design identity** 的必然結果（`x_prefill(α) ≈ x_prefill(0) + α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大），且 NMD mask 本身即抽自該方向——因此它更接近一個 **manipulation check**，而非「信號 NMD-特異」的獨立證據。
+| Contrast | `s_pre_mean` (NMD / null-med / pctile) | `p_post_mean` (NMD / null-med / pctile) |
+|---|---|---|
+| CoT vs No-CoT | +0.500 / −0.034 / **100%** | −0.361 / −0.054 / **0%** |
+| Expert vs Non-Expert | −0.133 / +0.032 / **0%** | +0.157 / −0.007 / **100%** |
+| α=−4 vs 0 | +0.129 / −0.003 / **100%** | −0.065 / −0.012 / **0%** |
+| α=−6 vs 0 | +0.437 / −0.015 / **100%** | −0.264 / −0.062 / **0%** |
+| α=+4 vs 0 | −0.167 / −0.014 / **0%** | +0.185 / +0.004 / **100%** |
 
-2. **decode 內部的 slow/fast 動態（`s_t` / `p_t`）未通過特異性檢驗。** 沒有任何一個 decode-內部讀數在**多個 contrast 上穩定**超出 null：個別 cell 到 pctile 100%（如 α=−6 的 `s_pre_mean`、Expert 的 `s_pre_slope`），但換一個 contrast 就落回 45%、甚至 9%/18%（進入 null 內部）；α=+4 的 `p_abs_mean` / `p_std` 甚至 pctile 0%（NMD 弱於所有 null draw）。也就是說，**任意 diff_random 稀疏方向能做出同量級、甚至更強的 decode-stage state 差異。**
+（每個 primary cell 在全部 5 個 contrast 都落在 null 分布的極端端 pctile 0% 或 100%，p_emp 全為 N=11 地板 0.083。）
 
-**判定（對應完成標準）。** 完成標準要求「NMD 主效應穩定高於 random null，且不只由少數 layer/condition 驅動」。據此：
-- **task-entry gain：通過**，但性質限定為 co-design / manipulation-check，不過度聲稱信號特異；
-- **decode-stage `s_t` / `p_t`：不通過 → 降級為 general sparse-state effect**，不聲稱 NMD 方向特異。
+三點觀察：
 
-這是一個誠實且有信息量的**負結果**：RSN 方向在**任務入口的 gain 定位**上特異，但**進入 decode 後的 wanting 軌跡動態，任何稀疏投影都能複現**——說明 §4.1–4.5 觀察到的 decode-stage state 效應，主要是「稀疏子空間投影」的普遍性質，而非 NMD 獨有。**限定：** 本節僅 Llama3-8B、僅 offline re-projection（不含 random-direction 的因果 steering 對照，後者是另一個獨立問題），null 為 N=11。
+1. **兩個 primary 在全部 5 個 contrast 都落 null 極端**，方向隨 contrast **系統性翻轉**：α−/CoT 是「commit 前 `s_t` 高、commit 後 `p_t` 低」，α+/Expert 完全鏡像。這種符號翻轉是無符號 `|d_z|` 結構上看不到的。
+2. **自然 state（CoT、Persona）與注入 α 表現一致。** 若特異性只出現在 α-dose，可能是 co-design 的時間版假象；但 CoT vs No-CoT、Expert vs Non-Expert（皆非注入）與 α 條件同樣落極端——故此時間特異性**不是 co-design 產物**。
+3. **整條軌跡距離（leave-one-out centroid RMS，`[−40,+20]`，`s_t`/`p_t` 分開）**：全部 10 個 (contrast × signal) cell 的 NMD 曲線都比 11 條 null 彼此更遠離質心（D_NMD 為 null median 的 3–7 倍，pctile 100%，p_emp 0.083）。`s_t` 的 null 質心近平坦（centroid std < 0.02，shape-corr 不可解釋，已標註）；`p_t` 質心非平坦，NMD 與 null 的 shape-corr 相近（0.39–0.55），即 `p_t` 為「**同形不同幅**」——形狀與 null 相似但 NMD 幅度顯著更大。
 
-分析腳本：`analyze_rsn_specificity.py`（`python3.10`，讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/random/seed{1..10}/` diff_random draws）；null 由 `run_random_null.sh`（server-side，zero-GPU）生成。
+commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現：每個 contrast 的 NMD 曲線在 commit（step 0）附近急轉——commit 前一個平台、commit 後單調鬆弛——而 11 條 null 在 commit 處毫無結構；CoT 的 `p_t` 更在 commit 出現一個 −0.7 的單步 event-locked spike（呼應 §4.2「commit = 多信號 phasic 節點」的 RSN 側證據）。
+
+**三層結論（分開讀）。**
+
+1. **scalar condition separation（無符號幅度）**：random-support 也能複現——所以 §4.1–4.5 的「decode 有 state 差異」這件事本身不是 NMD 獨有。
+2. **task-entry raw gain（`G_prefill`）**：NMD 遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這是 **co-design identity**（`x_prefill(α) ≈ x_prefill(0)+α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大）+ mask 本身抽自該方向，屬 **manipulation check**，非獨立證據。
+3. **commitment-locked temporal organization（帶符號 `s_t`/`p_t` 軌跡）**：**這是 NMD 可能真正特異的部分**——commit 前後的符號結構化走向與整條軌跡形狀，穩定超出 random-support null，且在注入與自然 state 上一致。
+
+**限定（本輪結論為 preliminary）。** (i) null 為 **support-selection null**，只證「top-|diff| 支撐 vs 隨機 role-diff 支撐」不同，**尚未**證「role-diff 方向 vs 任意無關方向」——後者需 generic-direction null（Gaussian/±1、shuffled-weight/sign、orthogonal），且已知 NMD 支撐的 role-diff 符號近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），故 sign-shuffle 是鈍的對照，優先做 generic-direction。(ii) N=11 → p 地板 0.083，只讀 effect+ordering；擴至 N=99 可將 p 壓到 ~0.01。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) per-layer / leave-one-layer-out 尚未做——**不可**聲稱「已排除少數 layer 驅動」。
+
+分析腳本：`analyze_rsn_specificity.py`（`python3.10`；TABLE 1 無符號對照、TABLE 2 帶符號 temporal、LOO-RMS；`--plot` 出全部 5 張 commit-centered 圖）。讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/random/seed{1..10}/`；null 由 `run_random_null.sh`（server-side，zero-GPU）生成。
 
 ## 5. Conclusion
 
@@ -803,4 +793,4 @@ CoT process  ×  α=−4 task-entry intervention
 
 因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。
 
-方向特異性亦須限定（§4.6）：diff_random null 顯示 **task-entry gain（`G_prefill`）是 NMD-特異的**（但屬 co-design / manipulation-check 性質），而 **decode-stage 的 `s_t` / `p_t` 動態未通過特異性檢驗，須降級為 general sparse-state effect**——任意稀疏投影皆能複現同量級的 decode-stage state 差異。後續仍需跨模型、跨任務、含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
+方向特異性目前為 preliminary（§4.6，support-selection null，N=11）。三層結論：無符號的 scalar condition separation 任意 random-support 皆可複現；task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的帶符號 `s_t` / `p_t` 時間軌跡是 NMD 可能真正特異的部分**——其 commit 前後的符號結構化走向與整條軌跡形狀穩定超出 random-support null，且在注入 α 與自然 state（CoT / Persona）上一致，故非 co-design 假象。（早先「decode 動態不特異」的判斷源於無符號聚合的假陰性，已由帶符號 commit-aligned 分析更正。）此為受限結論：本節只證「top-|diff| 支撐 vs 隨機 role-diff 支撐」不同，尚未證「role-diff 方向 vs 任意無關方向」；後續仍需 generic-direction null、跨模型、跨任務、含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
