@@ -807,6 +807,20 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 分析腳本：`analyze_rsn_specificity.py`（`python3.10`；帶符號 commit-aligned temporal 指標 + LOO-RMS + leave-one-layer-out；`--null_family {diff_random,ortho_gauss_same,ortho_gauss_off}` + `--null_root` 切換 null family，凍結指標不變；`--plot` 出全部 5 張 commit-centered 圖，檔名帶 family tag）。讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/{random,ortho_same,ortho_off}/seed{1..10}/`；① 由 `run_random_null.sh`、② 由 `run_generic_null.sh` 生成（皆 server-side，zero-GPU offline re-projection）。server 步驟見 `GENERIC_NULL_RUNBOOK.md`。
 
+### 4.7 Case Study: sample-level RSN trajectories and generated text
+
+為核對聚合曲線的功能解讀，本節逐題對照 9 個 `sample_traj3_` case（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284），每題疊加 neutral No-CoT 的 α=−6、0、+6 `s_t` / `p_t` 軌跡與實際生成文本。這是**定性 sanity check**，樣本不是預註冊或代表性抽樣，不提供新的 effect size、顯著性或因果證據；其用途是檢查聚合指標是否對應可辨識的生成階段，以及暴露事件定位與輸出格式的混淆。
+
+**Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。因此 `s_t` 較適合解讀為 ongoing / unresolved processing state，而不是 correctness 或 reasoning quality 的直接讀數。
+
+**Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、規則的振盪。這支持 `p_t` 能區分生成階段，但同時收緊其機制解讀：`p_t` 很可能混合了 process updating 與 **token class、局部熵、重複性及輸出模板**的影響。故視覺上的前後「頻率差」目前只作假設，不寫成已量化的 frequency effect；在沒有 token-class-matched control 與正式頻譜統計前，不能把它直接命名為 phasic dopamine。
+
+**First-answer accuracy 與 stable completion 分離。** 個案也顯示「首次答對」不等於「穩定完成」。例如 Q251 的 α=0 首次提交正確答案 60，因此 first-answer protocol 判為 correct，但之後仍繼續除以 2 並產生錯誤候選。這不否定 GSM8K 以 first `####` 作 production accuracy 的口徑；它說明 accuracy 與 termination quality / post-answer degeneration 是兩個不同的行為維度。後者應由 answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等獨立指標描述，不能由 first accuracy 代替。
+
+**Declaration marker 的技術邊界。** 單一句子如 `The final answer is: \boxed{75}####` 會同時命中 `final answer`、`\boxed{}` 與 `####`；若不合併，圖中的第二條線可能只是同一次提交的另一個 marker，而非第二次作答。`plot_sample_traj.py` 現已將相距 25 characters 內的 marker 合併，dotted line 表示 **second distinct answer declaration**。但即使是第二次獨立 declaration，也只能視為 repetition / revision proxy，不能自動等同真正的 loop onset。§4.2 聚合分析使用 literal 第 1 / 第 2 個 `####`，因此不受同一句多類 marker 重複命中的繪圖問題影響；不過其中 C2 仍應解讀為 **second-answer-marker boundary**，其後段是 post-second-marker tail，而不是經獨立演算法驗證的 loop onset。
+
+**Case-study conclusion.** 這 9 題最直接支持三個既有判斷：(i) `s_t` 的主結構與持續推理—提交後釋放相容；(ii) full-decode 會被 post-answer stopping failure 污染；(iii) `p_t` 的 answer-centered transition 含明顯輸出模式成分，必須維持 fast residual 而非 biological phasic signal 的保守命名。它們不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律，也不能把第二個 marker 當作真實 loop onset。若要正式分析 reasoning → answer → loop 的 `p_t` 頻率，下一步需以 repeated n-gram / periodic-token detector 定位真正的 repetition onset，再分別報告各階段的 amplitude、zero-crossing rate 與 dominant frequency。
+
 ## 5. Conclusion
 
 本研究辨識出一組可調節 LLM reasoning state 的 **Role-Sensitive Neurons (RSNs)**。它們主要反映 task engagement、action readiness 與 commitment dynamics，而不是直接儲存知識或提升推理 capacity。觀察結果顯示，CoT、Persona 與 answer commitment 會以不同的時間模式調制 RSN state；其中 CoT 主要提高 pre-commit engagement，Persona 主要重組 task-entry、commitment formation 與 post-commit release 的時間分配。
