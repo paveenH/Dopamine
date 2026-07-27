@@ -215,3 +215,8 @@ src/models/components/management.json
 .DS_Store
 /benchmark
 icml2025.EVOLvE. Evaluating and Optimizing LLMs For In-Context Exploration.pdf
+
+# Claude Code local (per-machine) settings — keep checked-in .claude/settings.json tracked
+.claude/settings.local.json
+.claude/settings.local.json.bak
+.claude/*.bak
