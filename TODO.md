@@ -32,7 +32,12 @@ RSN neurons
    - 当前最合适的总论断仍是 **controllable latent gain mechanism / computational analogue**。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:742)
 ---
 ## TODO
+1. 完成random的分析
+2. 抽样samples看看实际提交的回答是什么样子
+3. 实际的samples如果有发现什么问题 后面提交的结果可能要重新计算
+3. 思考一下这个差异可以用来做什么
 
+---
 ### 1. RSN Direction Specificity（最高优先级，zero/low GPU）
 
 **目标：** 确认当前信号集中在 NMD/RSN 方向，而不是任意稀疏方向都会出现。
