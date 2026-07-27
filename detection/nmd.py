@@ -241,10 +241,10 @@ if __name__ == "__main__":
         diff_full = (diff_char - diff_none).squeeze(0).squeeze(0).astype(np.float64)  # (L,H)
         nmd_full = get_nmd_mask(diff_char, diff_none, top_k, args.start_layer, args.end_layer)
         max_cos = 0.0
-        for row in range(mask.shape[0]):                 # saved rows: 0 <-> HF layer 1
-            l = row + 1                                  # dense-diff index (incl. embedding)
-            if not (args.start_layer <= l < args.end_layer):
-                continue
+        # saved row = dense-diff layer - 1 (embedding row dropped); only the
+        # in-range layers were populated, so iterate them directly.
+        for l in range(args.start_layer, args.end_layer):
+            row = l - 1
             m_l = mask[row].astype(np.float64)
             d_l = diff_full[l]
             nz = np.flatnonzero(m_l)
