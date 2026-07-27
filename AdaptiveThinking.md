@@ -2,17 +2,17 @@
 
 整條研究主線（四段）：
   RSN
-    → 行為學多巴胺（Behavioral Dopamine）← Ada_Dopamine.md
-        → 腦科學多巴胺（Brain Dopamine）← Ada_Dopamine2.md §五
+    → 行為學多巴胺（Behavioral Dopamine）← AdaDopamine.md
+        → 腦科學多巴胺（Brain Dopamine）← 規劃中,尚未成獨立文檔（AdaDopamine.md §5 登記人類/動物範式血統）
             → 多巴胺與思考曲線（Dopamine & Thinking Curve）← 本文檔
 
   附：AdaThink.md 是 Thinking Curve 的額外延伸驗證（學弟執行），不在主線框架內。
 
 【本文檔定位】
-最終升華階段，兩層目標：
+本文檔目前的主體是 **Phase 1b signal validation**（§4：α=0 觀察 + α-dose signal 的 gain-coordinate 分析,含 CoT/persona/dose/direction-specificity）。歷史上還包含兩層目標:
   1. 閉環控制（Phase 2，§三–§四）：用 RSN 信號做 decode-time 閉環調控，
      測試能否透過操控 EMA 波形（early peak / tonic plateau）提升推理準確率。
-     結論：形狀控制（Plans A-H3）不等於 acc 控制，轉向 Phase 1b 信號驗證。
+     結論：形狀控制（Plans A-H3）不等於 acc 控制，轉向 Phase 1b 信號驗證（即當前 §4）。
   2. Thinking Curve（Phase 3，理想目標）：在 reasoning model（DeepSeek-R1、
      Qwen3-thinking）的 <think> trace 裡觀察 persona 如何調節思考深度、
      backtrack、first-commit 等行為，對應多巴胺動力學，並透過 LLM 實驗
@@ -20,12 +20,12 @@
      → 詳見 AdaThink.md（trace-level 分析框架）
 
 【前兩段的任務】
-Ada_Dopamine.md：行為學基礎驗證（wanting/knowing 解離、Bandit、Pressure）。
-Ada_Dopamine2.md：腦科學升華（RSA：RSN Δh 是否對應 ventral striatum / vmPFC）。
+AdaDopamine.md：行為學基礎驗證（wanting/knowing 解離、Bandit、Pressure）。
+腦科學升華（RSA：RSN Δh 是否對應 ventral striatum / vmPFC）：規劃中,尚未成獨立文檔。
 
 關聯文件：
-  Ada_Dopamine.md — 行為學理論框架與實驗結果
-  Ada_Dopamine2.md — 腦科學 RSA 方向 + 實驗 Roadmap
+  AdaDopamine.md — 行為學理論框架與實驗結果（§5 登記人類/動物範式血統）
+  AdaDopamine_gsm8k.md — GSM8K/MATH 當前 production accuracy 與 commitment-dynamics 權威來源
   AdaThink.md — Reasoning model trace-level 分析框架（Thinking Curve 執行細節）
 -->
 
@@ -346,6 +346,8 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 | α0_cot | 67.7 | 69.0 | −1.3 |
 | α−4_cot | 82.7 | 85.0 | −2.3 |
 
+**口徑說明:** 本表及 §4 全節的 `signal`(server-184，bs=1 inline `correct`)只用於**同批 signal–behavior alignment**；**production accuracy 一律以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 的 server-182 offline first-`####` 口徑為準**。兩套數值不可混算(跨機 bf16 + bs 差異),但 dose 形狀一致、離散最佳點均在 α=−6。
+
 ### 4.1 Correct vs Incorrect Responses
 
 Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc grouping），非受控 intervention condition；本節將其作為 **outcome analysis**，描述 RSN dynamics 與 task performance 的相關結構，而非因果證據。分析使用 neutral No-CoT（180 correct / 120 incorrect）與 CoT（203 / 97）；commit 定義為首個 `####`，若不存在則使用首個 answer candidate。具可辨識 commit marker 的樣本較少（wrong 組尤然）：No-CoT 180 correct / 117 wrong，CoT 203 correct / 94 wrong。
@@ -393,11 +395,11 @@ Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc g
 由於 **97% 樣本撞 767 max-token cap**，且大量 commit 後文字退化為 `#### N ...` 重複，decode 以第 1、2 個 `####` 切成三個互斥階段：
 
 - **pre-commit** = decode start → 第 1 個 `####`（**答案形成**，正文主分析）
-- **post-commit** = 第 1 個 `####` → 第 2 個 `####`（**提交後延續生成 / state release**）
-- **loop tail** = 第 2 個 `####` → generation end（**stopping failure**，僅作診斷）
+- **post-commit** = 第 1 個 `####` → 第 2 個 `####`（**提交後延續生成**；此處第 2 個 `####` 是 **second-answer-marker proxy**,非經獨立演算法驗證的 loop onset）
+- **post-second-marker tail** = 第 2 個 `####` → generation end（與 stopping failure / loop 相容,但只作診斷,不等同真實 loop onset）
 - *full = 三段之和*（僅用於展示 loop contamination，不作機制結論）
 
-`s_t = EMA(Z_t)` 在整條 decode 上只計算一次（`s_0=Z_0`），`p_t=Z_t-s_{t-1}` 再由同一條軌跡取得；三階段不重新 seed。C1/C2-centered 圖只是放大兩個階段邊界，不構成另一套切分。C2-based 分析只涵蓋具有第二個 `####` 的 loop-prone subset，因此屬診斷性結果。
+`s_t = EMA(Z_t)` 在整條 decode 上只計算一次（`s_0=Z_0`），`p_t=Z_t-s_{t-1}` 再由同一條軌跡取得；三階段不重新 seed。C1/C2-centered 圖只是放大兩個階段邊界，不構成另一套切分。**C2 是 second-answer-marker proxy**,其後段為 post-second-marker tail;C2-based 分析只涵蓋具有第二個 `####` 的 loop-prone subset，屬診斷性結果,不能把 C2 直接等同真實 loop onset。
 
 #### Integrated RSN Dynamics
 
@@ -456,7 +458,7 @@ Confidence 現以**與 wanting 相同的三段切分**（pre-commit / post-commi
 4. **Stopping failure:** loop tail 會反轉 full-decode trajectory；CoT tail 較短且 residual variability 較低，但這是 stopping diagnostic，不作正常 reasoning 或 dopamine level 的主結論。
 5. **Wanting vs confidence:** CoT 在 pre-commit 同時提高 RSN engagement 與 output decisiveness，證明兩軸會被同一 prompt manipulation 共同調制；但兩者使用不同表徵基座，且 post-commit confidence proxy 飽和，因此本節既不證明兩者是同一構念，也不構成 dissociation 或直接因果證據。較乾淨的 dissociation 來自 §4.3 persona comparison；causal dissociation 仍需 α intervention 下的同軸檢驗。
 
-整體而言，CoT 的最強 RSN 證據是 **task-entry gain + sustained pre-commit engagement + post-commit release**；confidence control 則只支持 **pre-commit output decisiveness 提高**，commit 後不作實質解讀。Fast residual 與 process salience / cognitive updating / commitment-related phasic-like dynamics 相容，但仍缺 event specificity 與 random-mask controls；Dopamine-specific 的主要因果證據仍需來自 α intervention、dose-response 與行為學實驗。
+整體而言，CoT 的最強 RSN 證據是 **task-entry gain + sustained pre-commit engagement + post-commit release**；confidence control 則只支持 **pre-commit output decisiveness 提高**，commit 後不作實質解讀。Fast residual 與 process salience / cognitive updating / commitment-related phasic-like dynamics 相容，但仍缺 event specificity 與 random-mask controls；**causal evidence for RSN gain modulation that supports the dopamine analogy** 仍需來自 α intervention、dose-response 與行為學實驗（α 能因果操縱 RSN,但不直接證明生物 dopamine mechanism）。
 
 #### Figures and Analysis Files
 
@@ -525,7 +527,7 @@ Persona 呈現三段式結構：
 
 這提供了 Non-Expert accuracy 高於 Expert（68% vs 58%）的一個候選機制：**較低的入口 gain、較高的 commitment-formation engagement，以及較快的 post-commit release**。但本節仍未證明這三個 readouts 中介 accuracy；確認中介路徑需要分析 Expert-Wrong → Non-Expert-Correct 的 discordant items，或進行 gain-matched `role × α` rescue/cancellation experiment。
 
-因此 §4.3 的主要貢獻是揭示 **Persona 與 CoT 具有不同的 temporal and representational modulation profiles**。CoT 在 pre-commit 同時提高 slow RSN engagement 與 output-distribution decisiveness，屬於較明顯的 **joint wanting–confidence modulation**；Persona 的主要效應則集中於 RSN/wanting 軸的時間重分配——從 task-entry gain、commitment-formation reversal 到 post-commit release。Persona 並非完全不影響 confidence：Non-Expert 在 pre-commit 略為更 decisive，但其效應明顯弱於 RSN gain，且較為局部。因此較準確的結論是：**CoT 同時調制 wanting 與 confidence，而 Persona 主要重組 wanting dynamics，並伴隨較弱的 confidence change。** 這支持 RSN 作為不同於 output confidence 的 dynamic state/gain readout，但 dopamine-specific 的因果證據仍主要來自 §4.4 α dose-response 與行為學結果。
+因此 §4.3 的主要貢獻是揭示 **Persona 與 CoT 具有不同的 temporal and representational modulation profiles**。CoT 在 pre-commit 同時提高 slow RSN engagement 與 output-distribution decisiveness，屬於較明顯的 **joint wanting–confidence modulation**；Persona 的主要效應則集中於 RSN/wanting 軸的時間重分配——從 task-entry gain、commitment-formation reversal 到 post-commit release。Persona 並非完全不影響 confidence：Non-Expert 在 pre-commit 略為更 decisive，但其效應明顯弱於 RSN gain，且較為局部。因此較準確的結論是：**CoT 同時調制 wanting 與 confidence，而 Persona 主要重組 wanting dynamics，並伴隨較弱的 confidence change。** 這支持 RSN 作為不同於 output confidence 的 dynamic state/gain readout，但 **causal evidence for RSN gain modulation that supports the dopamine analogy** 仍主要來自 §4.4 α dose-response 與行為學結果（α 因果操縱的是 RSN gain,非直接的生物 dopamine mechanism）。
 
 ### 4.4 α-Steering: Linear Task-Entry Gain and a Nonlinear Behavioral Working Point
 
@@ -748,7 +750,7 @@ CoT process  ×  α=−4 task-entry intervention
 - **① support-selection null（`diff_random`，N=11）**：只隨機化「選哪些 neuron」（support），取值仍**複用 dense role-diff 的 coordinate-wise 數值與符號結構**。它回答「**top-|diff| 這組支撐是否特殊**」，但**不能**回答「role-diff 方向 vs 任意無關方向是否特殊」——因為它保留了 role-diff 的權重。
 - **② generic-direction null（orthogonal Gaussian，各 N=10）**：把權重換成**逐層與 dense role-diff Δ_l 精確正交、且 norm-match 到 NMD 行**的 Gaussian，徹底去掉 role-diff 的權重方向。兩個子家族：`ortho_gauss_same`（用 NMD **自己**的 20 個 neuron 位置）與 `ortho_gauss_off`（用**與 NMD 不相交**的隨機位置）。前者測「同一批 support 上、非 role-diff 方向」，後者測「完全避開 NMD support 的任意稀疏正交方向」。
 
-三個 null family 一致落入同一結論，故本節結論由前一版的 preliminary 上調為 **稳健的方向特異性初步證據**（仍限 N=10–11 exploratory ordering、Llama3-8B、offline，見文末限定）。
+三個 null family 一致落入同一結論，故本節結論由前一版的 preliminary 上調為 **跨三類 null 一致的 exploratory direction-specificity evidence**（仍限 N=10–11 exploratory ordering、Llama3-8B、offline，見文末限定）。
 
 **方法（offline re-projection null）。** 因果雙向 steering 的有效性已在 RSN 母論文中驗證，本節只做離線重投影：把**同一批已存的 HDF5 hidden states** 對不同 mask 重投影：
 
@@ -773,7 +775,7 @@ CoT process  ×  α=−4 task-entry intervention
 
 1. **兩個 primary 在全部 5 個 contrast 都落 null 極端**，方向隨 contrast **系統性翻轉**：α−/CoT 是「commit 前 `s_t` 高、commit 後 `p_t` 低」，α+/Expert 完全鏡像。
 2. **自然 state（CoT、Persona）與注入 α 表現一致。** 若特異性只出現在 α-dose，可能是 α-steering 的 injection–projection identity 造成的時間版假象；但 CoT vs No-CoT、Expert vs Non-Expert（皆非注入）與 α 條件同樣落極端——故此時間特異性**不能僅由 α-steering 的 injection–projection identity 解釋**。（其中 CoT 是最獨立的自然狀態證據；Expert–Non-Expert 雖非注入，但 NMD mask 本身即抽自該 contrast，故關聯性較弱。）
-3. **整條軌跡距離（leave-one-out centroid RMS，`[−40,+20]`，`s_t`/`p_t` 分開）**：全部 10 個 (contrast × signal) cell 的 NMD signed 軌跡都顯著偏離 null centroid（D_NMD 為 null median 的 3–7 倍，pctile 100%，p_emp 0.083）。但 RMS 同時含水平/幅度/形狀，**不能單獨解讀為形狀特異**：`p_t` 的 shape-corr（NMD vs null 0.39–0.55）相近，顯示偏離**主要來自幅度/水平差異**（「同形不同幅」）；`s_t` 的 null 質心近平坦（centroid std < 0.02），shape-corr 不可解釋（已標註）。**是否存在獨立於幅度的形狀差異，仍需額外指標。**
+3. **整條軌跡距離（leave-one-out centroid RMS，`[−40,+20]`，`s_t`/`p_t` 分開）**：全部 10 個 (contrast × signal) cell 的 NMD signed 軌跡距離都**超過全部已採樣 null draws**（D_NMD 為 null median 的 3–7 倍，pctile 100%，p_emp 於 N=11 地板 0.083）。但 RMS 同時含水平/幅度/形狀，**不能單獨解讀為形狀特異**：`p_t` 的 shape-corr（NMD vs null 0.39–0.55）相近，顯示偏離**主要來自幅度/水平差異**（「同形不同幅」）；`s_t` 的 null 質心近平坦（centroid std < 0.02），shape-corr 不可解釋（已標註）。**是否存在獨立於幅度的形狀差異，仍需額外指標。**
 
 commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現：每個 contrast 的 NMD 曲線在 commit（step 0）附近急轉——commit 前一個平台、commit 後單調鬆弛；11 條 null 在 commit 處**未形成與 NMD 同等強度的 signed transition**（`s_t` null 近平坦，`p_t` null 有結構但幅度較弱）。CoT 的 `p_t` 更在 commit 出現一個 −0.7 的單步 event-locked spike（呼應 §4.2「commit = 多信號 phasic 節點」的 RSN 側證據）。
 
@@ -796,7 +798,7 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 **off-support 這格最吃重**（把 20 個位置**完全移出 NMD** 且權重正交於 role-diff，NMD 仍獨佔極端，null median≈0——off 方向自己並未命中某個 global mode）。三格合起來指向：特異性來自 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合（兩者的匹配關係）**，而非任一單獨成分——`ortho_gauss_same` 失敗說明 NMD 支撐單獨不充分，`diff_random` 失敗說明 random 支撐上的 role-diff 權重不充分。並非 support 或 weight 不重要，恰恰是兩者的對應最重要。
 
-**Leave-one-layer-out（不由少數 layer 驅動）。** 對 NMD mask 逐一踢掉 9 個 middle layer（L11–19）之一、在剩 8 層上重算兩個 primary 的 signed window mean：全部 10 個 (contrast × primary) cell 在**任一單層被踢掉後皆保持符號不變**（no sign flip），且 LOO 的 min/max 與 full 同側不跨 0（例：α=−6 `s_pre_mean` full=+0.437，LOO 範圍 [+0.334, +0.621]；`p_post_mean` full=−0.264，範圍 [−0.374, −0.211]）。最具影響力的單層為 L11，但踢除後效應仍穩健——故此時間效應**不由任一單層驅動**（滿足完成標準中「不只由少數 layer 驅動」一項）。
+**Leave-one-layer-out（不由任一單層驅動）。** 對 NMD mask 逐一踢掉 9 個 middle layer（L11–19）之一、在剩 8 層上重算兩個 primary 的 signed window mean：全部 10 個 (contrast × primary) cell 在**任一單層被踢掉後皆保持符號不變**（no sign flip），且 LOO 的 min/max 與 full 同側不跨 0（例：α=−6 `s_pre_mean` full=+0.437，LOO 範圍 [+0.334, +0.621]；`p_post_mean` full=−0.264，範圍 [−0.374, −0.211]）。最具影響力的單層為 L11，但踢除後效應仍穩健——故此時間效應**不由任一單層驅動**。**但這是 single-layer LOO,尚未排除兩三個 layer 共同貢獻**（未做 leave-two/three-out 或 null 側逐層對照）,故只滿足「不由任一單層驅動」,不宣稱「不由少數 layer 驅動」。
 
 **兩層結論（分開讀）。**
 
@@ -810,6 +812,8 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 ### 4.7 Case Study: sample-level RSN trajectories and generated text
 
 為核對聚合曲線的功能解讀，本節逐題對照 9 個 `sample_traj3_` case（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284），每題疊加 neutral No-CoT 的 α=−6、0、+6 `s_t` / `p_t` 軌跡與實際生成文本。這是**定性 sanity check**，樣本不是預註冊或代表性抽樣，不提供新的 effect size、顯著性或因果證據；其用途是檢查聚合指標是否對應可辨識的生成階段，以及暴露事件定位與輸出格式的混淆。
+
+#### Case-level observations
 
 **Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。因此 `s_t` 較適合解讀為 ongoing / unresolved processing state，而不是 correctness 或 reasoning quality 的直接讀數。
 
@@ -844,6 +848,6 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
 
-因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。
+因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.7:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。
 
 方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡提供目前最強的 NMD direction-specificity evidence**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 中 NMD 皆相對各自 null 保持極端 pctile，null median 皆 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。**off-support generic-direction null 這格最吃重**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源，排除了「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種單成分解釋。限定：各 family N=10–11 為 exploratory ordering（三 family/30 cell 共享同一批 hidden states 與指標，非獨立重複，不作正式顯著性宣稱），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續優先跨模型、跨任務與含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
