@@ -813,13 +813,28 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 **Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。因此 `s_t` 較適合解讀為 ongoing / unresolved processing state，而不是 correctness 或 reasoning quality 的直接讀數。
 
-**Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、規則的振盪。這支持 `p_t` 能區分生成階段，但同時收緊其機制解讀：`p_t` 很可能混合了 process updating 與 **token class、局部熵、重複性及輸出模板**的影響。故視覺上的前後「頻率差」目前只作假設，不寫成已量化的 frequency effect；在沒有 token-class-matched control 與正式頻譜統計前，不能把它直接命名為 phasic dopamine。
+**Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、較規則的振盪。這個視覺觀察促成下列全樣本 follow-up；結果確認 `p_t` 能區分生成階段，但也顯示其主要穩定變化是 **residual amplitude collapse**，而不是獨立的 frequency reorganization。
+
+**Formal `p_t` frequency test：幅度效應保留，頻率假設不成立。** `analyze_pt_frequency.py` 在 neutral No-CoT 的 α=−6/0/+6 上逐題計算兩套 paired comparison：(i) commit-centered `[−40,0)` vs `[0,+40)`（n=195–248/α）；(ii) reasoning `[0,C1)` vs strict repeated-12gram detector 定位的 confirmed-loop tail（n=24/42/41）。每段先去均值，再報 centered RMS（residual variability）、zero-crossing rate、Welch dominant frequency、spectral centroid 與 normalized spectral entropy；因此此處的 RMS 是 fast residual 的段內變異幅度，不包含 level shift。
+
+| post−pre | α=−6 | α=0 | α=+6 |
+|---|---:|---:|---:|
+| centered RMS | **−0.285**\*\*\* | **−0.186**\*\*\* | **−0.143**\*\*\* |
+| spectral entropy | **−0.094**\*\*\* | **−0.074**\*\*\* | **−0.056**\*\*\* |
+| zero-crossing rate | **−0.061**\*\*\* | **−0.038**\*\* | **−0.036**\*\* |
+| spectral centroid | −0.007 ns | **−0.019**\*\*\* | −0.013\* |
+
+（paired Wilcoxon：\* `p<.05`，\*\* `p<.01`，\*\*\* `p<.001`。）
+
+Commit-centered 結果表面上呈現「提交後振幅降低、頻譜更集中且 crossing 變少」，與 case 圖的規則振盪印象一致；但 spectral-entropy change 與 `####` 比例變化高度共變（Pearson `r=−0.53/−0.58/−0.55`），與 repeated-12gram rate 亦中度共變（`r=−0.40/−0.46/−0.43`）。這不是控制後的因果分解，不能單由相關係數估計「多少效應由格式造成」；不過它清楚顯示 commit-centered frequency/regularity readout 與 answer-format、重複內容不可分離。
+
+更嚴格的 stage-based comparison 給出不同結果：confirmed loop 的 centered RMS 在三個 α 仍大幅下降（約 −0.31/−0.35/−0.36，皆顯著），但 zero-crossing rate 全部接近 null，dominant frequency / centroid 反而小幅上升，spectral entropy 只弱下降。換言之，跨兩種切分唯一穩定的量是**幅度下降**；「更低頻／更規則」並未跨口徑成立，也沒有 α-monotonic dose structure。stage subset 的 repetition/hash 與 frequency-change 相關接近 0，但因 detector 本身按重複性選樣、且 n=24–42，可能存在 restricted range 與 selection effect，故不稱為完全 confound-free negative test。
 
 **First-answer accuracy 與 stable completion 分離。** 個案也顯示「首次答對」不等於「穩定完成」。例如 Q251 的 α=0 首次提交正確答案 60，因此 first-answer protocol 判為 correct，但之後仍繼續除以 2 並產生錯誤候選。這不否定 GSM8K 以 first `####` 作 production accuracy 的口徑；它說明 accuracy 與 termination quality / post-answer degeneration 是兩個不同的行為維度。後者應由 answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等獨立指標描述，不能由 first accuracy 代替。
 
 **Declaration marker 的技術邊界。** 單一句子如 `The final answer is: \boxed{75}####` 會同時命中 `final answer`、`\boxed{}` 與 `####`；若不合併，圖中的第二條線可能只是同一次提交的另一個 marker，而非第二次作答。`plot_sample_traj.py` 現已將相距 25 characters 內的 marker 合併，dotted line 表示 **second distinct answer declaration**。但即使是第二次獨立 declaration，也只能視為 repetition / revision proxy，不能自動等同真正的 loop onset。§4.2 聚合分析使用 literal 第 1 / 第 2 個 `####`，因此不受同一句多類 marker 重複命中的繪圖問題影響；不過其中 C2 仍應解讀為 **second-answer-marker boundary**，其後段是 post-second-marker tail，而不是經獨立演算法驗證的 loop onset。
 
-**Case-study conclusion.** 這 9 題最直接支持三個既有判斷：(i) `s_t` 的主結構與持續推理—提交後釋放相容；(ii) full-decode 會被 post-answer stopping failure 污染；(iii) `p_t` 的 answer-centered transition 含明顯輸出模式成分，必須維持 fast residual 而非 biological phasic signal 的保守命名。它們不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律，也不能把第二個 marker 當作真實 loop onset。若要正式分析 reasoning → answer → loop 的 `p_t` 頻率，下一步需以 repeated n-gram / periodic-token detector 定位真正的 repetition onset，再分別報告各階段的 amplitude、zero-crossing rate 與 dominant frequency。
+**Case-study conclusion.** 這 9 題與全樣本 follow-up 共同支持三個判斷：(i) `s_t` 的主結構與持續推理—提交後釋放相容；(ii) full-decode 會被 post-answer stopping failure 污染；(iii) `p_t` 在 commit/loop 後可靠呈現的是 **fast residual amplitude collapse**，而視覺上的規則振盪主要與 answer-format / repetition 共同變化，沒有形成跨口徑一致的 frequency effect。因此頻率分析在本研究中的價值是排除過度機制化解讀，後續只保留為 generation-degeneration diagnostic / negative control，不作主要 RSN readout；`p_t` 仍應稱 fast residual，不能命名為 biological phasic signal。這些結果也不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律，且不能把第二個 marker 當作真實 loop onset。
 
 ## 5. Conclusion
 
