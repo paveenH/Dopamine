@@ -31,6 +31,7 @@ RSN neurons
    - `p_t` 目前只是 fast residual，尚不能称为 phasic dopamine。
    - 当前最合适的总论断仍是 **controllable latent gain mechanism / computational analogue**。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:742)
 ---
+
 ## TODO
 2. 可能需要算一下pt的频率？
 3. 实际的samples如果有发现什么问题 后面提交的结果可能要重新计算
