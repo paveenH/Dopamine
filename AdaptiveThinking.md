@@ -777,7 +777,7 @@ CoT process  ×  α=−4 task-entry intervention
 
 commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現：每個 contrast 的 NMD 曲線在 commit（step 0）附近急轉——commit 前一個平台、commit 後單調鬆弛；11 條 null 在 commit 處**未形成與 NMD 同等強度的 signed transition**（`s_t` null 近平坦，`p_t` null 有結構但幅度較弱）。CoT 的 `p_t` 更在 commit 出現一個 −0.7 的單步 event-locked spike（呼應 §4.2「commit = 多信號 phasic 節點」的 RSN 側證據）。
 
-**升級：generic-direction null（權重去掉 role-diff 後仍 hold）。** 上表 ① 的 null 保留了 role-diff 權重。把權重換成逐層 ⊥ Δ_l 的 norm-matched Gaussian（② `ortho_gauss_same`/`off`）後，兩個 primary 的極端 pctile **完全保持**——下表列 NMD signed 與各 null 的 median（後者全 ≈0）：
+**升級：generic-direction null（權重去掉 role-diff 後，NMD 仍相對 null 保持極端）。** 上表 ① 的 null 保留了 role-diff 權重。把權重換成逐層 ⊥ Δ_l 的 norm-matched Gaussian（② `ortho_gauss_same`/`off`）後，兩個 primary 的 NMD-vs-null 極端 pctile 維持不變——下表列 NMD signed 與各 null 的 median（後者中心趨勢皆 ≈0，且採樣到的方向均未複現 NMD 的窗口平均 signed effect）：
 
 | Contrast | `s_pre_mean` NMD | same-med / off-med | pctile (same / off) | `p_post_mean` NMD | same-med / off-med | pctile (same / off) |
 |---|---|---|---|---|---|---|
@@ -787,23 +787,23 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 | α=−6 vs 0 | +0.437 | +0.040 / −0.006 | **100% / 100%** | −0.264 | −0.005 / +0.031 | **0% / 0%** |
 | α=+4 vs 0 | −0.167 | −0.040 / −0.007 | **0% / 0%** | +0.185 | +0.007 / −0.011 | **100% / 100%** |
 
-三個 family（`diff_random` / `ortho_gauss_same` / `ortho_gauss_off`）合計 **30 個 primary cell 全部落在各自 null 分布的極端端**（0% 或 100%），且 null median 全 ≈0（**隨機/正交稀疏方向本身不產生 commit-locked signed 結構**）。LOO-centroid RMS 亦全 90–100% pctile。落到 support × weight 的 2×2 判讀：
+三個 family（`diff_random` / `ortho_gauss_same` / `ortho_gauss_off`）合計 **30 個 primary cell 中，NMD 皆相對各自 null 保持極端**（pctile 0% 或 100%），且各 null 的**中心趨勢接近 0，採樣到的方向均未複現 NMD 的窗口平均 signed effect**（null median≈0；注意這是 null 的中心，不代表 null 曲線無結構——部分 null 尤其 `p_t` 仍有明顯 commit 附近波動，只是其窗口平均帶符號效應接近 0 且方向不定）。LOO-centroid RMS 亦全 90–100% pctile。把三個 family 排進 support × weight 的 **control matrix**（非嚴格 factorial——① 的 support 是隨機而非窮舉一格；每格記「NMD 是否相對該 null 保持極端」）：
 
 | | role-diff 權重（①） | ⊥ role-diff 權重（②） |
 |---|---|---|
-| **NMD support**（same） | hold | hold |
-| **NMD-disjoint support**（off） | —（①即隨機 support） | hold |
+| **NMD support**（same） | NMD remains extreme | NMD remains extreme |
+| **NMD-disjoint support**（off） | NMD remains extreme（① random support 落此格） | NMD remains extreme |
 
-**off-support 也 hold（且 null median≈0，非「off 方向自己命中 global mode」）是最強的一格**：即使把 20 個位置**完全移出 NMD**、權重再正交於 role-diff，任何 norm-matched 隨機稀疏方向都**無法**複現 NMD 的 commit-locked signed 時間組織。故此特異性**不能**歸因於「恰好選中 top-|diff| 支撐」，也**不能**歸因於「複用了 role-diff 的逐坐標權重」。
+**off-support 這格最吃重**（把 20 個位置**完全移出 NMD** 且權重正交於 role-diff，NMD 仍獨佔極端，null median≈0——off 方向自己並未命中某個 global mode）。三格合起來指向：特異性來自 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合（兩者的匹配關係）**，而非任一單獨成分——`ortho_gauss_same` 失敗說明 NMD 支撐單獨不充分，`diff_random` 失敗說明 random 支撐上的 role-diff 權重不充分。並非 support 或 weight 不重要，恰恰是兩者的對應最重要。
 
 **Leave-one-layer-out（不由少數 layer 驅動）。** 對 NMD mask 逐一踢掉 9 個 middle layer（L11–19）之一、在剩 8 層上重算兩個 primary 的 signed window mean：全部 10 個 (contrast × primary) cell 在**任一單層被踢掉後皆保持符號不變**（no sign flip），且 LOO 的 min/max 與 full 同側不跨 0（例：α=−6 `s_pre_mean` full=+0.437，LOO 範圍 [+0.334, +0.621]；`p_post_mean` full=−0.264，範圍 [−0.374, −0.211]）。最具影響力的單層為 L11，但踢除後效應仍穩健——故此時間效應**不由任一單層驅動**（滿足完成標準中「不只由少數 layer 驅動」一項）。
 
 **兩層結論（分開讀）。**
 
 1. **task-entry raw gain（`G_prefill`）**：NMD 遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這是 **co-design identity**（`x_prefill(α) ≈ x_prefill(0)+α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大）+ mask 本身抽自該方向，屬 **manipulation check**，非獨立證據。
-2. **commitment-locked temporal organization（`s_t`/`p_t` 軌跡）**：**這是 NMD 真正特異的部分**——commit 前後帶符號的結構化走向（幅度/水平）穩定超出**三個** null family（support-selection ①、same/off generic-direction ②），且在注入與自然 state 上一致。既然 off-support generic-direction null 也 hold（權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端），此特異性已排除「僅是 top-|diff| 支撐」與「僅是複用 role-diff 逐坐標權重」兩種平凡解釋；是否另有獨立於幅度的形狀差異仍待定。
+2. **commitment-locked temporal organization（`s_t`/`p_t` 軌跡）**：**這是目前最強的 NMD direction-specificity evidence**——commit 前後帶符號的結構化走向（幅度/水平）穩定超出**三個** null family（support-selection ①、same/off generic-direction ②），且在注入與自然 state 上一致。off-support generic-direction null 也保持 NMD 極端（權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端），與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源——排除了「僅是 top-|diff| 支撐」與「僅是複用 role-diff 逐坐標權重」兩種單成分解釋；是否另有獨立於幅度的形狀差異仍待定。
 
-**限定。** (i) direction-specificity null **已補齊**：support-selection（①）+ same/off generic-direction（② orthogonal Gaussian）三個 family 一致 hold，已排除「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」。**尚未做**的僅剩 same-support sign-shuffle（檢驗「符號—位置對應」——註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，不代表該對應不重要，故列為次優先而非已知無判別力）；orthogonal null 已 norm-match 並徹底去除 role-diff 權重方向，sign-shuffle 屬更細的分解，非必要補強。(ii) **各 family N=10–11 draws 已參與指標選擇，屬 exploratory ordering**（p 地板 0.083–0.091）；欲作正式顯著性宣稱，應在**凍結指標後另生成獨立的 confirmatory draws**（≥99 → p 地板 ~0.01）。惟三個獨立 family × 30 cell 全部命中極端，偶然一致的機率極低。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) leave-one-layer-out 已做且通過（10/10 no-flip，見上），「不只由少數 layer 驅動」一項已滿足；但 per-layer 對照僅在 NMD 側檢驗軌跡穩健性，尚未與 null 做逐層對照。
+**限定。** (i) direction-specificity null **已補齊**：support-selection（①）+ same/off generic-direction（② orthogonal Gaussian）三個 family 一致 hold，已排除「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」。**尚未做**的僅剩 same-support sign-shuffle（檢驗「符號—位置對應」——註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，不代表該對應不重要，故列為次優先而非已知無判別力）；orthogonal null 已 norm-match 並徹底去除 role-diff 權重方向，sign-shuffle 屬更細的分解，非必要補強。(ii) **各 family N=10–11 draws 為 exploratory ordering，不作正式顯著性宣稱**（p 地板 0.083–0.091；且 draws 已參與指標選擇）。三個 family 與 30 cell 並非獨立重複——它們共享同一批 hidden states、conditions、baseline 與指標，故不可用「多 family 一致」推得低偶然機率。下一步優先**跨任務、跨模型與 causal-direction control**（見 (iii)），而非繼續擴增同類 seeds。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) leave-one-layer-out 已做且通過（10/10 no-flip，見上），「不只由少數 layer 驅動」一項已滿足；但 per-layer 對照僅在 NMD 側檢驗軌跡穩健性，尚未與 null 做逐層對照。
 
 分析腳本：`analyze_rsn_specificity.py`（`python3.10`；帶符號 commit-aligned temporal 指標 + LOO-RMS + leave-one-layer-out；`--null_family {diff_random,ortho_gauss_same,ortho_gauss_off}` + `--null_root` 切換 null family，凍結指標不變；`--plot` 出全部 5 張 commit-centered 圖，檔名帶 family tag）。讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/{random,ortho_same,ortho_off}/seed{1..10}/`；① 由 `run_random_null.sh`、② 由 `run_generic_null.sh` 生成（皆 server-side，zero-GPU offline re-projection）。server 步驟見 `GENERIC_NULL_RUNBOOK.md`。
 
@@ -815,4 +815,4 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。
 
-方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡是 NMD 真正特異的部分**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 全落極端 pctile，null median 全 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。關鍵在於 **off-support generic-direction null 也 hold**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——故此特異性已排除「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種平凡解釋。限定：各 family N=10–11 屬 exploratory ordering（正式顯著性須凍結指標後另生成 confirmatory draws），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續仍需跨模型、跨任務、含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
+方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡提供目前最強的 NMD direction-specificity evidence**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 中 NMD 皆相對各自 null 保持極端 pctile，null median 皆 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。**off-support generic-direction null 這格最吃重**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源，排除了「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種單成分解釋。限定：各 family N=10–11 為 exploratory ordering（三 family/30 cell 共享同一批 hidden states 與指標，非獨立重複，不作正式顯著性宣稱），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續優先跨模型、跨任務與含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
