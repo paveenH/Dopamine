@@ -28,10 +28,9 @@ EMA=0.95
 SEEDS="1 2 3 4 5 6 7 8 9 10"
 FAMILIES="ortho_gauss_same ortho_gauss_off"
 
-# Only the 7 conditions the frozen analysis (s_pre_mean / p_post_mean / LOO-RMS)
-# actually reads. extract_signal_json_remask.py globs the H5 dir, so we point it
-# at the per-condition H5 files. Adjust the glob pattern if your H5 layout differs.
-CONDS="nocot cot nocot_expert nocot_non_expert nocot_aneg4 nocot_aneg6 nocot_a4"
+# extract_signal_json_remask.py re-projects every H5 it finds by globbing $H5_DIR,
+# so which conditions get re-projected is whatever lives in that dir (the 7 frozen
+# conditions the analysis reads: nocot/cot + expert/non_expert + aneg4/aneg6/a4).
 
 for fam in $FAMILIES; do
   case "$fam" in
