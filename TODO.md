@@ -33,50 +33,8 @@ RSN neurons
 ---
 
 ## TODO
-1. 对齐关于命名和实验分析结论的思路
-2. Slow-State的结果
 
 ---
-### 1. RSN Direction Specificity（最高优先级，zero/low GPU）
-
-**目标：** 确认当前信号集中在 NMD/RSN 方向，而不是任意稀疏方向都会出现。
-
-- 用当前 `G/Z` 坐标重算 NMD vs random mask，覆盖 CoT/No-CoT、Expert/Non-Expert 和 α-dose。
-- 每个 mask 使用自己的 neutral reference、norm 和 standard deviation，避免因尺度不同产生假优势。
-- 主读数：`G_prefill`、pre-commit `s_t mean/slope`、`p_t abs_mean/std`；commit-centered 图只作时间定位。
-- 优先生成至少 10 个 norm/sparsity-matched random masks，构成 random null distribution；单一 random mask 只作初步检查。
-- 将 **offline re-projection** 与真正的 **random-direction causal steering** 分开命名。
-
-**完成标准：** RSN 主效应稳定高于 random null，且不只由少数 layer 或单一 condition 驱动；否则将结论降为一般 sparse-state effect。
-
-### 2. Slow-State Behavioral Validation
-
-**目标：** 检验在 GSM8K commit-timing / premature 这个 readout 上，是否诱发出 `s_t` 斜率（ramping/vigor 建模）的差异。**建模层与发现层分开：`s_t` 斜率是对 ramping/vigor 的信号-数学建模、level 是对 slow engagement/commitment-state 的建模，这两个操作化是先验成立的；本项只回答「本 task 有没有让该信号动起来」，阴性属 task-level finding，不构成对 construct 名称的否证或改名。**
-
-- 在 common-valid questions 上，检验 `s_t level/slope` 与 commit position、generation length、premature commitment、answer oscillation、post-commit loop 的 per-sample 关系。
-- 使用 item-level regression，同时纳入 difficulty/correctness、entropy/top1、response length 和 commit-marker availability。
-- 分开分析 pre-commit level、pre-commit slope 与 post-commit release，不以整段平均替代 event-centered readout。
-- 在 held-out questions 上验证预测方向。
-
-**完成标准：** slope 在控制 length/confidence 后稳定预测推进速度 → 本 task **检出 ramping/vigor 信号**；若只有 level 稳定 → 报告为**本 task 未诱发 ramping/vigor 斜率信号，`s_t` 在此 task 主要以 slow engagement/commitment-state readout 表现**。ramping/vigor 作为斜率的模型定义**保留**；是否在 construct 层命名为 vigor 需由能诱发 vigor 的 task（effort/betting/agentic）决定，GSM8K commit-timing 的阴性不构成否证。
-
-**结论（2026-07-28，已完成 → 本 task 未诱发 ramping/vigor 斜率信号）：** `analyze_slow_state_behavior.py`（pooled 11 conds × 300 = 3300 样本，其中 3229 带 commit marker）。**建模约定：`s_t` 的 SLOPE 是对 ramping/vigor 假设的操作化（vigor = 朝答案单调爬升，斜率=推进速度），`s_t` 的 LEVEL 是对 slow engagement/commitment-state 假设的操作化。**
-
-**四项 leakage/口径修正（load-bearing，2026-07-28 二轮）——初版有验证漏洞，修正后结论更强也更细：**
-1. **Landmark filtering（关键）：** 全池里 **754/3229（23.4%）样本在 token 20 前已 commit**（其中 749 是 premature），对它们 `[0,W)` 窗**跨过了 commit**、混入 post-commit release。故 commit-timing 主分析**只保留 at-risk 子集（commit_step≥W）**、预测量改为 `commit_excess = commit_step − W`。
-2. **Held-out scaler 冻结：** 初版 train/test 各自标准化（尺度不一致，held-out R² 不可信）；改为冻结 train 的 μ/σ 应用到 test。
-3. **Confidence control 固定窗：** entropy/top1 由「前 20% 变长窗」改为与 s_t 同的固定 `[0,W)`（去掉未来长度信息）。
-4. **α condition fixed effects：** 回归加入 α condition dummies（baseline a0），避免跨 α 的 pooled association 冒充样本内关联。
-
-修正后三层证据：
-
-- **① 描述层（at-risk 子集，leakage-free）：** **LEVEL→commit_step** ρ=**+0.379**（W20, n=2475）/**+0.400**（W40, n=2282），p<1e-85；**SLOPE→commit_step** ρ=**−0.020**（p=.33, ns）/**+0.012**（p=.56, ns）——**斜率对 commit timing 是干净的 null**。（未过滤的 pooled 全池 level ρ=+0.32/+0.39、slope 亦 ns，方向一致。level 与 has_loop/post_commit_tok 仍负相关：高 level=保持投入更久→commit 更晚、结尾干净，而 loop/空转尾巴是早 commit 后无事可做才产生。）
-- **② Item-level 回归**（at-risk 子集，target=`commit_excess_20`，n=2475；cluster-robust SE by qid；控制 gen_len[剔除，长度代理]/entropy_early/top1_early[固定窗]/难度/correctness/regime/**α-condition FE**）：controls-only R²=0.235 →**+level R²=0.259**（β=+19.6, z=+4.95, **p=7e-7**）→+level+slope R²=0.267（slope β=+10.7, **p=.003**）。**但这个显著 slope β 是 suppressor 假象，不是 vigor 信号**：corr(level,slope)=**−0.48**（强共线），slope 单独↔commit_excess ρ=−0.02（null），只有控制 level 后 partial 才显现（r=+0.20），**且符号 +（陡→commit 更晚）与 vigor 预测（陡→更快）相反**；加 slope 后 level β 从 +19.6 跳到 +25.9 = 抑制的教科书特征。
-- **③ Held-out**（at-risk 子集，按题 210/90，**冻结 train scaler**）：+level test R²=**0.249**，+level+slope test R²=0.254 → slope 泛化增益微弱且（同②）方向反 vigor。
-- **premature/抢答——从「slope 唯一信号」撤回，降为诊断：** 749/754 premature 样本在 token W **之前**就 commit，`[0,W)` slope 与 post-commit release 重叠，**时间顺序无法保证**，故 slope→premature 关联是 confound（抢答后状态下降），**不构成 slope 独立预测抢答的证据**。脚本内标为 `DIAGNOSTIC`，不作主张。
-- **边界：** `eos_fail` controls-only R²≈0.98（≡ 生成长度打满 767 cap），对 s_t 无判别空间，只作对照。
-
-→ **按完成标准判决（task-level finding，非 construct 降级）：** 在 leakage-free 的 at-risk 主分析下，slope（=ramping/vigor 的操作化）对 commit timing **描述层 null、回归层仅剩一个与 vigor 反向的 suppressor 残差**，held-out 无稳定增益——故**在本 task（GSM8K commit-timing）上未诱发 ramping/vigor 的斜率信号**；稳定起作用的是 level，`s_t` 在此 task **主要以 slow engagement / commitment-state readout 表现**。**ramping/vigor 作为斜率的模型定义保留**；此阴性只归到 GSM8K commit-timing 这一 readout（grade-school 算术缺少「越接近奖励越快」的渐进逼近结构，可能根本不诱发 vigor），construct 层的 vigor 命名留待 effort/betting/agentic 等能诱发它的 task 检验，本结果不构成否证。图：[`plots_gain/fig_slow_state_behavior.png`]（A/B：at-risk 子集 level/slope→commit_step 十分位均值线，一斜一平；C/D：premature 分组箱线，**仅诊断——时序 confounded**）。
 
 ### 3. α-Steering Anxiety-Scale Experiment
 
