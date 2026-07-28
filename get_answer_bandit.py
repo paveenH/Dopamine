@@ -60,12 +60,43 @@ ACTION_UNIT = "item"
 
 
 def shuffle_arms(seed: int) -> dict[str, float]:
-    """Return name→reward_prob mapping, using seed to pick K names and shuffle."""
+    """Return name→reward_prob mapping in PROMPT ORDER, counterbalancing position.
+
+    The caller uses list(arm_map.keys()) as the arm order shown in the prompt, so
+    the iteration order of this dict IS the display order.
+
+    POSITION LEAKAGE (fixed 2026-07-28 — invalidates all earlier Bandit results):
+    the previous version shuffled the NAMES and then zipped them against the
+    descending probability list, so the dict was always
+        {name_a: 0.7, name_b: 0.5, name_c: 0.4, name_d: 0.3, name_e: 0.1}
+    i.e. the best arm sat at display position 1 and the worst at position 5 for
+    EVERY seed (verified over seeds 0-29: best position was 1 in all 30). Only
+    *which name* was best varied. So OptFrac could not be distinguished from a
+    first-option bias, and combined with the old permissive parser (which
+    returned the first arm name appearing anywhere in the output) a reply that
+    merely echoed the option list scored as "chose the best arm, validly".
+
+    The fix keeps the name→probability assignment shuffled AND shuffles the
+    display order independently, so the best arm's position is uniform across
+    seeds. `position_of_best(seed)` is exposed for the counterbalancing check.
+    """
     rng = random.Random(seed)
     names = CLOTHES_NAMES[:K]
-    shuffled = names[:]
-    rng.shuffle(shuffled)
-    return {name: prob for name, prob in zip(shuffled, REWARD_PROBS_ORDERED)}
+    # 1) which name gets which reward probability
+    assign = names[:]
+    rng.shuffle(assign)
+    name_to_prob = {name: prob for name, prob in zip(assign, REWARD_PROBS_ORDERED)}
+    # 2) independently, the order the names are DISPLAYED in
+    display = names[:]
+    rng.shuffle(display)
+    return {name: name_to_prob[name] for name in display}
+
+
+def position_of_best(seed: int) -> int:
+    """1-based display position of the best arm for `seed` (counterbalance check)."""
+    am = shuffle_arms(seed)
+    probs = list(am.values())
+    return probs.index(max(probs)) + 1
 
 
 def best_arm(arm_map: dict[str, float]) -> str:
@@ -144,25 +175,34 @@ def build_prompt(
 
 
 def parse_choice(output: str, arm_names: list[str],
-                 rng: random.Random = None) -> tuple[str, bool]:
-    """
-    Case-insensitive substring match for arm name in model output.
-    Returns (chosen_name, is_valid). If invalid, returns random arm.
+                 rng: random.Random = None) -> tuple[str, bool, int]:
+    """Parse the model's arm choice. Returns (chosen_name, is_valid, n_matched).
 
-    `rng` MUST be passed by callers that need reproducibility. It used to fall
-    back to the global `random` module, which is never seeded here — so the
-    fallback arm differed between runs of the same seed. That is not a corner
-    case on the −α side: Llama's α=−4 cell has invalid_rate 0.20, i.e. one in
-    five recorded "choices" was an unseeded coin flip feeding straight into the
-    reward draw and the history the next prompt is built from. The default is
-    kept only so any external caller does not break.
+    STRICT SINGLE-CHOICE (changed 2026-07-28 — invalidates earlier results).
+    The old version returned the FIRST arm name found anywhere in the output,
+    scanning in `arm_names` (= prompt display) order. Combined with the old
+    position leakage — the best arm sat at display position 1 for every seed —
+    that meant a reply which simply echoed the whole option list was recorded as
+    a VALID choice of the BEST arm. So OptFrac and "restated the menu" were
+    numerically indistinguishable, and invalid_rate was underestimated.
+
+    Now a reply is valid only if it names EXACTLY ONE arm. Matching >1 distinct
+    arm is a format failure (n_matched > 1), not a choice. `n_matched` is
+    returned so the caller can record it and separate "said nothing parseable"
+    (0) from "restated the menu" (>1) offline.
+
+    `rng` MUST be passed by callers that need reproducibility — it used to fall
+    back to the unseeded global `random`, which at Llama α=−4 (invalid 0.20)
+    meant one in five recorded choices was an unreproducible coin flip that fed
+    the reward draw and the next prompt's history.
     """
     output_lower = output.strip().lower()
-    for name in arm_names:
-        if name.lower() in output_lower:
-            return name, True
-    # invalid → uniform random (EVOLvE fallback)
-    return (rng or random).choice(arm_names), False
+    matched = [name for name in arm_names if name.lower() in output_lower]
+    if len(matched) == 1:
+        return matched[0], True, 1
+    # 0 matches = nothing parseable; >1 = menu restatement / multiple names.
+    # Both are format failures → uniform random (EVOLvE fallback).
+    return (rng or random).choice(arm_names), False, len(matched)
 
 
 def get_feedback(arm: str, arm_map: dict[str, float], rng: random.Random) -> int:
@@ -192,6 +232,9 @@ def run_episode(
     choices = []
     feedbacks = []
     invalids = []
+    valid_flags = []   # per-round: was the reply a parseable single choice?
+    n_matched = []     # per-round: how many distinct arm names appeared
+    raws = []          # per-round: full generation (diagnostics)
 
     for round_idx in range(num_rounds):
         prompt = build_prompt(arm_names, history, use_role=use_role)
@@ -210,17 +253,24 @@ def run_episode(
             temperature=1.0,
         )
         raw = output[0] if isinstance(output, list) else output
-        arm, valid = parse_choice(raw, arm_names, rng=fallback_rng)
+        arm, valid, nmatch = parse_choice(raw, arm_names, rng=fallback_rng)
 
         reward = get_feedback(arm, arm_map, rng)
         choices.append(arm)
         feedbacks.append(reward)
         invalids.append(0 if valid else 1)
+        valid_flags.append(bool(valid))
+        n_matched.append(nmatch)
+        raws.append(raw)
         history.append((arm, reward))
 
     early_end = min(20, num_rounds)
     late_start = max(0, num_rounds - 30)
 
+    # ── ITT (intention-to-treat): every round counts, including rounds whose arm
+    # came from the invalid-parse fallback. This is the headline metric and the
+    # one comparable to the pre-2026-07-28 numbers in shape, because a fallback
+    # arm still drew a reward and still entered the next prompt's history.
     opt_frac        = sum(1 for c in choices if c == opt) / num_rounds
     explore_rate    = 1.0 - opt_frac
     worst_frac      = sum(1 for c in choices if c == worst) / num_rounds
@@ -229,19 +279,55 @@ def run_episode(
     late_opt_frac   = sum(1 for c in choices[late_start:] if c == opt) / (num_rounds - late_start)
     invalid_rate    = sum(invalids) / num_rounds
 
+    # ── VALID-ONLY: restricted to rounds the model actually chose. Necessary
+    # because at high |α| a large share of "choices" are the random fallback, so
+    # ITT mixes model behaviour with a uniform-random agent. Read the two
+    # together: valid-only is not automatically the truer number — dropping
+    # invalid rounds positively selects the rounds the model could still format,
+    # the same survivor bias seen in the betting +8 cell — so report
+    # invalid_rate alongside as the format/engagement failure measure.
+    vidx = [i for i, v in enumerate(valid_flags) if v]
+    n_valid = len(vidx)
+    if n_valid:
+        vchoices = [choices[i] for i in vidx]
+        valid_opt_frac = sum(1 for c in vchoices if c == opt) / n_valid
+        valid_worst_frac = sum(1 for c in vchoices if c == worst) / n_valid
+        valid_mean_regret = float(np.mean([arm_map[opt] - arm_map[c] for c in vchoices]))
+    else:
+        valid_opt_frac = valid_worst_frac = valid_mean_regret = float("nan")
+
+    # Format-failure breakdown: 0 names found vs >1 (menu restatement). The old
+    # permissive parser scored the latter as a valid pick of the first-listed arm.
+    n_zero_match = sum(1 for m in n_matched if m == 0)
+    n_multi_match = sum(1 for m in n_matched if m > 1)
+
     return {
+        "seed":           seed,
         "arm_map":        {k: v for k, v in arm_map.items()},
         "best_arm":       opt,
         "worst_arm":      worst,
+        # 1-based display position of the best arm — lets the analysis verify
+        # position counterbalancing and test for residual first-option bias.
+        "best_position":  arm_names.index(opt) + 1,
+        "arm_order":      arm_names,
         "choices":        choices,
         "feedbacks":      feedbacks,
+        "valid_flags":    valid_flags,
+        "n_matched":      n_matched,
+        "raws":           raws,
         "invalid_rate":    float(invalid_rate),
+        "zero_match_rate": float(n_zero_match / num_rounds),
+        "multi_match_rate": float(n_multi_match / num_rounds),
         "opt_frac":        float(opt_frac),
         "explore_rate":    float(explore_rate),
         "worst_frac":      float(worst_frac),
         "cum_regret":      float(cum_regret),
         "early_opt_frac":  float(early_opt_frac),
         "late_opt_frac":   float(late_opt_frac),
+        "n_valid":            n_valid,
+        "valid_opt_frac":     float(valid_opt_frac),
+        "valid_worst_frac":   float(valid_worst_frac),
+        "valid_mean_regret":  float(valid_mean_regret),
     }
 
 
@@ -260,17 +346,35 @@ def main():
         "std_opt_frac", "std_explore_rate", "std_worst_frac",
         "std_cum_regret", "std_early_opt_frac", "std_late_opt_frac",
         "std_invalid_rate",
+        # valid-only (fallback rounds excluded) + format-failure breakdown
+        "mean_valid_opt_frac", "std_valid_opt_frac",
+        "mean_valid_worst_frac", "mean_valid_mean_regret",
+        "mean_zero_match_rate", "mean_multi_match_rate",
+        "mean_best_position",
     ]
 
     os.makedirs(SAVE_ROOT, exist_ok=True)
     csv_path = os.path.join(SAVE_ROOT, f"summary_{args.model}_{args.size}.csv")
 
+    # Resume key includes the settings that change what a row MEANS. Keying on
+    # alpha alone silently skipped a cell when the layer range, run count or
+    # round count changed within the same output dir — you would get the old
+    # row back and never notice the new configuration had not run.
+    def _resume_key(alpha, st, en, nruns, nrounds):
+        return (float(alpha), int(st), int(en), int(nruns), int(nrounds))
+
     done_keys = set()
     if os.path.exists(csv_path):
         with open(csv_path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
-                done_keys.add(float(r["alpha"]))
-        print(f"[Resume] {len(done_keys)} alpha configs already done, skipping.")
+                try:
+                    done_keys.add(_resume_key(r["alpha"], r["start"], r["end"],
+                                              r["num_runs"], r["num_rounds"]))
+                except (KeyError, ValueError):
+                    # Legacy row from before the key was widened: fall back to
+                    # alpha-only so old dirs still resume rather than crash.
+                    done_keys.add((float(r["alpha"]), None, None, None, None))
+        print(f"[Resume] {len(done_keys)} cells already done, skipping.")
 
     write_header = not os.path.exists(csv_path)
     csv_file = open(csv_path, "a", newline="", encoding="utf-8")
@@ -283,8 +387,10 @@ def main():
     vc.model.eval()
 
     for alpha, (st, en) in ALPHAS_START_END_PAIRS:
-        if float(alpha) in done_keys:
-            print(f"[Skip] α={alpha} already done.")
+        key = _resume_key(alpha, st, en, args.num_runs, args.num_rounds)
+        if key in done_keys or (float(alpha), None, None, None, None) in done_keys:
+            print(f"[Skip] α={alpha} layers={st}-{en} "
+                  f"runs={args.num_runs}x{args.num_rounds} already done.")
             continue
 
         mask_suffix = "_abs" if args.abs else ""
@@ -309,10 +415,12 @@ def main():
             run_results.append(result)
             print(
                 f"opt={result['opt_frac']:.2f}  "
-                f"explore={result['explore_rate']:.2f}  "
+                f"validopt={result['valid_opt_frac']:.2f}  "
                 f"worst={result['worst_frac']:.2f}  "
                 f"regret={result['cum_regret']:.1f}  "
                 f"invalid={result['invalid_rate']:.2f}"
+                f"(0m={result['zero_match_rate']:.2f}/multi={result['multi_match_rate']:.2f})  "
+                f"bestpos={result['best_position']}"
             )
             gc.collect()
             torch.cuda.empty_cache()
@@ -324,6 +432,12 @@ def main():
         eopt  = [r["early_opt_frac"] for r in run_results]
         lopt  = [r["late_opt_frac"]  for r in run_results]
         inv   = [r["invalid_rate"]   for r in run_results]
+        vopt  = [r["valid_opt_frac"]    for r in run_results]
+        vwf   = [r["valid_worst_frac"]  for r in run_results]
+        vregr = [r["valid_mean_regret"] for r in run_results]
+        zm    = [r["zero_match_rate"]   for r in run_results]
+        mm    = [r["multi_match_rate"]  for r in run_results]
+        bpos  = [r["best_position"]     for r in run_results]
 
         row = {
             "model": args.model,
@@ -348,6 +462,16 @@ def main():
             "std_early_opt_frac":   round(float(np.std(eopt)),  4),
             "std_late_opt_frac":    round(float(np.std(lopt)),  4),
             "std_invalid_rate":     round(float(np.std(inv)),   4),
+            # nanmean: a run with 0 valid rounds yields NaN valid-only metrics
+            "mean_valid_opt_frac":    round(float(np.nanmean(vopt)),  4),
+            "std_valid_opt_frac":     round(float(np.nanstd(vopt)),   4),
+            "mean_valid_worst_frac":  round(float(np.nanmean(vwf)),   4),
+            "mean_valid_mean_regret": round(float(np.nanmean(vregr)), 4),
+            "mean_zero_match_rate":   round(float(np.mean(zm)),       4),
+            "mean_multi_match_rate":  round(float(np.mean(mm)),       4),
+            # sanity: should sit near (K+1)/2 = 3.0 once positions are
+            # counterbalanced. A value pinned at 1.0 means position leakage.
+            "mean_best_position":     round(float(np.mean(bpos)),     4),
         }
 
         writer.writerow(row)
