@@ -171,7 +171,7 @@ s_t = s_{t-1} + (1-β)·p_t
 
 **H2 — Slow decode dynamics encode ramping / vigor.**
 
-在本模型中，`s_t` 的斜率 **operationalizes the ramping/vigor hypothesis**——把「模型朝答案推進的速度 / effort intensity」映到一個可檢驗量。該假說預測較陡的斜率對應較短 generation length、較早 commitment 與較高推進強度；分析時同時控制 output length 與 response format，以區分 vigor 與單純的提前停止。**斜率是 vigor 的 operational measure（保留）；某個 task 是否呈現此斜率—行為關聯，是待檢驗的 task-level 問題。**
+在本模型中，`s_t` 的斜率 **operationalizes the ramping/vigor hypothesis**——把「模型朝答案推進的速度 / effort intensity」映到一個可檢驗量。該假說預測較陡的斜率對應較短 generation length、較早 commitment 與較高推進強度；分析時同時控制 output length 與 response format，以區分 vigor 與單純的提前停止。**斜率是 vigor 的 operational measure（保留）；某個 task 是否呈現此斜率—行為關聯，是待檢驗的 task-level 問題。GSM8K 的檢驗結果見 §4.8：該 task 未檢出符合方向的 slope-vigor evidence，而 `s_t` level 穩定關聯 commitment timing。**
 
 **H3 — Fast decode residuals encode phasic dynamics.**
 
@@ -818,7 +818,7 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 #### Case-level observations
 
-**Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。case study 支持 **`s_t` level 與 ongoing / unresolved processing 相關**，而不是 correctness 或 reasoning quality 的直接讀數；但這是 level 觀察，**尚未直接檢驗以 slope 定義的 ramping/vigor hypothesis**（該假說由 Slow-State Behavioral Validation 專門檢驗，見 §TODO/`analyze_slow_state_behavior.py`）——不能由此 case-level level 觀察推斷 slope 的 vigor 讀數成立或不成立。
+**Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。case study 支持 **`s_t` level 與 ongoing / unresolved processing 相關**，而不是 correctness 或 reasoning quality 的直接讀數；但這是 level 觀察，**不直接檢驗以 slope 定義的 ramping/vigor hypothesis**（該假說由 §4.8 Slow-State Behavioral Validation 專門檢驗，結果為 GSM8K 未檢出 slope-vigor evidence）——不能由此 case-level level 觀察推斷 slope 的 vigor 讀數成立或不成立。
 
 **Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、較規則的振盪。這個視覺觀察促成下列全樣本 follow-up；結果顯示,能穩定區分 reasoning 與 post-answer/loop 階段的是 `p_t` 的 **centered RMS(residual amplitude)**,而非頻率指標——其主要穩定變化是 **residual amplitude collapse**,不是獨立的 frequency reorganization。
 
@@ -847,12 +847,28 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 **Case-study conclusion：amplitude / frequency dissociation。** 這 9 題與全樣本 follow-up 共同把本節從「case study + frequency negative」升級為 **case-level validation + amplitude/frequency dissociation**:(i) `s_t` 的主結構與持續推理—提交後釋放相容;(ii) full-decode 會被 post-answer stopping failure 污染;(iii) `p_t` 的可靠訊息集中於 **signed change 與 residual amplitude / dispersion**——α=−6 在乾淨的 pre-commit 段提高 centered RMS,而 frequency metrics 不隨 α 穩定變化。Commit-centered 的頻譜變化對 answer-format / repetition 敏感,因此**頻率只保留為 negative control,不作 RSN 主讀數**;`p_t` 繼續作為 phasic-like fast-residual measure(operational 命名保留)——當前 task 支持 amplitude change,但未檢測到穩定的 frequency organization,亦未建立 biological phasic dopamine correspondence。這些結果也不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律,且不能把第二個 marker 或 repeated-ngram tail proxy 當作經獨立驗證的真實 loop onset。
 
+### 4.8 Slow-State Behavioral Validation
+
+§4.2–4.4 的 `s_t` 讀數皆基於 **level**（水平），但三成分表格把 `s_t` 命名為 **Ramping / Vigor** 並在 H2 預設「斜率＝推進速度」。本節專門檢驗這條 **slope-based** 預測。
+
+**1. 問題與口徑。** `s_t` slope 是 ramping/vigor 的**先驗 operationalization**（保留）；本實驗檢驗 GSM8K 是否呈現預期的 slope–progress relationship（陡斜率→更快提交），**這是 task-level 檢驗，不決定指標改名**。分析對象為 pooled 11 conditions（No-CoT dose −8…+8、CoT α=0/−4）× 300。
+
+**2. 防洩漏設計（load-bearing）。** slope 若取自 `[0, c1)` 會與 commit 位置機械耦合（更長的 pre-commit 窗同時壓低斜率、又本身即更晚 commit）。故：(i) 用**固定 early window `[0,20)`**；(ii) commit-timing 分析僅限 **at-risk subset（`commit_step≥20`）**——全樣本中約 23% 在 token 20 前已提交，對它們 `[0,20)` 跨過 commit、斜率混入 post-commit release；(iii) confidence 控制亦用固定 `[0,20)`；(iv) 加入 **α-condition fixed effects**；(v) question-level held-out 並**凍結 train 標準化**套用於 test。
+
+**3. 核心結果。**
+- **level → commit timing 穩定**：at-risk subset `s_t` level ↔ commit_step ρ=**+0.379**（p<1e-85）；item-level 回歸加入 level 使 R² 0.235→0.259（β=+19.6, p=7e-7），held-out test R²≈0.25——三處一致。
+- **slope → commit timing 為 null**：marginal ρ=**−0.020**（ns）。
+- **控制 level 後出現的 conditional slope 不支持 vigor**：level 與 slope 強共線（r=−0.48），加入 slope 後雖得顯著 β（p=.003），但這是 **suppressor 效應**，且方向為「較正 slope → **更晚** commit」，與預設 vigor 預測（陡→更快）**相反**。
+- **premature 分析 time-confounded，不作證據**：749/754 premature 樣本在測量窗 token 20 **之前**就提交，`[0,20)` slope 與 post-commit release 重疊，僅作診斷。
+
+**4. task-level 判決。** GSM8K commit-timing **未檢出符合預期方向的 ramping/vigor slope evidence**；`s_t` **level** 在本任務中穩定關聯 ongoing engagement / commitment timing（呼應 §4.2–4.4 一貫以 level 承載信號的用法，並為之補上單題層面的行為意義）。**ramping/vigor 的建模定義保留**，留待 effort / betting / agentic progression 等能誘發漸進逼近結構的 task 檢驗——GSM8K（grade-school 算術，無「越接近獎勵越快」結構）不構成否證。分析腳本 `analyze_slow_state_behavior.py`（offline，`python3.10`）。
+
 ## 5. Conclusion
 
 本研究辨識出一組可調節 LLM reasoning state 的 **Role-Sensitive Neurons (RSNs)**。它們主要反映 task engagement、action readiness 與 commitment dynamics，而不是直接儲存知識或提升推理 capacity。觀察結果顯示，CoT、Persona 與 answer commitment 會以不同的時間模式調制 RSN state；其中 CoT 主要提高 pre-commit engagement，Persona 主要重組 task-entry、commitment formation 與 post-commit release 的時間分配。
 
 更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
 
-因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.7:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。就 `s_t` 而言，**ramping/vigor 建模同樣保留**：其 slope-based behavioral prediction（陡斜率→更快推進/提交）**尚待 Slow-State Behavioral Validation**；已有的 level / release 結果屬額外的經驗關聯（`s_t` level 與 ongoing / commitment state 相關），不替代也不否定 slope 的原始 vigor 定義——在能誘發 vigor 的 task 上檢驗前，此為 open 的 task-level 問題。
+因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.7:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。就 `s_t` 而言，證據呈現清楚的**強／弱分佈**：**task-entry gain 強**（`G_prefill` 隨 α 近線性）、**slow-state level 與 release 強**（level 呈倒 U 追蹤 acc、穩定關聯 commitment timing，release 隨 commit 快速下降），**但 GSM8K 中 slope-based vigor evidence 未檢出**（§4.8：leak-free at-risk 下 slope↔timing 為 null，控制 level 後僅剩一個方向與 vigor 相反的 suppressor 殘差）。因此 **ramping/vigor 的建模定義保留**，但其斜率預測在本任務未兌現，留待 effort / betting / agentic progression 等能誘發漸進逼近結構的 task 檢驗——已驗證的 `s_t` 經驗內容是 **slow engagement / commitment-state readout（level）**，vigor（slope）為 open 的 task-level 問題。
 
 方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡提供目前最強的 NMD direction-specificity evidence**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 中 NMD 皆相對各自 null 保持極端 pctile，null median 皆 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。**off-support generic-direction null 這格最吃重**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源，排除了「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種單成分解釋。限定：各 family N=10–11 為 exploratory ordering（三 family/30 cell 共享同一批 hidden states 與指標，非獨立重複，不作正式顯著性宣稱），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續優先跨模型、跨任務與含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
