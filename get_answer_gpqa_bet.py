@@ -72,13 +72,28 @@ def build_prompt(vc: VicundaModel, text: str, i: int, total: int, use_chat: bool
 # ───────────────────── Parsing ─────────────────────
 
 BET_RE = re.compile(r"[Bb]et\s*[:：]\s*(\d+)")
-BET_LEADING_RE = re.compile(r"^\s*(\d+)")  # generation starts with the number (prefix mode)
+# Generation starts with the bet number (prefill mode: the prompt already ends
+# with "Bet: ", so the model only emits the digit). The optional leading colon is
+# load-bearing: Qwen2.5 under its chat template frequently re-emits the separator,
+# producing ": 5\nAnswer: A". Without it those replies were scored bet_invalid
+# even though a valid bet was present — 137/646 (21.2%) of the Qwen α=+8 cell,
+# which inflated that cell's recorded parse-failure rate from 56.2% to 76.6%.
+BET_LEADING_RE = re.compile(r"^\s*[:：]?\s*(\d+)")
 ANSWER_RE = re.compile(r"[Aa]nswer\s*[:：]\s*\[?\s*([A-Da-d])\s*\]?")
 FALLBACK_LETTER_RE = re.compile(r"\b([A-D])\b")
 
 
 def parse_output(text: str):
-    """Return (bet: int|None, answer: str)."""
+    """Return (bet: int|None, answer: str, answer_src: str).
+
+    answer_src is "explicit" when the answer came from an "Answer: X" marker,
+    "fallback" when it came from the last standalone A-D letter anywhere in the
+    text, and "" when no answer was found. This matters at high |α|: overloaded
+    generations turn into prose, and prose mentioning option letters ("...option
+    B is tempting...") can hand the fallback a letter that was never submitted as
+    an answer. Callers should report the fallback rate alongside accuracy so a
+    prose-contaminated cell is visible rather than silently scored.
+    """
     bet = None
     m = BET_RE.search(text)
     if m:
@@ -92,16 +107,19 @@ def parse_output(text: str):
             bet = val if val in VALID_BETS else None
 
     answer = ""
+    answer_src = ""
     m = ANSWER_RE.search(text)
     if m:
         answer = m.group(1).upper()
+        answer_src = "explicit"
     else:
         # fallback: last standalone A-D letter
         matches = FALLBACK_LETTER_RE.findall(text)
         if matches:
             answer = matches[-1].upper()
+            answer_src = "fallback"
 
-    return bet, answer
+    return bet, answer, answer_src
 
 
 # ───────────────────── Runner ─────────────────────
@@ -134,14 +152,21 @@ def run_generation(vc, prompts, samples, label, diff_mtx=None):
                     batch_size=bs,
                 )
 
-            for generated, sample in zip(out, batch_samples):
-                bet, pred = parse_output(generated)
+            for offset, (generated, sample) in enumerate(zip(out, batch_samples)):
+                bet, pred, ans_src = parse_output(generated)
                 gold_idx = sample["label"]
                 gold_letter = chr(ord("A") + gold_idx)
                 correct = pred == gold_letter
                 score_delta = bet * (1 if correct else -1) if bet is not None else 0
 
                 yield {
+                    # Stable per-question key. Cross-α analysis is PAIRED (same
+                    # questions under every condition), and relying on row order
+                    # alone breaks silently if any condition is re-run, resumed,
+                    # or filtered. Emit the index explicitly so paired tests can
+                    # join on it.
+                    "sample_idx": i + offset,
+                    "answer_src": ans_src,
                     "task": sample.get("task", ""),
                     "gold_letter": gold_letter,
                     "pred_answer": pred,
@@ -202,13 +227,15 @@ def run_generation_serial(vc, samples, label, diff_mtx=None, per_task_reset=Fals
                     batch_size=1,
                 )
             generated = out[0]
-            bet, pred = parse_output(generated)
+            bet, pred, ans_src = parse_output(generated)
             gold_idx = sample["label"]
             gold_letter = chr(ord("A") + gold_idx)
             correct = pred == gold_letter
             score_delta = bet * (1 if correct else -1) if bet is not None else 0
 
             yield {
+                "sample_idx": i,          # see note in run_generation
+                "answer_src": ans_src,
                 "task": sample.get("task", ""),
                 "gold_letter": gold_letter,
                 "pred_answer": pred,
@@ -230,6 +257,12 @@ def make_acc():
     from collections import defaultdict
     return {
         "total": 0, "correct": 0, "invalid": 0, "commit": 0,
+        # answers recovered by the last-standalone-letter fallback rather than an
+        # explicit "Answer: X". High at overloaded α, where prose can donate a
+        # letter the model never submitted — so accuracy in such a cell is not
+        # comparable to a cell that answered in format.
+        "ans_fallback": 0,
+        "correct_explicit": 0, "n_explicit": 0,
         "bets": [],           # valid bets only
         "score_deltas": [],
         "task_correct": {},   # task -> [bool, ...]  (for macro acc)
@@ -242,6 +275,11 @@ def update_acc(acc, r):
     acc["correct"] += int(r["correct"])
     acc["invalid"] += int(r["bet_invalid"])
     acc["commit"] += int(r["pred_answer"] != "")
+    src = r.get("answer_src", "")
+    acc["ans_fallback"] += int(src == "fallback")
+    if src == "explicit":
+        acc["n_explicit"] += 1
+        acc["correct_explicit"] += int(r["correct"])
     acc["score_deltas"].append(r["score_delta"])
     if not r["bet_invalid"]:
         acc["bets"].append(r["bet"])
@@ -290,12 +328,18 @@ def summarise(acc, label):
 
     mean_score_delta = float(np.mean(acc["score_deltas"])) if acc["score_deltas"] else 0.0
     commit_rate = acc["commit"] / total * 100
+    ans_fallback_rate = acc["ans_fallback"] / total
+    # Accuracy restricted to replies that answered in format. Read this instead of
+    # micro_accuracy whenever ans_fallback_rate is non-trivial.
+    acc_explicit = (acc["correct_explicit"] / acc["n_explicit"] * 100
+                    if acc["n_explicit"] else float("nan"))
 
     print(
         f"[{label:12s}] micro_acc={micro_acc:.1f}%  macro_acc={macro_acc:.1f}%  "
         f"mean_bet={mean_bet:.2f}±{std_bet:.2f}  "
         f"bet0={brate(0)*100:.1f}%  bet10={brate(10)*100:.1f}%  "
-        f"invalid={invalid_rate*100:.1f}%  entropy={entropy:.3f}  n={total}"
+        f"bet_parse_fail={invalid_rate*100:.1f}%  ans_fallback={ans_fallback_rate*100:.1f}%  "
+        f"entropy={entropy:.3f}  n={total}"
     )
 
     return {
@@ -304,6 +348,9 @@ def summarise(acc, label):
         "correct": correct,
         "micro_accuracy_pct": round(micro_acc, 2),
         "macro_accuracy_pct": round(macro_acc, 2),
+        "acc_explicit_pct": round(float(acc_explicit), 2) if acc["n_explicit"] else None,
+        "n_explicit_answer": acc["n_explicit"],
+        "ans_fallback_rate": round(ans_fallback_rate, 4),
         "mean_bet": round(float(mean_bet), 4),
         "std_bet": round(float(std_bet), 4),
         "bet0_rate": round(brate(0), 4),
@@ -361,8 +408,8 @@ def main():
 
     prefix = args.out_prefix
     per_sample_path = out_dir / f"{prefix}_{args.size}_per_sample.csv"
-    per_fields = ["condition", "task", "gold_letter", "pred_answer", "correct",
-                  "bet", "bet_invalid", "score_delta"]
+    per_fields = ["condition", "sample_idx", "task", "gold_letter", "pred_answer",
+                  "answer_src", "correct", "bet", "bet_invalid", "score_delta"]
     if args.running_score:
         per_fields.append("score_before")
     if args.save_all_raw:
@@ -374,7 +421,13 @@ def main():
 
     all_summary = []
 
-    def run_condition(label, diff_mtx, prompts, samples, csv_writer):
+    # Rows of the orig condition, kept so they can be persisted into the results
+    # JSON. --skip_orig re-writes them into the per-sample CSV on a later run;
+    # without saving them here that path silently produced a CSV with no orig
+    # rows at all (the reader looked for a key nothing ever wrote).
+    orig_rows: list[dict] = []
+
+    def run_condition(label, diff_mtx, prompts, samples, csv_writer, collect=None):
         acc = make_acc()
         gen = (run_generation_serial(vc, samples, label=label, diff_mtx=diff_mtx,
                                      per_task_reset=args.per_task_reset)
@@ -383,6 +436,9 @@ def main():
         for r in gen:
             update_acc(acc, r)
             csv_writer.writerow(r)
+            if collect is not None:
+                # store only the CSV-visible fields (drops the bulky `raw`)
+                collect.append({k: r.get(k) for k in per_fields})
         return summarise(acc, label)
 
     with open(per_sample_path, "w", newline="", encoding="utf-8") as f:
@@ -396,11 +452,19 @@ def main():
             orig_summary = existing.get("summary", [{}])[0]
             all_summary.append(orig_summary)
             # re-write orig rows from saved JSON so per-sample CSV stays consistent
-            for r in existing.get("orig_rows", []):
+            saved_rows = existing.get("orig_rows", [])
+            for r in saved_rows:
                 writer.writerow(r)
+            if not saved_rows:
+                print(f"[WARNING] --skip_orig: {json_path} has no 'orig_rows' "
+                      f"(written by an older version). The per-sample CSV will "
+                      f"NOT contain orig rows, so paired analysis against orig "
+                      f"is impossible from this file. Re-run without --skip_orig "
+                      f"to regenerate them.")
             print(f"[Skipped orig] Loaded summary from {json_path}")
         else:
-            s = run_condition("orig", None, prompts, all_samples, writer)
+            s = run_condition("orig", None, prompts, all_samples, writer,
+                              collect=orig_rows)
             all_summary.append(s)
             gc.collect()
             torch.cuda.empty_cache()
@@ -421,7 +485,10 @@ def main():
     print(f"[Saved per-sample CSV] {per_sample_path}")
 
     # ── Save summary JSON ──
-    utils.dump_json({"summary": all_summary}, json_path)
+    payload = {"summary": all_summary}
+    if orig_rows:
+        payload["orig_rows"] = orig_rows
+    utils.dump_json(payload, json_path)
     print(f"[Saved JSON] {json_path}")
 
     # ── Save summary CSV ──
