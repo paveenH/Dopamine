@@ -96,9 +96,15 @@ class VicundaModel:
         tail degenerates into a repetition loop. Including <|eot_id|> lets the
         chat-formatted model stop naturally. Harmless for non-chat models: the
         token either is absent (skipped) or never generated.
+
+        Qwen (2.5 / 3) ends its turn with <|im_end|>, and ships a
+        generation_config whose eos_token_id is a LIST (e.g. [151645, 151643]);
+        tokenizer.eos_token_id alone can miss one of them, which reproduces the
+        same run-to-max_new_tokens loop. So we also union in the model's own
+        generation_config eos ids.
         """
         ids = [self.tokenizer.eos_token_id]
-        for tok in ("<|eot_id|>", "<|end_of_turn|>"):
+        for tok in ("<|eot_id|>", "<|end_of_turn|>", "<|im_end|>"):
             try:
                 tid = self.tokenizer.convert_tokens_to_ids(tok)
             except Exception:
@@ -106,7 +112,16 @@ class VicundaModel:
             unk = getattr(self.tokenizer, "unk_token_id", None)
             if tid is not None and tid != unk and tid not in ids:
                 ids.append(tid)
-        return ids
+
+        # Union in generation_config.eos_token_id (int or list); Qwen ships a list.
+        gen_cfg = getattr(self.model, "generation_config", None)
+        cfg_eos = getattr(gen_cfg, "eos_token_id", None) if gen_cfg is not None else None
+        if cfg_eos is not None:
+            for tid in (cfg_eos if isinstance(cfg_eos, (list, tuple)) else [cfg_eos]):
+                if isinstance(tid, int) and tid not in ids:
+                    ids.append(tid)
+
+        return [t for t in ids if t is not None]
 
     def _find_decoder_layers(self):
         """
