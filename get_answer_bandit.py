@@ -143,17 +143,26 @@ def build_prompt(
     return "\n".join(lines)
 
 
-def parse_choice(output: str, arm_names: list[str]) -> tuple[str, bool]:
+def parse_choice(output: str, arm_names: list[str],
+                 rng: random.Random = None) -> tuple[str, bool]:
     """
     Case-insensitive substring match for arm name in model output.
     Returns (chosen_name, is_valid). If invalid, returns random arm.
+
+    `rng` MUST be passed by callers that need reproducibility. It used to fall
+    back to the global `random` module, which is never seeded here — so the
+    fallback arm differed between runs of the same seed. That is not a corner
+    case on the −α side: Llama's α=−4 cell has invalid_rate 0.20, i.e. one in
+    five recorded "choices" was an unseeded coin flip feeding straight into the
+    reward draw and the history the next prompt is built from. The default is
+    kept only so any external caller does not break.
     """
     output_lower = output.strip().lower()
     for name in arm_names:
         if name.lower() in output_lower:
             return name, True
     # invalid → uniform random (EVOLvE fallback)
-    return random.choice(arm_names), False
+    return (rng or random).choice(arm_names), False
 
 
 def get_feedback(arm: str, arm_map: dict[str, float], rng: random.Random) -> int:
@@ -168,6 +177,12 @@ def run_episode(
     use_role: bool = True,
 ) -> dict:
     rng = random.Random(seed)
+    # Separate stream for the invalid-parse fallback. Kept independent of `rng`
+    # ON PURPOSE: if both drew from one stream, a condition with more invalid
+    # parses (the −α cells, up to 20%) would consume different numbers of draws
+    # and desynchronise the REWARD sequence, so α conditions would no longer see
+    # comparable reward luck. Two streams keep reward draws aligned per round.
+    fallback_rng = random.Random(1_000_000 + seed)
     arm_map = shuffle_arms(seed)
     arm_names = list(arm_map.keys())   # shuffled order for this run
     opt = best_arm(arm_map)
@@ -178,8 +193,16 @@ def run_episode(
     feedbacks = []
     invalids = []
 
-    for _ in range(num_rounds):
+    for round_idx in range(num_rounds):
         prompt = build_prompt(arm_names, history, use_role=use_role)
+        # temperature=1.0 means generation is sampled. Without re-seeding, the
+        # torch RNG state at round t depends on every generation before it, so
+        # two α conditions never face the same sampling noise and repeating a
+        # run does not reproduce it. Seed per (seed, round) so sampling luck is
+        # MATCHED ACROSS α — the α contrast is the whole point of the sweep, and
+        # this removes one noise source from it. Deliberately independent of α:
+        # the same (run, round) gets the same draw in every condition.
+        torch.manual_seed(seed * 100_003 + round_idx)
         output = vc.regenerate(
             inputs=[prompt],
             diff_matrices=diff_mtx,
@@ -187,7 +210,7 @@ def run_episode(
             temperature=1.0,
         )
         raw = output[0] if isinstance(output, list) else output
-        arm, valid = parse_choice(raw, arm_names)
+        arm, valid = parse_choice(raw, arm_names, rng=fallback_rng)
 
         reward = get_feedback(arm, arm_map, rng)
         choices.append(arm)
