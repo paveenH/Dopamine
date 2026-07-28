@@ -36,30 +36,6 @@ RSN neurons
 
 ---
 
-### 3. α-Steering Anxiety-Scale Experiment
-
-**目标：** 测试 α 是否改变 anxiety-like state self-report，并排除通用数字选择或极端作答偏置。
-
-```text
-STAI-State 20 items × α∈{−8,−6,−4,−2,0,+2,+4,+6,+8}
-× 5 item-order permutations
-```
-
-- 每个 item 独立 prompt、独立 prefill steering，不累积 conversation history；固定输出为 `Response: 1/2/3/4`。
-- 同时加入 STAI-Trait、neutral non-affective Likert control，以及原量表的 reverse-keyed items。
-- 主读数：总分、anxiety-present / anxiety-absent 分量、reverse-key consistency。
-- 诊断：extreme-response rate、acquiescence bias、invalid rate、response variance、各数字选择比例。
-- 将 dose-level scale profile 与 GSM8K anxiety-repeat、answer oscillation、commit timing 和 loop 指标对齐；不把自评量表单独当作“模型真的焦虑”的证据。
-- 实施前确认量表条目的使用与公开发布条件。
-
-**完成标准：** `α effect on STAI-State > STAI-Trait > neutral control`，reverse-key 后方向一致，并与至少一个非自评 anxiety-like behavior 同步；否则解释为 response bias。
-
-Barratt 冲动性量表 (BIS-11)
-轻躁狂症状清单 (HCL-32)
-自评量表：强迫症问卷修订版 (OCI-R) 或 帕多瓦量表 (PI-WSUR)
-行为测试（硬指标）：威斯康星卡片分类测验 (WCST, Wisconsin Card Sorting Test) 的文本变体
-Wisconsin Card Sorting Test (WCST-64) 参考-Cognitive.RolePlaying.2025.Visual Large Language Models Exhibit Human-Level Cognitive Flexibility in the Wisconsin Card Sorting Test / icmlworkhop2024.Cognitive Flexibility of Large Language Models (不建议)
-
 ### 4. Direction-Specific Causal Controls
 
 **目标：** 证明行为 working point 来自 RSN 方向，而不是一般 hidden-state perturbation。
