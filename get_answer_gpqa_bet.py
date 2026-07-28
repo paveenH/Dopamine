@@ -455,6 +455,11 @@ def main():
             saved_rows = existing.get("orig_rows", [])
             for r in saved_rows:
                 writer.writerow(r)
+            # Carry them forward: the JSON is REWRITTEN at the end of this run, so
+            # without this the first --skip_orig run silently drops orig_rows and
+            # every later --skip_orig has no orig rows to restore — the paired
+            # baseline would be lost permanently.
+            orig_rows.extend(saved_rows)
             if not saved_rows:
                 print(f"[WARNING] --skip_orig: {json_path} has no 'orig_rows' "
                       f"(written by an older version). The per-sample CSV will "
@@ -496,6 +501,12 @@ def main():
     fieldnames = [
         "condition", "total", "correct",
         "micro_accuracy_pct", "macro_accuracy_pct",
+        # accuracy restricted to replies that answered in format, plus how often
+        # the answer had to be recovered by the last-standalone-letter fallback.
+        # Read acc_explicit_pct instead of micro_accuracy_pct whenever
+        # ans_fallback_rate is non-trivial (overloaded α turn into prose, and
+        # prose can donate a letter the model never submitted).
+        "acc_explicit_pct", "n_explicit_answer", "ans_fallback_rate",
         "mean_bet", "std_bet",
         "bet0_rate", "bet2_rate", "bet5_rate", "bet10_rate",
         "bet_invalid_rate", "bet_entropy", "mean_score_delta", "commit_rate_pct",
