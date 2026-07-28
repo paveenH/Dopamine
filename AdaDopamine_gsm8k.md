@@ -31,10 +31,10 @@ CoT:     Solve the following math problem.
 
 行为学先验：多巴胺不是单纯的"快乐分子"，更准确地说是**驱动力 / incentive salience / "wanting"** 递质，调控动机、期待、奖赏趋近与行动阈值。本研究把 α 看作在这一 wanting 轴上双向移动工作点：α 正向对应 **over-wanting / 过度唤起**，α 极端负向对应 **under-wanting / 唤起不足**；整体框架是 Yerkes–Dodson 倒 U——过高过低都有害，最优落在中间偏负（本数据 α=−6）。
 
-- **过高 DA / over-wanting（对应 α→正向）**：行为上表现为**冲动性抢答（impulsivity）+ 认知僵化 / 强迫性反复（compulsivity / perseveration）**——急于扑向"给出答案"这个目标而跳过必要推导，以及拿到答案后仍反复复查、纠结格式、卡在格式死循环里。**注意这更贴合冲动 / 强迫，而非焦虑**：数据中 +α 端**没有**焦虑典型的回避 / freezing / 犹豫（抢答率随 +α 单调上升，见 §2.2），呈现的是"急着 commit"；而 `#### N #### N` 死循环是认知神经科学意义上的**固著（perseveration）**,不是焦虑的发散灾难化担忧。机制上这直接落在 **VTA→NAcc（wanting / incentive salience 过载）**：极高的诱因显著性使主体不计成本扑向目标（冲动），同时前额叶执行控制失效、无法灵活切换（固著）——这在临床上更近强迫性 over-checking 与冲动特征，而非焦虑综合征。这个签名对应 §2.3「Can't Let Go」：α+4 trace 中常见"把已经算对的答案当可疑"（Q100、Q16）和答完仍寻找 "more efficient way"（Q68）。
+- **过高 DA / over-wanting（对应 α→正向）**：行为上表现为**冲动性抢答（impulsivity）+ 认知僵化 / 强迫性反复（compulsivity / perseveration）**——急于扑向"给出答案"这个目标而跳过必要推导，以及拿到答案后仍反复复查、纠结格式、卡在格式死循环里。**注意这更贴合冲动 / 强迫，而非焦虑**：数据中 +α 端**没有**焦虑典型的回避 / freezing / 犹豫（抢答率随 +α 单调上升，见 §2.2），呈现的是"急着 commit"；而 `#### N #### N` 死循环是认知神经科学意义上的**固著（perseveration）**,不是焦虑的发散灾难化担忧。功能上这**与 mesolimbic incentive-salience overload（VTA→NAcc 型 wanting 过载）及执行控制失效相容**：极高的诱因显著性使主体不计成本扑向目标（冲动），同时灵活切换 / 抑制已启动反应的能力下降（固著）——这在行为上更近强迫性 over-checking 与冲动特征，而非焦虑综合征。**注意目前只有行为同构，尚未定位实际脑区对应关系**，故这里说"相容"而非"落在"某一回路。这个签名对应 §2.3「Can't Let Go」：α+4 trace 中常见"把已经算对的答案当可疑"（Q100、Q16）和答完仍寻找 "more efficient way"（Q68）。
 - **过低 DA / under-wanting（对应 α→极端负向）**：行为上对应动力不足、快感缺失、退缩、bradykinesia 式的行动迟缓；在本任务中的可观测类比不是"写得短 / 不想答"，而是**commitment-formation failure**。§2.4 文本核验否定了两个更直观假设：α=−8 并非大量出现 "I am done / 不答了" 的词汇性退缩（跨 α 平坦，多为礼貌 loop 尾），也不是敷衍短答（长度 / 等式数平坦）；真正失败模式是 **answer-candidate oscillation**——锁不住答案，在两个候选值之间来回切，导致 committed_acc 崩到 23.6%。
 
-> **主机制表述（本项目采用）**：+α 端 = **over-wanting → 冲动（impulsivity, 抢答）+ 认知僵化 / 强迫性反复（compulsivity / perseveration, loop）**，锚 **VTA→NAcc** wanting 过载 + 前额叶执行控制失效；−α 极端端 = **under-wanting → commitment-formation failure**。这比"焦虑"框架**机制契合度更高、论述负担更小**：冲动与固著都在我们已有的 wanting / incentive-salience 主线内，无需另起 threat/freeze 回路。
+> **主机制表述（本项目采用）**：+α 端 = **over-wanting → 冲动（impulsivity, 抢答）+ 认知僵化 / 强迫性反复（compulsivity / perseveration, loop）**，功能上与 **mesolimbic incentive-salience overload（VTA→NAcc 型）+ 执行控制失效**相容（只声称行为同构，非脑区定位）；−α 极端端 = **under-wanting → commitment-formation failure**。这比"焦虑"框架**机制契合度更高、论述负担更小**：冲动与固著都在我们已有的 wanting / incentive-salience 主线内，无需另起 threat/freeze 回路。
 >
 > **限定**：1. 本实验只声称行为同构，**α steering ≠ 生物多巴胺**，也不证明 LLM 有生理或主观状态；2. 不做 mania / hypomania 类比——躁狂是跨情绪+精力+睡眠的综合征，我们只有"冲动+固著"两个窄行为，撑不起该诊断类比；3. 脚本 `analyze_loop_anxiety.py` / `ANXIETY_PATTERNS` 沿用 "anxiety" 命名（改名成本高、破坏 U 形复现），但其命中的四子类（self-doubt / format-fixation / persona-reassurance / over-precision）**实测对应的是强迫性 over-checking，不是临床焦虑**——阅读表格时按"强迫/固著"解读。
 >
@@ -197,23 +197,25 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 ### 2.3 Compulsive Over-Checking: The “Can’t Let Go” Semantics
 
 > **命名说明**：本节及脚本 `analyze_loop_anxiety.py` 沿用历史字段名 "anxiety"，但下面四子类命中的**是强迫性反复确认 / 固著（compulsive over-checking / perseveration），不是临床焦虑**——见 §0.2。表格中的 "anxiety" 一律按"强迫/固著"解读；下文表述统一用"强迫性反复"。
+>
+> **注意：不要把原始 loop-rate 直接等同 perseveration。** loop samples 本身基线就高（~74–88%，见 §2.2 表），且随 α 无干净趋势——大量是无收益的机械复读尾（未自然 EOS 刷到 max_new_tokens），不承载动机信号。真正有意义的固著读数是下面四类**语义**过度确认（self-doubt / format-fixation / persona-reassurance / over-precision）、其**锚点重复 ≥2**（`--mode anxious_repeat`）、以及 answer switching 与 early-commit 后持续无收益生成——这些才随 α 呈干净 U 形。
 
 loop 尾部循环块的"放不下"（拿到答案后仍反复复查、纠结格式、自我怀疑或继续求解），按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**强迫性反复(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
 
-| Anxiety subtype | Criterion | α+4 example |
+| Compulsive-repetition subtype (historical field=anxiety) | Criterion | α+4 example |
 |---|---|---|
 | **Self-doubt** (answers, then overturns itself) | however / but / is not the correct answer / let's try / recheck | **Q10** (gold=5): `"…The answer is 3. **However**, the answer choices…"` — answer → overturn → answer again → overturn again |
-| **Format anxiety** (`####` fixation) | the format requires / question asks for / after '####' / not a word | **Q15** (gold=17): `"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"` — correct answer, then format rumination |
+| **Format fixation** (`####` fixation) | the format requires / question asks for / after '####' / not a word | **Q15** (gold=17): `"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"` — correct answer, then format rumination |
 | **Persona reassurance** | I hope it is correct / Sincerely / please let me know | **Q58** (gold=15, first answer correct): `"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"` — submits, then seeks reassurance |
 | **Over-precision loop** | approximate / round / nearest | **Q17** (gold=36, early commit `40`): `"(Approximating number)(Approximate number)…"` — keeps approximating an integer answer |
 
-**Anxiety in loop**
+**Compulsive repetition in loop** (historical field=anxiety)
 
 | α | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
-| **Any anxiety** | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58 | 57 |
-| Self-doubt | 55 | 13 | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
-| Format anxiety | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
+| **Any (repeat)** | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58 | 57 |
+| Self-doubt repetition | 55 | 13 | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
+| Format fixation | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
 | Persona reassurance | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
 | Over-precision loop | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
 
@@ -222,18 +224,18 @@ loop 尾部循环块的"放不下"（拿到答案后仍反复复查、纠结格�
 - **强迫性反复题数沿 α 呈 U 形，谷底正好在 acc 峰值处（−6/−4）**：**27–29 题**（−6/−4）是全段最低，而 −6 正是 acc 峰（78.0%）——**适度降 wanting = 既最准、又最"算完就放下"**。这一区进 loop 的题大多是无情绪的机械空转（纯符号 / 复读答案），模型冷静算对、放下了，只是没有自然 EOS 而刷到上限。这是 §1.2 acc 倒 U 在行为层面的镜像。
 - **0→+8 上升后饱和（46→54→59→58→57）**：模型在这套 GSM8K prompt 下本来就偏 high-wanting / 高唤起，继续正向推只会很快进入饱和区。
 - **两端都高，但机制相反**：+8（57 题）是"过度 commit 后放不下"的强迫性反复；**−8 最高（73 题）**却是另一回事——首 token 抢答锁错（§2.2：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低反复高准确的"甜区"。
-- 四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 冲动扑向 commit + 前额叶执行控制失效 / 固著的行为签名（见 §3.6）。
+- 四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 冲动扑向 commit + 执行控制失效 / 固著的行为签名（功能相容，非脑区定位；见 §3.6）。
 
 **全文锚点-重复口径（不依赖 loop 门槛，分母 /300；`analyze_loop_anxiety.py --mode anxious_repeat`）：**
 
 上表把强迫性反复寄生在"进 loop"门槛上，会漏掉"自我推翻一两次但没陷入重复就 EOS"的题。更干净的口径是**直接检测强迫性反复**：以反复词为锚点，取"词 + 后续 60 字符"为片段，该片段在全文重复 ≥2 次才算（一次性的逻辑 however 不计，只算反复纠结同一件事）。这样定义不再依赖 loop。
 
-**Anxiety in full text**
+**Compulsive repetition in full text** (historical field=anxiety)
 | α | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
-| **Any anxiety (repeat≥2)** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
-| Self-doubt | 99 | 14 | 24 | 51 | 61 | 72 | 75 | **85** | 73 |
-| Format anxiety | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
+| **Any (repeat≥2)** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
+| Self-doubt repetition | 99 | 14 | 24 | 51 | 61 | 72 | 75 | **85** | 73 |
+| Format fixation | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
 | Persona reassurance | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
 | Over-precision loop | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
 
@@ -295,14 +297,14 @@ loop 尾部循环块的"放不下"（拿到答案后仍反复复查、纠结格�
 | +4 No-CoT | 55.3 | 52.7 | +2.7 | 59 / 220 | 91 |
 | **+4 CoT** | **59.7** | **59.0** | **+0.7** | **23** / 250 | **52** |
 
-**Anxiety in loop — CoT**
+**Compulsive repetition in loop — CoT** (historical field=anxiety)
 
 | α (CoT) | −4 | 0 | +4 | （对照 No-CoT，§2.3） |
 |---|---|---|---|---|
 | n_loop (denom) | 284 | 254 | 250 | 242 / 232 / 220 |
-| **Any anxiety** | **18** | 19 | 23 | 27 / 46 / 59 |
-| Self-doubt | 3 | 12 | 19 | 13 / 31 / 43 |
-| Format anxiety | 15 | 9 | 12 | 15 / 23 / 37 |
+| **Any (repeat)** | **18** | 19 | 23 | 27 / 46 / 59 |
+| Self-doubt repetition | 3 | 12 | 19 | 13 / 31 / 43 |
+| Format fixation | 15 | 9 | 12 | 15 / 23 / 37 |
 | Persona reassurance | 0 | 2 | 7 | 7 / 15 / 13 |
 | Over-precision loop | 3 | 2 | 1 | 1 / 7 / 5 |
 
@@ -536,31 +538,31 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 > 命名同 §2.3：字段名 "anxiety" 读作**强迫性反复 / 固著**,非临床焦虑。`analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**强迫性反复(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
 
-| Anxiety subtype | Criterion(MATH) | α+4 example |
+| Compulsive-repetition subtype (historical field=anxiety) | Criterion(MATH) | α+4 example |
 |---|---|---|
 | **Self-doubt** (answers, then overturns itself) | however / but / wait / this is not / let me recheck / re-evaluate / the correct answer is | **Q101** (gold=12): Step 4 已用 Heron 算出正确的 12,Step 5 `"However, … which is a right[-angled triangle]"` — 凭空臆断为直角三角形(5-5-6 实为等腰),推翻自己重算,最终错(α−4 仅 1 个 `\boxed{12}` 收笔) |
-| **Format anxiety** (`\boxed{}` fixation) | the format requires / in the (correct) format / in the form of / answer in … box / as a single number | **Q105** (gold=.0000672): `"However, the format of the answer is not correct. The answer…"` ×30 — 矛头错指到 boxed 格式而非数值 |
+| **Format fixation** (`\boxed{}` fixation) | the format requires / in the (correct) format / in the form of / answer in … box / as a single number | **Q105** (gold=.0000672): `"However, the format of the answer is not correct. The answer…"` ×30 — 矛头错指到 boxed 格式而非数值 |
 | **Persona reassurance** | i hope it is correct / sincerely / please let me know / i apologize / i am not a math expert | **Q9** (gold=6−5i): `"Please let me know if this is correct… Best regards, [Your Name]"` ×31 — 不锁答案、反复求确认 |
 | **Over-precision loop** | approximate / round / estimate / nearest / whole number | **Q116** (gold=40): `"…approximately equal to 42 baps, we can conclude that \boxed{57.1}…"` — 转去做单位近似,把对的改成 57.1(错) |
 
-**Anxiety in loop**
+**Compulsive repetition in loop** (historical field=anxiety)
 
 | α | −4 | 0 | +4 |
 |---|---|---|---|
 | n_loop | 76 | 120 | 99 |
-| **Any anxiety** | **15** | 23 | **36** |
-| Self-doubt | 2 | 6 | 13 |
-| Format anxiety | 0 | 4 | 5 |
+| **Any (repeat)** | **15** | 23 | **36** |
+| Self-doubt repetition | 2 | 6 | 13 |
+| Format fixation | 0 | 4 | 5 |
 | Persona reassurance | 13 | 18 | 21 |
 | Over-precision loop | 0 | 0 | 1 |
 
-**Anxiety in full text**(`--mode anxious_repeat`)
+**Compulsive repetition in full text** (`--mode anxious_repeat`, historical field=anxiety)
 
 | α | −4 | 0 | +4 |
 |---|---|---|---|
-| **Any anxiety (repeat≥2)** | **40** | 68 | **82** |
-| Self-doubt | 23 | 43 | 60 |
-| Format anxiety | 4 | 9 | 7 |
+| **Any (repeat≥2)** | **40** | 68 | **82** |
+| Self-doubt repetition | 23 | 43 | 60 |
+| Format fixation | 4 | 9 | 7 |
 | Persona reassurance | 16 | 30 | 26 |
 | Over-precision loop | 2 | 1 | 2 |
 
