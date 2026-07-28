@@ -33,8 +33,8 @@ RSN neurons
 ---
 
 ## TODO
-
-
+1. 对齐关于命名和实验分析结论的思路
+2. Slow-State的结果
 
 ---
 ### 1. RSN Direction Specificity（最高优先级，zero/low GPU）
