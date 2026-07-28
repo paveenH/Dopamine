@@ -113,7 +113,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 
 ## 3.1 Experiment 5 — Confidence Betting (Incentive Salience)
 
-**神經科學對應：** Incentive salience（wanting）直接決定個體願意投入多少資源去追求獎勵（Berridge & Robinson）。高 tonic DA → 高 incentive salience → 願意下更高的賭注；低 tonic DA → incentive salience 下降 → 保守、保留積分。Betting 行為是 wanting 的直接行為指標，不依賴任務難度或推理能力。
+**神經科學對應：** 以下注額作為 incentive salience（wanting）的行為 proxy：較高下注表示願意投入更多資源追求獎勵。此指標與答題正確率分開，用來檢驗 wanting–knowing 是否可被 α 差異化調節。
 
 **Prompt 設計：**（注：本實驗使用 chat template；steering 在最後一個 token 注入。）
 
@@ -136,11 +136,7 @@ Bet: <number>
 Answer: <letter>
 ```
 
-**任務選擇：** GPQA **main + diamond，n=646**（兩個模型的所有 GPQA 表格皆為此樣本集），沿用 §3.0 的 baseline accuracy 作為比較基準。
-
-**變體說明：** 本節所有主表跑的是 **no-running 主版本**——prompt 內 `Current score:` 固定為 0，每題獨立（i.i.d. 下注）、batched。另有 running-score 對照（回填真實累計分數、bs=1 串行）單獨標示於 §3.1.1 對照表，兩者不可混引。
-
-**口徑約定（跨全節統一）：** 所有 bet 分佈百分比一律以 **全樣本 n 為分母**（bet0%+bet2%+bet5%+bet10%+invalid% = 100%）；`mean_bet` 則只在**有效下注**上計算。兩者混用會產生假數字——invalid 接近 0 時兩種口徑重合，但在 invalid 高的 cell（Qwen α=+8）會差到 4 倍（bet10 全樣本 1.1% vs 有效口徑 4.6%）。引用任何一格前先確認口徑。
+**設計與口徑：** GPQA 使用 main + diamond（n=646）。主實驗固定 `Current score: 0`，每題獨立下注；running-score 對照則回填累計分數。bet 分布以全樣本為分母，`mean_bet` 只在有效下注上計算；因此 Qwen α=+8 等高 invalid 條件主要用於診斷失效形態，不與其他 dose 直接比較。
 
 ---
 
@@ -160,9 +156,8 @@ Answer: <letter>
 | +6 | 26.2% | 7.32 | 0.0% | 0.2% | 53.4% | 46.4% | −3.41 |
 | +8 | 26.6% | 7.62 | 0.0% | 7.5% | 35.6% | 56.8% | −3.35 |
 
-- **正臂 = 單調-飽和（非倒 U）。** mean_bet 5.13→6.61→**7.63**(0→+2→+4),+6/+8 不再上升而是壓在 ~7.6 天花板、bet10% 卡在 ~47–57%。betting 是單步決策,wanting 漲到 bet=10 上限即飽和,**夠不到 Yerkes-Dodson 右臂的過載崩潰**——與 Bandit 的倒 U(+8 塌)是不同形狀但同一方向,兩條曲線都在「正 α = 更想要」側達峰。
-- **wanting–knowing dissociation。** α 由 −2 掃到 +8,mean_bet 4.28→7.63(+78%),**accuracy 全程 26–29%±2 無系統變化**——押得越凶不代表答得越對。9 檔上成立,不只 ±4 兩點。
-- **負臂 = U 形折返,不是單調下降。** 中等劑量 −2/−4 顯著壓低 wanting(Mann–Whitney 單側 vs orig:−2 p=7e−16、−4 p=1.3e−11;bet10% 由 10.4%→1–2%、bet2% 升至 22–25%),符合 under-wanting 預測;但極端劑量 −6/−8 折返回 baseline(−6 mean_bet=5.13 與 orig 持平 p=0.65;−8 帶輕微格式鬆動 bet0%↑4.6%)——steering 過強時行為**解體**而非「更不想要」,與 Bandit 負臂的「垮」同源。RSN 因此是有最優工作區的旋鈕,兩端皆失效,合乎雙臂框架。
+- **核心結果：** 正 α 將 mean_bet 從 5.13 推至 7.63（+4），隨後進入量表上限附近的飽和；accuracy 始終約為 26–29%，支持 wanting–knowing dissociation。
+- **負臂並非全程單調：** −2/−4 顯著降低下注（p=7e−16 / 1.3e−11），但 −6/−8 折回 baseline 並出現輕微格式鬆動。因此 Llama 的可解釋負向效應集中在中等劑量，極端劑量不宜解釋為更強的 under-wanting。
 
 **對照：Running-score 變體（reward-history sensitivity，GPQA n=646）**
 
@@ -183,7 +178,7 @@ Answer: <letter>
 
 **對照：MMLU Running-score 變體（per-subject reset，n=14,042）**
 
-主版本固定 `Current score: 0`（i.i.d. 下注）。此對照把**真實累計分數**回填進每題 prompt 以檢驗 reward-history 敏感度；因 MMLU 含 57 個 subject，分數在每個 subject 邊界 reset（每 subject 為一獨立 game），串行 bs=1 生成。
+該對照回填真實累計分數，並在 57 個 subject 邊界重置，用於檢驗 reward-history sensitivity。
 
 | condition | micro acc | mean_bet | bet0% | bet2% | bet5% | bet10% | mean_score_delta | total_score |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -191,8 +186,7 @@ Answer: <letter>
 | α=+4 | 59.0% | **7.68** | 0.0% | 0.1% | 46.2% | **53.7%** | +1.38 | **+19,329** |
 | α=−4 | 59.5% | **4.18** | 0.1% | 29.0% | 70.0% | 1.0% | +0.86 | +12,088 |
 
-- **主結論完整複現**：mean_bet 方向（+4 升至 7.68、−4 降至 4.18）、bet10-rate（6.5%→53.7%）、以及 **accuracy 不變**（59.0–59.5%，跨 α ±0.5pp）全部與 score=0 主版本一致。下注移動因此不是 `Current score: 0` 的人為產物——回填真實分數後 wanting–knowing dissociation 依舊成立。
-- **Llama 對「累計餘額」不敏感（slope null）**：每個 subject 內估計 `bet ~ score_before` 斜率再跨 57 subject 聚合，三個條件的中位數斜率皆 ≈ 0（orig +0.0001、+4 +0.0001、−4 +0.0003，IQR 皆橫跨 0，約 54–60% subject 斜率為正 ≈ 擲硬幣）；按當前餘額分組的 bet|win 與 bet|lose 差 Δ(w−l) ≈ 0（−0.03 / −0.10 / +0.38）。模型不會「贏了加碼／輸了縮手」——α 移動的是**基線**下注水平，而非 reward-history 敏感度。
+- **Running-score 結論：** α 對下注及 accuracy 的影響與固定 score 主版本一致，排除了 `Current score: 0` 的設計假象。各條件的 `bet ~ score_before` 中位數斜率均約為 0，說明 α 改變的是基線下注水平，而非對累計餘額的敏感度。
 
 ### 3.1.2 Qwen2.5-7B-Instruct（2026-07-28）
 
@@ -212,16 +206,14 @@ Answer: <letter>
 | +6 ⚠ | 33.8% | 5.03 | −0.57 | 0.0% | 0.0% | **99.4%** | 0.6% | 0.0% | 5e−16 * | 1.00 n.s. |
 | +8 ⚠ | 29.6% | 4.88 | −0.29 | 0.2% | 2.5% | 19.7% | 1.1% | **76.6%** | 0.22 n.s. | **0.007 SIG** |
 
-（**配對口徑**：同一批 646 題跨 α 重複測量，故下注用 paired Wilcoxon（valid-in-both）、accuracy 用 McNemar 精確檢定，皆 Holm 校正跨 8 個 steered cell。「Δbet/題」= 配對後每題平均下注變化，比 mean_bet 差值更能反映真實移動。`parse-fail%` 是**記錄下來的**解析失敗率，非 true invalid——+8 的 76.6% 中有 21.2pp 是解析 bug，見下。⚠ = intervention overload，**不參與劑量趨勢擬合**；其 mean_bet/Δbet 因分母受 invalid 與幸存者偏差改變而不可比，要引用的是失效形態本身。）
+（同一批 646 題跨 α 重複測量：下注使用 paired Wilcoxon（valid-in-both），accuracy 使用 McNemar 精確檢驗，均進行 Holm 校正。`parse-fail%` 是記錄的解析失敗率而非 true invalid；⚠ 條件屬於 intervention overload，不參與劑量趨勢擬合。）
 
-- **核心劑量反應複現。** mean_bet 4.02 → 4.89 → 5.14 → 5.13 → 5.60 → 6.28 → **7.06**，Spearman ρ=**0.464**（n=4,496, p=1.4e−238）；bet10% 由 11.9% 升至 41.2%。與 Llama 同形。**核心解離主張只建立在這一段上**；+6/+8 另列為 intervention overload（見下），不參與劑量趨勢。
-- **統計口徑（重要）：同一批 646 題跨 α 重複測量，故一律用配對檢定，不用獨立樣本 χ²/MWU。** 下注用 **paired Wilcoxon**（valid-in-both），accuracy 用 **McNemar 精確檢定**（下方數字皆為 Holm 校正後）。
-- **wanting–knowing dissociation 複現。** 在 −8…+4 有效段內，下注被大幅推動（paired Wilcoxon 全部 p≤3e−09；α=+4 每題平均多押 **+1.46 分**）而 **accuracy 未檢測到系統性變化**：McNemar 全部 n.s.（Holm p_adj = 1.00；discordant 對僅 34–47/646，且方向兩側均分，如 +4 為 21 vs 15）。配對 accuracy 差的 bootstrap 95% CI 皆窄且跨 0（+4: **−0.93pp, CI[−2.64,+0.93]**；−8: −1.39pp, CI[−3.41,+0.77]），故可說「若存在 accuracy 效應，其量級小於約 3pp」——這是**未檢測到系統性變化 + 效應上界**，不是證明完全不變。
-- **負臂形狀與 Llama 不同（值得注意的跨模型差異）。** Llama 負臂是 U 形折返（−2/−4 最低、−6/−8 回到 baseline）；Qwen 是**單調**的：−8 最低（4.02, paired Δ=**−1.58 分/題**）且 bet2% 升到 33.4%。Qwen 的 under-wanting 在極端劑量下沒有折返。
+- **有效劑量段（−8…+4）：** mean_bet 隨 α 上升（Spearman ρ=0.464，n=4,496），+4 相對 orig 每題多押 1.46 分；各 dose 的下注變化均顯著，而 accuracy 均未檢出系統性變化。以 +4 為例，accuracy 差為 −0.93pp，95% CI [−2.64,+0.93]，支持效應量約 3pp 以內的 wanting–knowing dissociation。
+- **跨模型差異：** Qwen 負臂持續下降至 −8（Δbet=−1.58），沒有 Llama 在極端負劑量的折返；正臂則在 +4 後進入兩種 overload。
 
 **右臂：betting 上首次觀察到的 α 過載（與 Llama 的關鍵分歧）**
 
-Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3–7.6 天花板不塌），據此曾判定「betting 是單步決策，夠不到 Yerkes-Dodson 右臂」。**Qwen 推翻了這個一般化**——它在 +4 見頂後、+6 就開始崩，而且 **+6 與 +8 是兩種不同的失效模式**（由 `--save_all_raw` 重跑的原始文本判定，`gpqa_bet_raw/`）：
+Qwen 在 +4 見頂後出現兩種不同失效：+6 的下注退化為常數，+8 則大量偏離輸出格式。前者是行為讀數失去變異，後者是生成過載，均不屬於有效的 wanting–knowing 檢驗區間。
 
 | | α=+6：下注分佈退化，格式完好 | α=+8：解析失敗率高（推理先行擠掉下注） |
 | --- | --- | --- |
@@ -230,11 +222,7 @@ Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3
 | 現象 | bet 分佈**塌成常數**：bet5=99.4%、bet_entropy 0.038。配對看（**主掃描**數字）：orig 押 10 的 **77 題中有 75 題**在 +6 改押 5，僅 2 題維持 10 | 推理先行把下注擠出格式：`"...I'll bet 5 points on this one to make sure I get it right.\nAnswer: B"` |
 | 判定 | **真實行為塌陷**（非解析假象——文本形態、答題、accuracy 全部正常，只有下注這一維退化） | **過載 + 一個解析 bug 的混合**（見下） |
 
-**† 資料來源分工（重要）：** 打 † 的「原始文本形態」列來自 **raw 診斷重跑**（`gpqa_bet_raw/`），該次為 `temperature=1.0` 的獨立採樣，**與主掃描不是同一批生成**。故它只用來**定性**判斷失效模式（+6 是常數下注、+8 是散文過載），**任何精確數字與配對統計一律取自主掃描**（`gpqa_bet/`）。上表其餘所有數字、以及全節的配對檢定，皆為主掃描。兩者的一致性：raw 重跑 orig mean_bet 5.588 vs 主掃描 5.596、+8 parse-fail 77.4% vs 76.6%——失效模式穩定復現，但個別計數會差 1–2 題（如 +6 的配對轉移在 raw 為 76→74、主掃描為 **77→75**，正文引用後者）。
-
-- **+6 的塌陷不是「回到 baseline」。** baseline 是 88%/12% 的 bet5/bet10 混合；+6 是 99.4% 全押 5 的退化分佈。模型仍在下注、仍能答題，但**不再區分**。**定位：這是下注分佈退化（intervention overload），不是解離證據。** 它的 accuracy 確實仍與 orig 無異（McNemar n.s.），但一個已經退化成常數、失去變異的 wanting 讀數不能拿來論證「wanting 動而 knowing 不動」——沒有有效的 wanting 訊號可言。解離的證據放在 −8…+4 有效段。
-- **+8 必須拆成「解析失敗」與「真 invalid」兩個數字。** 原始記錄的 76.6% 是 **parse-failure rate**，其中 ① **137 題（21.2%）是解析 bug**——Qwen 在 chat 模式下輸出前導冒號（`': 5\nAnswer: A'`），而 `parse_output` 的 `BET_LEADING_RE = ^\s*(\d+)` 匹配不到（`Bet` 字面詞在 prompt 裡、不在 generation 裡），這些題**其實有下注**；② 其餘 **363 題（56.2%）才是 true invalid**（散文、通篇無可解析下注）。修正 regex 後 mean_bet=5.04。**正確措辭：「原始 parse-failure 76.6%，修正解析後 true invalid 56.2%」——不要再寫成「76.6% 格式解體」。** 此外 +8 的 mean_bet／accuracy 皆受幸存者偏差污染（acc|valid 35.8% vs acc|invalid 27.7%），且它是唯一一格 accuracy McNemar 顯著者（p_adj=0.007，discordant 64 vs 31），但這反映的是 15.8% 樣本未輸出答案字母（格式失效），非知識能力下降。
-- 兩個失效模式與 CGT-seq / HaluEval 的 **+α「散」**（deliberation-first 吞掉結論）同源；`mean_score_delta` 在 invalid 高的 cell 無意義（+8 的 −0.45 只反映 56% 樣本 score_delta=0）。
+**† 資料邊界：** 原始文本形態來自獨立的 `temperature=1.0` raw 診斷重跑，僅用於定性判別；精確數字與配對統計均取自主掃描。+8 記錄的 parse-failure 為 76.6%，其中 21.2pp 來自前導冒號未被 regex 捕捉，修正後 true invalid 為 56.2%。因此 +8 的 mean_bet 與 accuracy 均受幸存者偏差影響，其顯著 accuracy 下降應解釋為格式失效，而非知識能力下降。
 
 **結果二：Qwen2.5-7B-Instruct，MMLU all subjects，n=14,042（±4 兩檔）**
 
@@ -244,8 +232,7 @@ Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3
 | α=+4 | 65.55% | 66.78% | **5.56** | **+0.45** | 0.0% | 88.9% | **11.1%** | 0.0% | 6e−256 * | 0.374 n.s. | +0.089 |
 | α=−4 | 65.45% | 66.79% | **4.97** | **−0.13** | **3.1%** | 95.6% | 1.3% | 0.0% | 4e−39 * | 0.919 n.s. | −0.043 |
 
-- **大 n 解離成立（配對口徑）**：下注被顯著推動（paired Wilcoxon +4: p=6e−256、−4: p=4e−39），而 accuracy **未檢測到系統性變化**——McNemar 皆 n.s.（+4: 174 vs 192 discordant, p=0.374；−4: 191 vs 194, p=0.919），且 discordant 對在兩個方向上幾乎均分。bet10% 由 2.1% 升至 11.1%。
-- **但效應量顯著小於 Llama**：Llama MMLU 是 4.45 → 7.45（**+67%**）、bet10 4.7%→49.0%；Qwen 是 5.10 → 5.56（**+9%**）、bet10 2.1%→11.1%，Cliff δ 僅 +0.089。GPQA 上 δ=+0.293（中等）而 MMLU 僅 +0.089——**同一 α、同一 mask，兩個任務差三倍**。極小的 p 值來自 n=14,042，不代表大效應；**引用時要報 δ 而非 p**。
+- **MMLU 複現：** +4/−4 顯著改變下注，但 accuracy 的配對差異均不顯著。Qwen 的效應較小（+4 mean_bet +9%，Cliff δ=0.089），明顯弱於 Llama 的 +67%；極小 p 值主要來自大樣本，引用時應同時報告效應量。
 
 **跨模型小結（§3.1.1 vs §3.1.2）**
 
