@@ -3,7 +3,8 @@
 # Same design as GPQA Confidence Betting (§4.6), applied to MMLU.
 # Higher baseline accuracy (~67%) makes wanting–knowing dissociation cleaner.
 #
-# Conditions: orig / α=+4 / α=−4  (layers 11–20, TOP=20, NMD mask)
+# Conditions: orig / α=+4 / α=−4  (layers 16–21, i.e. CONFIGS uses the exclusive
+#             end 16-22; NMD mask nmd_0.5_16_22_7B.npy. NOT Llama's 11–20.)
 # Model     : Qwen2.5-7B-Instruct
 # Data      : All 57 MMLU subjects merged (~14k samples)
 #
