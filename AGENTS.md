@@ -88,6 +88,7 @@ When tweaking a plan, modify the `.sh` not the `.py` — the script is committed
 - `harness.py` + `hf_rsn.py` plug into [lm-evaluation-harness] for benchmark-suite eval.
 - **GSM8K/MATH answer extraction is centralized in `utils.py`** (`extract_gsm8k_answer`, `is_correct_gsm8k`, `gsm8k_difficulty`, `extract_math_answer`, `is_correct_math`) — all consumers import from here; do not redefine locally.
 - The behavioral-economics / wanting-proxy entry-points (bet / delay / effort / bandit / cgt / cgt_seq / igt / reversal / crt / trait) operationalize "wanting" as overt decisions, not accuracy; each has its own output tree and (mostly) its own `RoleAnswer/analyze_*` parser. See `AdaDopamine.md` §4 before touching one.
+- **⚠️ Bandit: all pre-2026-07-28 results are VOID** (best-arm position leakage + a permissive parser made OptFrac indistinguishable from a first-option bias). The published inverted-U / peak +2 is retired, which also breaks the "Bandit +2 / IGT +2 / GSM8K −6" cross-task table. Launchers are now `run_bandit_llama3.sh` / `run_bandit_qwen25.sh` (`run_bandit.sh` deleted). A `seed` field in the run JSON marks post-fix data. See CLAUDE.md's Bandit entry before citing or re-running.
 
 ## Steering-alignment convention (load-bearing)
 
