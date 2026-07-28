@@ -6,17 +6,26 @@
 #   Each question asks the model to bet 0/2/5/10 points before answering.
 #   Mean bet / bet distribution = proxy for incentive salience (wanting).
 #
-# Conditions (2026-06-16: extended to a full −8→+8 dose scan):
+# Conditions: full −8→+8 dose scan.
 #   orig (=α=0)  → baseline betting behavior (run via the orig branch, not CONFIGS)
-#   α<0          → prediction: lower bets, more bet=0 (under-wanting)
-#   α>0          → prediction: higher bets, fewer bet=0, saturating toward bet=10
-# Unlike GSM8K/Bandit (inverted-U on a performance metric), betting's readout is
-# mean_bet — a SATURATING MONOTONE quantity (no "overload collapse"; wanting just
-# rises until it hits the bet=10 ceiling). The scan's job is to confirm the
-# dose-response is monotone and locate the saturation point, giving a SECOND
-# "needs-engagement → peak-on-positive-α" curve (alongside Bandit) for the
-# motivation-knob cross-task argument. GPQA (n=646, already chat) is the cheap
-# carrier for the 9-cell scan; MMLU stays ±4-only (large-n dissociation, no curve).
+#   α<0          → lower bets, more bet=0 (under-wanting)
+#   α>0          → higher bets, fewer bet=0
+#
+# *** RESULT UPDATE (2026-07-28) — the original prediction was WRONG for Qwen ***
+# This script was forked from the Llama runner, whose header asserted betting's
+# readout is a SATURATING MONOTONE quantity that "can't reach overload collapse"
+# because a single-step decision just rises until the bet=10 ceiling. That held on
+# Llama (+4 peak 7.63, +6/+8 pinned at ~7.3–7.6, no collapse). It does NOT hold on
+# Qwen2.5-7B: mean_bet peaks at +4 (7.06) and then DEGRADES —
+#   +6: bets collapse to a constant (bet5 = 99.4%, entropy 0.038) with the reply
+#       format still perfectly intact; answering and accuracy unaffected.
+#   +8: parse-failure 76.6% (true invalid 56.2% after the leading-colon parser
+#       fix); replies turn into prose that pushes the bet out of format.
+# So intervention overload IS reachable in single-step betting, and the failing
+# arm is MODEL-SPECIFIC (Llama fails on the −α side, Qwen on +α). Do not carry
+# the "betting can't overload" claim forward — see AdaDopamine.md §3.1.2.
+#
+# GPQA (n=646) carries the 9-cell scan; MMLU stays ±4-only (large-n dissociation).
 #
 # Model  : Qwen2.5-7B-Instruct   (CROSS-MODEL extension of the Llama3-8B result)
 # Task   : GPQA main + diamond only (micro accuracy)
