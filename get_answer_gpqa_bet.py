@@ -150,6 +150,10 @@ def run_generation(vc, prompts, samples, label, diff_mtx=None):
                     "bet_invalid": bet is None,
                     "score_delta": score_delta,
                     "condition": label,
+                    # Only surfaced in the CSV when --save_all_raw is on (the
+                    # DictWriter uses extrasaction="ignore"), so default runs stay
+                    # byte-identical to every prior betting result.
+                    "raw": generated,
                 }
 
 
@@ -214,6 +218,7 @@ def run_generation_serial(vc, samples, label, diff_mtx=None, per_task_reset=Fals
                 "score_delta": score_delta,
                 "score_before": running,   # running total the model saw this turn
                 "condition": label,
+                "raw": generated,          # see note in run_generation
             }
             running += score_delta
 
@@ -360,6 +365,12 @@ def main():
                   "bet", "bet_invalid", "score_delta"]
     if args.running_score:
         per_fields.append("score_before")
+    if args.save_all_raw:
+        # Diagnostic column: the model's full generated text. Needed to tell a
+        # genuine behavioral collapse from a parse artifact (e.g. reasoning-first
+        # replies pushing the digit out of the window) — the parsed `bet` alone
+        # cannot distinguish them. Off by default: it multiplies CSV size.
+        per_fields.append("raw")
 
     all_summary = []
 
@@ -449,6 +460,13 @@ if __name__ == "__main__":
                              "the source of the betting α-effect. Ignored if --use_chat.")
     parser.add_argument("--skip_orig",   action="store_true",
                         help="Load orig results from existing JSON, skip re-running")
+    parser.add_argument("--save_all_raw", action="store_true",
+                        help="Add a 'raw' column holding the full generated text to "
+                             "the per-sample CSV. Use when a condition looks anomalous "
+                             "(bet distribution collapsing to a constant, or a high "
+                             "bet_invalid rate) and you need to tell a real behavioral "
+                             "change from a parsing artifact. Off by default: the "
+                             "column multiplies CSV size.")
     parser.add_argument("--out_prefix",  default="bet",
                         help="Prefix for output filenames, e.g. 'gpqa_bet' or 'mmlu_bet'")
     parser.add_argument("--keep_tasks",  nargs="*", default=None,
