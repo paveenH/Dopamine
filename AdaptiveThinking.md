@@ -146,13 +146,16 @@ RSN（Role-Sensitive Neurons）被視為一個 **state-level gain control**：�
 | **Ramping / Vigor** | 解碼期間朝目標推進的速度與 effort intensity | `s_t = EMA(Z_t)` 的斜率 | 斜率越陡，推進與 commitment 越快 |
 | **Phasic** | decode 中相對慢基線的快速 pulse / dip | `p_t = Z_t - s_{t-1}` | 與慢變的 `s_t` 分離，呈現 token-level transient |
 
-在此模型中，`G_prefill` 設定 generation 的初始條件，不作為 decode trajectory 的持續加數；decode 期間的信號表示為：
+在此模型中，`G_prefill` 設定 generation 的初始條件，不作為 decode trajectory 的持續加數；decode 期間的慢/快分解由 EMA 定義（`s_t = β·s_{t-1} + (1-β)·Z_t`，`p_t = Z_t − s_{t-1}`），因此瞬時信號與慢基線的精確關係為：
 
 ```text
-Z_t = s_t + p_t
+Z_t = s_{t-1} + p_t
+s_t = s_{t-1} + (1-β)·p_t
 ```
 
-其中 `s_t` 表示慢變的 ramping / vigor component，`p_t` 表示相對慢基線的 phasic component。
+其中 `s_t` 是慢變的 ramping / vigor component、`p_t` 是相對**上一時刻**慢基線 `s_{t-1}` 的 phasic residual（注意 `Z_t` 分解到的是 `s_{t-1}` 而非 `s_t`；`s_t` 再以 `(1-β)` 比例吸收該 residual）。
+
+> **命名約定（建模層 vs 發現層分離，load-bearing）：** tonic、ramping/vigor 與 phasic-like 是**信號建模與 operational definition**，先驗成立、不隨個別實驗升降級。後續各 task 檢驗的是「該 task 是否呈現這些模型預測的變化」——**未檢測到預期效應表示當前 task 不支持該項經驗假說，既不否定數學構造，也不要求重新命名指標**。因此本文一律區分兩件事：(a) `G_prefill`/`s_t`(-slope)/`p_t` 作為 tonic / ramping-vigor / phasic-like 的 operational measure（保留），與 (b) 某個特定 task/readout 是否**檢出**了對應的經驗現象（task-level finding，可為 null）。全文的「negative / null」一律讀作後者，不讀作對 (a) 的降級。
 
 ### 2.3 Working Hypotheses
 
@@ -168,11 +171,11 @@ Z_t = s_t + p_t
 
 **H2 — Slow decode dynamics encode ramping / vigor.**
 
-`s_t` 的斜率表示模型朝答案推進的 vigor。預測較陡的斜率對應較短 generation length、較早 commitment 與較高推進強度。分析時同時控制 output length 與 response format，以區分 vigor 和單純的提前停止。
+在本模型中，`s_t` 的斜率 **operationalizes the ramping/vigor hypothesis**——把「模型朝答案推進的速度 / effort intensity」映到一個可檢驗量。該假說預測較陡的斜率對應較短 generation length、較早 commitment 與較高推進強度；分析時同時控制 output length 與 response format，以區分 vigor 與單純的提前停止。**斜率是 vigor 的 operational measure（保留）；某個 task 是否呈現此斜率—行為關聯，是待檢驗的 task-level 問題。**
 
 **H3 — Fast decode residuals encode phasic dynamics.**
 
-`p_t` 表示相對 slow baseline 的快速 phasic change，用來分離 decode 中的 pulse / dip 與 `s_t` 的慢變趨勢。第一步先驗證 `p_t` 是否具有穩定的快時間尺度結構；其後再探索它與中間推理步、答案形成、commitment 或其他 generation events 的關係，目前不預設特定 event anchor。
+`p_t` 是相對 slow baseline 的 **phasic-motivated operational measure**，用來分離 decode 中的 pulse / dip 與 `s_t` 的慢變趨勢——此 operational 定義保留。實驗檢驗的是**特定 task 中是否出現預期的 transient / event association**：第一步先驗證 `p_t` 是否具有穩定的快時間尺度結構；其後再探索它與中間推理步、答案形成、commitment 或其他 generation events 的關係，目前不預設特定 event anchor。未檢出對應 transient 屬 task-level null，不改變 `p_t` 的 phasic-like 命名。
 
 
 ## 3. Signal Definition
@@ -269,7 +272,7 @@ decode-time fast component 定義為相對上一時刻 slow baseline 的 residua
 p_t = Z_t - s_{t-1},  t ≥ 1
 ```
 
-`p_t` 是一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t > 0` 表示瞬時高於 slow baseline 的 pulse，`p_t < 0` 表示瞬時 dip。現階段只把它當作 **fast residual / candidate phasic-like component**，優先檢驗其 amplitude、variability 與時間結構；之後再分析它是否與特定 reasoning / commitment event 對齊（不預先指定 event anchor）——通過 event alignment 等驗證後方可升級為正式的 phasic 信號。
+`p_t` 是一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t > 0` 表示瞬時高於 slow baseline 的 pulse，`p_t < 0` 表示瞬時 dip。現階段把它當作 **fast residual / candidate phasic-like component**（此 operational 命名保留），優先檢驗其 amplitude、variability 與時間結構；之後再分析它是否與特定 reasoning / commitment event 對齊（不預先指定 event anchor）。**event alignment 等驗證決定的是「當前 task 是否提供 phasic-like empirical evidence」，而非決定 `p_t` 是否獲得該名稱。**
 
 第一階段使用以下 summaries：
 
@@ -288,7 +291,7 @@ p_t = Z_t - s_{t-1},  t ≥ 1
 | **Task-entry state** | `Z_prefill` | layer-standardized gain at last prompt token | layer-fair boundary state |
 | **Boundary transition** | `boundary_jump` | `G_0 - G_prefill`（G 坐標） | prefill pulse 的回彈 / carry-over |
 | **Slow decode** | `s_t` | decode-only EMA of `Z_t`，seed `s_0 = Z_0` | post-launch slow generation dynamics |
-| **Relaxation slope** | `vigor_slope` | slope of `s_t` | slow decode component 的下降速度（見下方 naming 說明） |
+| **Relaxation slope** | `vigor_slope` | slope of `s_t` | slow decode component 的斜率；欄名 `vigor_slope` 是 **H2 ramping/vigor 假說的 operational 名稱（保留）**，實測 decode 期間多呈鬆弛（下降），故功能上讀作 relaxation slope——命名指假說，數值方向指觀測 |
 | **Phasic** | `p_t` | `Z_t - s_{t-1}` | fast pulse / dip relative to slow baseline |
 | **Uncertainty** | `entropy_decode` | `-Σ_v q_t(v) log q_t(v)` | next-token uncertainty；越低通常越 decisive |
 | **Confidence** | `top1_decode` | `max_v q_t(v)` | maximum next-token probability |
@@ -419,7 +422,7 @@ No-CoT 的 `G_prefill=0` / `Z_prefill=0` 來自 reference 定義。CoT effect �
 |---|---|---|---|
 | **pre-commit** (n=281) | mean Δ=**+0.471**, `d_z`=**0.65**; `end−start` Δ=+0.228, `d_z`=0.27 | `abs_mean` Δ=+0.056, `d_z`=0.42; `std` Δ=+0.092, `d_z`=**0.63** | CoT 維持較高、較少 relax 的 answer-formation state，且 fast residual dispersion 較強 |
 | **post-commit** (n=144) | `end−start` Δ=**−0.166**, `d_z`=−0.31 | `abs_mean` / `std` 小幅反轉（`d_z`=−0.19 / −0.18） | CoT 在首次提交後釋放較快，fast variability 差異同步減弱 |
-| **loop tail** (n=141) | mean Δ=+0.185, `d_z`=0.32；tail 短 **83.6 tokens**, `d_z`=−0.51 | `std` Δ=−0.083, `d_z`=−0.33 | 低 RSN state 下的 stopping failure；CoT tail 較短、churn 較低，只作診斷 |
+| **post-second-marker tail** (n=141) | mean Δ=+0.185, `d_z`=0.32；tail 短 **83.6 tokens**, `d_z`=−0.51 | `std` Δ=−0.083, `d_z`=−0.33 | 第二個 `####` marker 之後的尾段（與 stopping failure / loop 相容，但只作診斷，不等同經獨立驗證的 loop onset）；CoT tail 較短、churn 較低 |
 
 CoT 的主效應是 **level-dominant but not a pure shift**：task entry 已升高（`Z_prefill d_z`=0.89），pre-commit slow level 仍維持明顯差距（`d_z`=0.65），而 No-CoT 在答案形成期間 relax 得更多。strict-`####` subset（n=233）確認 pre-commit level effect 不依賴 fallback；absolute-token control 亦重現較弱的 CoT relaxation，因此不是單由長度歸一化製造。由於 CoT instruction 持續存在於 KV cache，這些觀察不能證明後續差異完全由 `G_prefill` 單點造成。
 
@@ -429,7 +432,7 @@ CoT 的主效應是 **level-dominant but not a pure shift**：task entry 已升�
 
 `p_t` 是 EMA high-pass residual，不是已識別的 biological phasic dopamine。其 pre-commit `abs_mean` / `std` 效應在 FDR 後穩定，但 post-commit 小效應不宜強調；`pos/neg_peak` 同時受 segment length 與 EMA lag 影響，不能作獨立證據，也不能由較深負尾推斷 downward skew。
 
-Event alignment 現已顯示 C1/C2 附近存在 marker-locked residual transition，但它同時伴隨 entropy spike / top1 dip，且 C2 幾乎複製 C1，因此可能包含 answer-format transition。現階段最穩健的結論仍是 **stage-dependent fast RSN dynamics**。若要升級為 commitment-related phasic-like component，仍需 pseudo-event / token-class control、length-matched quantile、`β∈{0.90,0.95,0.98}` sensitivity、其他 baseline estimator，以及 NMD-mask vs random-mask specificity。GSM8K 沒有 reward feedback，因此此處不能作 RPE 解讀。
+Event alignment 現已顯示 C1/C2 附近存在 marker-locked residual transition，但它同時伴隨 entropy spike / top1 dip，且 C2 幾乎複製 C1，因此可能包含 answer-format transition。現階段最穩健的結論仍是 **stage-dependent fast RSN dynamics**。若要**聲稱在 GSM8K 中檢測到 commitment-related phasic-like response**，仍需 pseudo-event / token-class control、length-matched quantile、`β∈{0.90,0.95,0.98}` sensitivity、其他 baseline estimator，以及 NMD-mask vs random-mask specificity。GSM8K 沒有 reward feedback，因此此處不能作 RPE 解讀。
 
 #### Output-Distribution Confidence Controls
 
@@ -588,7 +591,7 @@ Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（
 
 Fast residual 提供一致但較窄的輔助證據：−6 的 pre-commit `p_t std` 明顯升高，−4 只有小效應，其餘 doses 接近 null。最佳工作點因而同時伴隨較高 slow-state level 與較強 fast-residual dispersion。
 
-與 §4.2 相同，fast component 的主讀數限於 `abs_mean/std`，不使用易受長度與 EMA lag 影響的極值。`p_t` 仍是 EMA high-pass residual，C1 附近的共同轉折也可能包含 `####`/answer-marker effect，不能直接命名為 phasic dopamine。
+與 §4.2 相同，fast component 的主讀數限於 `abs_mean/std`，不使用易受長度與 EMA lag 影響的極值。`p_t` 保留 phasic-like operational definition；本節僅觀察到 amplitude/dispersion evidence，C1 附近的共同轉折也可能包含 `####`/answer-marker effect，尚未建立 biological dopamine 或 event-specific phasic correspondence。
 
 #### Output-Distribution Confidence Controls
 
@@ -702,7 +705,7 @@ Confidence output :  CoT 與 α=−4 大體呈 approximately additive
 
 #### Step 3 — Fast Residual Dynamics：CoT 主導，DiD 全 ns
 
-`p_t abs_mean` / `std`：主效應仍是 CoT（early abs_mean +0.092\*\*\*、std +0.143\*\*\*；release abs_mean +0.178\*\*\*），α=−4 邊際弱，early window 呈與 Step 2 同向的 attenuation trend（α 效應在 CoT 下轉 ns），commit / release **DiD 全部 ns**。`p_t` 僅作 fast residual dynamics 判讀，不命名為 phasic dopamine。
+`p_t abs_mean` / `std`：主效應仍是 CoT（early abs_mean +0.092\*\*\*、std +0.143\*\*\*；release abs_mean +0.178\*\*\*），α=−4 邊際弱，early window 呈與 Step 2 同向的 attenuation trend（α 效應在 CoT 下轉 ns），commit / release **DiD 全部 ns**。`p_t` 保留 phasic-like operational definition；本節僅得 fast residual dynamics evidence，尚未建立 biological dopamine 或 event-specific phasic correspondence。
 
 #### Step 4 — Confidence Controls：near-additive
 
@@ -777,7 +780,7 @@ CoT process  ×  α=−4 task-entry intervention
 2. **自然 state（CoT、Persona）與注入 α 表現一致。** 若特異性只出現在 α-dose，可能是 α-steering 的 injection–projection identity 造成的時間版假象；但 CoT vs No-CoT、Expert vs Non-Expert（皆非注入）與 α 條件同樣落極端——故此時間特異性**不能僅由 α-steering 的 injection–projection identity 解釋**。（其中 CoT 是最獨立的自然狀態證據；Expert–Non-Expert 雖非注入，但 NMD mask 本身即抽自該 contrast，故關聯性較弱。）
 3. **整條軌跡距離（leave-one-out centroid RMS，`[−40,+20]`，`s_t`/`p_t` 分開）**：全部 10 個 (contrast × signal) cell 的 NMD signed 軌跡距離都**超過全部已採樣 null draws**（D_NMD 為 null median 的 3–7 倍，pctile 100%，p_emp 於 N=11 地板 0.083）。但 RMS 同時含水平/幅度/形狀，**不能單獨解讀為形狀特異**：`p_t` 的 shape-corr（NMD vs null 0.39–0.55）相近，顯示偏離**主要來自幅度/水平差異**（「同形不同幅」）；`s_t` 的 null 質心近平坦（centroid std < 0.02），shape-corr 不可解釋（已標註）。**是否存在獨立於幅度的形狀差異，仍需額外指標。**
 
-commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現：每個 contrast 的 NMD 曲線在 commit（step 0）附近急轉——commit 前一個平台、commit 後單調鬆弛；11 條 null 在 commit 處**未形成與 NMD 同等強度的 signed transition**（`s_t` null 近平坦，`p_t` null 有結構但幅度較弱）。CoT 的 `p_t` 更在 commit 出現一個 −0.7 的單步 event-locked spike（呼應 §4.2「commit = 多信號 phasic 節點」的 RSN 側證據）。
+commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現：每個 contrast 的 NMD 曲線在 commit（step 0）附近急轉——commit 前一個平台、commit 後單調鬆弛；11 條 null 在 commit 處**未形成與 NMD 同等強度的 signed transition**（`s_t` null 近平坦，`p_t` null 有結構但幅度較弱）。CoT 的 `p_t` 更在 commit 出現一個 −0.7 的單步 transition（呼應 §4.2：commit 附近出現顯著 `p_t` transient，與 phasic-like hypothesis 相容，但仍有 `####`/marker-format confound，不宣稱為獨立的 phasic 事件節點）。
 
 **升級：generic-direction null（權重去掉 role-diff 後，NMD 仍相對 null 保持極端）。** 上表 ① 的 null 保留了 role-diff 權重。把權重換成逐層 ⊥ Δ_l 的 norm-matched Gaussian（② `ortho_gauss_same`/`off`）後，兩個 primary 的 NMD-vs-null 極端 pctile 維持不變——下表列 NMD signed 與各 null 的 median（後者中心趨勢皆 ≈0，且採樣到的方向均未複現 NMD 的窗口平均 signed effect）：
 
@@ -805,7 +808,7 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 1. **task-entry raw gain（`G_prefill`）**：NMD 遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這是 **co-design identity**（`x_prefill(α) ≈ x_prefill(0)+α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大）+ mask 本身抽自該方向，屬 **manipulation check**，非獨立證據。
 2. **commitment-locked temporal organization（`s_t`/`p_t` 軌跡）**：**這是目前最強的 NMD direction-specificity evidence**——commit 前後帶符號的結構化走向（幅度/水平）穩定超出**三個** null family（support-selection ①、same/off generic-direction ②），且在注入與自然 state 上一致。off-support generic-direction null 也保持 NMD 極端（權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端），與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源——排除了「僅是 top-|diff| 支撐」與「僅是複用 role-diff 逐坐標權重」兩種單成分解釋；是否另有獨立於幅度的形狀差異仍待定。
 
-**限定。** (i) direction-specificity null **已補齊**：support-selection（①）+ same/off generic-direction（② orthogonal Gaussian）三個 family 一致 hold，已排除「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」。**尚未做**的僅剩 same-support sign-shuffle（檢驗「符號—位置對應」——註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，不代表該對應不重要，故列為次優先而非已知無判別力）；orthogonal null 已 norm-match 並徹底去除 role-diff 權重方向，sign-shuffle 屬更細的分解，非必要補強。(ii) **各 family N=10–11 draws 為 exploratory ordering，不作正式顯著性宣稱**（p 地板 0.083–0.091；且 draws 已參與指標選擇）。三個 family 與 30 cell 並非獨立重複——它們共享同一批 hidden states、conditions、baseline 與指標，故不可用「多 family 一致」推得低偶然機率。下一步優先**跨任務、跨模型與 causal-direction control**（見 (iii)），而非繼續擴增同類 seeds。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) leave-one-layer-out 已做且通過（10/10 no-flip，見上），「不只由少數 layer 驅動」一項已滿足；但 per-layer 對照僅在 NMD 側檢驗軌跡穩健性，尚未與 null 做逐層對照。
+**限定。** (i) direction-specificity null **已補齊**：support-selection（①）+ same/off generic-direction（② orthogonal Gaussian）三個 family 一致 hold，已排除「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」。**尚未做**的僅剩 same-support sign-shuffle（檢驗「符號—位置對應」——註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，不代表該對應不重要，故列為次優先而非已知無判別力）；orthogonal null 已 norm-match 並徹底去除 role-diff 權重方向，sign-shuffle 屬更細的分解，非必要補強。(ii) **各 family N=10–11 draws 為 exploratory ordering，不作正式顯著性宣稱**（p 地板 0.083–0.091；且 draws 已參與指標選擇）。三個 family 與 30 cell 並非獨立重複——它們共享同一批 hidden states、conditions、baseline 與指標，故不可用「多 family 一致」推得低偶然機率。下一步優先**跨任務、跨模型與 causal-direction control**（見 (iii)），而非繼續擴增同類 seeds。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) leave-one-layer-out 已做且通過（10/10 no-flip，見上），僅滿足「**不由任一單層驅動**」；**尚未排除兩三個 layer 共同貢獻**（未做 leave-two/three-out），故不宣稱「不只由少數 layer 驅動」。per-layer 對照僅在 NMD 側檢驗軌跡穩健性，尚未與 null 做逐層對照。
 
 分析腳本：`analyze_rsn_specificity.py`（`python3.10`；帶符號 commit-aligned temporal 指標 + LOO-RMS + leave-one-layer-out；`--null_family {diff_random,ortho_gauss_same,ortho_gauss_off}` + `--null_root` 切換 null family，凍結指標不變；`--plot` 出全部 5 張 commit-centered 圖，檔名帶 family tag）。讀 `llama3/dopamine/signal/` NMD + `llama3/dopamine/{random,ortho_same,ortho_off}/seed{1..10}/`；① 由 `run_random_null.sh`、② 由 `run_generic_null.sh` 生成（皆 server-side，zero-GPU offline re-projection）。server 步驟見 `GENERIC_NULL_RUNBOOK.md`。
 
@@ -815,7 +818,7 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 #### Case-level observations
 
-**Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。因此 `s_t` 較適合解讀為 ongoing / unresolved processing state，而不是 correctness 或 reasoning quality 的直接讀數。
+**Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。case study 支持 **`s_t` level 與 ongoing / unresolved processing 相關**，而不是 correctness 或 reasoning quality 的直接讀數；但這是 level 觀察，**尚未直接檢驗以 slope 定義的 ramping/vigor hypothesis**（該假說由 Slow-State Behavioral Validation 專門檢驗，見 §TODO/`analyze_slow_state_behavior.py`）——不能由此 case-level level 觀察推斷 slope 的 vigor 讀數成立或不成立。
 
 **Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、較規則的振盪。這個視覺觀察促成下列全樣本 follow-up；結果顯示,能穩定區分 reasoning 與 post-answer/loop 階段的是 `p_t` 的 **centered RMS(residual amplitude)**,而非頻率指標——其主要穩定變化是 **residual amplitude collapse**,不是獨立的 frequency reorganization。
 
@@ -842,7 +845,7 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 **Declaration marker 的技術邊界。** 單一句子如 `The final answer is: \boxed{75}####` 會同時命中 `final answer`、`\boxed{}` 與 `####`；若不合併，圖中的第二條線可能只是同一次提交的另一個 marker，而非第二次作答。`plot_sample_traj.py` 現已將相距 25 characters 內的 marker 合併，dotted line 表示 **second distinct answer declaration**。但即使是第二次獨立 declaration，也只能視為 repetition / revision proxy，不能自動等同真正的 loop onset。§4.2 聚合分析使用 literal 第 1 / 第 2 個 `####`，因此不受同一句多類 marker 重複命中的繪圖問題影響；不過其中 C2 仍應解讀為 **second-answer-marker boundary**，其後段是 post-second-marker tail，而不是經獨立演算法驗證的 loop onset。
 
-**Case-study conclusion：amplitude / frequency dissociation。** 這 9 題與全樣本 follow-up 共同把本節從「case study + frequency negative」升級為 **case-level validation + amplitude/frequency dissociation**:(i) `s_t` 的主結構與持續推理—提交後釋放相容;(ii) full-decode 會被 post-answer stopping failure 污染;(iii) `p_t` 的可靠訊息集中於 **signed change 與 residual amplitude / dispersion**——α=−6 在乾淨的 pre-commit 段提高 centered RMS,而 frequency metrics 不隨 α 穩定變化。Commit-centered 的頻譜變化對 answer-format / repetition 敏感,因此**頻率只保留為 negative control,不作 RSN 主讀數**;`p_t` 仍應稱 fast residual,不能命名為 biological phasic signal。這些結果也不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律,且不能把第二個 marker 或 repeated-ngram tail proxy 當作經獨立驗證的真實 loop onset。
+**Case-study conclusion：amplitude / frequency dissociation。** 這 9 題與全樣本 follow-up 共同把本節從「case study + frequency negative」升級為 **case-level validation + amplitude/frequency dissociation**:(i) `s_t` 的主結構與持續推理—提交後釋放相容;(ii) full-decode 會被 post-answer stopping failure 污染;(iii) `p_t` 的可靠訊息集中於 **signed change 與 residual amplitude / dispersion**——α=−6 在乾淨的 pre-commit 段提高 centered RMS,而 frequency metrics 不隨 α 穩定變化。Commit-centered 的頻譜變化對 answer-format / repetition 敏感,因此**頻率只保留為 negative control,不作 RSN 主讀數**;`p_t` 繼續作為 phasic-like fast-residual measure(operational 命名保留)——當前 task 支持 amplitude change,但未檢測到穩定的 frequency organization,亦未建立 biological phasic dopamine correspondence。這些結果也不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律,且不能把第二個 marker 或 repeated-ngram tail proxy 當作經獨立驗證的真實 loop onset。
 
 ## 5. Conclusion
 
@@ -850,6 +853,6 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
 
-因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.7:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。
+因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.7:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。就 `s_t` 而言，**ramping/vigor 建模同樣保留**：其 slope-based behavioral prediction（陡斜率→更快推進/提交）**尚待 Slow-State Behavioral Validation**；已有的 level / release 結果屬額外的經驗關聯（`s_t` level 與 ongoing / commitment state 相關），不替代也不否定 slope 的原始 vigor 定義——在能誘發 vigor 的 task 上檢驗前，此為 open 的 task-level 問題。
 
 方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡提供目前最強的 NMD direction-specificity evidence**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 中 NMD 皆相對各自 null 保持極端 pctile，null median 皆 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。**off-support generic-direction null 這格最吃重**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源，排除了「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種單成分解釋。限定：各 family N=10–11 為 exploratory ordering（三 family/30 cell 共享同一批 hidden states 與指標，非獨立重複，不作正式顯著性宣稱），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續優先跨模型、跨任務與含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
