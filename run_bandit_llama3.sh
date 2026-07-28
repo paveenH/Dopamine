@@ -1,4 +1,26 @@
 #!/bin/bash
+#
+# *** READ FIRST — ALL PRE-2026-07-28 BANDIT RESULTS ARE VOID ***
+# Two design faults were found and fixed in get_answer_bandit.py. They are not
+# noise; they break the main readout:
+#   (A) POSITION LEAKAGE. shuffle_arms() shuffled the arm NAMES then zipped them
+#       against [0.7,0.5,0.4,0.3,0.1], so the best arm sat at display position 1
+#       and the worst at position 5 for EVERY seed (checked 0-29: best position
+#       was 1 in all 30). Only which *name* was best varied. OptFrac therefore
+#       could not be distinguished from a first-option bias.
+#   (B) PERMISSIVE PARSER. parse_choice() returned the first arm name appearing
+#       anywhere in the output, scanning in display order. Together with (A) a
+#       reply that merely echoed the option list was recorded as a VALID choice
+#       of the BEST arm (verified directly). OptFrac was inflated and
+#       invalid_rate understated by an unknown amount.
+# Consequence: every earlier Bandit number (incl. the published Llama inverted-U
+# with peak +2 and the +8 collapse to 0.515) is not comparable to post-fix runs,
+# and cannot be salvaged offline — no raw text was stored. Treat post-fix runs as
+# a NEW baseline, not as a validation of the old curve.
+# Now recorded per round: raw generation, valid flag, n_matched; plus valid-only
+# OptFrac/regret and mean_best_position (should average ~3.0 with K=5; a value
+# pinned at 1.0 means position leakage is back).
+#
 # ==================== Multi-Armed Bandit (EVOLvE ClothesShopping) ====================
 # Exploration/Exploitation experiment (§3.2 / §4.7). De-roled port of the EVOLvE
 # boutique MAB (Nie et al. ICML 2025): K=5 semantic arms, Bernoulli rewards
@@ -54,7 +76,7 @@ MASK_TYPE="nmd"
 PERCENTAGE=0.5
 
 # Full −8→+8 dose sweep at layers 11–20 (No-Role).
-ANS_FILE="answer_bandit_norole_rngfix"
+ANS_FILE="answer_bandit_norole_v2"
 
 CONFIGS="neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 0-11-20 2-11-20 4-11-20 6-11-20 8-11-20"
 
@@ -65,7 +87,7 @@ NUM_ROUNDS=50
 if [ "$1" == "--pilot" ]; then
     NUM_RUNS=2
     CONFIGS="neg8-11-20 0-11-20 8-11-20"
-    ANS_FILE="answer_bandit_norole_rngfix_pilot"
+    ANS_FILE="answer_bandit_norole_v2_pilot"
     echo "[PILOT] 2 runs × 3 alphas -> ${ANS_FILE}"
 fi
 
