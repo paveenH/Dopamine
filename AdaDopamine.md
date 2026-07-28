@@ -225,10 +225,12 @@ Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3
 
 | | α=+6：下注分佈退化，格式完好 | α=+8：解析失敗率高（推理先行擠掉下注） |
 | --- | --- | --- |
-| 原始文本形態 | 與 orig **完全相同**（`'5\nAnswer: B'`，中位長 11 字元，乾淨兩行格式 99.4%） | 全體中位長 88 字元、散文子集中位 **214 字元**（orig 為 11），乾淨格式僅 14.9% |
+| 原始文本形態 † | 與 orig **完全相同**（`'5\nAnswer: B'`，中位長 11 字元，乾淨兩行格式 99.4%） | 全體中位長 88 字元、散文子集中位 **214 字元**（orig 為 11），乾淨格式僅 14.9% |
 | invalid | 0% | 原始 parse-failure **76.6%** → 修正解析後 true invalid **56.2%** |
-| 現象 | bet 分佈**塌成常數**：bet5=99.4%、bet_entropy 0.030。配對看：orig 押 10 的 76 題中有 74 題在 +6 改押 5 | 推理先行把下注擠出格式：`"...I'll bet 5 points on this one to make sure I get it right.\nAnswer: B"` |
+| 現象 | bet 分佈**塌成常數**：bet5=99.4%、bet_entropy 0.038。配對看（**主掃描**數字）：orig 押 10 的 **77 題中有 75 題**在 +6 改押 5，僅 2 題維持 10 | 推理先行把下注擠出格式：`"...I'll bet 5 points on this one to make sure I get it right.\nAnswer: B"` |
 | 判定 | **真實行為塌陷**（非解析假象——文本形態、答題、accuracy 全部正常，只有下注這一維退化） | **過載 + 一個解析 bug 的混合**（見下） |
+
+**† 資料來源分工（重要）：** 打 † 的「原始文本形態」列來自 **raw 診斷重跑**（`gpqa_bet_raw/`），該次為 `temperature=1.0` 的獨立採樣，**與主掃描不是同一批生成**。故它只用來**定性**判斷失效模式（+6 是常數下注、+8 是散文過載），**任何精確數字與配對統計一律取自主掃描**（`gpqa_bet/`）。上表其餘所有數字、以及全節的配對檢定，皆為主掃描。兩者的一致性：raw 重跑 orig mean_bet 5.588 vs 主掃描 5.596、+8 parse-fail 77.4% vs 76.6%——失效模式穩定復現，但個別計數會差 1–2 題（如 +6 的配對轉移在 raw 為 76→74、主掃描為 **77→75**，正文引用後者）。
 
 - **+6 的塌陷不是「回到 baseline」。** baseline 是 88%/12% 的 bet5/bet10 混合；+6 是 99.4% 全押 5 的退化分佈。模型仍在下注、仍能答題，但**不再區分**。**定位：這是下注分佈退化（intervention overload），不是解離證據。** 它的 accuracy 確實仍與 orig 無異（McNemar n.s.），但一個已經退化成常數、失去變異的 wanting 讀數不能拿來論證「wanting 動而 knowing 不動」——沒有有效的 wanting 訊號可言。解離的證據放在 −8…+4 有效段。
 - **+8 必須拆成「解析失敗」與「真 invalid」兩個數字。** 原始記錄的 76.6% 是 **parse-failure rate**，其中 ① **137 題（21.2%）是解析 bug**——Qwen 在 chat 模式下輸出前導冒號（`': 5\nAnswer: A'`），而 `parse_output` 的 `BET_LEADING_RE = ^\s*(\d+)` 匹配不到（`Bet` 字面詞在 prompt 裡、不在 generation 裡），這些題**其實有下注**；② 其餘 **363 題（56.2%）才是 true invalid**（散文、通篇無可解析下注）。修正 regex 後 mean_bet=5.04。**正確措辭：「原始 parse-failure 76.6%，修正解析後 true invalid 56.2%」——不要再寫成「76.6% 格式解體」。** 此外 +8 的 mean_bet／accuracy 皆受幸存者偏差污染（acc|valid 35.8% vs acc|invalid 27.7%），且它是唯一一格 accuracy McNemar 顯著者（p_adj=0.007，discordant 64 vs 31），但這反映的是 15.8% 樣本未輸出答案字母（格式失效），非知識能力下降。
