@@ -36,16 +36,42 @@ RSN neurons
 
 ---
 
-### 4. Direction-Specific Causal Controls
+### 4. Bandit Signal and Task-Dependent Working Point
 
-**目标：** 证明行为 working point 来自 RSN 方向，而不是一般 hidden-state perturbation。
+它真正要回答的是：
 
-- 选择需求相反的两个任务：GSM8K（偏负 working point）与 Betting 或 Bandit（非负 working region）。
-- 比较 RSN、至少 10 个 random directions、PCA direction 和一个非 wanting 功能方向。
-- 按实际 intervention norm 或 `ΔG_prefill` 匹配剂量，不直接比较相同 raw α。
-- GSM8K 主读数：accuracy、committed accuracy、commit position、oscillation/anxiety；Betting/Bandit 主读数：bet/OptFrac 与 accuracy/invalid control。
+> 为什么同一个 RSN α，在 GSM8K 上最佳点约为 −6，在 Bandit 上却约为 +6？
 
-**完成标准：** RSN 在两个任务中产生预测方向相反但 task-appropriate 的 working-point shift，且效应显著超出 matched-control distribution。
+目前行为结果只能给出解释：GSM8K 需要抑制抢答、维持推理；Bandit 需要主动追逐奖励、稳定 exploit。补 signal 后可以区分两种情况：
+
+1. **内部 working point 确实随任务移动**  
+   Bandit 的 slow-state / engagement 在 +6 达到有效区间、+8 过载；GSM8K 则在 −6 最合适。这最支持“task-dependent calibration”。
+
+2. **α 对内部 signal 的作用在两任务相似，但行为出口不同**  
+   例如正 α 都提高 task-entry gain，但在 Bandit 表现为 exploit，在 GSM8K 表现为抢答。这说明差异来自下游 task demand，而不是 signal 本身峰位移动。
+
+最小实验可以这样做：
+
+- α 只跑 `−6 / 0 / +6 / +8`；
+- 固定 Bandit reward seeds，使不同 α 尽量可比；
+- 每轮记录：
+  - choice 前 `G_prefill`；
+  - decode 足够长时记录 `s_t level`，slope 作为建模指标但不预设一定有效；
+  - `p_t` 只作次要动态指标，不再研究频率；
+  - OptFrac、switch、上一轮 reward、invalid/failure。
+- 按 early / middle / late trials 分段，检查 signal 是否随着学习和 exploitation 建立而变化。
+- 重点看：
+  - `+6` 的高 OptFrac 是否伴随稳定的 RSN state；
+  - `+8` 行为崩溃时 signal 是过冲、塌缩还是失稳；
+  - signal–OptFrac 的关系是否独立于 trial number 和上一轮 reward。
+
+跨任务时不要直接比较各自标准化后的 raw Z 数值；主要比较：
+
+- dose→signal 曲线；
+- signal→task behavior 的关系；
+- signal 最稳定区域是否与各任务的行为最佳 α 对齐。
+
+所以这项实验值得做。它不是再证明 α 会改变 Bandit 行为——这已经完成；而是把项目主线从“不同任务最佳 α 不同”推进到“**为什么 RSN working point 会随任务需求移动**”。
 
 ### 5. Cross-Model and Post-Training Replication
 
