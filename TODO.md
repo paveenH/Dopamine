@@ -33,8 +33,13 @@ RSN neurons
 ---
 
 ## TODO
+0. 用Qwen2.5-7B复现看看
+1. Trajectory：直接看Cot在neurons上的改变 copy COT的曲线
+2. Trajectory：预测commit，然后再commit前后进行干预；
+3. Behaviour: 测一下和人类的行为学对齐关系
 
 ---
+
 ### 5. Cross-Model and Post-Training Replication
 
 **目标：** 判断该 latent gain mechanism 是否可泛化，以及 post-training 是创造还是 sharpen 它。
@@ -56,17 +61,6 @@ analysis freeze
 → direction-specific causal controls
 → cross-model/post-training replication
 ```
-
-
----
-# TODO
-0. Trajectory：看一些没有平均的raw samples的曲线是什么样子 关注关键点（commit/answer）
-1. Trajectory：直接看Cot在neurons上的改变 copy COT的曲线
-2. Trajectory：预测commit，然后再commit前后进行干预；需要
-2. Trajectory：signal部分补充random-mask的对比
-3. Behaviour: 测一下焦虑和心理学量表
-3. Behaviour: 测一下和人类的行为学对齐关系
-4. RLHF: RLHF 和 dopamine 出現的關係：整理 Notion `Model Analysis; Hallucination & Origin -> 15. Origin Analysis`，看 post-training 是否 sharpen 了 decisiveness axis。
 
 # Follow-up
 
