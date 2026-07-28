@@ -259,8 +259,6 @@ Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3
 | 單調趨勢可用帶 | −4…+8（負臂 −6/−8 折返、格式鬆動） | **−8…+4**（正臂 +6/+8 崩） |
 | MMLU 效應量 | +67% mean_bet | +9%（δ=+0.089） |
 
-
-
 ## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task)
 
 **神經科學對應：** Tonic dopamine 調節 exploration vs. exploitation balance——高 tonic DA → 更積極利用已知最優選項（exploitation 增強，incentive salience 集中）；低 tonic DA → 更趨向隨機探索，難以穩定 exploit（effort withdrawal，行為不穩定）。Bandit task 是此機制最直接的行為學範式。
