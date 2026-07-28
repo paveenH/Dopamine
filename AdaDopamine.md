@@ -33,7 +33,7 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
 
 RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 
-## 1. MCQ Reasoning & Factor Benchmark Results
+# 1. MCQ Reasoning & Factor Benchmark Results
 
 | Model | Cond. | MMLU | MMLU-Pro | GPQA | AR-LSAT | LogiQA | TQA-MC1 | TQA-MC2 | FACTOR |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 |  | α=+4 | **75.15** | **46.38** | **41.02** | **28.89** | **70.29** | **67.69** | **75.15** | **80.21** |
 |  | α=−4 | 64.83 | 36.45 | 34.67 | 24.63 | 59.92 | 57.77 | 70.13 | 64.05 |
 
-## 2. Existing Evidence from the RSN Paper
+# 2. Existing Evidence from the RSN Paper
 
 | Experiment | Measurement | Behavioral interpretation |
 | --- | --- | --- |
@@ -63,7 +63,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | Cross-model Transfer (Base ← IT RSN) | IT RSN 作用於 Base model；abstention 61% → 7% | 機制起源（pre-training latent） |
 
 
-### 2.1 Experiment A — Abstention Rate (MMLU-E)
+## 2.1 Experiment A — Abstention Rate (MMLU-E)
 
 - 來自 RSN paper，測量 role prompt 切換對 E-ratio 的影響。
 - Expert role 一致降低 E-ratio（更願意作答），對應 effort engagement threshold 的調控。
@@ -77,7 +77,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | Qwen3-8B-IT | Non-Expert | 52.5 | 29.9 | 74.9 |
 | Qwen3-8B-IT | **Expert** | **63.4** | **14.3** | 73.9 |
 
-### 2.2 Experiment A′ — Neutral Steering E-Ratio (Bidirectional Control, Llama3-8B)
+## 2.2 Experiment A′ — Neutral Steering E-Ratio (Bidirectional Control, Llama3-8B)
 
 - 無 role prompt，純 RSN steering 下各任務的 E-ratio 雙向控制，排除 role prompt 的混淆。
 - +α 一致壓低 E-ratio；−α 一致放大 E-ratio——RSN 作為雙向 gain knob on effort willingness，不依賴 role prompt。
@@ -93,7 +93,7 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | TQA MC1 | 2.82% | 1.22% ↓ | 3.67% ↑ |
 | TQA MC2 | 2.33% | 0.49% ↓ | 2.20% ↑ |
 
-### 2.3 ExperimentB：Willingness Self-Evaluation（0–9 scale）
+## 2.3 ExperimentB：Willingness Self-Evaluation（0–9 scale）
 
 根據 Berridge 框架，wanting（incentive salience）是一個可在**無意識層面**運作的動機過程，與主觀感受到的 conscious desire 是可解離的兩套系統（Berridge & Robinson, 2003；Berridge, 2023）。最直接的實證來自 Winkielman, Berridge & Wilbarger（2005）：阈下（subliminal）呈現的情緒線索能改變行為層面的 wanting——口渴受試在阈下笑臉後**倒更多、喝更多、願付更高價**，阈下皺眉則相反——而受試者**完全無法以 self-report 察覺此變化**，甚至報告不出任何情緒波動。這證明 wanting 的行為讀數與 self-report 在人類身上就已解離：**self-report 測不到的 wanting，行為指標測得到。**
 
@@ -109,9 +109,9 @@ RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
 | GSM8K | 5.50 ± 3.66 | **7.98 ± 0.33** | 6.58 ± 3.06 |
 
 
-## 3. Core Behavioral Experiments
+# 3. Core Behavioral Experiments
 
-### 3.1 Experiment 5 — Confidence Betting (Incentive Salience)
+## 3.1 Experiment 5 — Confidence Betting (Incentive Salience)
 
 **神經科學對應：** Incentive salience（wanting）直接決定個體願意投入多少資源去追求獎勵（Berridge & Robinson）。高 tonic DA → 高 incentive salience → 願意下更高的賭注；低 tonic DA → incentive salience 下降 → 保守、保留積分。Betting 行為是 wanting 的直接行為指標，不依賴任務難度或推理能力。
 
@@ -187,7 +187,7 @@ Answer: <letter>
 - **主結論完整複現**：mean_bet 方向（+4 升至 7.68、−4 降至 4.18）、bet10-rate（6.5%→53.7%）、以及 **accuracy 不變**（59.0–59.5%，跨 α ±0.5pp）全部與 score=0 主版本一致。下注移動因此不是 `Current score: 0` 的人為產物——回填真實分數後 wanting–knowing dissociation 依舊成立。
 - **Llama 對「累計餘額」不敏感（slope null）**：每個 subject 內估計 `bet ~ score_before` 斜率再跨 57 subject 聚合，三個條件的中位數斜率皆 ≈ 0（orig +0.0001、+4 +0.0001、−4 +0.0003，IQR 皆橫跨 0，約 54–60% subject 斜率為正 ≈ 擲硬幣）；按當前餘額分組的 bet|win 與 bet|lose 差 Δ(w−l) ≈ 0（−0.03 / −0.10 / +0.38）。模型不會「贏了加碼／輸了縮手」——α 移動的是**基線**下注水平，而非 reward-history 敏感度。
 
-### 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task)
+## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task)
 
 **神經科學對應：** Tonic dopamine 調節 exploration vs. exploitation balance——高 tonic DA → 更積極利用已知最優選項（exploitation 增強，incentive salience 集中）；低 tonic DA → 更趨向隨機探索，難以穩定 exploit（effort withdrawal，行為不穩定）。Bandit task 是此機制最直接的行為學範式。
 
@@ -301,11 +301,11 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 
 - **Role prompt 壓低 baseline（§4.7）：** Assistant-Role α=0（0.609）遠低於 No-Role（0.843）；+4 在 Assistant-Role 修復 +28%，No-Role 已在平台僅 +0.022。
 
-### 3.3 Gamble Task
+## 3.3 Gamble Task
 
 賭博範式（IGT / CGT / slot-betting）的吸引力在於它把「wanting」操作化為**對賭注大小、風險偏好、輸後追高的外顯選擇**，且 knowing 維度可被任務設計剝離（CGT 機率透明、IGT 淨分有 ground-truth），正好補上 §3.1 Confidence Betting 的「更有信心」confound。以下四篇是設計本實驗的文獻基礎。
 
-#### Related Work
+### Related Work
 
 **① `Large Language Models are Near-Optimal Decision-Makers…`（Li et al., arXiv 2506.16163, 2025）— 協議金標準 + 天花板警示。**
 5 個 LLM（GPT-4o / o4-mini / Claude-3.5-Sonnet / Gemini-1.5-pro / DeepSeek-R1）vs 360 真人，跑 IGT + CGT + WCST 三範式。為防語料污染，保留遊戲機制本質（紅藍格子、賠率、下注梯度）但對文本描述與獎賞結構做了全面**符號重寫（Reworded & Redesigned）**。Methods 把 IGT/CGT 協議寫得可直接照搬。**最關鍵的警示在 Fig 2B**：LLM 的 risk adjustment 幾乎是平的——人類隨 asymmetry 動態調注，LLM 跨所有比例都押固定高注（GPT-4o-mini/DeepSeek ~90%、Claude >60%），即 **baseline risk-taking 已頂到天花板，+α 無上升空間，信號只能在 −α 側看**。19 個 robustness variant（含 role-play persona）行為定性不變 → prompt persona 推不動 risk adjustment（這對 hidden-state 注入是利好，見下「卖点」）。
@@ -319,7 +319,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 **④ `Mitigating Gambling-Like Risk-Taking…`（Du, arXiv 2506.22496, 2025）— 僅 framing，實驗數字不可信。**
 7 頁短文。可用的只有四個形式化定義（Overconfidence / Loss Chasing / Probability Misjudgment / Risk-Reward Miscalibration）+ GTS 複合分公式，可 cite 當 framing 來源。Table 1 的 RARG-70B / LLaMA-2-70B 結果無訓練細節、無數據集、無 baseline 出處，IGT「Optimal%」也未給協議——**不要引用其任何實驗數字或 IGT 協議**。（與 ② 不同作者；此篇單作者 Y. Du。）
 
-#### 行動建議
+### 行動建議
 
 | 項目 | 建議 | 依據 |
 |---|---|---|
@@ -331,7 +331,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 | **前置檢查** | 先跑 α=0 baseline 確認 Llama3-8B 在 IGT 上**不是 near-random**（③ 顯示 <70B 模型可能被 pretrain bias 鎖死），再決定值不值得做 dose-response | ③ Fig 7 / Inverse Scaling |
 | **差異化卖点** | ① 證明 prompt persona 推不動 risk adjustment → 我們測「**hidden-state α 能否推動 prompt 推不動的維度**」是干淨賣點；② 的 SAE risky-feature(L24) vs RSN(L11–20) 是可寫的 mechanistic 對照 | ① + ② |
 
-#### Cambridge Gamble Task (CGT)
+### Cambridge Gamble Task (CGT)
 
 **範式定位**：透明機率下的 sequential betting。每輪先選顏色（blue/red，機率由 chest count 明示），再按 ascending（5→25→50→75→95）或 descending（95→75→50→25→5）逐檔 reveal bet size，模型輸出 `Accept` / `Wait`。
 
@@ -421,7 +421,7 @@ UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 �
 - **風險偏好與延遲厭惡要分開**：人類高 risk seeking 會在 ascending 等大注、descending 搶大注；本模型 α+ 在兩種序列都提早 `Accept`，所以更精確的解釋是 immediate commitment / delay aversion，而不是「更愛冒險」。
 
 
-#### Iowa Gambling Task (IGT)
+### Iowa Gambling Task (IGT)
 
 **Metric design before result interpretation**：
 
@@ -452,7 +452,7 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 >
 >**IGT = boundary condition, not a clean wanting assay.**（舊）Dopamine acts on two timescales: *tonic* DA sets incentive salience / "wanting" (Berridge) — the channel RSN α is hypothesized to modulate, with direct outlets in bet size, commitment timing, and delay tolerance — whereas *phasic* DA encodes the reward-prediction error (Schultz) that drives trial-by-trial feedback learning. IGT's core demand is the latter (phasic RPE + VMPFC value integration + memory over delayed punishments), so the weak, unstable α effects here are consistent with a **channel mismatch**: tonic wanting shifts immediate commitment and reward pursuit but does not implement the phasic teaching signal needed for long-horizon deck learning. This is a boundary on the dopamine hypothesis, not a failure of it — though it stays **provisional** until a phasic-style positive control shows the same IGT pipeline *can* be moved by an intervention targeting feedback learning.
 
-#### IGT Full Results（Llama3-8B, v6b, −8→+8 × 20 runs/cell, 100 trials/run）
+### IGT Full Results（Llama3-8B, v6b, −8→+8 × 20 runs/cell, 100 trials/run）
 
 每格為 20 runs 的 mean；KW = Kruskal–Wallis 跨 9 個 α 的 p；ρ = Spearman 對 α 的相關。
 
@@ -495,7 +495,7 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 > In IGT's invitation-style v6b setting, α shows a mixed inverted-U-like profile with an optimum around **+2**: mild positive α aids the trial-and-error exploration the task needs, while stronger +α overshoots into unstable switching and history-neglect. A forced-reasoning control (v4) localises this overshoot to an **engagement** drop rather than a clean change in value computation — externally supplying a deliberation span restores the value/risk readouts to n.s., while `delib_tok` remains shortened under +α. So α moves *how much the model is willing to deliberate*, and IGT's +2 peak is the working point where that willingness best matches the task's exploration demand.
 
-### 3.4 Cross-Task Summary — One α-Wanting Axis, Task-Specific Working Points
+## 3.4 Cross-Task Summary — One α-Wanting Axis, Task-Specific Working Points
 
 把 Bandit、IGT、GSM8K 並排，最能說明 RSN α 調的是 **working point**，而非單調的「能力」：各任務在自己主要設定下的最優 α 落在**相反的兩側**（Bandit ≈ +2、IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。注意 Bandit 與 IGT 峰位重合，所以目前證據分開的是**正/負兩側**（needs-engagement vs needs-restraint），而非同側內部的細緻梯度。
 
@@ -509,7 +509,7 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 > Different tasks expose different behavioral outlets of the same α-controlled wanting axis. In each task's primary setting, the optimal α shifts systematically with the task's wanting demand: **Bandit** and **IGT** both peak at a mild positive **α ≈ +2**, because both need active reward pursuit and trial-and-error exploration, and both overshoot beyond it (Bandit collapses at +8; IGT drifts into unstable switching and history-neglect); **GSM8K** peaks at **α ≈ −6**, because its bottleneck is not exploration but reasoning stability and delayed commitment. The shift of the optimal α across tasks (+2 / +2 / −6) — rather than any single monotone "more α is better" — is the evidence that α tunes a **motivational working point, not a capability**: every task is an inverted-U whose peak sits where the task's wanting demand is met, and both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching). Note the current evidence separates the two *sides* (+ vs −), not fine gradations within a side: Bandit's positive optimum is a broad plateau (0/+2/+4/+6 mutually n.s. after Holm correction) whose sample peak is +2, coinciding with IGT's, so the claim is directional — each task's sign and rough magnitude — not a precise per-task optimum. A forced-reasoning control on IGT (v4) further localises its +α overshoot to an *engagement* drop (the model declining to deliberate) rather than a change in value computation.
 
-### 3.5 Boundary Experiment — HaluEval
+## 3.5 Boundary Experiment — HaluEval
 
 **定位**：HaluEval 這裡不是測「模型自己是否產生 hallucination」，而是測 **verification / challenge engagement**：給定 knowledge、question、answer，模型是否願意指出 answer 含有 hallucinated / unsupported information。這更接近「離開默認接受（No）的行動閾值」，而非 factual generation 本身。
 
@@ -549,7 +549,7 @@ Answer:
 
 因此 HaluEval 應放在 **boundary / side-effect evidence**：它補充說明 α 調的是 action/commitment threshold。支持 **wanting↑ = engagement/commitment↑，但不等於 factual calibration↑**。
 
-## 4. Human Behaviour Simulation
+# 4. Human Behaviour Simulation
 
 本節登記每個行為學實驗**對應的經典人類／動物行為學範式**及其文獻根源，把我們的 LLM 實驗 anchor 到神經科學傳統（與 §3 互補：§3 報告我們做了什麼、結果如何；本節標明它的人類範式血統）。實驗的完整結果與分析仍在各自的 §3.x 小節，此處只做對應與 cite。
 
