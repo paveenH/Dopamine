@@ -230,8 +230,8 @@ Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3
 | 現象 | bet 分佈**塌成常數**：bet5=99.4%、bet_entropy 0.030。配對看：orig 押 10 的 76 題中有 74 題在 +6 改押 5 | 推理先行把下注擠出格式：`"...I'll bet 5 points on this one to make sure I get it right.\nAnswer: B"` |
 | 判定 | **真實行為塌陷**（非解析假象——文本形態、答題、accuracy 全部正常，只有下注這一維退化） | **過載 + 一個解析 bug 的混合**（見下） |
 
-- **+6 的塌陷不是「回到 baseline」。** baseline 是 88%/12% 的 bet5/bet10 混合；+6 是 99.4% 全押 5 的退化分佈。模型仍在下注、仍能答題，但**不再區分**。
-- **+8 的失效是真的，但它的 `mean_bet` 數值受三個問題污染（現象要引用，數值不要）。** ① 500 個 invalid 中有 **137 個是解析 bug**——Qwen 在 chat 模式下輸出前導冒號（`': 5\nAnswer: A'`），而 `parse_output` 的 `BET_LEADING_RE = ^\s*(\d+)` 匹配不到（`Bet` 字面詞在 prompt 裡、不在 generation 裡）。修正 regex 後 invalid 由 76.6% 降至 **56.2%**、mean_bet 變 5.04。② 其餘 363 個是真過載（散文）。③ 幸存者偏差：能成功下注的樣本本就答得更好（acc|valid 35.8% vs acc|invalid 27.7%），故 +8 的 mean_bet 與 accuracy 皆不可比。**+8 的可引用資訊是「76.6% 格式解體」這個事實本身，不是那個 mean_bet 數值。**
+- **+6 的塌陷不是「回到 baseline」。** baseline 是 88%/12% 的 bet5/bet10 混合；+6 是 99.4% 全押 5 的退化分佈。模型仍在下注、仍能答題，但**不再區分**。**定位：這是下注分佈退化（intervention overload），不是解離證據。** 它的 accuracy 確實仍與 orig 無異（McNemar n.s.），但一個已經退化成常數、失去變異的 wanting 讀數不能拿來論證「wanting 動而 knowing 不動」——沒有有效的 wanting 訊號可言。解離的證據放在 −8…+4 有效段。
+- **+8 必須拆成「解析失敗」與「真 invalid」兩個數字。** 原始記錄的 76.6% 是 **parse-failure rate**，其中 ① **137 題（21.2%）是解析 bug**——Qwen 在 chat 模式下輸出前導冒號（`': 5\nAnswer: A'`），而 `parse_output` 的 `BET_LEADING_RE = ^\s*(\d+)` 匹配不到（`Bet` 字面詞在 prompt 裡、不在 generation 裡），這些題**其實有下注**；② 其餘 **363 題（56.2%）才是 true invalid**（散文、通篇無可解析下注）。修正 regex 後 mean_bet=5.04。**正確措辭：「原始 parse-failure 76.6%，修正解析後 true invalid 56.2%」——不要再寫成「76.6% 格式解體」。** 此外 +8 的 mean_bet／accuracy 皆受幸存者偏差污染（acc|valid 35.8% vs acc|invalid 27.7%），且它是唯一一格 accuracy McNemar 顯著者（p_adj=0.007，discordant 64 vs 31），但這反映的是 15.8% 樣本未輸出答案字母（格式失效），非知識能力下降。
 - 兩個失效模式與 CGT-seq / HaluEval 的 **+α「散」**（deliberation-first 吞掉結論）同源；`mean_score_delta` 在 invalid 高的 cell 無意義（+8 的 −0.45 只反映 56% 樣本 score_delta=0）。
 
 **結果二：Qwen2.5-7B-Instruct，MMLU all subjects，n=14,042（±4 兩檔）**
@@ -257,7 +257,7 @@ Llama 的 betting 正臂是**單調飽和**（+4 見頂 7.63，+6/+8 壓在 ~7.3
 | 單調趨勢可用帶 | −4…+8（負臂 −6/−8 折返、格式鬆動） | **−8…+4**（正臂 +6/+8 崩） |
 | MMLU 效應量 | +67% mean_bet | +9%（δ=+0.089） |
 
-**「可用帶」的讀法（避免誤讀成 Qwen 比較差）：** 兩個模型**都**有兩端失效，只是失效落在**不同一側**。Llama 的失效在負臂（§3.1.1 已記：−6/−8 折返回 baseline、−8 帶格式鬆動 bet0%↑4.6%，原文結論即「兩端皆失效」），正臂到 +8 仍在天花板；Qwen 相反，負臂單調到 −8 都沒折返，失效改落在正臂（+6 塌陷、+8 解體）。所以這一行不是「誰的帶更寬」，而是**同一旋鈕在不同模型上的失效端相反**——這比單純的寬窄差異更值得注意，且與 §3.4 的「任務決定最優 α 落在哪一側」是兩個獨立的軸（一個是模型特異、一個是任務特異）。
+**「可用帶」的讀法（避免誤讀成 Qwen 比較差）：** 兩個模型都存在**模型特異的 intervention failure boundary**——Llama 主要在**負臂折返**（§3.1.1 已記：−6/−8 折返回 baseline、−8 帶格式鬆動 bet0%↑4.6%），Qwen 主要在**正臂退化**（+6 下注分佈塌成常數、+8 解析失敗率高）。合併來看，**betting 的正負兩臂都可能出現失效**，故不能從單一模型的臂形推廣到整個範式。注意這只是各自的**主要**失效端，非嚴格互斥（Qwen −8 亦有輕微 invalid 3.9%）；且這條「模型特異」的軸與 §3.4「任務決定最優 α 落在哪一側」的任務特異軸互相獨立，不應混為一談。
 
 **兩點結論：**
 1. **主結論跨模型成立**——「α 推動 wanting 而不動 knowing」在第二個模型家族上獨立複現，補上了本節原先的單模型缺口。
