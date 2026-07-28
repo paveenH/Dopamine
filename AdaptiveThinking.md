@@ -819,6 +819,8 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 **Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、較規則的振盪。這個視覺觀察促成下列全樣本 follow-up；結果顯示,能穩定區分 reasoning 與 post-answer/loop 階段的是 `p_t` 的 **centered RMS(residual amplitude)**,而非頻率指標——其主要穩定變化是 **residual amplitude collapse**,不是獨立的 frequency reorganization。
 
+#### Formal amplitude/frequency validation
+
 **Formal `p_t` frequency test：幅度效應保留，未發現穩健的頻率組織。** `analyze_pt_frequency.py` 在 neutral No-CoT 的 α=−6/0/+6 上逐題計算兩套 paired comparison：(i) commit-centered `[−40,0)` vs `[0,+40)`（n=195–248/α）；(ii) reasoning `[0,C1)` vs 由 **strict repeated-ngram tail proxy**（全文最早重複 ≥3 次的 12-character n-gram 起點）定位的複讀尾段（n=24/42/41）——此 proxy 僅為重複性 tail 的近似,不等同經獨立驗證的 loop onset。每段先去均值，再報 centered RMS（residual variability）、zero-crossing rate、Welch dominant frequency、spectral centroid 與 normalized spectral entropy；因此此處的 RMS 是 fast residual 的段內變異幅度，不包含 level shift。
 
 | post−pre | α=−6 | α=0 | α=+6 |

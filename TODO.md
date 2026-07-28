@@ -33,10 +33,9 @@ RSN neurons
 ---
 
 ## TODO
-2. 可能需要算一下pt的频率？
-3. 实际的samples如果有发现什么问题 后面提交的结果可能要重新计算
-3. 思考一下这个差异可以用来做什么
-4. 无意义的Loop会影响计算（比如commit的掉下来，可能是因为后面都没有在正常输出）；看起来有推理的时候st就会比较高
+
+
+
 ---
 ### 1. RSN Direction Specificity（最高优先级，zero/low GPU）
 
