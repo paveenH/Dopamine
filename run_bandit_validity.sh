@@ -104,8 +104,23 @@ esac
 
 # α=0 ONLY. This pilot measures the task, not the intervention.
 CONFIGS="${LAYERS}"
-SEEDS="0 3 4 9 37"
 NUM_ROUNDS=50
+
+# Seed set. Default = the 5 counterbalanced seeds (best arm at display
+# positions 2,4,5,3,1 with five distinct names) — the cheap smoke test.
+#
+# SEEDS=20 switches to 0..19, which is what the D-vs-C comparison REQUIRES:
+# the two protocols must be compared PAIRED on the same seeds, and C's 20-seed
+# baseline (bandit_validity_C20_llama3) used 0..19. Comparing D on the 5-seed
+# set against that baseline would be an unpaired comparison of different arm
+# layouts — at n=5 with a bimodal OptFrac that is uninterpretable.
+#   SEEDS=20 bash run_bandit_validity.sh llama3 D
+SEEDS_MODE=${SEEDS:-5}
+if [ "$SEEDS_MODE" == "20" ]; then
+    SEEDS="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+else
+    SEEDS="0 3 4 9 37"
+fi
 
 run_arm () {
   local tag="$1"; shift
@@ -140,6 +155,42 @@ run_arm B --ans_file "bandit_validity_B_bare_summary_anchor" \
 #     learning. If C fails, the task is out of reach at this scale.
 run_arm C --ans_file "bandit_validity_C_chat_summary_anchor" \
           --summary_history --answer_anchor --use_chat --max_new_tokens 24
+
+# D = C + the pv2 task-representation prompt (--untried_semantics).
+#
+# WHY D EXISTS. C reached invalid=0.000 on both models, so the interface is
+# solved — but the 20-seed Llama run showed the TASK DESCRIPTION was wrong:
+# an arm with 0 pulls rendered as "average reward 0.00", i.e. tied-worst or
+# worse than every tried arm. 6 of 20 seeds never tried the best arm and scored
+# OptFrac exactly 0.000, while the 14 that did averaged 0.434; one seed held an
+# arm it had measured at 0.14 for all 50 rounds because the four it had never
+# touched all read 0.00. That is a suppressed-discovery artifact of the table,
+# not a model limitation — utilization was 70–100% throughout.
+#
+# D repairs only what the model is TOLD (UNTRIED≠0, fixed-but-unknown reward
+# probability, round/horizon, names/positions arbitrary). It does NOT prescribe
+# a strategy: no "try every option once", no explore/exploit round split, no
+# forced initialization. Whether to explore must stay the model's decision,
+# because that decision is the channel α is meant to move — scripting it would
+# delete the dependent variable (cf. IGT v4, where externally supplied
+# deliberation returned every value/risk readout to n.s.).
+#
+# READ THE DISCOVERY/UTILIZATION METRICS, NOT OptFrac. OptFrac multiplies
+# "ever found the best arm" by "used it once found"; at n=20 it was bimodal
+# (ten runs ≈0, ten runs 0.30–0.94, sd 0.333 ≈ mean 0.304), which no dose
+# response can sit on. Targets: mean coverage 3.55 → ≥4.5, best-never-tried
+# 6/20 → ≤2/20, and empirical-best adherence MUST NOT fall (otherwise D only
+# bought exploration by giving up on using what was learned).
+run_arm D --ans_file "bandit_validity_D_untried" \
+          --summary_history --answer_anchor --use_chat --max_new_tokens 24 \
+          --untried_semantics
+
+# Dbare = D without the chat wrapper. Only this one keeps the bare activation
+#     distribution the NMD mask was extracted in, so an α sweep needs Dbare to
+#     work — D passing under chat is necessary but not sufficient.
+run_arm Dbare --ans_file "bandit_validity_Dbare_untried" \
+          --summary_history --answer_anchor --max_new_tokens 24 \
+          --untried_semantics
 
 echo ""
 echo "Done. Analyse with:  python3.10 analyze_bandit_validity.py"
