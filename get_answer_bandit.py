@@ -110,7 +110,8 @@ def worst_arm(arm_map: dict[str, float]) -> str:
 
 
 def summarize_history(arm_names: list[str],
-                      history: list[tuple[str, int]]) -> str:
+                      history: list[tuple[str, int]],
+                      untried_semantics: bool = False) -> str:
     """EVOLvE SummaryContextLayerMAB: per-arm pull count + mean reward.
 
     Format copied verbatim from banditbench/agents/context.py:
@@ -120,6 +121,22 @@ def summarize_history(arm_names: list[str],
 
     NOTE it iterates `arm_names` in a FIXED order, so the summary block does not
     re-leak the display shuffle beyond what the option list already shows.
+
+    `untried_semantics=True` fixes ONE encoding bug and nothing else: an arm with
+    n=0 renders as "UNTRIED" instead of "0 times, average reward 0.00". The
+    verbatim formula is KEPT for every n>0 arm, so tried arms stay numerically
+    identical to EVOLvE and the only lost comparability is on the untried ones —
+    which is precisely what is being fixed.
+
+    WHY this is a bug and not a wording preference (measured on the 20-seed
+    Llama3 α=0 run, `bandit_validity_C20_llama3`): an untried arm rendered 0.00
+    reads as TIED-WORST or WORSE THAN EVERY TRIED ARM in 5 of 5 inspected seeds.
+    6 of 20 seeds never tried the best arm at all and scored OptFrac exactly
+    0.000, while the 14 that did try it averaged 0.434. The model was not failing
+    to exploit — it exploits its own observations 70–100% of the time, and one
+    seed did so 40/40 while locked onto an arm it had measured at 0.14, because
+    the four arms it had never touched all displayed 0.00. Discovery was
+    suppressed by the table, not by the model.
     """
     n_actions = {name: 0 for name in arm_names}
     action_rewards = {name: 0.0 for name in arm_names}
@@ -129,8 +146,15 @@ def summarize_history(arm_names: list[str],
     snippet = ""
     for name in arm_names:
         n = n_actions[name]
+        if untried_semantics and n == 0:
+            snippet += f"\n{name}: UNTRIED"
+            continue
         reward = action_rewards[name] / (n + 1e-6)
-        snippet += f"\n{name} {ACTION_UNIT}, {n} times, average reward {reward:.2f}"
+        if untried_semantics:
+            snippet += f"\n{name}: {n} trials, average reward {reward:.2f}"
+        else:
+            snippet += (f"\n{name} {ACTION_UNIT}, {n} times, "
+                        f"average reward {reward:.2f}")
     return snippet
 
 
@@ -147,11 +171,22 @@ def summarize_history(arm_names: list[str],
 # refactors, new opt-in flags that default off) — a bump invalidates every
 # stored cell at that tag.
 #
+# The version is PER-PROTOCOL, not global: bumping it for everyone would
+# invalidate the resume key of runs whose text did not change. `--untried_
+# semantics` is the only flag that rewrites prompt text, so only it advances the
+# version; every legacy combination stays on pv1 and resumes unchanged.
+#
 #   pv0 — implicit, pre-versioning. Legacy CSV rows only (see _legacy_iface_tag).
 #   pv1 — 2026-07-29. summary_history / answer_anchor+prefill / strict
 #         parse_choice_exact (whole-reply strictness), as run by
 #         run_bandit_validity.sh.
-PROTOCOL_VERSION = "pv1"
+#   pv2 — 2026-07-29, --untried_semantics ONLY. UNTRIED rendering + the
+#         task-representation prompt (fixed-but-unknown reward probability,
+#         explicit round/horizon, arbitrary names/positions, UNTRIED≠0, and a
+#         concrete read-the-table instruction replacing EVOLvE's abstract
+#         "Balance exploration—…" sentence).
+PROTOCOL_VERSION_LEGACY = "pv1"
+PROTOCOL_VERSION_UNTRIED = "pv2"
 
 
 def build_prompt(
@@ -160,6 +195,9 @@ def build_prompt(
     use_role: bool = True,
     summary_history: bool = False,
     answer_anchor: bool = False,
+    untried_semantics: bool = False,
+    round_idx: int = 0,
+    num_rounds: int = 50,
 ) -> str:
     """
     EVOLvE-style prompt:
@@ -173,8 +211,72 @@ def build_prompt(
                      only thing removed is the role framing (the §4.7 "No Role"
                      condition, baseline ~0.816). The explore/exploit wording,
                      verbalizer, and query line are identical across both arms.
+
+    untried_semantics=True → the pv2 task-representation prompt. It repairs what
+    the model is TOLD, never what it must DO: no "try every option once", no
+    fixed explore/exploit round split, no UCB or confidence-interval hint, no
+    forced initialization. Whether to explore stays the model's decision, which
+    is the whole point — that decision is the behavioural channel α is meant to
+    move, so scripting it would delete the dependent variable (the same trap as
+    IGT v4, where externally supplying deliberation returned every value/risk
+    readout to n.s.).
+
+    Four repairs, each fixing a specific misstatement of the task:
+      1. reward probability is FIXED but unknown — without it the model has no
+         reason to believe past means predict future draws, i.e. no reason to
+         think exploration pays off at all;
+      2. explicit round/horizon — makes exploration's future value visible, and
+         lets late rounds tilt toward exploitation on their own;
+      3. names/positions are arbitrary — a control, not a redundancy: at n=20
+         several Llama seeds DID degenerate toward a display-position lock
+         (P(first)=1.00, 0.94, 0.68, 0.66), and Qwen locks position 1 at 0.988;
+      4. UNTRIED≠0 (see summarize_history) plus a concrete instruction on how to
+         read the table, replacing EVOLvE's abstract "Balance exploration—…"
+         sentence, which states the concept without saying what in the table
+         corresponds to it.
+
+    ⚠ COMPARABILITY: repair 4 replaces text copied verbatim from EVOLvE, so a
+    pv2 run is NO LONGER a faithful de-roled port of BanditBench and must not be
+    described as one. That is deliberate — the verbatim text was measured to
+    misrepresent the task — but any cross-paper claim has to be dropped or
+    re-qualified accordingly.
     """
     names_str = "[" + ", ".join(arm_names) + "]"
+    if untried_semantics:
+        lines = [
+            f"There are {K} options: {names_str}.",
+            "",
+            f"You will make {num_rounds} choices in total. "
+            f"This is choice {round_idx + 1} of {num_rounds}.",
+            "Each option has a fixed but unknown probability of giving reward 1.",
+            "The option names and list positions are arbitrary and do not "
+            "indicate reward.",
+            "",
+            "Observed results:",
+        ]
+        if history:
+            lines.append(
+                summarize_history(arm_names, history,
+                                  untried_semantics=True).lstrip("\n")
+            )
+        else:
+            # Round 1: every arm would render as UNTRIED. Five identical lines
+            # read as a formatting artifact rather than information, and the
+            # option list above already names the choice set.
+            lines.append("No options have been tried yet.")
+        lines += [
+            "",
+            "UNTRIED means that the option has no reward estimate yet; it does "
+            "not mean that its average reward is zero.",
+            "",
+            "When choosing, consider both learning about UNTRIED options and "
+            "using options that have produced high observed rewards. "
+            f"Maximize your total reward across all {num_rounds} choices.",
+            "",
+            f"Choose exactly one option from {names_str}.",
+            "Respond with only the exact option name.",
+        ]
+        return "\n".join(lines)
     if use_role:
         lines = [
             f"You are in an online boutique powered by a bandit algorithm "
@@ -371,6 +473,7 @@ def run_episode(
     answer_anchor: bool = False,
     use_chat: bool = False,
     max_new_tokens: int = 20,
+    untried_semantics: bool = False,
 ) -> dict:
     rng = random.Random(seed)
     # Separate stream for the invalid-parse fallback. Kept independent of `rng`
@@ -400,7 +503,9 @@ def run_episode(
     for round_idx in range(num_rounds):
         prompt = build_prompt(arm_names, history, use_role=use_role,
                               summary_history=summary_history,
-                              answer_anchor=answer_anchor)
+                              answer_anchor=answer_anchor,
+                              untried_semantics=untried_semantics,
+                              round_idx=round_idx, num_rounds=num_rounds)
         if use_chat:
             # Single user turn carrying the whole state (the task is fully
             # described by the summary/history block, so no dialogue is needed).
@@ -483,6 +588,58 @@ def run_episode(
     n_zero_match = sum(1 for m in n_matched if m == 0)
     n_multi_match = sum(1 for m in n_matched if m > 1)
 
+    # ── DISCOVERY vs UTILIZATION ──────────────────────────────────────────
+    # opt_frac silently multiplies two different abilities:
+    #     did it ever try the best arm?   →  once tried, did it use it?
+    #           DISCOVERY                          UTILIZATION
+    # On the 20-seed α=0 run these separate almost perfectly: the 6 seeds that
+    # never tried the best arm scored EXACTLY 0.000, the other 14 averaged
+    # 0.434. A composite that is 0 for a third of runs cannot carry a dose
+    # response — α would only be shifting the odds of a near-binary event — so
+    # the two are recorded separately and opt_frac drops to secondary.
+    coverage = len(set(choices))
+    first_best_trial = next((i for i, c in enumerate(choices) if c == opt), None)
+    best_never_tried = first_best_trial is None
+
+    # Utilization, primary: of the rounds where the model picked an ALREADY-TRIED
+    # arm, how often was it one of the arms with the highest observed mean AT
+    # THAT MOMENT? Computed from the model's own information state, so it never
+    # credits or blames discovery. Ties all count as adherent (several arms can
+    # legitimately share the top observed mean, especially early). Rounds that
+    # pick an UNTRIED arm are exploration and are excluded — not failures.
+    # Round 0 has no observed means at all and is undefined by construction.
+    seen_n, seen_sum = {}, {}
+    adhere_hit = adhere_tot = explore_untried = 0
+    for c, r in zip(choices, feedbacks):
+        if seen_n:
+            means = {a: seen_sum[a] / seen_n[a] for a in seen_n}
+            top = max(means.values())
+            if c in means:
+                adhere_tot += 1
+                # float tolerance: means are k/n ratios, so exact ties are
+                # common and must not be lost to representation error.
+                adhere_hit += (means[c] >= top - 1e-9)
+            else:
+                explore_untried += 1
+        seen_n[c] = seen_n.get(c, 0) + 1
+        seen_sum[c] = seen_sum.get(c, 0.0) + r
+    empirical_best_adherence = (adhere_hit / adhere_tot
+                                if adhere_tot else float("nan"))
+
+    # Utilization, secondary: best-arm rate in a FIXED 20-round window after
+    # discovery. Fixed width because a variable window (first_best_trial..end)
+    # has a denominator the intervention itself moves — finding the best arm
+    # earlier lengthens the window and adds noisy early rounds, so the metric
+    # would fall even with utilization unchanged. Undefined (NOT 0) when the arm
+    # was never tried or was found too late to fill the window; filling those
+    # with 0 would re-mix discovery back in.
+    POST_WIN = 20
+    if first_best_trial is not None and first_best_trial + 1 + POST_WIN <= num_rounds:
+        seg = choices[first_best_trial + 1: first_best_trial + 1 + POST_WIN]
+        post_discovery_opt_frac = sum(1 for c in seg if c == opt) / POST_WIN
+    else:
+        post_discovery_opt_frac = float("nan")
+
     return {
         "seed":           seed,
         "arm_map":        {k: v for k, v in arm_map.items()},
@@ -512,6 +669,17 @@ def run_episode(
         "valid_opt_frac":     float(valid_opt_frac),
         "valid_worst_frac":   float(valid_worst_frac),
         "valid_mean_regret":  float(valid_mean_regret),
+        # ── discovery / utilization split (opt_frac is now a composite) ──
+        "coverage":                 int(coverage),
+        "best_never_tried":         bool(best_never_tried),
+        # None = censored (never tried); do NOT impute a round number.
+        "first_best_trial":         (None if first_best_trial is None
+                                     else int(first_best_trial)),
+        "empirical_best_adherence": float(empirical_best_adherence),
+        "n_adherence_rounds":       int(adhere_tot),
+        "n_explore_untried":        int(explore_untried),
+        # NaN = undefined (never tried, or found too late for a full window).
+        "post_discovery_opt_frac":  float(post_discovery_opt_frac),
     }
 
 
@@ -535,6 +703,10 @@ def main():
         "mean_valid_worst_frac", "mean_valid_mean_regret",
         "mean_zero_match_rate", "mean_multi_match_rate",
         "mean_best_position",
+        # discovery / utilization split — opt_frac is now a composite secondary
+        "mean_coverage", "best_never_tried_frac",
+        "mean_empirical_best_adherence",
+        "mean_post_discovery_opt_frac", "n_post_discovery_defined",
     ]
 
     # Seed list. Default = 0..num_runs-1 (legacy behaviour, seed == run index).
@@ -566,9 +738,15 @@ def main():
                 iface if iface is not None else _iface_tag())
 
     def _iface_tag():
-        return (f"{PROTOCOL_VERSION}"
+        # Version is per-protocol: only --untried_semantics rewrites prompt
+        # text, so only it advances to pv2. Every legacy combination stays on
+        # pv1 and keeps resuming against rows written before this change.
+        pv = (PROTOCOL_VERSION_UNTRIED if args.untried_semantics
+              else PROTOCOL_VERSION_LEGACY)
+        return (f"{pv}"
                 f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
                 f"ch{int(args.use_chat)}nr{int(args.no_role)}"
+                f"ut{int(args.untried_semantics)}"
                 f"mt{int(args.max_new_tokens)}"
                 f"sd{'-'.join(str(s) for s in seed_list)}")
 
@@ -583,7 +761,7 @@ def main():
         protocol — so bumping PROTOCOL_VERSION never silently revalidates them.
         """
         n = int(r["num_runs"])
-        return (f"pv0sh0aa0ch0nr{int(args.no_role)}mt20"
+        return (f"pv0sh0aa0ch0nr{int(args.no_role)}ut0mt20"
                 f"sd{'-'.join(str(s) for s in range(n))}")
 
     # A CSV written before the `iface` column existed has a header one field
@@ -675,6 +853,7 @@ def main():
                     answer_anchor=args.answer_anchor,
                     use_chat=args.use_chat,
                     max_new_tokens=args.max_new_tokens,
+                    untried_semantics=args.untried_semantics,
                 )
             run_results.append(result)
             print(
@@ -702,6 +881,14 @@ def main():
         zm    = [r["zero_match_rate"]   for r in run_results]
         mm    = [r["multi_match_rate"]  for r in run_results]
         bpos  = [r["best_position"]     for r in run_results]
+        cov   = [r["coverage"]          for r in run_results]
+        bnt   = [r["best_never_tried"]  for r in run_results]
+        adh   = [r["empirical_best_adherence"] for r in run_results]
+        # np.nanmean over an all-NaN slice warns and returns NaN; both these
+        # metrics are legitimately undefined for some runs (censored discovery),
+        # so guard rather than impute.
+        pdo   = [r["post_discovery_opt_frac"]  for r in run_results]
+        n_pdo = int(np.sum(~np.isnan(pdo)))
 
         row = {
             "model": args.model,
@@ -737,6 +924,15 @@ def main():
             # sanity: should sit near (K+1)/2 = 3.0 once positions are
             # counterbalanced. A value pinned at 1.0 means position leakage.
             "mean_best_position":     round(float(np.mean(bpos)),     4),
+            # ── discovery / utilization (see run_episode) ──
+            "mean_coverage":            round(float(np.mean(cov)), 4),
+            "best_never_tried_frac":    round(float(np.mean(bnt)), 4),
+            "mean_empirical_best_adherence": round(float(np.nanmean(adh)), 4),
+            # NaN-safe: undefined for censored runs, so the denominator is
+            # reported alongside rather than silently shrinking.
+            "mean_post_discovery_opt_frac": (round(float(np.nanmean(pdo)), 4)
+                                             if n_pdo else ""),
+            "n_post_discovery_defined":  n_pdo,
         }
 
         writer.writerow(row)
@@ -764,6 +960,10 @@ def main():
                     "no_role":         bool(args.no_role),
                     "max_new_tokens":  int(args.max_new_tokens),
                     "parser":          "strict_anchor" if args.answer_anchor else "substring",
+                    "untried_semantics": bool(args.untried_semantics),
+                    "protocol_version": (PROTOCOL_VERSION_UNTRIED
+                                         if args.untried_semantics
+                                         else PROTOCOL_VERSION_LEGACY),
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -807,6 +1007,16 @@ if __name__ == "__main__":
                         help="Prefill 'Choice: ' and parse strictly (exactly "
                              "one arm name on the Choice line); lists/code/"
                              "multiple names count as invalid.")
+    parser.add_argument("--untried_semantics", action="store_true",
+                        help="pv2 task-representation prompt: render n=0 arms as "
+                             "UNTRIED (not 'average reward 0.00'), state that "
+                             "reward probabilities are fixed but unknown, show "
+                             "round/horizon, and state that names/positions are "
+                             "arbitrary. Repairs what the model is TOLD without "
+                             "prescribing a strategy — no forced initialization, "
+                             "no explore/exploit round split — so exploration "
+                             "remains the model's own decision. Implies pv2 in "
+                             "the resume key.")
     parser.add_argument("--use_chat",    action="store_true",
                         help="Wrap the prompt in the chat template. NOTE this "
                              "moves steering off the bare distribution the NMD "
