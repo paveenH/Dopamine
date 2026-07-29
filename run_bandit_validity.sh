@@ -1,10 +1,15 @@
 #!/bin/bash
 #
 # ==================== BANDIT α=0 TASK-VALIDITY PILOT ====================
-# NOT an α sweep. This asks ONE question before any sweep is worth running:
+# Default (ALPHA unset) is α=0 only. This asks ONE question before any sweep
+# is worth running:
 #
 #   under a given prompt/parser interface, does a 7-8B model do Bandit
 #   learning at all?
+#
+# ALPHA=pm4 turns arm D into a small 0/±4 PROBE (see the ALPHA block below).
+# That is still not the 9-α sweep — it is a check on whether α moves the
+# discovery layer at all, read on coverage/first_best_index, never OptFrac.
 #
 # WHY THIS EXISTS (2026-07-29)
 # The shuffle fix removed the old "best arm is always displayed first" shortcut.
@@ -102,8 +107,32 @@ case "$MODEL" in
   *) echo "unknown model '$MODEL' (want: llama3 | qwen25)"; exit 1 ;;
 esac
 
-# α=0 ONLY. This pilot measures the task, not the intervention.
-CONFIGS="${LAYERS}"
+# α=0 by default. This pilot measures the task, not the intervention.
+#
+# ALPHA=pm4 adds the ±4 cells (α=0 / +4 / −4, same layers). This is a PROBE,
+# not a dose-response: D's OptFrac is bimodal (sd ≈ mean at n=20), and the
+# α effect is almost certainly smaller than the C→D protocol repair, whose
+# paired CI was already [+0.019, +0.431]. So a positive result says "α moves
+# exploration, keep going"; a null does NOT say α is inert — at this n it is
+# not separable from seed noise.
+#
+# READ THE DISCOVERY LAYER, NOT OptFrac: coverage, best_never_tried,
+# first_best_index (median), n_explore_untried — these are continuous and
+# unimodal. Keep empirical_best_adherence as the control: if +4 raises
+# coverage only by making choices more random, adherence falls with it.
+#
+# CAVEAT: α here is prefill-only on the last prompt token, and D runs under
+# --use_chat, so injection sits in the chat distribution rather than the bare
+# one the NMD mask was extracted in. Dilution is a live explanation for a null
+# — do not read a null as "α does not move exploration".
+#   ALPHA=pm4 SEEDS=20 bash run_bandit_validity.sh llama3 D
+ALPHA_MODE=${ALPHA:-0}
+LAYER_RANGE="${LAYERS#0-}"          # "0-11-20" -> "11-20" (qwen25: "16-22")
+if [ "$ALPHA_MODE" == "pm4" ]; then
+    CONFIGS="${LAYERS} 4-${LAYER_RANGE} neg4-${LAYER_RANGE}"
+else
+    CONFIGS="${LAYERS}"
+fi
 NUM_ROUNDS=50
 
 # Seed set. Default = the 5 counterbalanced seeds (best arm at display
@@ -185,12 +214,12 @@ run_arm D --ans_file "bandit_validity_D_untried" \
           --summary_history --answer_anchor --use_chat --max_new_tokens 24 \
           --untried_semantics
 
-# Dbare = D without the chat wrapper. Only this one keeps the bare activation
-#     distribution the NMD mask was extracted in, so an α sweep needs Dbare to
-#     work — D passing under chat is necessary but not sufficient.
-run_arm Dbare --ans_file "bandit_validity_Dbare_untried" \
-          --summary_history --answer_anchor --max_new_tokens 24 \
-          --untried_semantics
+# NOTE (2026-07-29): a Dbare arm (D without --use_chat) was dropped. The
+# α sweep runs under chat, accepting the mask-distribution mismatch as a known
+# cost — the same stance as Betting, where a bare re-run collapsed the effect
+# and chat was kept deliberately (CLAUDE.md: surviving the harder, mask-
+# divergent distribution is the STRONGER generalization claim). If a chat
+# dose-response appears, add a bare cell as a robustness check, not a gate.
 
 echo ""
 echo "Done. Analyse with:  python3.10 analyze_bandit_validity.py"
