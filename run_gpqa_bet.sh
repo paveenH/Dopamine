@@ -32,10 +32,35 @@
 # or the bare baseline shifts the bet distribution so α has no headroom) — but
 # empirically chat is required for this experiment, so the flag stays.
 #
-# Output:
+# RE-RUN 2026-07-29 — SCHEMA, NOT NUMBERS.
+# The pre-2026-07-29 Llama sweep is missing three things the Qwen sweep has:
+#   1. `sample_idx` in the per-sample CSV — WITHOUT IT THE PAIRED STATS CANNOT BE
+#      RECOMPUTED. §3.1.1 cites McNemar (accuracy) and Wilcoxon (bets), both of
+#      which pair by question; the old CSV has no index to pair on.
+#   2. acc_explicit_pct / n_explicit_answer / ans_fallback_rate — the columns that
+#      showed Qwen's +8 accuracy drop was denominator contamination (in-format
+#      accuracy was the HIGHEST of all cells), not knowledge loss.
+#   3. `orig_rows` in the JSON, so the paired baseline survives --skip_orig.
+# --save_all_raw is now ON: Llama's raw text was never stored, which is what
+# forced a separate temperature=1.0 diagnostic run on Qwen whose paired counts
+# were then uncitable. Store it once here instead.
+#
+# The PARSER FIX IS A NO-OP FOR LLAMA — invalid is 0.0000 in 8 of 9 cells (max
+# 1.4% at +8), so the leading-colon regex has nothing to recover. Do not expect
+# the fix to move anything.
+#
+# EXPECT THE NUMBERS TO SHIFT SLIGHTLY ANYWAY: temperature=1.0 with NO fixed seed
+# (there is no manual_seed in get_answer_gpqa_bet.py), so this is a resample, not
+# a reproduction. Trends replicate; exact values do not byte-match. The old
+# published cells were orig 5.13 / +4 7.6316 / −4 4.418 mean_bet. After the
+# re-run, UPDATE AdaDopamine.md §3.1.1 and the §3.1 cross-model table rather than
+# treating a small delta as a regression.
+#
+# Output (overwrites OUT_DIR — the superseded old-parser data is intentionally
+# not kept, same decision as the Qwen gpqa2/ → gpqa/ promotion):
 #   gpqa_bet_8B_summary.csv      — acc / mean_bet / bet distribution per condition
-#   gpqa_bet_8B_per_sample.csv   — per-sample bet and answer
-#   gpqa_bet_8B_results.json     — full generated texts
+#   gpqa_bet_8B_per_sample.csv   — per-sample bet and answer (now with sample_idx)
+#   gpqa_bet_8B_results.json     — full generated texts + orig_rows
 #
 # Usage:
 #   bash run_gpqa_bet.sh              # full run
@@ -113,6 +138,7 @@ python get_answer_gpqa_bet.py \
     --out_prefix     "gpqa_bet" \
     --keep_tasks     "GPQA (gpqa_main)" "GPQA (gpqa_diamond)" \
     --use_chat \
+    --save_all_raw \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
 
