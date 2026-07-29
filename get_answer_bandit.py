@@ -597,8 +597,23 @@ def run_episode(
     # 0.434. A composite that is 0 for a third of runs cannot carry a dose
     # response — α would only be shifting the odds of a near-binary event — so
     # the two are recorded separately and opt_frac drops to secondary.
-    coverage = len(set(choices))
-    first_best_trial = next((i for i, c in enumerate(choices) if c == opt), None)
+    # ⚠ ITT vs VALID-ONLY. `choices` includes rounds where the parse failed and
+    # the arm came from the uniform-random fallback. At α=0 that is harmless
+    # (invalid=0.000 on every C/C20 cell), but under an α sweep invalid rises,
+    # and a random fallback arm would be scored as if the MODEL had chosen to
+    # explore it or to exploit it — manufacturing coverage and discovery out of
+    # noise, in the direction that flatters whichever α breaks format most.
+    # So each metric is computed BOTH ways: `*_itt` over all rounds (comparable
+    # in shape to the older numbers) and the unsuffixed name over valid rounds
+    # only, which is what a behavioural claim must cite.
+    vset = set(vidx)
+    vchoices_seq = [choices[i] for i in sorted(vset)]
+
+    coverage_itt = len(set(choices))
+    coverage = len(set(vchoices_seq))
+    first_best_trial_itt = next((i for i, c in enumerate(choices) if c == opt), None)
+    first_best_trial = next((i for i, c in enumerate(choices)
+                             if c == opt and i in vset), None)
     best_never_tried = first_best_trial is None
 
     # Utilization, primary: of the rounds where the model picked an ALREADY-TRIED
@@ -608,23 +623,32 @@ def run_episode(
     # legitimately share the top observed mean, especially early). Rounds that
     # pick an UNTRIED arm are exploration and are excluded — not failures.
     # Round 0 has no observed means at all and is undefined by construction.
-    seen_n, seen_sum = {}, {}
-    adhere_hit = adhere_tot = explore_untried = 0
-    for c, r in zip(choices, feedbacks):
-        if seen_n:
-            means = {a: seen_sum[a] / seen_n[a] for a in seen_n}
-            top = max(means.values())
-            if c in means:
-                adhere_tot += 1
-                # float tolerance: means are k/n ratios, so exact ties are
-                # common and must not be lost to representation error.
-                adhere_hit += (means[c] >= top - 1e-9)
-            else:
-                explore_untried += 1
-        seen_n[c] = seen_n.get(c, 0) + 1
-        seen_sum[c] = seen_sum.get(c, 0.0) + r
-    empirical_best_adherence = (adhere_hit / adhere_tot
-                                if adhere_tot else float("nan"))
+    #
+    # A fallback round is SKIPPED FOR SCORING but still UPDATES the information
+    # state: the model really was shown that arm's reward in the next prompt, so
+    # dropping it from the running means would score later rounds against a
+    # history the model never saw.
+    def _adherence(score_only_valid):
+        seen_n, seen_sum = {}, {}
+        hit = tot = expl = 0
+        for i, (c, r) in enumerate(zip(choices, feedbacks)):
+            scoreable = (not score_only_valid) or (i in vset)
+            if seen_n and scoreable:
+                means = {a: seen_sum[a] / seen_n[a] for a in seen_n}
+                top = max(means.values())
+                if c in means:
+                    tot += 1
+                    # float tolerance: means are k/n ratios, so exact ties are
+                    # common and must not be lost to representation error.
+                    hit += (means[c] >= top - 1e-9)
+                else:
+                    expl += 1
+            seen_n[c] = seen_n.get(c, 0) + 1
+            seen_sum[c] = seen_sum.get(c, 0.0) + r
+        return (hit / tot if tot else float("nan")), tot, expl
+
+    empirical_best_adherence, adhere_tot, explore_untried = _adherence(True)
+    empirical_best_adherence_itt, _, _ = _adherence(False)
 
     # Utilization, secondary: best-arm rate in a FIXED 20-round window after
     # discovery. Fixed width because a variable window (first_best_trial..end)
@@ -635,8 +659,11 @@ def run_episode(
     # with 0 would re-mix discovery back in.
     POST_WIN = 20
     if first_best_trial is not None and first_best_trial + 1 + POST_WIN <= num_rounds:
-        seg = choices[first_best_trial + 1: first_best_trial + 1 + POST_WIN]
-        post_discovery_opt_frac = sum(1 for c in seg if c == opt) / POST_WIN
+        seg = [(i, choices[i]) for i in
+               range(first_best_trial + 1, first_best_trial + 1 + POST_WIN)]
+        segv = [c for i, c in seg if i in vset]
+        post_discovery_opt_frac = (sum(1 for c in segv if c == opt) / len(segv)
+                                   if segv else float("nan"))
     else:
         post_discovery_opt_frac = float("nan")
 
@@ -670,12 +697,20 @@ def run_episode(
         "valid_worst_frac":   float(valid_worst_frac),
         "valid_mean_regret":  float(valid_mean_regret),
         # ── discovery / utilization split (opt_frac is now a composite) ──
+        # Unsuffixed = VALID-ONLY (cite these); *_itt = all rounds incl. the
+        # random fallback (comparable in shape to older numbers). Identical
+        # whenever invalid_rate == 0, which holds for every α=0 cell so far.
         "coverage":                 int(coverage),
+        "coverage_itt":             int(coverage_itt),
         "best_never_tried":         bool(best_never_tried),
-        # None = censored (never tried); do NOT impute a round number.
-        "first_best_trial":         (None if first_best_trial is None
+        # 0-BASED round index (0 = the first round), None = censored / never
+        # tried. Do NOT impute a number for censored runs.
+        "first_best_index":         (None if first_best_trial is None
                                      else int(first_best_trial)),
+        "first_best_index_itt":     (None if first_best_trial_itt is None
+                                     else int(first_best_trial_itt)),
         "empirical_best_adherence": float(empirical_best_adherence),
+        "empirical_best_adherence_itt": float(empirical_best_adherence_itt),
         "n_adherence_rounds":       int(adhere_tot),
         "n_explore_untried":        int(explore_untried),
         # NaN = undefined (never tried, or found too late for a full window).
@@ -741,12 +776,24 @@ def main():
         # Version is per-protocol: only --untried_semantics rewrites prompt
         # text, so only it advances to pv2. Every legacy combination stays on
         # pv1 and keeps resuming against rows written before this change.
-        pv = (PROTOCOL_VERSION_UNTRIED if args.untried_semantics
-              else PROTOCOL_VERSION_LEGACY)
-        return (f"{pv}"
+        #
+        # NOTE the pv1 branch emits NO `ut` segment. Adding `ut0` would have
+        # been the natural symmetric thing to do and is WRONG: rows already on
+        # disk read `pv1sh1aa1ch1nr1mt24sd…`, so an extra segment makes every
+        # stored cell look unrun and silently re-runs it. The version prefix
+        # already distinguishes the two protocols, so `ut` is redundant — a
+        # new flag may only extend the key for the configurations it newly
+        # creates, never for ones that already have stored rows.
+        if args.untried_semantics:
+            return (f"{PROTOCOL_VERSION_UNTRIED}"
+                    f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
+                    f"ch{int(args.use_chat)}nr{int(args.no_role)}"
+                    f"ut1"
+                    f"mt{int(args.max_new_tokens)}"
+                    f"sd{'-'.join(str(s) for s in seed_list)}")
+        return (f"{PROTOCOL_VERSION_LEGACY}"
                 f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
                 f"ch{int(args.use_chat)}nr{int(args.no_role)}"
-                f"ut{int(args.untried_semantics)}"
                 f"mt{int(args.max_new_tokens)}"
                 f"sd{'-'.join(str(s) for s in seed_list)}")
 
@@ -761,7 +808,7 @@ def main():
         protocol — so bumping PROTOCOL_VERSION never silently revalidates them.
         """
         n = int(r["num_runs"])
-        return (f"pv0sh0aa0ch0nr{int(args.no_role)}ut0mt20"
+        return (f"pv0sh0aa0ch0nr{int(args.no_role)}mt20"
                 f"sd{'-'.join(str(s) for s in range(n))}")
 
     # A CSV written before the `iface` column existed has a header one field
