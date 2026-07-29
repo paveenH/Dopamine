@@ -176,7 +176,7 @@ Answer: <letter>
 | α=+4 | 26.8% | **8.17** | 0.0% | 0.0% | 36.7% | **63.3%** | −3.75 | −2,425 |
 | α=−4 | 27.2% | **4.34** | 0.0% | 28.3% | 68.0% | 3.7% | −1.84 | −1,189 |
 
-**結果二：Llama3-8B-IT，MMLU all subjects，n=14,042（`static0729` 重跑）**
+**結果二：Llama3-8B-IT，MMLU all subjects，n=14,042（`static0729`）**
 
 | condition | micro acc | acc (explicit) | macro acc | mean_bet | Δbet/題（配對） | bet0% | bet2% | bet5% | bet10% | bet: Wilcoxon p_adj | acc: McNemar p_adj | Cliff δ |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -243,7 +243,7 @@ Qwen 在 +4 見頂後出現兩種不同失效：+6 的下注退化為常數，+8
 
 **+8 的 accuracy 下降是分母污染，不是知識退化。** micro accuracy 30.5%（−3.4pp）的分母含 120 題無明確答案的回覆；只計格式完整的 526 題，**accuracy 為 36.3%，是九檔中最高**。配對 McNemar 亦不顯著（p_adj=1.00）。因此 +8 破壞的是**回覆形式**而非**知識能力**——這與 +6「行為讀數塌陷但格式完好」構成互補的兩種過載。凡 `commit_rate_pct < 100` 的檔位，都須同時讀 `acc_explicit_pct`。
 
-**結果二：Qwen2.5-7B-Instruct，MMLU all subjects，n=14,042（±4 兩檔，2026-07-29 重跑）**
+**結果二：Qwen2.5-7B-Instruct，MMLU all subjects，n=14,042（±4 兩檔，2026-07-29）**
 
 | condition | micro acc | acc (explicit) | macro acc | mean_bet | Δbet/題（配對） | bet2% | bet5% | bet10% | invalid% | bet: Wilcoxon p_adj | acc: McNemar p_adj | Cliff δ |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
