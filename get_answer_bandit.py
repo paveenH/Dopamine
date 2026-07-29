@@ -34,6 +34,7 @@ import gc
 import re
 import csv
 import json
+import shutil
 import random
 import argparse
 import numpy as np
@@ -285,24 +286,46 @@ def parse_choice_exact(output: str, arm_names: list[str],
     the generation starts mid-line, so the FIRST line of the continuation is the
     payload.
 
+    Strictness extends BEYOND that line: every OTHER non-empty line must also be
+    a `Choice:` line, so the reply as a whole contains nothing but the decision
+    protocol. Without this, the prefill branch (which has no `Choice:` of its own
+    to anchor on) would accept
+
+        "Velvet Vogue Jacket\nBecause it seems best."
+        "Velvet Vogue Jacket\nOptions: Silk Serenity Dress, Urban Mystique Jeans"
+
+    since only the first line was inspected — re-admitting the "explained instead
+    of deciding" and "restated the menu" cases the anchor exists to exclude.
+
     `n_matched` is kept compatible with parse_choice(): 0 = nothing recognisable,
     1 = exactly one arm name present, >1 = several. NOTE that with this parser
     n_matched=1 no longer implies valid — a name plus trailing prose scores
     (invalid, 1). That combination is precisely the "explained instead of
-    deciding" case, so it is worth having its own signature.
+    deciding" case, so it is worth having its own signature. `n_matched` counts
+    over the WHOLE reply, so a trailing menu restatement still scores >1.
     """
     lows = {name.lower(): name for name in arm_names}
-    cands = CHOICE_LINE_RE.findall(output or "")
+    text = output or ""
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    cands = CHOICE_LINE_RE.findall(text)
     if cands:
         payload = cands[-1]
+        # Everything else must itself be a `Choice:` line — no prose, no menu.
+        extra = [ln for ln in lines if not CHOICE_LINE_RE.match(ln)]
     else:
         # With the `Choice: ` PREFILL the anchor is already in the prompt, so the
         # generation starts mid-line and contains no `Choice:` of its own. Then
-        # the first line of the continuation IS the payload.
-        first_line = (output or "").strip().splitlines()
-        if not first_line:
+        # the first line of the continuation IS the payload, and there must be
+        # no further text after it.
+        if not lines:
             return (rng or random).choice(arm_names), False, 0
-        payload = first_line[0]
+        payload = lines[0]
+        extra = lines[1:]
+    if extra:
+        # Committed line may be fine, but the reply carries extra text.
+        low_all = text.lower()
+        inside = [name for low, name in lows.items() if low in low_all]
+        return (rng or random).choice(arm_names), False, len(inside)
     payload = payload.strip().strip(".,;:!?\"'`*[]()").strip()
     pl = payload.lower()
     if pl in lows:
@@ -523,21 +546,54 @@ def main():
                 iface if iface is not None else _iface_tag())
 
     def _iface_tag():
-        return (f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
+        return (f"{PROTOCOL_VERSION}"
+                f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
                 f"ch{int(args.use_chat)}nr{int(args.no_role)}"
+                f"mt{int(args.max_new_tokens)}"
                 f"sd{'-'.join(str(s) for s in seed_list)}")
 
     def _legacy_iface_tag(r):
         """Interface tag for a CSV row written before the flags existed.
 
         Such a row is by definition the legacy interface (raw history, substring
-        parser, no chat) with seeds 0..num_runs-1; --no_role is recoverable only
-        from the dir, so it is taken from the current args (the launcher never
-        mixes role settings inside one ans_file).
+        parser, no chat) with seeds 0..num_runs-1 and the then-default
+        max_new_tokens=20; --no_role is recoverable only from the dir, so it is
+        taken from the current args (the launcher never mixes role settings
+        inside one ans_file). Legacy rows are pinned to pv0 — the pre-versioning
+        protocol — so bumping PROTOCOL_VERSION never silently revalidates them.
         """
         n = int(r["num_runs"])
-        return (f"sh0aa0ch0nr{int(args.no_role)}"
+        return (f"pv0sh0aa0ch0nr{int(args.no_role)}mt20"
                 f"sd{'-'.join(str(s) for s in range(n))}")
+
+    # A CSV written before the `iface` column existed has a header one field
+    # short. Appending current-schema rows to it would put a value under no
+    # column name, and the NEXT DictReader would silently drop it into the
+    # None key — the resume logic would then re-run cells that were already
+    # done. Migrate the file in place instead: re-write it with the current
+    # header, filling the missing field from the legacy interface. The old
+    # file is kept as .bak because this rewrites data the run depends on.
+    if os.path.exists(csv_path):
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            old_reader = csv.DictReader(f)
+            old_header = old_reader.fieldnames or []
+            missing = [c for c in FIELDNAMES if c not in old_header]
+            old_rows = list(old_reader) if missing else []
+        if missing:
+            print(f"[Migrate] {csv_path} header lacks {missing}; rewriting "
+                  f"({len(old_rows)} rows kept, .bak saved).")
+            shutil.copy2(csv_path, csv_path + ".bak")
+            with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=FIELDNAMES,
+                                   extrasaction="ignore")
+                w.writeheader()
+                for r in old_rows:
+                    if not r.get("iface"):
+                        try:
+                            r["iface"] = _legacy_iface_tag(r)
+                        except (KeyError, ValueError, TypeError):
+                            r["iface"] = ""
+                    w.writerow({k: r.get(k, "") for k in FIELDNAMES})
 
     done_keys = set()
     if os.path.exists(csv_path):
