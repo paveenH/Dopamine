@@ -8,6 +8,22 @@
 # Model     : Qwen2.5-7B-Instruct
 # Data      : All 57 MMLU subjects merged (~14k samples)
 #
+#
+# RE-RUN 2026-07-29 — SCHEMA, NOT NUMBERS. Applies to BOTH models: the existing
+# MMLU per-sample CSVs (Llama AND Qwen, 42,126 rows each) lack `sample_idx`, so
+# the PAIRED statistics cited in AdaDopamine.md §3.1 CANNOT BE RECOMPUTED from
+# stored data — McNemar (accuracy) and Wilcoxon (bets) both pair by question.
+# Note the Qwen GPQA re-run did NOT fix MMLU: it only re-ran GPQA, so Qwen's
+# MMLU is still the older schema. The re-run also adds acc_explicit_pct /
+# n_explicit_answer / ans_fallback_rate and `orig_rows`, and turns on
+# --save_all_raw (a few MB at this row count; it is what lets an invalid/degraded
+# cell be diagnosed from the main sweep instead of a separate resampling run).
+#
+# The parser fix is a NO-OP here — MMLU invalid is 0.0% in every cell for both
+# models. EXPECT SMALL VALUE SHIFTS ANYWAY: temperature=1.0 with no fixed seed,
+# so this is a resample, not a reproduction. Trends replicate; exact numbers do
+# not byte-match. Update the §3.1.1 / §3.1.2 MMLU tables afterwards rather than
+# reading a small delta as a regression.
 # NOTE (2026-06): KEEPS --use_chat, matching run_gpqa_bet.sh — the §4.6 betting
 # headline was collected under the chat wrapper, where α=+4 produces the
 # wanting→bet dose-response. A bare-string re-run collapsed the effect (mean_bet
