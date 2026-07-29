@@ -53,6 +53,19 @@
 #                       mask was extracted in. Harmless at α=0 (no injection),
 #                       but see CLAUDE.md before sweeping α under chat.
 #
+# ⚠ B AND C ARE NOT A SINGLE-VARIABLE DIFF FROM A. --answer_anchor changes THREE
+# things in build_prompt(), not just the prefill+parser: it also swaps in a
+# SHORTER exploration/exploitation paragraph ("Balance exploration—…—with
+# exploitation—…—to maximize total reward.", one sentence vs the three-sentence
+# EVOLvE wording) and a shorter closing question. So A→B differs by
+# {summary history, prefill+strict parser, explore/exploit wording, closing
+# wording} and A→C adds chat on top. If B or C passes where A fails, the gain
+# canNOT be attributed to summary/anchor alone — the reframed wording is a live
+# co-explanation. Isolating it needs a fourth arm (anchor wording, legacy
+# history/parser), which is deliberately NOT run here: the pilot's question is
+# "does ANY interface make this task work on a 7-8B model", not "which knob did
+# it". Attribute only after the task is known to be viable at all.
+#
 # GO / NO-GO for spending the 13,500-generation sweep. ALL must hold at α=0:
 #   1. invalid_rate low (< ~0.10)
 #   2. late OptFrac clearly above the 0.20 chance floor
