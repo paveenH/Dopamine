@@ -142,7 +142,7 @@ Answer: <letter>
 
 ### 3.1.1 Llama3-8B-IT
 
-**資料來源（重要）：** 以下數字取自 **`static_0729` 重跑**，取代舊的 `static_0616`。重跑原因**不是數字有誤，而是 schema**：舊 per-sample CSV **沒有 `sample_idx` 欄**，而本節主打的 McNemar / Wilcoxon 都是配對檢驗，靠該欄把同一題在不同 α 對上——沒有它，那些 p 值無法從已存資料重算。重跑同時補上 `acc_explicit_pct` / `ans_fallback_rate` / `orig_rows`，並開啟 `--save_all_raw`。解析器修正對 Llama 是 **no-op**（invalid 九檔中八檔為 0.0000）。**注意 `temperature=1.0` 且無固定 seed，故重跑是重新取樣而非複現**；實測各檔 mean_bet 僅在 ±0.2 內浮動，趨勢完全複現。
+**資料來源：** 以下數字取自 **`static_0729` 重跑**，取代舊的 `static_0616`。重跑原因是为了 McNemar / Wilcoxon 配對檢驗。
 
 **結果一：Llama3-8B-IT，GPQA main + diamond，n=646, Static（−8→+8 九檔 dose-response, `static_0729`）**
 
@@ -161,9 +161,8 @@ Answer: <letter>
 （同一批 646 題跨 α 重複測量：下注用 paired Wilcoxon（valid-in-both），accuracy 用 McNemar 精確檢驗，均 Holm 校正。bet 各檔百分比以**全樣本**為分母，mean_bet 只計 valid。invalid 僅 +8 為 1.86%，其餘全為 0。）
 
 - **核心結果：** 正 α 將 mean_bet 從 5.20 推至 7.78（+4，每題多押 2.58 分），隨後在量表上限附近飽和；**accuracy 的配對差異在全部八檔皆不顯著（McNemar Holm p_adj = 1.00）**，支持 wanting–knowing dissociation。
-- **配對統計現已可複算。** 這是 `static_0729` 相對舊資料的實質增益：舊表引用的 p 值無法從存檔重算，現在可以。
 - **負臂並非全程單調：** −2/−4 顯著降低下注（p_adj=1.2e−18 / 2.5e−15），但 −6 效應大幅衰減、−8 已不顯著（p_adj=0.066）並出現輕微格式鬆動。因此 Llama 的可解釋負向效應集中在**中等劑量**，極端負劑量不宜解釋為更強的 under-wanting。
-- **`acc_explicit_pct` 與 micro 在此差異極小**（各檔僅差 0.5–0.8pp，`commit_rate` 96–98%），與 Qwen +8 的分母污染情形不同——Llama 全程未出現格式崩壞，故兩種讀法結論一致。
+- **`acc_explicit_pct` 與 micro 在此差異極小**（各檔僅差 0.5–0.8pp，`commit_rate` 96–98%）。
 
 **對照：Running-score 變體（reward-history sensitivity，GPQA n=646）**
 
