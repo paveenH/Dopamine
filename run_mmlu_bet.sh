@@ -105,6 +105,7 @@ python get_answer_gpqa_bet.py \
     --limit          "${LIMIT}" \
     --out_prefix     "mmlu_bet" \
     --use_chat \
+    --save_all_raw \
     ${SKIP_ORIG} \
     ${EXTRA_CONFIGS}
 
