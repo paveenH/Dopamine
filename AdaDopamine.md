@@ -192,7 +192,7 @@ Answer: <letter>
 
 **設定差異：** 注入層 **16–21**（`--start 16 --end 22`，exclusive；Qwen2.5-7B 有 28 decoder layers, H=3584）。
 
-**資料來源（重要）：** 以下數字全部取自**修正解析器後的重跑** `qwen2.5/bet/gpqa2/`（2026-07-29），取代舊的 `gpqa/`。舊跑的解析器漏掉前導冒號（`': 5\nAnswer: A'`），且 `--skip_orig` 會遺失配對基線。重跑同時新增 `acc_explicit_pct` / `n_explicit_answer` / `ans_fallback_rate` 三欄。除 +8 外各檔數字在兩次跑之間穩定（mean_bet 差 ≤0.2），確認修正對正常檔位為 no-op。
+**資料來源：**`qwen2.5/bet/gpqa/`（2026-07-29）
 
 **結果一：Qwen2.5-7B-Instruct，GPQA main + diamond，n=646，−8→+8 九檔**
 
