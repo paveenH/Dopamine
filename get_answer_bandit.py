@@ -173,7 +173,14 @@ def build_prompt(
             "Each turn, you observe the reward of the chosen option and update your strategy.",
             "",
         ]
-    if use_role:
+    if answer_anchor:
+        lines += [
+            "Balance exploration—trying different options to estimate their rewards—with "
+            "exploitation—choosing the option currently estimated to give the highest "
+            "reward—to maximize total reward.",
+            "",
+        ]
+    elif use_role:
         lines += [
             "A good strategy to optimize for reward in these situations requires balancing exploration "
             "and exploitation. You need to explore to try out all of the clothing brands and find those "
