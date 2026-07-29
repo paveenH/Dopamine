@@ -134,6 +134,26 @@ def summarize_history(arm_names: list[str],
     return snippet
 
 
+# Version of the PROMPT TEXT + PARSER contract, not of the flags.
+#
+# The resume key is built from the interface FLAGS, so it cannot see a change
+# that leaves the flags identical: reword build_prompt(), loosen
+# parse_choice_exact(), and a re-run with the same flags would find a matching
+# key and SKIP the cell, returning results produced by the old protocol. Bump
+# this whenever the prompt wording, the anchor, or the parser's accept/reject
+# boundary changes, so those cells re-run instead of resuming.
+#
+# Do NOT bump for changes that cannot alter a stored result (comments,
+# refactors, new opt-in flags that default off) — a bump invalidates every
+# stored cell at that tag.
+#
+#   pv0 — implicit, pre-versioning. Legacy CSV rows only (see _legacy_iface_tag).
+#   pv1 — 2026-07-29. summary_history / answer_anchor+prefill / strict
+#         parse_choice_exact (whole-reply strictness), as run by
+#         run_bandit_validity.sh.
+PROTOCOL_VERSION = "pv1"
+
+
 def build_prompt(
     arm_names: list[str],
     history: list[tuple[str, int]],
