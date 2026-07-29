@@ -38,6 +38,8 @@ RSN neurons
 2. Trajectory：预测commit，然后再commit前后进行干预；
 3. Behaviour: 测一下和人类的行为学对齐关系
 
+行文可以参考
+nc2026.Hippocampo-neocortical interaction as compressive retrieval-augmented generation
 ---
 
 ### 5. Cross-Model and Post-Training Replication
