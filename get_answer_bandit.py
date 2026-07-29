@@ -31,6 +31,7 @@ Usage:
 
 import os
 import gc
+import re
 import csv
 import json
 import random
@@ -107,10 +108,37 @@ def worst_arm(arm_map: dict[str, float]) -> str:
     return min(arm_map, key=arm_map.get)
 
 
+def summarize_history(arm_names: list[str],
+                      history: list[tuple[str, int]]) -> str:
+    """EVOLvE SummaryContextLayerMAB: per-arm pull count + mean reward.
+
+    Format copied verbatim from banditbench/agents/context.py:
+        f"\\n{action_name} {action_unit}, {n} times, average reward {reward:.2f}"
+    including the `n + 1e-6` denominator (so an unpulled arm reads 0.00, not a
+    division error).
+
+    NOTE it iterates `arm_names` in a FIXED order, so the summary block does not
+    re-leak the display shuffle beyond what the option list already shows.
+    """
+    n_actions = {name: 0 for name in arm_names}
+    action_rewards = {name: 0.0 for name in arm_names}
+    for name, reward in history:
+        n_actions[name] += 1
+        action_rewards[name] += reward
+    snippet = ""
+    for name in arm_names:
+        n = n_actions[name]
+        reward = action_rewards[name] / (n + 1e-6)
+        snippet += f"\n{name} {ACTION_UNIT}, {n} times, average reward {reward:.2f}"
+    return snippet
+
+
 def build_prompt(
     arm_names: list[str],
     history: list[tuple[str, int]],
     use_role: bool = True,
+    summary_history: bool = False,
+    answer_anchor: bool = False,
 ) -> str:
     """
     EVOLvE-style prompt:
@@ -162,15 +190,33 @@ def build_prompt(
 
     if history:
         n = len(history)
-        lines.append(f"So far you have interacted {n} times with the following choices and rewards:")
-        for name, reward in history:
-            lines.append(f"{name} {ACTION_UNIT}, reward {reward}")
-        lines.append("")
+        if summary_history:
+            # EVOLvE SummaryHistory: per-arm aggregate instead of the raw log.
+            lines.append(
+                f"So far you have interacted {n} times with the following "
+                f"choices and rewards:"
+            )
+            lines.append(summarize_history(arm_names, history).lstrip("\n"))
+            lines.append("")
+        else:
+            lines.append(f"So far you have interacted {n} times with the following choices and rewards:")
+            for name, reward in history:
+                lines.append(f"{name} {ACTION_UNIT}, reward {reward}")
+            lines.append("")
 
-    lines.append(
-        f"Which {ACTION_UNIT} will you choose next? "
-        f"PLEASE RESPOND ONLY WITH {names_str} AND NO TEXT EXPLANATION."
-    )
+    if answer_anchor:
+        # `Choice: ` is prefilled immediately after this prompt, so the model
+        # only needs to generate the exact item name.
+        lines.append(
+            f"Which {ACTION_UNIT} will you choose next?\n"
+            f"Choose exactly one from {names_str}.\n"
+            f"Respond with only the exact {ACTION_UNIT} name."
+        )
+    else:
+        lines.append(
+            f"Which {ACTION_UNIT} will you choose next? "
+            f"PLEASE RESPOND ONLY WITH {names_str} AND NO TEXT EXPLANATION."
+        )
     return "\n".join(lines)
 
 
@@ -205,6 +251,62 @@ def parse_choice(output: str, arm_names: list[str],
     return (rng or random).choice(arm_names), False, len(matched)
 
 
+CHOICE_LINE_RE = re.compile(r"^\s*choice\s*[:：]\s*(.+?)\s*$", re.I | re.M)
+
+
+def parse_choice_exact(output: str, arm_names: list[str],
+                       rng: random.Random = None) -> tuple[str, bool, int]:
+    """STRICT `Choice: <arm name>` parser (opt-in via --answer_anchor).
+
+    Valid ONLY if the committed line's payload, after stripping surrounding
+    whitespace and punctuation, is EXACTLY one arm name (case-insensitive).
+    Trailing prose makes the reply INVALID:
+
+        "Choice: Velvet Vogue Jacket"                    → valid
+        "Choice: Velvet Vogue Jacket because it's best"  → INVALID (n_matched=1)
+
+    This is deliberate and is the whole point of the anchor. The pilot has to
+    separate "committed a decision" from "produced text that happens to contain
+    an arm name" — the substring parser could not, and accepting a name embedded
+    in explanation would re-admit exactly that ambiguity. A model that cannot
+    emit a bare name on the anchored line has not adopted the decision protocol,
+    which is itself a task-validity signal worth measuring.
+
+    Which line is "the committed line": the LAST `Choice:` line if the reply
+    contains one (mirroring CGT `simple2`'s last-match convention — the model
+    often restates before committing); otherwise, under the `Choice: ` PREFILL
+    the generation starts mid-line, so the FIRST line of the continuation is the
+    payload.
+
+    `n_matched` is kept compatible with parse_choice(): 0 = nothing recognisable,
+    1 = exactly one arm name present, >1 = several. NOTE that with this parser
+    n_matched=1 no longer implies valid — a name plus trailing prose scores
+    (invalid, 1). That combination is precisely the "explained instead of
+    deciding" case, so it is worth having its own signature.
+    """
+    lows = {name.lower(): name for name in arm_names}
+    cands = CHOICE_LINE_RE.findall(output or "")
+    if cands:
+        payload = cands[-1]
+    else:
+        # With the `Choice: ` PREFILL the anchor is already in the prompt, so the
+        # generation starts mid-line and contains no `Choice:` of its own. Then
+        # the first line of the continuation IS the payload.
+        first_line = (output or "").strip().splitlines()
+        if not first_line:
+            return (rng or random).choice(arm_names), False, 0
+        payload = first_line[0]
+    payload = payload.strip().strip(".,;:!?\"'`*[]()").strip()
+    pl = payload.lower()
+    if pl in lows:
+        return lows[pl], True, 1
+    # Not an exact match. Count how many arm names appear so the caller can tell
+    # "one name + prose" (1) from "restated the menu" (>1) from "nothing" (0),
+    # but do NOT accept any of them as a choice.
+    inside = [name for low, name in lows.items() if low in pl]
+    return (rng or random).choice(arm_names), False, len(inside)
+
+
 def get_feedback(arm: str, arm_map: dict[str, float], rng: random.Random) -> int:
     return 1 if rng.random() < arm_map[arm] else 0
 
@@ -215,6 +317,10 @@ def run_episode(
     num_rounds: int,
     seed: int,
     use_role: bool = True,
+    summary_history: bool = False,
+    answer_anchor: bool = False,
+    use_chat: bool = False,
+    max_new_tokens: int = 20,
 ) -> dict:
     rng = random.Random(seed)
     # Separate stream for the invalid-parse fallback. Kept independent of `rng`
@@ -235,9 +341,34 @@ def run_episode(
     valid_flags = []   # per-round: was the reply a parseable single choice?
     n_matched = []     # per-round: how many distinct arm names appeared
     raws = []          # per-round: full generation (diagnostics)
+    # Verbatim copies of the string actually handed to the model, AFTER the chat
+    # wrapper and the `Choice: ` prefill. Round 0 (no history) and a mid-run
+    # round (history present) are kept, because those are the two shapes that
+    # differ. A rebuilt approximation is not attestation — this is the input.
+    prompt_attest = {}
 
     for round_idx in range(num_rounds):
-        prompt = build_prompt(arm_names, history, use_role=use_role)
+        prompt = build_prompt(arm_names, history, use_role=use_role,
+                              summary_history=summary_history,
+                              answer_anchor=answer_anchor)
+        if use_chat:
+            # Single user turn carrying the whole state (the task is fully
+            # described by the summary/history block, so no dialogue is needed).
+            # NOTE this shifts the activation distribution away from the bare
+            # string the NMD mask was extracted in — acceptable for an α=0
+            # task-validity pilot, but see CLAUDE.md before running a sweep.
+            msgs = [{"role": "user", "content": prompt}]
+            prompt = vc.tokenizer.apply_chat_template(
+                msgs, tokenize=False, add_generation_prompt=True
+            )
+        if answer_anchor:
+            # Prefill the anchor so the next token IS the arm name — same
+            # 施力点 logic as betting's "Bet: " and CGT's "Answer: ". Without
+            # this the anchor is only an instruction and the model can preface
+            # it with reasoning that eats the token budget.
+            prompt = prompt + ("Choice: " if use_chat else "\nChoice: ")
+        if round_idx == 0 or round_idx == min(10, num_rounds - 1):
+            prompt_attest[f"round_{round_idx}"] = prompt
         # temperature=1.0 means generation is sampled. Without re-seeding, the
         # torch RNG state at round t depends on every generation before it, so
         # two α conditions never face the same sampling noise and repeating a
@@ -249,11 +380,12 @@ def run_episode(
         output = vc.regenerate(
             inputs=[prompt],
             diff_matrices=diff_mtx,
-            max_new_tokens=20,
+            max_new_tokens=max_new_tokens,
             temperature=1.0,
         )
         raw = output[0] if isinstance(output, list) else output
-        arm, valid, nmatch = parse_choice(raw, arm_names, rng=fallback_rng)
+        parser_fn = parse_choice_exact if answer_anchor else parse_choice
+        arm, valid, nmatch = parser_fn(raw, arm_names, rng=fallback_rng)
 
         reward = get_feedback(arm, arm_map, rng)
         choices.append(arm)
@@ -310,6 +442,8 @@ def run_episode(
         # position counterbalancing and test for residual first-option bias.
         "best_position":  arm_names.index(opt) + 1,
         "arm_order":      arm_names,
+        # the literal model input (post chat-template, post prefill) — see above
+        "prompt_attest":  prompt_attest,
         "choices":        choices,
         "feedbacks":      feedbacks,
         "valid_flags":    valid_flags,
@@ -339,7 +473,7 @@ def main():
 
     FIELDNAMES = [
         "model", "size", "alpha", "start", "end", "TOP",
-        "num_runs", "num_rounds",
+        "num_runs", "num_rounds", "iface",
         "mean_opt_frac", "mean_explore_rate", "mean_worst_frac",
         "mean_cum_regret", "mean_early_opt_frac", "mean_late_opt_frac",
         "mean_invalid_rate",
@@ -353,6 +487,19 @@ def main():
         "mean_best_position",
     ]
 
+    # Seed list. Default = 0..num_runs-1 (legacy behaviour, seed == run index).
+    # --seeds pins an explicit set; num_runs then follows the list length so the
+    # resume key and the CSV stay consistent.
+    if args.seeds:
+        seed_list = [int(s) for s in args.seeds]
+        args.num_runs = len(seed_list)
+    else:
+        seed_list = list(range(args.num_runs))
+    bp_counts = {}
+    for s in seed_list:
+        bp_counts[position_of_best(s)] = bp_counts.get(position_of_best(s), 0) + 1
+    print(f"[Seeds] {seed_list}  best-arm positions: {dict(sorted(bp_counts.items()))}")
+
     os.makedirs(SAVE_ROOT, exist_ok=True)
     csv_path = os.path.join(SAVE_ROOT, f"summary_{args.model}_{args.size}.csv")
 
@@ -360,20 +507,47 @@ def main():
     # alpha alone silently skipped a cell when the layer range, run count or
     # round count changed within the same output dir — you would get the old
     # row back and never notice the new configuration had not run.
-    def _resume_key(alpha, st, en, nruns, nrounds):
-        return (float(alpha), int(st), int(en), int(nruns), int(nrounds))
+    # The interface fields are part of the key too: A/B/C write to separate
+    # dirs so the launcher is safe either way, but reusing ONE ans_file while
+    # changing --summary_history/--answer_anchor/--use_chat/--seeds would
+    # otherwise return the old row and silently skip the new configuration.
+    def _resume_key(alpha, st, en, nruns, nrounds, iface=None):
+        return (float(alpha), int(st), int(en), int(nruns), int(nrounds),
+                iface if iface is not None else _iface_tag())
+
+    def _iface_tag():
+        return (f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
+                f"ch{int(args.use_chat)}nr{int(args.no_role)}"
+                f"sd{'-'.join(str(s) for s in seed_list)}")
+
+    def _legacy_iface_tag(r):
+        """Interface tag for a CSV row written before the flags existed.
+
+        Such a row is by definition the legacy interface (raw history, substring
+        parser, no chat) with seeds 0..num_runs-1; --no_role is recoverable only
+        from the dir, so it is taken from the current args (the launcher never
+        mixes role settings inside one ans_file).
+        """
+        n = int(r["num_runs"])
+        return (f"sh0aa0ch0nr{int(args.no_role)}"
+                f"sd{'-'.join(str(s) for s in range(n))}")
 
     done_keys = set()
     if os.path.exists(csv_path):
         with open(csv_path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 try:
+                    # `iface` column exists only in rows written after
+                    # 2026-07-29. A row without it predates the interface flags,
+                    # so it can only have been the legacy interface.
+                    iface = r.get("iface") or _legacy_iface_tag(r)
                     done_keys.add(_resume_key(r["alpha"], r["start"], r["end"],
-                                              r["num_runs"], r["num_rounds"]))
+                                              r["num_runs"], r["num_rounds"],
+                                              iface))
                 except (KeyError, ValueError):
-                    # Legacy row from before the key was widened: fall back to
+                    # Row from before the key was widened at all: fall back to
                     # alpha-only so old dirs still resume rather than crash.
-                    done_keys.add((float(r["alpha"]), None, None, None, None))
+                    done_keys.add((float(r["alpha"]),))
         print(f"[Resume] {len(done_keys)} cells already done, skipping.")
 
     write_header = not os.path.exists(csv_path)
@@ -388,11 +562,14 @@ def main():
 
     for alpha, (st, en) in ALPHAS_START_END_PAIRS:
         key = _resume_key(alpha, st, en, args.num_runs, args.num_rounds)
-        if key in done_keys or (float(alpha), None, None, None, None) in done_keys:
+        if key in done_keys or (float(alpha),) in done_keys:
             print(f"[Skip] α={alpha} layers={st}-{en} "
                   f"runs={args.num_runs}x{args.num_rounds} already done.")
             continue
 
+        # Seeds: default 0..num_runs-1 (legacy). --seeds overrides with an
+        # explicit list, which is how the counterbalanced task-validity pilot
+        # pins the best arm to positions 1-5 with 5 distinct best names.
         mask_suffix = "_abs" if args.abs else ""
         mask_name = f"{args.mask_type}_{args.percentage}_{st}_{en}_{args.size}{mask_suffix}.npy"
         mask_path = os.path.join(MASK_DIR, mask_name)
@@ -402,15 +579,19 @@ def main():
         print(f"\n=== α={alpha} | layers={st}-{en} | TOP={TOP} ===")
 
         run_results = []
-        for run_idx in range(args.num_runs):
-            print(f"  Run {run_idx + 1}/{args.num_runs}", end=" ... ", flush=True)
+        for run_idx, seed in enumerate(seed_list):
+            print(f"  Run {run_idx + 1}/{len(seed_list)} (seed={seed})", end=" ... ", flush=True)
             with torch.no_grad():
                 result = run_episode(
                     vc=vc,
                     diff_mtx=diff_mtx,
                     num_rounds=args.num_rounds,
-                    seed=run_idx,
+                    seed=seed,
                     use_role=not args.no_role,
+                    summary_history=args.summary_history,
+                    answer_anchor=args.answer_anchor,
+                    use_chat=args.use_chat,
+                    max_new_tokens=args.max_new_tokens,
                 )
             run_results.append(result)
             print(
@@ -448,6 +629,7 @@ def main():
             "TOP":   TOP,
             "num_runs":   args.num_runs,
             "num_rounds": args.num_rounds,
+            "iface":      _iface_tag(),
             "mean_opt_frac":        round(float(np.mean(opt)),  4),
             "mean_explore_rate":    round(float(np.mean(expl)), 4),
             "mean_worst_frac":      round(float(np.mean(wf)),   4),
@@ -485,6 +667,21 @@ def main():
                 "alpha": alpha,
                 "reward_probs_ordered": REWARD_PROBS_ORDERED,
                 "arm_names_pool": CLOTHES_NAMES[:K],
+                # Which prompt/parser variant produced this file. Absent in
+                # pre-2026-07-29 runs (= bare raw-history + substring parser).
+                # The rendered prompts are NOT here: they are per-run, under
+                # runs[i]["prompt_attest"], and are the literal model input
+                # (chat template + `Choice: ` prefill applied). Do not rebuild
+                # an approximation from these flags and call it the prompt.
+                "config": {
+                    "seeds":           seed_list,
+                    "summary_history": bool(args.summary_history),
+                    "answer_anchor":   bool(args.answer_anchor),
+                    "use_chat":        bool(args.use_chat),
+                    "no_role":         bool(args.no_role),
+                    "max_new_tokens":  int(args.max_new_tokens),
+                    "parser":          "strict_anchor" if args.answer_anchor else "substring",
+                },
                 "runs": run_results,
             }, fw, indent=2)
         print(f"  → {detail_path}")
@@ -511,6 +708,30 @@ if __name__ == "__main__":
     parser.add_argument("--configs",     nargs="+", default=["0-11-20", "4-11-20", "neg4-11-20"])
     parser.add_argument("--num_runs",    type=int, default=30)
     parser.add_argument("--num_rounds",  type=int, default=50)
+    parser.add_argument("--seeds",       nargs="+", default=None,
+                        help="Explicit run seeds (overrides --num_runs). The "
+                             "counterbalanced task-validity set is "
+                             "'0 3 4 9 37': best arm at display positions "
+                             "2,4,5,3,1 with 5 distinct best names. Default "
+                             "0..num_runs-1 leaves position only randomly "
+                             "balanced (seeds 0 and 1 collide on BOTH best "
+                             "name and position, which is why the 2-run pilot "
+                             "was not position-balanced).")
+    parser.add_argument("--summary_history", action="store_true",
+                        help="EVOLvE SummaryHistory: show per-arm pull count + "
+                             "mean reward instead of the raw interaction log.")
+    parser.add_argument("--answer_anchor", action="store_true",
+                        help="Prefill 'Choice: ' and parse strictly (exactly "
+                             "one arm name on the Choice line); lists/code/"
+                             "multiple names count as invalid.")
+    parser.add_argument("--use_chat",    action="store_true",
+                        help="Wrap the prompt in the chat template. NOTE this "
+                             "moves steering off the bare distribution the NMD "
+                             "mask was extracted in — intended for the α=0 "
+                             "task-validity pilot.")
+    parser.add_argument("--max_new_tokens", type=int, default=20,
+                        help="20 suits the bare 'name only' protocol; raise for "
+                             "--answer_anchor if replies get truncated.")
     parser.add_argument("--ans_file",    type=str, default="answer_bandit")
     parser.add_argument("--data",        type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--base_dir",    type=str, default=None)
