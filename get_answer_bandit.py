@@ -60,6 +60,13 @@ K = 5
 REWARD_PROBS_ORDERED = [0.7, 0.5, 0.4, 0.3, 0.1]  # assigned to shuffled names
 ACTION_UNIT = "item"
 
+# Round index (0-based) at or after which a first best-arm pull counts as "too
+# late to pay off" — see `late_best_discovery`. 30 of 50 leaves 20 rounds, the
+# same horizon the fixed post-discovery window uses. Arbitrary but frozen: it
+# is a descriptive threshold, not a test statistic, so it must not be tuned
+# after seeing a result.
+LATE_DISCOVERY_ROUND = 30
+
 
 def shuffle_arms(seed: int) -> dict[str, float]:
     """Return name→reward_prob mapping in PROMPT ORDER, counterbalancing position.
@@ -111,7 +118,8 @@ def worst_arm(arm_map: dict[str, float]) -> str:
 
 def summarize_history(arm_names: list[str],
                       history: list[tuple[str, int]],
-                      untried_semantics: bool = False) -> str:
+                      untried_semantics: bool = False,
+                      trial_counts: bool = False) -> str:
     """EVOLvE SummaryContextLayerMAB: per-arm pull count + mean reward.
 
     Format copied verbatim from banditbench/agents/context.py:
@@ -137,6 +145,16 @@ def summarize_history(arm_names: list[str],
     seed did so 40/40 while locked onto an arm it had measured at 0.14, because
     the four arms it had never touched all displayed 0.00. Discovery was
     suppressed by the table, not by the model.
+
+    `trial_counts=True` (pv3/D2) additionally renders a tried arm as
+    "k rewards / n trials (observed rate r)" instead of "n trials, average
+    reward r". Same numbers, different reading order: the count comes FIRST, so
+    the evidence strength is visible before the point estimate. This targets the
+    residual D failure — the model treats an n=1 mean as a settled property.
+    On the 20-seed D run, 6 seeds pulled the best arm ≤1 time and 2 abandoned it
+    permanently after a single reward=0; one held an arm measured at 0.16 for
+    all 50 rounds. "0 rewards / 1 trial" states the sample size in the same
+    breath as the outcome; "1 times, average reward 0.00" buries it.
     """
     n_actions = {name: 0 for name in arm_names}
     action_rewards = {name: 0.0 for name in arm_names}
@@ -150,7 +168,12 @@ def summarize_history(arm_names: list[str],
             snippet += f"\n{name}: UNTRIED"
             continue
         reward = action_rewards[name] / (n + 1e-6)
-        if untried_semantics:
+        if trial_counts:
+            k = int(round(action_rewards[name]))
+            snippet += (f"\n{name}: {k} reward{'' if k == 1 else 's'} / "
+                        f"{n} trial{'' if n == 1 else 's'} "
+                        f"(observed rate {reward:.2f})")
+        elif untried_semantics:
             snippet += f"\n{name}: {n} trials, average reward {reward:.2f}"
         else:
             snippet += (f"\n{name} {ACTION_UNIT}, {n} times, "
@@ -185,8 +208,28 @@ def summarize_history(arm_names: list[str],
 #         explicit round/horizon, arbitrary names/positions, UNTRIED≠0, and a
 #         concrete read-the-table instruction replacing EVOLvE's abstract
 #         "Balance exploration—…" sentence).
+#   pv3 — 2026-07-29, --prompt_variant D2. pv2 + SAMPLING UNCERTAINTY as an
+#         environment fact: rewards are random draws, few-trial estimates are
+#         unreliable, and the summary reports "k rewards / n trials (observed
+#         rate r)" so trial count is read before the rate. Also renames
+#         "This is choice N of 50" → "Round N of 50" (the old wording induced
+#         list-continuation, "1. ...", which produced most of D's 9 invalids,
+#         nearly all in round 1).
+#   pv4 — 2026-07-29, --prompt_variant D3. pv3 + two TIMING-STRATEGY sentences
+#         (explore early / weight the best-supported option as rounds run out).
+#         DIAGNOSTIC CONTROL ONLY, never the main line: those sentences supply
+#         the explore→exploit schedule externally, and when to stop exploring is
+#         exactly the behaviour α is hypothesised to move. If D3 succeeds where
+#         D2 fails, the deficit is strategic planning, not task comprehension —
+#         but an α sweep must then run on D2, not D3 (cf. IGT v4).
 PROTOCOL_VERSION_LEGACY = "pv1"
 PROTOCOL_VERSION_UNTRIED = "pv2"
+
+# User-facing experiment condition → internal protocol version. The two are
+# deliberately separate names: D2/D3 identify the experimental condition in the
+# launcher and the writeup, pvN exists only so the resume key changes when the
+# prompt text does. Callers pass --prompt_variant, never a pv tag.
+PROMPT_VARIANT_VERSION = {"D2": "pv3", "D3": "pv4"}
 
 
 def build_prompt(
@@ -198,6 +241,7 @@ def build_prompt(
     untried_semantics: bool = False,
     round_idx: int = 0,
     num_rounds: int = 50,
+    prompt_variant: str | None = None,
 ) -> str:
     """
     EVOLvE-style prompt:
@@ -240,8 +284,99 @@ def build_prompt(
     described as one. That is deliberate — the verbatim text was measured to
     misrepresent the task — but any cross-paper claim has to be dropped or
     re-qualified accordingly.
+
+    prompt_variant="D2" (pv3) → pv2 + SAMPLING UNCERTAINTY, still facts only.
+    pv2 fixed what the model knew about UNTRIED arms and the discovery gate
+    opened (best-never-tried 6/20 → 1/20), but coverage barely moved (3.55 →
+    3.75) and OptFrac stayed bimodal, because a DIFFERENT misreading remained:
+    the model treats an observed rate as a settled property regardless of n.
+    D2 states three further facts — each reward is a fresh random draw, a
+    few-trial result is uncertain in BOTH directions, and trial count is
+    evidence strength — and renders the table as "k rewards / n trials". It
+    still prescribes no policy: no forced initialization, no round split, no
+    "try every option once".
+
+    prompt_variant="D3" (pv4) → D2 + when to explore ("more useful early") and
+    when to stop ("as fewer rounds remain, weight the best-supported option").
+    ⚠ CONTROL ONLY. Those two sentences are strategy, not environment: they
+    hand the model the explore→exploit schedule, and the timing of that switch
+    is precisely what α is hypothesised to modulate. Run D3 to diagnose whether
+    a D2 failure is planning rather than comprehension; never sweep α on it.
     """
     names_str = "[" + ", ".join(arm_names) + "]"
+    if prompt_variant in ("D2", "D3"):
+        remaining = num_rounds - round_idx
+        lines = [
+            f"You are playing a {num_rounds}-round stochastic decision task "
+            f"with {K} options: {names_str}.",
+            "",
+            # "Round N of 50", NOT "This is choice N of 50": the latter reads as
+            # an enumerated list item and the model continued the list ("1. ..."),
+            # which is where most of D's invalid replies came from — nearly all
+            # in round 1, where there is no history to displace the pattern.
+            f"Round {round_idx + 1} of {num_rounds}. There are {remaining} "
+            f"choices remaining, including this choice.",
+            "",
+            "Each option has its own fixed but unknown probability of giving "
+            "reward 1.",
+            "Each observed reward is a new random outcome: the same option may "
+            "sometimes give 1 and sometimes give 0.",
+            "",
+            # Symmetric on purpose. A one-sided version ("a 0 does not mean it is
+            # poor") would be a nudge toward exploring; stating that a single 1
+            # is equally uninformative keeps it a fact about sampling rather than
+            # a hint about what to do next.
+            "A result based on only a few trials is uncertain. One reward of 0 "
+            "does not show that an option is poor, and one reward of 1 does not "
+            "show that it is best. When comparing options, consider both the "
+            "observed reward rate and the number of trials.",
+            "",
+            "Option names and list positions contain no reward information.",
+            "",
+            "Observed evidence:",
+        ]
+        if history:
+            lines.append(
+                summarize_history(arm_names, history,
+                                  untried_semantics=True,
+                                  trial_counts=True).lstrip("\n")
+            )
+        else:
+            lines.append("No options have been tried yet.")
+        lines += [
+            "",
+            "An UNTRIED option has no reward estimate yet; it does not have an "
+            "estimated reward of zero.",
+        ]
+        if prompt_variant == "D3":
+            # STRATEGY, not environment — the only difference between D2 and D3.
+            lines += [
+                "Exploring uncertain options is more useful early, because the "
+                "information can guide later choices. As fewer rounds remain, "
+                "place more weight on the best-supported option.",
+            ]
+        lines += [
+            "",
+            # ONE sentence: decision goal + output requirement. The option list
+            # is NOT repeated here — it is already in the opening line, and a
+            # second copy re-exposes five names right before the commit point
+            # for no informational gain.
+            #
+            # "no number" is evidence-driven, not a stylistic rule: in the D run
+            # 90 of 99 α=−4 invalid replies began with a digit EQUAL TO THE
+            # CURRENT ROUND ("12: Retro Revival Sneakers" at round 12), i.e. the
+            # `Choice: ` prefill was being continued as the enumerated "choice N
+            # of 50" phrasing. The "Round N of 50" rename removes the trigger
+            # and this removes the behaviour.
+            #
+            # No worked example ("Choice: Velvet Vogue Jacket"): naming one arm
+            # next to the commit point can prime it, and name-choice bias would
+            # survive the reward/position shuffle.
+            f"Choose the option that will maximize total reward across all "
+            f"{num_rounds} rounds. After \"Choice:\", write only its exact name "
+            f"from the list above—no number or explanation.",
+        ]
+        return "\n".join(lines)
     if untried_semantics:
         lines = [
             f"There are {K} options: {names_str}.",
@@ -474,6 +609,8 @@ def run_episode(
     use_chat: bool = False,
     max_new_tokens: int = 20,
     untried_semantics: bool = False,
+    prompt_variant: str | None = None,
+    debug_tokens: bool = False,
 ) -> dict:
     rng = random.Random(seed)
     # Separate stream for the invalid-parse fallback. Kept independent of `rng`
@@ -505,7 +642,8 @@ def run_episode(
                               summary_history=summary_history,
                               answer_anchor=answer_anchor,
                               untried_semantics=untried_semantics,
-                              round_idx=round_idx, num_rounds=num_rounds)
+                              round_idx=round_idx, num_rounds=num_rounds,
+                              prompt_variant=prompt_variant)
         if use_chat:
             # Single user turn carrying the whole state (the task is fully
             # described by the summary/history block, so no dialogue is needed).
@@ -524,6 +662,27 @@ def run_episode(
             prompt = prompt + ("Choice: " if use_chat else "\nChoice: ")
         if round_idx == 0 or round_idx == min(10, num_rounds - 1):
             prompt_attest[f"round_{round_idx}"] = prompt
+        if debug_tokens and round_idx == 0:
+            # Print the token IDs ONCE per cell. Two things are being checked
+            # and neither is visible in the decoded string:
+            #  (1) DOUBLE BOS. apply_chat_template already emits
+            #      <|begin_of_text|> (128000), and llms.regenerate tokenizes
+            #      with add_special_tokens defaulting to True, so the head can
+            #      read [128000, 128000, ...]. Harmless for the comparisons we
+            #      make (D, D2 and every α inside them share the same chain, so
+            #      it cancels in any paired contrast) but it must be KNOWN, not
+            #      assumed absent.
+            #  (2) WHICH TOKEN CARRIES THE STEERING. Injection is prefill-only
+            #      into hs[:, -1, :], so the last id here IS the injection site.
+            #      With the `Choice: ` prefill that should be 220 (" "), i.e.
+            #      the anchor's trailing space — not a chat control token.
+            ids = vc.tokenizer(prompt, return_tensors="pt")["input_ids"]
+            head, tail = ids[0, :5].tolist(), ids[0, -10:].tolist()
+            print(f"\n    [tok] head={head}"
+                  f"{'  ⚠ DOUBLE BOS' if head[:2] == [128000, 128000] else ''}")
+            print(f"    [tok] tail={tail}   steering token = {tail[-1]}"
+                  f" ({vc.tokenizer.decode([tail[-1]])!r})"
+                  f"{'' if tail[-1] == 220 else '  ⚠ not 220'}")
         # temperature=1.0 means generation is sampled. Without re-seeding, the
         # torch RNG state at round t depends on every generation before it, so
         # two α conditions never face the same sampling noise and repeating a
@@ -615,6 +774,41 @@ def run_episode(
     first_best_trial = next((i for i, c in enumerate(choices)
                              if c == opt and i in vset), None)
     best_never_tried = first_best_trial is None
+
+    # ---- D2 mechanism metrics --------------------------------------------
+    # Three readouts aimed at the SPECIFIC failure D2 repairs. They exist
+    # because coverage and best_never_tried are too coarse: a run can score
+    # coverage=1 and best_never_tried=False purely by picking the best arm on
+    # round 0 and never moving (seeds 1/6/8/18 in the 20-seed D run did exactly
+    # that and scored well), which is a lucky first draw, not learning.
+    #
+    # All three are VALID-ONLY, for the same reason as coverage above: a random
+    # fallback pull of the best arm is not the model deciding to try it.
+    n_best_pulls = sum(1 for i in sorted(vset) if choices[i] == opt)
+
+    # (a) best arm sampled at most once — the "one look and gone" signature.
+    #     D: 6/20 runs. Includes never-tried, so read it with best_never_tried.
+    best_arm_pulled_le1 = n_best_pulls <= 1
+
+    # (b) best arm first tried after round 30 — discovered too late for the
+    #     remaining rounds to pay for it. D: 3/20 (rounds 36-41).
+    late_best_discovery = (first_best_trial is not None
+                           and first_best_trial >= LATE_DISCOVERY_ROUND)
+
+    # (c) after the best arm's first pull returned 0, was it ever tried again?
+    #     This is the sampling-uncertainty failure in its purest form: the
+    #     correct response to one 0 is that the estimate is uninformative, and
+    #     seeds 0 and 2 instead abandoned the arm permanently.
+    #     None (not False) when the premise does not apply — never tried, or its
+    #     first pull returned 1 — so a run that was never at risk is EXCLUDED
+    #     from the rate rather than counted as a success. Imputing False would
+    #     understate the fix; imputing True would manufacture one.
+    if first_best_trial is None or feedbacks[first_best_trial] != 0:
+        revisit_after_first_zero = None
+    else:
+        revisit_after_first_zero = any(choices[i] == opt
+                                       for i in sorted(vset)
+                                       if i > first_best_trial)
 
     # Utilization, primary: of the rounds where the model picked an ALREADY-TRIED
     # arm, how often was it one of the arms with the highest observed mean AT
@@ -709,6 +903,14 @@ def run_episode(
                                      else int(first_best_trial)),
         "first_best_index_itt":     (None if first_best_trial_itt is None
                                      else int(first_best_trial_itt)),
+        # D2 mechanism metrics (valid-only). n_best_pulls is kept raw so the
+        # ≤1 threshold can be re-cut offline without a re-run.
+        "n_best_pulls":             int(n_best_pulls),
+        "best_arm_pulled_le1":      bool(best_arm_pulled_le1),
+        "late_best_discovery":      bool(late_best_discovery),
+        # None = the run was never at risk (best arm never tried, or its first
+        # pull returned 1). Exclude those from the rate; do not impute.
+        "revisit_after_first_zero": revisit_after_first_zero,
         "empirical_best_adherence": float(empirical_best_adherence),
         "empirical_best_adherence_itt": float(empirical_best_adherence_itt),
         "n_adherence_rounds":       int(adhere_tot),
@@ -784,6 +986,17 @@ def main():
         # already distinguishes the two protocols, so `ut` is redundant — a
         # new flag may only extend the key for the configurations it newly
         # creates, never for ones that already have stored rows.
+        #
+        # Same rule for --prompt_variant: D2/D3 are configurations that have no
+        # rows on disk, so they get their own `pvar` segment; without the flag
+        # the tag is byte-identical to what pv1/pv2 rows already carry.
+        if args.prompt_variant:
+            return (f"{PROMPT_VARIANT_VERSION[args.prompt_variant]}"
+                    f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
+                    f"ch{int(args.use_chat)}nr{int(args.no_role)}"
+                    f"pvar{args.prompt_variant}"
+                    f"mt{int(args.max_new_tokens)}"
+                    f"sd{'-'.join(str(s) for s in seed_list)}")
         if args.untried_semantics:
             return (f"{PROTOCOL_VERSION_UNTRIED}"
                     f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
@@ -901,6 +1114,10 @@ def main():
                     use_chat=args.use_chat,
                     max_new_tokens=args.max_new_tokens,
                     untried_semantics=args.untried_semantics,
+                    prompt_variant=args.prompt_variant,
+                    # Once per cell: the tokenizer chain is identical across
+                    # runs, so printing it 20 times says nothing new.
+                    debug_tokens=(run_idx == 0),
                 )
             run_results.append(result)
             print(
@@ -1008,9 +1225,13 @@ def main():
                     "max_new_tokens":  int(args.max_new_tokens),
                     "parser":          "strict_anchor" if args.answer_anchor else "substring",
                     "untried_semantics": bool(args.untried_semantics),
-                    "protocol_version": (PROTOCOL_VERSION_UNTRIED
-                                         if args.untried_semantics
-                                         else PROTOCOL_VERSION_LEGACY),
+                    "prompt_variant":  args.prompt_variant,
+                    "protocol_version": (
+                        PROMPT_VARIANT_VERSION[args.prompt_variant]
+                        if args.prompt_variant
+                        else (PROTOCOL_VERSION_UNTRIED
+                              if args.untried_semantics
+                              else PROTOCOL_VERSION_LEGACY)),
                 },
                 "runs": run_results,
             }, fw, indent=2)
@@ -1064,11 +1285,26 @@ if __name__ == "__main__":
                              "no explore/exploit round split — so exploration "
                              "remains the model's own decision. Implies pv2 in "
                              "the resume key.")
+    parser.add_argument("--prompt_variant", choices=["D2", "D3"], default=None,
+                        help="Experiment condition (supersedes "
+                             "--untried_semantics when set). D2 = pv2 + "
+                             "sampling-uncertainty FACTS: rewards are random "
+                             "draws, few-trial estimates are unreliable in both "
+                             "directions, and the table reads 'k rewards / n "
+                             "trials (observed rate r)' so evidence strength is "
+                             "seen before the point estimate. D3 = D2 + explore-"
+                             "early / exploit-late STRATEGY sentences — a "
+                             "diagnostic control ONLY, because it supplies the "
+                             "explore→exploit timing that α is meant to move; "
+                             "sweep α on D2, never on D3.")
     parser.add_argument("--use_chat",    action="store_true",
                         help="Wrap the prompt in the chat template. NOTE this "
                              "moves steering off the bare distribution the NMD "
-                             "mask was extracted in — intended for the α=0 "
-                             "task-validity pilot.")
+                             "mask was extracted in, so a steered (α≠0) chat run "
+                             "carries a known distribution mismatch: dilution is "
+                             "a live explanation for a null, and a POSITIVE "
+                             "result is the stronger claim for surviving it "
+                             "(same stance as Betting — see CLAUDE.md).")
     parser.add_argument("--max_new_tokens", type=int, default=20,
                         help="20 suits the bare 'name only' protocol; raise for "
                              "--answer_anchor if replies get truncated.")
