@@ -151,8 +151,26 @@ run_step K3 --ans_file "e_K3_direct" \
 # interface-level (bare Choice: token has no room to reason from evidence);
 # if the lock persists under CoT too, it is label-level and K3/K5 need a
 # neutral-label control before any further step is informative.
-run_step K2COT --ans_file "e_K2_cot" \
-          --prompt_variant E-CoT --num_arms 2 --max_new_tokens 64
+#
+# mt64 → mt128 (2026-07-30): the first e_K2_cot run (max_new_tokens=64) DID
+# loosen the lock (Velvet 245/250 -> 171/250) but at invalid_rate 22-36%
+# (72/250 = 28.8% overall) — raws show good reasoning ("Silk Serenity Dress
+# has 80% estimated rate... Velvet Vogue Jacket's 20% rate") truncated
+# mid-sentence or mid-Choice-line before the final line could complete. That
+# is a token-budget failure, not a prompt/parser/protocol failure — pv5 stays
+# pv5, only the generation budget changes. Bumped to 128. Kept as a SEPARATE
+# --ans_file (mt64's config.seeds only reaches _iface_tag's resume key, not
+# the output filename, so reusing e_K2_cot would silently overwrite the mt64
+# raws/rationales in the same JSON) so both budgets stay on disk. Do NOT
+# offline-patch the mt64 invalid rounds — each invalid round's fallback pick
+# altered that seed's subsequent reward history, so only a full episode
+# re-run is valid. Do not read mt64's OptFrac as a CoT verdict (fallback-
+# contaminated); judge the Velvet-lock question from mt128 once invalid is
+# back near 0. If mt128 confirms ~0% invalid, port max_new_tokens=128 to
+# MAINCOT below too (K=5's TRIED table is longer, so 64 there is likely even
+# tighter than it was here).
+run_step K2COT --ans_file "e_K2_cot_mt128" \
+          --prompt_variant E-CoT --num_arms 2 --max_new_tokens 128
 
 # ── Step 3: K=5 warm-start, E-direct only, α=0 ────────────────────────────
 # --warm_start_pulls 2: 10 of 50 rounds are the environment's forced pulls
