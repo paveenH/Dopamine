@@ -239,13 +239,43 @@ run_step WARM --ans_file "e_K5_warmstart2_direct" \
 # it voluntarily re-sample low-n/high-uncertainty arms (e.g. does seed 9 ever
 # revisit Retro); (3) does late_opt_frac/true-best discovery improve over
 # direct's seed-9/seed-4 shortfalls; (4) is any added switching TARGETED
-# (uncertainty-driven) rather than non-novel oscillation. 160 tokens (up from
-# 128) — the 5-arm TRIED table is longer than K3's 3-arm table, so the
-# rationale needs more room to fit a comparison across all 5 without
-# truncating before the final Choice line (see K2COT's mt64 lesson).
+# (uncertainty-driven) rather than non-novel oscillation. Ran at 128 tokens
+# (invalid stayed low: 2/200 rounds, one truncation each on seeds 3/4 — see
+# result note below; a later 160-token bump was proposed but never re-run,
+# since 128 already gave clean-enough data to settle the question).
 run_step WARMCOT --ans_file "e_K5_warmstart2_cot" \
           --prompt_variant E-CoT --num_arms 5 --warm_start_pulls 2 \
-          --max_new_tokens 160
+          --max_new_tokens 128
+
+# WARMCOT result (2026-07-30, same seeds): SETTLED — CoT does not add
+# reliable uncertainty-aware exploration on top of WARM-direct's exploitation
+# floor. seed 9 (the clean single-variable test: Retro is n=2/high-variance/
+# true-best 0.7, frozen at empirical 0.5, tied with Velvet/Silk) is BYTE-
+# IDENTICAL to direct — 40/40 Velvet, Retro never revisited. seed 37, which
+# direct had CORRECTLY converged on the true-best arm (late_opt 1.000),
+# instead oscillates Silk<->Celestial 20/20 under CoT (late_opt 0.400) even
+# though Celestial's warm-start rate was 0/2, the worst in the set — a
+# genuine regression, not just noise (invalid_rate=0 on this seed, so it
+# isn't a truncation artifact). Raw rationale traces confirm this is not
+# empty churn: the model verbalizes an explore-for-more-evidence narrative
+# but applies it inconsistently (never systematically covers the OTHER
+# equally-unproven arms) and makes repeated numeric misreads while doing so
+# (e.g. calling a LOWER rate/lower-evidence arm "most rewards per trial" /
+# "highest amount of evidence"). Net effect across seeds: first-choice
+# accuracy held (5/5 in the empirical-best set, same as direct) but mean
+# empirical_best_adherence dropped ~0.925 -> ~0.69, and late_opt_frac fell or
+# stayed flat on every seed but one. CAPABILITY BOUNDARY established by
+# steps 1-3: the model CAN read a structured summary, identify the
+# empirical-best set, and track updated point estimates (greedy
+# exploitation) — it CANNOT reliably assign an uncertainty bonus, sample
+# systematically among under-observed arms, or reconverge cleanly after
+# exploring. E-CoT's extra text sometimes narrates exploration intent but
+# does not execute it consistently, and its numeric errors make it an
+# unreliable exploration mechanism rather than a fix. Step 4 (free
+# exploration, no warm-start) is not expected to do better than this ceiling
+# on either interface — it is run to confirm that, and to characterize
+# regret/novel-vs-non-novel churn for the write-up, not to look for a
+# rescue.
 
 # ── Step 4: K=5 free exploration, E-direct vs E-CoT, PAIRED, α=0 ─────────
 # THE comparison this whole script exists to run. Same seeds, same K, same
