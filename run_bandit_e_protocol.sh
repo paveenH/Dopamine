@@ -48,6 +48,7 @@
 # Usage:
 #   bash run_bandit_e_protocol.sh llama3           # steps 1-4, all seeds
 #   bash run_bandit_e_protocol.sh llama3 K2         # step 1 only
+#   bash run_bandit_e_protocol.sh llama3 K2COT      # step 1b: K2 CoT rescue (after a K2 fail)
 #   bash run_bandit_e_protocol.sh llama3 K3         # step 2 only
 #   bash run_bandit_e_protocol.sh llama3 WARM       # step 3 only
 #   bash run_bandit_e_protocol.sh llama3 MAIN       # step 4 only (E-direct)
@@ -94,9 +95,10 @@ seeds_for_step () {
     return
   fi
   case "$step" in
-    K2) echo "0 4 5 6 7" ;;      # position [1,2,1,2,2], both names present
-    K3) echo "0 2 4 9 21" ;;     # position [3,2,1,2,3], all 3 names present
-    *)  echo "0 3 4 9 37" ;;     # K=5 (WARM/MAIN/MAINCOT) — matches run_bandit_validity.sh
+    K2)    echo "0 4 5 6 7" ;;   # position [1,2,1,2,2], both names present
+    K2COT) echo "0 4 5 6 7" ;;   # same seeds as K2 — paired rescue comparison
+    K3)    echo "0 2 4 9 21" ;;  # position [3,2,1,2,3], all 3 names present
+    *)     echo "0 3 4 9 37" ;;  # K=5 (WARM/MAIN/MAINCOT) — matches run_bandit_validity.sh
   esac
 }
 
@@ -136,6 +138,21 @@ run_step K2 --ans_file "e_K2_direct" \
 
 run_step K3 --ans_file "e_K3_direct" \
           --prompt_variant E-direct --num_arms 3 --max_new_tokens 24
+
+# ── Step 1b: K=2 CoT rescue (only run after a K2 E-direct FAIL) ──────────
+# K2 E-direct result (2026-07-30, seeds 0/4/5/6/7): NOT a position lock — it
+# is a NAME lock. 245/250 choices across all 5 seeds picked "Velvet Vogue
+# Jacket" regardless of its displayed position or true probability (seed 7:
+# Velvet at position 2, still 48/50 picks). OptFrac only looked good on seeds
+# where Velvet happened to be the optimal arm. This fails the K=2 capability
+# floor under E-direct. Per the direct-first/CoT-on-failure design, rescue
+# with E-CoT on the SAME seeds before touching K3: if forcing a brief
+# trial-count/rate comparison breaks the Velvet lock, the floor failure was
+# interface-level (bare Choice: token has no room to reason from evidence);
+# if the lock persists under CoT too, it is label-level and K3/K5 need a
+# neutral-label control before any further step is informative.
+run_step K2COT --ans_file "e_K2_cot" \
+          --prompt_variant E-CoT --num_arms 2 --max_new_tokens 64
 
 # ── Step 3: K=5 warm-start, E-direct only, α=0 ────────────────────────────
 # --warm_start_pulls 2: 10 of 50 rounds are the environment's forced pulls
