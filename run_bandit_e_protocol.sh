@@ -14,45 +14,54 @@
 #
 # ORDER (do not reorder — each step's interpretation depends on the previous
 # one having been read first):
-#   1. E-direct, K=2, α=0            — capability floor
-#   2. E-direct, K=3, α=0            — capability floor
-#   3. E-direct, K=5, warm_start=2   — utilization given forced discovery
-#   4. E-direct vs E-CoT, K=5, free exploration, α=0  — the real comparison
-#   5. (as needed) E-CoT on whichever of 1-3 failed under E-direct
-#   6. only after 4/5 → pick an interface and move to an α sweep (separate script)
+#   1.  E-direct, K=2, α=0                  — capability floor
+#   1b. E-CoT,    K=2, α=0                  — mechanism-break rescue (K2 direct failed)
+#   2.  E-direct, K=3, α=0                  — mechanism replication across K/labels/positions
+#   2b. E-CoT,    K=3, α=0                  — paired: does reasoning break the confirmation loop
+#   3.  E-direct + E-CoT, K=5, warm_start=2 — utilization given forced, rate-legible discovery
+#   4.  E-direct vs E-CoT, K=5, free exploration, α=0  — the real comparison
+#   5.  only after 3/4 → pick an interface and move to an α sweep (separate script)
 #
-# WHY direct-first, CoT-only-on-failure for steps 1-3 (not paired from the
-# start): those three steps ask "can the model do SOMETHING at this
-# difficulty/condition", not "does CoT help" — that second question only has a
-# clean answer at K=5 free exploration (step 4), where E-direct vs E-CoT is run
-# PAIRED on the same seeds by design. Running E-CoT on a K=2 step that already
-# passes under E-direct would spend generation budget without adding
-# information: if direct already works, no comparison is needed to know CoT
-# isn't required THERE. (K=2/K=3 do not distinguish "task-level capability
-# floor" from "interface-level floor" on their own — see the step 1/2 note
-# below on what a pass/fail there does and does not establish.)
+# 2026-07-30 UPDATE: K2 E-direct failed the capability floor — not via a
+# pass/fail gate, but diagnostically: it is an early-outcome-dependent greedy
+# confirmation loop (display position 1 wins the initial tie-break under
+# total uncertainty; whichever arm gets the FIRST reward=1 becomes a
+# self-reinforcing incumbent). K2COT (mt128, clean) showed CoT does NOT
+# reliably break this — Velvet occupancy was actually HIGHER in the clean
+# CoT data (83.2%) than in the earlier fallback-contaminated run. K3 E-direct
+# replicated the SAME mechanism with the label/position tying broken (5/5
+# seeds' first choice = position 1; 5/5 seeds' locked arm = whichever got the
+# first reward=1, not a fixed name) — this is stronger evidence than K2 alone
+# because it rules out a pure "Velvet" label prior as the root cause. Given
+# this, steps 3/4 no longer treat CoT-on-failure as optional per K: K3COT
+# (paired, step 2b) and WARMCOT (step 3) were added so every remaining step
+# gets a direct/CoT contrast, since CoT's effect is not yet established
+# either way at K=3 or under forced-discovery conditions.
 #
 # WHAT WARM-START (step 3) DOES AND DOES NOT SHOW. warm_start_pulls=2 forces
 # 2 pulls per arm (10 of 50 rounds) before the model chooses anything — this
-# makes discovery/coverage trivially near-ceiling BY CONSTRUCTION, so those
-# metrics are NOT informative here. The one thing it measures is UTILIZATION:
-# given a fully-populated TRIED table with no UNTRIED rows to weigh, does the
-# model track and use the best-supported arm? Read empirical_best_adherence,
-# late_opt_frac, and n_model_rounds-relative regret — never coverage. A pass
-# here does NOT establish autonomous exploration; a fail here means the model
-# cannot even exploit clean information, which would make step 4's free-
-# exploration result uninterpretable (can't ask "does it explore" if it can't
-# "use what it has" in the first place) — so step 3 gates step 4, not the
-# reverse.
+# makes discovery/coverage trivially near-ceiling BY CONSTRUCTION AND
+# equalizes trial counts across arms, which is what makes it the direct test
+# of the confirmation-loop mechanism: with no trial-count imbalance to lean
+# on, does the model track and use reward RATE? Read whether round 1 matches
+# the warm-start empirical best, early/late empirical-best adherence, and
+# late_opt_frac — never coverage (ceiling by construction), and treat OptFrac
+# alone as secondary (2 pulls/arm is still noisy re: which arm is truly
+# best). A pass here does NOT establish autonomous exploration; a fail means
+# the model cannot even exploit clean, rate-legible information, which would
+# make step 4's free-exploration result uninterpretable — so step 3 gates
+# step 4, not the reverse.
 #
 # Usage:
-#   bash run_bandit_e_protocol.sh llama3           # steps 1-4, all seeds
-#   bash run_bandit_e_protocol.sh llama3 K2         # step 1 only
-#   bash run_bandit_e_protocol.sh llama3 K2COT      # step 1b: K2 CoT rescue (after a K2 fail)
-#   bash run_bandit_e_protocol.sh llama3 K3         # step 2 only
-#   bash run_bandit_e_protocol.sh llama3 WARM       # step 3 only
-#   bash run_bandit_e_protocol.sh llama3 MAIN       # step 4 only (E-direct)
-#   bash run_bandit_e_protocol.sh llama3 MAINCOT    # step 4 only (E-CoT)
+#   bash run_bandit_e_protocol.sh llama3           # all steps, all seeds
+#   bash run_bandit_e_protocol.sh llama3 K2         # step 1    (E-direct, K=2)
+#   bash run_bandit_e_protocol.sh llama3 K2COT      # step 1b   (E-CoT,    K=2)
+#   bash run_bandit_e_protocol.sh llama3 K3         # step 2    (E-direct, K=3)
+#   bash run_bandit_e_protocol.sh llama3 K3COT      # step 2b   (E-CoT,    K=3)
+#   bash run_bandit_e_protocol.sh llama3 WARM       # step 3    (E-direct, K=5 warm-start)
+#   bash run_bandit_e_protocol.sh llama3 WARMCOT    # step 3    (E-CoT,    K=5 warm-start)
+#   bash run_bandit_e_protocol.sh llama3 MAIN       # step 4    (E-direct, K=5 free)
+#   bash run_bandit_e_protocol.sh llama3 MAINCOT    # step 4    (E-CoT,    K=5 free)
 #   SEEDS=20 bash run_bandit_e_protocol.sh llama3 MAIN
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -98,7 +107,8 @@ seeds_for_step () {
     K2)    echo "0 4 5 6 7" ;;   # position [1,2,1,2,2], both names present
     K2COT) echo "0 4 5 6 7" ;;   # same seeds as K2 — paired rescue comparison
     K3)    echo "0 2 4 9 21" ;;  # position [3,2,1,2,3], all 3 names present
-    *)     echo "0 3 4 9 37" ;;  # K=5 (WARM/MAIN/MAINCOT) — matches run_bandit_validity.sh
+    K3COT) echo "0 2 4 9 21" ;;  # same seeds as K3 — paired mechanism-break comparison
+    *)     echo "0 3 4 9 37" ;;  # K=5 (WARM/WARMCOT/MAIN/MAINCOT) — matches run_bandit_validity.sh
   esac
 }
 
@@ -172,13 +182,45 @@ run_step K3 --ans_file "e_K3_direct" \
 run_step K2COT --ans_file "e_K2_cot_mt128" \
           --prompt_variant E-CoT --num_arms 2 --max_new_tokens 128
 
-# ── Step 3: K=5 warm-start, E-direct only, α=0 ────────────────────────────
+# ── Step 2b: K=3 CoT paired contrast, same seeds as K3 direct ────────────
+# K3 E-direct result (2026-07-30, seeds 0/2/4/9/21): the mechanism is NOT a
+# fixed-label lock (5/5 seeds' locked-on arm varies: Urban/Silk/Urban/Velvet/
+# Velvet) — it is an early-outcome-dependent greedy confirmation loop.
+# 5/5 seeds' FIRST choice was display position 1 (position controls the
+# initial tie-break under total uncertainty); the arm that received the
+# first reward=1 became the incumbent and was re-picked overwhelmingly
+# afterward (seed 0: 3 rounds of reward=0 on 3 different arms before Urban's
+# round-4 reward=1 locked it in; seed 21 locked onto position-1 Velvet after
+# its round-1 reward=1 despite 15 further reward=0s, only self-correcting to
+# the true-best arm around round 17). Position initializes, first success
+# consolidates — neither name nor position alone explains the final lock.
+# This step asks whether explicit reasoning (comparing trial counts AND
+# rates, not just re-picking the last winner) breaks that consolidation step.
+# 128 tokens from the start (K2's mt64 truncation lesson) — E-CoT's rationale
+# is the same length regardless of K, only the TRIED/UNTRIED table grows.
+run_step K3COT --ans_file "e_K3_cot" \
+          --prompt_variant E-CoT --num_arms 3 --max_new_tokens 128
+
+# ── Step 3: K=5 warm-start, E-direct AND E-CoT, α=0 ───────────────────────
 # --warm_start_pulls 2: 10 of 50 rounds are the environment's forced pulls
-# (2 per arm), the model gets the remaining 40. See the header note on what
-# this does and does not show. GATES step 4 (see header).
+# (2 per arm), the model gets the remaining 40. This equalizes trial counts
+# across arms BY CONSTRUCTION, which is the direct test of the K2/K3
+# confirmation-loop mechanism: with no UNTRIED rows and no trial-count
+# imbalance to lean on, does the model track and use reward RATE? Read
+# whether round 1's choice matches the warm-start empirical best (not
+# necessarily the true best — only 2 pulls/arm is still noisy), plus
+# early/late empirical-best adherence and late_opt_frac — NOT coverage
+# (trivially near-ceiling by construction) and NOT OptFrac alone (noisy at
+# n=2/arm). Both interfaces run here (not E-direct only, per the K2/K3
+# finding that E-direct's bare Choice: token gave no room to weigh evidence
+# — the same may be true here even with rate-legible state). GATES step 4.
 run_step WARM --ans_file "e_K5_warmstart2_direct" \
           --prompt_variant E-direct --num_arms 5 --warm_start_pulls 2 \
           --max_new_tokens 24
+
+run_step WARMCOT --ans_file "e_K5_warmstart2_cot" \
+          --prompt_variant E-CoT --num_arms 5 --warm_start_pulls 2 \
+          --max_new_tokens 128
 
 # ── Step 4: K=5 free exploration, E-direct vs E-CoT, PAIRED, α=0 ─────────
 # THE comparison this whole script exists to run. Same seeds, same K, same
@@ -192,10 +234,14 @@ run_step WARM --ans_file "e_K5_warmstart2_direct" \
 run_step MAIN --ans_file "e_K5_direct" \
           --prompt_variant E-direct --num_arms 5 --max_new_tokens 24
 
-# E-CoT needs more budget: it must fit "briefly compare... two short
-# sentences" AND a final Choice line, unlike E-direct's bare name.
-run_step MAINCOT --ans_file "e_K5_cot" \
-          --prompt_variant E-CoT --num_arms 5 --max_new_tokens 64
+# 64 -> 128 (2026-07-30): same token-truncation lesson as K2COT — K5's
+# TRIED/UNTRIED table is longer than K2's, so 64 tokens is even tighter here.
+# New --ans_file (not overwriting e_K5_cot) for the same reason as K2COT: the
+# resume key's mt128 tag forces a fresh run, but the output filename doesn't
+# encode token budget, so reusing the old dir would silently overwrite the
+# mt64 raws in place.
+run_step MAINCOT --ans_file "e_K5_cot_mt128" \
+          --prompt_variant E-CoT --num_arms 5 --max_new_tokens 128
 
 echo ""
 echo "Done. Analyse with the mechanism metrics (coverage/adherence/late_opt_frac"
