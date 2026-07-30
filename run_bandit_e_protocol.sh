@@ -218,9 +218,34 @@ run_step WARM --ans_file "e_K5_warmstart2_direct" \
           --prompt_variant E-direct --num_arms 5 --warm_start_pulls 2 \
           --max_new_tokens 24
 
+# WARM (E-direct) result (2026-07-30, seeds 0/3/4/9/37): PASSED conditional
+# utilization. 5/5 seeds' round-1 model choice fell in the warm-start
+# empirical-best SET (seed 9's Velvet was tied at 0.5 with two other arms —
+# not a miss). Overall empirical_best_adherence=0.925: the model reads and
+# tracks UPDATED point estimates as new rounds come in (seed 0 switches
+# Urban<->Silk as their rates change, converging on true-best Urban; seed 4
+# leaves Retro once its rate drops below competitors' frozen 0.5). The
+# remaining gap is NOT integration failure — it is pure point-estimate
+# greedy exploitation with no uncertainty bonus: seed 9 stays on Velvet
+# (frozen empirical rate ~0.585, genuinely the highest KNOWN rate throughout)
+# and never re-samples Retro (n=2, high variance, true rate 0.7) because
+# nothing in a point-estimate policy gives it a reason to. seed 3/37 are not
+# failures either — both started on the true-best arm and stayed correctly.
+# So WARM-direct's ceiling = exploitation is solid, autonomous
+# uncertainty-driven exploration is the open gap. WARMCOT tests whether
+# explicit reasoning adds that missing ingredient — read specifically:
+# (1) does it PRESERVE the 0.925 first-choice/adherence accuracy (a CoT that
+# only adds churn without keeping this would be worse, not better); (2) does
+# it voluntarily re-sample low-n/high-uncertainty arms (e.g. does seed 9 ever
+# revisit Retro); (3) does late_opt_frac/true-best discovery improve over
+# direct's seed-9/seed-4 shortfalls; (4) is any added switching TARGETED
+# (uncertainty-driven) rather than non-novel oscillation. 160 tokens (up from
+# 128) — the 5-arm TRIED table is longer than K3's 3-arm table, so the
+# rationale needs more room to fit a comparison across all 5 without
+# truncating before the final Choice line (see K2COT's mt64 lesson).
 run_step WARMCOT --ans_file "e_K5_warmstart2_cot" \
           --prompt_variant E-CoT --num_arms 5 --warm_start_pulls 2 \
-          --max_new_tokens 128
+          --max_new_tokens 160
 
 # ── Step 4: K=5 free exploration, E-direct vs E-CoT, PAIRED, α=0 ─────────
 # THE comparison this whole script exists to run. Same seeds, same K, same
