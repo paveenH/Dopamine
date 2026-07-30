@@ -61,7 +61,8 @@
 #   bash run_bandit_e_protocol.sh llama3 WARM       # step 3    (E-direct, K=5 warm-start)
 #   bash run_bandit_e_protocol.sh llama3 WARMCOT    # step 3    (E-CoT,    K=5 warm-start)
 #   bash run_bandit_e_protocol.sh llama3 MAIN       # step 4    (E-direct, K=5 free)
-#   bash run_bandit_e_protocol.sh llama3 MAINCOT    # step 4    (E-CoT,    K=5 free)
+#   bash run_bandit_e_protocol.sh llama3 MAINCOT    # step 4    (E-CoT,    K=5 free, mt128)
+#   bash run_bandit_e_protocol.sh llama3 MAINCOT192 # step 4    (E-CoT,    K=5 free, mt192 — clean invalid rerun)
 #   SEEDS=20 bash run_bandit_e_protocol.sh llama3 MAIN
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -297,6 +298,27 @@ run_step MAIN --ans_file "e_K5_direct" \
 # mt64 raws in place.
 run_step MAINCOT --ans_file "e_K5_cot_mt128" \
           --prompt_variant E-CoT --num_arms 5 --max_new_tokens 128
+
+# MAINCOT (mt128) result (2026-07-30, same seeds): invalid was low in
+# aggregate (5/250 = 2%) but NOT evenly distributed — seed3 round4, seed9
+# rounds 4/17/49, seed37 round33. Round 4 falls inside the incumbent-
+# establishment window every seed shows (compare seed4's clean 0-invalid
+# trace: all 5 arms sampled exactly once in rounds 0-4, incumbent forms
+# after). A fallback pull there injects a random arm + reward into that
+# window, which can redirect which arm becomes incumbent for the rest of the
+# episode — so seed3's and seed9's apparent CoT-induced destabilization
+# (late_opt_frac 1.000->0.700 and 0.967->0.867) is CONFOUNDED by this, not
+# cleanly attributable to CoT's exploration behavior itself. Only seed4 (0
+# invalid throughout) is a clean CoT observation: it systematically sampled
+# all 5 arms once each in rounds 0-4, then converged on the true-best
+# Celestial (32/50, late_opt 0.000->0.767) — proof CoT CAN break first-
+# success lock-in, at least sometimes. mt192 reruns at a wider budget to
+# push invalid toward 0 so seed3/seed9's trajectories can be read cleanly
+# before any final verdict on CoT's net effect. New --ans_file per the usual
+# rule (mt128's resume key won't collide, but the output filename doesn't
+# encode token budget either).
+run_step MAINCOT192 --ans_file "e_K5_cot_mt192" \
+          --prompt_variant E-CoT --num_arms 5 --max_new_tokens 192
 
 echo ""
 echo "Done. Analyse with the mechanism metrics (coverage/adherence/late_opt_frac"
