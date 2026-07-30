@@ -181,6 +181,51 @@ def summarize_history(arm_names: list[str],
     return snippet
 
 
+def summarize_tried_untried(arm_names: list[str],
+                            history: list[tuple[str, int]]) -> tuple[str, str]:
+    """pv5 (E-direct/E-CoT) state rendering: two SEPARATE blocks instead of one
+    table with an UNTRIED row mixed in among tried rows.
+
+    Returns (tried_block, untried_block). Either string is "" if that category
+    is empty — the caller decides whether to print the block/header at all
+    (round 1 has no tried block; a run that has covered every arm has no
+    untried block).
+
+    WHY a structural split rather than a wording fix: D2 already stated
+    "UNTRIED != 0" in a full sentence and STILL collapsed to greedy (D2 α=0:
+    18/20 seeds picked the empirical-best arm every single valid round after
+    the first few). The suspected mechanism is that a single merged table —
+    even with correct UNTRIED semantics — visually reads as "options with
+    numbers" vs "one different-looking row", so the untried option loses
+    salience as soon as ANY arm has a decent observed rate. Separating them
+    into two headed blocks makes "you have not looked at these yet" a
+    structural fact of the prompt, not a sentence the model has to hold onto
+    across the table.
+
+    Tried arms render "k rewards / n trials, rate r" — D2's ordering (count
+    before rate) is kept, since nothing in the D2 diagnosis implicated it.
+    Untried arms are listed by NAME ONLY, no placeholder numbers at all.
+    """
+    n_actions = {name: 0 for name in arm_names}
+    action_rewards = {name: 0.0 for name in arm_names}
+    for name, reward in history:
+        n_actions[name] += 1
+        action_rewards[name] += reward
+    tried_lines, untried_lines = [], []
+    for name in arm_names:
+        n = n_actions[name]
+        if n == 0:
+            untried_lines.append(f"- {name}")
+            continue
+        k = int(round(action_rewards[name]))
+        rate = action_rewards[name] / n
+        tried_lines.append(
+            f"- {name} — {n} trial{'' if n == 1 else 's'}, "
+            f"{k} reward{'' if k == 1 else 's'}, rate {rate:.2f}"
+        )
+    return "\n".join(tried_lines), "\n".join(untried_lines)
+
+
 # Version of the PROMPT TEXT + PARSER contract, not of the flags.
 #
 # The resume key is built from the interface FLAGS, so it cannot see a change
@@ -222,14 +267,58 @@ def summarize_history(arm_names: list[str],
 #         exactly the behaviour α is hypothesised to move. If D3 succeeds where
 #         D2 fails, the deficit is strategic planning, not task comprehension —
 #         but an α sweep must then run on D2, not D3 (cf. IGT v4).
+#
+#   pv5 — 2026-07-30, --prompt_variant E-direct / E-CoT. FROZEN as of the
+#         BanditExperiment_LiteratureReview.md redesign; both variants share
+#         one version tag because they differ only in output-shape wording
+#         (see build_prompt), not in the information given to the model, and
+#         both are new — neither has stored rows to protect.
+#
+#         D→D2 conflated two changes at once (sampling-uncertainty prose AND
+#         the tried/untried table layout), so when D2 collapsed to pure greedy
+#         (adherence 1.000, 18/20 α=−4 runs byte-identical to α=0) it was not
+#         possible to tell which change caused it. pv5 isolates the layout
+#         change and DROPS the long epistemics paragraph D2 added:
+#           - explicit TRIED / UNTRIED blocks (untried arms listed by name
+#             only, never merged into the same table row as tried ones);
+#           - tried arms rendered "k rewards / n trials, rate r" (D2's
+#             ordering, kept — it is not implicated in the collapse);
+#           - the arm menu is NOT repeated a second time before the commit
+#             line (D2's line reused it twice for no informational gain);
+#           - D's original exploration–exploitation affordance sentence is
+#             RESTORED verbatim ("weigh the value of learning about an
+#             UNTRIED option against using the best-supported TRIED option") —
+#             D2 replaced it with pure epistemics and never re-stated that
+#             exploring is a live option, which is the leading suspect for the
+#             collapse;
+#           - no "no number" instruction: the round-prefix continuation bug
+#             (90/99 of D's α=−4 invalids) is instead handled by a tolerant
+#             parser (`_strip_round_prefix`, applied before both pv5 parsers)
+#             rather than by an instruction that adds another sentence to an
+#             already-oversaturated commit line.
+#
+#         Two output interfaces share this prompt body, differing only after
+#         "Observed evidence":
+#           E-direct — `Choice: ` prefilled, parsed by parse_choice_exact
+#                      (unchanged whole-reply strictness).
+#           E-CoT    — NOT prefilled; the model reasons first, then commits on
+#                      a final `Choice:` line, parsed by
+#                      parse_choice_rationale_final (see that function's
+#                      docstring for why parse_choice_exact cannot be reused).
+#         Steering token differs by interface — E-direct injects on the
+#         trailing space of the prefilled anchor, E-CoT injects on the LAST
+#         PROMPT TOKEN before free generation starts (there is no prefill to
+#         anchor to). The two are not the same intervention; α comparisons
+#         must stay WITHIN an interface, never pooled across E-direct/E-CoT.
 PROTOCOL_VERSION_LEGACY = "pv1"
 PROTOCOL_VERSION_UNTRIED = "pv2"
 
 # User-facing experiment condition → internal protocol version. The two are
-# deliberately separate names: D2/D3 identify the experimental condition in the
-# launcher and the writeup, pvN exists only so the resume key changes when the
-# prompt text does. Callers pass --prompt_variant, never a pv tag.
-PROMPT_VARIANT_VERSION = {"D2": "pv3", "D3": "pv4"}
+# deliberately separate names: D2/D3/E-* identify the experimental condition
+# in the launcher and the writeup, pvN exists only so the resume key changes
+# when the prompt text does. Callers pass --prompt_variant, never a pv tag.
+PROMPT_VARIANT_VERSION = {"D2": "pv3", "D3": "pv4",
+                          "E-direct": "pv5", "E-CoT": "pv5"}
 
 
 def build_prompt(
@@ -304,6 +393,68 @@ def build_prompt(
     a D2 failure is planning rather than comprehension; never sweep α on it.
     """
     names_str = "[" + ", ".join(arm_names) + "]"
+    if prompt_variant in ("E-direct", "E-CoT"):
+        remaining = num_rounds - round_idx
+        tried_block, untried_block = summarize_tried_untried(arm_names, history)
+        lines = [
+            f"You are playing a {num_rounds}-round stochastic decision task "
+            f"with {K} options: {names_str}.",
+            "",
+            f"Round {round_idx + 1} of {num_rounds}. There are {remaining} "
+            f"choices remaining, including this choice.",
+            "",
+            "Each option has a fixed but unknown probability of giving reward "
+            "1. Rewards are stochastic, so observed rates are estimates "
+            "rather than guarantees.",
+            "Option names and positions contain no reward information.",
+            "",
+        ]
+        if tried_block:
+            lines += ["TRIED OPTIONS:", tried_block, ""]
+        if untried_block:
+            lines += ["UNTRIED OPTIONS:", untried_block, ""]
+        else:
+            # Every arm has been tried at least once — say so rather than
+            # printing an empty header, which would read as a formatting slot
+            # left blank instead of a fact about the state.
+            lines += ["All options have been tried at least once.", ""]
+        if untried_block:
+            lines += [
+                # RESTORED from D verbatim (D2 dropped this sentence when it
+                # added the epistemics paragraph, and D2's collapse is the
+                # leading suspect for why). This is the one sentence in the
+                # whole prompt that states exploring is a live alternative to
+                # exploiting. Only printed when an UNTRIED option actually
+                # exists — once every arm has been tried, telling the model to
+                # weigh "learning about an UNTRIED option" against a nonexistent
+                # option is a stale instruction, not a fact about the state.
+                "When choosing, weigh the value of learning about an UNTRIED "
+                "option against using the best-supported TRIED option.",
+                "",
+            ]
+        if prompt_variant == "E-direct":
+            lines.append(
+                f"Choose the option expected to maximize total reward across "
+                f"the current and remaining rounds. After \"Choice:\", write "
+                f"only its exact name from the list above."
+            )
+            # `Choice: ` is prefilled by the caller (mirrors D/D2's
+            # answer_anchor path) — no worked example, no "no number": the
+            # round-prefix continuation failure is handled by
+            # `_strip_round_prefix` in the parser instead of a prompt
+            # instruction, so this line stays purely about the decision.
+        else:  # E-CoT
+            lines += [
+                "Briefly compare the amount of evidence, observed rewards, "
+                "and remaining rounds. Use at most two short sentences.",
+                "End with exactly one final line:",
+                "Choice: <exact option name>",
+            ]
+            # Deliberately NOT prefilled with "Choice: " — the model must be
+            # free to write rationale BEFORE committing. Prefilling here would
+            # reproduce E-direct's anchor and give the model nowhere to put
+            # the requested comparison.
+        return "\n".join(lines)
     if prompt_variant in ("D2", "D3"):
         remaining = num_rounds - round_idx
         lines = [
@@ -485,6 +636,35 @@ def build_prompt(
     return "\n".join(lines)
 
 
+#  requires an explicit separator char [.():,-] before any following text —
+#  bare whitespace after the digit does NOT count as a separator, so
+#  "1 option with..." is content (digit directly modifies a word) and is left
+#  alone, while "1. Option" / "1: Option" / "1 - Option" are enumeration.
+ROUND_PREFIX_RE = re.compile(r"^\s*\d+\s*[.\-):,]\s*")
+
+
+def _strip_round_prefix(line: str) -> str:
+    """Strip a leading enumeration digit ("12. ", "20 - ") from one line, IF
+    what remains is non-empty. Targets the D failure where the `Choice: `
+    prefill got continued as "choice N of 50" list enumeration (90 of 99
+    α=−4 invalid replies at α=−4 began with a digit equal to the current
+    round number, e.g. "12: Retro Revival Sneakers" at round 12).
+
+    pv5 fixes the trigger in the prompt (no "This is choice N of 50" phrasing
+    to continue) but this is kept as a tolerant SECOND line of defense in the
+    parser rather than relying on the prompt fix alone — the prompt fix could
+    fail on some α/seed the same way "Round N of 50" alone did not fully
+    eliminate leading digits in the D/D2 data (residual ~1% at α=+4 in D2).
+    Only strips a digit followed by an explicit separator punctuation mark
+    (`.`, `-`, `)`, `:`, `,`); "1 option with the lowest count" has no such
+    separator and is left untouched, since a bare space after the digit reads
+    as content ("1 option...") rather than enumeration ("1. Option...").
+    Operates on a SINGLE LINE — callers must split multi-line text first.
+    """
+    stripped = ROUND_PREFIX_RE.sub("", line, count=1)
+    return stripped if stripped.strip() else line
+
+
 def parse_choice(output: str, arm_names: list[str],
                  rng: random.Random = None) -> tuple[str, bool, int]:
     """Parse the model's arm choice. Returns (chosen_name, is_valid, n_matched).
@@ -520,8 +700,16 @@ CHOICE_LINE_RE = re.compile(r"^\s*choice\s*[:：]\s*(.+?)\s*$", re.I | re.M)
 
 
 def parse_choice_exact(output: str, arm_names: list[str],
-                       rng: random.Random = None) -> tuple[str, bool, int]:
+                       rng: random.Random = None,
+                       strip_round_prefix: bool = False) -> tuple[str, bool, int]:
     """STRICT `Choice: <arm name>` parser (opt-in via --answer_anchor).
+
+    `strip_round_prefix=False` by default so D/D2 stay byte-identical to
+    every existing stored result. pv5 (E-direct) passes True: it drops D2's
+    "no number" instruction from the prompt in favor of tolerating the
+    continuation here (see `_strip_round_prefix`'s docstring) — only relevant
+    on the no-Choice-line-found branch, since that is the only payload that
+    can start with a bare digit under the `Choice: ` prefill.
 
     Valid ONLY if the committed line's payload, after stripping surrounding
     whitespace and punctuation, is EXACTLY one arm name (case-insensitive).
@@ -576,7 +764,7 @@ def parse_choice_exact(output: str, arm_names: list[str],
         # no further text after it.
         if not lines:
             return (rng or random).choice(arm_names), False, 0
-        payload = lines[0]
+        payload = _strip_round_prefix(lines[0]) if strip_round_prefix else lines[0]
         extra = lines[1:]
     if extra:
         # Committed line may be fine, but the reply carries extra text.
@@ -676,24 +864,45 @@ def audit_rationale(rationale: str, arm_names: list[str], tried: set[str]) -> di
     `chosen`'s untried/empirical-best/known-worse category is NOT computed
     here — the caller already has the running per-arm means from building the
     summary and should classify it there (this function only reads text).
+    Also records whether a rationale was produced at all: a reply that goes
+    straight to `Choice: <name>` with no preceding line is parseable and can
+    be valid, but it means the model did NOT execute the CoT protocol it was
+    asked to (no comparison was written down, whatever happened internally).
+    That is itself a finding about the E-CoT interface, not something to
+    silently fold into "valid" — Step 2 should report rationale_present rate
+    per α before trusting any rationale-content statistic.
     """
+    rationale_present = bool(rationale.strip())
     rl = rationale.lower()
     untried = [a for a in arm_names if a not in tried]
     mentions_untried_arm = any(a.lower() in rl for a in untried)
     mentions_untried_word = "untried" in rl
+    mentions_uncertainty = bool(re.search(
+        r"uncertain|unsure|unknown|estimate|"
+        r"not\s+\w*\s*(certain|sure|confident)|"       # "not certain" / "not fully confident"
+        r"few trials|small sample|limited (data|evidence|trials)|"
+        r"not enough (data|evidence|trials)", rl))
     mentions_trials = bool(re.search(r"\btrial", rl)) or bool(re.search(r"\d+\s*/\s*\d+", rl))
     mentions_remaining = bool(re.search(r"remaining|rounds left|rounds remain", rl))
     declares_best_early = bool(re.search(r"\bbest\b|\bcurrent best\b|\bhighest\b", rl))
-    # The D2 failure signature: declares a winner but never engages the thing
-    # that would make declaring one premature (an untried arm still exists and
-    # the rationale never says so).
+    # The D2 failure signature: declares a winner but never engages ANY of the
+    # things that would make declaring one premature — an untried arm still
+    # exists and the rationale names neither it, the word "untried", nor
+    # uncertainty/remaining-rounds in general. Requiring all four absences
+    # (not just the untried-arm check) makes this the conservative reading:
+    # a rationale that says "I'm not sure yet, but X looks best" is NOT
+    # flagged, because it did engage uncertainty even without naming an arm.
     greedy_narration = bool(
         untried and declares_best_early
         and not mentions_untried_arm and not mentions_untried_word
+        and not mentions_uncertainty and not mentions_remaining
     )
     return {
+        "rationale_present":      rationale_present,
+        "rationale_len":          len(rationale.strip()),
         "mentions_untried_arm":   mentions_untried_arm,
         "mentions_untried_word":  mentions_untried_word,
+        "mentions_uncertainty":   mentions_uncertainty,
         "mentions_trial_counts":  mentions_trials,
         "mentions_remaining":     mentions_remaining,
         "declares_best_early":    declares_best_early,
@@ -738,6 +947,11 @@ def run_episode(
     valid_flags = []   # per-round: was the reply a parseable single choice?
     n_matched = []     # per-round: how many distinct arm names appeared
     raws = []          # per-round: full generation (diagnostics)
+    # E-CoT only (stay empty [] for every other prompt_variant, so callers can
+    # tell "not this interface" from "this interface produced nothing").
+    rationales = []          # per-round: text before the committed Choice line
+    menu_restatements = []   # per-round: rationale named ALL K arms
+    rationale_audits = []    # per-round: audit_rationale(...) dict
     # Verbatim copies of the string actually handed to the model, AFTER the chat
     # wrapper and the `Choice: ` prefill. Round 0 (no history) and a mid-run
     # round (history present) are kept, because those are the two shapes that
@@ -761,7 +975,14 @@ def run_episode(
             prompt = vc.tokenizer.apply_chat_template(
                 msgs, tokenize=False, add_generation_prompt=True
             )
-        if answer_anchor:
+        # E-CoT is the one condition that must NOT get the `Choice: ` prefill:
+        # the whole point of the interface is that the model writes rationale
+        # BEFORE committing, and prefilling the anchor would pre-empt that
+        # exactly like E-direct's anchor does on purpose. answer_anchor is
+        # still True for E-CoT (it selects parse_choice_rationale_final below
+        # via prompt_variant, not via answer_anchor), so this check must come
+        # first.
+        if answer_anchor and prompt_variant != "E-CoT":
             # Prefill the anchor so the next token IS the arm name — same
             # 施力点 logic as betting's "Bet: " and CGT's "Answer: ". Without
             # this the anchor is only an instruction and the model can preface
@@ -805,8 +1026,17 @@ def run_episode(
             temperature=1.0,
         )
         raw = output[0] if isinstance(output, list) else output
-        parser_fn = parse_choice_exact if answer_anchor else parse_choice
-        arm, valid, nmatch = parser_fn(raw, arm_names, rng=fallback_rng)
+        if prompt_variant == "E-CoT":
+            arm, valid, nmatch, rationale, menu = parse_choice_rationale_final(
+                raw, arm_names, rng=fallback_rng)
+        elif prompt_variant == "E-direct":
+            arm, valid, nmatch = parse_choice_exact(
+                raw, arm_names, rng=fallback_rng, strip_round_prefix=True)
+            rationale, menu = "", False
+        else:
+            parser_fn = parse_choice_exact if answer_anchor else parse_choice
+            arm, valid, nmatch = parser_fn(raw, arm_names, rng=fallback_rng)
+            rationale, menu = "", False
 
         reward = get_feedback(arm, arm_map, rng)
         choices.append(arm)
@@ -815,6 +1045,15 @@ def run_episode(
         valid_flags.append(bool(valid))
         n_matched.append(nmatch)
         raws.append(raw)
+        if prompt_variant == "E-CoT":
+            # Audit uses the state BEFORE this round's choice — "tried" means
+            # arms already tried entering this round, matching what the model
+            # actually saw in the TRIED/UNTRIED blocks it read.
+            tried_before = {name for name, _ in history}
+            audit = audit_rationale(rationale, arm_names, tried_before)
+            rationales.append(rationale)
+            menu_restatements.append(bool(menu))
+            rationale_audits.append(audit)
         history.append((arm, reward))
 
     early_end = min(20, num_rounds)
@@ -984,6 +1223,13 @@ def run_episode(
         "valid_flags":    valid_flags,
         "n_matched":      n_matched,
         "raws":           raws,
+        # E-CoT only — [] for every other prompt_variant (see the accumulator
+        # comment above). rationale_audits holds the audit_rationale() dict
+        # per round; kept per-round rather than pre-aggregated so an analysis
+        # can slice by round/α/seed without re-parsing raws.
+        "rationales":         rationales,
+        "menu_restatements":  menu_restatements,
+        "rationale_audits":   rationale_audits,
         "invalid_rate":    float(invalid_rate),
         "zero_match_rate": float(n_zero_match / num_rounds),
         "multi_match_rate": float(n_multi_match / num_rounds),
@@ -1392,7 +1638,8 @@ if __name__ == "__main__":
                              "no explore/exploit round split — so exploration "
                              "remains the model's own decision. Implies pv2 in "
                              "the resume key.")
-    parser.add_argument("--prompt_variant", choices=["D2", "D3"], default=None,
+    parser.add_argument("--prompt_variant",
+                        choices=["D2", "D3", "E-direct", "E-CoT"], default=None,
                         help="Experiment condition (supersedes "
                              "--untried_semantics when set). D2 = pv2 + "
                              "sampling-uncertainty FACTS: rewards are random "
@@ -1403,7 +1650,18 @@ if __name__ == "__main__":
                              "early / exploit-late STRATEGY sentences — a "
                              "diagnostic control ONLY, because it supplies the "
                              "explore→exploit timing that α is meant to move; "
-                             "sweep α on D2, never on D3.")
+                             "sweep α on D2, never on D3. "
+                             "E-direct/E-CoT = pv5, the post-D2 redesign: "
+                             "structural TRIED/UNTRIED blocks instead of one "
+                             "merged table, D's exploration-affordance sentence "
+                             "restored, D2's long epistemics paragraph dropped. "
+                             "E-direct keeps the `Choice: ` prefill "
+                             "(parse_choice_exact + round-prefix tolerance); "
+                             "E-CoT is NOT prefilled and requires a brief "
+                             "rationale before a final Choice line, parsed by "
+                             "parse_choice_rationale_final. The two are "
+                             "DIFFERENT interventions (steering token differs) "
+                             "— compare α within one interface, never pooled.")
     parser.add_argument("--use_chat",    action="store_true",
                         help="Wrap the prompt in the chat template. NOTE this "
                              "moves steering off the bare distribution the NMD "
