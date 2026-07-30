@@ -496,6 +496,49 @@ destabilization。
 | warm-start 通过、free exploration 失败 | 保留 conditional utilization 结论；Bandit 不承担完整自主适应证据 |
 | CoT 与 warm-start 都失败 | 停止继续调 prompt，将 Bandit 记录为当前模型/接口的能力边界 |
 
+### Step 7（备选）：LLM estimator + algorithmic controller
+
+如果 Llama3-8B 在 E-direct/E-CoT 下仍无法稳定完成 K=5 的自主
+exploration–exploitation，可以转向
+[Large Language Model-Enhanced Multi-Armed Bandits](https://aclanthology.org/2026.acl-long.368/)
+式 hybrid 架构：
+
+1. LLM 读取相同的 structured history，分别预测每个 arm 的 reward/loss；
+2. Python controller 根据预测决定行动并提供 exploration；
+3. 环境回报进入下一轮 history，继续更新 LLM predictor。
+
+可实现两个版本：
+
+- **TS-LLM-style**：对每个 arm 生成随机 reward prediction，选择预测最大者，并使用
+  预先固定的 temperature schedule；
+- **RO-LLM-style**：LLM 在 temperature=0 下给出确定性 loss prediction，再由
+  SquareCB 类概率规则完成显式探索。
+
+也可以实现更简单的 UCB-inspired 工程对照：
+
+```text
+LLM → predicted mean / uncertainty
+Python → score_i = predicted_mean_i + c × predicted_uncertainty_i
+```
+
+但这个 UCB-inspired 版本不是论文算法的逐字复现，应单独命名。
+
+主要读数应从“模型是否自主选对 arm”改为：
+
+- reward prediction 的 MAE/Brier score 与 calibration；
+- 最优臂排序准确率；
+- predicted uncertainty 是否随 trial count 合理收缩；
+- controller 的 late OptFrac 与 regret；
+- 与纯 TS/UCB、E-direct 和 E-CoT 的差距。
+
+如果继续加入 RSN α，α 只作用于 LLM predictor，controller 公式与超参数必须固定。此时
+可以检验 α 是否改变 reward estimate、uncertainty 或 calibration，但不能声称 α
+改变了模型自主 exploration，因为最终探索与选臂由外部 controller 提供。
+
+这个备选的价值是：即使 Llama3-8B 无法独立维持完整 Bandit policy，仍可判断其内部
+表征是否足以充当在线 reward estimator，并区分“不会估计回报”与“能估计、但不会把
+估计组织成稳定探索策略”。
+
 ## References
 
 1. Ashizawa et al. (2025). [Bandit-Based Prompt Design Strategy Selection Improves Prompt Optimizers](https://aclanthology.org/2025.findings-acl.1070/).
