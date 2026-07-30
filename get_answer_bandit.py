@@ -60,6 +60,16 @@ K = 5
 REWARD_PROBS_ORDERED = [0.7, 0.5, 0.4, 0.3, 0.1]  # assigned to shuffled names
 ACTION_UNIT = "item"
 
+# K<5 probability tables for the capability-ladder step (K=2/K=3 in
+# BanditExperiment_LiteratureReview.md §4.1). K=5 here is REWARD_PROBS_ORDERED
+# itself (not a duplicate) so there is exactly one place either table can be
+# edited from.
+REWARD_PROBS_BY_K = {
+    2: [0.7, 0.3],
+    3: [0.7, 0.45, 0.2],
+    5: REWARD_PROBS_ORDERED,
+}
+
 # Round index (0-based) at or after which a first best-arm pull counts as "too
 # late to pay off" — see `late_best_discovery`. 30 of 50 leaves 20 rounds, the
 # same horizon the fixed post-discovery window uses. Arbitrary but frozen: it
@@ -68,7 +78,7 @@ ACTION_UNIT = "item"
 LATE_DISCOVERY_ROUND = 30
 
 
-def shuffle_arms(seed: int) -> dict[str, float]:
+def shuffle_arms(seed: int, num_arms: int = 5) -> dict[str, float]:
     """Return name→reward_prob mapping in PROMPT ORDER, counterbalancing position.
 
     The caller uses list(arm_map.keys()) as the arm order shown in the prompt, so
@@ -88,22 +98,31 @@ def shuffle_arms(seed: int) -> dict[str, float]:
     The fix keeps the name→probability assignment shuffled AND shuffles the
     display order independently, so the best arm's position is uniform across
     seeds. `position_of_best(seed)` is exposed for the counterbalancing check.
+
+    `num_arms` (2026-07-30, capability-ladder step): default 5 is BYTE-
+    IDENTICAL to every stored C/D/D2/D3 result — `Random.shuffle` consumes RNG
+    state based only on the shuffled list's length, so slicing CLOTHES_NAMES /
+    REWARD_PROBS_BY_K to 5 elements before shuffling reproduces the exact
+    original draw sequence. Do not reorder the two shuffle calls or slice
+    differently; either would break that equivalence silently (no error, just
+    different arm_maps for existing seeds).
     """
     rng = random.Random(seed)
-    names = CLOTHES_NAMES[:K]
+    names = CLOTHES_NAMES[:num_arms]
+    probs = REWARD_PROBS_BY_K[num_arms]
     # 1) which name gets which reward probability
     assign = names[:]
     rng.shuffle(assign)
-    name_to_prob = {name: prob for name, prob in zip(assign, REWARD_PROBS_ORDERED)}
+    name_to_prob = {name: prob for name, prob in zip(assign, probs)}
     # 2) independently, the order the names are DISPLAYED in
     display = names[:]
     rng.shuffle(display)
     return {name: name_to_prob[name] for name in display}
 
 
-def position_of_best(seed: int) -> int:
+def position_of_best(seed: int, num_arms: int = 5) -> int:
     """1-based display position of the best arm for `seed` (counterbalance check)."""
-    am = shuffle_arms(seed)
+    am = shuffle_arms(seed, num_arms=num_arms)
     probs = list(am.values())
     return probs.index(max(probs)) + 1
 
@@ -397,8 +416,10 @@ def build_prompt(
         remaining = num_rounds - round_idx
         tried_block, untried_block = summarize_tried_untried(arm_names, history)
         lines = [
+            # len(arm_names), NOT the global K — this is the branch that must
+            # support K<5 (E-direct/E-CoT are the capability-ladder interface).
             f"You are playing a {num_rounds}-round stochastic decision task "
-            f"with {K} options: {names_str}.",
+            f"with {len(arm_names)} options: {names_str}.",
             "",
             f"Round {round_idx + 1} of {num_rounds}. There are {remaining} "
             f"choices remaining, including this choice.",
@@ -927,7 +948,61 @@ def run_episode(
     untried_semantics: bool = False,
     prompt_variant: str | None = None,
     debug_tokens: bool = False,
+    num_arms: int = 5,
+    warm_start_pulls: int = 0,
 ) -> dict:
+    """
+    num_arms: size of the arm set (default 5 = every stored C/D/D2/D3 result).
+        Forwarded to shuffle_arms; see that function's docstring for the
+        byte-identity guarantee at num_arms=5.
+
+    warm_start_pulls (K=5 utilization-only control, per
+        BanditExperiment_LiteratureReview.md §4.2A): if >0, the environment
+        deterministically pulls each arm exactly `warm_start_pulls` times
+        BEFORE the model makes any choice. `num_rounds` is the TOTAL horizon
+        (unchanged at 50) — the model gets `num_rounds - num_arms*warm_start_
+        pulls` choices, not 50 additional ones. This measures utilization
+        only: it CANNOT be read as evidence about autonomous exploration
+        (discovery/coverage among model choices is trivially near-ceiling
+        because the environment did the discovering), and must never be the
+        interface an α sweep runs on — free exploration (warm_start_pulls=0)
+        is what α is hypothesised to move.
+
+        Mechanics, all load-bearing (get this wrong and adherence/late-window/
+        round-index all silently misalign):
+          - warm-start ORDER is shuffled by an INDEPENDENT, deterministic RNG
+            (seed offset, no torch/model dependency) so all num_arms*
+            warm_start_pulls rounds don't read as "arm A, arm A, arm B, arm
+            B, ..." — a fixed block-repeat pattern the model could key off of
+            in later rounds' history, though it never sees these rounds
+            directly (see below).
+          - warm-start REWARDS are drawn from the SAME `rng = Random(seed)`
+            stream `get_feedback` uses for the model's own rounds, in warm-
+            start order, consuming exactly num_arms*warm_start_pulls draws
+            before the model's first round. This is a real cost: it shifts
+            every later `rng.random()` call by that many draws relative to a
+            warm_start_pulls=0 episode on the same seed, so warm-start and
+            free-exploration results on the same seed are NOT reward-draw-
+            paired beyond the shift — comparable in distribution, not in the
+            exact per-round outcome.
+          - the model's round_idx in build_prompt/torch.manual_seed is the
+            ABSOLUTE environment round (starts at num_arms*warm_start_pulls,
+            not 0) — "Round 11 of 50", not "Round 1 of 50" — so the horizon
+            language stays truthful and the per-round torch seed does not
+            collide with what a warm_start_pulls=0 run used for its own round
+            0-9.
+          - the model's FIRST prompt's TRIED block is seeded from the warm-
+            start history, so adherence's running per-arm means (seen_n/
+            seen_sum in the analysis layer) must be initialized from it too —
+            scoring round 11 as if round 1 (no history) would compare the
+            model's first choice against an empty information state it never
+            had.
+          - outcome metrics are computed on TWO views: `model_choices`/
+            `model_feedbacks` (this function's own choices only, for a fair
+            comparison to warm_start_pulls=0 conditions on model behaviour)
+            and the full history the model actually experienced (warm-start +
+            model). Both are returned; see the trailing dict.
+    """
     rng = random.Random(seed)
     # Separate stream for the invalid-parse fallback. Kept independent of `rng`
     # ON PURPOSE: if both drew from one stream, a condition with more invalid
@@ -935,12 +1010,31 @@ def run_episode(
     # and desynchronise the REWARD sequence, so α conditions would no longer see
     # comparable reward luck. Two streams keep reward draws aligned per round.
     fallback_rng = random.Random(1_000_000 + seed)
-    arm_map = shuffle_arms(seed)
+    arm_map = shuffle_arms(seed, num_arms=num_arms)
     arm_names = list(arm_map.keys())   # shuffled order for this run
     opt = best_arm(arm_map)
     worst = worst_arm(arm_map)
 
-    history = []     # list of (name, reward)
+    history = []     # list of (name, reward) — includes warm-start if any
+    warm_start_history = []   # the warm-start portion alone, kept separate
+    if warm_start_pulls > 0:
+        # Independent, deterministic stream — never touches `rng` (that stream
+        # is reserved for reward draws, consumed below in THIS exact order) or
+        # `fallback_rng` (reserved for invalid-parse fallback picks).
+        order_rng = random.Random(seed + 700_000)
+        pulls = arm_names * warm_start_pulls
+        order_rng.shuffle(pulls)
+        for name in pulls:
+            r = get_feedback(name, arm_map, rng)
+            warm_start_history.append((name, r))
+        history = list(warm_start_history)
+    start_round = num_arms * warm_start_pulls
+    if start_round >= num_rounds:
+        raise ValueError(
+            f"warm_start_pulls={warm_start_pulls} * num_arms={num_arms} = "
+            f"{start_round} leaves no rounds for the model (num_rounds="
+            f"{num_rounds})")
+
     choices = []
     feedbacks = []
     invalids = []
@@ -958,7 +1052,11 @@ def run_episode(
     # differ. A rebuilt approximation is not attestation — this is the input.
     prompt_attest = {}
 
-    for round_idx in range(num_rounds):
+    # round_idx is the ABSOLUTE environment round (0..num_rounds-1) throughout
+    # — with warm_start_pulls>0 the loop starts at start_round, not 0, so
+    # "Round 11 of 50" is truthful and the per-round torch seed does not
+    # collide with a warm_start_pulls=0 run's own round 0-9.
+    for round_idx in range(start_round, num_rounds):
         prompt = build_prompt(arm_names, history, use_role=use_role,
                               summary_history=summary_history,
                               answer_anchor=answer_anchor,
@@ -988,9 +1086,13 @@ def run_episode(
             # this the anchor is only an instruction and the model can preface
             # it with reasoning that eats the token budget.
             prompt = prompt + ("Choice: " if use_chat else "\nChoice: ")
-        if round_idx == 0 or round_idx == min(10, num_rounds - 1):
+        # Attest the model's FIRST round (= start_round, which is 0 unless
+        # warm-started) and one ~10 rounds later, not literal round_idx==0 —
+        # with warm_start_pulls>0 the model never sees round_idx 0 at all, and
+        # the un-warm-started case (start_round=0) is unaffected.
+        if round_idx == start_round or round_idx == min(start_round + 10, num_rounds - 1):
             prompt_attest[f"round_{round_idx}"] = prompt
-        if debug_tokens and round_idx == 0:
+        if debug_tokens and round_idx == start_round:
             # Print the token IDs ONCE per cell. Two things are being checked
             # and neither is visible in the decoded string:
             #  (1) DOUBLE BOS. apply_chat_template already emits
@@ -1056,20 +1158,30 @@ def run_episode(
             rationale_audits.append(audit)
         history.append((arm, reward))
 
-    early_end = min(20, num_rounds)
-    late_start = max(0, num_rounds - 30)
+    # n_model_rounds = len(choices) = num_rounds - start_round. ALL denominators
+    # below use this, not num_rounds — with warm_start_pulls>0 those differ
+    # (e.g. 40 vs 50), and dividing by num_rounds would silently deflate every
+    # ITT metric by the warm-start fraction. early_end/late_start are also
+    # computed relative to the MODEL's own round count, matching how `choices`
+    # is indexed (0 = the model's first round, i.e. absolute round
+    # start_round) — NOT relative to the absolute environment round.
+    n_model_rounds = len(choices)
+    early_end = min(20, n_model_rounds)
+    late_start = max(0, n_model_rounds - 30)
 
-    # ── ITT (intention-to-treat): every round counts, including rounds whose arm
-    # came from the invalid-parse fallback. This is the headline metric and the
-    # one comparable to the pre-2026-07-28 numbers in shape, because a fallback
-    # arm still drew a reward and still entered the next prompt's history.
-    opt_frac        = sum(1 for c in choices if c == opt) / num_rounds
+    # ── ITT (intention-to-treat): every MODEL round counts, including rounds
+    # whose arm came from the invalid-parse fallback (a fallback arm still drew
+    # a reward and still entered the next prompt's history). Warm-start rounds
+    # are NEVER in this denominator — they are not a model decision at all, ITT
+    # or otherwise; see model_/total_ outcome split at the end of this function
+    # for the two views a warm-started episode needs.
+    opt_frac        = sum(1 for c in choices if c == opt) / n_model_rounds
     explore_rate    = 1.0 - opt_frac
-    worst_frac      = sum(1 for c in choices if c == worst) / num_rounds
+    worst_frac      = sum(1 for c in choices if c == worst) / n_model_rounds
     cum_regret      = float(sum(arm_map[opt] - arm_map[c] for c in choices))
     early_opt_frac  = sum(1 for c in choices[:early_end] if c == opt) / early_end
-    late_opt_frac   = sum(1 for c in choices[late_start:] if c == opt) / (num_rounds - late_start)
-    invalid_rate    = sum(invalids) / num_rounds
+    late_opt_frac   = sum(1 for c in choices[late_start:] if c == opt) / (n_model_rounds - late_start)
+    invalid_rate    = sum(invalids) / n_model_rounds
 
     # ── VALID-ONLY: restricted to rounds the model actually chose. Necessary
     # because at high |α| a large share of "choices" are the random fallback, so
@@ -1168,8 +1280,19 @@ def run_episode(
     # state: the model really was shown that arm's reward in the next prompt, so
     # dropping it from the running means would score later rounds against a
     # history the model never saw.
+    #
+    # WARM-START: seen_n/seen_sum must be seeded from warm_start_history before
+    # the loop, not left empty. Without this, the model's round 0 in `choices`
+    # (= absolute round num_arms*warm_start_pulls, e.g. round 10) would be
+    # scored against an EMPTY information state, when the model's own prompt
+    # showed it a full TRIED table from the warm-start pulls — comparing its
+    # first real choice to a history it never had. With warm_start_pulls=0,
+    # warm_start_history is [] and this is a no-op (byte-identical to before).
     def _adherence(score_only_valid):
         seen_n, seen_sum = {}, {}
+        for name, r in warm_start_history:
+            seen_n[name] = seen_n.get(name, 0) + 1
+            seen_sum[name] = seen_sum.get(name, 0.0) + r
         hit = tot = expl = 0
         for i, (c, r) in enumerate(zip(choices, feedbacks)):
             scoreable = (not score_only_valid) or (i in vset)
@@ -1198,7 +1321,7 @@ def run_episode(
     # was never tried or was found too late to fill the window; filling those
     # with 0 would re-mix discovery back in.
     POST_WIN = 20
-    if first_best_trial is not None and first_best_trial + 1 + POST_WIN <= num_rounds:
+    if first_best_trial is not None and first_best_trial + 1 + POST_WIN <= n_model_rounds:
         seg = [(i, choices[i]) for i in
                range(first_best_trial + 1, first_best_trial + 1 + POST_WIN)]
         segv = [c for i, c in seg if i in vset]
@@ -1231,8 +1354,8 @@ def run_episode(
         "menu_restatements":  menu_restatements,
         "rationale_audits":   rationale_audits,
         "invalid_rate":    float(invalid_rate),
-        "zero_match_rate": float(n_zero_match / num_rounds),
-        "multi_match_rate": float(n_multi_match / num_rounds),
+        "zero_match_rate": float(n_zero_match / n_model_rounds),
+        "multi_match_rate": float(n_multi_match / n_model_rounds),
         "opt_frac":        float(opt_frac),
         "explore_rate":    float(explore_rate),
         "worst_frac":      float(worst_frac),
@@ -1270,6 +1393,31 @@ def run_episode(
         "n_explore_untried":        int(explore_untried),
         # NaN = undefined (never tried, or found too late for a full window).
         "post_discovery_opt_frac":  float(post_discovery_opt_frac),
+        # ── K / warm-start config + the total-task view ─────────────────
+        "num_arms":          num_arms,
+        "warm_start_pulls":  warm_start_pulls,
+        "n_model_rounds":    int(n_model_rounds),
+        "warm_start_history": [(n, int(r)) for n, r in warm_start_history],
+        # DISCOVERY/coverage above is NOT the primary readout when warm-started
+        # — every arm is trivially "discovered" by construction, so coverage
+        # near-ceiling and best_never_tried=False are expected, not evidence of
+        # autonomous exploration. The comparable-to-free-exploration metrics
+        # here are opt_frac/late_opt_frac/empirical_best_adherence, all already
+        # computed on MODEL rounds only (n_model_rounds, matching a
+        # warm_start_pulls=0 episode's own denominators).
+        #
+        # total_* mirrors the same three quantities over the FULL experienced
+        # history (warm-start + model), i.e. what actually happened across all
+        # num_rounds — useful for a total-task outcome number, but NOT
+        # comparable to a warm_start_pulls=0 run's opt_frac (different
+        # denominator, and the warm-start rounds are the environment's forced
+        # choices, not the model's).
+        "total_opt_frac": (
+            (sum(1 for n, _ in warm_start_history if n == opt) + opt_frac * n_model_rounds)
+            / num_rounds),
+        "total_cum_regret": float(
+            sum(arm_map[opt] - arm_map[n] for n, _ in warm_start_history)
+            + cum_regret),
     }
 
 
@@ -1343,6 +1491,21 @@ def main():
         # Same rule for --prompt_variant: D2/D3 are configurations that have no
         # rows on disk, so they get their own `pvar` segment; without the flag
         # the tag is byte-identical to what pv1/pv2 rows already carry.
+        #
+        # pv5 (E-direct/E-CoT) additionally carries `k{num_arms}ws
+        # {warm_start_pulls}` UNCONDITIONALLY — unlike ut/pvar this is not an
+        # opt-in extension protecting old rows, because pv5 has no stored data
+        # at all yet at introduction; every pv5 cell should self-describe its
+        # K and warm-start setting so K=5/warm_start=0 vs K=5/warm_start=2 vs
+        # K=2 never collide under one ans_file.
+        if args.prompt_variant in ("E-direct", "E-CoT"):
+            return (f"{PROMPT_VARIANT_VERSION[args.prompt_variant]}"
+                    f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
+                    f"ch{int(args.use_chat)}nr{int(args.no_role)}"
+                    f"pvar{args.prompt_variant}"
+                    f"k{args.num_arms}ws{args.warm_start_pulls}"
+                    f"mt{int(args.max_new_tokens)}"
+                    f"sd{'-'.join(str(s) for s in seed_list)}")
         if args.prompt_variant:
             return (f"{PROMPT_VARIANT_VERSION[args.prompt_variant]}"
                     f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
@@ -1468,6 +1631,8 @@ def main():
                     max_new_tokens=args.max_new_tokens,
                     untried_semantics=args.untried_semantics,
                     prompt_variant=args.prompt_variant,
+                    num_arms=args.num_arms,
+                    warm_start_pulls=args.warm_start_pulls,
                     # Once per cell: the tokenizer chain is identical across
                     # runs, so printing it 20 times says nothing new.
                     debug_tokens=(run_idx == 0),
@@ -1561,8 +1726,15 @@ def main():
         with open(detail_path, "w", encoding="utf-8") as fw:
             json.dump({
                 "alpha": alpha,
-                "reward_probs_ordered": REWARD_PROBS_ORDERED,
-                "arm_names_pool": CLOTHES_NAMES[:K],
+                # Actual table/pool for THIS run's num_arms — not the global
+                # K=5 constants. shuffle_arms(seed, num_arms=args.num_arms)
+                # assigns REWARD_PROBS_BY_K[args.num_arms] to
+                # CLOTHES_NAMES[:args.num_arms]; recording anything else here
+                # would silently mislabel a K=2/K=3 run as K=5.
+                "reward_probs_ordered": REWARD_PROBS_BY_K[args.num_arms],
+                "arm_names_pool": CLOTHES_NAMES[:args.num_arms],
+                "num_arms": args.num_arms,
+                "warm_start_pulls": args.warm_start_pulls,
                 # Which prompt/parser variant produced this file. Absent in
                 # pre-2026-07-29 runs (= bare raw-history + substring parser).
                 # The rendered prompts are NOT here: they are per-run, under
@@ -1612,6 +1784,22 @@ if __name__ == "__main__":
     parser.add_argument("--configs",     nargs="+", default=["0-11-20", "4-11-20", "neg4-11-20"])
     parser.add_argument("--num_runs",    type=int, default=30)
     parser.add_argument("--num_rounds",  type=int, default=50)
+    parser.add_argument("--num_arms",    type=int, default=5, choices=[2, 3, 5],
+                        help="Arm-set size. Default 5 is byte-identical to "
+                             "every stored C/D/D2/D3 result (see shuffle_arms). "
+                             "2/3 are the capability-ladder step in "
+                             "BanditExperiment_LiteratureReview.md §4.1 and "
+                             "currently work ONLY with pv5 (--prompt_variant "
+                             "E-direct/E-CoT) — the D/D2/D3 prompt branches "
+                             "still hard-code the K=5 wording.")
+    parser.add_argument("--warm_start_pulls", type=int, default=0,
+                        help="K=5 utilization-only control (§4.2A): the "
+                             "environment pulls each arm this many times "
+                             "before the model chooses at all. 0 (default) = "
+                             "free exploration, byte-identical to every "
+                             "existing run. >0 measures utilization given "
+                             "forced discovery — NOT autonomous exploration, "
+                             "and must never be the α-sweep interface.")
     parser.add_argument("--seeds",       nargs="+", default=None,
                         help="Explicit run seeds (overrides --num_runs). The "
                              "counterbalanced task-validity set is "
