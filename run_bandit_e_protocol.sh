@@ -76,32 +76,46 @@ esac
 CONFIGS="0-${LAYERS}"
 NUM_ROUNDS=50
 
-# Same counterbalanced-vs-20 convention as run_bandit_validity.sh: default is
-# the cheap 5-seed smoke test, SEEDS=20 is the comparable-to-everything-else
-# paired set. K=2/K=3 reuse the SAME seed integers even though shuffle_arms
-# ignores unused positions for a smaller arm pool — this keeps `torch.
-# manual_seed(seed*100_003+round_idx)` sampling luck matched to the K=5 runs
-# on the same seed, for whatever future cross-K comparison wants it.
+# Seed sets are PER-K, not shared. shuffle_arms' best-arm-position distribution
+# is a different shape at every K (K=2 has only 2 possible positions, so a set
+# balanced for K=5 is not balanced for K=2 — e.g. K=5's default 5-seed set
+# "0 3 4 9 37" is 4:1 at K=2, and even the 20-seed set "0..19" is 15:5 at K=2).
+# Each 5-seed set below was hand-picked from `position_of_best(seed,
+# num_arms=k)` + best-arm NAME to balance both — same discipline as K=5's
+# original counterbalancing (run_bandit_validity.sh's SEED COUNTERBALANCING
+# note), re-derived per K. Resolved PER STEP inside run_step (not once
+# globally) so a no-argument full-ladder run gives every step its own correct
+# set, not whichever K happened to be checked first.
 SEEDS_MODE=${SEEDS:-5}
-if [ "$SEEDS_MODE" == "20" ]; then
-    SEEDS="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
-else
-    SEEDS="0 3 4 9 37"
-fi
+seeds_for_step () {
+  local step="$1"
+  if [ "$SEEDS_MODE" == "20" ]; then
+    echo "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+    return
+  fi
+  case "$step" in
+    K2) echo "0 4 5 6 7" ;;      # position [1,2,1,2,2], both names present
+    K3) echo "0 2 4 9 21" ;;     # position [3,2,1,2,3], all 3 names present
+    *)  echo "0 3 4 9 37" ;;     # K=5 (WARM/MAIN/MAINCOT) — matches run_bandit_validity.sh
+  esac
+}
 
 run_step () {
   local tag="$1"; shift
   if [ -n "$ONLY_STEP" ] && [ "$ONLY_STEP" != "$tag" ]; then return; fi
+  local step_seeds
+  step_seeds=$(seeds_for_step "$tag")
   echo ""
   echo "######################################################################"
   echo "# STEP ${tag}: $*"
+  echo "# seeds: ${step_seeds}"
   echo "######################################################################"
   python get_answer_bandit.py \
       --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" \
       --hs "${HS_PREFIX}" --size "${MODEL_SIZE}" \
       --type non --percentage 0.5 --mask_type nmd \
       --configs ${CONFIGS} \
-      --seeds ${SEEDS} --num_rounds ${NUM_ROUNDS} \
+      --seeds ${step_seeds} --num_rounds ${NUM_ROUNDS} \
       --no_role --untried_semantics \
       --summary_history --answer_anchor --use_chat \
       --data "${DATA}" --base_dir "${BASE_DIR}" \
