@@ -31,7 +31,7 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
 
 *April 2026*
 
-RSN paper: `/Users/paveenhuang/Downloads/ACLARR`
+RSN paper: `ACLARR/` (in this repo; `main.tex`)
 
 # 1. MCQ Reasoning & Factor Benchmark Results
 

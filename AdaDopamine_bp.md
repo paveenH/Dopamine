@@ -31,7 +31,7 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
 
 *April 2026*
 
-RSN paper: `/Users/paveenhuang/Downloads/ACLARR/main.tex`
+RSN paper: `ACLARR/main.tex` (in this repo)
 
 ## 一、為什麼需要多巴胺框架
 

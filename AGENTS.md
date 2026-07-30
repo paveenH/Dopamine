@@ -45,7 +45,8 @@ Behavioral guidelines to reduce common LLM coding mistakes. **Tradeoff:** these 
 - `AdaDopamine_gsm8k.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed (`<|eot_id|>` terminator fix + symmetrized templates); the eot re-run is the authoritative data.
 - `AdaptiveThinking.md` — Phases 1–2, Plans A–H3 (design rationale, failure analyses, decode-time shape control ≠ acc control), Yerkes–Dodson framing, EMA + 1-step-lag physics, and the current three-component (tonic/ramping/phasic) + gain-coordinate (G/Z) signal framework.
 - `AdaDopamine.md` / `AdaDopamine_bp.md` — behavioral-validation stage (wanting-proxy suite: Betting, Bandit, CGT, IGT, …); `_bp` holds the raw prior results the curated doc only summarizes.
-- `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` — literature & mapping
+- Literature & dopamine-LLM mapping live in the `AdaDopamine*.md` family above — the earlier standalone `Dopamine.md` / `Dopamine_EN.md` / `Dopamine2.md` are GONE. `AdaDopamineBehaviour.md` holds the clinical excess-vs-deficit signatures.
+- **Parent paper (RSN):** `ACLARR/` in this repo (LaTeX `main.tex`) — *"Role-Sensitive Neurons: A Neuron-Level Gain Control Mechanism for Confidence Steering"* (ACL ARR submission). This project extends its §6.1 "Digital Dopamine" hypothesis into empirical wanting validation. Moved here 2026-07-30 from `~/Downloads/ACL/ACLARR`; older refs to that path (or to `~/Downloads/ACLARR`) are stale.
 - `~/CLAUDE.md` — running commands and data-directory map
 
 ## Architecture: how a run is wired together
