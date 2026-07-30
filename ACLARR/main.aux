@@ -1,0 +1,259 @@
+\relax 
+\bibstyle{acl_natbib}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{gpt-4}
+\citation{Llama3}
+\citation{13-naacl2024-better,15-neurips2024-incontext,16-nature2023-role,25-emnlp2024-twotales}
+\citation{14-snu2024-persona,27-nankai2024-prompttuning}
+\citation{paper4_dopamine,paper6_context,paper7_metacognition}
+\citation{paper7_metacognition,paper2_neural_basis}
+\citation{16-nature2023-role,25-emnlp2024-twotales}
+\citation{15-neurips2024-incontext}
+\citation{14-snu2024-persona,13-naacl2024-better,27-nankai2024-prompttuning}
+\citation{paper8_mirror_human}
+\citation{paper7_mostly_know}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\citation{84-turner2023activation}
+\citation{79-rimsky2024steering}
+\citation{81-liu2024context}
+\citation{cunningham2023sparse,deng2025unveiling}
+\citation{dai2022knowledge,31-aaai2025-identifying}
+\citation{22-acl2024-language}
+\citation{03-acl2024-investigation}
+\citation{28-naacl2024-multilingual}
+\citation{10-ntu2024-think}
+\citation{28-naacl2024-multilingual,22-acl2024-language}
+\citation{10-ntu2024-think}
+\citation{21-2024-mysterious}
+\citation{paper1_baseline_msp,paper2_softmax_correctness}
+\citation{paper2_softmax_correctness}
+\citation{paper6_confidence_reasoning,paper4_confidence_alignment}
+\citation{paper7_metacognition}
+\citation{paper2_neural_basis}
+\citation{paper6_context}
+\citation{paper8_mirror_human}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces RSN Methodology. Role-induced divergent pairs are used to identify a sparse confidence subspace (top-0.5\% neurons) via mean activation shift ($\Delta \mu $), which is then causally manipulated to control confidence through gain modulation.}}{2}{figure.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:framework}{{1}{2}{RSN Methodology. Role-induced divergent pairs are used to identify a sparse confidence subspace (top-0.5\% neurons) via mean activation shift ($\Delta \mu $), which is then causally manipulated to control confidence through gain modulation}{figure.caption.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related_work}{{2}{2}{Related Work}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Role-Playing and Confidence Bias}{2}{subsection.2.1}\protected@file@percent }
+\newlabel{sec:related_work_rolepalying}{{2.1}{2}{Role-Playing and Confidence Bias}{subsection.2.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Mechanistic Interpretability and Steering}{2}{subsection.2.2}\protected@file@percent }
+\newlabel{sec:related_work_mechanistic}{{2.2}{2}{Mechanistic Interpretability and Steering}{subsection.2.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Confidence: Measurement and Decoupling}{2}{subsection.2.3}\protected@file@percent }
+\newlabel{sec:related_work_confidence}{{2.3}{2}{Confidence: Measurement and Decoupling}{subsection.2.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Assessment Paradigms.}{2}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{The Confidence-Performance Decoupling.}{2}{section*.3}\protected@file@percent }
+\citation{mmlu}
+\citation{gpt2}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces The Decoupling Effect (Llama3-8B-IT). While accuracy (\emph  {Top}) remains stable across roles, confidence (\emph  {Bottom}) follows a strict hierarchy. See Appendix~\ref {app:cross-model-consistency} for Mistral and Qwen.}}{3}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:acc-prob}{{2}{3}{The Decoupling Effect (Llama3-8B-IT). While accuracy (\emph {Top}) remains stable across roles, confidence (\emph {Bottom}) follows a strict hierarchy. See Appendix~\ref {app:cross-model-consistency} for Mistral and Qwen}{figure.caption.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Empirical Motivation: The Confidence-Performance Decoupling}{3}{section.3}\protected@file@percent }
+\newlabel{sec:motivation}{{3}{3}{Empirical Motivation: The Confidence-Performance Decoupling}{section.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Knowledge Unlocking on MMLU-E. Expert prompting sharply reduces abstention (E-ratio) while preserving conditional accuracy ($Acc_{cond}$), indicating the release of latent knowledge rather than random guessing. All values are percentages (\%).}}{3}{table.caption.5}\protected@file@percent }
+\newlabel{tab:mmlu-e-results}{{1}{3}{Knowledge Unlocking on MMLU-E. Expert prompting sharply reduces abstention (E-ratio) while preserving conditional accuracy ($Acc_{cond}$), indicating the release of latent knowledge rather than random guessing. All values are percentages (\%)}{table.caption.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Method: Discovering and Editing Role-Sensitive Neurons (RSNs)}{3}{section.4}\protected@file@percent }
+\newlabel{sec:method}{{4}{3}{Method: Discovering and Editing Role-Sensitive Neurons (RSNs)}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Overview}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Algorithm: Isolating the Confidence Subspace}{3}{subsection.4.2}\protected@file@percent }
+\citation{10-ntu2024-think}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces RSN Identification and Inference-Time Steering}}{4}{algorithm.1}\protected@file@percent }
+\newlabel{alg:rsn}{{1}{4}{RSN Identification and Inference-Time Steering}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Characterizing the RSN Substrate}{4}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Mechanism: Steering the Confidence Switch}{4}{section.5}\protected@file@percent }
+\newlabel{sec:mechanism}{{5}{4}{Mechanism: Steering the Confidence Switch}{section.5}{}}
+\newlabel{fig:sparsity}{{3a}{5}{Sparsity ($\rho $)}{figure.caption.6}{}}
+\newlabel{sub@fig:sparsity}{{a}{5}{Sparsity ($\rho $)}{figure.caption.6}{}}
+\newlabel{fig:localization}{{3b}{5}{Localization (Layers)}{figure.caption.6}{}}
+\newlabel{sub@fig:localization}{{b}{5}{Localization (Layers)}{figure.caption.6}{}}
+\newlabel{fig:scaling}{{3c}{5}{Scaling ($\alpha $)}{figure.caption.6}{}}
+\newlabel{sub@fig:scaling}{{c}{5}{Scaling ($\alpha $)}{figure.caption.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Characterizing the RSN Substrate (Llama3-8B-IT). (a) Sparsity: Accuracy (solid lines, left axis) and E-ratio (dotted lines, right axis) as a function of the edited neuron proportion. Both metrics saturate at $\rho \approx 0.5\%$, confirming that a sparse subspace is sufficient for full confidence control. (b) Localization: Role-induced divergence peaks in the middle layers (11--19). (c) Scaling: Steering effectiveness peaks at $\alpha \approx 4$, consistent with gain control.}}{5}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:rsn-characterization}{{3}{5}{Characterizing the RSN Substrate (Llama3-8B-IT). (a) Sparsity: Accuracy (solid lines, left axis) and E-ratio (dotted lines, right axis) as a function of the edited neuron proportion. Both metrics saturate at $\rho \approx 0.5\%$, confirming that a sparse subspace is sufficient for full confidence control. (b) Localization: Role-induced divergence peaks in the middle layers (11--19). (c) Scaling: Steering effectiveness peaks at $\alpha \approx 4$, consistent with gain control}{figure.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Causal Control: The Bidirectional Gain Knob}{5}{subsection.5.1}\protected@file@percent }
+\newlabel{sec:causal-control}{{5.1}{5}{Causal Control: The Bidirectional Gain Knob}{subsection.5.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Mechanistic Comparison of Steering Methods (Llama3-8B-IT, MMLU-E). (I) Signal Nature: RSNs vs. dense (FV, PCA) and statistical (T-test) baselines. (II) Causal Control: Bidirectional RSN steering demonstrates tunable gain. All values are percentages (\%).}}{5}{table.caption.7}\protected@file@percent }
+\newlabel{tab:mechanism-steering}{{2}{5}{Mechanistic Comparison of Steering Methods (Llama3-8B-IT, MMLU-E). (I) Signal Nature: RSNs vs. dense (FV, PCA) and statistical (T-test) baselines. (II) Causal Control: Bidirectional RSN steering demonstrates tunable gain. All values are percentages (\%)}{table.caption.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Micro-Dynamics: The Unlocking Mechanism}{5}{subsection.5.2}\protected@file@percent }
+\newlabel{sec:micro-dynamics}{{5.2}{5}{Micro-Dynamics: The Unlocking Mechanism}{subsection.5.2}{}}
+\citation{84-turner2023activation}
+\citation{81-liu2024context}
+\citation{34-naacl2025-llm}
+\citation{gsm8k}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Evidence of Active Suppression via RSN Ablation (Llama3-8B-IT). Ablating mid-layer RSNs selectively reduces Non-Expert hesitation while preserving accuracy, whereas full-layer ablation degrades latent capability. All values are percentages (\%).}}{6}{table.caption.8}\protected@file@percent }
+\newlabel{tab:mechanism-knockout}{{3}{6}{Evidence of Active Suppression via RSN Ablation (Llama3-8B-IT). Ablating mid-layer RSNs selectively reduces Non-Expert hesitation while preserving accuracy, whereas full-layer ablation degrades latent capability. All values are percentages (\%)}{table.caption.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Prediction Transition Matrix (Non-Expert $\to $ +RSN). RSN steering induces a dominant \emph  {Abstain $\to $ Correct} transition (19.8\%) and a smaller \emph  {Abstain $\to $ Wrong} flow (13.2\%), consistent with global threshold lowering.}}{6}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:transition-matrix}{{4}{6}{Prediction Transition Matrix (Non-Expert $\to $ +RSN). RSN steering induces a dominant \emph {Abstain $\to $ Correct} transition (19.8\%) and a smaller \emph {Abstain $\to $ Wrong} flow (13.2\%), consistent with global threshold lowering}{figure.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Signal Nature: Efficiency and Specificity}{6}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:signal-nature}{{5.3}{6}{Signal Nature: Efficiency and Specificity}{subsection.5.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Validation: Internal State Dynamics}{6}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:internal-validation}{{5.4}{6}{Validation: Internal State Dynamics}{subsection.5.4}{}}
+\citation{clark2018arc}
+\citation{talmor2019commonsenseqa}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Confidence Amplification under RSN Editing. RSN intervention consistently increases the predicted probability ($p^*$) across role-based and explicit confidence prompts in \emph  {Llama3-8B-IT}, indicating a generalized boost in latent certainty. See Appendix~\ref {app:confidence_shift_models} for consistent results on \emph  {Mistral-7B-IT} and \emph  {Qwen3-8B-IT}.}}{7}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:confidence_shift}{{5}{7}{Confidence Amplification under RSN Editing. RSN intervention consistently increases the predicted probability ($p^*$) across role-based and explicit confidence prompts in \emph {Llama3-8B-IT}, indicating a generalized boost in latent certainty. See Appendix~\ref {app:confidence_shift_models} for consistent results on \emph {Mistral-7B-IT} and \emph {Qwen3-8B-IT}}{figure.caption.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Confidence Ratio on GSM8K under RSN steering. Positive scaling ($\alpha {=}+4$) consistently increases assertiveness, while negative scaling ($\alpha {=}-4$) increases hedging, confirming that the gain control effect propagates into free-form generation.}}{7}{table.caption.11}\protected@file@percent }
+\newlabel{tab:gsm8k-confidence}{{4}{7}{Confidence Ratio on GSM8K under RSN steering. Positive scaling ($\alpha {=}+4$) consistently increases assertiveness, while negative scaling ($\alpha {=}-4$) increases hedging, confirming that the gain control effect propagates into free-form generation}{table.caption.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Generalization and Boundary Analysis}{7}{section.6}\protected@file@percent }
+\newlabel{sec:generalization}{{6}{7}{Generalization and Boundary Analysis}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Cross-Domain Generalization: New Roles and Formats}{7}{subsection.6.1}\protected@file@percent }
+\newlabel{sec:cross-domain}{{6.1}{7}{Cross-Domain Generalization: New Roles and Formats}{subsection.6.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Cross-Domain Generalization on ARC-E. RSN editing ($L_{11-19}, \alpha {=}4$) on Llama3-8B-IT consistently reduces abstention across generic roles. All values are percentages (\%).}}{7}{table.caption.12}\protected@file@percent }
+\newlabel{tab:arc-results}{{5}{7}{Cross-Domain Generalization on ARC-E. RSN editing ($L_{11-19}, \alpha {=}4$) on Llama3-8B-IT consistently reduces abstention across generic roles. All values are percentages (\%)}{table.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Standalone Confidence Control in Neutral Settings}{7}{subsection.6.2}\protected@file@percent }
+\newlabel{sec:neutral-reasoning}{{6.2}{7}{Standalone Confidence Control in Neutral Settings}{subsection.6.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Origin of RSNs: Cross-Model Transferability}{7}{subsection.6.3}\protected@file@percent }
+\newlabel{sec:origin-transfer}{{6.3}{7}{Origin of RSNs: Cross-Model Transferability}{subsection.6.3}{}}
+\citation{paper4_dopamine}
+\citation{zhou2023lima}
+\citation{paper9_reasoning_sampling}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Standalone RSN Control in Neutral Settings. RSN editing improves reasoning benchmarks but reveals a trade-off with factuality.}}{8}{table.caption.13}\protected@file@percent }
+\newlabel{tab:neutral-combined}{{6}{8}{Standalone RSN Control in Neutral Settings. RSN editing improves reasoning benchmarks but reveals a trade-off with factuality}{table.caption.13}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Theoretical Implications}{8}{section.7}\protected@file@percent }
+\newlabel{sec:discussion}{{7}{8}{Theoretical Implications}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}The "Digital Dopamine" Hypothesis}{8}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Alignment as Signal Sharpening}{8}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{8}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{8}{8}{Conclusion}{section.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Cross-Model Transfer. IT-extracted RSNs effectively steer the Base model, outperforming its own vectors in the \emph  {non-expert} setting.}}{9}{table.caption.14}\protected@file@percent }
+\newlabel{tab:transfer_base}{{7}{9}{Cross-Model Transfer. IT-extracted RSNs effectively steer the Base model, outperforming its own vectors in the \emph {non-expert} setting}{table.caption.14}{}}
+\newlabel{sec:limitations}{{8}{10}{Limitations}{section*.16}{}}
+\@writefile{toc}{\contentsline {paragraph}{Model Scale and Architecture.}{10}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Task Scope.}{10}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Diagnosis vs. Mitigation.}{10}{section*.19}\protected@file@percent }
+\bibdata{references}
+\bibcite{gpt-4}{{1}{2023}{{Achiam et~al.}}{{Achiam, Adler, Agarwal, Ahmad, Akkaya, Aleman, Almeida, Altenschmidt, Altman, Anadkat et~al.}}}
+\bibcite{34-naacl2025-llm}{{2}{2024}{{AlKhamissi et~al.}}{{AlKhamissi, Tuckute, Bosselut, and Schrimpf}}}
+\bibcite{31-aaai2025-identifying}{{3}{2025}{{Chen et~al.}}{{Chen, Dejl, and Toni}}}
+\bibcite{clark2018arc}{{4}{2018}{{Clark et~al.}}{{Clark, Cowhey, Etzioni, Khot, Sabharwal, Schoenick, and Tafjord}}}
+\bibcite{gsm8k}{{5}{2021}{{Cobbe et~al.}}{{Cobbe, Kosaraju, Bavarian, Chen, Jun, Kaiser, Plappert, Tworek, Hilton, Nakano et~al.}}}
+\bibcite{cunningham2023sparse}{{6}{2023}{{Cunningham et~al.}}{{Cunningham, Ewart, Riggs, Huben, and Sharkey}}}
+\bibcite{dai2022knowledge}{{7}{2022}{{Dai et~al.}}{{Dai, Dong, Hao, Sui, Chang, and Wei}}}
+\bibcite{deng2025unveiling}{{8}{2025}{{Deng et~al.}}{{Deng, Wan, Zhang, Yang, and Feng}}}
+\bibcite{paper7_metacognition}{{9}{2024}{{Fleming}}{{}}}
+\bibcite{Llama3}{{10}{2024}{{Grattafiori et~al.}}{{Grattafiori, Dubey, Jauhri, Pandey, Kadian, Al-Dahle, Letman, Mathur, Schelten, Vaughan et~al.}}}
+\bibcite{mmlu}{{11}{2021}{{Hendrycks et~al.}}{{Hendrycks, Burns, Basart, Zou, Mazeika, Song, and Steinhardt}}}
+\bibcite{paper1_baseline_msp}{{12}{2017}{{Hendrycks and Gimpel}}{{}}}
+\bibcite{10-ntu2024-think}{{13}{2025}{{Huang et~al.}}{{Huang, Fu, Tsai, Tu, Cheng, Lin, Yang, Liu, Liao, Juan et~al.}}}
+\bibcite{paper7_mostly_know}{{14}{2022}{{Kadavath et~al.}}{{Kadavath, Conerly, Askell, Henighan, Drain, Perez, Schiefer, Hatfield-Dodds, DasSarma, Tran-Johnson et~al.}}}
+\bibcite{paper9_reasoning_sampling}{{15}{2025}{{Karan and Du}}{{}}}
+\bibcite{14-snu2024-persona}{{16}{2024}{{Kim et~al.}}{{Kim, Yang, and Jung}}}
+\bibcite{paper4_dopamine}{{17}{2025}{{Kocharian et~al.}}{{Kocharian, Redish, and Rothwell}}}
+\bibcite{28-naacl2024-multilingual}{{18}{2024}{{Kojima et~al.}}{{Kojima, Okimura, Iwasawa, Yanaka, and Matsuo}}}
+\bibcite{13-naacl2024-better}{{19}{2024{}}{{Kong et~al.}}{{Kong, Zhao, Chen, Li, Qin, Sun, Zhou, Wang, and Dong}}}
+\bibcite{27-nankai2024-prompttuning}{{20}{2024{}}{{Kong et~al.}}{{Kong, Zhao, Chen, Li, Qin, Sun, Zhou, Zhou, and Sun}}}
+\bibcite{paper4_confidence_alignment}{{21}{2024}{{Kumar et~al.}}{{Kumar, Morabito, Umbet, Kabbara, and Emami}}}
+\bibcite{lin2022truthfulqa}{{22}{2022}{{Lin et~al.}}{{Lin, Hilton, and Evans}}}
+\bibcite{liu2021logiqa}{{23}{2021}{{Liu et~al.}}{{Liu, Cui, Liu, Huang, Wang, and Zhang}}}
+\bibcite{81-liu2024context}{{24}{2024}{{Liu et~al.}}{{Liu, Ye, Xing, and Zou}}}
+\bibcite{paper6_context}{{25}{2013}{{Mante et~al.}}{{Mante, Sussillo, Shenoy, and Newsome}}}
+\bibcite{muhlgay2024factor}{{26}{2024}{{Muhlgay et~al.}}{{Muhlgay, Ram, Magar, Levine, Ratner, Belinkov, Abend, Leyton-Brown, Shashua, and Shoham}}}
+\bibcite{paper6_confidence_reasoning}{{27}{2025}{{Pawitan and Holmes}}{{}}}
+\bibcite{paper2_softmax_correctness}{{28}{2024}{{Plaut et~al.}}{{Plaut, Nguyen, and Trinh}}}
+\bibcite{gpt2}{{29}{2019}{{Radford et~al.}}{{Radford, Wu, Child, Luan, Amodei, Sutskever et~al.}}}
+\bibcite{03-acl2024-investigation}{{30}{2024}{{Rai and Yao}}{{}}}
+\bibcite{rein2024gpqa}{{31}{2024}{{Rein et~al.}}{{Rein, Hou, Stickland, Petty, Pang, Dirani, Michael, and Bowman}}}
+\bibcite{79-rimsky2024steering}{{32}{2024}{{Rimsky et~al.}}{{Rimsky, Gabrieli, Schulz, Tong, Hubinger, and Turner}}}
+\bibcite{15-neurips2024-incontext}{{33}{2023}{{Salewski et~al.}}{{Salewski, Alaniz, Rio-Torto, Schulz, and Akata}}}
+\bibcite{16-nature2023-role}{{34}{2023}{{Shanahan et~al.}}{{Shanahan, McDonell, and Reynolds}}}
+\bibcite{21-2024-mysterious}{{35}{2024}{{Smith et~al.}}{{Smith, Baker, Chase, Barney, Parker, Allred, Hu, Evans, and Fulda}}}
+\bibcite{talmor2019commonsenseqa}{{36}{2019}{{Talmor et~al.}}{{Talmor, Herzig, Lourie, and Berant}}}
+\bibcite{22-acl2024-language}{{37}{2024}{{Tang et~al.}}{{Tang, Luo, Huang, Zhang, Wang, Zhao, Wei, and Wen}}}
+\bibcite{25-emnlp2024-twotales}{{38}{2024}{{Tseng et~al.}}{{Tseng, Huang, Hsiao, Chen, Huang, Meng, and Chen}}}
+\bibcite{84-turner2023activation}{{39}{2023}{{Turner et~al.}}{{Turner, Thiergart, Leech, Udell, Vazquez, Mini, and MacDiarmid}}}
+\bibcite{paper2_neural_basis}{{40}{2025}{{Vivar-Lazo and Fetsch}}{{}}}
+\bibcite{wang2024mmlupro}{{41}{2024}{{Wang et~al.}}{{Wang, Ma, Zhang, Ni, Chandra, Guo, Ren, Arulraj, He, Jiang et~al.}}}
+\bibcite{paper8_mirror_human}{{42}{2025}{{Xu et~al.}}{{Xu, Wen, Han, Wolfe, Wang, and Howe}}}
+\bibcite{zhong2021arlsat}{{43}{2021}{{Zhong et~al.}}{{Zhong, Wang, Tang, Xu, Guo, Wang, Yin, Zhou, and Duan}}}
+\bibcite{zhou2023lima}{{44}{2023}{{Zhou et~al.}}{{Zhou, Liu, Xu, Iyer, Sun, Mao, Ma, Efrat, Yu, Yu et~al.}}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Supplementary Figures and Tables}{14}{appendix.A}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Prompt Templates}{14}{subsection.A.1}\protected@file@percent }
+\newlabel{app:prompt-template}{{A.1}{14}{Prompt Templates}{subsection.A.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.1.1}Standard Task Template}{14}{subsubsection.A.1.1}\protected@file@percent }
+\newlabel{app:prompt-template-standard}{{A.1.1}{14}{Standard Task Template}{subsubsection.A.1.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.1.2}Confidence Modulation Template}{14}{subsubsection.A.1.2}\protected@file@percent }
+\newlabel{app:prompt-template-confidence}{{A.1.2}{14}{Confidence Modulation Template}{subsubsection.A.1.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.1.3}MMLU-E / ARC-E / CSQA-E Template}{14}{subsubsection.A.1.3}\protected@file@percent }
+\newlabel{app:prompt-template-abstention}{{A.1.3}{14}{MMLU-E / ARC-E / CSQA-E Template}{subsubsection.A.1.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.1.4}Reasoning Willingness Self-Evaluation}{14}{subsubsection.A.1.4}\protected@file@percent }
+\newlabel{app:prompt-willingness}{{A.1.4}{14}{Reasoning Willingness Self-Evaluation}{subsubsection.A.1.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Behavioral Analysis}{14}{subsection.A.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.2.1}Task-level Breakdown of Role Effects}{14}{subsubsection.A.2.1}\protected@file@percent }
+\newlabel{app:task-breakdown}{{A.2.1}{14}{Task-level Breakdown of Role Effects}{subsubsection.A.2.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.2.2}Cross-Model Consistency of Role Effects}{14}{subsubsection.A.2.2}\protected@file@percent }
+\newlabel{app:cross-model-consistency}{{A.2.2}{14}{Cross-Model Consistency of Role Effects}{subsubsection.A.2.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Validation: Correlation between Generation and Logits}{14}{subsection.A.3}\protected@file@percent }
+\newlabel{app:logit-validation}{{A.3}{14}{Validation: Correlation between Generation and Logits}{subsection.A.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Role-conditioned accuracy and confidence (in \%) across tasks and models. Note that while confidence strictly increases with stronger roles, accuracy does not necessarily follow the same trend.}}{15}{table.caption.22}\protected@file@percent }
+\newlabel{tab:example-acc-logit-appendix}{{8}{15}{Role-conditioned accuracy and confidence (in \%) across tasks and models. Note that while confidence strictly increases with stronger roles, accuracy does not necessarily follow the same trend}{table.caption.22}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces \textbf  {Cross-Model Consistency.} Accuracy (left) vs.\ confidence (right) across domains under different role prompts for \emph  {Mistral-7B-IT} (top) and \emph  {Qwen3-8B-IT} (bottom). Both models replicate the same trend observed in Llama3-8B-IT, highlighting the universality of role-induced confidence modulation.}}{15}{figure.caption.23}\protected@file@percent }
+\newlabel{fig:app-cross-model}{{6}{15}{\textbf {Cross-Model Consistency.} Accuracy (left) vs.\ confidence (right) across domains under different role prompts for \emph {Mistral-7B-IT} (top) and \emph {Qwen3-8B-IT} (bottom). Both models replicate the same trend observed in Llama3-8B-IT, highlighting the universality of role-induced confidence modulation}{figure.caption.23}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Validation of Logit-Based Evaluation. Correlation between logit-based (x-axis) and generation-based (y-axis) metrics on MMLU for Llama3-8B-IT and Mistral-7B-IT. Each point represents a specific task-role pair. The high correlation ($R>0.96$) justifies our use of logits for efficient evaluation.}}{15}{figure.caption.24}\protected@file@percent }
+\newlabel{fig:logit-gen-corr}{{7}{15}{Validation of Logit-Based Evaluation. Correlation between logit-based (x-axis) and generation-based (y-axis) metrics on MMLU for Llama3-8B-IT and Mistral-7B-IT. Each point represents a specific task-role pair. The high correlation ($R>0.96$) justifies our use of logits for efficient evaluation}{figure.caption.24}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Domain-wise Editing Sparsity. Accuracy under expert and non-expert roles across varying neuron sparsity levels ($\rho $). The overall pattern mirrors the mean trend (Figure~\ref {fig:scaling}), with non-expert gains consistently saturating around $\rho \approx 0.5\%$ across all domains, while expert performance remains steady.}}{16}{figure.caption.25}\protected@file@percent }
+\newlabel{fig:domain-sparsity}{{8}{16}{Domain-wise Editing Sparsity. Accuracy under expert and non-expert roles across varying neuron sparsity levels ($\rho $). The overall pattern mirrors the mean trend (Figure~\ref {fig:scaling}), with non-expert gains consistently saturating around $\rho \approx 0.5\%$ across all domains, while expert performance remains steady}{figure.caption.25}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Localization: Single-Layer Functional Vector Editing}{16}{subsection.A.4}\protected@file@percent }
+\newlabel{app:single-layer-editing}{{A.4}{16}{Localization: Single-Layer Functional Vector Editing}{subsection.A.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Layer-wise Steering Effects. Average performance over four MMLU tasks on \emph  {Llama3-8B-IT} using single-layer functional vector editing ($\alpha =1$). Role-sensitive effects (increased accuracy, decreased abstention) emerge distinctly around layer 11 and peak in the middle layers, corroborating our strategy to target the middle-layer RSN subspace.}}{16}{figure.caption.26}\protected@file@percent }
+\newlabel{fig:single-layer-effect}{{9}{16}{Layer-wise Steering Effects. Average performance over four MMLU tasks on \emph {Llama3-8B-IT} using single-layer functional vector editing ($\alpha =1$). Role-sensitive effects (increased accuracy, decreased abstention) emerge distinctly around layer 11 and peak in the middle layers, corroborating our strategy to target the middle-layer RSN subspace}{figure.caption.26}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.5}Domain-wise Effect of Neuron Editing Sparsity}{16}{subsection.A.5}\protected@file@percent }
+\newlabel{app:domain-sparsity}{{A.5}{16}{Domain-wise Effect of Neuron Editing Sparsity}{subsection.A.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Cross-Model Layer-wise Correlation. Pearson correlation between ``expert'' and ``non-expert'' hidden states. Both models replicate the mid-layer divergence pattern observed in \emph  {Llama3-8B-IT} (Figure~\ref {fig:localization}).}}{17}{figure.caption.27}\protected@file@percent }
+\newlabel{fig:layer-corr-cross-model}{{10}{17}{Cross-Model Layer-wise Correlation. Pearson correlation between ``expert'' and ``non-expert'' hidden states. Both models replicate the mid-layer divergence pattern observed in \emph {Llama3-8B-IT} (Figure~\ref {fig:localization})}{figure.caption.27}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.6}Layer-wise Correlation For Mistral and Qwen3}{17}{subsection.A.6}\protected@file@percent }
+\newlabel{app:midlayer}{{A.6}{17}{Layer-wise Correlation For Mistral and Qwen3}{subsection.A.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.7}Extended Cross-Domain Generalization Results}{17}{subsection.A.7}\protected@file@percent }
+\newlabel{app:generalization-extended}{{A.7}{17}{Extended Cross-Domain Generalization Results}{subsection.A.7}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Generalization on Mistral-7B-IT (ARC-E). RSN editing ($L_{14-22}, \alpha {=}4$) significantly reduces abstention and recovers accuracy across generic roles, replicating the mechanism observed in Llama3.}}{17}{table.caption.28}\protected@file@percent }
+\newlabel{tab:app-mistral-arc}{{9}{17}{Generalization on Mistral-7B-IT (ARC-E). RSN editing ($L_{14-22}, \alpha {=}4$) significantly reduces abstention and recovers accuracy across generic roles, replicating the mechanism observed in Llama3}{table.caption.28}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Performance on CommonSenseQA (CSQA-E). RSN editing ($\alpha =4$) consistently unlocks performance in weaker roles while maintaining high accuracy in expert roles across both Llama3-8B-IT and Mistral-7B-IT.}}{17}{table.caption.29}\protected@file@percent }
+\newlabel{tab:csqa-results}{{10}{17}{Performance on CommonSenseQA (CSQA-E). RSN editing ($\alpha =4$) consistently unlocks performance in weaker roles while maintaining high accuracy in expert roles across both Llama3-8B-IT and Mistral-7B-IT}{table.caption.29}{}}
+\citation{wang2024mmlupro}
+\citation{rein2024gpqa}
+\citation{zhong2021arlsat}
+\citation{liu2021logiqa}
+\citation{lin2022truthfulqa}
+\citation{muhlgay2024factor}
+\@writefile{toc}{\contentsline {paragraph}{Mistral-7B-IT on ARC-E.}{18}{section*.30}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{CommonSenseQA Analysis (CSQA-E).}{18}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.8}Generalization Across Prompt Formats}{18}{subsection.A.8}\protected@file@percent }
+\newlabel{app:prompt-generalization}{{A.8}{18}{Generalization Across Prompt Formats}{subsection.A.8}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.8.1}Vanilla Instruction Format}{18}{subsubsection.A.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.8.2}Chat-Template Format}{18}{subsubsection.A.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.9}Benchmark Descriptions}{18}{subsection.A.9}\protected@file@percent }
+\newlabel{app:datasets}{{A.9}{18}{Benchmark Descriptions}{subsection.A.9}{}}
+\citation{wang2024mmlupro}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Robustness to Prompt Formats (Llama3-8B-IT). RSN steering effectively modulates confidence across (A) Vanilla Instruction and (B) Chat Template formats. The mechanism generalizes beyond the specific wording used for neuron discovery.}}{19}{table.caption.32}\protected@file@percent }
+\newlabel{tab:prompt-generalization}{{11}{19}{Robustness to Prompt Formats (Llama3-8B-IT). RSN steering effectively modulates confidence across (A) Vanilla Instruction and (B) Chat Template formats. The mechanism generalizes beyond the specific wording used for neuron discovery}{table.caption.32}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.10}Conditional Accuracy Analysis}{19}{subsection.A.10}\protected@file@percent }
+\newlabel{app:conditional-acc-table}{{A.10}{19}{Conditional Accuracy Analysis}{subsection.A.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Micro-Dynamics of Confidence (Llama3-8B-IT). RSN injection shifts the Non-Expert from an over-conservative, high-precision profile toward the Expert's decisive balance of coverage and accuracy.}}{19}{table.caption.33}\protected@file@percent }
+\newlabel{tab:conditional-acc-appendix}{{12}{19}{Micro-Dynamics of Confidence (Llama3-8B-IT). RSN injection shifts the Non-Expert from an over-conservative, high-precision profile toward the Expert's decisive balance of coverage and accuracy}{table.caption.33}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.11}Cross-Model Consistency of Confidence Enhancement}{19}{subsection.A.11}\protected@file@percent }
+\newlabel{app:confidence_shift_models}{{A.11}{19}{Cross-Model Consistency of Confidence Enhancement}{subsection.A.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Cross-Model Confidence Enhancement. Predicted probability ($p^*$) under RSN editing. RSN intervention ($\alpha =3, 4$) consistently increases internal confidence across all roles and prompting conditions, replicating the trend shown for Llama3 in Figure~\ref {fig:confidence_shift}.}}{19}{figure.caption.34}\protected@file@percent }
+\newlabel{fig:confidence_shift_models}{{11}{19}{Cross-Model Confidence Enhancement. Predicted probability ($p^*$) under RSN editing. RSN intervention ($\alpha =3, 4$) consistently increases internal confidence across all roles and prompting conditions, replicating the trend shown for Llama3 in Figure~\ref {fig:confidence_shift}}{figure.caption.34}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces RSN Effects on Self-Evaluation (Neutral Condition). On \emph  {MMLU-Pro} (90 tasks), positive RSN shifts ($\alpha {=}3,4$) raise and compress self-evaluated scores, indicating stabilized internal activations.}}{20}{figure.caption.35}\protected@file@percent }
+\newlabel{fig:20-box-mmlupro}{{12}{20}{RSN Effects on Self-Evaluation (Neutral Condition). On \emph {MMLU-Pro} (90 tasks), positive RSN shifts ($\alpha {=}3,4$) raise and compress self-evaluated scores, indicating stabilized internal activations}{figure.caption.35}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Entropy vs. Self-Evaluation Score (MMLU-Pro). Task-level mean scores and entropy values across five prompting conditions. Higher self-confidence systematically correlates with lower entropy (higher stability), confirming that RSN-induced confidence represents a stable, low-entropy state.}}{20}{figure.caption.37}\protected@file@percent }
+\newlabel{fig:entropy-mmlupro}{{13}{20}{Entropy vs. Self-Evaluation Score (MMLU-Pro). Task-level mean scores and entropy values across five prompting conditions. Higher self-confidence systematically correlates with lower entropy (higher stability), confirming that RSN-induced confidence represents a stable, low-entropy state}{figure.caption.37}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.12}Verbalized Confidence and Entropy Analysis on MMLU-Pro}{20}{subsection.A.12}\protected@file@percent }
+\newlabel{app:self-eval-analysis}{{A.12}{20}{Verbalized Confidence and Entropy Analysis on MMLU-Pro}{subsection.A.12}{}}
+\@writefile{toc}{\contentsline {paragraph}{Distributional Shift under RSN.}{20}{section*.36}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Entropy and Stability.}{20}{section*.38}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Decoupling Confidence from Capability (Mistral-7B-IT). While accuracy remains flat (Table~\ref {tab:app-mistral-neutral}), RSN editing triggers a drastic drop in Constrained Entropy. This confirms that RSNs amplify certainty independent of correctness.}}{20}{figure.caption.41}\protected@file@percent }
+\newlabel{fig:mistral-entropy}{{14}{20}{Decoupling Confidence from Capability (Mistral-7B-IT). While accuracy remains flat (Table~\ref {tab:app-mistral-neutral}), RSN editing triggers a drastic drop in Constrained Entropy. This confirms that RSNs amplify certainty independent of correctness}{figure.caption.41}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.13}Extended Analysis on Mistral-7B-IT}{20}{subsection.A.13}\protected@file@percent }
+\newlabel{app:mistral-analysis}{{A.13}{20}{Extended Analysis on Mistral-7B-IT}{subsection.A.13}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.13.1}Performance Dynamics: The Factuality Trade-off}{20}{subsubsection.A.13.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {A.13.2}Mechanism Isolation: The Case of "Unwarranted Certainty"}{20}{subsubsection.A.13.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Mistral-7B-IT Performance in Neutral Settings. Positive steering ($\alpha =4$) fails to improve reasoning, whereas negative steering ($\alpha =-4$) recovers factual accuracy. This highlights that RSNs modulate decision threshold rather than knowledge.}}{21}{table.caption.39}\protected@file@percent }
+\newlabel{tab:app-mistral-neutral}{{13}{21}{Mistral-7B-IT Performance in Neutral Settings. Positive steering ($\alpha =4$) fails to improve reasoning, whereas negative steering ($\alpha =-4$) recovers factual accuracy. This highlights that RSNs modulate decision threshold rather than knowledge}{table.caption.39}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Detailed linguistic marker counts on GSM8K (300 samples per condition). Llama3 shows clear monotonic trends; Qwen3's higher baseline self-correction reflects its chain-of-thought style.}}{21}{table.caption.40}\protected@file@percent }
+\newlabel{tab:gsm8k-markers}{{14}{21}{Detailed linguistic marker counts on GSM8K (300 samples per condition). Llama3 shows clear monotonic trends; Qwen3's higher baseline self-correction reflects its chain-of-thought style}{table.caption.40}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.14}GSM8K Linguistic Marker Dictionary}{21}{subsection.A.14}\protected@file@percent }
+\newlabel{app:gsm8k-markers}{{A.14}{21}{GSM8K Linguistic Marker Dictionary}{subsection.A.14}{}}
+\gdef \@abspage@last{21}

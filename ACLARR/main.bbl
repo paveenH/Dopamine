@@ -1,0 +1,340 @@
+\begin{thebibliography}{44}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Achiam et~al.(2023)Achiam, Adler, Agarwal, Ahmad, Akkaya, Aleman,
+  Almeida, Altenschmidt, Altman, Anadkat et~al.}]{gpt-4}
+Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya,
+  Florencia~Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman,
+  Shyamal Anadkat, and 1 others. 2023.
+\newblock Gpt-4 technical report.
+\newblock \emph{arXiv preprint arXiv:2303.08774}.
+
+\bibitem[{AlKhamissi et~al.(2024)AlKhamissi, Tuckute, Bosselut, and
+  Schrimpf}]{34-naacl2025-llm}
+Badr AlKhamissi, Greta Tuckute, Antoine Bosselut, and Martin Schrimpf. 2024.
+\newblock The llm language network: A neuroscientific approach for identifying
+  causally task-relevant units.
+\newblock \emph{arXiv preprint arXiv:2411.02280}.
+
+\bibitem[{Chen et~al.(2025)Chen, Dejl, and Toni}]{31-aaai2025-identifying}
+Lihu Chen, Adam Dejl, and Francesca Toni. 2025.
+\newblock Identifying query-relevant neurons in large language models for
+  long-form texts.
+\newblock In \emph{Proceedings of the AAAI Conference on Artificial
+  Intelligence}, volume~39, pages 23595--23604.
+
+\bibitem[{Clark et~al.(2018)Clark, Cowhey, Etzioni, Khot, Sabharwal, Schoenick,
+  and Tafjord}]{clark2018arc}
+Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa
+  Schoenick, and Oyvind Tafjord. 2018.
+\newblock Think you have solved question answering? try arc, the ai2 reasoning
+  challenge.
+\newblock \emph{arXiv preprint arXiv:1803.05457}.
+
+\bibitem[{Cobbe et~al.(2021)Cobbe, Kosaraju, Bavarian, Chen, Jun, Kaiser,
+  Plappert, Tworek, Hilton, Nakano et~al.}]{gsm8k}
+Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz
+  Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, and
+  1 others. 2021.
+\newblock Training verifiers to solve math word problems.
+\newblock \emph{arXiv preprint arXiv:2110.14168}.
+
+\bibitem[{Cunningham et~al.(2023)Cunningham, Ewart, Riggs, Huben, and
+  Sharkey}]{cunningham2023sparse}
+Hoagy Cunningham, Aidan Ewart, Logan Riggs, Robert Huben, and Lee Sharkey.
+  2023.
+\newblock Sparse autoencoders find highly interpretable features in language
+  models.
+\newblock \emph{arXiv preprint arXiv:2309.08600}.
+
+\bibitem[{Dai et~al.(2022)Dai, Dong, Hao, Sui, Chang, and
+  Wei}]{dai2022knowledge}
+Damai Dai, Li~Dong, Yaru Hao, Zhifang Sui, Baobao Chang, and Furu Wei. 2022.
+\newblock Knowledge neurons in pretrained transformers.
+\newblock In \emph{Proceedings of the 60th Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 8493--8502.
+
+\bibitem[{Deng et~al.(2025)Deng, Wan, Zhang, Yang, and
+  Feng}]{deng2025unveiling}
+Boyi Deng, Yu~Wan, Yidan Zhang, Baosong Yang, and Fuli Feng. 2025.
+\newblock Unveiling language-specific features in large language models via
+  sparse autoencoders.
+\newblock \emph{arXiv preprint arXiv:2505.05111}.
+
+\bibitem[{Fleming(2024)}]{paper7_metacognition}
+Stephen~M Fleming. 2024.
+\newblock Metacognition and confidence: A review and synthesis.
+\newblock \emph{Annual Review of Psychology}, 75(1):241--268.
+
+\bibitem[{Grattafiori et~al.(2024)Grattafiori, Dubey, Jauhri, Pandey, Kadian,
+  Al-Dahle, Letman, Mathur, Schelten, Vaughan et~al.}]{Llama3}
+Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek
+  Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex
+  Vaughan, and 1 others. 2024.
+\newblock The llama 3 herd of models.
+\newblock \emph{arXiv preprint arXiv:2407.21783}.
+
+\bibitem[{Hendrycks et~al.(2021)Hendrycks, Burns, Basart, Zou, Mazeika, Song,
+  and Steinhardt}]{mmlu}
+Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn
+  Song, and Jacob Steinhardt. 2021.
+\newblock Measuring massive multitask language understanding.
+\newblock In \emph{International Conference on Learning Representations}.
+
+\bibitem[{Hendrycks and Gimpel(2017)}]{paper1_baseline_msp}
+Dan Hendrycks and Kevin Gimpel. 2017.
+\newblock A baseline for detecting misclassified and out-of-distribution
+  examples in neural networks.
+\newblock In \emph{International Conference on Learning Representations}.
+
+\bibitem[{Huang et~al.(2025)Huang, Fu, Tsai, Tu, Cheng, Lin, Yang, Liu, Liao,
+  Juan et~al.}]{10-ntu2024-think}
+Ko-Wei Huang, Yi-Fu Fu, Ching-Yu Tsai, Yu-Chieh Tu, Tzu-Ling Cheng, Cheng-Yu
+  Lin, Yi-Ting Yang, Heng-Yi Liu, Keng-Te Liao, Da-Cheng Juan, and 1 others.
+  2025.
+\newblock Neuron-level differentiation of memorization and generalization in
+  large language models.
+\newblock In \emph{Proceedings of the 2025 Conference on Empirical Methods in
+  Natural Language Processing}, pages 16077--16091.
+
+\bibitem[{Kadavath et~al.(2022)Kadavath, Conerly, Askell, Henighan, Drain,
+  Perez, Schiefer, Hatfield-Dodds, DasSarma, Tran-Johnson
+  et~al.}]{paper7_mostly_know}
+Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan
+  Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli
+  Tran-Johnson, and 1 others. 2022.
+\newblock Language models (mostly) know what they know.
+\newblock \emph{arXiv preprint arXiv:2207.05221}.
+
+\bibitem[{Karan and Du(2025)}]{paper9_reasoning_sampling}
+Aayush Karan and Yilun Du. 2025.
+\newblock Reasoning with sampling: Your base model is smarter than you think.
+\newblock \emph{arXiv preprint arXiv:2510.14901}.
+
+\bibitem[{Kim et~al.(2024)Kim, Yang, and Jung}]{14-snu2024-persona}
+Junseok Kim, Nakyeong Yang, and Kyomin Jung. 2024.
+\newblock Persona is a double-edged sword: Enhancing the zero-shot reasoning by
+  ensembling the role-playing and neutral prompts.
+\newblock \emph{arXiv e-prints}, pages arXiv--2408.
+
+\bibitem[{Kocharian et~al.(2025)Kocharian, Redish, and
+  Rothwell}]{paper4_dopamine}
+Adrina Kocharian, A~David Redish, and Patrick~E Rothwell. 2025.
+\newblock Individual differences in decision-making shape how mesolimbic
+  dopamine regulates choice confidence and change-of-mind.
+\newblock \emph{Nature Neuroscience}, 28(9):1883--1896.
+
+\bibitem[{Kojima et~al.(2024)Kojima, Okimura, Iwasawa, Yanaka, and
+  Matsuo}]{28-naacl2024-multilingual}
+Takeshi Kojima, Itsuki Okimura, Yusuke Iwasawa, Hitomi Yanaka, and Yutaka
+  Matsuo. 2024.
+\newblock On the multilingual ability of decoder-based pre-trained language
+  models: Finding and controlling language-specific neurons.
+\newblock In \emph{Proceedings of the 2024 Conference of the North American
+  Chapter of the Association for Computational Linguistics: Human Language
+  Technologies (Volume 1: Long Papers)}, pages 6919--6971.
+
+\bibitem[{Kong et~al.(2024{\natexlab{a}})Kong, Zhao, Chen, Li, Qin, Sun, Zhou,
+  Wang, and Dong}]{13-naacl2024-better}
+Aobo Kong, Shiwan Zhao, Hao Chen, Qicheng Li, Yong Qin, Ruiqi Sun, Xin Zhou,
+  Enzhi Wang, and Xiaohang Dong. 2024{\natexlab{a}}.
+\newblock Better zero-shot reasoning with role-play prompting.
+\newblock In \emph{Proceedings of the 2024 Conference of the North American
+  Chapter of the Association for Computational Linguistics: Human Language
+  Technologies (Volume 1: Long Papers)}, pages 4099--4113.
+
+\bibitem[{Kong et~al.(2024{\natexlab{b}})Kong, Zhao, Chen, Li, Qin, Sun, Zhou,
+  Zhou, and Sun}]{27-nankai2024-prompttuning}
+Aobo Kong, Shiwan Zhao, Hao Chen, Qicheng Li, Yong Qin, Ruiqi Sun, Xin Zhou,
+  Jiaming Zhou, and Haoqin Sun. 2024{\natexlab{b}}.
+\newblock Self-prompt tuning: Enable autonomous role-playing in llms.
+\newblock \emph{arXiv preprint arXiv:2407.08995}.
+
+\bibitem[{Kumar et~al.(2024)Kumar, Morabito, Umbet, Kabbara, and
+  Emami}]{paper4_confidence_alignment}
+Abhishek Kumar, Robert Morabito, Sanzhar Umbet, Jad Kabbara, and Ali Emami.
+  2024.
+\newblock Confidence under the hood: An investigation into the
+  confidence-probability alignment in large language models.
+\newblock In \emph{Proceedings of the 62nd Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 315--334.
+
+\bibitem[{Lin et~al.(2022)Lin, Hilton, and Evans}]{lin2022truthfulqa}
+Stephanie Lin, Jacob Hilton, and Owain Evans. 2022.
+\newblock Truthfulqa: Measuring how models mimic human falsehoods.
+\newblock In \emph{Proceedings of the 60th Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 3214--3252.
+
+\bibitem[{Liu et~al.(2021)Liu, Cui, Liu, Huang, Wang, and
+  Zhang}]{liu2021logiqa}
+Jian Liu, Leyang Cui, Hanmeng Liu, Dandan Huang, Yile Wang, and Yue Zhang.
+  2021.
+\newblock Logiqa: a challenge dataset for machine reading comprehension with
+  logical reasoning.
+\newblock In \emph{Proceedings of the Twenty-Ninth International Conference on
+  International Joint Conferences on Artificial Intelligence}, pages
+  3622--3628.
+
+\bibitem[{Liu et~al.(2024)Liu, Ye, Xing, and Zou}]{81-liu2024context}
+Sheng Liu, Haotian Ye, Lei Xing, and James~Y Zou. 2024.
+\newblock In-context vectors: Making in context learning more effective and
+  controllable through latent space steering.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  32287--32307. PMLR.
+
+\bibitem[{Mante et~al.(2013)Mante, Sussillo, Shenoy, and
+  Newsome}]{paper6_context}
+Valerio Mante, David Sussillo, Krishna~V Shenoy, and William~T Newsome. 2013.
+\newblock Context-dependent computation by recurrent dynamics in prefrontal
+  cortex.
+\newblock \emph{Nature}, 503(7474):78--84.
+
+\bibitem[{Muhlgay et~al.(2024)Muhlgay, Ram, Magar, Levine, Ratner, Belinkov,
+  Abend, Leyton-Brown, Shashua, and Shoham}]{muhlgay2024factor}
+Dor Muhlgay, Ori Ram, Inbal Magar, Yoav Levine, Nir Ratner, Yonatan Belinkov,
+  Omri Abend, Kevin Leyton-Brown, Amnon Shashua, and Yoav Shoham. 2024.
+\newblock Generating benchmarks for factuality evaluation of language models.
+\newblock In \emph{Proceedings of the 18th Conference of the European Chapter
+  of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages 49--66.
+
+\bibitem[{Pawitan and Holmes(2025)}]{paper6_confidence_reasoning}
+Yudi Pawitan and Chris Holmes. 2025.
+\newblock Confidence in the reasoning of large language models.
+\newblock \emph{Harvard Data Science Review}, 7(1):2644--2353.
+
+\bibitem[{Plaut et~al.(2024)Plaut, Nguyen, and
+  Trinh}]{paper2_softmax_correctness}
+Benjamin Plaut, Khanh Nguyen, and Tu~Trinh. 2024.
+\newblock Softmax probabilities (mostly) predict large language model
+  correctness on multiple-choice {{Q\&A}}.
+\newblock \emph{arXiv preprint arXiv:2402.13213v1}.
+
+\bibitem[{Radford et~al.(2019)Radford, Wu, Child, Luan, Amodei, Sutskever
+  et~al.}]{gpt2}
+Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, Ilya
+  Sutskever, and 1 others. 2019.
+\newblock Language models are unsupervised multitask learners.
+\newblock \emph{OpenAI blog}, 1(8):9.
+
+\bibitem[{Rai and Yao(2024)}]{03-acl2024-investigation}
+Daking Rai and Ziyu Yao. 2024.
+\newblock An investigation of neuron activation as a unified lens to explain
+  chain-of-thought eliciting arithmetic reasoning of llms.
+\newblock In \emph{Proceedings of the 62nd Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 7174--7193.
+
+\bibitem[{Rein et~al.(2024)Rein, Hou, Stickland, Petty, Pang, Dirani, Michael,
+  and Bowman}]{rein2024gpqa}
+David Rein, Betty~Li Hou, Asa~Cooper Stickland, Jackson Petty, Richard~Yuanzhe
+  Pang, Julien Dirani, Julian Michael, and Samuel~R Bowman. 2024.
+\newblock Gpqa: A graduate-level google-proof q\&a benchmark.
+\newblock In \emph{First Conference on Language Modeling}.
+
+\bibitem[{Rimsky et~al.(2024)Rimsky, Gabrieli, Schulz, Tong, Hubinger, and
+  Turner}]{79-rimsky2024steering}
+Nina Rimsky, Nick Gabrieli, Julian Schulz, Meg Tong, Evan Hubinger, and
+  Alexander Turner. 2024.
+\newblock Steering llama 2 via contrastive activation addition.
+\newblock In \emph{Proceedings of the 62nd Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 15504--15522.
+
+\bibitem[{Salewski et~al.(2023)Salewski, Alaniz, Rio-Torto, Schulz, and
+  Akata}]{15-neurips2024-incontext}
+Leonard Salewski, Stephan Alaniz, Isabel Rio-Torto, Eric Schulz, and Zeynep
+  Akata. 2023.
+\newblock In-context impersonation reveals large language models' strengths and
+  biases.
+\newblock In \emph{Thirty-seventh Conference on Neural Information Processing
+  Systems}.
+
+\bibitem[{Shanahan et~al.(2023)Shanahan, McDonell, and
+  Reynolds}]{16-nature2023-role}
+Murray Shanahan, Kyle McDonell, and Laria Reynolds. 2023.
+\newblock Role play with large language models.
+\newblock \emph{Nature}, 623(7987):493--498.
+
+\bibitem[{Smith et~al.(2024)Smith, Baker, Chase, Barney, Parker, Allred, Hu,
+  Evans, and Fulda}]{21-2024-mysterious}
+Brenden Smith, Dallin Baker, Clayton Chase, Myles Barney, Kaden Parker, Makenna
+  Allred, Peter Hu, Alex Evans, and Nancy Fulda. 2024.
+\newblock The mysterious case of neuron 1512: Injectable realignment
+  architectures reveal internal characteristics of meta's llama 2 model.
+\newblock \emph{arXiv preprint arXiv:2407.03621}.
+
+\bibitem[{Talmor et~al.(2019)Talmor, Herzig, Lourie, and
+  Berant}]{talmor2019commonsenseqa}
+Alon Talmor, Jonathan Herzig, Nicholas Lourie, and Jonathan Berant. 2019.
+\newblock Commonsenseqa: A question answering challenge targeting commonsense
+  knowledge.
+\newblock In \emph{Proceedings of the 2019 Conference of the North American
+  Chapter of the Association for Computational Linguistics: Human Language
+  Technologies, Volume 1 (Long and Short Papers)}, pages 4149--4158.
+
+\bibitem[{Tang et~al.(2024)Tang, Luo, Huang, Zhang, Wang, Zhao, Wei, and
+  Wen}]{22-acl2024-language}
+Tianyi Tang, Wenyang Luo, Haoyang Huang, Dongdong Zhang, Xiaolei Wang,
+  Wayne~Xin Zhao, Furu Wei, and Ji-Rong Wen. 2024.
+\newblock Language-specific neurons: The key to multilingual capabilities in
+  large language models.
+\newblock In \emph{Proceedings of the 62nd Annual Meeting of the Association
+  for Computational Linguistics (Volume 1: Long Papers)}, pages 5701--5715.
+
+\bibitem[{Tseng et~al.(2024)Tseng, Huang, Hsiao, Chen, Huang, Meng, and
+  Chen}]{25-emnlp2024-twotales}
+Yu-Min Tseng, Yu-Chao Huang, Teng-Yun Hsiao, Wei-Lin Chen, Chao-Wei Huang,
+  Yu~Meng, and Yun-Nung Chen. 2024.
+\newblock Two tales of persona in llms: A survey of role-playing and
+  personalization.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  EMNLP 2024}, pages 16612--16631.
+
+\bibitem[{Turner et~al.(2023)Turner, Thiergart, Leech, Udell, Vazquez, Mini,
+  and MacDiarmid}]{84-turner2023activation}
+Alexander~Matt Turner, Lisa Thiergart, Gavin Leech, David Udell, Juan~J
+  Vazquez, Ulisse Mini, and Monte MacDiarmid. 2023.
+\newblock Activation addition: Steering language models without optimization.
+\newblock \emph{arXiv e-prints}, pages arXiv--2308.
+
+\bibitem[{Vivar-Lazo and Fetsch(2025)}]{paper2_neural_basis}
+Miguel Vivar-Lazo and Christopher~R Fetsch. 2025.
+\newblock Neural basis of concurrent deliberation toward a choice and
+  confidence judgment.
+\newblock \emph{Nature Neuroscience}, pages 1--12.
+
+\bibitem[{Wang et~al.(2024)Wang, Ma, Zhang, Ni, Chandra, Guo, Ren, Arulraj, He,
+  Jiang et~al.}]{wang2024mmlupro}
+Yubo Wang, Xueguang Ma, Ge~Zhang, Yuansheng Ni, Abhranil Chandra, Shiguang Guo,
+  Weiming Ren, Aaran Arulraj, Xuan He, Ziyan Jiang, and 1 others. 2024.
+\newblock Mmlu-pro: A more robust and challenging multi-task language
+  understanding benchmark.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  37:95266--95290.
+
+\bibitem[{Xu et~al.(2025)Xu, Wen, Han, Wolfe, Wang, and
+  Howe}]{paper8_mirror_human}
+Chenjun Xu, Bingbing Wen, Bin Han, Robert Wolfe, Lucy~Lu Wang, and Bill Howe.
+  2025.
+\newblock \href {https://doi.org/10.18653/v1/2025.findings-acl.1316} {Do
+  language models mirror human confidence? exploring psychological insights to
+  address overconfidence in {LLM}s}.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  ACL 2025}, pages 25655--25672, Vienna, Austria. Association for Computational
+  Linguistics.
+
+\bibitem[{Zhong et~al.(2021)Zhong, Wang, Tang, Xu, Guo, Wang, Yin, Zhou, and
+  Duan}]{zhong2021arlsat}
+Wanjun Zhong, Siyuan Wang, Duyu Tang, Zenan Xu, Daya Guo, Jiahai Wang, Jian
+  Yin, Ming Zhou, and Nan Duan. 2021.
+\newblock Ar-lsat: Investigating analytical reasoning of text.
+\newblock \emph{arXiv preprint arXiv:2104.06598}.
+
+\bibitem[{Zhou et~al.(2023)Zhou, Liu, Xu, Iyer, Sun, Mao, Ma, Efrat, Yu, Yu
+  et~al.}]{zhou2023lima}
+Chunting Zhou, Pengfei Liu, Puxin Xu, Srinivasan Iyer, Jiao Sun, Yuning Mao,
+  Xuezhe Ma, Avia Efrat, Ping Yu, Lili Yu, and 1 others. 2023.
+\newblock Lima: Less is more for alignment.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  36:55006--55021.
+
+\end{thebibliography}
