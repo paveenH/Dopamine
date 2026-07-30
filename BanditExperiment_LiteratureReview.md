@@ -375,6 +375,127 @@ Outcome 只能放在最后解释。一个 run 如果第一轮碰巧选中最优�
 
 当前证据最接近第二种，而不是“Llama3-8B 完全不能做 Bandit”。
 
+## 9. 从 D2 出发的下一步执行计划
+
+### Step 0：冻结 D2
+
+D2 已经完成其诊断作用：它修复了格式错误，却使策略塌缩为 pure greedy。保留现有
+D2 结果作为 negative prompt ablation，不再修改 D2 prompt，也不在 D2 上继续扩展
+α。后续实验使用新的 protocol version 和输出目录。
+
+### Step 1：建立新的 structured-summary protocol
+
+新协议只保留：
+
+- `Round N of 50`；
+- `TRIED OPTIONS`：`k rewards / n trials, rate r`；
+- `UNTRIED OPTIONS`：只列名称，不把 unknown 编成 0；
+- 两条环境事实：每个臂有固定但未知的回报概率；每次回报是新的随机抽样；
+- 一句探索—利用 affordance，但不规定“前期探索、后期利用”的时间表。
+
+同时移除 D2 中较长的采样理论解释。这个改动的目标不是教给模型一套策略，而是让它
+能清楚读取当前信息状态。
+
+### Step 2：同一协议下配对 direct-choice 与 short-CoT
+
+不要只加一句泛化的 `Think step by step`。它没有规定模型需要整合什么信息，容易产生
+冗长文本、菜单复述或与任务无关的推理。也不要先选臂、再补 explanation；选择之后的
+解释不能帮助决策。
+
+主 CoT 接口应要求**选择前的短理由**：
+
+```text
+Briefly compare the amount of evidence, observed rewards, and remaining rounds.
+Use at most two short sentences.
+End with exactly one final line:
+Choice: <exact option name>
+```
+
+其中“remaining rounds”只是要求模型读取 horizon，不规定应该在哪一轮停止探索。
+
+建立两个严格配对的条件：
+
+| 条件 | 输出 | 用途 |
+|---|---|---|
+| E-direct | 立即输出 `Choice: <name>` | 新 summary 下的直接选择基线 |
+| E-CoT | 1–2 句理由，再输出最终 `Choice` 行 | 检验显式证据整合能否解除 greedy collapse |
+
+实现约束：
+
+- E-direct 保留 `Choice: ` prefill；
+- E-CoT 不在 prompt 末尾 prefill `Choice: `，否则模型仍无法先推理；
+- E-CoT 的 `max_new_tokens` 提高到 64；
+- parser 只接受最后一个非空行严格等于 `Choice: <exact name>`；
+- 保存 choice 前的 rationale；
+- 额外记录 `menu_restatement`、rationale 中提到的臂数，以及 rationale 判断与最终
+  choice 是否一致；
+- 两个条件使用相同 seeds、reward schedules 和 arm mapping；
+- 使用新 protocol/resume key，不能复用 D/D2 数据。
+
+### Step 3：先在 α=0 做能力阶梯
+
+对 E-direct 与 E-CoT 同时运行：
+
+1. K=2：0.70 / 0.30；
+2. K=3：0.70 / 0.45 / 0.20；
+3. K=5：0.70 / 0.50 / 0.40 / 0.30 / 0.10。
+
+每格使用相同的 20 seeds。判读顺序固定为：
+
+1. invalid rate 与 parser failure；
+2. coverage、best-never-tried、last novel trial；
+3. novel vs non-novel switching；
+4. late adherence、GreedyFreq、SuffixFail；
+5. 最后才看 OptFrac 与 regret。
+
+CoT 只有在增加 discovery/novel exploration 的同时，没有明显增加 non-novel churn，
+且 late adherence 没有实质下降时，才视为改善。否则应解释为 CoT 使输出更易变，而
+不是增强了 Bandit adaptation。
+
+### Step 4：K=5 warm-start utilization control
+
+在 α=0 下，对 E-direct 与 E-CoT 都运行 warm-start：程序先为每个臂提供两个观察，
+模型从第 11 轮开始自由决策。
+
+这一步只回答“给定足够信息后，模型能否利用反馈并维持较优选择”。如果 warm-start
+通过而 free exploration 失败，说明问题位于自主 discovery，而不是 exploitation；
+不能把 warm-start 当作 α 主实验。
+
+### Step 5：选择 α 主实验接口
+
+只让通过以下条件的接口进入 K=5、α∈{−4,0,+4}：
+
+- 格式稳定；
+- α=0 下不是 pure greedy lock；
+- 能发现大部分臂与最优臂；
+- 后期能够利用已有证据；
+- 额外切换以 novel exploration 为主，而不是 non-novel churn。
+
+若 E-direct 与 E-CoT 都通过，二者都跑 α，形成“立即选择 vs 显式整合”的接口
+robustness；若只有一个通过，主实验只使用该接口，并把另一接口保留为能力边界对照。
+
+α 的主读数为：
+
+- novel-switch fraction；
+- last novel trial；
+- non-novel switches；
+- late adherence；
+- GreedyFreq / SuffixFail；
+- matched-history divergence。
+
+OptFrac 和 regret 作为净结果放在机制指标之后。目标不是证明 `+α = 更多探索`，而是
+区分 α 改变的是目标性 information seeking、exploration stopping，还是一般 policy
+destabilization。
+
+### Step 6：结论分支
+
+| 结果 | 后续口径 |
+|---|---|
+| CoT 在 K=2/3/5 均改善且不增加 churn | 当前 direct interface 压掉了必要的证据整合；使用 E-CoT 做 α 主实验 |
+| CoT 只在 K=2/3 有效 | Llama3-8B 具备简单 Bandit 能力，但 K=5 是 scale boundary |
+| warm-start 通过、free exploration 失败 | 保留 conditional utilization 结论；Bandit 不承担完整自主适应证据 |
+| CoT 与 warm-start 都失败 | 停止继续调 prompt，将 Bandit 记录为当前模型/接口的能力边界 |
+
 ## References
 
 1. Ashizawa et al. (2025). [Bandit-Based Prompt Design Strategy Selection Improves Prompt Optimizers](https://aclanthology.org/2025.findings-acl.1070/).
