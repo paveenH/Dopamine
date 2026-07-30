@@ -144,9 +144,24 @@ NUM_ROUNDS=50
 # set against that baseline would be an unpaired comparison of different arm
 # layouts — at n=5 with a bimodal OptFrac that is uninterpretable.
 #   SEEDS=20 bash run_bandit_validity.sh llama3 D
+# SEEDS=fail is the D2 targeted smoke test: the five 20-seed D runs whose
+# failure mode D2 is designed to fix, so a cheap 5-cell run answers "did the
+# mechanism move" before spending the full 20.
+#   seed 0  — best arm's first pull returned 0; a different arm's first pull
+#             returned 1 and was then taken 46 times
+#   seed 2  — best arm's first pull returned 0, never tried again
+#   seed 3  — ~35 rounds on a mid arm before the best arm was tried
+#   seed 14 — same late-discovery pattern
+#   seed 12 — held an arm down to observed 0.16 without ever exploring
+# NOTE these seeds were SELECTED ON THE OUTCOME, so their pass rate is not an
+# unbiased estimate of anything — it is a mechanism probe. A verdict needs the
+# paired 20-seed run against D (SEEDS=20), which is the comparison the analyzer
+# gates on.
 SEEDS_MODE=${SEEDS:-5}
 if [ "$SEEDS_MODE" == "20" ]; then
     SEEDS="0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19"
+elif [ "$SEEDS_MODE" == "fail" ]; then
+    SEEDS="0 2 3 12 14"
 else
     SEEDS="0 3 4 9 37"
 fi
@@ -213,6 +228,59 @@ run_arm C --ans_file "bandit_validity_C_chat_summary_anchor" \
 run_arm D --ans_file "bandit_validity_D_untried" \
           --summary_history --answer_anchor --use_chat --max_new_tokens 24 \
           --untried_semantics
+
+# D2 = D + sampling-uncertainty FACTS. THE MAIN LINE after D.
+#
+# WHY D2 EXISTS. D opened the discovery gate (best-never-tried 6/20 → 1/20) but
+# left coverage flat (3.55 → 3.75) and OptFrac bimodal. Reading the 20-seed
+# generations shows the model had understood D's repairs — it knows there are
+# five options, that UNTRIED should be tried, and it does pick the highest
+# observed mean. What it does NOT represent is estimation uncertainty under a
+# random reward: it treats an n=1 observation as a settled property. seeds 0
+# and 2 abandoned the best arm permanently after ONE reward=0; seeds 3 and 14
+# spent 35–40 rounds on a mid arm before first touching the best one; seed 12
+# held an arm measured at 0.16 without ever exploring. (seeds 1/6/8/18 scored
+# well only by picking the best arm first and never moving — a good number, not
+# evidence of learning, which is why OptFrac alone must not be the readout.)
+#
+# D2 adds three FACTS and no policy: rewards are random draws, a few-trial
+# result is uncertain in BOTH directions (a single 1 is as uninformative as a
+# single 0 — stated symmetrically so it is not a nudge to explore), and trial
+# count is evidence strength, with the table rendered "k rewards / n trials
+# (observed rate r)" so n is read before the rate. It also renames "This is
+# choice N of 50" → "Round N of 50" and adds "Do not add a number", targeting
+# D's invalid replies (9 total, nearly all round 1, of the form "1. ...", i.e.
+# list continuation induced by the enumerated wording).
+#
+# READ THE MECHANISM METRICS, not coverage: coverage=1 can just mean the first
+# pick happened to be the best arm.
+#   best_arm_pulled_le1   — best arm tried ≤1 time            (D: 6/20)
+#   late_best_discovery   — first best-arm pull after round 30 (D: 3/20)
+#   revisit_after_first_zero — best arm tried again after its first 0
+#
+#   SEEDS=fail bash run_bandit_validity.sh llama3 D2     # targeted probe first
+#   SEEDS=20   bash run_bandit_validity.sh llama3 D2     # then the paired run
+run_arm D2 --ans_file "bandit_validity_D2_uncertainty" \
+          --summary_history --answer_anchor --use_chat --max_new_tokens 24 \
+          --untried_semantics --prompt_variant D2
+
+# D3 = D2 + "explore early, exploit late". DIAGNOSTIC CONTROL — run only if D2
+# fails, and never sweep α on it.
+#
+# Those two sentences are strategy, not environment: they hand over the
+# explore→exploit schedule, and WHEN the model stops exploring is exactly the
+# behaviour α is hypothesised to modulate. Scripting it deletes the dependent
+# variable — the IGT v4 result is the precedent (externally supplying the
+# deliberation returned every value/risk/RPE readout to n.s., which is what
+# localised the +α effect to engagement rather than valuation).
+#
+# So D3's only job is to split a D2 failure in two: if D3 succeeds where D2
+# fails, the model understands the task but cannot plan the schedule itself; if
+# D3 also fails, the deficit is not strategic and Bandit is a boundary point at
+# this scale (record it like ScienceWorld and stop).
+run_arm D3 --ans_file "bandit_validity_D3_scaffold" \
+          --summary_history --answer_anchor --use_chat --max_new_tokens 24 \
+          --untried_semantics --prompt_variant D3
 
 # NOTE (2026-07-29): a Dbare arm (D without --use_chat) was dropped. The
 # α sweep runs under chat, accepting the mask-distribution mismatch as a known
