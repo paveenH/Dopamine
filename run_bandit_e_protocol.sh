@@ -320,6 +320,67 @@ run_step MAINCOT --ans_file "e_K5_cot_mt128" \
 run_step MAINCOT192 --ans_file "e_K5_cot_mt192" \
           --prompt_variant E-CoT --num_arms 5 --max_new_tokens 192
 
+# MAINCOT192 result (2026-07-30): DEAD END, do not repeat. mt192's choices
+# are byte-identical to mt128 for all 5 seeds — the invalid rounds were never
+# a truncation issue (greedy decoding under bf16 never reached anywhere near
+# 128 tokens on these rounds), so widening max_new_tokens further will not
+# help. Inspecting the raw text of every invalid round confirms the real
+# cause: the model's REASONING was often substantively fine (e.g. seed9
+# round48's raw ends "...this option should be tried: Retro Revival
+# Sneakers" — a clear, arguably-correct intended decision) but it did not
+# terminate in the strict_anchor parser's required exact `Choice: <name>`
+# form, so it fell to fallback_rng instead. Per the 2026-07-30 methodology
+# note: do NOT loosen strict_anchor to rescue these offline, and do NOT
+# hand-recover an "intended" choice from the raw text — a differing fallback
+# pull at that round changes every downstream round's TRIED/UNTRIED state
+# and reward history for the rest of that episode, so there is no way to
+# reconstruct the counterfactual trajectory the model would have produced
+# had it committed cleanly. seed3(round4)/seed9(round4,17,49)/seed37(round33)
+# stay confounded and are NOT usable as evidence of CoT-induced
+# destabilization — only seed4 (0 invalid throughout: systematic 5-arm
+# coverage in rounds 0-4, then correct convergence on Celestial, late_opt
+# 0.000->0.767) is a clean, attributable CoT observation.
+#
+# ══════════ CAPABILITY LADDER VERDICT (2026-07-30, FROZEN) ══════════
+# E-direct: format-stable (invalid ~0 everywhere in this ladder), and its
+# failure mode is well-characterized across K=2/K=3/K=5-warm/K=5-free — an
+# early-outcome-dependent greedy confirmation loop (display position 1 wins
+# the initial tie-break under total uncertainty; whichever arm earns the
+# FIRST reward=1 becomes a self-reinforcing incumbent; late performance is
+# bimodal on whether that first-success arm happens to be the true best).
+# K5-warm-start additionally showed this is not pure point-estimate
+# greediness — incumbent persistence can override a competing arm with a
+# CURRENTLY HIGHER empirical estimate (K5-free seed4's direct run: Retro hit
+# 1/1 right after Velvet's first success, yet Velvet stayed modal 48/50).
+#
+# E-CoT: occasionally enables systematic initial coverage and can rescue a
+# total non-discovery failure (K5-free seed4 is the one clean case), i.e.
+# the model IS capable of something like uncertainty-driven sampling under
+# some conditions. But format adherence to the strict_anchor protocol is not
+# reliable at K=5 (~2-6% invalid per seed, unevenly distributed, sometimes
+# landing in the incumbent-formation window), and every apparent case of
+# CoT "destabilizing" an otherwise-correct seed (K3COT seed2, WARMCOT
+# seed37, MAINCOT seed3/seed9) is at least partially confounded by either
+# generation-content churn or fallback contamination — NOT a clean net-
+# negative verdict, just not a reliable net-positive either. Net: CoT's
+# marginal value over direct is UNESTABLISHED, not negative, not positive.
+#
+# DECISION: the α sweep runs on E-direct, not E-CoT. E-direct is format-
+# stable, fallback-free in this data, and its steering-token semantics are
+# simpler (injects on the prefilled anchor's trailing space, vs E-CoT's
+# injection on the last prompt token before free generation). A clean CoT
+# vs direct comparison remains possible LATER via a two-stage interface
+# (generate rationale freely, then append `Choice:` and pick among the K
+# legal arm names via constrained decoding — eliminating invalid/fallback
+# entirely) but that is a NEW protocol, not a pv5 rerun, and is deferred.
+#
+# NEXT: E-direct, K=5 free exploration, α ∈ {−4, 0, +4}, 20 paired seeds,
+# NEW --ans_file (do not overwrite this 5-seed baseline). Primary reads,
+# in order: novel-arm exploration / best_never_tried, whether exploration
+# continues past an incorrect incumbent, non-novel churn among already-
+# tried arms, persistence/late empirical-best adherence — OptFrac/regret
+# last, as an outcome summary, not the primary mechanism evidence.
+
 echo ""
 echo "Done. Analyse with the mechanism metrics (coverage/adherence/late_opt_frac"
 echo "per step 1-3; E-direct vs E-CoT paired contrast for step 4) — NOT OptFrac"
