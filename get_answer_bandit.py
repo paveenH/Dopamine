@@ -594,6 +594,113 @@ def parse_choice_exact(output: str, arm_names: list[str],
     return (rng or random).choice(arm_names), False, len(inside)
 
 
+def parse_choice_rationale_final(
+    output: str, arm_names: list[str], rng: random.Random = None
+) -> tuple[str, bool, int, str, bool]:
+    """Parser for the E-CoT interface: rationale lines, THEN a final `Choice:`.
+
+    NOT a relaxed parse_choice_exact — a genuinely different contract, because
+    the two interfaces disagree about what "extra text" means. Under
+    answer_anchor's `Choice: ` PREFILL there is no room for rationale before
+    the anchor, so parse_choice_exact treats any non-Choice line as a format
+    failure (whole-reply strictness). E-CoT is prefilled with NOTHING — the
+    model reasons first and commits last — so rationale lines are the expected
+    shape, not a violation, and applying parse_choice_exact here would score
+    every legitimate reply as invalid.
+
+    Contract:
+      - the LAST non-empty line must be exactly `Choice: <arm name>`
+        (case-insensitive, trailing punctuation stripped);
+      - there must be exactly ONE `Choice:` line in the whole reply, and it
+        must BE that last line — a `Choice:` line buried mid-reply with
+        further text after it is invalid (the model kept talking after
+        committing, so "the last line is the decision" no longer holds);
+      - everything before it is rationale, kept verbatim for the audit in
+        Step 2 (does it mention UNTRIED arms / trial counts / remaining
+        rounds / declare a "best" arm before considering the others).
+
+    Returns (chosen_name, is_valid, n_matched, rationale, menu_restatement):
+      - n_matched is computed over the RATIONALE ONLY (not the Choice line),
+        so a rationale that legitimately discusses several arms does not by
+        itself invalidate the reply — that is expected CoT content here,
+        unlike parse_choice_exact where >1 in the whole reply is a violation.
+      - menu_restatement is a SEPARATE, stricter signal: True only if the
+        rationale names ALL K arms (i.e. reads as reciting the option list
+        rather than comparing evidence for a subset). Mentioning 2-3 arms
+        while weighing evidence is exactly what "briefly compare" was asked
+        for and must not be flagged.
+    """
+    lows = {name.lower(): name for name in arm_names}
+    text = output or ""
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    choice_line_idxs = [i for i, ln in enumerate(lines) if CHOICE_LINE_RE.match(ln)]
+
+    if not lines:
+        return (rng or random).choice(arm_names), False, 0, "", False
+    if len(choice_line_idxs) != 1 or choice_line_idxs[0] != len(lines) - 1:
+        # Zero Choice lines, several, or one that isn't last (model kept
+        # talking after committing) — all invalid. n_matched/rationale still
+        # computed over the non-Choice lines for diagnostics.
+        rationale_lines = [ln for i, ln in enumerate(lines) if i not in
+                           set(choice_line_idxs)]
+        rationale = "\n".join(rationale_lines)
+        mentioned = {name for low, name in lows.items() if low in rationale.lower()}
+        return ((rng or random).choice(arm_names), False, len(mentioned),
+                rationale, len(mentioned) == len(arm_names))
+
+    rationale = "\n".join(lines[:-1])
+    payload = CHOICE_LINE_RE.match(lines[-1]).group(1)
+    payload = payload.strip().strip(".,;:!?\"'`*[]()").strip()
+    mentioned = {name for low, name in lows.items() if low in rationale.lower()}
+    menu_restatement = len(mentioned) == len(arm_names)
+
+    pl = payload.lower()
+    if pl in lows:
+        return lows[pl], True, len(mentioned), rationale, menu_restatement
+    # Committed line doesn't exactly match an arm name -> invalid regardless
+    # of how clean the rationale was.
+    return ((rng or random).choice(arm_names), False, len(mentioned),
+            rationale, menu_restatement)
+
+
+def audit_rationale(rationale: str, arm_names: list[str], tried: set[str]) -> dict:
+    """Descriptive rationale features for the E-CoT mechanism audit (Step 2).
+
+    NOT a validity gate — these never affect `valid`/`is_valid`. They exist so
+    a later analysis can ask whether the rationale is actually integrating
+    evidence (mentions UNTRIED arms, cites trial counts, reads the horizon) or
+    is a post-hoc gloss on a greedy pick that was already decided (declares a
+    "best" arm without ever engaging uncertainty) — the D2 failure mode,
+    but caught at the reasoning layer instead of only in the final choice.
+
+    `chosen`'s untried/empirical-best/known-worse category is NOT computed
+    here — the caller already has the running per-arm means from building the
+    summary and should classify it there (this function only reads text).
+    """
+    rl = rationale.lower()
+    untried = [a for a in arm_names if a not in tried]
+    mentions_untried_arm = any(a.lower() in rl for a in untried)
+    mentions_untried_word = "untried" in rl
+    mentions_trials = bool(re.search(r"\btrial", rl)) or bool(re.search(r"\d+\s*/\s*\d+", rl))
+    mentions_remaining = bool(re.search(r"remaining|rounds left|rounds remain", rl))
+    declares_best_early = bool(re.search(r"\bbest\b|\bcurrent best\b|\bhighest\b", rl))
+    # The D2 failure signature: declares a winner but never engages the thing
+    # that would make declaring one premature (an untried arm still exists and
+    # the rationale never says so).
+    greedy_narration = bool(
+        untried and declares_best_early
+        and not mentions_untried_arm and not mentions_untried_word
+    )
+    return {
+        "mentions_untried_arm":   mentions_untried_arm,
+        "mentions_untried_word":  mentions_untried_word,
+        "mentions_trial_counts":  mentions_trials,
+        "mentions_remaining":     mentions_remaining,
+        "declares_best_early":    declares_best_early,
+        "greedy_narration":       greedy_narration,
+    }
+
+
 def get_feedback(arm: str, arm_map: dict[str, float], rng: random.Random) -> int:
     return 1 if rng.random() < arm_map[arm] else 0
 
