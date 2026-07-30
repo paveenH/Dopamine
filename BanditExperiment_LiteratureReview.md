@@ -496,7 +496,7 @@ destabilization。
 | warm-start 通过、free exploration 失败 | 保留 conditional utilization 结论；Bandit 不承担完整自主适应证据 |
 | CoT 与 warm-start 都失败 | 停止继续调 prompt，将 Bandit 记录为当前模型/接口的能力边界 |
 
-### Step 7（备选）：LLM estimator + algorithmic controller
+### Step 7：LLM estimator + algorithmic controller
 
 如果 Llama3-8B 在 E-direct/E-CoT 下仍无法稳定完成 K=5 的自主
 exploration–exploitation，可以转向
