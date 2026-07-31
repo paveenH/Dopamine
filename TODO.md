@@ -33,9 +33,9 @@ RSN neurons
 ---
 
 ## TODO
-0. 用Qwen2.5-7B复现看看
-1. Trajectory：直接看Cot在neurons上的改变 copy COT的曲线
-2. Trajectory：预测commit，然后再commit前后进行干预；
+0. 用Qwen2.5-7B复现
+1. Bandit 实验重构
+2. HumanLLM
 3. Behaviour: 测一下和人类的行为学对齐关系
 
 行文可以参考
