@@ -171,11 +171,9 @@ LLM 负责生成、预测或执行局部子任务
 
 ### 3.1 研究目标与证据边界
 
-新实验不再预设“找到一个 prompt 后 Llama3-8B 就能完成 Bandit”。主问题改为：
+Llama3-8B 位于怎样的 Bandit capability boundary；RSN α 改变的是目标性 information seeking、exploration stopping、policy persistence，还是只让行为在 greedy lock 与 uniform flailing 之间移动？
 
-> 在文献支持的最强原生接口下，Llama3-8B 位于怎样的 Bandit capability boundary；RSN α 改变的是目标性 information seeking、exploration stopping、policy persistence，还是只让行为在 greedy lock 与 uniform flailing 之间移动？
-
-这里不预设 Llama3-8B 必须完成 Reference-Hard，但 **α 的 capability-effect 解释必须建立在至少一个 native competence anchor 上**：模型需要先在某个不含外部 uncertainty / policy guidance 的条件中表现出最低限度的 discovery→utilization。若所有 native 难度都未达到该门槛，α 仍可用于描述 greedy lock、uniform flailing 与 policy persistence 的变化，但不能称为 information-seeking improvement 或 capability rescue。
+不预设 Llama3-8B 必须完成 Reference-Hard，但 **α 的 capability-effect 解释必须建立在至少一个 native competence anchor 上**：模型需要先在某个不含外部 uncertainty / policy guidance 的条件中表现出最低限度的 discovery→utilization。若所有 native 难度都未达到该门槛，α 仍可用于描述 greedy lock、uniform flailing 与 policy persistence 的变化，但不能称为 information-seeking improvement 或 capability rescue。
 
 后续结论必须区分三种证据：
 
@@ -183,7 +181,7 @@ LLM 负责生成、预测或执行局部子任务
 2. **Calculator / uncertainty scaffold**：Python 进一步提供平滑概率、uncertainty 或 credible interval；模型仍做选择，但状态表示已受到外部算法帮助。
 3. **Algorithm-guided policy**：warm-start、UCB/TS guidance 或 oracle demonstrations 已提供探索信息或策略，只能作为 utilization control、upper bound 或训练条件。
 
-旧 C / D / D2 与 2026-07-28 前 Bandit 数据只保留为失败分析，不进入新主结果。新实验使用独立 protocol version、输出目录和 resume key。
+新实验使用独立 protocol version、输出目录和 resume key。
 
 ### 3.2 文献对齐的 reference environment
 
