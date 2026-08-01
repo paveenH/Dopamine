@@ -225,361 +225,143 @@ D2 成功消除了编号格式错误，却让三个 α 基本都退化为纯 gre
 
 ## 4. 推荐的新实验结构
 
-### 4.1 第一层：能力阶梯，而不是直接从 K=5 判死刑
+### Calculator-assisted Deliberate Bandit
 
-使用相同 parser、chat interface、reward RNG 和 summary schema，只改变任务难度：
+先建立一个更简单的新协议：
 
-| 层级 | 设置 | 回答的问题 |
-|---|---|---|
-| Easy | K=2，明显 gap，例如 0.70 vs 0.30 | 模型能否从最简单的随机反馈中适应 |
-| Bridge | K=3，例如 0.70 / 0.45 / 0.20 | 能否同时完成 discovery 与排序 |
-| Main | 当前 K=5：0.70 / 0.50 / 0.40 / 0.30 / 0.10 | α 如何改变 exploration、利用与稳定性 |
+- K=2，概率为 `0.70 / 0.30`
+- T=30 或 40
+- 使用短、无语义偏好的臂名，例如 `Option A / Option B`
+- 不同 run 随机化最优臂，run 内始终固定
+- Python 计算统计量，模型负责最终 explore/exploit 决策
+- 先允许短思考，再通过 constrained choice 输出合法臂名
 
-K=2/K=3 是 task-validity 与 scale-boundary 诊断；最终 RSN 行为结论仍以 K=5 为主。
-
-### 4.2 第二层：把自主 exploration 与 utilization 分开
-
-#### A. Utilization-only / warm-start control
-
-程序在前 10 轮为每个臂提供 2 个匹配的观察，然后模型从第 11 轮开始自由选择。
-
-主指标：
-
-- late empirical-best adherence；
-- true-best selection rate；
-- regret slope；
-- 是否会在已有充分证据后错误放弃最优臂；
-- `SuffixFail@10/@20`。
-
-这个条件只能证明：
-
-> 模型获得足够信息后能否利用和适应反馈。
-
-它不能证明自主 exploration，也不能作为 wanting / α 主实验。
-
-#### B. End-to-end free exploration
-
-不强制初始化，模型从全 UNTRIED 开始；这才是 α 主实验。
-
-如果 A 通过而 B 失败，应写成：
-
-> Llama3-8B 具备 conditional utilization，但自主 information acquisition / exploration stopping 不稳定。
-
-这比“模型不会 Bandit”准确得多。
-
-### 4.3 第三层：测试 short-CoT，而不是继续堆任务说明
-
-当前 `answer_anchor` 将 prompt 结束在 `Choice: `，模型必须立即输出臂名。`LLMs are Greedy Agents` 表明 CoT 会显著增加 action coverage，而且 RLFT 没有 CoT 时几乎失去收益。因此建议做一个严格配对的接口对照：
-
-#### Direct-choice
+每轮提供：
 
 ```text
-Choose the option that will maximize total reward over the full task.
-Choice: <exact option name>
-```
+Round 9 of 30; 21 rounds remain.
 
-#### Short-CoT
+Option A
+- rewards: 1 / 1
+- estimated probability: 0.67
+- uncertainty: HIGH
 
-```text
-Briefly compare the amount of evidence, observed reward, and remaining rounds.
-End with exactly one final line:
-Choice: <exact option name>
-```
+Option B
+- rewards: 5 / 8
+- estimated probability: 0.60
+- uncertainty: MEDIUM
 
-实现要求：
+An option with fewer trials has a less reliable estimate.
 
-- `max_new_tokens` 可提高到 64；
-- parser 只解析**最后一行**严格匹配的 `Choice: <name>`；
-- 前面的 rationale 可以存在，但最后一行之外出现多个 arm 名时需要记录 `menu_restatement`，不要静默接受；
-- 保存 rationale，以便判断 knowing–doing gap；
-- direct-choice 与 short-CoT 使用相同 seeds、reward draws、arm mapping 和 α。
+Briefly decide:
+1. Is more information still valuable?
+2. Should you explore an uncertain option or exploit the best-supported option?
 
-这不是为了证明 CoT 一定更好，而是检验：
-
-> 当前 greedy collapse 是模型的策略边界，还是“立即输出臂名”接口压掉了必要的证据整合？
-
-### 4.4 推荐的 summary
-
-不要恢复 raw 50-line history，也不要保留 D2 的长采样理论段落。使用短、结构化状态：
-
-```text
-Round 12 of 50
-
-TRIED OPTIONS
-- Velvet Vogue Jacket: 4 rewards / 6 trials, rate 0.67
-- Urban Mystique Jeans: 1 reward / 3 trials, rate 0.33
-
-UNTRIED OPTIONS
-- Silk Serenity Dress
-- Celestial Symphony Scarf
-- Retro Revival Sneakers
-
-Each option has a fixed but unknown chance of reward 1.
-An untried option has no estimate yet.
-Balance learning about uncertain options with using the best-supported option
-to maximize total reward over all 50 rounds.
-```
-
-设计理由：
-
-- `TRIED / UNTRIED` 直接分离 known 与 unknown；
-- count 放在 rate 前，避免只读点估计；
-- 只保留两条必要环境事实；
-- 恢复 D 中明确的 exploration–exploitation action affordance；
-- 不规定“前几轮探索、后几轮利用”，保留 α 影响 stopping time 的空间；
-- 不重复臂名菜单，不提供含具体臂名的示例。
-
-这应作为一个新 protocol，不能与 D 或 D2 混用 resume key。
-
-## 5. 分析指标：从一个 OptFrac 改成四层
-
-### 5.1 Discovery
-
-- coverage；
-- best-never-tried；
-- first-best-arm trial（带删失）；
-- last novel action trial；
-- novel switches；
-- best arm pulled ≤1 次；
-- revisit after first zero。
-
-### 5.2 Utilization
-
-- empirical-best adherence；
-- fixed-window post-discovery adherence；
-- late adherence（固定 rounds 30–49）；
-- true-best selection after sufficient evidence；
-- reward-prediction / best-supported-arm diagnostic。
-
-### 5.3 Policy stability
-
-- non-novel switches；
-- choice entropy；
-- longest same-arm streak；
-- `GreedyFreq@10/@30/@50`；
-- `SuffixFail@10/@20`；
-- matched-history divergence：在完全相同信息状态下，不同 α 分别选择了 untried、empirical-best、known-worse 中哪一类。
-
-### 5.4 Outcome
-
-- OptFrac；
-- cumulative / per-round regret；
-- WorstFrac；
-- early vs late OptFrac。
-
-Outcome 只能放在最后解释。一个 run 如果第一轮碰巧选中最优臂并锁死，可以得到接近 1.0 的 OptFrac，但并未展示 learning。
-
-## 6. 建议的最小实验矩阵
-
-| 模块 | α | K | 接口 | 用途 |
-|---|---|---:|---|---|
-| Capability-Easy | 0 | 2, 3 | direct + short-CoT | 判断小模型能力边界 |
-| Utilization control | 0 | 5 | warm-start + direct/CoT | 证明给定信息后能否适应 |
-| Main free exploration | −4, 0, +4 | 5 | 通过 validity 的接口 | RSN α 主结果 |
-| Algorithmic baseline | — | 2, 3, 5 | UCB / TS | 环境上界与 sanity check |
-
-若资源允许，可直接全跑，而不是依次等待；但判读顺序必须固定：
-
-1. 格式是否有效；
-2. warm-start utilization 是否通过；
-3. free exploration 是否存在；
-4. α 增加的是 novel exploration 还是 non-novel churn；
-5. 最后才看 regret / OptFrac。
-
-## 7. 明确不建议做的事
-
-1. **不继续扩写 D2 prompt。** 已经有明确的 greedy-collapse 结果，继续堆句子只会产生新的复合干预。
-2. **不把 forced initialization 当主实验。** 它会外部提供 exploration，删除 α 最可能作用的通道。
-3. **不只看 coverage。** coverage 上升可以只是 churn 的副产品。
-4. **不自动用 OPTS 优化主 prompt。** prompt optimizer 会按 reward 选择一种行为诱导方式，使 prompt-selection 与 α effect 混淆；本研究需要预注册的小型 factorial ablation。
-5. **不使用 classical TS/UCB 替模型选臂。** 这适合上界和诊断，不适合测试 RSN 是否改变模型自身策略。
-6. **不把 chat success 说成 bare-mask 对齐证明。** 当前可以接受 chat 作为有效任务接口和跨格式泛化，但需要保留 activation-distribution mismatch 限定。
-7. **不引用旧 Bandit 倒 U。** 2026-07-28 前的位置泄漏与 permissive parser 已使旧结果失效；新结论必须来自修复后的 protocol。
-
-## 8. 最终建议
-
-下一步最有信息量的不是 D3，也不是继续润色 D2，而是：
-
-1. 建一个**简洁 structured-summary protocol**；
-2. 同时跑 direct-choice 与 short-CoT；
-3. 在 K=2/K=3 上确认能力边界；
-4. 在 K=5 加 warm-start utilization control；
-5. 只有通过 task validity 的自由探索接口进入 α=−4/0/+4；
-6. 用 novel exploration、non-novel churn、late adherence 和 SuffixFail 判定 α 的机制。
-
-可能出现的三种最终结果：
-
-| 结果 | 合理结论 |
-|---|---|
-| warm-start 与 free exploration 都通过 | 可以研究 α 如何移动完整 exploration–exploitation working point |
-| warm-start 通过、free exploration 失败 | 模型会利用反馈，但自主 discovery 不稳定；α 主要测试 policy persistence / information seeking |
-| warm-start 也失败 | 当前 Llama3-8B 与此接口不具备基本 Bandit adaptation；将 Bandit 记录为 scale boundary，不再承担主线证据 |
-
-当前证据最接近第二种，而不是“Llama3-8B 完全不能做 Bandit”。
-
-## 9. 从 D2 出发的下一步执行计划
-
-### Step 0：冻结 D2
-
-D2 已经完成其诊断作用：它修复了格式错误，却使策略塌缩为 pure greedy。保留现有
-D2 结果作为 negative prompt ablation，不再修改 D2 prompt，也不在 D2 上继续扩展
-α。后续实验使用新的 protocol version 和输出目录。
-
-### Step 1：建立新的 structured-summary protocol
-
-新协议只保留：
-
-- `Round N of 50`；
-- `TRIED OPTIONS`：`k rewards / n trials, rate r`；
-- `UNTRIED OPTIONS`：只列名称，不把 unknown 编成 0；
-- 两条环境事实：每个臂有固定但未知的回报概率；每次回报是新的随机抽样；
-- 一句探索—利用 affordance，但不规定“前期探索、后期利用”的时间表。
-
-同时移除 D2 中较长的采样理论解释。这个改动的目标不是教给模型一套策略，而是让它
-能清楚读取当前信息状态。
-
-### Step 2：同一协议下配对 direct-choice 与 short-CoT
-
-不要只加一句泛化的 `Think step by step`。它没有规定模型需要整合什么信息，容易产生
-冗长文本、菜单复述或与任务无关的推理。也不要先选臂、再补 explanation；选择之后的
-解释不能帮助决策。
-
-主 CoT 接口应要求**选择前的短理由**：
-
-```text
-Briefly compare the amount of evidence, observed rewards, and remaining rounds.
 Use at most two short sentences.
-End with exactly one final line:
 Choice: <exact option name>
 ```
 
-其中“remaining rounds”只是要求模型读取 horizon，不规定应该在哪一轮停止探索。
+这里的 `0.67` 最好不是原始 `1/1=1.00`，而是由程序计算的 Beta-smoothed posterior mean，例如：
 
-建立两个严格配对的条件：
+\[
+\hat p_i = \frac{s_i+1}{n_i+2}
+\]
 
-| 条件 | 输出 | 用途 |
-|---|---|---|
-| E-direct | 立即输出 `Choice: <name>` | 新 summary 下的直接选择基线 |
-| E-CoT | 1–2 句理由，再输出最终 `Choice` 行 | 检验显式证据整合能否解除 greedy collapse |
+同时由程序提供 posterior uncertainty 或 credible interval。这样能直接削弱当前“第一次成功 → 经验率 1.0 → 永久锁定”的 confirmation loop。
 
-实现约束：
+重要边界：只提供历史数据计算出的 estimate 和 uncertainty，**不能展示真实的 0.7/0.3**。
 
-- E-direct 保留 `Choice: ` prefill；
-- E-CoT 不在 prompt 末尾 prefill `Choice: `，否则模型仍无法先推理；
-- E-CoT 的 `max_new_tokens` 提高到 64；
-- parser 只接受最后一个非空行严格等于 `Choice: <exact name>`；
-- 保存 choice 前的 rationale；
-- 额外记录 `menu_restatement`、rationale 中提到的臂数，以及 rationale 判断与最终
-  choice 是否一致；
-- 两个条件使用相同 seeds、reward schedules 和 arm mapping；
-- 使用新 protocol/resume key，不能复用 D/D2 数据。
+### 为什么比普通 CoT 更合适
 
-### Step 3：先在 α=0 做能力阶梯
+文献支持 CoT 会提高 coverage，但当前 E-CoT 的问题是：模型有时推理正确，却没有严格输出最终 `Choice:`，随后 random fallback 改写整条 trajectory。
 
-对 E-direct 与 E-CoT 同时运行：
-
-1. K=2：0.70 / 0.30；
-2. K=3：0.70 / 0.45 / 0.20；
-3. K=5：0.70 / 0.50 / 0.40 / 0.30 / 0.10。
-
-每格使用相同的 20 seeds。判读顺序固定为：
-
-1. invalid rate 与 parser failure；
-2. coverage、best-never-tried、last novel trial；
-3. novel vs non-novel switching；
-4. late adherence、GreedyFreq、SuffixFail；
-5. 最后才看 OptFrac 与 regret。
-
-CoT 只有在增加 discovery/novel exploration 的同时，没有明显增加 non-novel churn，
-且 late adherence 没有实质下降时，才视为改善。否则应解释为 CoT 使输出更易变，而
-不是增强了 Bandit adaptation。
-
-### Step 4：K=5 warm-start utilization control
-
-在 α=0 下，对 E-direct 与 E-CoT 都运行 warm-start：程序先为每个臂提供两个观察，
-模型从第 11 轮开始自由决策。
-
-这一步只回答“给定足够信息后，模型能否利用反馈并维持较优选择”。如果 warm-start
-通过而 free exploration 失败，说明问题位于自主 discovery，而不是 exploitation；
-不能把 warm-start 当作 α 主实验。
-
-### Step 5：选择 α 主实验接口
-
-只让通过以下条件的接口进入 K=5、α∈{−4,0,+4}：
-
-- 格式稳定；
-- α=0 下不是 pure greedy lock；
-- 能发现大部分臂与最优臂；
-- 后期能够利用已有证据；
-- 额外切换以 novel exploration 为主，而不是 non-novel churn。
-
-若 E-direct 与 E-CoT 都通过，二者都跑 α，形成“立即选择 vs 显式整合”的接口
-robustness；若只有一个通过，主实验只使用该接口，并把另一接口保留为能力边界对照。
-
-α 的主读数为：
-
-- novel-switch fraction；
-- last novel trial；
-- non-novel switches；
-- late adherence；
-- GreedyFreq / SuffixFail；
-- matched-history divergence。
-
-OptFrac 和 regret 作为净结果放在机制指标之后。目标不是证明 `+α = 更多探索`，而是
-区分 α 改变的是目标性 information seeking、exploration stopping，还是一般 policy
-destabilization。
-
-### Step 6：结论分支
-
-| 结果 | 后续口径 |
-|---|---|
-| CoT 在 K=2/3/5 均改善且不增加 churn | 当前 direct interface 压掉了必要的证据整合；使用 E-CoT 做 α 主实验 |
-| CoT 只在 K=2/3 有效 | Llama3-8B 具备简单 Bandit 能力，但 K=5 是 scale boundary |
-| warm-start 通过、free exploration 失败 | 保留 conditional utilization 结论；Bandit 不承担完整自主适应证据 |
-| CoT 与 warm-start 都失败 | 停止继续调 prompt，将 Bandit 记录为当前模型/接口的能力边界 |
-
-### Step 7：LLM estimator + algorithmic controller
-
-如果 Llama3-8B 在 E-direct/E-CoT 下仍无法稳定完成 K=5 的自主
-exploration–exploitation，可以转向
-[Large Language Model-Enhanced Multi-Armed Bandits](https://aclanthology.org/2026.acl-long.368/)
-式 hybrid 架构：
-
-1. LLM 读取相同的 structured history，分别预测每个 arm 的 reward/loss；
-2. Python controller 根据预测决定行动并提供 exploration；
-3. 环境回报进入下一轮 history，继续更新 LLM predictor。
-
-可实现两个版本：
-
-- **TS-LLM-style**：对每个 arm 生成随机 reward prediction，选择预测最大者，并使用
-  预先固定的 temperature schedule；
-- **RO-LLM-style**：LLM 在 temperature=0 下给出确定性 loss prediction，再由
-  SquareCB 类概率规则完成显式探索。
-
-也可以实现更简单的 UCB-inspired 工程对照：
+所以不应只是增加：
 
 ```text
-LLM → predicted mean / uncertainty
-Python → score_i = predicted_mean_i + c × predicted_uncertainty_i
+Think step by step.
 ```
 
-但这个 UCB-inspired 版本不是论文算法的逐字复现，应单独命名。
+更适合采用“两阶段输出”：
 
-主要读数应从“模型是否自主选对 arm”改为：
+1. 模型自由生成至多两句 rationale。
+2. 第二阶段只允许从合法臂名中选择，不能生成解释。
 
-- reward prediction 的 MAE/Brier score 与 calibration；
-- 最优臂排序准确率；
-- predicted uncertainty 是否随 trial count 合理收缩；
-- controller 的 late OptFrac 与 regret；
-- 与纯 TS/UCB、E-direct 和 E-CoT 的差距。
+可以通过 constrained decoding，或者在 rationale 后重新追加 `Choice:`，只对候选臂计算/采样概率。这样能保留思考，同时消除格式失败和 random fallback。文献综述中的 short-CoT 方向见 [`BanditExperiment_LiteratureReview.md:270`](/Users/paveenhuang/Downloads/Dopamine/BanditExperiment_LiteratureReview.md:270)。
 
-如果继续加入 RSN α，α 只作用于 LLM predictor，controller 公式与超参数必须固定。此时
-可以检验 α 是否改变 reward estimate、uncertainty 或 calibration，但不能声称 α
-改变了模型自主 exploration，因为最终探索与选臂由外部 controller 提供。
+### 难度阶梯
 
-这个备选的价值是：即使 Llama3-8B 无法独立维持完整 Bandit policy，仍可判断其内部
-表征是否足以充当在线 reward estimator，并区分“不会估计回报”与“能估计、但不会把
-估计组织成稳定探索策略”。
+建议按以下顺序增加难度：
+
+| 阶段 | 设置 | 主要目的 |
+|---|---|---|
+| F1 | K=2，`.70/.30`，structured summary + constrained CoT | 最低 Bandit 能力 |
+| F2 | K=3，`.70/.45/.20` | 测 discovery 与排序 |
+| F3 | K=5，`.70/.50/.40/.30/.10` | 接近当前主任务 |
+| F4 | K=5，小 gap，例如 `.60/.50/...` | 真正困难的 exploration |
+
+只有前一级表现出“早期探索、后期收敛”，才进入下一级。这个阶梯也符合综述的建议，[`BanditExperiment_LiteratureReview.md:477`](/Users/paveenhuang/Downloads/Dopamine/BanditExperiment_LiteratureReview.md:477)。
+
+### 可以进一步加的支架
+
+按对模型自主性的影响由小到大排列：
+
+1. **提供统计计算**
+
+   提供 rewards/trials、smoothed estimate、uncertainty，但不告诉模型选哪个。这仍可称为 calculator-assisted autonomous choice。
+
+2. **Policy checklist**
+
+   要求模型先判断：
+
+   ```text
+   EXPLORE: evidence is insufficient and rounds remain
+   EXPLOIT: evidence is sufficient and one option is best-supported
+   ```
+
+   然后选择臂。它让策略显式化，但会轻度诱导行为。
+
+3. **Try-all / warm-start**
+
+   每个臂先由程序采样 2–5 次，再让模型决策。这很可能让 Llama3 完成任务，因为当前结果已表明它拿到平衡信息后能够 exploit。
+
+   但这只能证明 conditional utilization，不能证明自主 exploration。
+
+4. **Few-shot policy demonstrations**
+
+   给出少量“早期探索、后期利用”的完整示例。示例必须：
+
+   - 来自独立 run；
+   - 最优臂的名称和位置充分 counterbalance；
+   - 与测试时“每个 run 最优臂可变、run 内固定”的结构完全一致；
+   - 不能重现 TextBandit 那种 few-shot 与测试结构矛盾。
+
+   这应命名为 few-shot scaffold，而不是原生能力。
+
+5. **UCB/Thompson guidance**
+
+   Python 直接提供 posterior sample、UCB exploration bonus，甚至推荐臂。这最容易成功，但 exploration policy 已由算法提供，只能作为 algorithm-guided condition。
+
+6. **UCB trajectory distillation / RLFT**
+
+   用大量 counterbalanced UCB/TS trajectory 对 Llama3 做 LoRA/SFT。文献显示这是让小模型稳定学习 Bandit policy 最有力的方法之一，但结论会变成“经过 Bandit policy training 后能完成”，而非 off-the-shelf 能力。
+
+### 我的具体建议
+
+优先实现一个新的 **F1 calculator-assisted、constrained-deliberation K=2 protocol**：
+
+- Python 提供 smoothed probability 和 uncertainty；
+- 模型在选择前进行最多两句推理；
+- 最终臂名采用 constrained decoding，不允许 random fallback；
+- run 间随机化、run 内固定；
+- 先只跑 α=0、20 个配对 seeds；
+- 通过标准不是仅看 OptFrac，而是：
+  - 两个臂都能被发现；
+  - late OptFrac > early OptFrac；
+  - late adherence 高；
+  - SuffixFail 低；
+  - 不是第一次 reward=1 后永久锁定。
+
+如果它通过，再升到 K=3；如果 K=2 仍失败，再使用 try-all 或 UCB-guided。这样可以清楚判断：究竟是**概率计算负担、思考接口、不确定性表示，还是自主探索策略本身**导致失败。
 
 ## References
 
