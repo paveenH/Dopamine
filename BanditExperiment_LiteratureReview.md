@@ -1,6 +1,6 @@
 # Bandit 实验：相关文献、模型能力边界与改进方案
 
-> 更新：2026-07-30  
+> 更新：2026-07-31
 > 目的：结合近期 Bandit–LLM 文献与本项目 Llama3-8B 的 C / D / D2 结果，判断小模型能否完成 Bandit，并确定下一版实验应该修什么、保留什么。
 
 ## 1. 结论先行
@@ -29,10 +29,11 @@
 4. **保留简洁 summary，不再增加解释段落**：将 tried / untried 分开，并显式给出 `successes / trials / rate`；不要继续在 prompt 中堆采样理论。
 5. **指标按 discovery / utilization / stability / outcome 分层**：coverage 和 OptFrac 都不能单独作为主结论；加入 GreedyFreq、SuffixFail 和 matched-history divergence。
 
-## 2. 七篇论文分别说明什么
+## 2. 八篇论文分别说明什么
 
 | 论文 | Bandit 在论文中的角色 | 是否证明 LLM 自己会做 Bandit | 对本项目的直接价值 |
 |---|---|---:|---|
+| [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html) | 直接评估 LLM 在 BanditBench 中的 in-context exploration，并比较 summary、UCB guidance、few-shot 与 fine-tuning | 基线部分是；algorithm-guided / distillation 部分不是纯自主能力 | 最直接支持 structured summary、难度阶梯与 exploration-optimality 分析，同时要求把“模型自主探索”与“外部算法供给探索”分开 |
 | [Bandit-Based Prompt Design Strategy Selection Improves Prompt Optimizers](https://arxiv.org/abs/2503.01163) | Thompson sampling 在外部选择 prompt-design strategy | 否 | 说明不同 prompt 策略不应一次全部叠加；但不能用 prompt optimizer 自动优化本实验，否则会选择性改变待测行为 |
 | [LLMs are Greedy Agents](https://arxiv.org/abs/2504.16078) | Gemma2 2B/9B/27B 直接进行 MAB/CB 决策 | 是，且系统分析失败模式 | 最直接：greediness、frequency bias、knowing–doing gap；CoT、try-all、summary 和 RLFT 的作用 |
 | [When Greedy Wins](https://arxiv.org/abs/2509.24923) | Qwen2.5 3B/7B 学习 meta-bandit policy | 是，但主要研究训练后策略 | 平均 reward 提升不等于探索改善；必须报告 GreedyFreq、SuffixFail、双峰和早停探索 |
@@ -41,7 +42,48 @@
 | [TextBandit](https://arxiv.org/abs/2510.13878) | 开源 LLM 直接根据语言化 0/1 feedback 选臂 | 部分支持 | Qwen3-4B 在简单设置中可表现很好，但 Llama3.1-8B 较差；结果强烈依赖模型、K、few-shot 和标签格式 |
 | [Should You Use Your LLM to Explore or Exploit?](https://arxiv.org/abs/2502.00225) | 将 exploration oracle 与 exploitation oracle 分开测试 | 是能力分解，不是完整 policy | 为本项目提供最干净的诊断框架：不要用一个端到端分数同时测 discovery 与 utilization |
 
-### 2.1 `LLMs are Greedy Agents`：最直接的设计依据
+### 2.1 `EVOLvE`：当前实验设计的直接来源与边界
+
+EVOLvE 在 BanditBench 中系统评估 context-free MAB 与 contextual bandit。MAB 同时改变
+reward distribution、gap、arm 数量和名称表示：包括 Bernoulli / Gaussian、K=5 / K=20，
+以及无语义的 Video 标签与语义丰富的 Clothes 名称。论文测试 Gemma-2B、Gemma-9B、
+Gemini-1.5 Flash 和 Gemini-1.5 Pro，并比较四个层次：
+
+1. **Raw History (RH)**：把历次 action–reward 序列直接交给模型；
+2. **Summarized History (SH)**：提供每个 arm 的 empirical mean、pull count 和当前
+   horizon；
+3. **Algorithm-Guided Support (AG)**：除 summary 外，进一步提供 UCB 的 exploitation
+   value 与 exploration bonus；
+4. **algorithm distillation**：使用 UCB oracle trajectory 做 few-shot demonstration
+   或 Oracle Behavior Fine-Tuning。
+
+论文的 off-the-shelf MAB 基线整体较弱：RH 下 Gemma-2B、Gemma-9B、Gemini Flash 和
+Gemini Pro 的 overall win-rate 分别只有 7.6%、10.5%、27.7% 和 45.5%。结构化 history
+通常有帮助，但并非对每个模型都单调改善；例如 SH 对 Gemma-9B 的 aggregate
+win-rate 反而从 10.5% 降到 5.3%。真正明显的提升主要来自 carefully matched 的
+few-shot / fine-tuning 或显式算法支持，而不是一句泛化的“think step by step”。
+
+这对本项目有四个直接含义：
+
+1. 当前 `TRIED / UNTRIED + rewards / trials / rate` 不是任意 prompt engineering，
+   而是与论文的 sufficient-statistics contextualization 同方向；它减少读取历史的
+   负担，但不保证模型自动获得 exploration policy。
+2. 若把 UCB bonus 或“现在应该探索哪个 arm”直接写进 prompt，属于 **AG 条件**：
+   可以作为能力上界或 scaffolded-policy 对照，但不能再解释为 Llama3-8B 自主产生
+   exploration，也不适合作为 RSN α 的唯一主实验。
+3. 论文用随时间变化的 `MinFrac` 与 `OptFrac` 区分早期广泛探索和后期利用，并明确
+   提醒高 OptFrac 可能只是偶然先选中最优臂。这直接支持本项目把 novel exploration、
+   lock / persistence、late adherence 与 regret 分开报告。
+4. 论文显示 smaller model 经 UCB trajectory distillation 后可以超过较大但未优化的
+   模型，因此“小模型做不好”更准确地表示**off-the-shelf in-context policy 不可靠**，
+   而不是不存在可训练或可 scaffold 的 Bandit 能力。
+
+需要保留的边界是：EVOLvE 的 improved condition 大量依赖外部计算的 UCB 信息、
+oracle demonstrations 或参数微调；它不能证明仅靠增加自然语言解释，Llama3-8B 就能
+稳定完成当前 K=5 自主探索。相反，它支持将 E-direct 作为自主行为主条件，并把更强的
+algorithm-guided prompt 单独命名为诊断对照。
+
+### 2.2 `LLMs are Greedy Agents`：最直接的设计依据
 
 该研究在 BanditBench 的 Gaussian/Bernoulli MAB 上测试 Gemma2 2B、9B、27B，horizon 同样是 50。重要发现包括：
 
@@ -58,7 +100,7 @@
 2. **允许短 CoT 是一个尚未被当前 C/D/D2 正式测试的重要接口维度。**
 3. forced initialization 可以验证“获得信息后是否会用”，但不能作为自主 wanting/exploration 的主实验。
 
-### 2.2 `When Greedy Wins`：为什么 OptFrac / regret 不够
+### 2.3 `When Greedy Wins`：为什么 OptFrac / regret 不够
 
 该研究在 Qwen2.5 3B/7B 上比较 pretrain、SFT 与多种 RL：
 
@@ -76,7 +118,7 @@
 - 这不是“更好的 exploration”，而是更弱的 policy persistence。
 - 下一版分析应增加 GreedyFreq / SuffixFail，避免把高 coverage 或偶然高 OptFrac 误写成学习。
 
-### 2.3 `TextBandit`：小模型正结果存在，但不可直接外推
+### 2.4 `TextBandit`：小模型正结果存在，但不可直接外推
 
 TextBandit 使用语言化反馈（“earned a token” / “did not earn a token”），每轮重建包含完整历史的 prompt，不使用 CoT，测试 Qwen3-4B、Qwen3-8B、Llama3.1-8B 与 Phi-2。论文报告：
 
@@ -91,7 +133,7 @@ TextBandit 使用语言化反馈（“earned a token” / “did not earn a toke
 
 它不能说明任意 4B/8B 模型都能在当前 K=5 环境中自主探索。尤其本项目已经记录 TextBandit 实现中固定数字标签、few-shot 与最优臂结构等设计问题，因此它适合作为“能力存在的边界案例”，不应作为当前协议的金标准。
 
-### 2.4 `Should You Use Your LLM to Explore or Exploit?`：能力应拆开测
+### 2.5 `Should You Use Your LLM to Explore or Exploit?`：能力应拆开测
 
 该研究不要求 LLM 一次完成完整 Bandit policy，而是分别测试：
 
@@ -106,7 +148,7 @@ TextBandit 使用语言化反馈（“earned a token” / “did not earn a toke
 
 对当前 K=5 boutique task 而言，臂名只是任意标签，不存在可利用的语义 action space。因此“LLM 擅长语义探索”并不能帮助当前任务；真正可借鉴的是**分离 discovery 与 utilization**。
 
-### 2.5 三篇“Bandit 调度 LLM”的论文：只能作为方法类比
+### 2.6 三篇“Bandit 调度 LLM”的论文：只能作为方法类比
 
 `OPTS`、`BanditSpec` 与 `LLM-Enhanced MAB` 的共同结构是：
 
@@ -541,10 +583,11 @@ Python → score_i = predicted_mean_i + c × predicted_uncertainty_i
 
 ## References
 
-1. Ashizawa et al. (2025). [Bandit-Based Prompt Design Strategy Selection Improves Prompt Optimizers](https://aclanthology.org/2025.findings-acl.1070/).
-2. Schmied et al. (2025/2026). [LLMs are Greedy Agents: Effects of RL Fine-tuning on Decision-Making Abilities](https://arxiv.org/abs/2504.16078).
-3. Chen et al. (2025). [When Greedy Wins: Emergent Exploitation Bias in Meta-Bandit LLM Training](https://arxiv.org/abs/2509.24923).
-4. Hou et al. (2025). [BanditSpec: Adaptive Speculative Decoding via Bandit Algorithms](https://arxiv.org/abs/2505.15141).
-5. Sun et al. (2025/2026). [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118).
-6. Lim et al. (2025). [TextBandit: Evaluating Probabilistic Reasoning in LLMs Through Language-Only Decision Tasks](https://arxiv.org/abs/2510.13878).
-7. Harris & Slivkins (2025/2026). [Should You Use Your Large Language Model to Explore or Exploit?](https://arxiv.org/abs/2502.00225).
+1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.
+2. Ashizawa et al. (2025). [Bandit-Based Prompt Design Strategy Selection Improves Prompt Optimizers](https://aclanthology.org/2025.findings-acl.1070/).
+3. Schmied et al. (2025/2026). [LLMs are Greedy Agents: Effects of RL Fine-tuning on Decision-Making Abilities](https://arxiv.org/abs/2504.16078).
+4. Chen et al. (2025). [When Greedy Wins: Emergent Exploitation Bias in Meta-Bandit LLM Training](https://arxiv.org/abs/2509.24923).
+5. Hou et al. (2025). [BanditSpec: Adaptive Speculative Decoding via Bandit Algorithms](https://arxiv.org/abs/2505.15141).
+6. Sun et al. (2025/2026). [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118).
+7. Lim et al. (2025). [TextBandit: Evaluating Probabilistic Reasoning in LLMs Through Language-Only Decision Tasks](https://arxiv.org/abs/2510.13878).
+8. Harris & Slivkins (2025/2026). [Should You Use Your Large Language Model to Explore or Exploit?](https://arxiv.org/abs/2502.00225).
