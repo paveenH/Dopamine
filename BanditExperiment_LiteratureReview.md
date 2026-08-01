@@ -167,201 +167,211 @@ LLM 负责生成、预测或执行局部子任务
 
 但不能把 external controller 用于 α 主实验，否则 exploration timing 已被程序决定，正好删除待测行为。
 
-## 3. 当前 C / D / D2 到底说明了什么
+## 3. PLAN
 
-### 3.1 C：untried 被错误编码为 0.00
+### 3.1 研究目标与证据边界
 
-C 的 summary 将未试臂显示为 `0 times, average reward 0.00`。这会把 unknown 写成 tied-worst：
+新实验不再预设“找到一个 prompt 后 Llama3-8B 就能完成 Bandit”。主问题改为：
 
-- 20 seeds 中有 6 个从未碰到最优臂；
-- 碰到最优臂的 14 个 run 平均 OptFrac 为 0.434；
-- 未碰到的 6 个全部是 0。
+> 在文献支持的最强原生接口下，Llama3-8B 位于怎样的 Bandit capability boundary；RSN α 改变的是目标性 information seeking、exploration stopping、policy persistence，还是只让行为在 greedy lock 与 uniform flailing 之间移动？
 
-因此 C 可以支持 utilization 观察，但 discovery 结论被 prompt 编码污染。
+后续结论必须区分三种证据：
 
-### 3.2 D：修复 discovery 后，α=+4 主要造成 churn
+1. **Native capability**：模型只看到环境说明与 externally summarized sufficient statistics，自行决定 explore / exploit。
+2. **Calculator / uncertainty scaffold**：Python 进一步提供平滑概率、uncertainty 或 credible interval；模型仍做选择，但状态表示已受到外部算法帮助。
+3. **Algorithm-guided policy**：warm-start、UCB/TS guidance 或 oracle demonstrations 已提供探索信息或策略，只能作为 utilization control、upper bound 或训练条件。
 
-D 修复 `UNTRIED ≠ 0`，并说明 reward probability 固定但未知。20-seed 配对结果：
+旧 C / D / D2 与 2026-07-28 前 Bandit 数据只保留为失败分析，不进入新主结果。新实验使用独立 protocol version、输出目录和 resume key。
 
-| 指标 | α=0 | α=+4 | 解释 |
-|---|---:|---:|---|
-| coverage | 3.75 | 4.60 | 接触的臂更多 |
-| novel switches | 2.70 | 3.45 | 新臂探索仅小幅增加 |
-| non-novel switches | 6.85 | 13.25 | 已试臂之间 churn 大幅增加 |
-| adherence | 0.884 | 0.680 | 更少遵循当前证据 |
-| late adherence | 0.807 | 0.532 | 后期仍未稳定 exploit |
-| OptFrac | 0.533 | 0.456 | 额外切换未转化为收益 |
+### 3.2 文献对齐的 reference environment
 
-所以 D 当前最可靠的读法是：
+第一阶段采用 [Krishnamurthy et al.（NeurIPS 2024）](https://arxiv.org/abs/2403.15371) 的两组 Bernoulli MAB，建立可与既有研究对照的能力坐标：
 
-> α=+4 降低 policy persistence、扩大 action sampling，但没有证据显示新增 exploration 是目标性或 reward-efficient 的。
+| 条件 | K | Reward probabilities | T | 用途 |
+|---|---:|---|---:|---|
+| **Reference-Easy** | 4 | `0.75 / 0.25 / 0.25 / 0.25` | 100 | 能力下界；确认模型在大 gap 下是否至少能脱离 greedy failure |
+| **Reference-Hard** | 5 | `0.60 / 0.40 / 0.40 / 0.40 / 0.40` | 100 | 主能力与 α 实验；直接测试小 gap 下的自主探索与收敛 |
 
-α=−4 的 invalid rate 为 9.9%，且主要是正确臂名前多出轮次编号；随机 fallback 改写了后续 history，因此该 cell 不能用于剂量方向判断。
+两组环境均遵守：
 
-### 3.3 D2：格式修好，但任务塌成 pure greedy
+- neutral arm labels，不利用服饰语义；
+- 每个 run 独立随机化 name→probability mapping 与 display order；
+- 同一个 run 的全部 100 rounds 中，臂名称、显示位置与真实概率保持固定；
+- 不同 α 使用相同 seeds、arm mapping、reward draws 和生成种子；
+- N=20 runs；开发阶段可以先做 N=3 smoke test，但 smoke test 不产生研究结论。
 
-D2 增加采样不确定性解释，并把 summary 改成 `successes / trials / rate`：
+Reference 环境的次优臂概率相同，因此不再使用 `WorstFrac` 作为主指标；它只适用于原来的 graded reward vector。
 
-| 指标（α=0） | D | D2 |
-|---|---:|---:|
-| invalid | 0.009 | 0.001 |
-| coverage | 3.75 | 2.35 |
-| switch rate | 0.197 | 0.032 |
-| entropy | 0.336 | 0.090 |
-| adherence | 0.884 | 1.000 |
-| best never tried | 1/20 | 7/20 |
+### 3.3 Native reference interface
 
-D2 成功消除了编号格式错误，却让三个 α 基本都退化为纯 greedy；α=−4 的 18/20 runs 与 α=0 选择序列相同。
+主接口采用文献中唯一成功配置的核心元素：**suggestive framing + externally summarized history + reinforced CoT**，但加入 constrained final choice 以消除本项目已经观察到的格式污染。
 
-这不能归因于某一句话，因为 D→D2 同时改变了：
-
-- 采样不确定性说明；
-- summary 顺序；
-- round / remaining 表示；
-- exploration–exploitation 句子；
-- 输出结尾。
-
-因此 D2 应保留为一个**负面 prompt ablation**，不再作为 α 主协议，也不应继续在其上追加更多解释。
-
-## 4. 推荐的新实验结构
-
-### Calculator-assisted Deliberate Bandit
-
-先建立一个更简单的新协议：
-
-- K=2，概率为 `0.70 / 0.30`
-- T=30 或 40
-- 使用短、无语义偏好的臂名，例如 `Option A / Option B`
-- 不同 run 随机化最优臂，run 内始终固定
-- Python 计算统计量，模型负责最终 explore/exploit 决策
-- 先允许短思考，再通过 constrained choice 输出合法臂名
-
-每轮提供：
+每轮状态只显示：
 
 ```text
-Round 9 of 30; 21 rounds remain.
+Round 21 of 100; 80 rounds remain.
 
-Option A
-- rewards: 1 / 1
-- estimated probability: 0.67
-- uncertainty: HIGH
+TRIED OPTIONS
+- Button A: 3 rewards / 5 trials, empirical rate 0.60
+- Button C: 1 reward / 4 trials, empirical rate 0.25
 
-Option B
-- rewards: 5 / 8
-- estimated probability: 0.60
-- uncertainty: MEDIUM
+UNTRIED OPTIONS
+- Button B
+- Button D
+- Button E
 
-An option with fewer trials has a less reliable estimate.
+Each button has a fixed but unknown probability of reward 1.
+Balance exploration and exploitation to maximize total reward over all 100 rounds.
 
-Briefly decide:
-1. Is more information still valuable?
-2. Should you explore an uncertain option or exploit the best-supported option?
-
-Use at most two short sentences.
-Choice: <exact option name>
+Briefly reason about the amount of evidence, observed rewards, uncertainty,
+and remaining rounds. Then choose exactly one button.
 ```
 
-这里的 `0.67` 最好不是原始 `1/1=1.00`，而是由程序计算的 Beta-smoothed posterior mean，例如：
+接口规则：
+
+- Python 只计算 `successes / trials / empirical rate`；不提供 Beta smoothing、credible interval、UCB bonus 或推荐臂。
+- `UNTRIED` 只表示 unknown，不编码为 `0.00`。
+- reinforced CoT reminder 同时出现在任务说明与每轮 user query；rationale 限制为最多两句并完整保存。
+- 最终 choice 只能从 K 个合法臂名中产生，`invalid_rate` 在结构上应为 0；不再使用 random fallback 改写 trajectory。
+- constrained decoding 只解决输出合法性，不视为 exploration 能力的来源；相关实现先例来自 [Monea et al.（2024）](https://arxiv.org/abs/2410.05362) 的 contextual-bandit classification，不能直接当作当前 MAB exploration 的正面证据。
+
+**Steering 语义必须冻结：**首选单次 decision generation，在同一次生成中先产生 rationale、再约束最终臂名，使每轮只发生一次 prefill steering。若实现必须分成两次 forward，则 α 只施加在第一次 decision prompt；第二次只做 deterministic legal-choice readout，不得再次注入 α。不得让 E-direct、E-CoT 与 constrained 版本共享结果目录。
+
+### 3.4 Temperature 与 chat-format 决策
+
+- **Primary capability 与 α experiment：temperature=0。** 这隔离模型的 deliberate exploration，避免把 sampling-induced switching 误写为主动探索。
+- **Secondary robustness：temperature=1。** 只在 primary 完成后运行，用于判断外部采样随机性是解除 lock-in，还是制造 uniform flailing；不能与 temperature=0 合并统计。
+- 不采用“capability 用 T=0、α 只用 T=1”的唯一设计，因为那会让 baseline capability 与 intervention 落在不同 policy regime。
+
+文献 reference interface 使用 system/user chat，而 NMD mask 来自 bare-string activation distribution。因此先在 α=0 下对照：
+
+1. reference-chat；
+2. wording 等价的 reference-bare。
+
+只有通过 task-validity 的接口进入 α 主实验。若只有 chat 通过，可以在 chat 下运行 α，但必须把结果限定为 cross-format steering；chat 下 α null 不能直接解释为 RSN 方向无效。若两者都通过，优先使用与 NMD mask 对齐的 bare-string 接口，并把 chat 作为 robustness。
+
+### 3.5 Baselines 与主要指标
+
+所有 reference environments 使用相同 reward structure 与 seeds 跑：
+
+- Random；
+- Greedy（每臂一次初始化后，始终选择 empirical-best）；
+- UCB1；
+- Thompson Sampling；
+- Oracle（只作结果上限，不作可比策略）。
+
+主要指标按以下顺序解释：
+
+#### A. Persistent failure
+
+- `SuffFailFreq(T/2)`：在 rounds `[T/2, T]` 中一次也未选择真实最优臂的 run 比例；主读数为 `SuffFailFreq(50)`。
+- `SuffixFail` time curve：不能只报一个终点，需确认 failure 是否持续。
+
+#### B. Uniform-like failure
+
+- 对每个 run 定义 `MinFrac(T) = min_a n_a(T)/T`；报告跨 runs 的 `K × MinFrac(T)`。
+- 同时报告 `K × MinFrac(t)` time curve。值长期接近 1 表示各臂近似均匀选择，属于 flailing，不是成功探索。
+
+#### C. Greedy / discovery / utilization
+
+- `GreedyFrac`；
+- coverage、best-never-tried、first-best index、last novel trial；
+- novel vs. non-novel switches；
+- empirical-best adherence、late adherence；
+- longest same-arm streak、choice entropy。
+
+#### D. Outcome
+
+- OptFrac、early / late OptFrac；
+- cumulative regret 与 per-round regret；
+- reward trajectory。
+
+成功不能由单一 OptFrac 或 coverage 决定：
+
+| 形态 | SuffFailFreq | K×MinFrac | 解释 |
+|---|---:|---:|---|
+| Greedy lock / suffix failure | 高 | 低 | 过早锁定，部分 runs 永久放弃最优臂 |
+| Uniform flailing | 低 | 高且不随时间下降 | 持续乱试，没有形成 exploitation |
+| 有效 explore→exploit | 低，接近 UCB/TS | 随时间下降 | 早期收集信息，后期集中到较优臂 |
+
+### 3.6 Track A — α=0 capability boundary
+
+固定判读顺序：
+
+1. N=3 smoke：确认 prompt、constrained choice、arm counterbalancing、reward RNG 与存储 schema；不看效果。
+2. Reference-Easy，α=0，T=100，N=20：建立能力下界。
+3. Reference-Hard，α=0，T=100，N=20：与 Greedy / UCB / TS 比较，确定模型落在 suffix-failure、uniform-failure 或有效学习区域。
+4. 只有输出合法且 longitudinal metrics 可解释，才进入 α；不以“必须成功”作为 task-validity gate。
+
+Track A 的 headline 允许是 capability boundary：如果 Llama3-8B 在文献最强 native interface 下仍接近 Greedy，这本身是结果，不继续无上限调 prompt。
+
+### 3.7 Track B — α 是否移动 capability boundary
+
+主实验只在 **Reference-Hard** 上运行：
+
+```text
+α ∈ {−4, 0, +4}
+temperature = 0
+T = 100
+N = 20 paired seeds
+```
+
+α=0 复用 Track A 的同一 cell，不重新定义 prompt 或环境。先完成三点实验，再决定是否扩大到 `−8…+8`；不得直接恢复旧 Bandit dose curve。
+
+只有同时满足以下条件，才能称为 α 改善或 rescue：
+
+1. `SuffFailFreq(50)` 向 UCB/TS 方向下降；
+2. `K×MinFrac` 没有升成 uniform-like failure，并随时间合理下降；
+3. novel exploration 增加而不是 non-novel churn 增加；
+4. late adherence、OptFrac 或 regret 至少一项同步改善；
+5. invalid / fallback 不参与解释。
+
+若 α 降低 suffix failure、却提高 `K×MinFrac`、choice entropy 与 non-novel switching，应写成 **policy destabilization / lock-to-flail tradeoff**，不能写成 exploration improvement。若只改变 empirical-best adherence 而不改变 discovery，则解释为 policy persistence，而不是 information seeking。
+
+temperature=1 的三点 α 仅作为后续 robustness；必须单独报告，不能与 temperature=0 拼成一条 dose curve。
+
+### 3.8 Track C — 失败后的机制与支架诊断
+
+Track C 只在 Track A/B 已给出 frozen verdict 后启动，不承担 native exploration 主证据。
+
+| 诊断条件 | 改动 | 回答的问题 | 证据边界 |
+|---|---|---|---|
+| **C1 Difficulty floor** | K=2，`.70/.30`，T=50 | 小模型是否连最简单 stochastic MAB 也无法适应 | capability floor，不外推到 K=5 |
+| **C2 Uncertainty scaffold** | 提供 Beta-smoothed mean + credible interval / uncertainty | failure 是否来自 `1/1=1.0` 等小样本过度确信 | calculator-assisted，不是纯 native |
+| **C3 Warm-start** | 每臂先提供 2–5 个平衡 observations | 给定信息后能否排序并维持较优选择 | utilization-only |
+| **C4 Policy checklist** | 显式先判 `EXPLORE / EXPLOIT` 再选臂 | 模型是否知道策略却执行失败 | prompt-scaffolded policy |
+| **C5 UCB/TS guidance** | 提供 bonus、posterior sample 或推荐臂 | state estimation 与 action policy 哪一层失败 | algorithm-guided upper bound |
+| **C6 Distillation / RLFT** | 用 counterbalanced UCB/TS trajectories 训练 | 专门训练后能否获得稳定 Bandit policy | trained capability |
+
+Uncertainty scaffold 可使用：
 
 \[
 \hat p_i = \frac{s_i+1}{n_i+2}
 \]
 
-同时由程序提供 posterior uncertainty 或 credible interval。这样能直接削弱当前“第一次成功 → 经验率 1.0 → 永久锁定”的 confirmation loop。
+但必须明确标记为外部 Bayesian state representation。Few-shot / distillation demonstrations 必须来自独立 runs，充分 counterbalance 最优臂名称与位置，并与测试时“run 间最优臂可变、run 内固定”的生成结构一致，不能重现 TextBandit 的示例—测试矛盾。
 
-重要边界：只提供历史数据计算出的 estimate 和 uncertainty，**不能展示真实的 0.7/0.3**。
+### 3.9 实现范围与文件组织
 
-### 为什么比普通 CoT 更合适
+不复制整份 `get_answer_bandit.py` 建立平行实现。新协议沿用现有 steering、layer indexing、paired RNG 与存储 schema，在原入口中增加：
 
-文献支持 CoT 会提高 coverage，但当前 E-CoT 的问题是：模型有时推理正确，却没有严格输出最终 `Choice:`，随后 random fallback 改写整条 trajectory。
+- `--environment {reference_easy,reference_hard,graded}`；
+- `--temperature`；
+- 新的 `F-reference / pv6` prompt variant；
+- constrained legal-choice mode；
+- `SuffFailFreq`、`K×MinFrac` 与 `GreedyFrac` 所需的逐轮字段。
 
-所以不应只是增加：
+新增独立 launcher，例如 `run_bandit_reference.sh`；输出目录、protocol version 与 resume key 全部与 E/C/D 系列隔离。`run_bandit_algorithmic_baseline.py` 增加 Greedy，并支持 reference reward vectors。实现前先冻结 prompt、temperature、environment、choice mode 与 metrics；之后每次只改变一个实验维度。
 
-```text
-Think step by step.
-```
+### 3.10 最终执行顺序
 
-更适合采用“两阶段输出”：
-
-1. 模型自由生成至多两句 rationale。
-2. 第二阶段只允许从合法臂名中选择，不能生成解释。
-
-可以通过 constrained decoding，或者在 rationale 后重新追加 `Choice:`，只对候选臂计算/采样概率。这样能保留思考，同时消除格式失败和 random fallback。文献综述中的 short-CoT 方向见 [`BanditExperiment_LiteratureReview.md:270`](/Users/paveenhuang/Downloads/Dopamine/BanditExperiment_LiteratureReview.md:270)。
-
-### 难度阶梯
-
-建议按以下顺序增加难度：
-
-| 阶段 | 设置 | 主要目的 |
-|---|---|---|
-| F1 | K=2，`.70/.30`，structured summary + constrained CoT | 最低 Bandit 能力 |
-| F2 | K=3，`.70/.45/.20` | 测 discovery 与排序 |
-| F3 | K=5，`.70/.50/.40/.30/.10` | 接近当前主任务 |
-| F4 | K=5，小 gap，例如 `.60/.50/...` | 真正困难的 exploration |
-
-只有前一级表现出“早期探索、后期收敛”，才进入下一级。这个阶梯也符合综述的建议，[`BanditExperiment_LiteratureReview.md:477`](/Users/paveenhuang/Downloads/Dopamine/BanditExperiment_LiteratureReview.md:477)。
-
-### 可以进一步加的支架
-
-按对模型自主性的影响由小到大排列：
-
-1. **提供统计计算**
-
-   提供 rewards/trials、smoothed estimate、uncertainty，但不告诉模型选哪个。这仍可称为 calculator-assisted autonomous choice。
-
-2. **Policy checklist**
-
-   要求模型先判断：
-
-   ```text
-   EXPLORE: evidence is insufficient and rounds remain
-   EXPLOIT: evidence is sufficient and one option is best-supported
-   ```
-
-   然后选择臂。它让策略显式化，但会轻度诱导行为。
-
-3. **Try-all / warm-start**
-
-   每个臂先由程序采样 2–5 次，再让模型决策。这很可能让 Llama3 完成任务，因为当前结果已表明它拿到平衡信息后能够 exploit。
-
-   但这只能证明 conditional utilization，不能证明自主 exploration。
-
-4. **Few-shot policy demonstrations**
-
-   给出少量“早期探索、后期利用”的完整示例。示例必须：
-
-   - 来自独立 run；
-   - 最优臂的名称和位置充分 counterbalance；
-   - 与测试时“每个 run 最优臂可变、run 内固定”的结构完全一致；
-   - 不能重现 TextBandit 那种 few-shot 与测试结构矛盾。
-
-   这应命名为 few-shot scaffold，而不是原生能力。
-
-5. **UCB/Thompson guidance**
-
-   Python 直接提供 posterior sample、UCB exploration bonus，甚至推荐臂。这最容易成功，但 exploration policy 已由算法提供，只能作为 algorithm-guided condition。
-
-6. **UCB trajectory distillation / RLFT**
-
-   用大量 counterbalanced UCB/TS trajectory 对 Llama3 做 LoRA/SFT。文献显示这是让小模型稳定学习 Bandit policy 最有力的方法之一，但结论会变成“经过 Bandit policy training 后能完成”，而非 off-the-shelf 能力。
-
-### 我的具体建议
-
-优先实现一个新的 **F1 calculator-assisted、constrained-deliberation K=2 protocol**：
-
-- Python 提供 smoothed probability 和 uncertainty；
-- 模型在选择前进行最多两句推理；
-- 最终臂名采用 constrained decoding，不允许 random fallback；
-- run 间随机化、run 内固定；
-- 先只跑 α=0、20 个配对 seeds；
-- 通过标准不是仅看 OptFrac，而是：
-  - 两个臂都能被发现；
-  - late OptFrac > early OptFrac；
-  - late adherence 高；
-  - SuffixFail 低；
-  - 不是第一次 reward=1 后永久锁定。
-
-如果它通过，再升到 K=3；如果 K=2 仍失败，再使用 try-all 或 UCB-guided。这样可以清楚判断：究竟是**概率计算负担、思考接口、不确定性表示，还是自主探索策略本身**导致失败。
+1. 实现并验证 reference environment、constrained choice 和新 schema。
+2. 跑 α=0 Reference-Easy 与 Reference-Hard capability boundary。
+3. 在 Reference-Hard 跑 temperature=0 的 `−4/0/+4`。
+4. 用 `SuffFailFreq × K×MinFrac` 判断 α 是 rescue、无效还是 lock-to-flail tradeoff。
+5. 需要时才跑 temperature=1 robustness。
+6. 若 native interface 失败，再依次使用 uncertainty scaffold、warm-start 与 algorithm-guided controls 定位失败层级。
+7. 只有在三点 α 给出稳定、可解释方向后，才考虑更宽 dose sweep 或跨模型复现。
 
 ## References
 
