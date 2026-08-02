@@ -418,6 +418,18 @@ Uncertainty scaffold 可使用：
 
 新增独立 launcher，例如 `run_bandit_reference.sh`；输出目录、protocol version 与 resume key 全部与 E/C/D 系列隔离。结果额外保存 candidate log-scores/margin、rationale、tokenization audit、reward-tape id 与 prompt attestation。`run_bandit_algorithmic_baseline.py` 增加 Greedy，并支持 reference reward vectors 与同一 reward tapes。实现前先冻结 prompt、temperature、environment、choice mode、seed banks 与 metrics；之后每次只改变一个实验维度。
 
+**共享模块 `bandit_reference.py`。** 拆分的理由不是 `get_answer_bandit.py` 的长度（当前 1883 行），而是以下组件会被 **两个入口共同使用**——若各自实现，`run_bandit_algorithmic_baseline.py` 会再次实现出一套与 LLM 入口不完全一致的环境，正是 paired reward tape 设计要防止的事：
+
+- reference environment specifications（Easy / Hard / Native-Floor 的 K、概率向量、T）；
+- counterbalanced seed banks（含 smoke bank）；
+- per-arm reward tapes；
+- `F-reference` prompt construction；
+- rationale sanitization；
+- candidate / tokenization utilities；
+- reference metrics（`SuffFailFreq`、`K×MinFrac`、`GreedyFrac`）。
+
+职责边界：`get_answer_bandit.py` 继续负责模型加载、RSN hook、episode orchestration 与结果写入；`run_bandit_algorithmic_baseline.py` 复用同一 environment / tape 实现。该拆分不复制 steering，也不触碰 pv1–pv5 的任何分支。
+
 ### 3.10 最终执行顺序
 
 1. 实现并验证 reference environment、two-stage candidate scoring、counterbalanced seed banks、per-arm reward tapes 和新 schema。
