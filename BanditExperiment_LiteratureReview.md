@@ -198,7 +198,7 @@ Llama3-8B 位于怎样的 Bandit capability boundary；RSN α 改变的是目标
 - 使用实验前冻结的 counterbalanced seed bank；每个 run 仍由 seed 独立随机化 name→probability mapping 与 display order；
 - 同一个 run 的全部 100 rounds 中，臂名称、显示位置与真实概率保持固定；
 - 不同 α、LLM 接口与 algorithmic baselines 使用相同 seeds、arm mapping、per-arm reward tapes 和生成种子；
-- N=20 runs；开发阶段可以先做 N=3 smoke test，但 smoke test 不产生研究结论。
+- N=20 runs；开发阶段可以先做 N=3 smoke test，但 smoke test 不产生研究结论。**smoke seeds 独立于正式 seed bank**：在查看任何模型行为之前生成并冻结，与 N=20 bank 不重合，使正式 20 个 run 保持完全未被观察；smoke 尽量覆盖不同 best-arm identity/position，但 N=3 不得作为 counterbalance 证据。
 
 Reference 环境的次优臂概率相同，因此不再使用 `WorstFrac` 作为主指标；它只适用于原来的 graded reward vector。
 
@@ -235,6 +235,14 @@ and remaining rounds in at most two sentences. Do not state a final choice yet.
 - `UNTRIED` 只表示 unknown，不编码为 `0.00`。
 - reinforced CoT reminder 同时出现在任务说明与每轮 user query；第一阶段只生成最多两句 rationale，并完整保存。
 - 第二阶段把同一轮完整状态、第一阶段 rationale 与 `Choice: Button` 组成 action prompt，只计算合法 suffix（`A/B/C/D/E` 中当前环境存在的 K 个）的条件 log-probability，并以 deterministic argmax 选择臂。
+- **Rationale sanitization 必须冻结**（否则 α 的注入点会随生成内容漂移，破坏 §3.3 "α 只施加在 action prompt 最后一个 prefill token" 的语义）。规则如下，不使用字符或句子截断——长度由 token cap 控制，字符切分会破坏小数、臂名与推理内容：
+  1. rationale 生成固定 `max_new_tokens=64`；
+  2. 原样保存 `rationale_raw`；
+  3. 删除所有包含 `Choice:` 的**完整行**（大小写不敏感），防止模型提前 commit 使 action prompt 出现两个 anchor；
+  4. 对剩余文本只做首尾空白清理，不做任何语义改写、重排或摘要；
+  5. 保存为 `rationale_clean`；
+  6. 最后固定追加 `\nChoice: Button`，并对最终 prefill token 做审核（应为 `Button` 后的空格或等价 token，而非 chat control token）；
+  7. α 只在此 action pass 注入。
 - action 候选必须经过 tokenizer audit：优先保证共同前缀后的候选 suffix 均为单 token；若无法保证，则对每个完整候选字符串计算 sequence log-probability，并记录 tokenization，不得只比较首 token。
 - 最终 choice 在结构上必为合法臂，`invalid_rate=0`；不再经过自由文本 parser，也不使用 random fallback 改写 trajectory。
 - 每轮保存全部 candidate log-scores、top-1/top-2 margin、选中臂、rationale 与两阶段 prompt attestation，便于区分接近决策边界与稳定 policy。
@@ -295,7 +303,7 @@ B1 α 主实验只能使用通过 competence gate 的 `reference-bare` K=4/K=5 �
 
 #### B. Uniform-like failure
 
-- 对每个 run 定义 `MinFrac(T) = min_a n_a(T)/T`；报告跨 runs 的 `K × MinFrac(T)`。
+- 对每个 run 定义 `MinFrac(T) = min_a n_a(T)/T`；报告跨 runs 的 `K × MinFrac(T)`。**跨 run 聚合固定为 arithmetic mean**（与 Krishnamurthy 一致），competence gate 规则 2 与 §3.7 的 α 判定均使用该 mean；median 与 IQR 只作为分布补充报告，不参与任何 gate。
 - 同时报告 `K × MinFrac(t)` time curve。值长期接近 1 表示各臂近似均匀选择，属于 flailing，不是成功探索。
 
 #### C. Greedy / discovery / utilization
@@ -401,7 +409,7 @@ Uncertainty scaffold 可使用：
 
 不复制整份 `get_answer_bandit.py` 建立平行实现。新协议沿用现有 steering、layer indexing、paired RNG 与存储 schema，在原入口中增加：
 
-- `--environment {native_floor,reference_easy,reference_hard,graded}`；
+- `--reference_environment {easy,hard,native_floor}`。**`graded` 不作为新环境选项实现**：旧的 `.7/.5/.4/.3/.1` 保留在 legacy path 上（不传该 flag、不使用 `F-reference` 时行为完全不变），仅供旧协议复现，不得进入新的 competence gate，避免出现第三种未经 gate 的环境；
 - `--temperature`；
 - 新的 `F-reference / pv6` prompt variant；
 - two-stage rationale + candidate-only action scoring mode；
