@@ -173,7 +173,7 @@ LLM 负责生成、预测或执行局部子任务
 
 Llama3-8B 位于怎样的 Bandit capability boundary；RSN α 改变的是目标性 information seeking、exploration stopping、policy persistence，还是只让行为在 greedy lock 与 uniform flailing 之间移动？
 
-不预设 Llama3-8B 必须完成 Reference-Hard，但 **α 的 capability-effect 解释必须建立在至少一个 native competence anchor 上**：模型需要先在某个不含外部 uncertainty / policy guidance 的条件中表现出最低限度的 discovery→utilization。若所有 native 难度都未达到该门槛，α 仍可用于描述 greedy lock、uniform flailing 与 policy persistence 的变化，但不能称为 information-seeking improvement 或 capability rescue。
+不预设 Llama3-8B 必须完成 Reference-Hard，但 **α 的 capability-effect 解释必须建立在至少一个 native competence anchor 上**：模型需要先在不含外部 uncertainty / policy guidance 的 Reference-Easy（K=4）或 Reference-Hard（K=5）中表现出最低限度的 discovery→utilization。K=2 只作为最小 stochastic adaptation 诊断，不足以建立主实验的 competence anchor。若 K=4/K=5 native 条件都未达到门槛，α 仍可用于描述 greedy lock、uniform flailing 与 policy persistence 的变化，但不能称为 information-seeking improvement 或 capability rescue。
 
 后续结论必须区分三种证据：
 
@@ -195,18 +195,18 @@ Llama3-8B 位于怎样的 Bandit capability boundary；RSN α 改变的是目标
 两组环境均遵守：
 
 - neutral arm labels，不利用服饰语义；
-- 每个 run 独立随机化 name→probability mapping 与 display order；
+- 使用实验前冻结的 counterbalanced seed bank；每个 run 仍由 seed 独立随机化 name→probability mapping 与 display order；
 - 同一个 run 的全部 100 rounds 中，臂名称、显示位置与真实概率保持固定；
-- 不同 α 使用相同 seeds、arm mapping、reward draws 和生成种子；
+- 不同 α、LLM 接口与 algorithmic baselines 使用相同 seeds、arm mapping、per-arm reward tapes 和生成种子；
 - N=20 runs；开发阶段可以先做 N=3 smoke test，但 smoke test 不产生研究结论。
 
 Reference 环境的次优臂概率相同，因此不再使用 `WorstFrac` 作为主指标；它只适用于原来的 graded reward vector。
 
-若 Reference-Easy 仍未形成可解释的 native policy，Track A 增加一个非文献 reference 的 **Native-Floor**：K=2、`.70/.30`、T=50。它只用于建立 capability floor / competence anchor，结果不得外推为 K=5 能力。
+若 Reference-Easy 仍未形成可解释的 native policy，Track C 可增加一个非文献 reference 的 **Native-Floor**：K=2、`.70/.30`、T=50。它只回答模型是否存在最小 stochastic adaptation，不进入 competence gate、不作为 α 主实验环境，结果也不得外推为 K=4/K=5 exploration 能力。
 
 ### 3.3 Native reference interface
 
-主接口采用文献中唯一成功配置的核心元素：**suggestive framing + externally summarized history + reinforced CoT**，但加入 constrained final choice 以消除本项目已经观察到的格式污染。
+主接口采用文献中唯一成功配置的核心元素：**suggestive framing + externally summarized history + reinforced CoT**，但加入 two-stage constrained final choice，以消除本项目已经观察到的格式污染，并冻结每轮只在真正的 action decision 上施加一次 α。
 
 每轮状态只显示：
 
@@ -226,18 +226,21 @@ Each button has a fixed but unknown probability of reward 1.
 Balance exploration and exploitation to maximize total reward over all 100 rounds.
 
 Briefly reason about the amount of evidence, observed rewards, uncertainty,
-and remaining rounds. Then choose exactly one button.
+and remaining rounds in at most two sentences. Do not state a final choice yet.
 ```
 
 接口规则：
 
 - Python 只计算 `successes / trials / empirical rate`；不提供 Beta smoothing、credible interval、UCB bonus 或推荐臂。
 - `UNTRIED` 只表示 unknown，不编码为 `0.00`。
-- reinforced CoT reminder 同时出现在任务说明与每轮 user query；rationale 限制为最多两句并完整保存。
-- 最终 choice 只能从 K 个合法臂名中产生，`invalid_rate` 在结构上应为 0；不再使用 random fallback 改写 trajectory。
+- reinforced CoT reminder 同时出现在任务说明与每轮 user query；第一阶段只生成最多两句 rationale，并完整保存。
+- 第二阶段把同一轮完整状态、第一阶段 rationale 与 `Choice: Button` 组成 action prompt，只计算合法 suffix（`A/B/C/D/E` 中当前环境存在的 K 个）的条件 log-probability，并以 deterministic argmax 选择臂。
+- action 候选必须经过 tokenizer audit：优先保证共同前缀后的候选 suffix 均为单 token；若无法保证，则对每个完整候选字符串计算 sequence log-probability，并记录 tokenization，不得只比较首 token。
+- 最终 choice 在结构上必为合法臂，`invalid_rate=0`；不再经过自由文本 parser，也不使用 random fallback 改写 trajectory。
+- 每轮保存全部 candidate log-scores、top-1/top-2 margin、选中臂、rationale 与两阶段 prompt attestation，便于区分接近决策边界与稳定 policy。
 - constrained decoding 只解决输出合法性，不视为 exploration 能力的来源；相关实现先例来自 [Monea et al.（2024）](https://arxiv.org/abs/2410.05362) 的 contextual-bandit classification，不能直接当作当前 MAB exploration 的正面证据。
 
-**Steering 语义必须冻结：**首选单次 decision generation，在同一次生成中先产生 rationale、再约束最终臂名，使每轮只发生一次 prefill steering。若实现必须分成两次 forward，则 α 只施加在第一次 decision prompt；第二次只做 deterministic legal-choice readout，不得再次注入 α。不得让 E-direct、E-CoT 与 constrained 版本共享结果目录。
+**Steering 语义必须冻结：**rationale pass 不注入 α；α 只在第二阶段 action prompt 的最后一个 prefill token 上施加一次，随后进行 candidate-only scoring。这样 α 直接作用于实际选臂而不是只通过 rationale 间接作用，同时仍保持每轮一次 prefill steering。两阶段都使用 temperature=0；不得让 E-direct、E-CoT 与 constrained 版本共享结果目录。
 
 ### 3.4 Temperature 与 chat-format 决策
 
@@ -245,24 +248,43 @@ and remaining rounds. Then choose exactly one button.
 - **Secondary robustness：temperature=1。** 只在 primary 完成后运行，用于判断外部采样随机性是解除 lock-in，还是制造 uniform flailing；不能与 temperature=0 合并统计。
 - 不采用“capability 用 T=0、α 只用 T=1”的唯一设计，因为那会让 baseline capability 与 intervention 落在不同 policy regime。
 
-文献 reference interface 使用 system/user chat，而 NMD mask 来自 bare-string activation distribution。因此先在 α=0 下对照：
+文献 reference interface 使用 system/user chat，而 NMD mask 来自 bare-string activation distribution。因此不根据开发结果二选一，而是固定两者的不同职责：
 
-1. reference-chat；
-2. wording 等价的 reference-bare。
+1. **reference-chat，α=0**：复现文献支持的最强 native interface，作为 capability comparator；
+2. **reference-bare，α=0**：与 NMD mask activation distribution 对齐，作为 RSN capability baseline。
 
-只有通过 task-validity 的接口进入 α 主实验。若只有 chat 通过，可以在 chat 下运行 α，但必须把结果限定为 cross-format steering；chat 下 α null 不能直接解释为 RSN 方向无效。若两者都通过，优先使用与 NMD mask 对齐的 bare-string 接口，并把 chat 作为 robustness。
+B1 α 主实验只能使用通过 competence gate 的 `reference-bare` K=4/K=5 条件。若只有 chat 通过，结论是“模型在文献接口下存在 capability，但当前 RSN-aligned bare interface 没有 competence anchor”；此时 chat α 最多作为 cross-format secondary analysis，chat 下 α null 不能直接解释为 RSN 方向无效。
 
-接口搜索在实验前冻结为上述 `reference-chat` 与 wording 等价的 `reference-bare`；只允许修复格式、解析或实现错误，不根据 α 效果继续改写 prompt。接口选择完全依据 α=0，且选择用的开发 seeds 与最终 α 评估 seeds 分离，避免“调到成功”为止的 prompt overfitting。
+接口集合在实验前冻结为上述 `reference-chat` 与 wording 等价的 `reference-bare`；只允许修复格式、tokenization 或实现错误，不依据 α=0/α≠0 的行为效果继续改写 prompt，也不把两者之间表现较好的一项事后重新定义为唯一主接口。
 
 ### 3.5 Baselines 与主要指标
 
 所有 reference environments 使用相同 reward structure 与 seeds 跑：
 
 - Random；
-- Greedy（每臂一次初始化后，始终选择 empirical-best）；
+- Greedy（见下方冻结定义）；
 - UCB1；
 - Thompson Sampling；
-- Oracle（只作结果上限，不作可比策略）。
+- Oracle（见下方冻结定义；只作结果上限，不作可比策略）。
+
+**Greedy 冻结定义。** Greedy 是 competence gate 规则 1 的比较基准，而 Reference 环境的次优臂概率完全相同（Easy `0.25×3`、Hard `0.40×4`），初始化后每臂 `n=1` 时并列极其频繁，因此 tie-break 规则会实质改变 `SuffFailFreq_Greedy(T/2)`，必须在实现前写死：
+
+- 前 `K` 轮按 display order 每臂各拉一次作为初始化；**这 K 轮计入 `T`，并计入全部指标**（不作为 warm-start 从分母中排除）；
+- 其后选择 empirical mean 最高的臂；并列时在**并列臂集合内** uniform random，不使用 first-index；
+- tie-break 使用独立的 `tie_rng = Random(seed + TIE_RNG_OFFSET)`，**不得消费 per-arm reward tape**，也不与 fallback / 生成种子共用流；
+- 结果中保存 tie-break policy 名称与 RNG version，使该 baseline 可被精确重放。
+
+不使用 first-index tie-break 的原因：它会让 Greedy 的选择与 display position 耦合，正好污染 §3.5 精心平衡的 best-arm position counterbalance。
+
+**Oracle 冻结定义。** 从第一轮开始始终选择真实最优臂，使用与其他 policy 相同的 per-arm reward tape；仅作为 reward / regret 的上限，不作为可比策略（它不面对任何探索问题）。
+
+#### Counterbalancing 与 paired reward tape
+
+- 每个环境在运行前冻结 N=20 seed bank，不在看到模型结果后换 seed。
+- K=4 中最优臂 display position 各出现 5 次；K=5 中各出现 4 次。
+- 最优臂 identity 同样精确平衡，并检查 identity × position 不出现明显集中；完整 seed、arm mapping 与 display order 写入结果。
+- 每个 seed 为每个臂预生成独立 Bernoulli uniform tape；该臂第 `n` 次被选择时使用 tape 的第 `n` 个 draw。
+- 所有 α、reference-chat/reference-bare、Random、Greedy、UCB1、TS 与 Oracle 共用同一 seed 对应的 tapes，使不同 policy 对同一臂的第 `n` 次 pull 面对相同潜在 reward。
 
 主要指标按以下顺序解释：
 
@@ -302,22 +324,20 @@ and remaining rounds. Then choose exactly one button.
 
 固定判读顺序：
 
-1. N=3 smoke：确认 prompt、constrained choice、arm counterbalancing、reward RNG 与存储 schema；不看效果。
-2. 在独立开发 seeds 上完成 `reference-chat` / `reference-bare` 的 α=0 接口比较并冻结接口；不查看任何 α≠0 结果。
-3. Reference-Easy，α=0，T=100，N=20：建立能力下界。
-4. 若 Reference-Easy 未通过 competence gate，再跑 Native-Floor，α=0，K=2，T=50，N=20，判断是否存在最小 native capability。
-5. Reference-Hard，α=0，T=100，N=20：与 Greedy / UCB / TS 比较，确定模型落在 suffix-failure、uniform-failure 或有效学习区域。
+1. N=3 smoke：分别确认 reference-chat/reference-bare prompt、两阶段 constrained choice、candidate tokenization、arm counterbalancing、reward tape 与存储 schema；不看效果。
+2. Reference-Easy，α=0，T=100，N=20：chat 与 bare 分别报告，建立文献接口 comparator 与 RSN-aligned 能力下界。
+3. Reference-Hard，α=0，T=100，N=20：chat 与 bare 分别和 Greedy / UCB / TS 比较，确定模型落在 suffix-failure、uniform-failure 或有效学习区域。
 
 **Task-validity gate** 只要求输出合法、轨迹无 parser / RNG 污染且 longitudinal metrics 可解释；它决定实验是否有效，但不等于模型具备 Bandit competence。
 
-**Native competence gate** 要求至少一个 native 条件同时呈现以下方向性证据：
+**Native competence gate** 只应用于 `reference-bare` K=4/K=5，并要求某个条件同时满足以下预注册规则：
 
-1. discovery 优于 Greedy lock：`SuffFailFreq(T/2)` 下降，且不是依靠 non-novel churn；
-2. 不属于 uniform flailing：`K×MinFrac(t)` 早期允许较高，但后期明确下降并远离 Random；
-3. 找到较优臂后能够利用：post-discovery / late empirical-best adherence 高于随机水平 `1/K`；
-4. late OptFrac 高于 Random 或 regret 低于 Random，作为行为收益确认。
+1. discovery 优于 Greedy lock：`SuffFailFreq_model(T/2) < SuffFailFreq_Greedy(T/2)`，且差异不是由 non-novel churn 造成；
+2. 不属于 uniform flailing：`K×MinFrac_model(T) < K×MinFrac_Random(T)`，且 `K×MinFrac_model(T) < K×MinFrac_model(T/2)`；
+3. 找到较优臂后能够利用：post-discovery late empirical-best adherence `> 1/K`；
+4. 产生最低限度的行为收益：late OptFrac `> 1/K`。
 
-该 gate 用预注册的多指标联合方向判断，并报告 paired bootstrap interval；不因单个 p 值或单个 OptFrac 决定是否通过。通过 gate 的最难 native 条件定义为后续的 **competence anchor**。
+四项使用 point estimate 作机械 gate，同时报告 paired bootstrap interval 表示不确定性；不因单个 p 值或单个 OptFrac 事后改变规则。通过 gate 的最难 `reference-bare` 条件定义为后续的 **competence anchor**。reference-chat 结果独立报告，不进入 RSN anchor 选择。
 
 Track A 的 headline 允许是 capability boundary：如果 Llama3-8B 在文献最强 native interface 下仍接近 Greedy，这本身是结果，不继续无上限调 prompt。
 
@@ -325,12 +345,12 @@ Track A 的 headline 允许是 capability boundary：如果 Llama3-8B 在文献�
 
 #### B1. Competence-anchor α 主实验
 
-若 Track A 建立了 competence anchor，主实验在“通过 gate 的最难 native 条件”上运行，优先级为 `Reference-Hard > Reference-Easy > Native-Floor`：
+若 Track A 建立了 competence anchor，主实验在“通过 gate 的最难 reference-bare 条件”上运行，优先级为 `Reference-Hard > Reference-Easy`：
 
 ```text
 α ∈ {−4, 0, +4}
 temperature = 0
-T = anchor 对应的 100 或 50
+T = 100
 N = 20 paired seeds
 ```
 
@@ -338,15 +358,15 @@ N = 20 paired seeds
 
 #### B2. Reference-Hard boundary stress test
 
-无论 competence anchor 位于 Easy 还是 Hard，Reference-Hard 都保留 `−4/0/+4` 三点测试，用于判断 α 能否把 capability boundary 推向更困难环境。若 B1 的 anchor 已是 Reference-Hard，B1 与 B2 是同一组实验，不重复运行。
+无论 competence anchor 位于 Easy 还是 Hard，reference-bare Reference-Hard 都保留 `−4/0/+4` 三点测试，用于判断 α 能否把 capability boundary 推向更困难环境。若 B1 的 anchor 已是 Reference-Hard，B1 与 B2 是同一组实验，不重复运行。reference-chat α 不进入 B1/B2 主结果；如运行，只能单列为 cross-format secondary analysis。
 
-若所有 native 条件均未通过 competence gate，Reference-Hard 的三点 α 仍可作为 **failure-mode characterization**，但不得使用 capability-effect / rescue / information-seeking improvement 的措辞。此时只判断 α 是否改变 greedy lock、uniform flailing、non-novel churn 或 persistence，并优先进入 Track C 定位缺失能力。
+若 reference-bare K=4/K=5 均未通过 competence gate，Reference-Hard 的三点 α 仍可作为 **failure-mode characterization**，但不得使用 capability-effect / rescue / information-seeking improvement 的措辞。此时只判断 α 是否改变 greedy lock、uniform flailing、non-novel churn 或 persistence，并优先进入 Track C 定位缺失能力。
 
 所有 α=0 均复用 Track A 的同一 cell。先完成三点实验，再决定是否扩大到 `−8…+8`；不得直接恢复旧 Bandit dose curve。
 
 只有 α 使原本失败的目标环境跨过 competence gate，并同时满足以下条件，才能称为 capability rescue；若 anchor 本来已通过 gate，则写成 capability modulation / improvement：
 
-1. `SuffFailFreq(T/2)` 向 UCB/TS 方向下降（Reference 的 T=100 对应 50；Native-Floor 的 T=50 对应 25）；
+1. `SuffFailFreq(T/2)` 向 UCB/TS 方向下降（Reference 的 T=100 对应 50）；
 2. `K×MinFrac` 没有升成 uniform-like failure，并随时间合理下降；
 3. novel exploration 增加而不是 non-novel churn 增加；
 4. late adherence、OptFrac 或 regret 至少一项同步改善；
@@ -358,15 +378,16 @@ temperature=1 的三点 α 仅作为后续 robustness；必须单独报告，不
 
 ### 3.8 Track C — 机制与支架诊断
 
-Native-Floor 已前移到 Track A。其余 Track C 条件只在 Track A/B 已给出 frozen verdict 后启动，不承担 native exploration 主证据。
+Track C 只在 Track A/B 已给出 frozen verdict 后启动，不承担 K=4/K=5 native exploration 主证据。
 
 | 诊断条件 | 改动 | 回答的问题 | 证据边界 |
 |---|---|---|---|
-| **C1 Uncertainty scaffold** | 提供 Beta-smoothed mean + credible interval / uncertainty | failure 是否来自 `1/1=1.0` 等小样本过度确信 | calculator-assisted，不是纯 native |
-| **C2 Warm-start** | 每臂先提供 2–5 个平衡 observations | 给定信息后能否排序并维持较优选择 | utilization-only |
-| **C3 Policy checklist** | 显式先判 `EXPLORE / EXPLOIT` 再选臂 | 模型是否知道策略却执行失败 | prompt-scaffolded policy |
-| **C4 UCB/TS guidance** | 提供 bonus、posterior sample 或推荐臂 | state estimation 与 action policy 哪一层失败 | algorithm-guided upper bound |
-| **C5 Distillation / RLFT** | 用 counterbalanced UCB/TS trajectories 训练 | 专门训练后能否获得稳定 Bandit policy | trained capability |
+| **C1 Native-Floor** | K=2，`.70/.30`，T=50，α=0 | 模型是否存在最小 stochastic adaptation | diagnostic floor；不是 competence anchor，不跑 B1 α |
+| **C2 Uncertainty scaffold** | 提供 Beta-smoothed mean + credible interval / uncertainty | failure 是否来自 `1/1=1.0` 等小样本过度确信 | calculator-assisted，不是纯 native |
+| **C3 Warm-start** | 每臂先提供 2–5 个平衡 observations | 给定信息后能否排序并维持较优选择 | utilization-only |
+| **C4 Policy checklist** | 显式先判 `EXPLORE / EXPLOIT` 再选臂 | 模型是否知道策略却执行失败 | prompt-scaffolded policy |
+| **C5 UCB/TS guidance** | 提供 bonus、posterior sample 或推荐臂 | state estimation 与 action policy 哪一层失败 | algorithm-guided upper bound |
+| **C6 Distillation / RLFT** | 用 counterbalanced UCB/TS trajectories 训练 | 专门训练后能否获得稳定 Bandit policy | trained capability |
 
 Uncertainty scaffold 可使用：
 
@@ -383,20 +404,21 @@ Uncertainty scaffold 可使用：
 - `--environment {native_floor,reference_easy,reference_hard,graded}`；
 - `--temperature`；
 - 新的 `F-reference / pv6` prompt variant；
-- constrained legal-choice mode；
+- two-stage rationale + candidate-only action scoring mode；
+- frozen counterbalanced seed banks 与可复用的 per-arm reward tapes；
 - `SuffFailFreq`、`K×MinFrac` 与 `GreedyFrac` 所需的逐轮字段。
 
-新增独立 launcher，例如 `run_bandit_reference.sh`；输出目录、protocol version 与 resume key 全部与 E/C/D 系列隔离。`run_bandit_algorithmic_baseline.py` 增加 Greedy，并支持 reference reward vectors。实现前先冻结 prompt、temperature、environment、choice mode 与 metrics；之后每次只改变一个实验维度。
+新增独立 launcher，例如 `run_bandit_reference.sh`；输出目录、protocol version 与 resume key 全部与 E/C/D 系列隔离。结果额外保存 candidate log-scores/margin、rationale、tokenization audit、reward-tape id 与 prompt attestation。`run_bandit_algorithmic_baseline.py` 增加 Greedy，并支持 reference reward vectors 与同一 reward tapes。实现前先冻结 prompt、temperature、environment、choice mode、seed banks 与 metrics；之后每次只改变一个实验维度。
 
 ### 3.10 最终执行顺序
 
-1. 实现并验证 reference environment、constrained choice 和新 schema。
-2. 只用 α=0 开发 seeds 比较并冻结 `reference-chat` / `reference-bare`。
-3. 跑 α=0 Reference-Easy；若未通过 competence gate，再跑 Native-Floor；同时完成 Reference-Hard capability boundary。
-4. 在通过 gate 的最难 native condition 上跑 B1 `−4/0/+4`；Reference-Hard 作为 B2 boundary stress test，若与 B1 重合则不重复。
-5. 用 competence gate、`SuffFailFreq × K×MinFrac` 与 discovery / utilization / stability 指标判断 α 是 improvement、rescue、无效还是 lock-to-flail tradeoff。
-6. 若没有 competence anchor，α 结果只作为 failure-mode characterization，并优先进入 uncertainty scaffold、warm-start 与 algorithm-guided controls 定位失败层级。
-7. 需要时才跑 temperature=1 robustness。
+1. 实现并验证 reference environment、two-stage candidate scoring、counterbalanced seed banks、per-arm reward tapes 和新 schema。
+2. 用 N=3 smoke 分别验证 reference-chat/reference-bare 的 prompt attestation、candidate tokenization、合法 choice 与 α 只注入 action pass；不依据效果选择接口。
+3. 跑 α=0 Reference-Easy 与 Reference-Hard：chat/bare 分别报告，competence gate 只判 reference-bare。
+4. 在通过 gate 的最难 reference-bare condition 上跑 B1 `−4/0/+4`；reference-bare Reference-Hard 作为 B2 boundary stress test，若与 B1 重合则不重复。
+5. 用预注册 competence gate、`SuffFailFreq × K×MinFrac` 与 discovery / utilization / stability 指标判断 α 是 improvement、rescue、无效还是 lock-to-flail tradeoff。
+6. 若没有 reference-bare competence anchor，α 结果只作为 failure-mode characterization；随后先跑 K=2 Native-Floor，再依次使用 uncertainty scaffold、warm-start 与 algorithm-guided controls 定位失败层级。
+7. 需要时才跑 temperature=1 robustness；需要时才单列 chat α cross-format analysis。
 8. 只有在三点 α 给出稳定、可解释方向后，才考虑更宽 dose sweep 或跨模型复现。
 
 ## References
