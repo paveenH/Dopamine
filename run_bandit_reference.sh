@@ -47,7 +47,11 @@
 # Usage:
 #   bash run_bandit_reference.sh llama3 SMOKE       # N=3, easy+hard, bare+chat
 #   bash run_bandit_reference.sh llama3 A0_BARE     # Track A alpha=0, bare
+#   bash run_bandit_reference.sh llama3 A0_BARE_EASY  # one formal cell only
+#   bash run_bandit_reference.sh llama3 A0_BARE_HARD  # one formal cell only
 #   bash run_bandit_reference.sh llama3 A0_CHAT     # Track A alpha=0, chat
+#   bash run_bandit_reference.sh llama3 A0_CHAT_EASY  # one formal cell only
+#   bash run_bandit_reference.sh llama3 A0_CHAT_HARD  # one formal cell only
 #   bash run_bandit_reference.sh llama3             # every non-smoke step
 #
 # NOT WIRED HERE ON PURPOSE: the B1 alpha sweep. It runs only after the
@@ -57,8 +61,9 @@
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-DATA="data1"
-BASE_DIR="/${DATA}/paveen/Dopamine/components"
+DATA="${DATA:-data1}"
+BASE_DIR="${BASE_DIR:-/${DATA}/paveen/Dopamine/components}"
+PY="${PY:-python}"
 
 MODEL=${1:-llama3}
 ONLY_STEP=${2:-}
@@ -89,14 +94,15 @@ BANK_HARD="0 3 6 7 9 11 12 13 17 18 19 25 30 33 37 42 45 64 74 172"
 run_step () {
   local tag="$1"; local env="$2"; local seeds="$3"; local alpha_config="$4"
   local ans="$5"; shift 5
-  if [ -n "$ONLY_STEP" ] && [ "$ONLY_STEP" != "$tag" ]; then return; fi
+  if [ -n "$ONLY_STEP" ] && [ "$ONLY_STEP" != "$tag" ] \
+      && [ "$ONLY_STEP" != "${tag}_${env^^}" ]; then return; fi
   echo ""
   echo "######################################################################"
   echo "# STEP ${tag}: env=${env}  configs=${alpha_config}  $*"
   echo "# seeds: ${seeds}"
   echo "# out:   ${ans}"
   echo "######################################################################"
-  python get_answer_bandit.py \
+  "$PY" get_answer_bandit.py \
       --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" \
       --hs "${HS_PREFIX}" --size "${MODEL_SIZE}" \
       --type non --percentage 0.5 --mask_type nmd \
