@@ -15,10 +15,10 @@
 # meant to be READ by a human first.
 #
 # Usage:
-#   bash run_pv6_server.sh check                 # phase 1 only
-#   bash run_pv6_server.sh smoke                 # phases 1-3
-#   bash run_pv6_server.sh trackA --yes          # phases 4-5 (after smoke)
-#   bash run_pv6_server.sh trackA --yes --bare   # phase 4 only
+#   bash run_bandit_pv6.sh check                 # phase 1 only
+#   bash run_bandit_pv6.sh smoke                 # phases 1-3
+#   bash run_bandit_pv6.sh trackA --yes          # phases 4-5 (after smoke)
+#   bash run_bandit_pv6.sh trackA --yes --bare   # phase 4 only
 #
 # Everything is resumable: re-running a phase skips cells already in the CSV.
 
@@ -282,7 +282,7 @@ case "$PHASE" in
   smoke)  phase_check; phase_smoke; phase_verify ;;
   verify) phase_verify ;;
   trackA) phase_trackA ;;
-  *) echo "usage: bash run_pv6_server.sh {check|smoke|verify|trackA} [--yes] [--bare|--chat]"
+  *) echo "usage: bash run_bandit_pv6.sh {check|smoke|verify|trackA} [--yes] [--bare|--chat]"
      exit 2 ;;
 esac
 
