@@ -11,6 +11,7 @@ reference metrics.
 Run:  python3.10 test_bandit_reference.py
 """
 
+import json
 import random
 import sys
 
@@ -330,6 +331,65 @@ for policy in (br.run_greedy, br.run_oracle, br.run_random):
     check(ok, f"{rec['policy']}: observed rewards match the shared tape")
 
 check(br.PROTOCOL_VERSION == "pv6", "protocol version tag is pv6")
+
+
+# ── [11] bootstrap + frozen manifest ────────────────────────────────────────
+print("\n[11] bootstrap CIs and the frozen baseline manifest")
+
+vals = [0.0] * 15 + [1.0] * 5          # a 0.25 frequency, like SuffFail
+ci1 = br._bootstrap_ci(vals, lambda v: sum(v) / len(v))
+ci2 = br._bootstrap_ci(vals, lambda v: sum(v) / len(v))
+check(ci1 == ci2, "bootstrap is deterministic under the frozen seed")
+check(abs(ci1["point"] - 0.25) < 1e-12, "bootstrap point estimate is the mean")
+check(ci1["lo"] <= ci1["point"] <= ci1["hi"], "point estimate lies inside the CI")
+check(ci1["lo"] >= 0.0 and ci1["hi"] <= 1.0,
+      "frequency CI stays within [0,1]")
+
+deg = br._bootstrap_ci([0.4] * 20, lambda v: sum(v) / len(v))
+check(deg["lo"] == deg["hi"] and abs(deg["lo"] - 0.4) < 1e-12,
+      "zero-variance sample gives a degenerate CI")
+
+# paired bootstrap: the seed-set guard is the load-bearing part
+runs_g = [br.run_greedy(s, easy, br.RewardTape(s, easy)) for s in (0, 1, 2, 3)]
+runs_r = [br.run_random(s, easy, br.RewardTape(s, easy)) for s in (0, 1, 2, 3)]
+pc = br.paired_bootstrap_ci(runs_g, runs_r, lambda r: r["late_opt_frac"])
+check(pc["paired"] is True and pc["seeds"] == [0, 1, 2, 3],
+      "paired bootstrap records the seeds it paired on")
+check(pc["point"] > 0, "greedy beats random on late_opt_frac (paired)")
+
+try:
+    br.paired_bootstrap_ci(runs_g, runs_r[:3], lambda r: r["late_opt_frac"])
+    check(False, "paired bootstrap rejects mismatched seed sets")
+except ValueError:
+    check(True, "paired bootstrap rejects mismatched seed sets")
+
+man1 = br.build_baseline_manifest()
+man2 = br.build_baseline_manifest()
+check(man1 == man2, "baseline manifest is reproducible")
+check(man1["protocol"] == "pv6", "manifest carries the protocol version")
+for _k in ("easy", "hard"):
+    _e = man1["environments"][_k]
+    _rep = _e["bank_report"]
+    check(_rep["position_balanced"] and _rep["identity_balanced"],
+          f"manifest {_k}: bank report attests both marginals balanced")
+    check(not (set(_e["seed_bank"]) & set(_e["smoke_bank"])),
+          f"manifest {_k}: smoke bank is disjoint from the formal bank")
+    check(set(_e["policies"]) == {"random", "greedy", "oracle"},
+          f"manifest {_k}: all three algorithmic baselines are frozen")
+    check(_e["policies"]["oracle"]["late_opt_frac"]["point"] == 1.0,
+          f"manifest {_k}: oracle always plays the best arm")
+    check(_e["policies"]["greedy"]["suff_fail_freq_half"]["point"]
+          > _e["policies"]["random"]["suff_fail_freq_half"]["point"],
+          f"manifest {_k}: greedy locks in more than random (gate rule 1 basis)")
+    check(_e["policies"]["random"]["k_min_frac_full"]["point"]
+          > _e["policies"]["greedy"]["k_min_frac_full"]["point"],
+          f"manifest {_k}: random flails more than greedy (gate rule 2 basis)")
+
+# the manifest must survive a JSON round-trip, since that is how it is cited
+_rt = json.loads(json.dumps(man1, sort_keys=True))
+check(_rt["environments"]["easy"]["seed_bank"]
+      == man1["environments"]["easy"]["seed_bank"],
+      "manifest seed bank survives a JSON round-trip")
 
 
 # ── summary ─────────────────────────────────────────────────────────────────

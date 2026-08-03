@@ -169,10 +169,11 @@ def build_seed_bank(env: Environment, n: int = 20, search_limit: int = 100_000,
     best-arm IDENTITY exactly balanced (§3.5).
 
     n must be divisible by k so both can be exact — K=4 gives 5 seeds per
-    position, K=5 gives 4. A greedy scan over candidate seeds fills a
-    position x identity quota table; this also keeps identity from
-    concentrating inside any one position, which is the residual confound a
-    per-margin balance alone would leave.
+    position, K=5 gives 4. The (position, identity) CROSS table is balanced
+    too, via a Latin-rectangle target pattern that is chosen first and then
+    filled from the seed space (see the comment below for why a greedy scan
+    cannot reach it). This rules out the residual confound a per-margin
+    balance alone would leave: identity concentrating inside one position.
 
     Deterministic: same env + n + exclude always returns the same bank, so the
     bank can be regenerated rather than stored. Selected BEFORE any model
@@ -692,3 +693,153 @@ def _package(seed, env, tape, choices, feedbacks, policy, extra=None) -> dict:
     if extra:
         rec.update(extra)
     return rec
+
+
+# ──────────────────── bootstrap + frozen baseline manifest ──────────────────
+
+BOOTSTRAP_SEED = 20260803
+BOOTSTRAP_N = 10_000
+BOOTSTRAP_METHOD = "percentile"   # BCa is NOT used; see _bootstrap_ci
+
+
+def _bootstrap_ci(values: list[float], stat, n_boot: int = BOOTSTRAP_N,
+                  seed: int = BOOTSTRAP_SEED,
+                  alpha: float = 0.05) -> dict:
+    """Percentile bootstrap over RUNS (the resampling unit is the seed).
+
+    Percentile rather than BCa: SuffFailFreq is a mean of a BINARY per-run
+    indicator, so at N=20 the statistic is discrete with 21 attainable values
+    and the acceleration/bias terms BCa estimates are themselves unstable.
+    A percentile interval is the honest, weaker statement.
+
+    NOTE this is the UNPAIRED interval for a single policy. The gate's real
+    test is a PAIRED bootstrap on the per-seed DIFFERENCE (model - Greedy),
+    which needs the model runs and therefore cannot be computed here — see
+    paired_bootstrap_ci, which is what §3.7 must use.
+    """
+    if not values:
+        return {"point": float("nan"), "lo": float("nan"), "hi": float("nan"),
+                "n": 0}
+    rng = random.Random(seed)
+    n = len(values)
+    draws = []
+    for _ in range(n_boot):
+        draws.append(stat([values[rng.randrange(n)] for _ in range(n)]))
+    draws.sort()
+    lo = draws[int((alpha / 2) * n_boot)]
+    hi = draws[min(n_boot - 1, int((1 - alpha / 2) * n_boot))]
+    return {
+        "point":  stat(values),
+        "lo":     lo,
+        "hi":     hi,
+        "n":      n,
+        "n_boot": n_boot,
+        "method": BOOTSTRAP_METHOD,
+        "seed":   seed,
+    }
+
+
+def paired_bootstrap_ci(runs_a: list[dict], runs_b: list[dict], metric,
+                        n_boot: int = BOOTSTRAP_N, seed: int = BOOTSTRAP_SEED,
+                        alpha: float = 0.05) -> dict:
+    """Paired bootstrap on the per-seed difference metric(a) - metric(b).
+
+    THIS is the gate statistic (§3.7). Resamples SEEDS, not runs independently,
+    so the shared reward tape's variance cancels the way the paired design
+    intends. Requires the two run lists to cover the same seeds; raises if not,
+    because silently intersecting them would change the comparison basis.
+    """
+    by_a = {r["seed"]: r for r in runs_a}
+    by_b = {r["seed"]: r for r in runs_b}
+    if set(by_a) != set(by_b):
+        raise ValueError(
+            f"paired bootstrap needs identical seed sets; "
+            f"a-only={sorted(set(by_a) - set(by_b))} "
+            f"b-only={sorted(set(by_b) - set(by_a))}")
+    seeds = sorted(by_a)
+    diffs = [metric(by_a[s]) - metric(by_b[s]) for s in seeds]
+    out = _bootstrap_ci(diffs, lambda v: sum(v) / len(v), n_boot, seed, alpha)
+    out["seeds"] = seeds
+    out["paired"] = True
+    return out
+
+
+def _summarise_policy(runs: list[dict], env: Environment) -> dict:
+    """Point estimates + unpaired bootstrap CIs for one policy."""
+    T = env.horizon
+    half = T // 2
+
+    def _b(vals, stat=lambda v: sum(v) / len(v)):
+        return _bootstrap_ci(vals, stat)
+
+    return {
+        "n_runs": len(runs),
+        "opt_frac":      _b([r["opt_frac"] for r in runs]),
+        "late_opt_frac": _b([r["late_opt_frac"] for r in runs]),
+        "cum_regret":    _b([r["cum_regret"] for r in runs]),
+        "greedy_frac":   _b([r["greedy_frac"] for r in runs]),
+        # SuffFailFreq is the mean of a binary indicator -> bootstrap the
+        # indicator directly so the CI is on the FREQUENCY, not on a per-run
+        # continuous quantity.
+        "suff_fail_freq_half": _b(
+            [float(suffix_failure(r["choices"], r["best_arm"], half))
+             for r in runs]),
+        "k_min_frac_full": _b(
+            [k_min_frac(r["choices"], list(r["arm_map"])) for r in runs]),
+        "k_min_frac_half": _b(
+            [k_min_frac(r["choices"], list(r["arm_map"]), half) for r in runs]),
+    }
+
+
+def build_baseline_manifest(env_keys: tuple[str, ...] = ("easy", "hard"),
+                            n: int = 20) -> dict:
+    """FROZEN algorithmic baseline manifest (§3.5 / §3.7).
+
+    Computed and stored BEFORE any model is run, so the competence gate's
+    comparison basis cannot drift with later model behaviour. Contains the
+    protocol version, the full seed bank, its balance attestation, the
+    bootstrap parameters, and Random/Greedy/Oracle summaries with CIs.
+
+    Deterministic: no model, no GPU, no I/O. Re-running reproduces it byte for
+    byte, which is what makes it checkable rather than merely archived.
+    """
+    manifest = {
+        "protocol":         PROTOCOL_VERSION,
+        "kind":             "frozen_algorithmic_baseline",
+        "arm_labels":       ARM_LABELS,
+        "action_anchor":    ACTION_ANCHOR,
+        "tie_rng_offset":   TIE_RNG_OFFSET,
+        "bootstrap": {
+            "method": BOOTSTRAP_METHOD,
+            "n_boot": BOOTSTRAP_N,
+            "seed":   BOOTSTRAP_SEED,
+            "alpha":  0.05,
+            "resampling_unit": "seed(run)",
+            "note": ("unpaired per-policy CIs; the GATE statistic is the "
+                     "paired per-seed difference computed after model runs "
+                     "via paired_bootstrap_ci"),
+        },
+        "environments": {},
+    }
+    for key in env_keys:
+        env = get_environment(key)
+        bank = build_seed_bank(env, n=n)
+        policies: dict[str, dict] = {}
+        for pol_name, fn in (("random", run_random),
+                             ("greedy", run_greedy),
+                             ("oracle", run_oracle)):
+            runs = [fn(s, env, RewardTape(s, env)) for s in bank]
+            policies[pol_name] = _summarise_policy(runs, env)
+        manifest["environments"][key] = {
+            "name":        env.name,
+            "k":           env.k,
+            "probs":       list(env.probs),
+            "horizon":     env.horizon,
+            "is_reference": env.is_reference,
+            "competence_eligible": env.competence_eligible,
+            "seed_bank":   bank,
+            "bank_report": bank_report(bank, env),
+            "smoke_bank":  build_smoke_bank(env, formal_bank=bank),
+            "policies":    policies,
+        }
+    return manifest
