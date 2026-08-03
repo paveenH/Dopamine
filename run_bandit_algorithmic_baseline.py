@@ -54,10 +54,28 @@ round regardless of which arm), so the reward STREAM is aligned per seed even
 though the specific 0/1 outcomes an algorithm sees depend on which arm it
 chose to pull.
 
+pv6 REFERENCE MODE (--reference_environment). A SECOND, separate mode for the
+pv6 F-reference protocol. It shares nothing with the legacy path above except
+this file: environment, seed bank and reward tapes all come from
+bandit_reference.py, the SAME module get_answer_bandit's pv6 branch imports, so
+"the baseline and the model faced the same environment" is true by construction
+rather than by a reimplementation that has to be kept in sync. That distinction
+is exactly what the 2026-07-30 bug above was.
+
+Two differences from the legacy mode are load-bearing:
+  - reward draws come from per-arm TAPES, not one stream advanced once per
+    round. The n-th pull of arm a is the same latent outcome for every policy
+    sharing a seed, so a policy difference cannot be reward luck on that arm.
+  - Greedy is included and is the competence gate's rule-1 comparator, with the
+    frozen tie-break (uniform within the tied set, independent RNG that never
+    consumes the reward tape). UCB1/TS are calibration only.
+
 Usage:
     python3.10 run_bandit_algorithmic_baseline.py --k 5 --seeds 20 --rounds 50
     python3.10 run_bandit_algorithmic_baseline.py --k 2
     python3.10 run_bandit_algorithmic_baseline.py --k 3
+    python3.10 run_bandit_algorithmic_baseline.py --reference_environment easy
+    python3.10 run_bandit_algorithmic_baseline.py --reference_environment hard
 """
 
 import argparse
@@ -66,6 +84,7 @@ import random
 import statistics as st
 
 from get_answer_bandit import shuffle_arms as _shuffle_arms_k5
+import bandit_reference as br
 
 K5_PROBS = [0.7, 0.5, 0.4, 0.3, 0.1]     # == get_answer_bandit.REWARD_PROBS_ORDERED
 K3_PROBS = [0.7, 0.45, 0.20]
@@ -181,12 +200,133 @@ def summarize(name, arm_map, choices, rounds):
                regret=regret, first_best=first_best)
 
 
+# ─────────────────────── pv6 reference-mode policies ────────────────────────
+#
+# Greedy / Oracle / Random live in bandit_reference.py (frozen definitions,
+# shared with the manifest). UCB1 and TS are calibration-only, so they live
+# here — but they must draw from the same per-arm tape as everything else.
+
+def _pv6_ucb1(seed, env, tape):
+    """UCB1 with forced round-robin init. As in the legacy note, its coverage is
+    HANDED not earned, so compare its outcomes to the model, never its
+    coverage."""
+    names = list(tape.arm_map)
+    n = {a: 0 for a in names}
+    s = {a: 0.0 for a in names}
+    choices, feedbacks = [], []
+    for t in range(env.horizon):
+        if t < env.k:
+            a = names[t]
+        else:
+            a = max(names, key=lambda i: s[i] / n[i]
+                    + math.sqrt(2 * math.log(t + 1) / n[i]))
+        r = tape.pull(a)
+        n[a] += 1
+        s[a] += r
+        choices.append(a)
+        feedbacks.append(r)
+    return br._package(seed, env, tape, choices, feedbacks, policy="UCB1")
+
+
+def _pv6_thompson(seed, env, tape):
+    """Beta-Bernoulli TS, Beta(1,1), no forced init — the fairer autonomous-
+    discovery reference. Its sampler RNG is separate from the tape so it cannot
+    perturb reward draws."""
+    rng = random.Random(seed + 900_000)
+    names = list(tape.arm_map)
+    alpha = {a: 1.0 for a in names}
+    beta = {a: 1.0 for a in names}
+    choices, feedbacks = [], []
+    for _ in range(env.horizon):
+        a = max(names, key=lambda i: rng.betavariate(alpha[i], beta[i]))
+        r = tape.pull(a)
+        (alpha if r else beta)[a] += 1
+        choices.append(a)
+        feedbacks.append(r)
+    return br._package(seed, env, tape, choices, feedbacks, policy="Thompson")
+
+
+PV6_POLICIES = {
+    "random":   br.run_random,
+    "greedy":   br.run_greedy,      # competence gate rule 1 comparator
+    "UCB1":     _pv6_ucb1,
+    "Thompson": _pv6_thompson,
+    "oracle":   br.run_oracle,
+}
+
+
+def run_reference_mode(env_key, n_seeds):
+    env = br.get_environment(env_key)
+    bank = br.build_seed_bank(env, n=n_seeds)
+    rep = br.bank_report(bank, env)
+    half = env.horizon // 2
+
+    print("=" * 92)
+    print(f"pv6 REFERENCE BASELINE  {env.name}  K={env.k}  T={env.horizon}  "
+          f"probs={list(env.probs)}")
+    print(f"  seed bank (frozen, counterbalanced): {bank}")
+    print(f"  cells {rep['n_cross_cells_used']}/{rep['n_cross_cells_total']}  "
+          f"max_repeat={rep['max_cell_repeat']}  "
+          f"pos_balanced={rep['position_balanced']}  "
+          f"id_balanced={rep['identity_balanced']}")
+    print("=" * 92)
+    print("Greedy is the competence-gate rule-1 comparator (frozen tie-break).")
+    print("UCB1 coverage is HANDED by forced init — compare outcomes, not")
+    print("coverage. TS is the fairer discovery reference, and calibration")
+    print("only: never a standalone pass/fail bar.\n")
+
+    results = {name: [] for name in PV6_POLICIES}
+    for seed in bank:
+        for name, fn in PV6_POLICIES.items():
+            # a FRESH tape per policy: same latent draws, independently consumed
+            results[name].append(fn(seed, env, br.RewardTape(seed, env)))
+
+    hdr = (f'{"policy":<10}{"OptFrac":>9}{"late":>8}{"SuffFail":>10}'
+           f'{"KxMinFrac":>11}{"KxMin(T/2)":>12}{"regret":>9}{"greedyfrac":>12}')
+    print(hdr)
+    for name, runs in results.items():
+        opt = st.mean(r["opt_frac"] for r in runs)
+        late = st.mean(r["late_opt_frac"] for r in runs)
+        sff = br.suff_fail_freq(runs, half)
+        kmf = br.mean_k_min_frac(runs)
+        kmh = br.mean_k_min_frac(runs, half)
+        reg = st.mean(r["cum_regret"] for r in runs)
+        gf = st.mean(r["greedy_frac"] for r in runs)
+        print(f'{name:<10}{opt:9.3f}{late:8.3f}{sff:10.2f}'
+              f'{kmf:11.3f}{kmh:12.3f}{reg:9.1f}{gf:12.3f}')
+
+    print("\nThe two gate quantities bracket the failure space and must be read")
+    print("TOGETHER: SuffFail high = lock-in (never revisits the best arm),")
+    print("KxMinFrac high = flailing (near-uniform, never exploits). Random and")
+    print("Greedy sit on opposite corners; a competent policy is at neither.")
+    print("\nPoint estimates only. The frozen manifest")
+    print("(freeze_bandit_baseline.py) carries the bootstrap CIs, and the gate's")
+    print("real test is a PAIRED per-seed bootstrap once model runs exist.")
+
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--reference_environment", choices=["easy", "hard",
+                                                        "native_floor"],
+                    default=None,
+                    help="pv6 F-reference mode. Uses bandit_reference.py's "
+                         "environment, frozen seed bank and per-arm reward "
+                         "tapes (the same objects get_answer_bandit's pv6 "
+                         "branch uses) and adds the frozen Greedy comparator. "
+                         "Ignores --k/--rounds, which are legacy-mode knobs.")
     ap.add_argument("--k", type=int, default=5, choices=[2, 3, 5])
     ap.add_argument("--seeds", type=int, default=20, help="uses seeds 0..N-1")
     ap.add_argument("--rounds", type=int, default=50)
     args = ap.parse_args()
+
+    if args.reference_environment:
+        # --k/--rounds are legacy knobs; pv6's K and horizon come from the
+        # environment spec. Reject an explicit override rather than ignore it.
+        if args.k != ap.get_default("k") or args.rounds != ap.get_default("rounds"):
+            ap.error("--reference_environment ignores --k/--rounds (K and "
+                     "horizon are properties of the pv6 environment); drop them.")
+        run_reference_mode(args.reference_environment, args.seeds)
+        return
 
     k, rounds = args.k, args.rounds
     seeds = list(range(args.seeds))

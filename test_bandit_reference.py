@@ -407,6 +407,31 @@ for _k in ("easy", "hard"):
           > _e["policies"]["greedy"]["k_min_frac_full"]["point"],
           f"manifest {_k}: random flails more than greedy (gate rule 2 basis)")
 
+# The launcher hardcodes the seed banks so it is self-describing. That is a
+# COPY, and a copy can drift — a launcher running a different bank than the
+# manifest would silently break counterbalancing while every artifact still
+# claimed the frozen bank. Check it here rather than by eye.
+import os
+import re as _re
+_sh_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "run_bandit_reference.sh")
+if os.path.exists(_sh_path):
+    _sh = open(_sh_path).read()
+
+    def _grab(name):
+        m = _re.search(rf'^{name}="([^"]*)"', _sh, _re.M)
+        return [int(x) for x in m.group(1).split()] if m else None
+
+    for _k, _bv, _sv in (("easy", "BANK_EASY", "SMOKE_SEEDS_EASY"),
+                         ("hard", "BANK_HARD", "SMOKE_SEEDS_HARD")):
+        _e = man1["environments"][_k]
+        check(_grab(_bv) == _e["seed_bank"],
+              f"launcher {_bv} matches the frozen manifest bank")
+        check(_grab(_sv) == _e["smoke_bank"],
+              f"launcher {_sv} matches the frozen manifest smoke bank")
+        check(not (set(_grab(_bv) or []) & set(_grab(_sv) or [])),
+              f"launcher {_k}: smoke seeds are disjoint from the formal bank")
+
 # the manifest must survive a JSON round-trip, since that is how it is cited
 _rt = json.loads(json.dumps(man1, sort_keys=True))
 check(_rt["environments"]["easy"]["seed_bank"]
