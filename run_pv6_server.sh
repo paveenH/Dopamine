@@ -104,9 +104,14 @@ phase_smoke () {
   echo
   echo "smoke wall-clock : ${elapsed}s over ${eps} episodes"
   if [ "$eps" -gt 0 ]; then
-    echo "per episode      : $(( elapsed / eps ))s"
-    echo "=> formal Easy+Hard (40 episodes) ~ $(( elapsed / eps * 40 / 60 )) min"
-    echo "   (smoke horizons equal the formal ones, so this scales directly)"
+    local per=$(( elapsed / eps ))
+    echo "per episode      : ${per}s"
+    echo
+    echo "Formal Track A budget (smoke horizons equal the formal ones, so this"
+    echo "scales directly). NOTE 40 episodes is ONE INTERFACE, not all of it:"
+    echo "  A0_BARE  Easy+Hard x 20 seeds = 40 ep = $(( per * 40 / 60 )) min"
+    echo "  A0_CHAT  Easy+Hard x 20 seeds = 40 ep = $(( per * 40 / 60 )) min"
+    echo "  FULL Track A = 80 episodes / 8000 rounds = $(( per * 80 / 60 )) min"
   fi
   if command -v nvidia-smi >/dev/null 2>&1; then
     echo "peak GPU memory  : $(sort -k2 -n -r "$LOGDIR/gpumem_${STAMP}.log" \
@@ -217,6 +222,23 @@ phase_trackA () {
     the protocol checks are automated, but the prompt/role structure and the
     timing/memory numbers are for a human to judge."
   fi
+
+  # The competence gate must be IMPLEMENTED and frozen before the data exists.
+  # Pre-registering four rules is not the same as fixing their implementation:
+  # window boundaries, strict-vs-non-strict comparison and missing-seed
+  # handling are all free parameters that can flip a verdict, so they are
+  # settled and tested BEFORE A0_BARE rather than after.
+  say "PHASE 3c  competence gate evaluator must be frozen and passing"
+  [ -f evaluate_competence_gate.py ] || die \
+    "evaluate_competence_gate.py not found. Freeze the gate implementation
+    BEFORE running Track A — writing it afterwards reintroduces exactly the
+    post-hoc freedom the pre-registration exists to remove."
+  $PY evaluate_competence_gate.py --selftest \
+      2>&1 | tee "$LOGDIR/gate_selftest_${STAMP}.log"
+  [ "${PIPESTATUS[0]}" -eq 0 ] || die \
+    "gate evaluator selftest failed — do not run Track A against an
+    evaluator whose own fixtures do not pass."
+  echo "Gate evaluator frozen and passing. It will NOT be edited after this."
   if [ "$ONLY_CHAT" -ne 1 ]; then
     say "PHASE 4  A0_BARE  (N=20, alpha=0) — the gate is judged on THIS"
     local t0=$SECONDS
@@ -233,13 +255,25 @@ phase_trackA () {
     [ "${PIPESTATUS[0]}" -eq 0 ] || die "A0_CHAT failed"
     echo "A0_CHAT wall-clock: $(( SECONDS - t0 ))s"
   fi
+  say "PHASE 6  competence gate verdict (reference-bare ONLY)"
+  $PY evaluate_competence_gate.py \
+      --result "$OUT_ROOT/pv6_easy_bare" \
+      --result "$OUT_ROOT/pv6_hard_bare" \
+      --json "$LOGDIR/gate_verdict_${STAMP}.json" \
+      2>&1 | tee "$LOGDIR/gate_verdict_${STAMP}.log"
+
   cat <<'EOF'
 
 Track A done. NEXT STEP IS NOT A RUN.
-The competence gate (4 pre-registered rules, §3.7) is evaluated on
-reference-bare K=4/K=5 ONLY, against the FROZEN manifest — not against
-numbers recomputed now. Its verdict decides what a later alpha effect could
-even mean, so B1 is deliberately not wired into any launcher yet.
+The verdict above is mechanical: point estimates against the FROZEN manifest,
+on reference-bare K=4/K=5 only. The paired bootstrap is uncertainty, not a
+tiebreaker, and rule 1's churn clause is flagged for reading, not automated.
+
+The competence anchor is the HARDEST reference-bare condition that passed
+(Hard > Easy). If neither passed, the alpha sweep can still run on Hard but
+its results are FAILURE-MODE CHARACTERIZATION only — do not write
+capability-effect / rescue / improvement. That wording distinction is why B1
+is deliberately not wired into any launcher until the verdict exists.
 EOF
 }
 
