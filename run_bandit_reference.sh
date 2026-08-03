@@ -93,9 +93,14 @@ BANK_HARD="0 3 6 7 9 11 12 13 17 18 19 25 30 33 37 42 45 64 74 172"
 
 run_step () {
   local tag="$1"; local env="$2"; local seeds="$3"; local alpha_config="$4"
-  local ans="$5"; shift 5
+  local ans="$5"; local cell_tag; shift 5
+  case "$env" in
+    easy) cell_tag="${tag}_EASY" ;;
+    hard) cell_tag="${tag}_HARD" ;;
+    *) cell_tag="${tag}_${env}" ;;
+  esac
   if [ -n "$ONLY_STEP" ] && [ "$ONLY_STEP" != "$tag" ] \
-      && [ "$ONLY_STEP" != "${tag}_${env^^}" ]; then return; fi
+      && [ "$ONLY_STEP" != "$cell_tag" ]; then return; fi
   echo ""
   echo "######################################################################"
   echo "# STEP ${tag}: env=${env}  configs=${alpha_config}  $*"
