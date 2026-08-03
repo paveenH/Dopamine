@@ -20,14 +20,21 @@ LOGDIR="${LOGDIR:-./pv6_logs}"
 CONFIRM=0
 RUN_EASY=1
 RUN_HARD=1
+EASY_ONLY=0
+HARD_ONLY=0
 for arg in "$@"; do
   case "$arg" in
     --yes) CONFIRM=1 ;;
-    --easy-only) RUN_EASY=1; RUN_HARD=0 ;;
-    --hard-only) RUN_EASY=0; RUN_HARD=1 ;;
+    --easy-only) EASY_ONLY=1; RUN_EASY=1; RUN_HARD=0 ;;
+    --hard-only) HARD_ONLY=1; RUN_EASY=0; RUN_HARD=1 ;;
     *) echo "unknown option: $arg"; exit 2 ;;
   esac
 done
+
+if [ "$EASY_ONLY" -eq 1 ] && [ "$HARD_ONLY" -eq 1 ]; then
+  echo "STOP: --easy-only and --hard-only are mutually exclusive."
+  exit 2
+fi
 
 if [ "$CONFIRM" -ne 1 ]; then
   echo "STOP: formal N=20 runs require --yes (run smoke and inspect it first)."
