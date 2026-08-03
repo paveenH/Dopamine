@@ -51,7 +51,7 @@ fi
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$SCRIPT_DIR" || exit 1
 mkdir -p "$LOGDIR"
-STAMP=$(date +%Y%m%d_%H%M%S)
+STAMP="$(date +%Y%m%d_%H%M%S)_$$"
 
 case "$MODEL" in
   llama3) OUT_ROOT="$BASE_DIR/llama3" ;;
