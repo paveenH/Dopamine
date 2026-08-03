@@ -182,35 +182,92 @@ def build_seed_bank(env: Environment, n: int = 20, search_limit: int = 100_000,
         raise ValueError(
             f"n={n} not divisible by k={env.k}; exact position/identity "
             f"counterbalancing is impossible")
-    per_cell = n // env.k
+    per_margin = n // env.k
     exclude = exclude or set()
     names = ARM_LABELS[:env.k]
 
-    # quota[position][identity]; each position needs per_cell seeds total, and
-    # each identity needs per_cell seeds total.
-    by_pos: dict[int, list[int]] = {p: [] for p in range(1, env.k + 1)}
-    id_count: dict[str, int] = {nm: 0 for nm in names}
+    # Balancing the two MARGINALS independently is not enough: a first-come
+    # greedy fill satisfies "each position 4x" and "each identity 4x" while
+    # still covering only 15 of 25 (position, identity) cells and repeating
+    # some combination 3x, which is exactly the "identity concentrated inside
+    # a position" confound §3.5 asks to rule out.
+    #
+    # So the cross table is capped too. There are k^2 cells and only n = k *
+    # per_margin seeds, so full coverage is impossible for k > per_margin;
+    # the achievable target is to spread seeds as evenly as arithmetic allows,
+    # i.e. no cell used more than ceil(n / k^2) times. For n=20: K=4 gives
+    # cap 2 (20 seeds over 16 cells), K=5 gives cap 1 (20 over 25, so 20
+    # DISTINCT cells and no repeats at all).
+    # A first-come greedy scan CANNOT reach the tight cap even when every cell
+    # is reachable: it commits seeds early and strands the marginals, leaving
+    # K=5 at 15/25 cells with repeats. So the target cell pattern is chosen
+    # FIRST and seeds are then found to fill it.
+    #
+    # The pattern is a Latin rectangle: `per_margin` cyclic shifts of the
+    # identity order, so row p (position) uses identities
+    # {(p + r) mod k : r < per_margin}. Every position appears per_margin
+    # times, every identity appears per_margin times, and no (position,
+    # identity) cell repeats — the strongest cross-balance the arithmetic
+    # allows (n = k*per_margin seeds over k^2 cells).
+    #
+    # For n=20: K=4 -> 20 seeds but only 16 cells, so per_margin(5) > k(4) and
+    # the rectangle needs ceil(5/4)=2 passes; K=5 -> 20 seeds over 25 cells,
+    # per_margin(4) < k(5), a single pass gives 20 DISTINCT cells.
+    wanted: list[tuple[int, str]] = []
+    for r in range(per_margin):
+        for p in range(env.k):
+            wanted.append((p + 1, names[(p + r) % env.k]))
 
+    # Index the seed space once, then take the lowest unused seed per cell.
+    by_cell: dict[tuple[int, str], list[int]] = {}
     for s in range(search_limit):
-        if len(sum(by_pos.values(), [])) == n:
-            break
         if s in exclude:
             continue
-        pos = position_of_best(s, env)
-        ident = identity_of_best(s, env)
-        if len(by_pos[pos]) >= per_cell:
-            continue
-        if id_count[ident] >= per_cell:
-            continue
-        by_pos[pos].append(s)
-        id_count[ident] += 1
+        key = (position_of_best(s, env), identity_of_best(s, env))
+        by_cell.setdefault(key, []).append(s)
 
-    bank = sorted(sum(by_pos.values(), []))
+    bank: list[int] = []
+    used: set[int] = set()
+    for cell in wanted:
+        pool = by_cell.get(cell, [])
+        pick = next((s for s in pool if s not in used), None)
+        if pick is None:
+            raise RuntimeError(
+                f"no seed found for cell {cell} in {env.name} within "
+                f"{search_limit} seeds")
+        bank.append(pick)
+        used.add(pick)
+
     if len(bank) != n:
         raise RuntimeError(
-            f"could not build a balanced bank of {n} for {env.name} within "
-            f"{search_limit} seeds (got {len(bank)})")
-    return bank
+            f"could not build a balanced bank of {n} for {env.name} "
+            f"(got {len(bank)})")
+    return sorted(bank)
+
+
+def bank_report(bank: list[int], env: Environment) -> dict:
+    """Attestation of a bank's actual balance — stored with results so a run
+    can prove what counterbalancing it ran under rather than asserting it."""
+    pos: dict[int, int] = {}
+    ident: dict[str, int] = {}
+    cross: dict[str, int] = {}
+    for s in bank:
+        p = position_of_best(s, env)
+        i = identity_of_best(s, env)
+        pos[p] = pos.get(p, 0) + 1
+        ident[i] = ident.get(i, 0) + 1
+        cross[f"{p}|{i}"] = cross.get(f"{p}|{i}", 0) + 1
+    return {
+        "n": len(bank),
+        "seeds": list(bank),
+        "position_counts": dict(sorted(pos.items())),
+        "identity_counts": dict(sorted(ident.items())),
+        "n_cross_cells_used": len(cross),
+        "n_cross_cells_total": env.k ** 2,
+        "max_cell_repeat": max(cross.values()) if cross else 0,
+        "position_balanced": len(set(pos.values())) == 1,
+        "identity_balanced": len(set(ident.values())) == 1,
+    }
 
 
 def build_smoke_bank(env: Environment, n: int = 3,
