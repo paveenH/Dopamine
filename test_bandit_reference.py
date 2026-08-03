@@ -71,12 +71,21 @@ for env in (easy, hard):
     check(len(ident) == env.k and all(v == expected for v in ident.values()),
           f"{env.name}: best-arm IDENTITY exactly balanced ({expected} each)", str(ident))
 
-    # identity must not concentrate within a position
-    cross = {}
-    for s in bank:
-        cross[(br.position_of_best(s, env), br.identity_of_best(s, env))] = 1
-    check(len(cross) >= env.k * 2,
-          f"{env.name}: identity x position not collapsed", f"{len(cross)} cells")
+    # identity must not concentrate within a position. Balancing the two
+    # MARGINALS alone does not guarantee this — a greedy first-come fill hit
+    # exact marginals while covering only 15/25 cells with 3x repeats. The
+    # bank is built from a Latin rectangle instead, so the cross table is as
+    # even as the arithmetic allows: no cell may exceed ceil(n / k^2).
+    rep = br.bank_report(bank, env)
+    cap = -(-20 // (env.k ** 2))
+    check(rep["max_cell_repeat"] <= cap,
+          f"{env.name}: no (position,identity) cell exceeds ceil(n/k^2)={cap}",
+          f"max repeat {rep['max_cell_repeat']}")
+    check(rep["n_cross_cells_used"] == min(20, env.k ** 2),
+          f"{env.name}: cross coverage is maximal "
+          f"({rep['n_cross_cells_used']}/{min(20, env.k ** 2)} attainable)")
+    check(rep["position_balanced"] and rep["identity_balanced"],
+          f"{env.name}: bank_report confirms both marginals balanced")
 
     # determinism
     check(bank == br.build_seed_bank(env, n=20), f"{env.name}: bank is deterministic")
@@ -124,8 +133,19 @@ check(a_draws == b_draws,
 tape_c = br.RewardTape(5, hard)
 check([tape_c.peek(arms[0], i) for i in range(3)] == a_draws,
       "peek() agrees with pull() for the same tape position")
-check(br.RewardTape(6, hard).arm_map != tape_a.arm_map or True,
-      "different seed builds its own tape")
+# Different seeds must produce genuinely different tapes, not merely be
+# labelled differently. Compare the actual latent draws for a common arm.
+# (The earlier version of this check ended in `or True`, so it could never
+# fail — it asserted nothing.)
+t5 = br.RewardTape(5, hard)
+t6 = br.RewardTape(6, hard)
+shared = set(t5.arm_map) & set(t6.arm_map)
+seq5 = [[t5.peek(a, i) for i in range(40)] for a in sorted(shared)]
+seq6 = [[t6.peek(a, i) for i in range(40)] for a in sorted(shared)]
+check(seq5 != seq6, "different seeds yield different latent draw sequences")
+check([t5.peek(a, i) for a in sorted(shared) for i in range(40)]
+      == [br.RewardTape(5, hard).peek(a, i) for a in sorted(shared) for i in range(40)],
+      "same seed rebuilds a byte-identical tape")
 check(tape_a.tape_id == "reference_hard:s5:L100", "tape_id recorded", tape_a.tape_id)
 
 # exhaustion is an explicit error, not silent wraparound
@@ -187,6 +207,22 @@ check("Choice:" not in out and "A looks best" in out and "But B is untried" in o
       "premature Choice: line removed, surrounding text kept", repr(out))
 check(br.sanitize_rationale("choice : Button B") == "",
       "case/space-insensitive Choice match")
+
+# MID-LINE Choice: must also be removed. An earlier version anchored the
+# regex to ^, so "I conclude Choice: Button A" survived into the action
+# prompt and created a SECOND anchor, moving the alpha injection site off the
+# real decision token.
+for mid in ("I conclude Choice: Button A",
+            "Therefore, Choice: Button B is best",
+            "  ...so Choice:Button C"):
+    check(br.sanitize_rationale(mid) == "",
+          f"mid-line Choice: removed -> {mid[:28]!r}",
+          repr(br.sanitize_rationale(mid)))
+check(br.sanitize_rationale("A is good.\nI conclude Choice: Button A") == "A is good.",
+      "mid-line Choice: line dropped, preceding line kept")
+check("choice" not in br.sanitize_rationale(
+          "Choice: Button A\nmid Choice: Button B\nclean line").lower(),
+      "no Choice: marker survives sanitization in any position")
 check(br.sanitize_rationale("") == "" and br.sanitize_rationale(None) == "",
       "empty/None rationale is safe")
 
