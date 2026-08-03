@@ -748,7 +748,22 @@ def paired_bootstrap_ci(runs_a: list[dict], runs_b: list[dict], metric,
     so the shared reward tape's variance cancels the way the paired design
     intends. Requires the two run lists to cover the same seeds; raises if not,
     because silently intersecting them would change the comparison basis.
+
+    Duplicate seeds within EITHER list are also an error. Keying by seed would
+    silently keep only the last record, so a resume that re-appended a cell, or
+    a schema change that merged two conditions into one file, would quietly
+    shrink n and tighten the CI instead of failing. Checked before the dicts
+    are built, since building them is what destroys the evidence.
     """
+    for label, runs in (("a", runs_a), ("b", runs_b)):
+        seen = [r["seed"] for r in runs]
+        if len(set(seen)) != len(seen):
+            dupes = sorted({s for s in seen if seen.count(s) > 1})
+            raise ValueError(
+                f"paired bootstrap got duplicate seeds in list {label}: "
+                f"{dupes} ({len(seen)} runs, {len(set(seen))} distinct) — "
+                f"check for a resumed/merged result file")
+
     by_a = {r["seed"]: r for r in runs_a}
     by_b = {r["seed"]: r for r in runs_b}
     if set(by_a) != set(by_b):

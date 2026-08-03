@@ -363,6 +363,28 @@ try:
 except ValueError:
     check(True, "paired bootstrap rejects mismatched seed sets")
 
+# a duplicate seed must FAIL, not be silently deduped down to a smaller n
+_dup_a = runs_g + [runs_g[0]]
+_dup_b = runs_r + [runs_r[0]]
+for _lbl, _a, _b in (("list a", _dup_a, runs_r + [runs_r[0]]),
+                     ("list b", runs_g + [runs_g[0]], _dup_b)):
+    try:
+        br.paired_bootstrap_ci(_a, _b, lambda r: r["late_opt_frac"])
+        check(False, f"paired bootstrap rejects duplicate seeds in {_lbl}")
+    except ValueError as _e:
+        check("duplicate seeds" in str(_e),
+              f"paired bootstrap rejects duplicate seeds in {_lbl}")
+
+# and the duplicate check must fire BEFORE the seed-set check, otherwise a
+# doubled list still compares equal as a SET and slips through
+try:
+    br.paired_bootstrap_ci(runs_g + [runs_g[0]], runs_r + [runs_r[0]],
+                           lambda r: r["late_opt_frac"])
+    check(False, "duplicate check precedes the set-equality check")
+except ValueError as _e:
+    check("duplicate seeds" in str(_e),
+          "duplicate check precedes the set-equality check")
+
 man1 = br.build_baseline_manifest()
 man2 = br.build_baseline_manifest()
 check(man1 == man2, "baseline manifest is reproducible")
