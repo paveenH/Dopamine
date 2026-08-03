@@ -43,6 +43,12 @@ import torch
 from llms import VicundaModel
 import utils
 
+# pv6 F-reference (see --reference_environment). Imported unconditionally but
+# used only on the pv6 branch; neither module imports this one, so the
+# dependency stays one-way and pv1-pv5 behaviour is untouched.
+import bandit_reference
+import bandit_pv6_episode as pv6_episode
+
 # ── Arm names from EVOLvE ClothesShopping scenario (first 10 names) ──────────
 CLOTHES_NAMES = [
     "Velvet Vogue Jacket",
@@ -1421,6 +1427,128 @@ def run_episode(
     }
 
 
+PV6_FIELDNAMES = [
+    "model", "size", "alpha", "start", "end", "TOP",
+    "environment", "k", "horizon", "num_runs", "iface",
+    # PRIMARY reference metrics (§3.5). SuffFailFreq and K x MinFrac are the
+    # two competence-gate quantities; they bracket the failure space (lock-in
+    # vs flailing) and must both be read, never one alone.
+    "suff_fail_freq_half", "k_min_frac_full", "k_min_frac_half",
+    "mean_opt_frac", "mean_late_opt_frac", "mean_cum_regret",
+    "mean_greedy_frac",
+    "std_opt_frac", "std_late_opt_frac", "std_cum_regret",
+    # decision-confidence layer: alpha can move preference without flipping
+    # the argmax, which mean_opt_frac alone cannot show.
+    "mean_choice_margin",
+    # structurally 0 under candidate-only scoring; recorded so its absence is
+    # attested rather than assumed.
+    "mean_invalid_rate",
+]
+
+
+def _run_pv6_cell(vc, diff_mtx, alpha, st, en, TOP, seed_list,
+                  writer, csv_file, SAVE_ROOT, args, iface):
+    """One pv6 F-reference cell (all seeds at one alpha).
+
+    Separate from the pv1-pv5 body because pv6's metric set is different: no
+    parser-failure metrics (choices are constrained, so invalid is structurally
+    0), and the primaries are SuffFailFreq / K x MinFrac rather than opt_frac.
+    Model loading, mask/alpha construction, resume and CSV orchestration are
+    all reused from the caller — this only replaces the episode + aggregation.
+    """
+    env = bandit_reference.get_environment(args.reference_environment)
+    print(f"    env={env.name} K={env.k} T={env.horizon} probs={env.probs}")
+
+    run_results = []
+    for run_idx, seed in enumerate(seed_list):
+        print(f"  Run {run_idx + 1}/{len(seed_list)} (seed={seed})",
+              end=" ... ", flush=True)
+        with torch.no_grad():
+            result = pv6_episode.run_reference_episode(
+                vc=vc,
+                diff_mtx=diff_mtx,
+                seed=seed,
+                env=env,
+                use_chat=args.use_chat,
+                # Attest the first run of each cell: the prompt/token chain is
+                # identical across seeds, so storing it 20 times adds nothing.
+                attest=(run_idx == 0),
+            )
+        run_results.append(result)
+        print(f"opt={result['opt_frac']:.2f}  "
+              f"late={result['late_opt_frac']:.2f}  "
+              f"regret={result['cum_regret']:.1f}  "
+              f"kmin={result['k_min_frac']:.2f}  "
+              f"sufffail={int(result['suffix_failure'])}  "
+              f"bestpos={result['best_position']}")
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    half = env.horizon // 2
+    opt = [r["opt_frac"] for r in run_results]
+    lopt = [r["late_opt_frac"] for r in run_results]
+    regr = [r["cum_regret"] for r in run_results]
+    margins = [float(np.nanmean(r["choice_margins"])) for r in run_results]
+
+    row = {
+        "model": args.model, "size": args.size, "alpha": alpha,
+        "start": st, "end": en, "TOP": TOP,
+        "environment": env.name, "k": env.k, "horizon": env.horizon,
+        "num_runs": len(seed_list), "iface": iface,
+        "suff_fail_freq_half": round(
+            bandit_reference.suff_fail_freq(run_results, half), 4),
+        "k_min_frac_full": round(
+            bandit_reference.mean_k_min_frac(run_results), 4),
+        "k_min_frac_half": round(
+            bandit_reference.mean_k_min_frac(run_results, half), 4),
+        "mean_opt_frac": round(float(np.mean(opt)), 4),
+        "mean_late_opt_frac": round(float(np.mean(lopt)), 4),
+        "mean_cum_regret": round(float(np.mean(regr)), 4),
+        "mean_greedy_frac": round(
+            float(np.nanmean([r["greedy_frac"] for r in run_results])), 4),
+        "std_opt_frac": round(float(np.std(opt)), 4),
+        "std_late_opt_frac": round(float(np.std(lopt)), 4),
+        "std_cum_regret": round(float(np.std(regr)), 4),
+        "mean_choice_margin": round(float(np.nanmean(margins)), 4),
+        "mean_invalid_rate": round(
+            float(np.mean([r["invalid_rate"] for r in run_results])), 4),
+    }
+    writer.writerow(row)
+    csv_file.flush()
+
+    out_dir = os.path.join(SAVE_ROOT, f"mdf_{alpha}")
+    os.makedirs(out_dir, exist_ok=True)
+    detail_path = os.path.join(
+        out_dir, f"bandit_pv6_{env.name}_{args.size}_{TOP}_{st}_{en}.json")
+    with open(detail_path, "w", encoding="utf-8") as fw:
+        json.dump({
+            "alpha": alpha,
+            "protocol_version": bandit_reference.PROTOCOL_VERSION,
+            "environment": {
+                "name": env.name, "k": env.k, "probs": list(env.probs),
+                "horizon": env.horizon,
+                "is_reference": env.is_reference,
+                "competence_eligible": env.competence_eligible,
+            },
+            # Counterbalance ATTESTATION, not assertion: what this run's seed
+            # set actually achieved on both marginals and the cross table.
+            "bank_report": bandit_reference.bank_report(
+                seed_list, env),
+            "config": {
+                "seeds": seed_list,
+                "use_chat": bool(args.use_chat),
+                "rationale_max_tokens": pv6_episode.RATIONALE_MAX_TOKENS,
+                "action_anchor": bandit_reference.ACTION_ANCHOR,
+                "scoring": "candidate_sequence_logprob",
+                "steering": "action_pass_only_last_prefill_token",
+                "temperature": 0.0,
+                "iface": iface,
+            },
+            "runs": run_results,
+        }, fw, indent=2)
+    print(f"  → {detail_path}")
+
+
 def main():
     ALPHAS_START_END_PAIRS = utils.parse_configs(args.configs)
     print("Configs:", ALPHAS_START_END_PAIRS)
@@ -1446,6 +1574,11 @@ def main():
         "mean_empirical_best_adherence",
         "mean_post_discovery_opt_frac", "n_post_discovery_defined",
     ]
+    # pv6 writes a different schema (no parser-failure columns, primaries are
+    # SuffFailFreq / K x MinFrac). Its launcher uses a separate output tree, so
+    # the two schemas never share a CSV.
+    if args.reference_environment:
+        FIELDNAMES = PV6_FIELDNAMES
 
     # Seed list. Default = 0..num_runs-1 (legacy behaviour, seed == run index).
     # --seeds pins an explicit set; num_runs then follows the list length so the
@@ -1498,6 +1631,17 @@ def main():
         # at all yet at introduction; every pv5 cell should self-describe its
         # K and warm-start setting so K=5/warm_start=0 vs K=5/warm_start=2 vs
         # K=2 never collide under one ans_file.
+        # pv6 first: it is a different protocol entirely (own environment,
+        # horizon and decoding), and it has no stored rows, so it may define
+        # its own self-describing tag without the back-compat constraints the
+        # branches below carry. env + chat + rationale cap are what change what
+        # a pv6 row MEANS; K and horizon follow from the environment.
+        if args.reference_environment:
+            return (f"{bandit_reference.PROTOCOL_VERSION}"
+                    f"env{args.reference_environment}"
+                    f"ch{int(args.use_chat)}"
+                    f"rt{pv6_episode.RATIONALE_MAX_TOKENS}"
+                    f"sd{'-'.join(str(s) for s in seed_list)}")
         if args.prompt_variant in ("E-direct", "E-CoT"):
             return (f"{PROMPT_VARIANT_VERSION[args.prompt_variant]}"
                     f"sh{int(args.summary_history)}aa{int(args.answer_anchor)}"
@@ -1578,8 +1722,14 @@ def main():
                     # 2026-07-29. A row without it predates the interface flags,
                     # so it can only have been the legacy interface.
                     iface = r.get("iface") or _legacy_iface_tag(r)
+                    # pv6 rows have no `num_rounds` column — the horizon is a
+                    # property of the environment, not a CLI knob. Reading
+                    # r["num_rounds"] would KeyError into the alpha-only
+                    # fallback below, which collapses every alpha cell of a
+                    # pv6 sweep onto one key and silently skips the rest.
+                    nrounds = r.get("num_rounds") or r["horizon"]
                     done_keys.add(_resume_key(r["alpha"], r["start"], r["end"],
-                                              r["num_runs"], r["num_rounds"],
+                                              r["num_runs"], nrounds,
                                               iface))
                 except (KeyError, ValueError):
                     # Row from before the key was widened at all: fall back to
@@ -1597,8 +1747,15 @@ def main():
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
 
+    # pv6's horizon comes from the environment, not --num_rounds, and its CSV
+    # stores it as `horizon`. Both sides of the resume key must use the same
+    # number or every pv6 cell re-runs on resume.
+    _rounds_for_key = (
+        bandit_reference.get_environment(args.reference_environment).horizon
+        if args.reference_environment else args.num_rounds)
+
     for alpha, (st, en) in ALPHAS_START_END_PAIRS:
-        key = _resume_key(alpha, st, en, args.num_runs, args.num_rounds)
+        key = _resume_key(alpha, st, en, args.num_runs, _rounds_for_key)
         if key in done_keys or (float(alpha),) in done_keys:
             print(f"[Skip] α={alpha} layers={st}-{en} "
                   f"runs={args.num_runs}x{args.num_rounds} already done.")
@@ -1614,6 +1771,14 @@ def main():
         diff_mtx = list(raw_mask * alpha)
         TOP = max(1, int(args.percentage / 100 * raw_mask.shape[1]))
         print(f"\n=== α={alpha} | layers={st}-{en} | TOP={TOP} ===")
+
+        if args.reference_environment:
+            _run_pv6_cell(vc, diff_mtx if alpha else None, alpha, st, en, TOP,
+                          seed_list, writer, csv_file, SAVE_ROOT, args,
+                          _iface_tag())
+            gc.collect()
+            torch.cuda.empty_cache()
+            continue
 
         run_results = []
         for run_idx, seed in enumerate(seed_list):
@@ -1850,6 +2015,25 @@ if __name__ == "__main__":
                              "parse_choice_rationale_final. The two are "
                              "DIFFERENT interventions (steering token differs) "
                              "— compare α within one interface, never pooled.")
+    parser.add_argument("--reference_environment",
+                        choices=["easy", "hard", "native_floor"], default=None,
+                        help="pv6 F-reference protocol (§3 of "
+                             "BanditExperiment_LiteratureReview.md). Selecting "
+                             "an environment switches the episode runner to "
+                             "bandit_pv6_episode.run_reference_episode and "
+                             "IGNORES the pv1-pv5 prompt/parser flags "
+                             "(--prompt_variant, --answer_anchor, "
+                             "--summary_history, --untried_semantics, "
+                             "--num_arms, --warm_start_pulls, "
+                             "--max_new_tokens): pv6 has its own frozen prompt, "
+                             "K, horizon and two-stage constrained decoding, so "
+                             "those flags have no meaning here and are rejected "
+                             "rather than silently ignored. easy = K=4 "
+                             ".75/.25x3, hard = K=5 .60/.40x4 (both reference "
+                             "environments, competence-gate eligible); "
+                             "native_floor = K=2 .70/.30, a minimal stochastic-"
+                             "adaptation diagnostic that is NOT a competence "
+                             "anchor and carries no B1 alpha main experiment.")
     parser.add_argument("--use_chat",    action="store_true",
                         help="Wrap the prompt in the chat template. NOTE this "
                              "moves steering off the bare distribution the NMD "
@@ -1866,6 +2050,31 @@ if __name__ == "__main__":
     parser.add_argument("--base_dir",    type=str, default=None)
 
     args = parser.parse_args()
+
+    # pv6 owns its prompt, K, horizon and decoding, so a pv1-pv5 prompt/parser
+    # flag passed alongside it is always a mistake. REJECT rather than ignore:
+    # silently ignoring would produce a result file whose config block claims a
+    # setting that never took effect.
+    if args.reference_environment:
+        _pv6_conflicts = [
+            n for n, v in (
+                ("--prompt_variant",     args.prompt_variant),
+                ("--answer_anchor",      args.answer_anchor),
+                ("--summary_history",    args.summary_history),
+                ("--untried_semantics",  args.untried_semantics),
+                ("--warm_start_pulls",   args.warm_start_pulls),
+            ) if v
+        ]
+        if args.num_arms != parser.get_default("num_arms"):
+            _pv6_conflicts.append("--num_arms")
+        if args.max_new_tokens != parser.get_default("max_new_tokens"):
+            _pv6_conflicts.append("--max_new_tokens")
+        if _pv6_conflicts:
+            parser.error(
+                "--reference_environment (pv6) is incompatible with "
+                + ", ".join(_pv6_conflicts)
+                + ": pv6 defines its own prompt, arm count, horizon and "
+                  "two-stage constrained decoding.")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)

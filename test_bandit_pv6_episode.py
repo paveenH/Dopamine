@@ -21,9 +21,21 @@ def check(cond, label):
         FAILS.append(label)
 
 
+BOS = "<|begin_of_text|>"
+BOS_ID = 128000
+
+
 class FakeTokenizer:
-    """Whitespace-ish tokenizer: one id per word, plus a BOS."""
+    """Mirrors the parts of the real tokenizer contract pv6 depends on.
+
+    Critically it emits BOS as TEXT from apply_chat_template (like Llama-3's
+    real template) AND prepends BOS_ID when add_special_tokens=True — that
+    combination is what produces the double BOS the code must prevent. The
+    earlier fake did neither, so it could not have caught the bug.
+    """
     pad_token_id = 0
+    bos_token = BOS
+    bos_token_id = BOS_ID
 
     def __init__(self):
         self.vocab = {}
@@ -32,8 +44,13 @@ class FakeTokenizer:
         return self.vocab.setdefault(w, len(self.vocab) + 10)
 
     def encode(self, text, add_special_tokens=True):
-        ids = [self._id(w) for w in text.split()]
-        return ([128000] + ids) if add_special_tokens else ids
+        ids = []
+        for w in text.split():
+            if w == BOS:
+                ids.append(BOS_ID)
+            else:
+                ids.append(self._id(w))
+        return ([BOS_ID] + ids) if add_special_tokens else ids
 
     def __call__(self, text, return_tensors=None, **kw):
         if isinstance(text, str):
@@ -44,27 +61,51 @@ class FakeTokenizer:
 
     def decode(self, ids):
         inv = {v: k for k, v in self.vocab.items()}
-        return " ".join(inv.get(i, "<s>") for i in ids)
+        inv[BOS_ID] = BOS
+        return " ".join(inv.get(i, "<unk>") for i in ids)
 
     def apply_chat_template(self, msgs, tokenize=False,
                             add_generation_prompt=True):
-        return ("<|start_header_id|>user<|end_header_id|> "
-                + msgs[0]["content"] + " <|eot_id|> <|assistant|> ")
+        # Real Llama-3 templates serialize BOS into the string.
+        return (f"{BOS} <|start_header_id|>user<|end_header_id|> "
+                + msgs[0]["content"]
+                + " <|eot_id|> <|start_header_id|>assistant<|end_header_id|> ")
 
 
 class FakeVC:
+    """Contract-faithful stand-in for VicundaModel.
+
+    generate() takes no diff_matrices (no hooks exist on that path) and
+    regenerate() REJECTS diff_matrices=None exactly like llms.py:821 — which
+    is what makes the "pass None to disable steering" bug fail loudly here
+    instead of only on the GPU.
+    """
+
     def __init__(self, k=4, prefer_index=0):
         self.tokenizer = FakeTokenizer()
         self.calls = []
         self.k = k
         self.prefer_index = prefer_index
 
-    def regenerate(self, inputs, diff_matrices=None, max_new_tokens=None,
-                   **kw):
-        self.calls.append({"stage": "rationale", "diff": diff_matrices,
+    def generate(self, inputs, max_new_tokens=1, top_p=0.9, temperature=0.0,
+                 batch_size=1):
+        self.calls.append({"stage": "rationale", "diff": None,
                            "prompt": inputs[0],
-                           "max_new_tokens": max_new_tokens})
-        return ["I should try things. Choice: Button A"]
+                           "max_new_tokens": max_new_tokens,
+                           "temperature": temperature})
+        # Two lines on purpose: the reasoning must SURVIVE sanitization while
+        # the premature commit line is dropped. A single-line fixture would
+        # lose the whole rationale and hide whether it reaches the prompt.
+        return ["I should try things.\nChoice: Button A"]
+
+    def regenerate(self, inputs, diff_matrices=None, **kw):
+        if diff_matrices is None:
+            raise ValueError(
+                "The difference matrices are not loaded. Please provide "
+                "`diff_matrices` during method call.")
+        self.calls.append({"stage": "regenerate", "diff": diff_matrices,
+                           "prompt": inputs[0]})
+        return ["unused by pv6"]
 
     def regenerate_logits_teacher_forcing(self, prompts, answer_token_ids,
                                           diff_matrices=None):
@@ -100,6 +141,12 @@ check(all(c["max_new_tokens"] == pv6.RATIONALE_MAX_TOKENS for c in rat),
       "rationale honours the frozen 64-token cap")
 check(all(c["n_candidates"] == easy.k for c in act),
       "action scores exactly K candidates")
+# the contract bug: regenerate() rejects None, so the rationale MUST go
+# through generate() — which registers no hooks at all
+check(not any(c["stage"] == "regenerate" for c in vc.calls),
+      "rationale never calls regenerate (which rejects diff_matrices=None)")
+check(all(c["temperature"] == 0.0 for c in rat),
+      "rationale is greedy (temperature=0)")
 
 print("\n[2] action prompt ends at the anchor")
 check(all(c["prompt"].endswith(br.ACTION_ANCHOR) for c in act),
@@ -115,6 +162,14 @@ check(all(c["prompt"].count(br.ACTION_ANCHOR) == 1 for c in act),
       "action prompt contains EXACTLY one anchor")
 check(rec["rationales_raw"][0] != rec["rationales_clean"][0],
       "raw and clean rationale are both kept and differ")
+check("Choice:" in rec["rationales_raw"][0]
+      and "Choice:" not in rec["rationales_clean"][0],
+      "sanitization drops the premature commit line")
+check(rec["rationales_clean"][0] == "I should try things.",
+      "sanitization KEEPS the reasoning it is supposed to keep")
+check(all(rec["rationales_clean"][i] in c["prompt"]
+          for i, c in enumerate(act)),
+      "the surviving rationale actually reaches the action prompt")
 
 print("\n[4] no invalid choices, no fallback")
 check(rec["invalid_rate"] == 0.0, "invalid_rate is structurally 0")
@@ -125,6 +180,22 @@ check(len(rec["candidate_scores"]) == easy.horizon,
       "a candidate score trace is stored per round")
 check(set(rec["candidate_scores"][0]) == set(br.ARM_LABELS[:easy.k]),
       "score trace keys are the arm labels")
+
+print("\n[4b] score schema: raw floats + per-round margin")
+_vals = list(rec["candidate_scores"][0].values())
+check(all(isinstance(v, float) for v in _vals),
+      "candidate scores are stored as floats")
+check(any(abs(v - round(v, 4)) > 0 for v in _vals)
+      or all(v == round(v, 4) for v in _vals),
+      "candidate scores are not pre-rounded to 4dp")
+check(len(rec["choice_margins"]) == easy.horizon,
+      "a top1-top2 margin is stored per round")
+_m0 = rec["choice_margins"][0]
+_ord = sorted(rec["candidate_scores"][0].values(), reverse=True)
+check(abs(_m0 - (_ord[0] - _ord[1])) < 1e-12,
+      "margin equals the top1-top2 sequence-logprob gap")
+check(all(m >= 0 for m in rec["choice_margins"]),
+      "margins are non-negative (top1 >= top2)")
 
 print("\n[5] scoring picks the argmax candidate")
 vc2 = FakeVC(prefer_index=2)
@@ -168,7 +239,8 @@ rec3 = pv6.run_reference_episode(vc3, fake_diff, seed=0, env=easy,
 act3 = [c for c in vc3.calls if c["stage"] == "action"]
 check(all(c["prompt"].endswith(br.ACTION_ANCHOR) for c in act3),
       "chat action prompt still ends at the anchor")
-check(all("<|assistant|>" in c["prompt"] for c in act3),
+check(all("<|start_header_id|>user<|end_header_id|>" in c["prompt"]
+          for c in act3),
       "chat template was actually applied")
 t3 = rec3["attestation"]["round_0"]["tokens"]
 check(t3["injection_is_anchor_tail"],
@@ -176,6 +248,43 @@ check(t3["injection_is_anchor_tail"],
 check(t3["use_chat"] is True, "chat: attestation records the interface")
 check(all(c["prompt"].count(br.ACTION_ANCHOR) == 1 for c in act3),
       "chat: exactly one anchor in the action prompt")
+
+print("\n[9b] chat: double BOS is PREVENTED, not merely reported")
+check(t3["double_bos"] is False, "chat: attested prompt has no double BOS")
+check(all(c["prompt"].count(BOS) <= 1 for c in act3),
+      "chat: template BOS is stripped so tokenizer adds exactly one")
+_ids = FakeVC().tokenizer.encode(act3[0]["prompt"], add_special_tokens=True)
+check(_ids[:2] != [BOS_ID, BOS_ID],
+      "chat: real add_special_tokens=True path yields a single BOS")
+# and the guard must actually fire when a double BOS is constructed
+try:
+    pv6.audit_prompt_tokens(FakeVC(), BOS + " " + BOS + " x " + br.ACTION_ANCHOR,
+                            True)
+    check(False, "audit raises on a double BOS")
+except AssertionError as _e:
+    check("double BOS" in str(_e), "audit raises on a double BOS")
+try:
+    pv6.audit_prompt_tokens(FakeVC(), "state with no anchor", False)
+    check(False, "audit raises when the prompt does not end at the anchor")
+except AssertionError as _e:
+    check("injection site" in str(_e),
+          "audit raises when the prompt does not end at the anchor")
+
+print("\n[9c] frozen role structure: rationale is an ASSISTANT continuation")
+_p3 = act3[0]["prompt"]
+# split AFTER the full assistant header, so _asst_seg is the turn's content
+_ASST_HDR = "<|start_header_id|>assistant<|end_header_id|>"
+_user_seg, _, _asst_seg = _p3.partition(_ASST_HDR)
+check("I should try things." in _asst_seg,
+      "rationale sits in the assistant turn, not the user turn")
+check("I should try things." not in _user_seg,
+      "rationale is NOT fed back inside the user turn")
+check("TRIED OPTIONS" in _user_seg or "UNTRIED OPTIONS" in _user_seg,
+      "task state stays in the user turn")
+check("<|eot_id|>" not in _asst_seg,
+      "assistant turn is CONTINUED, never closed before the anchor")
+check(_asst_seg.rstrip().endswith(br.ACTION_ANCHOR),
+      "assistant turn ends exactly at the action anchor")
 
 print("\n[10] metrics apply unchanged to a model record")
 check(0.0 <= rec2["opt_frac"] <= 1.0, "opt_frac computed for a model record")
