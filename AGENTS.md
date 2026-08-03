@@ -91,6 +91,12 @@ When tweaking a plan, modify the `.sh` not the `.py` — the script is committed
 - The behavioral-economics / wanting-proxy entry-points (bet / delay / effort / bandit / cgt / cgt_seq / igt / reversal / crt / trait) operationalize "wanting" as overt decisions, not accuracy; each has its own output tree and (mostly) its own `RoleAnswer/analyze_*` parser. See `AdaDopamine.md` §4 before touching one.
 - **Betting (§3.1) is FROZEN as of 2026-07-29 — do not re-run it.** All four cells (Llama/Qwen × GPQA/MMLU) were re-collected with `sample_idx` + `acc_explicit_pct`/`ans_fallback_rate`/`orig_rows`, so every paired statistic in `AdaDopamine.md` §3.1 is recomputable from stored data. The re-runs closed a SCHEMA gap, not wrong numbers. Betting has **no fixed seed** (`temperature=1.0`), so any further re-run merely resamples: trends replicate, exact values do not byte-match. Cite the stored tables rather than regenerating them.
 - **⚠️ Bandit: all pre-2026-07-28 results are VOID** (best-arm position leakage + a permissive parser made OptFrac indistinguishable from a first-option bias). The published inverted-U / peak +2 is retired, which also breaks the "Bandit +2 / IGT +2 / GSM8K −6" cross-task table. Launchers are now `run_bandit_llama3.sh` / `run_bandit_qwen25.sh` (`run_bandit.sh` deleted). A `seed` field in the run JSON marks post-fix data. See CLAUDE.md's Bandit entry before citing or re-running.
+- **Bandit's current main line is pv6 (F-reference), a 2026-08 clean-slate redesign** — `bandit_reference.py` + `bandit_pv6_episode.py`, dispatched by `get_answer_bandit.py --reference_environment {easy,hard,native_floor}` (pv1–pv5 paths byte-unchanged). Nothing in pv6 is comparable to a pv1–pv5 cell. It measures a **capability boundary** (whether α moves it), with a **pre-registered competence gate** frozen in `evaluate_competence_gate.py` and a frozen baseline manifest (`freeze_bandit_baseline.py --check`) — neither may be edited now that data exists. Design doc `BanditExperiment_LiteratureReview.md` §3; full caveats in CLAUDE.md's pv6 entry.
+
+## Local checks
+
+No pytest, no linter. Standalone scripts that exit non-zero on failure; run with `python3.10` (plain `python3` lacks numpy):
+`test_bandit_reference.py`, `test_bandit_pv6_episode.py`, `evaluate_competence_gate.py --selftest`, `freeze_bandit_baseline.py --check`, `bash -n run_bandit_pv6.sh`.
 
 ## Steering-alignment convention (load-bearing)
 
