@@ -3,6 +3,9 @@
 0. 用Qwen2.5-7B复现
 1. Bandit 完成/同步 Hard-chat α=0，补齐 Track A 接口对照； [running]
 1. B1 主实验：Easy-bare 跑 α=−4、+4，α=0 复用现有结果。
+Easy-bare α=-4：20 episodes
+Easy-bare α=+4：20 episodes
+Hard-bare α=-4/+4
 1. B2 stress test：Hard-bare 跑 α=−4、+4，用于判断 α 是否改变 coverage/lock-in；不预设 rescue。
 1. 得到三点结果后再决定是否做更宽 α sweep 或 C2 uncertainty scaffold。
 2. HumanLLM
@@ -15,7 +18,7 @@ nc2026.Hippocampo-neocortical interaction as compressive retrieval-augmented gen
 ### 5. Cross-Model and Post-Training Replication
 
 **目标：** 判断该 latent gain mechanism 是否可泛化，以及 post-training 是创造还是 sharpen 它。
-
+ 
 - 在同一模型家族的 Base → SFT → DPO/Instruction-tuned checkpoints 上分别 self-localize RSN。
 - 比较 neuron/layer overlap、direction similarity、`G_prefill` gain、behavioral working point 和 steering sensitivity。
 - 先用 Betting + GSM8K 两个代表任务；主结论稳定后再扩展 Qwen/Mistral，不立即复制全部 benchmark。
