@@ -17,12 +17,27 @@
 # the numbers.
 #
 # PROTOCOL (frozen, §3.3):
-#   Stage 1  free rationale, NO alpha, <=64 tokens, temperature 0
-#   Stage 2  state + sanitized rationale + `Choice: Button` anchor;
-#            alpha injected ONCE at the last prefill token; the arm is chosen
-#            by candidate-only sequence log-probability argmax
+#   Stage 1  free rationale, <=64 tokens, temperature 0
+#   Stage 2  state + sanitized rationale + `Choice: Button` anchor; the arm is
+#            chosen by candidate-only sequence log-probability argmax
 #   => invalid_rate is STRUCTURALLY 0. There is no parser and no random
 #      fallback, so a "format failure" cannot be confused with a bad choice.
+#
+# WHERE ALPHA LANDS is set by --steering_scope; the injection SHAPE is frozen
+# for both scopes (once, at that pass's last prefill token, prefill_only,
+# tail_len=1 — decode is never steered):
+#   scope=action  Stage 1 gets NO alpha (vc.generate, no hook registered at
+#                 all); only Stage 2 is steered. This is the original pv6
+#                 semantics and is now the mechanism ABLATION: it measures
+#                 whether alpha moves the arm logits GIVEN a fixed rationale.
+#   scope=both    Stage 1 is ALSO steered, at its own last prefill token, so
+#                 alpha reaches the choice by two routes (alpha -> rationale
+#                 text -> action, and alpha -> action logits). This is the B1
+#                 MAIN experiment: the question is whether alpha moves the
+#                 whole information-seeking policy, not just the readout.
+#   alpha=0       identical under both scopes — no hook is registered either
+#                 way, so "unsteered" is not "steered by zero". This is what
+#                 makes the stored Track A alpha=0 cells reusable for B1.
 #
 # INTERFACES. Two, and they answer different questions:
 #   bare  = RSN-aligned. The NMD mask was extracted on bare-string prompts, so
