@@ -179,6 +179,13 @@ class VicundaModel:
             )
 
         def create_hook(diff_matrix):
+            # Computed ONCE per layer, outside the hook: diff_matrices is
+            # full-length (all 32 decoder layers) with zero rows outside the
+            # steered band, so an all-zero layer adds nothing and must not be
+            # counted as an injection. Checking it per forward would be a
+            # per-step host sync on a tensor that never changes.
+            _layer_is_steered = bool(np.any(np.asarray(diff_matrix) != 0))
+
             def hook(module, input, output):
                 def prepare_diff(hs: torch.Tensor) -> torch.Tensor:
                     B, _, H = hs.shape
@@ -215,9 +222,15 @@ class VicundaModel:
                         valid_p = pos_clamped[valid]
                         hs[valid_b, valid_p, :] += diff_bh[valid]
                         # Observed-injection counter; see steering_fire_count().
-                        # Inside the write branch on purpose, so it cannot count
-                        # a hook that registered but never actually injected.
-                        self._steering_fire_count += 1
+                        # Counts SITES (sequence x token position), not hook
+                        # calls: diff_matrices is full-length with zeros outside
+                        # the steered band, and a K-candidate batch is ONE
+                        # forward, so counting calls would report the same
+                        # number for every layer and every K. Skipping all-zero
+                        # layers is what makes the total mean "actual non-zero
+                        # injections".
+                        if _layer_is_steered:
+                            self._steering_fire_count += int(valid.sum())
 
                     return hs
 
@@ -799,12 +812,20 @@ class VicundaModel:
         return results
 
     def steering_fire_count(self, reset: bool = False) -> int:
-        """Prefill-hook injections observed since the last reset.
+        """Observed steering injections since the last reset, in SITES.
 
         Attests that steering FIRED, as opposed to that it was configured —
         the config field and this counter can disagree only if there is a bug,
-        which is the point of having both. Counts one per (layer, forward), so
-        a single-prompt regenerate over L steered layers reports L.
+        which is the point of having both.
+
+        A SITE is one (steered layer, sequence, token position) that actually
+        received a non-zero add. Deliberately NOT "hook calls": diff_matrices
+        is full-length with zero rows outside the steered band, and a batch of
+        K candidates is ONE forward, so counting calls reports the same number
+        for every layer count and every K — it could not distinguish 10 steered
+        layers from 32, or K=4 from K=5. With L steered layers:
+            regenerate(prefill_only, tail_len=t, B prompts) -> L * B * t
+            regenerate_logits_teacher_forcing(K prompts)    -> L * K
         """
         n = self._steering_fire_count
         if reset:
@@ -907,6 +928,10 @@ class VicundaModel:
 
         # Create conditional hooks that only fire during prefill (L > 1)
         def create_prefill_hook(diff_matrix):
+            # See _apply_diff_hooks: zero rows outside the steered band must not
+            # count as injections. Evaluated once per layer, not per forward.
+            _layer_is_steered = bool(np.any(np.asarray(diff_matrix) != 0))
+
             def hook(_module, _input, output):
                 if isinstance(output, tuple):
                     hs = output[0]  # [B, L, H]
@@ -931,11 +956,12 @@ class VicundaModel:
 
                 hs[:, -n:, :] += diff_t.unsqueeze(1)  # broadcast over the n tail positions
 
-                # Observed injection counter. Incremented ONLY on the path that
-                # actually writes into hs, so it attests that steering fired
-                # rather than that it was configured. Read/reset by callers via
-                # steering_fire_count(); nothing here depends on it.
-                self._steering_fire_count += 1
+                # Observed injection counter, in SITES: B sequences x n tail
+                # positions, and only on layers whose diff is non-zero. Same
+                # unit as the _apply_diff_hooks counter so the two stages of a
+                # pv6 episode are directly comparable. Nothing depends on it.
+                if _layer_is_steered:
+                    self._steering_fire_count += B * n
 
                 if isinstance(output, tuple):
                     return (hs,) + output[1:]

@@ -378,14 +378,19 @@ check(_bad, "an unknown steering_scope is rejected, not silently defaulted")
 
 
 class CountingVC(FakeVC):
-    """FakeVC that simulates the real hook-fire counter.
+    """FakeVC that simulates the real steering counter, in SITES.
 
     The config field `steered_rationale` only echoes the flag; this models what
-    llms.py actually increments (once per steered layer per forward), so the
-    test can assert the OBSERVED count rather than the intent.
+    llms.py actually increments, so the test can assert the OBSERVED count.
+
+    The unit is a (steered layer, sequence, token position) that received a
+    non-zero add — NOT a hook call. That distinction is the whole point: a
+    call-counter reports the same number whether 10 layers or all 32 are
+    steered, and whether K=4 or K=5 candidates are scored, so it could not
+    detect a mis-scoped mask or a wrong candidate batch.
     """
 
-    N_LAYERS = 10           # llama3 11-20, matching the real steered range
+    N_LAYERS = 10           # llama3 11-20: the non-zero rows of the mask
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -402,7 +407,9 @@ class CountingVC(FakeVC):
 
     def regenerate(self, inputs, diff_matrices=None, **kw):
         out = super().regenerate(inputs, diff_matrices=diff_matrices, **kw)
-        self._fires += self.N_LAYERS
+        # L * B * tail_len; pv6 uses B=1, tail_len=1.
+        self._fires += (self.N_LAYERS * len(inputs)
+                        * max(int(kw.get("prefill_tail_len", 1)), 1))
         return out
 
     def regenerate_logits_teacher_forcing(self, prompts, answer_token_ids,
@@ -410,7 +417,7 @@ class CountingVC(FakeVC):
         out = super().regenerate_logits_teacher_forcing(
             prompts, answer_token_ids, diff_matrices=diff_matrices)
         if diff_matrices is not None:
-            self._fires += self.N_LAYERS * len(prompts)
+            self._fires += self.N_LAYERS * len(prompts)   # L * K
         return out
 
 
@@ -418,12 +425,28 @@ vc_c = CountingVC()
 rec_c = pv6.run_reference_episode(vc_c, fake_diff, seed=0, env=easy,
                                   steering_scope="both")
 fires = rec_c["steering_fires"]
+L = CountingVC.N_LAYERS
 check(fires is not None, "episode records observed steering fires")
-check(fires["rationale"] == T * CountingVC.N_LAYERS,
-      "both/alpha!=0: rationale hook fired on every round x layer")
-check(fires["action"] > 0, "both/alpha!=0: action hook fired")
+# EXACT totals, not ">0": these are the numbers the smoke is judged against,
+# and they must be K-dependent or the counter proves nothing about scope.
+check(fires["rationale"] == T * L * 1,
+      f"both/alpha!=0: rationale sites == T*L*B*tail == {T * L}")
+check(fires["action"] == T * L * easy.k,
+      f"both/alpha!=0: action sites == T*L*K == {T * L * easy.k}")
 check(rec_c["steered_rationale"] is True and fires["rationale"] > 0,
       "config intent and OBSERVED fires agree (both/alpha!=0)")
+
+# K must actually change the action count, or the counter is blind to it.
+hard = br.get_environment("hard")
+vc_h = CountingVC(k=hard.k)
+rec_h = pv6.run_reference_episode(vc_h, fake_diff, seed=0, env=hard,
+                                  steering_scope="both")
+check(rec_h["steering_fires"]["action"] == hard.horizon * L * hard.k,
+      f"hard: action sites scale with K=5 == {hard.horizon * L * hard.k}")
+check(rec_h["steering_fires"]["action"] != rec_c["steering_fires"]["action"],
+      "the counter distinguishes K=4 from K=5 (a call-counter would not)")
+check(rec_h["steering_fires"]["rationale"] == hard.horizon * L,
+      "hard: rationale sites do NOT scale with K (B=1 either way)")
 
 vc_c2 = CountingVC()
 rec_c2 = pv6.run_reference_episode(vc_c2, fake_diff, seed=0, env=easy,
