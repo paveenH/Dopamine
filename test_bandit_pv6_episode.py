@@ -376,6 +376,75 @@ except ValueError:
     _bad = True
 check(_bad, "an unknown steering_scope is rejected, not silently defaulted")
 
+
+class CountingVC(FakeVC):
+    """FakeVC that simulates the real hook-fire counter.
+
+    The config field `steered_rationale` only echoes the flag; this models what
+    llms.py actually increments (once per steered layer per forward), so the
+    test can assert the OBSERVED count rather than the intent.
+    """
+
+    N_LAYERS = 10           # llama3 11-20, matching the real steered range
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self._fires = 0
+
+    def steering_fire_count(self, reset=False):
+        n = self._fires
+        if reset:
+            self._fires = 0
+        return n
+
+    def generate(self, inputs, **kw):
+        return super().generate(inputs, **kw)          # no hook -> no fire
+
+    def regenerate(self, inputs, diff_matrices=None, **kw):
+        out = super().regenerate(inputs, diff_matrices=diff_matrices, **kw)
+        self._fires += self.N_LAYERS
+        return out
+
+    def regenerate_logits_teacher_forcing(self, prompts, answer_token_ids,
+                                          diff_matrices=None):
+        out = super().regenerate_logits_teacher_forcing(
+            prompts, answer_token_ids, diff_matrices=diff_matrices)
+        if diff_matrices is not None:
+            self._fires += self.N_LAYERS * len(prompts)
+        return out
+
+
+vc_c = CountingVC()
+rec_c = pv6.run_reference_episode(vc_c, fake_diff, seed=0, env=easy,
+                                  steering_scope="both")
+fires = rec_c["steering_fires"]
+check(fires is not None, "episode records observed steering fires")
+check(fires["rationale"] == T * CountingVC.N_LAYERS,
+      "both/alpha!=0: rationale hook fired on every round x layer")
+check(fires["action"] > 0, "both/alpha!=0: action hook fired")
+check(rec_c["steered_rationale"] is True and fires["rationale"] > 0,
+      "config intent and OBSERVED fires agree (both/alpha!=0)")
+
+vc_c2 = CountingVC()
+rec_c2 = pv6.run_reference_episode(vc_c2, fake_diff, seed=0, env=easy,
+                                   steering_scope="action")
+check(rec_c2["steering_fires"]["rationale"] == 0,
+      "action/alpha!=0: rationale hook NEVER fires")
+check(rec_c2["steering_fires"]["action"] > 0,
+      "action/alpha!=0: action hook still fires")
+
+vc_c3 = CountingVC()
+rec_c3 = pv6.run_reference_episode(vc_c3, None, seed=0, env=easy,
+                                   steering_scope="both")
+check(rec_c3["steering_fires"] == {"rationale": 0, "action": 0},
+      "alpha=0: NO hook fires in either pass, whatever the scope")
+check(rec_c3["steered_rationale"] is False,
+      "alpha=0: config and observed fires agree (both zero)")
+
+check(pv6.run_reference_episode(FakeVC(), fake_diff, seed=0, env=easy,
+                                steering_scope="both")["steering_fires"] is None,
+      "a model without the counter records None, not a fake zero")
+
 print("\n" + "=" * 60)
 if FAILS:
     print(f"FAILED ({len(FAILS)}):")
