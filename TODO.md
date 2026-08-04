@@ -1,40 +1,10 @@
-**整体判断**
-
-三份文档已经构成一条比较完整的证据链：
-
-```text
-RSN neurons
-→ α 可线性操纵 task-entry gain
-→ 非线性改变 commitment / engagement state
-→ 在不同任务上产生不同的行为 working point
-→ 功能上类似 dopaminergic adaptive calibration
-```
-
-### 目前已有的结果
-
-1. **行为学层最强**
-   - Betting 中 α 显著改变下注，但 accuracy 基本稳定，是目前最干净的 **wanting–knowing dissociation**。
-   - Bandit 显示非负 α 的宽平台与 `+8` 过载崩溃。
-   - IGT 提供较弱的探索、history integration 和 punishment sensitivity 证据，应作为 boundary condition。
-   - HaluEval 表明 α 调节的是 challenge/verification engagement，而不是 hallucination capacity。
-
-2. **GSM8K 提供最完整的生成行为画像**
-   - nominal 最佳点为 `α=-6`，accuracy 从 baseline 60% 升至 78%；`-8` 则崩溃。[AdaDopamine_gsm8k.md](/Users/paveenhuang/Downloads/Dopamine/AdaDopamine_gsm8k.md:64)
-   - 正 α 对应更早 commit、较低 committed accuracy，以及答案后继续生成的 letting-go failure。[AdaDopamine_gsm8k.md](/Users/paveenhuang/Downloads/Dopamine/AdaDopamine_gsm8k.md:161)
-   - anxiety-like 重复在 `-6/-4` 最低，两端升高，但负端和正端的失败机制不同。[AdaDopamine_gsm8k.md](/Users/paveenhuang/Downloads/Dopamine/AdaDopamine_gsm8k.md:195)
-   - CoT 降低这些破坏，但保留 α 的方向。[AdaDopamine_gsm8k.md](/Users/paveenhuang/Downloads/Dopamine/AdaDopamine_gsm8k.md:279)
-
-3. **内部信号层找到了输入到行为的转换**
-   - `G_prefill` 随 α 近乎线性。
-   - 行为不是由 `G_prefill` 绝对值直接决定，而是经过非线性的 pre-commit `s_t` state。
-   - `early_s_t` 与 dose-level accuracy 同步，但目前只是 9 个剂量点的 covariation，不能称为中介机制。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:603)
-   - `p_t` 目前只是 fast residual，尚不能称为 phasic dopamine。
-   - 当前最合适的总论断仍是 **controllable latent gain mechanism / computational analogue**。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:742)
----
 
 ## TODO
 0. 用Qwen2.5-7B复现
-1. Bandit 实验重构
+1. Bandit 完成/同步 Hard-chat α=0，补齐 Track A 接口对照； [running]
+1. B1 主实验：Easy-bare 跑 α=−4、+4，α=0 复用现有结果。
+1. B2 stress test：Hard-bare 跑 α=−4、+4，用于判断 α 是否改变 coverage/lock-in；不预设 rescue。
+1. 得到三点结果后再决定是否做更宽 α sweep 或 C2 uncertainty scaffold。
 2. HumanLLM
 3. Behaviour: 测一下和人类的行为学对齐关系
 
