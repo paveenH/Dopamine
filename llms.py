@@ -34,6 +34,12 @@ class VicundaModel:
         self.model_path = model_path
         self.diffusion_mode = diffusion_mode
 
+        # Counts prefill-hook injections that ACTUALLY fired (see
+        # _regenerate_prefill_only). Purely observational: callers that want to
+        # attest steering read it via steering_fire_count(); no behaviour on any
+        # path depends on its value.
+        self._steering_fire_count = 0
+
         # Model
         if diffusion_mode == "dream":
             self.model = AutoModel.from_pretrained(
@@ -208,6 +214,10 @@ class VicundaModel:
                         valid_b = batch_idx[valid]
                         valid_p = pos_clamped[valid]
                         hs[valid_b, valid_p, :] += diff_bh[valid]
+                        # Observed-injection counter; see steering_fire_count().
+                        # Inside the write branch on purpose, so it cannot count
+                        # a hook that registered but never actually injected.
+                        self._steering_fire_count += 1
 
                     return hs
 
@@ -788,6 +798,19 @@ class VicundaModel:
             results.append(text)
         return results
 
+    def steering_fire_count(self, reset: bool = False) -> int:
+        """Prefill-hook injections observed since the last reset.
+
+        Attests that steering FIRED, as opposed to that it was configured —
+        the config field and this counter can disagree only if there is a bug,
+        which is the point of having both. Counts one per (layer, forward), so
+        a single-prompt regenerate over L steered layers reports L.
+        """
+        n = self._steering_fire_count
+        if reset:
+            self._steering_fire_count = 0
+        return n
+
     @torch.no_grad()
     def regenerate(
         self,
@@ -907,6 +930,12 @@ class VicundaModel:
                 diff_t = diff_t.expand(B, -1)  # [B, H]
 
                 hs[:, -n:, :] += diff_t.unsqueeze(1)  # broadcast over the n tail positions
+
+                # Observed injection counter. Incremented ONLY on the path that
+                # actually writes into hs, so it attests that steering fired
+                # rather than that it was configured. Read/reset by callers via
+                # steering_fire_count(); nothing here depends on it.
+                self._steering_fire_count += 1
 
                 if isinstance(output, tuple):
                     return (hs,) + output[1:]
