@@ -256,6 +256,15 @@ def run_reference_episode(
     score_trace: list[dict] = []
     margins: list[float] = []
     attestation: dict = {}
+    # OBSERVED hook fires, not the configured intent. `steered_rationale` below
+    # says what was asked for; these say what the model actually did, so a
+    # silently-not-firing hook shows up as a zero here instead of being hidden
+    # by a config field that merely echoes the flag.
+    fired_rationale = 0
+    fired_action = 0
+    _can_count = hasattr(vc, "steering_fire_count")
+    if _can_count:
+        vc.steering_fire_count(reset=True)
 
     if attest:
         attestation["candidate_tokenization"] = br.audit_candidate_tokenization(
@@ -291,6 +300,8 @@ def run_reference_episode(
                 max_new_tokens=rationale_max_tokens,
                 temperature=0.0,
             )
+        if _can_count:
+            fired_rationale += vc.steering_fire_count(reset=True)
         raw = out[0] if isinstance(out, list) else out
         clean = br.sanitize_rationale(raw)
 
@@ -314,6 +325,8 @@ def run_reference_episode(
             }
 
         scores, arm = score_candidates(vc, a_prompt, env, diff_mtx)
+        if _can_count:
+            fired_action += vc.steering_fire_count(reset=True)
         reward = tape.pull(arm)
 
         history.append((arm, reward))
@@ -350,6 +363,16 @@ def run_reference_episode(
                           "steering_scope": steering_scope,
                           "steering_scope_version": STEERING_SCOPE_VERSION,
                           "steered_rationale": bool(steer_rationale),
+                          # OBSERVED hook fires for the whole episode, one per
+                          # (layer, forward). Independent evidence that alpha
+                          # reached the residual stream: a config claiming
+                          # scope=both with rationale_fires==0 is a bug, and
+                          # only this pair can reveal it. None when the model
+                          # object predates the counter.
+                          "steering_fires": (
+                              {"rationale": fired_rationale,
+                               "action": fired_action}
+                              if _can_count else None),
                       })
     if attest:
         rec["attestation"] = attestation
