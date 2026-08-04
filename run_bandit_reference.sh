@@ -54,10 +54,33 @@
 #   bash run_bandit_reference.sh llama3 A0_CHAT_HARD  # one formal cell only
 #   bash run_bandit_reference.sh llama3             # every non-smoke step
 #
-# NOT WIRED HERE ON PURPOSE: the B1 alpha sweep. It runs only after the
-# competence gate is evaluated on reference-bare, because what the gate says
-# determines what an alpha effect would even mean (a shift in a competent
-# policy vs a shift between two failure modes).
+#   bash run_bandit_reference.sh llama3 B1_BOTH_EASY  # alpha sweep, easy-bare
+#   bash run_bandit_reference.sh llama3 B1_BOTH_HARD  # alpha sweep, hard-bare
+#
+# B1 (the alpha sweep) was deliberately unwired until the competence gate had
+# been evaluated on reference-bare, because the verdict determines what an
+# alpha effect can be CALLED. Gate result, 2026-08-04, N=20:
+#   Easy-bare PASS (4/4 rules)  -> competence anchor; alpha may be discussed
+#                                  as moving a competent policy.
+#   Hard-bare FAIL (rule 1)     -> alpha there is FAILURE-MODE CHARACTERIZATION
+#                                  only. The words capability-effect / rescue /
+#                                  improvement are NOT available for hard.
+#
+# The main intervention is --steering_scope both (alpha in BOTH the rationale
+# and the action pass), because the research question is whether alpha moves
+# the whole information-seeking policy, not just the arm logits given a fixed
+# rationale. scope=action is its mechanism ABLATION and runs later, only if
+# `both` shows an effect.
+#
+# alpha=0 is NOT re-run: no hook is registered at alpha=0 under either scope,
+# so the stored Track A cells ARE the alpha=0 cells. Adding 0 to these configs
+# would burn 7 GPU-hours reproducing a file that already exists.
+#
+# Each alpha gets its OWN --ans_file. Two reasons, both load-bearing:
+#   1. the pv6 detail JSON name is bandit_pv6_{env}_{size}_{TOP}_{ls}_{le}.json
+#      — no alpha and no scope in it, so two scopes in one dir would overwrite.
+#   2. summary_{model}_{size}.csv is per-ans_file, so parallel alpha processes
+#      sharing a dir would interleave appends and race the header migration.
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
@@ -99,8 +122,19 @@ run_step () {
     hard) cell_tag="${tag}_HARD" ;;
     *) cell_tag="${tag}_${env}" ;;
   esac
+  # B1 has TWO cells per environment (one per alpha), and they are meant to run
+  # as separate processes in separate dirs. So they also answer an alpha-level
+  # selector: B1_BOTH_EASY_AM4 / _AP4. Derived from the config so the alpha
+  # cannot drift out of sync with the tag.
+  local alpha_tag="${alpha_config%%-*}"
+  case "$alpha_tag" in
+    neg*) alpha_tag="AM${alpha_tag#neg}" ;;
+    *)    alpha_tag="AP${alpha_tag}" ;;
+  esac
+  local alpha_cell="${cell_tag}_${alpha_tag}"
   if [ -n "$ONLY_STEP" ] && [ "$ONLY_STEP" != "$tag" ] \
-      && [ "$ONLY_STEP" != "$cell_tag" ]; then return; fi
+      && [ "$ONLY_STEP" != "$cell_tag" ] \
+      && [ "$ONLY_STEP" != "$alpha_cell" ]; then return; fi
   echo ""
   echo "######################################################################"
   echo "# STEP ${tag}: env=${env}  configs=${alpha_config}  $*"
@@ -130,6 +164,26 @@ run_step () {
 #   - attestation.round_0.tokens.injection_is_anchor_tail == true
 #   - the rendered prompts in attestation.round_0 read as intended
 #   - wall-clock per episode -> the real N=20 budget
+# ── B1 ENGINEERING SMOKE (N=1, alpha=+4, scope=both) ──────────────────────
+# The existing SMOKE above only ever exercised scope=action, so the steered
+# rationale path has never touched a GPU. This is a PLUMBING check (~10 min),
+# NOT a behavioural one: at N=1 nothing about exploration can be read. Verify
+# in the detail JSON afterwards:
+#   - config.steering_scope == "both", steered_rationale == true
+#   - config.iface contains `scbothsv1`
+#   - invalid_rate still 0.0
+#   - attestation.round_0.rationale_clean is non-empty and readable
+#   - attestation.round_0.tokens.injection_is_anchor_tail == true
+#   - candidate_scores / choice_margins present and finite
+if [ "$ONLY_STEP" = "B1_SMOKE" ]; then
+  run_step B1_SMOKE easy "6" "4-${LAYERS}" \
+    "pv6_smoke_easy_bare_both" --steering_scope both
+  echo ""
+  echo "B1 engineering smoke done. Check the scope fields listed above"
+  echo "BEFORE launching the formal B1 cells. N=1 reads no behaviour."
+  exit 0
+fi
+
 if [ "$ONLY_STEP" = "SMOKE" ]; then
   run_step SMOKE easy "$SMOKE_SEEDS_EASY" "0-${LAYERS}" "pv6_smoke_easy_bare"
   run_step SMOKE easy "$SMOKE_SEEDS_EASY" "0-${LAYERS}" "pv6_smoke_easy_chat" --use_chat
@@ -147,6 +201,30 @@ run_step A0_BARE easy "$BANK_EASY" "0-${LAYERS}" "pv6_easy_bare"
 run_step A0_BARE hard "$BANK_HARD" "0-${LAYERS}" "pv6_hard_bare"
 run_step A0_CHAT easy "$BANK_EASY" "0-${LAYERS}" "pv6_easy_chat" --use_chat
 run_step A0_CHAT hard "$BANK_HARD" "0-${LAYERS}" "pv6_hard_chat" --use_chat
+
+# ── B1 (N=20, alpha!=0, scope=both): the main alpha experiment ────────────
+# B1 never runs from a bare `run_bandit_reference.sh llama3` invocation: each
+# alpha is a separate 7-hour process writing its own dir, so lumping all four
+# into one sequential process (and alongside Track A) is never what is wanted.
+# Naming a step is therefore required to reach them.
+if [ -z "$ONLY_STEP" ]; then
+  echo ""
+  echo "Track A steps done. B1 (alpha sweep) is not run by the no-arg form —"
+  echo "name a cell, e.g. B1_BOTH_EASY_AM4 / B1_BOTH_EASY_AP4."
+  exit 0
+fi
+
+# bare only (the NMD mask is bare-string), one ans_file per alpha, alpha=0
+# reused from Track A. See the header for why 0 is absent and why the dirs are
+# split. Easy = anchored on a PASSED gate; Hard = failure-mode only.
+run_step B1_BOTH easy "$BANK_EASY" "neg4-${LAYERS}" \
+  "pv6_easy_bare_both_am4" --steering_scope both
+run_step B1_BOTH easy "$BANK_EASY" "4-${LAYERS}" \
+  "pv6_easy_bare_both_ap4" --steering_scope both
+run_step B1_BOTH hard "$BANK_HARD" "neg4-${LAYERS}" \
+  "pv6_hard_bare_both_am4" --steering_scope both
+run_step B1_BOTH hard "$BANK_HARD" "4-${LAYERS}" \
+  "pv6_hard_bare_both_ap4" --steering_scope both
 
 echo ""
 echo "Track A done. Next: evaluate the competence gate on reference-bare"

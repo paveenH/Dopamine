@@ -103,9 +103,15 @@ class FakeVC:
             raise ValueError(
                 "The difference matrices are not loaded. Please provide "
                 "`diff_matrices` during method call.")
+        # kw is recorded, not swallowed: scope="both" must pass prefill_only
+        # and prefill_tail_len=1, and a test that only counted calls would not
+        # notice decode-wide or tail-widened steering.
         self.calls.append({"stage": "regenerate", "diff": diff_matrices,
-                           "prompt": inputs[0]})
-        return ["unused by pv6"]
+                           "prompt": inputs[0], "kw": dict(kw)})
+        # Same two-line shape as generate(): the rationale must survive
+        # sanitization on this path too, or scope="both" would silently feed
+        # an empty rationale into the action prompt.
+        return ["I should try things.\nChoice: Button A"]
 
     def regenerate_logits_teacher_forcing(self, prompts, answer_token_ids,
                                           diff_matrices=None):
@@ -292,6 +298,83 @@ check(isinstance(rec2["suffix_failure"], bool),
       "suffix_failure computed for a model record")
 check(rec2["policy"] == "model", "record is tagged as a model policy")
 check(rec2["protocol"] == "pv6", "record carries the pv6 protocol tag")
+
+print("\n[11] steering_scope contract")
+# The whole point of scope=both is WHICH passes get alpha, so lock the exact
+# per-episode call counts, not just "more than zero regenerate calls".
+T = easy.horizon
+
+vc_b = FakeVC()
+rec_b = pv6.run_reference_episode(vc_b, fake_diff, seed=0, env=easy,
+                                  steering_scope="both")
+n_gen = len([c for c in vc_b.calls if c["stage"] == "rationale"])
+n_reg = [c for c in vc_b.calls if c["stage"] == "regenerate"]
+n_act = [c for c in vc_b.calls if c["stage"] == "action"]
+check(len(n_reg) == T, f"both/alpha!=0: {T} steered rationale passes")
+check(n_gen == 0, "both/alpha!=0: no unsteered generate call remains")
+check(len(n_act) == T, f"both/alpha!=0: {T} action passes")
+check(all(c["diff"] is fake_diff for c in n_reg),
+      "both: rationale pass gets the SAME diff object as the action pass")
+check(all(c["diff"] is fake_diff for c in n_act),
+      "both: action pass still steered")
+check(all(c["kw"].get("prefill_only") is True for c in n_reg),
+      "both: rationale steering is prefill-only (decode unsteered)")
+check(all(c["kw"].get("prefill_tail_len") == 1 for c in n_reg),
+      "both: rationale steering injects at exactly ONE token")
+check(all(c["kw"].get("temperature") == 0.0 for c in n_reg),
+      "both: rationale pass stays greedy")
+check(all(c["kw"].get("max_new_tokens") == pv6.RATIONALE_MAX_TOKENS
+          for c in n_reg),
+      "both: rationale cap unchanged by scope")
+check(all(c["prompt"].rstrip().endswith(br.ACTION_ANCHOR) for c in n_act),
+      "both: action prompt still ends at the anchor")
+check(rec_b["steering_scope"] == "both" and rec_b["steered_rationale"] is True,
+      "both/alpha!=0: record self-attests a steered rationale")
+check(rec_b["steering_scope_version"] == pv6.STEERING_SCOPE_VERSION,
+      "record carries the scope version")
+
+# alpha=0: diff_mtx is None, so NO pass may be steered in EITHER scope. This is
+# what makes the stored Track A cells reusable under scope=both.
+vc_z = FakeVC()
+rec_z = pv6.run_reference_episode(vc_z, None, seed=0, env=easy,
+                                  steering_scope="both")
+z_gen = len([c for c in vc_z.calls if c["stage"] == "rationale"])
+z_reg = len([c for c in vc_z.calls if c["stage"] == "regenerate"])
+z_act = [c for c in vc_z.calls if c["stage"] == "action"]
+check(z_gen == T, f"both/alpha=0: {T} UNSTEERED generate calls")
+check(z_reg == 0, "both/alpha=0: regenerate is never called")
+check(all(c["diff"] is None for c in z_act),
+      "both/alpha=0: action pass unsteered too")
+check(rec_z["steered_rationale"] is False,
+      "both/alpha=0: record says the rationale was NOT steered")
+
+# alpha=0 must be byte-identical across scopes — that is the reuse argument.
+vc_z2 = FakeVC()
+rec_z2 = pv6.run_reference_episode(vc_z2, None, seed=0, env=easy,
+                                   steering_scope="action")
+check(rec_z["choices"] == rec_z2["choices"],
+      "alpha=0 trajectory is identical under both scopes (reuse is valid)")
+check([c["prompt"] for c in vc_z.calls] == [c["prompt"] for c in vc_z2.calls],
+      "alpha=0 prompt chain is identical under both scopes")
+
+# scope=action with alpha!=0 keeps the original semantics untouched.
+vc_a = FakeVC()
+rec_a = pv6.run_reference_episode(vc_a, fake_diff, seed=0, env=easy,
+                                  steering_scope="action")
+check(len([c for c in vc_a.calls if c["stage"] == "rationale"]) == T,
+      "action/alpha!=0: rationale pass still unsteered generate")
+check(len([c for c in vc_a.calls if c["stage"] == "regenerate"]) == 0,
+      "action/alpha!=0: regenerate never called")
+check(rec_a["steered_rationale"] is False,
+      "action/alpha!=0: record says rationale unsteered")
+
+_bad = False
+try:
+    pv6.run_reference_episode(FakeVC(), fake_diff, seed=0, env=easy,
+                              steering_scope="decode_wide")
+except ValueError:
+    _bad = True
+check(_bad, "an unknown steering_scope is rejected, not silently defaulted")
 
 print("\n" + "=" * 60)
 if FAILS:

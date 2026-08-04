@@ -11,13 +11,28 @@ put those invariants one boolean away from each other. pv6 instead uses:
   - candidate-only scoring, so there is no invalid parse and no fallback
   - temperature 0 throughout (the scoring stage is a deterministic argmax)
 
-FROZEN STEERING SEMANTICS (§3.3), the load-bearing part of this file:
-  - the RATIONALE pass gets NO alpha (diff_matrices=None). Steering the free
-    reasoning would confound "alpha changed the decision" with "alpha changed
-    the text the decision was conditioned on".
-  - the ACTION pass injects alpha EXACTLY ONCE, at the last prefill token,
-    which is the final token of ACTION_ANCHOR. Every action prompt therefore
-    ends at that anchor and nothing may be appended after it.
+STEERING SEMANTICS (§3.3), the load-bearing part of this file. Which passes
+receive alpha is set by `steering_scope`; WHERE it lands inside a pass is
+frozen for both scopes (once, at that pass's last prefill token):
+
+  - scope="action" (the original pv6 semantics): the RATIONALE pass gets NO
+    alpha (vc.generate, no hooks registered at all). This isolates "alpha
+    changed the decision" from "alpha changed the text the decision was
+    conditioned on" — it is the mechanism ABLATION.
+  - scope="both": the rationale pass ALSO gets alpha, injected once at its own
+    last prefill token via vc.regenerate(prefill_only=True). Alpha then has two
+    routes to the choice — alpha -> rationale text -> action, and alpha ->
+    action logits — which is the full information-seeking-policy manipulation.
+    Decode is NOT steered in either pass; prefill-only is the RSN convention
+    and widening it would change the intervention's definition.
+  - the ACTION pass (both scopes) injects alpha EXACTLY ONCE, at the last
+    prefill token, which is the final token of ACTION_ANCHOR. Every action
+    prompt therefore ends at that anchor and nothing may be appended after it.
+
+alpha=0 keeps the vc.generate path in EVERY scope: diff_mtx is None there, and
+"unsteered" is structurally not the same code path as "steered by zero". This
+is what makes the stored alpha=0 Track A cells reusable under scope="both"
+without a re-run, so do not "unify" the two branches.
 """
 from __future__ import annotations
 
@@ -27,6 +42,20 @@ import torch
 import bandit_reference as br
 
 RATIONALE_MAX_TOKENS = 64          # §3.3 frozen cap
+
+# Which passes alpha is injected into. "action" is the original pv6 semantics.
+STEERING_SCOPES = ("action", "both")
+DEFAULT_STEERING_SCOPE = "action"
+
+# Version of the SCOPE semantics, independent of PROTOCOL_VERSION. The base
+# pv6 protocol (environment, prompts, candidate scoring, seed banks, metrics)
+# is unchanged by scope, so it must NOT be bumped — doing so would make the
+# stored alpha=0 Track A cells look unrun. This tag exists so that a LATER
+# change to how "both" injects (tail length > 1, decode-wide steering, a
+# different rationale anchor) cannot be mistaken for the same intervention.
+# sv1 = rationale pass steered once at its last prefill token, tail_len=1,
+#       prefill_only, decode unsteered.
+STEERING_SCOPE_VERSION = "sv1"
 
 
 # ─────────────────────────── token / prompt audit ───────────────────────────
@@ -202,11 +231,21 @@ def run_reference_episode(
     use_chat: bool = False,
     rationale_max_tokens: int = RATIONALE_MAX_TOKENS,
     attest: bool = False,
+    steering_scope: str = DEFAULT_STEERING_SCOPE,
 ) -> dict:
     """One pv6 F-reference episode.
 
-    diff_mtx is applied ONLY in the action pass. Pass None for alpha=0.
+    diff_mtx is the steering direction; pass None for alpha=0 (no pass is
+    steered, in any scope). steering_scope selects which passes receive it:
+    "action" = action pass only (mechanism ablation), "both" = rationale pass
+    as well. See this module's docstring for the frozen semantics.
     """
+    if steering_scope not in STEERING_SCOPES:
+        raise ValueError(
+            f"unknown steering_scope {steering_scope!r}; "
+            f"expected one of {STEERING_SCOPES}")
+    # alpha=0 must not silently look like a steered run in the record.
+    steer_rationale = (steering_scope == "both") and (diff_mtx is not None)
     tape = br.RewardTape(seed, env)
     arm_map = tape.arm_map
     history: list[tuple[str, int]] = []
@@ -223,22 +262,35 @@ def run_reference_episode(
             vc.tokenizer, env)
 
     for round_idx in range(env.horizon):
-        # ---- Stage 1: free rationale, NO alpha ----------------------------
+        # ---- Stage 1: free rationale -------------------------------------
         r_prompt = _wrap_chat(
             vc, br.build_rationale_prompt(arm_map, history, round_idx, env),
             use_chat, anchor=False)
-        # vc.generate, NOT vc.regenerate: regenerate REQUIRES diff_matrices and
-        # raises ValueError on None, so "pass None to disable steering" is not
-        # a real API. generate registers no hooks at all, which is exactly the
-        # frozen semantics — the rationale pass must be unsteered, not
-        # steered-by-zero. temperature=0.0 makes generate greedy (do_sample
-        # False), so an episode is reproducible from (seed, env, alpha) alone.
+        # Both branches are greedy at temperature=0 (do_sample=False), so the
+        # scopes differ ONLY by whether a prefill hook is registered.
         torch.manual_seed(seed * 100_003 + round_idx)
-        out = vc.generate(
-            inputs=[r_prompt],
-            max_new_tokens=rationale_max_tokens,
-            temperature=0.0,
-        )
+        if steer_rationale:
+            # prefill_only + tail_len=1: alpha lands once, on this prompt's
+            # last token, and decode runs unsteered — the same injection shape
+            # as the action pass and as every other RSN entry point.
+            out = vc.regenerate(
+                inputs=[r_prompt],
+                diff_matrices=diff_mtx,
+                prefill_only=True,
+                prefill_tail_len=1,
+                max_new_tokens=rationale_max_tokens,
+                temperature=0.0,
+            )
+        else:
+            # vc.generate, NOT vc.regenerate: regenerate REQUIRES diff_matrices
+            # and raises ValueError on None, so "pass None to disable steering"
+            # is not a real API. generate registers no hooks at all, which is
+            # what "unsteered" means here — not steered-by-zero.
+            out = vc.generate(
+                inputs=[r_prompt],
+                max_new_tokens=rationale_max_tokens,
+                temperature=0.0,
+            )
         raw = out[0] if isinstance(out, list) else out
         clean = br.sanitize_rationale(raw)
 
@@ -291,6 +343,13 @@ def run_reference_episode(
                           "invalid_rate": 0.0,   # structural, not measured
                           "use_chat": use_chat,
                           "rationale_max_tokens": rationale_max_tokens,
+                          # Per-record so a trajectory is self-describing even
+                          # when read outside its detail JSON. `steered_
+                          # rationale` is the ACTUAL behaviour (False at
+                          # alpha=0 whatever the scope), scope is the request.
+                          "steering_scope": steering_scope,
+                          "steering_scope_version": STEERING_SCOPE_VERSION,
+                          "steered_rationale": bool(steer_rationale),
                       })
     if attest:
         rec["attestation"] = attestation

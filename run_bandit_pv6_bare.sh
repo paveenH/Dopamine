@@ -14,7 +14,10 @@ set -uo pipefail
 
 MODEL="${MODEL:-llama3}"
 BASE_DIR="${BASE_DIR:-/data1/paveen/Dopamine/components}"
-PY="${PY:-python3.10}"
+# Default to `python`: the server conda env (roleplaying) names its
+# interpreter that. `python3.10` is the LOCAL analysis-box convention and
+# does not exist on the server, where it exits 127 before anything runs.
+PY="${PY:-python}"
 LOGDIR="${LOGDIR:-./pv6_logs}"
 
 CONFIRM=0

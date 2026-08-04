@@ -1470,6 +1470,7 @@ def _run_pv6_cell(vc, diff_mtx, alpha, st, en, TOP, seed_list,
                 seed=seed,
                 env=env,
                 use_chat=args.use_chat,
+                steering_scope=args.steering_scope,
                 # Attest the first run of each cell: the prompt/token chain is
                 # identical across seeds, so storing it 20 times adds nothing.
                 attest=(run_idx == 0),
@@ -1540,7 +1541,18 @@ def _run_pv6_cell(vc, diff_mtx, alpha, st, en, TOP, seed_list,
                 "rationale_max_tokens": pv6_episode.RATIONALE_MAX_TOKENS,
                 "action_anchor": bandit_reference.ACTION_ANCHOR,
                 "scoring": "candidate_sequence_logprob",
-                "steering": "action_pass_only_last_prefill_token",
+                # Derived, never hardcoded: this string is what a reader trusts
+                # about where alpha landed, so it must track the flag.
+                "steering": ("action_pass_only_last_prefill_token"
+                             if args.steering_scope == "action"
+                             else "rationale_and_action_pass_"
+                                  "last_prefill_token_each"),
+                "steering_scope": args.steering_scope,
+                "steering_scope_version": pv6_episode.STEERING_SCOPE_VERSION,
+                # alpha=0 registers no hook in EITHER pass, so the scope is a
+                # request that had no effect; record what actually happened.
+                "steered_rationale": bool(
+                    args.steering_scope == "both" and diff_mtx is not None),
                 "temperature": 0.0,
                 "iface": iface,
             },
@@ -1637,10 +1649,22 @@ def main():
         # branches below carry. env + chat + rationale cap are what change what
         # a pv6 row MEANS; K and horizon follow from the environment.
         if args.reference_environment:
+            # The scope segment is APPENDED ONLY for a non-default scope, the
+            # same asymmetry as `ut` above and for the same reason: the stored
+            # Track A rows carry no scope segment, so emitting `scaction` here
+            # would make every completed alpha=0 cell look unrun and silently
+            # re-run 7 hours of GPU time. PROTOCOL_VERSION stays pv6 — scope
+            # changes the intervention, not the environment/prompt/scoring/
+            # seed bank/metrics that define the protocol.
+            scope_seg = ""
+            if args.steering_scope != pv6_episode.DEFAULT_STEERING_SCOPE:
+                scope_seg = (f"sc{args.steering_scope}"
+                             f"{pv6_episode.STEERING_SCOPE_VERSION}")
             return (f"{bandit_reference.PROTOCOL_VERSION}"
                     f"env{args.reference_environment}"
                     f"ch{int(args.use_chat)}"
                     f"rt{pv6_episode.RATIONALE_MAX_TOKENS}"
+                    f"{scope_seg}"
                     f"sd{'-'.join(str(s) for s in seed_list)}")
         if args.prompt_variant in ("E-direct", "E-CoT"):
             return (f"{PROMPT_VARIANT_VERSION[args.prompt_variant]}"
@@ -2034,6 +2058,28 @@ if __name__ == "__main__":
                              "native_floor = K=2 .70/.30, a minimal stochastic-"
                              "adaptation diagnostic that is NOT a competence "
                              "anchor and carries no B1 alpha main experiment.")
+    parser.add_argument("--steering_scope",
+                        choices=list(pv6_episode.STEERING_SCOPES),
+                        default=pv6_episode.DEFAULT_STEERING_SCOPE,
+                        help="pv6 ONLY: which passes alpha is injected into. "
+                             "'action' (default, the original pv6 semantics) "
+                             "steers only the constrained action pass, at the "
+                             "last token of the Choice anchor — it measures "
+                             "whether alpha moves the arm logits GIVEN the "
+                             "rationale, i.e. an action readout. 'both' also "
+                             "steers the rationale pass, once at its own last "
+                             "prefill token (prefill_only, tail_len=1, decode "
+                             "unsteered), giving alpha two routes to the "
+                             "choice: alpha->rationale text->action and "
+                             "alpha->action logits. 'both' is the main "
+                             "information-seeking-policy manipulation; "
+                             "'action' is its mechanism ablation. Run them in "
+                             "SEPARATE --ans_file dirs: the pv6 detail JSON "
+                             "filename carries env/size/layers but NOT scope, "
+                             "so one dir would overwrite the other. alpha=0 is "
+                             "identical under both scopes (no hook is "
+                             "registered either way), so an alpha=0 cell is "
+                             "reusable across scopes and need not be re-run.")
     parser.add_argument("--use_chat",    action="store_true",
                         help="Wrap the prompt in the chat template. NOTE this "
                              "moves steering off the bare distribution the NMD "
@@ -2075,6 +2121,13 @@ if __name__ == "__main__":
                 + ", ".join(_pv6_conflicts)
                 + ": pv6 defines its own prompt, arm count, horizon and "
                   "two-stage constrained decoding.")
+    elif args.steering_scope != pv6_episode.DEFAULT_STEERING_SCOPE:
+        # Mirror of the guard above: pv1-pv5 have a single generation stage, so
+        # there is no rationale pass for a scope to select. Silently ignoring
+        # would write a row whose iface tag claims a scope that never ran.
+        parser.error(
+            "--steering_scope is a pv6 flag and requires "
+            "--reference_environment; pv1-pv5 have no separate rationale pass.")
 
     print("Model:", args.model)
     print("Model dir:", args.model_dir)
