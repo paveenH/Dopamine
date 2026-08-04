@@ -273,117 +273,69 @@ Qwen 在 +4 見頂後出現兩種不同失效：+6 的下注退化為常數，+8
 
 ## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task)
 
-**神經科學對應：** Tonic dopamine 調節 exploration vs. exploitation balance——高 tonic DA → 更積極利用已知最優選項（exploitation 增強，incentive salience 集中）；低 tonic DA → 更趨向隨機探索，難以穩定 exploit（effort withdrawal，行為不穩定）。Bandit task 是此機制最直接的行為學範式。
+> **狀態（2026-08-04）：pv6 clean-slate protocol。** 2026-07-28 以前的 Bandit 結果因 best-arm position leakage 與 permissive parser 已全部作廢；舊的 `T=50`、分級 reward vector、temperature=1、自由生成後字串解析，以及「+2 峰／倒 U」均不再作為證據。本節只報告 pv6 的 `α=0` capability boundary；Easy-bare 的 `α∈{−4,+4}` two-stage steering 正在運行，尚未填入任何 α 效果。
 
-**相關文獻：**
-- **EVOLvE / BanditBench**（Nie et al., ICML 2025）：LLM 在 MAB 任務中的 in-context RL 評估框架；採用語義豐富的 arm 名稱（ClothesShopping 場景）消除位置偏差；OptFrac（最優臂選擇率）+ cumulative regret
+**研究問題。** 新實驗不預設「找到一個 prompt 後 Llama3-8B 就能完成 Bandit」，而是先測出 native capability boundary，再問 RSN α 改變的是 discovery、exploration stopping、post-discovery utilization、policy persistence，還是只讓行為在 greedy lock 與 uniform flailing 之間移動。Bandit 在此是 information-seeking policy 的行為 probe；任何 dopamine / wanting 類比都必須建立在可解釋的有效 policy 之上，不能只由 OptFrac 命名。
 
-**實驗設計（貼近 EVOLvE ClothesShopping）：**
+### 3.2.1 pv6 protocol
 
-- K=5 語義臂名稱（"Velvet Vogue Jacket" 等），每 run 隨機 shuffle 名稱→概率對應，消除位置偏差
-- Bernoulli reward probs：0.7 / 0.5 / 0.4 / 0.3 / 0.1（shuffled per run）。註：此為自訂的**分級**獎勵向量（best=0.7、gap=0.2、各臂均值遞減），prompt 文字、verbalizer（`"{name} item, reward {r}"`）、shuffle 與 random-fallback 解析皆與 EVOLvE ClothesShopping 原始碼一致；但獎勵向量本身不同於 EVOLvE 標準的兩個 Bernoulli 設定（large-gap easy `[0.25×4, 0.75]`、small-gap hard `[0.4×4, 0.6]`，皆為「平坦干擾臂+單一最優」）。採用分級均值是為了讓 WorstFrac（最差臂迴避）成為一個有意義的獨立指標。
-- T=50 rounds，30 runs（seeds 0–29），configs: α ∈ {0, +4, −4}，layers 11–20
-- 生成模式（`vc.regenerate`，temperature=1.0）+ 字串匹配解析；無效輸出 fallback 隨機選臂
+| 環境 | K | Bernoulli reward probabilities | Horizon | 角色 |
+| --- | ---: | --- | ---: | --- |
+| **Reference-Easy** | 4 | `.75 / .25 / .25 / .25` | 100 | 大 gap competence anchor 候選 |
+| **Reference-Hard** | 5 | `.60 / .40 / .40 / .40 / .40` | 100 | 小 gap capability-boundary stress test |
 
-**Prompt（EVOLvE ClothesShopping）：**
+- Llama3-8B-Instruct，layers 11–20，temperature=0，N=20 frozen paired seeds。每個環境都精確平衡最優臂的 display position 與 identity；同 seed 下所有 policy 共用 per-arm reward tape，使某臂第 `n` 次 pull 面對相同的潛在結果。
+- 每 round 使用兩階段接口。Stage 1 先根據程序計算的 per-arm successes / trials / empirical rate 生成不超過 64 tokens 的 rationale；Stage 2 把 sanitized rationale 接回 assistant continuation，並以 `Choice: Button` 結尾，只計算 K 個合法候選後綴的完整 sequence log-probability，再取 argmax。沒有 parser 與 random fallback，因此 `invalid_rate=0` 是結構性保證。
+- `reference-bare` 與 NMD mask 的 bare-string activation distribution 對齊，是 competence gate 與 α 主實驗接口；`reference-chat` 只作為文獻式接口 comparator，不參與 competence-anchor 選擇。
+- Track A 的 α=0 在兩階段均不註冊 steering hook。B1 主實驗使用 `steering_scope=both`：α≠0 時在 rationale prompt 與 action prompt 各自的最後一個 prefill token 注入一次，decode 不持續注入；action-only 降為後續機制 ablation。
 
-實現要點：
-- 臂名集合 = EVOLvE ClothesShopping 場景原始名單（前 10 個取 5 個）：`Velvet Vogue Jacket / Silk Serenity Dress / Urban Mystique Jeans / Celestial Symphony Scarf / Retro Revival Sneakers / Ethereal Elegance Blouse / Midnight Mirage Trousers / Vintage Vibe Coat / Opulent Oasis Gown / Mystic Mosaic Shirt`。
-- `REWARD_PROBS_ORDERED = [0.7, 0.5, 0.4, 0.3, 0.1]`，`shuffle_arms(seed)` 
+**主要判讀順序：** validity → discovery → churn / persistence → outcome。核心指標為 `SuffFailFreq(T/2)`（後 50 rounds 完全不拉真最優臂的 run 比例）與 `K×MinFrac`（區分 uniform flailing）；再結合 arms discovered、best-never-tried、first-best index、empirical-best adherence、churn / switch rate、late OptFrac 與 regret。Random 與 Greedy 分別固定 uniform-flailing 與 lock-in 兩個失敗角；UCB1 / Thompson Sampling 只作 calibration，不是單一 pass/fail 標準。
 
-Round 0 output (no history):
+### 3.2.2 Pre-registered competence gate
 
-```
-You are in an online boutique powered by a bandit algorithm that offers a variety of clothing options from different brands.
-There are 5 unique clothing items available, named [Velvet Vogue Jacket, Silk Serenity Dress, Urban Mystique Jeans, Celestial Symphony Scarf, Retro Revival Sneakers].
-You choose an item to recommend based on past choices and rewards.
-You aim to find the clothing item that customers are most likely to purchase and enjoy.
-Each time a customer buys a recommended item, you update your strategy to better predict and meet future customer preferences.
+Native competence gate 只判 `reference-bare`，四條規則必須同時通過：
 
-A good strategy to optimize for reward in these situations requires balancing exploration and exploitation. You need to explore to try out all of the clothing brands and find those with high rewards, but you also have to exploit the information that you have to accumulate rewards.
+1. `SuffFailFreq_model(T/2) < SuffFailFreq_Greedy(T/2)`；
+2. `K×MinFrac_model(T) < K×MinFrac_Random(T)`，且相對 `T/2` 下降；
+3. post-discovery late empirical-best adherence `>1/K`；
+4. late OptFrac `>1/K`。
 
-Which item will you choose next? PLEASE RESPOND ONLY WITH [Velvet Vogue Jacket, Silk Serenity Dress, Urban Mystique Jeans, Celestial Symphony Scarf, Retro Revival Sneakers] AND NO TEXT EXPLANATION.
-```
+機械判定使用預註冊 point estimate，同時報 paired bootstrap interval 表示 N=20 的不確定性；CI 不用來事後改判。chat 可以診斷性套用同一計算，但其 PASS/FAIL 不選擇 competence anchor。
 
-Round N output (with history; the prompt is rebuilt every round, and the history accumulates the (arm name, reward) pairs from rounds 0 to N−1):
-```
-... (same task instructions as above) ...
+### 3.2.3 α=0 capability boundary（Llama3-8B，N=20，T=100）
 
-So far, you have interacted N times with the following choices and rewards:
-Velvet Vogue Jacket item, reward 1
-Silk Serenity Dress item, reward 0
-Urban Mystique Jeans item, reward 1
-... (one line per previous round: "{arm name} item, reward {0|1}") ...
+四個 cell 的 seeds、position/identity counterbalance 與 frozen bank 完全一致，`invalid_rate=0.0`。
+**資料來源：** `~/Documents/RSNResult/RoleAnswer/llama3/bandit/pv6/{pv6_easy_bare,pv6_easy_chat,pv6_hard_bare,pv6_hard_chat}`；gate 由 `evaluate_competence_gate.py` 對 frozen baseline manifest 重算。
 
-Which item will you choose next? PLEASE RESPOND ONLY WITH [...same arm-name list as above...] AND NO TEXT EXPLANATION.
-```
+| Cell | Gate status | OptFrac | Late OptFrac | SuffFail | Adherence | Arms discovered | Churn | Regret |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Easy-bare** | **PASS (4/4)** | .704 | .739 | .150 | **.905** | 3.60 / 4 | .059 | 14.8 |
+| Easy-chat | PASS* | .442 | .506 | .100 | .559 | **4.00 / 4** | .243 | 27.9 |
+| **Hard-bare** | **FAIL (rule 1)** | .442 | .471 | .450 | .801 | 3.35 / 5 | .077 | 11.2 |
+| Hard-chat | FAIL* (rule 1) | .384 | .389 | .450 | .396 | **5.00 / 5** | .166 | 12.3 |
 
-**量化指標：**
+\* chat 僅為診斷性計算，不是 competence-gate verdict，也不能成為 α sweep 的 competence anchor。
 
-| 指標 | 說明 | 預測方向（tonic DA ↑） |
-| --- | --- | --- |
-| OptFrac | 選最優臂的比率 | ↑（更快集中到最優） |
-| Exploration rate | 選非最優臂的總比率 | ↓ |
-| WorstFrac | 選最差臂的比率 | ↓（避開最差選項，incentive salience 更精準） |
-| Cumulative regret | Σ(best\_prob − chosen\_prob) | ↓ |
-| Early OptFrac | rounds 1–20 的 OptFrac | ↑ |
-| Late OptFrac | rounds 21–50 的 OptFrac | ↑（exploitation 強化更明顯） |
-| InvalidRate | 輸出無法解析的比率 | ↓（行為穩定化） |
+**正式 capability boundary。** Easy-bare 通過四條預註冊規則，因此 Llama3-8B 在 Reference-Easy 的 RSN-aligned native interface 下具備最低限度、可引用的 Bandit competence。Hard-bare 只在 rule 1 失敗（`.450 > Greedy .350`），其 paired bootstrap difference 為 `+0.100 [−0.150,+0.350]`；因此正確表述是「未通過 gate」，不是「顯著劣於 Greedy」。Easy-bare 是目前唯一 competence anchor；Hard 只可作 failure-mode characterization。
 
-**UCB1 理論基準（同 30 seeds，CPU 模擬）：**
+### 3.2.4 Interface contrast：chat 改善 coverage，但削弱 convergence
 
-UCB1 在 T=50 短horizon 下：OptFrac = **0.359 ± 0.083**，Regret = **11.07 ± 1.36**，WorstFrac = 0.117。UCB1 在前 K=5 輪強制逐一探索每個臂，confidence bonus 在短 horizon 下長期偏大，導致探索過度。
+chat 在兩個環境都增加完整探索：Easy 的 arms discovered 從 `3.60→4.00/4`，Hard 從 `3.35→5.00/5`。代價是更高 churn 與更弱的 post-discovery adherence：Easy adherence `.905→.559`、churn `.059→.243`；Hard adherence `.801→.396`、churn `.077→.166`。因此 chat 不是單純 rescue interface；它改變了整體 policy，將行為推向「更完整 coverage、較差 persistence / convergence」。
 
-**實驗結果（Llama-3.1-8B，No-Role neutral prompt，30 runs × 50 rounds，α 全掃 −8→+8 @ layers 11–20）：**
+Hard 的軌跡分解使這個機制差異尤其清楚：
 
-| α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate | fail(<0.5) |
-| --- | --- | --- | --- | --- | --- | --- |
-| UCB1 | 0.359 ± 0.083 | 0.287 / 0.408 | 0.117 | 11.07 | — | — |
-| −8 | 0.614 ± 0.238 | 0.562 / 0.649 | 0.067 | 6.50 | 15.7% | 7/30 |
-| −6 | 0.641 ± 0.244 | 0.588 / 0.677 | 0.084 | 6.41 | 11.5% | 7/30 |
-| −4 | 0.601 ± 0.183 | 0.547 / 0.638 | 0.095 | 7.33 | 20.1% | 7/30 |
-| −2 | 0.748 ± 0.120 | 0.683 / 0.791 | 0.073 | 4.79 | 9.7% | 1/30 |
-| 0 | 0.843 ± 0.114 | 0.777 / 0.887 | 0.043 | 2.92 | 1.5% | 0/30 |
-| **+2** | **0.891 ± 0.070** | 0.845 / **0.922** | **0.037** | **2.15** | 0.4% | **0/30** |
-| +4 | 0.865 ± 0.084 | 0.827 / 0.890 | 0.043 | 2.56 | 0.1% | 0/30 |
-| +6 | 0.842 ± 0.094 | 0.802 / 0.869 | 0.042 | 2.85 | 0.3% | 0/30 |
-| **+8** | **0.515 ± 0.177** | 0.525 / 0.508 | 0.075 | **8.17** | 0.2% | **11/30** |
+- **Hard-bare 的 9 個 suffix failures：**7 個 run 從未拉過真最優臂；另外 2 個曾發現，但在後 50 rounds 放棄。
+- **Hard-chat 的 9 個 suffix failures：**0 個 best-never-tried；20/20 都在前 50 rounds 發現真最優臂，但其中 9 個之後放棄，最後一次拉真最優臂均不晚於 round 35。
 
-（`fail(<0.5)` = 30 個 run 中 OptFrac < 0.5 的 run 數，是「雙峰失穩」的直接讀數。）
+所以相同的 `SuffFail=.450` 並不代表相同失敗機制：bare 主要是 discovery / coverage failure，chat 則是發現後的 persistence / convergence failure。這也界定了 rule 1 的解釋範圍：它只識別「後綴沒有最優臂」，不能單獨區分「從未發現」與「發現後放棄」，必須與 discovery timing、arms discovered 和 adherence 一起閱讀。
 
-*Assistant Role（AI fashion assistant，±4 三點對照，role-prompt 壓制故事，§4.7）：*
+這個 2×2 是接口對照，不是 coverage 的單因素因果實驗。較嚴謹的結論是：**在 chat 條件下，observed coverage deficit 消失，但 competence 仍未成立，並出現更強的 persistence / convergence deficit**；不能寫成「單獨移除 coverage 後證明了另一個 causal bottleneck」。
 
-| α | mean OptFrac ± std | Early / Late OptFrac | WorstFrac | mean Regret | InvalidRate |
-| --- | --- | --- | --- | --- | --- |
-| 0 | 0.609 ± 0.268 | 0.570 / 0.636 | 0.077 | 6.35 | 1.5% |
-| +4 | **0.777 ± 0.090** | 0.692 / **0.834** | **0.060** | **4.15** | 0.3% |
-| −4 | 0.479 ± 0.278 | 0.442 / 0.504 | 0.125 | 9.39 | 8.4% |
+### 3.2.5 下一步：B1 α main experiment（進行中）
 
-**統計檢驗（per-run OptFrac，30 runs/檔，非參數；腳本 `RoleAnswer/analyze_bandit_stats.py`）：** Kruskal–Wallis omnibus **H=125.2，p=2.8e−23**——α 對 OptFrac 有壓倒性整體效應。關鍵兩兩對比（Mann–Whitney U + Holm 校正，附 Cliff's δ 效應量）：
+Easy-bare 是唯一 competence anchor，因此主實驗固定為 `α∈{−4,0,+4}`、N=20 paired seeds、T=100、temperature=0；α=0 直接復用 Track A，現正運行新增的 `−4/+4`。兩個非零條件使用 both-stage steering，並以真實 hook-site counter 驗證每個 Easy episode 的非零注入位置：rationale `100 rounds × 9 layers = 900`，action `100 rounds × 4 candidates × 9 layers = 3600`（`utils.decoder_layer_range` 為半開區間，`11-20` band 實際 steer 9 層；Hard K=5 對應 action `4500`）。B1 smoke 實測即為 `900 / 3600`。
 
-| 對比 | mean_a → mean_b | p (Holm) | Cliff's δ | 判定 |
-| --- | --- | --- | --- | --- |
-| **0 vs +2**（峰 vs baseline） | 0.843 → 0.891 | 0.26 | −0.227 (small) | **n.s.** |
-| +2 vs +4 | 0.891 → 0.865 | 0.26 | +0.180 (small) | n.s. |
-| **+6 vs +8**（右臂崩潰起點） | 0.842 → 0.515 | 3.4e−9 | **+0.936 (large)** | *** |
-| **+2 vs +8**（峰 vs 右崩） | 0.891 → 0.515 | 6.0e−10 | **+0.979 (large)** | *** |
-| 0 vs +8 | 0.843 → 0.515 | 1.3e−8 | +0.900 (large) | *** |
-| 0 vs −4 | 0.843 → 0.601 | 2.2e−6 | +0.753 (large) | *** |
-| +2 vs −8 | 0.891 → 0.614 | 3.3e−7 | +0.812 (large) | *** |
-
-倒 U 雙臂趨勢（Spearman）：上升臂 −8→+2 **ρ=+0.536（p=9e−15）**，下降臂 +2→+8 **ρ=−0.653（p=6e−16）**——兩臂方向相反且皆極顯著，統計上確認倒 U。
-
-**結果解讀：**
-
-- **頂部是寬平台，非尖峰。** `0/+2/+4/+6` 統計上不可區分（+2 vs 0、+2 vs +4 均 p_Holm=0.26，δ small），構成高位最優平台 OptFrac 0.84–0.89。
-
-- **右臂崩潰（+8）= 倒 U 右側過載，本工作首個多輪序列 +α overload 證據。** OptFrac 斷崖 0.842→0.515，Regret 翻 3 倍，Early≈Late（不收斂）。機制是「散」：Invalid≈0、WorstFrac≈0（格式與避烂臂都完好），但 choices 在 5 臂間搖擺、無法承諾到最優臂。
-
-- **左臂（−α）退化 = 機制不同的「垮」。** −2→−8 下行（0.748→0.614），失敗 run 高 Invalid（−4/−8 達 14–38%/輪）、高換臂率（0.7–0.9）、踩烂臂——格式崩潰 + 行為隨機化的 effort withdrawal。**兩端不對稱：右側格式好但無法承諾，左側格式垮。** 註：−4（0.601）略低於 −6（0.641）是採樣噪聲（fail 同 7/30、分布重疊），左臂實為單調退化。
-
-- **穩定性曲線是核心讀數。** 平台（0…+6）std 0.07–0.11、fail≤0/30（全 run 收斂）；兩端 std 0.18–0.24、fail 7–11/30。與 GSM8K accuracy 倒 U（−6 峰、±8 崩）**在不同維度獨立複現同一條 Yerkes–Dodson 曲線**。
-
-- **Role prompt 壓低 baseline（§4.7）：** Assistant-Role α=0（0.609）遠低於 No-Role（0.843）；+4 在 Assistant-Role 修復 +28%，No-Role 已在平台僅 +0.022。
+B1 結果尚未產生，因此本節目前不宣稱 α 改善、削弱或救回 Bandit capability。結果落地後依序檢查 discovery、non-novel churn、exploration stopping、adherence / persistence，最後才讀 OptFrac / regret；只有整組指標一致向 competent policy 移動，才可寫成 capability modulation。Hard 若後續跑 α，仍只能描述 failure mode 是否移動，不能使用 capability rescue / improvement 的措辭；chat 不跑 α sweep。
 
 ## 3.3 Gamble Task
 
