@@ -69,8 +69,14 @@
 #   bash run_bandit_reference.sh llama3 A0_CHAT_HARD  # one formal cell only
 #   bash run_bandit_reference.sh llama3             # every non-smoke step
 #
+#   bash run_bandit_reference.sh llama3 B1_SMOKE         # N=1 plumbing, both
 #   bash run_bandit_reference.sh llama3 B1_BOTH_EASY  # alpha sweep, easy-bare
 #   bash run_bandit_reference.sh llama3 B1_BOTH_HARD  # alpha sweep, hard-bare
+#
+#   bash run_bandit_reference.sh llama3 B1_ACTION_SMOKE   # N=1 plumbing, action
+#   bash run_bandit_reference.sh llama3 B1_ACTION_EASY    # ablation, both alphas
+#   bash run_bandit_reference.sh llama3 B1_ACTION_EASY_AM4  # one cell only
+#   bash run_bandit_reference.sh llama3 B1_ACTION_EASY_AP4  # one cell only
 #
 # B1 (the alpha sweep) was deliberately unwired until the competence gate had
 # been evaluated on reference-bare, because the verdict determines what an
@@ -85,7 +91,9 @@
 # and the action pass), because the research question is whether alpha moves
 # the whole information-seeking policy, not just the arm logits given a fixed
 # rationale. scope=action is its mechanism ABLATION and runs later, only if
-# `both` shows an effect.
+# `both` shows an effect. It did (2026-08-05, Easy-bare): +4 flattened the
+# candidate distribution and destroyed post-discovery persistence, so the
+# ablation is now warranted -- see the B1_ACTION block at the end of this file.
 #
 # alpha=0 is NOT re-run: no hook is registered at alpha=0 under either scope,
 # so the stored Track A cells ARE the alpha=0 cells. Adding 0 to these configs
@@ -199,6 +207,26 @@ if [ "$ONLY_STEP" = "B1_SMOKE" ]; then
   exit 0
 fi
 
+# ── B1 ACTION-ONLY SMOKE (N=1, alpha=+4, scope=action) ────────────────────
+# scope=action drives a DIFFERENT Stage 1 code path than scope=both: it calls
+# vc.generate (no hook registered at all) instead of vc.regenerate, so the
+# both-smoke does not attest it. ~10 min, plumbing only. Verify:
+#   - config.steering_scope == "action", steered_rationale == false
+#   - config.iface has NO scope segment (action is the DEFAULT scope, so its
+#     resume key is bare — same shape as the stored Track A alpha=0 rows)
+#   - steering_fires == {"rationale": 0, "action": 3600}   <- THE check.
+#     rationale != 0 means Stage 1 is still being steered and the scope flag
+#     did not take effect; 0 for BOTH means the hook never fired at all.
+#   - invalid_rate still 0.0, rationale_clean non-empty
+if [ "$ONLY_STEP" = "B1_ACTION_SMOKE" ]; then
+  run_step B1_ACTION_SMOKE easy "6" "4-${LAYERS}" \
+    "pv6_smoke_easy_bare_action" --steering_scope action
+  echo ""
+  echo "B1 action-only smoke done. Confirm steering_fires rationale=0 /"
+  echo "action=3600 BEFORE launching the formal cells. N=1 reads no behaviour."
+  exit 0
+fi
+
 if [ "$ONLY_STEP" = "SMOKE" ]; then
   run_step SMOKE easy "$SMOKE_SEEDS_EASY" "0-${LAYERS}" "pv6_smoke_easy_bare"
   run_step SMOKE easy "$SMOKE_SEEDS_EASY" "0-${LAYERS}" "pv6_smoke_easy_chat" --use_chat
@@ -240,6 +268,29 @@ run_step B1_BOTH hard "$BANK_HARD" "neg4-${LAYERS}" \
   "pv6_hard_bare_both_am4" --steering_scope both
 run_step B1_BOTH hard "$BANK_HARD" "4-${LAYERS}" \
   "pv6_hard_bare_both_ap4" --steering_scope both
+
+# ── B1_ACTION (N=20, alpha!=0, scope=action): the mechanism ABLATION ──────
+# Stage 1 runs UNSTEERED (vc.generate, no hook); only the action pass gets
+# alpha. Separates the two routes by which alpha reached the choice in B1:
+#   alpha -> rationale text -> action     (removed here)
+#   alpha -> action logits                (kept here)
+# Easy-bare's both-stage +4 flattened the candidate distribution and destroyed
+# post-discovery persistence; this says whether that came from the rationale or
+# from the arm logits. Expected fires per episode: rationale=0, action=3600.
+#
+# COST IS NOT HALVED. Stage 1 is 64 autoregressive forwards, Stage 2 is ONE
+# batched forward over K candidates, so dropping Stage 1's hook removes only
+# the hook arithmetic (~1%), not a forward pass. Budget as for B1_BOTH.
+#
+# Separate dirs are MANDATORY, not tidiness: the pv6 detail JSON is named
+# bandit_pv6_{env}_{size}_{TOP}_{ls}_{le}.json with no alpha and no scope in
+# it, and action's resume key carries no scope segment either (it is the
+# default), so writing these into pv6_easy_bare/ would OVERWRITE the Track A
+# alpha=0 cell the competence gate is built on.
+run_step B1_ACTION easy "$BANK_EASY" "neg4-${LAYERS}" \
+  "pv6_easy_bare_action_am4" --steering_scope action
+run_step B1_ACTION easy "$BANK_EASY" "4-${LAYERS}" \
+  "pv6_easy_bare_action_ap4" --steering_scope action
 
 echo ""
 echo "Track A done. Next: evaluate the competence gate on reference-bare"
