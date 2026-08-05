@@ -1,10 +1,7 @@
 
 ## TODO
 0. 用Qwen2.5-7B复现
-1. Bandit 完成/同步 Hard-chat α=0，补齐 Track A 接口对照； [running]
-1. B1 主实验：Easy-bare 跑 α=−4、+4，α=0 复用现有结果。
-Easy-bare α=-4：20 episodes
-Easy-bare α=+4：20 episodes
+1. B1 主实验：Easy action-only ±4
 Hard-bare α=-4/+4
 1. B2 stress test：Hard-bare 跑 α=−4、+4，用于判断 α 是否改变 coverage/lock-in；不预设 rescue。
 1. 得到三点结果后再决定是否做更宽 α sweep 或 C2 uncertainty scaffold。
