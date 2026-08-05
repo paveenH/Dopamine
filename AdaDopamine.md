@@ -362,8 +362,11 @@ pooled over 20 seeds × 100 rounds = 2000 條 rationale。
 | --- | ---: | ---: | ---: | --- |
 | 保持 `Step 1 / Step 2` 結構 | **100%** | 91.7% | 2.4% | rationale 結構穩定性 |
 | 提到 uncertainty | 4.7% | 10.9% | **50.9%** | 對不確定性的強調程度 |
-| 提到 exploration | 2.9% | 5.0% | **33.9%** | 主動討論繼續探索的頻率 |
+| exploration-related language（expanded） | 2.9% | 5.0% | **33.9%** | 主動討論繼續探索的頻率 |
+| ⤷ strict `explor*` 敏感性分析 | 2.9% | 3.9% | **23.5%** | 同上，僅字面 explor* |
 | 生成 Python / code | 0% | 0.35% | **4.65%** | 偏離當前決策任務 |
+
+**exploration 兩種口徑並列，不二擇一。** expanded = `explor* | try other/another | sample more | gather more`（正文主表）；strict = 僅 `explor*`（敏感性分析）。兩者方向與量級一致（+4 相對 α=0 皆為 6–7 倍），差異只在是否計入改寫說法。這些都是**事後文本描述統計**，不應由單一關鍵詞表承擔機制結論——機制結論由 candidate distribution 與行為分解承擔。regex 凍結於 `analyze_bandit_pv6_alpha.py: TEXT_PATTERNS`。
 
 **Matched-state 文本比對。** 「與 α=0 相同文本」必須在**相同 prefill history** 下比較——一旦軌跡分岔，輸入本身已不同，文本差異不可歸因於 steering。限定 `(choices, feedbacks)` 前綴完全相同的 round：−4 vs 0 有 315 個 matched-state rounds，其中 **52.4%** 文本完全相同；+4 vs 0 只有 132 個，其中 **1.5%** 相同。兩組 matched-state 數量不同（+4 分岔更早），故此項僅為描述性證據，不可作配對檢驗。
 
@@ -632,17 +635,17 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 
 ## 3.4 Cross-Task Summary — One α-Wanting Axis, Task-Specific Working Points
 
-把 Bandit、IGT、GSM8K 並排，最能說明 RSN α 調的是 **working point**，而非單調的「能力」：各任務在自己主要設定下的最優 α 落在**相反的兩側**（Bandit ≈ +2、IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。注意 Bandit 與 IGT 峰位重合，所以目前證據分開的是**正/負兩側**（needs-engagement vs needs-restraint），而非同側內部的細緻梯度。
+把 IGT 與 GSM8K 並排，說明 RSN α 調的是 **working point**，而非單調的「能力」：兩者在自己主要設定下的最優 α 落在**相反的兩側**（IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。目前證據分開的是**正/負兩側**（needs-engagement vs needs-restraint），而非同側內部的細緻梯度。
 
-> **數字更正（2026-07-28）**：本表 Bandit 欄先前寫 **≈ +6**，是誤取 plateau 右端當峰。回查 `RoleAnswer/llama3/bandit/neutral_0616/`（No-Role 9-α × 30 runs）的 OptFrac：−8 .614 / −6 .641 / −4 .601 / −2 .748 / **0 .843 / +2 .891 / +4 .865 / +6 .842** / +8 .515。峰在 **+2**，+6 已回落到與 α=0 持平（+6 vs 0：未校正 p=.78, δ=−0.04）。§3.2「頂部是寬平台，非尖峰」的判定仍然成立且未變（Holm 校正後 +2 vs 0、+2 vs +4 皆 p=0.26 n.s.）——本更正**不是**把平台改判成尖峰，而只是：既然平台內部統計不可分，代表值就該取樣本峰 **+2**，不該取右端 +6（其 OptFrac 已等於 baseline，作為「最優 α」在語義上就不成立）。更正後 Bandit 與 IGT 峰位一致（皆 +2），跨任務對比從「三個散點」變成 **兩個 needs-engagement 任務（+2）vs GSM8K（−6）** 的兩側對立——論證反而更乾淨。
+> **⚠️ Bandit 已從本跨任務綜合中移除（2026-08-05）。** 本節先前寫「Bandit ≈ +2」「Bandit 與 IGT 峰位重合」「Bandit 存在完整 inverted-U（+8 崩潰）」，其唯一數據來源是 `RoleAnswer/llama3/bandit/neutral_0616/`——該目錄屬於 **2026-07-28 判定作廢的 pre-fix Bandit 資料**（best-arm position leakage + permissive parser，見 `CLAUDE.md` Bandit 條目），因此 2026-07-28 的「+6→+2 數字更正」本身也建立在作廢資料上，一併撤回。**pv6 重建後的 Bandit 現況（§3.2.5）與舊敘述不相容**：Llama3-8B 僅在 Easy-bare α=0 具備最低限度 competence；已測的 `−4/0/+4` 中**未觀察到完整倒 U**；**+4 顯著壓平候選分布並破壞 post-discovery persistence**（adherence `.905→.672`、額外 non-greedy round 99.6% 發生在發現最優臂之後）；**−4 雖顯著銳化分布但未改善任何收益指標**。亦即 pv6 Bandit 目前**只有正 α 一側的損害證據，沒有峰**，不能作為「needs-engagement 任務峰在 +2」的第二個例證。跨任務對比因此暫時退回 **IGT（+2）vs GSM8K（−6）** 兩點；Bandit 要重新入表，需先在有 headroom 的環境（Hard，或其他未觸天花板的設定）測出峰位。
 
 | 任務 | 主導需求 | 最優 α | +α 行為 | −α 行為 | 失敗模式 |
 |---|---|---|---|---|---|
-| **Bandit** | reward pursuit / exploit-explore（透明獎勵、短反饋、小動作空間） | **≈ +2** | 更願追高回報臂、更快 exploit 已發現的好臂 | 退縮、放棄追獎 | +8 過載崩潰（散）/ −α 動機不足 |
+| ~~**Bandit**~~ | ~~reward pursuit / exploit-explore~~ | **已移除** | — | — | 舊列基於作廢資料；pv6 現況見 §3.2.5（僅 +α 損害，無峰） |
 | **IGT** | exploration + history integration（兩種相反需求並存） | **≈ +2** | 輕度有助試錯探索；過強 → 無意義換牌、忘歷史、回 B trap | 較能 stick/exploit、顯式引用歷史，但探索性低、更早鎖策略 | 兩端皆崩：+端「散」/ −端高方差「垮」 |
 | **GSM8K** | arithmetic stability / commitment timing（瓶頸非探索，而是別搶答、別過度復查） | **≈ −6** | 搶答、early-####、答完放不下的 loop | 更冷靜、延遲 commit、更穩定 | +α over-wanting → 抢答 / −過度則動機不足 |
 
-> Different tasks expose different behavioral outlets of the same α-controlled wanting axis. In each task's primary setting, the optimal α shifts systematically with the task's wanting demand: **Bandit** and **IGT** both peak at a mild positive **α ≈ +2**, because both need active reward pursuit and trial-and-error exploration, and both overshoot beyond it (Bandit collapses at +8; IGT drifts into unstable switching and history-neglect); **GSM8K** peaks at **α ≈ −6**, because its bottleneck is not exploration but reasoning stability and delayed commitment. The shift of the optimal α across tasks (+2 / +2 / −6) — rather than any single monotone "more α is better" — is the evidence that α tunes a **motivational working point, not a capability**: every task is an inverted-U whose peak sits where the task's wanting demand is met, and both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching). Note the current evidence separates the two *sides* (+ vs −), not fine gradations within a side: Bandit's positive optimum is a broad plateau (0/+2/+4/+6 mutually n.s. after Holm correction) whose sample peak is +2, coinciding with IGT's, so the claim is directional — each task's sign and rough magnitude — not a precise per-task optimum. A forced-reasoning control on IGT (v4) further localises its +α overshoot to an *engagement* drop (the model declining to deliberate) rather than a change in value computation.
+> Different tasks expose different behavioral outlets of the same α-controlled wanting axis. In each task's primary setting, the optimal α shifts with the task's wanting demand: **IGT** peaks at a mild positive **α ≈ +2**, because it needs active reward pursuit and trial-and-error exploration, and overshoots beyond it (drifting into unstable switching and history-neglect); **GSM8K** peaks at **α ≈ −6**, because its bottleneck is not exploration but reasoning stability and delayed commitment. The shift of the optimal α across tasks (+2 / −6) — rather than any single monotone "more α is better" — is the evidence that α tunes a **motivational working point, not a capability**: both tails correspond to over- vs under-wanting failures (−α giving-up/perseveration, +α impulsive racing/switching). Note the current evidence separates the two *sides* (+ vs −), not fine gradations within a side, and it now rests on **two tasks, not three**: the Bandit column was withdrawn in 2026-08-05 because its numbers came from the voided pre-fix data, and the rebuilt pv6 Bandit (§3.2.5) shows **no inverted-U at all** over the tested −4/0/+4 — only positive-α damage to post-discovery persistence, with negative α sharpening the candidate distribution without improving any outcome. A forced-reasoning control on IGT (v4) further localises its +α overshoot to an *engagement* drop (the model declining to deliberate) rather than a change in value computation.
 
 ## 3.5 Boundary Experiment — HaluEval
 
@@ -709,7 +712,7 @@ Answer:
 
 Betting 測「願不願意押」、CGT-Seq 測「願不願意等」、Bandit/IGT 測「願不願意持續投入並整合回饋」。**CGT-Simultaneous 的 null 在這個結構裡是資訊而非失敗**：賠率透明時 confidence mediator 被鉗住，wanting 推力失去表達通道（見 §3.3），正好界定了 wanting→behavior 需要什麼樣的下游出口。
 
-**跨任務工作點**（詳見 §3.4）：Bandit ≈ +2、IGT ≈ +2、GSM8K ≈ −6。兩個 needs-engagement 的多輪任務峰位重合於 +2，與 GSM8K 的 −6 構成**兩側對立**；現有證據分開的是正／負兩側，而非同側內部的細緻梯度。
+**跨任務工作點**（詳見 §3.4）：IGT ≈ +2、GSM8K ≈ −6，構成**兩側對立**；現有證據分開的是正／負兩側，而非同側內部的細緻梯度。**Bandit 不在此列**——舊的「Bandit ≈ +2」出自作廢資料，pv6 重建後在已測 `−4/0/+4` 中無峰（僅 +α 損害 persistence，見 §3.2.5）。
 
 **尚未覆蓋的範式**（誠實登記，非待辦）：Progressive Ratio（努力支出的經典 DA 範式，語言版設計見 TODO §4）、Pavlovian-Instrumental Transfer 與 Reversal Learning（均已記錄 why-skipped，見 `AdaDopamine_bp.md` §4.8/§4.10——核心理由是 phasic DA / RPE 需要突觸可塑性，inference-time 注入原理上碰不到）。
 
