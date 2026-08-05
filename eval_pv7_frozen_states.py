@@ -183,6 +183,15 @@ _EXPLOIT = re.compile(r"\bexploit\w*", re.I)
 _ARM_MENTION = re.compile(r"button\s*([A-E])\b", re.I)
 _NUM_PAIR = re.compile(r"(\d+)\s*(?:reward|success)\w*\s*(?:/|out of|from)\s*(\d+)", re.I)
 _RATE = re.compile(r"(?:rate|probability)\D{0,12}?([01]?\.\d+)", re.I)
+# Bare observation claims: "1 reward", "gave a reward", "3 trials", "observed
+# rewards". Used ONLY for the Round-1 test, where any such claim is false.
+_BARE_OBSERVATION = re.compile(
+    r"\b\d+\s*(?:reward|success|trial|pull)\w*|"
+    r"\b(?:gave|yielded|returned|produced|observed|has|have|had)\b[^.;]{0,30}?"
+    r"\b(?:reward|success)\w*", re.I)
+_SUPPORT_CLAIM = re.compile(
+    r"\b(strong|well[- ]support\w*|reliabl\w*|solid|robust|confident\w*|"
+    r"clearly|proven|established)\b", re.I)
 
 
 def completion_flags(arm: str, raw: str, clean: str, n_gen_tokens: int) -> dict:
@@ -252,7 +261,24 @@ def grounding_flags(clean: str, snap: dict) -> dict:
         if arm in untried:
             untried_as_tried.append(arm)
 
-    any_reward_claim = bool(claimed) or bool(claimed_rates)
+    # A Round-1 fabrication is usually a BARE claim ("Button A with 1 reward"),
+    # not a well-formed "N/M" pair, so requiring _NUM_PAIR here would miss the
+    # observed case. Any reward/trial/rate assertion counts at Round 1, where by
+    # construction nothing has been observed.
+    any_reward_claim = bool(claimed) or bool(claimed_rates) or bool(
+        _BARE_OBSERVATION.search(body))
+
+    # DESCRIPTIVE ONLY -- never part of any_grounding_error. Calling a 1-2 trial
+    # arm "strong/well-supported/reliable" is an epistemic overclaim, not a
+    # misstatement of the table.
+    thin = {a for a in order if 0 < trials[a] <= 2}
+    overclaim = []
+    for m in re.finditer(r"button\s*([A-E])\b", body, re.I):
+        arm = f"Button {m.group(1).upper()}"
+        if arm in thin and _SUPPORT_CLAIM.search(body[max(0, m.start() - 60):
+                                                     m.start() + 60]):
+            overclaim.append(arm)
+
     return {
         "fabricated_count_pairs": fabricated_pairs,
         "fabricated_rates": fabricated_rates,
@@ -262,25 +288,47 @@ def grounding_flags(clean: str, snap: dict) -> dict:
         # Round 1: nothing has been observed, so ANY reward/rate claim is false.
         "round1_hallucinated_evidence": (snap["round_idx"] == 0
                                          and any_reward_claim),
+        "support_overclaim": sorted(set(overclaim)),
     }
 
 
 def policy_flags(clean: str, chosen: str | None) -> dict:
+    """HEURISTIC, POST-HOC DESCRIPTIVE. Not a pre-registered outcome or gate.
+
+    `policy_target_source` records how the target was obtained:
+      * policy_segment    -- parsed after an explicit `Policy:` marker
+      * full_text_fallback-- last button named anywhere (LOOSE: this can pick up
+                             a button mentioned in the Evidence half, which is
+                             not the policy target at all)
+      * none              -- no button named
+
+    Headline action-follows-policy therefore uses policy_segment WITH a clear
+    (explore|exploit) stance; the fallback is a sensitivity analysis only. The
+    parse rate must be reported alongside, or a high follow-rate computed over
+    a small easy-to-parse subset will read as a general result.
+    """
     body = clean.strip()
     explore, exploit = bool(_EXPLORE.search(body)), bool(_EXPLOIT.search(body))
     named = [f"Button {m.group(1).upper()}" for m in _ARM_MENTION.finditer(body)]
-    # the arm the policy points at = last named arm after a Policy: marker if
-    # present, else the last named arm anywhere
-    tail = body[_POLICY.search(body).end():] if _POLICY.search(body) else body
-    tail_named = [f"Button {m.group(1).upper()}" for m in _ARM_MENTION.finditer(tail)]
-    target = tail_named[-1] if tail_named else (named[-1] if named else None)
+    m_pol = _POLICY.search(body)
+    seg_named = ([f"Button {m.group(1).upper()}"
+                  for m in _ARM_MENTION.finditer(body[m_pol.end():])]
+                 if m_pol else [])
+    if seg_named:
+        target, source = seg_named[-1], "policy_segment"
+    elif named:
+        target, source = named[-1], "full_text_fallback"
+    else:
+        target, source = None, "none"
     stance = ("explore" if explore and not exploit else
               "exploit" if exploit and not explore else
               "both" if explore and exploit else "unclear")
     return {
         "policy_stance": stance,
+        "stance_is_clear": stance in ("explore", "exploit"),
         "policy_names_button": bool(named),
         "policy_target": target,
+        "policy_target_source": source,
         "action_follows_policy": (None if target is None or chosen is None
                                   else target == chosen),
     }
@@ -370,6 +418,10 @@ def run_arm(arm, vc, bank, env, tokenizer, dry_run):
             "rationale_clean": clean,
             "validity": check_validity(arm, tokenizer, s1, s2, env, snap),
             "completion": completion_flags(arm, raw, clean, n_gen),
+            # RAW is the primary text-generation readout (what the model wrote);
+            # CLEAN explains the final choice (what Stage 2 actually saw). They
+            # differ for P0, whose sanitizer deletes whole `Choice:` lines.
+            "grounding_raw": grounding_flags(raw, snap),
             "grounding": grounding_flags(clean, snap),
             "cost": {"stage1_gen_s": round(t_gen, 4),
                      "stage2_score_s": round(t_score, 4),
@@ -422,15 +474,35 @@ def report(doc):
     n120 = len(doc["rows"][arms[0]])
     n107 = len(_dedup(doc["rows"][arms[0]]))
     print(f"slots={n120}  unique histories (pooled n)={n107}")
+    print("ALL percentages below are DEDUPLICATED (n=%d) unless a row says" % n107)
+    print("slot-level. Both denominators are printed for prompt validity, where")
+    print("they differ; a bare percentage with no denominator is a reporting bug.")
     print("P0 runs the full pv6 interface; margin/entropy vs P1/P2 therefore")
     print("include anchor + candidate-tokenization differences, NOT wording alone.\n")
 
+    # Prompt validity is the one block where slot-level and deduplicated numbers
+    # visibly disagree (pv6's TRIED/UNTRIED split), so print BOTH -- otherwise
+    # 80.0% and 81.3% look like an inconsistency rather than two valid units.
+    print("── PROMPT VALIDITY (each arm vs its OWN protocol)")
+    print("   Both denominators are shown: slot-level uses all 120 slots,")
+    print("   dedup uses the 107 unique histories. They are two valid units,")
+    print("   not an inconsistency -- always state which one a figure is.")
+    for key in ("anchor_ok", "candidates_single_token", "options_order_ok",
+                "state_arithmetic_ok"):
+        print(f"   {key}")
+        for a in arms:
+            slots = doc["rows"][a]
+            ded = _dedup(slots)
+            so = sum(1 for r in slots if r["validity"][key])
+            do = sum(1 for r in ded if r["validity"][key])
+            print(f"     {a:<22} slot {so:>3}/{len(slots)} = {100*so/len(slots):5.1f}%"
+                  f"   dedup {do:>3}/{len(ded)} = {100*do/len(ded):5.1f}%")
+    print()
+
     blocks = [
-        ("PROMPT VALIDITY (each arm vs its OWN protocol)", [
-            ("anchor_ok", ("validity", "anchor_ok")),
-            ("candidates_single_token", ("validity", "candidates_single_token")),
-            ("options_order_ok", ("validity", "options_order_ok")),
-            ("state_arithmetic_ok", ("validity", "state_arithmetic_ok")),
+        ("EVIDENCE GROUNDING on RAW (primary text-generation readout)", [
+            ("any_grounding_error", ("grounding_raw", "any_grounding_error")),
+            ("round1_hallucination", ("grounding_raw", "round1_hallucinated_evidence")),
         ]),
         ("RATIONALE COMPLETION", [
             ("empty_rationale", ("completion", "empty_rationale")),
@@ -448,10 +520,11 @@ def report(doc):
             ("raw:   pv6 'Choice:' marker", ("completion", "raw_contains_pv6_choice_marker")),
             ("sanitizer removed content", ("completion", "sanitizer_removed_content")),
         ]),
-        ("EVIDENCE GROUNDING", [
+        ("EVIDENCE GROUNDING on CLEAN (what Stage 2 actually saw)", [
             ("any_grounding_error", ("grounding", "any_grounding_error")),
             ("untried_as_tried", ("grounding", "untried_described_as_tried")),
             ("round1_hallucination", ("grounding", "round1_hallucinated_evidence")),
+            ("support_overclaim [descriptive]", ("grounding", "support_overclaim")),
         ]),
     ]
     for title, items in blocks:
@@ -461,21 +534,19 @@ def report(doc):
             cells = ""
             for a in arms:
                 rows = _dedup(doc["rows"][a])
-                if label == "untried_as_tried":
-                    v = 100.0 * sum(1 for r in rows if r["grounding"]
-                                    ["untried_described_as_tried"]) / len(rows)
-                elif label == "round1_hallucination":
+                if label.startswith("round1_"):
+                    # Denominator is the 20 Round-1 states, not the whole bank.
                     sub = [r for r in rows if r["round_idx"] == 0]
-                    v = (100.0 * sum(1 for r in sub if r["grounding"]
-                                     ["round1_hallucinated_evidence"]) / len(sub)
-                         if sub else float("nan"))
+                    v = (100.0 * sum(1 for r in sub if r[path[0]][path[1]])
+                         / len(sub) if sub else float("nan"))
                 else:
                     v = _rate(rows, path)
                 cells += f"{v:>17.1f}%"
             print(f"   {label:<30}{cells}")
         print()
 
-    print("── POLICY CLARITY (% of rationales)")
+    print("── POLICY CLARITY  [HEURISTIC, POST-HOC DESCRIPTIVE —")
+    print("   not a pre-registered outcome or gate metric]")
     print(f"   {'stance':<30}" + "".join(f"{a:>18}" for a in arms))
     for st in ("explore", "exploit", "both", "unclear"):
         cells = ""
@@ -485,24 +556,45 @@ def report(doc):
                             if r["policy"]["policy_stance"] == st) / len(rows)
             cells += f"{v:>17.1f}%"
         print(f"   {st:<30}{cells}")
-    for label, key in [("names a button", "policy_names_button")]:
+    for label, key in [("names a button", "policy_names_button"),
+                       ("stance is clear", "stance_is_clear")]:
         cells = "".join(f"{_rate(_dedup(doc['rows'][a]), ('policy', key)):>17.1f}%"
                         for a in arms)
         print(f"   {label:<30}{cells}")
-
-    print("\n── ACTION FOLLOWS POLICY  (overall vs collision-free subset)")
-    print(f"   {'subset':<30}" + "".join(f"{a:>18}" for a in arms))
-    for label, filt in [
-            ("overall", lambda r: True),
-            ("collision-free (raw)", lambda r: not r["completion"]["raw_contains_action_anchor"])]:
+    print(f"\n   {'policy_target_source':<30}" + "".join(f"{a:>18}" for a in arms))
+    for src in ("policy_segment", "full_text_fallback", "none"):
         cells = ""
         for a in arms:
-            rows = [r for r in _dedup(doc["rows"][a]) if filt(r)]
+            rows = _dedup(doc["rows"][a])
+            v = 100.0 * sum(1 for r in rows
+                            if r["policy"]["policy_target_source"] == src) / len(rows)
+            cells += f"{v:>17.1f}%"
+        print(f"   {'  ' + src:<30}{cells}")
+
+    print("\n── ACTION FOLLOWS POLICY  [HEURISTIC] — parse rate reported with each")
+    print("   row, because a high rate over few easily-parsed rationales is not")
+    print("   a general result.")
+    print(f"   {'subset':<38}" + "".join(f"{a:>22}" for a in arms))
+    subsets = [
+        ("HEADLINE: policy_segment + clear stance",
+         lambda r: (r["policy"]["policy_target_source"] == "policy_segment"
+                    and r["policy"]["stance_is_clear"])),
+        ("  ... and collision-free (raw)",
+         lambda r: (r["policy"]["policy_target_source"] == "policy_segment"
+                    and r["policy"]["stance_is_clear"]
+                    and not r["completion"]["raw_contains_action_anchor"])),
+        ("SENSITIVITY: incl. full_text_fallback", lambda r: True),
+    ]
+    for label, filt in subsets:
+        cells = ""
+        for a in arms:
+            ded = _dedup(doc["rows"][a])
+            rows = [r for r in ded if filt(r)]
             vals = [r["policy"]["action_follows_policy"] for r in rows
                     if r.get("policy", {}).get("action_follows_policy") is not None]
             v = 100.0 * sum(vals) / len(vals) if vals else float("nan")
-            cells += f"{v:>17.1f}%"
-        print(f"   {label:<30}{cells}")
+            cells += f"{v:.1f}% (n={len(vals)}/{len(ded)})".rjust(22)
+        print(f"   {label:<38}{cells}")
 
     if any("choice" in r for r in doc["rows"][arms[0]]):
         print("\n── CHOICE DIAGNOSTICS  (interface-inclusive; see header)")
@@ -569,7 +661,10 @@ def report(doc):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model_dir")
+    # A HF repo id, matching run_bandit_reference.sh:119 -- VicundaModel passes
+    # it straight to from_pretrained, so the local HF cache resolves it. There
+    # is no filesystem model directory on the server.
+    ap.add_argument("--model_dir", default="meta-llama/Llama-3.1-8B-Instruct")
     ap.add_argument("--model", default="llama3")
     ap.add_argument("--size", default="8B")
     ap.add_argument("--arms", nargs="*", default=list(ALL_ARMS))
@@ -588,10 +683,11 @@ def main():
     assert bank["environment"]["name"] == env.name
 
     if args.dry_run:
+        # Tokenizer only, from the local cache: --dry_run must work on the
+        # analysis box with no GPU and no download.
         from transformers import AutoTokenizer
         tokenizer = AutoTokenizer.from_pretrained(
-            args.model_dir or "meta-llama/Llama-3.1-8B-Instruct",
-            local_files_only=not args.model_dir)
+            args.model_dir, local_files_only=True)
         vc = None
     else:
         from llms import VicundaModel
