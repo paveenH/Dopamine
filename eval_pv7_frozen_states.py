@@ -34,9 +34,15 @@ Every comparison is PAIRED on state_fingerprint.
 
 Usage
 -----
-    python3.10 eval_pv7_frozen_states.py --model_dir /path/to/llama3-8b \\
-        --out pv7_frozen_eval.json                    # all three arms
-    python3.10 eval_pv7_frozen_states.py --dry_run    # prompts only, no GPU
+On the SERVER (interpreter is `python`; `python3.10` does not exist there and
+exits 127 before anything runs). --model_dir is a HF repo id, not a filesystem
+path -- same value as run_bandit_reference.sh:119:
+
+    python eval_pv7_frozen_states.py --out pv7_frozen_eval.json
+
+On the LOCAL analysis box (no GPU; tokenizer read from the HF cache):
+
+    python3.10 eval_pv7_frozen_states.py --dry_run     # prompts + validity only
     python3.10 eval_pv7_frozen_states.py --report pv7_frozen_eval.json
 """
 from __future__ import annotations
