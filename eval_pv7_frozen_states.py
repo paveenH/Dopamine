@@ -191,10 +191,25 @@ _NUM_PAIR = re.compile(r"(\d+)\s*(?:reward|success)\w*\s*(?:/|out of|from)\s*(\d
 _RATE = re.compile(r"(?:rate|probability)\D{0,12}?([01]?\.\d+)", re.I)
 # Bare observation claims: "1 reward", "gave a reward", "3 trials", "observed
 # rewards". Used ONLY for the Round-1 test, where any such claim is false.
+#
+# A leading ZERO is exempt: at Round 1 "0 trials" / "no rewards observed" is a
+# CORRECT statement of the state, not a fabrication. Without this exemption the
+# detector fired on 20/20 P2 Round-1 rationales whose opening words were the
+# literal truth ("0 trials; Policy: Explore all buttons"), reporting a 100%
+# hallucination rate for accurate text.
 _BARE_OBSERVATION = re.compile(
-    r"\b\d+\s*(?:reward|success|trial|pull)\w*|"
+    r"\b(?!0\b)\d+\s*(?:reward|success|trial|pull)\w*|"
     r"\b(?:gave|yielded|returned|produced|observed|has|have|had)\b[^.;]{0,30}?"
     r"\b(?:reward|success)\w*", re.I)
+# Negated/zero observation phrasings that are TRUE at Round 1.
+_NO_OBSERVATION = re.compile(
+    r"\b(?:no|zero|none|not|never|n't|without|any)\b[^.;]{0,30}?"
+    r"\b(?:reward|success|trial|pull|data|information|observ\w*)", re.I)
+# A TRIED arm described as untried/unknown/no-data. Both orders of mention.
+_TRIED_CALLED_UNTRIED = re.compile(
+    r"button\s*([A-E])\b[^.;]{0,60}?\b(untried|unknown|not been tried|"
+    r"no data|never been)\b|"
+    r"\b(untried|unknown|no data)\b[^.;]{0,40}?button\s*([A-E])\b", re.I)
 _SUPPORT_CLAIM = re.compile(
     r"\b(strong|well[- ]support\w*|reliabl\w*|solid|robust|confident\w*|"
     r"clearly|proven|established)\b", re.I)
@@ -267,12 +282,27 @@ def grounding_flags(clean: str, snap: dict) -> dict:
         if arm in untried:
             untried_as_tried.append(arm)
 
+    # The REVERSE error, and the more common one: calling a TRIED arm untried.
+    # A low-sample arm (0/1) is not the same as an unknown arm, and conflating
+    # them is exactly what turns "few trials" into "keep exploring it". This is
+    # a factual misstatement of the OPTIONS table, so it counts as a grounding
+    # error rather than an epistemic overclaim.
+    tried_as_untried = []
+    for m in _TRIED_CALLED_UNTRIED.finditer(body):
+        letter = m.group(1) or m.group(4)
+        if not letter:
+            continue
+        arm = f"Button {letter.upper()}"
+        if arm in order and trials[arm] > 0:
+            tried_as_untried.append(arm)
+
     # A Round-1 fabrication is usually a BARE claim ("Button A with 1 reward"),
     # not a well-formed "N/M" pair, so requiring _NUM_PAIR here would miss the
     # observed case. Any reward/trial/rate assertion counts at Round 1, where by
     # construction nothing has been observed.
-    any_reward_claim = bool(claimed) or bool(claimed_rates) or bool(
-        _BARE_OBSERVATION.search(body))
+    bare_hits = [m.group(0) for m in _BARE_OBSERVATION.finditer(body)
+                 if not _NO_OBSERVATION.search(m.group(0))]
+    any_reward_claim = bool(claimed) or bool(claimed_rates) or bool(bare_hits)
 
     # DESCRIPTIVE ONLY -- never part of any_grounding_error. Calling a 1-2 trial
     # arm "strong/well-supported/reliable" is an epistemic overclaim, not a
@@ -289,8 +319,9 @@ def grounding_flags(clean: str, snap: dict) -> dict:
         "fabricated_count_pairs": fabricated_pairs,
         "fabricated_rates": fabricated_rates,
         "untried_described_as_tried": sorted(set(untried_as_tried)),
+        "tried_described_as_untried": sorted(set(tried_as_untried)),
         "any_grounding_error": bool(fabricated_pairs or fabricated_rates
-                                    or untried_as_tried),
+                                    or untried_as_tried or tried_as_untried),
         # Round 1: nothing has been observed, so ANY reward/rate claim is false.
         "round1_hallucinated_evidence": (snap["round_idx"] == 0
                                          and any_reward_claim),
@@ -320,12 +351,42 @@ def policy_flags(clean: str, chosen: str | None) -> dict:
     seg_named = ([f"Button {m.group(1).upper()}"
                   for m in _ARM_MENTION.finditer(body[m_pol.end():])]
                  if m_pol else [])
-    if seg_named:
-        target, source = seg_named[-1], "policy_segment"
+    # HEADLINE parser: the FIRST DECISION CLAUSE of the policy.
+    #
+    # Rules: locate `Policy:`, read only its first sentence/line, find the
+    # decision verb (EXPLORE/EXPLOIT/try/choose/...), and take the FIRST button
+    # after that verb. A button in the Evidence half, or in a later explanatory
+    # sentence, is NOT the policy target. If the first clause names no button,
+    # the target is None rather than a guess.
+    #
+    # Why not last-mention: 64-token truncation often ends mid-sentence on an
+    # unrelated arm, so "Policy: Explore Button D. Button C currently has the
+    # best estimate." resolved to C. Measured disagreement between first- and
+    # last-mention was 20/102 rows (P1) and 46/95 (P2).
+    first_clause = _first_decision_clause(body, m_pol)
+    clause_target = None
+    if first_clause:
+        m_verb = _DECISION_VERB.search(first_clause)
+        if m_verb:
+            m_arm = _ARM_MENTION.search(first_clause[m_verb.end():])
+            if m_arm:
+                clause_target = f"Button {m_arm.group(1).upper()}"
+
+    if clause_target is not None:
+        target, source = clause_target, "policy_first_clause"
+    elif m_pol is not None:
+        # Policy exists but its first clause named no button.
+        target, source = None, "policy_no_target"
     elif named:
         target, source = named[-1], "full_text_fallback"
     else:
         target, source = None, "none"
+
+    # SENSITIVITY only -- never the headline. Kept so the earlier numbers stay
+    # reproducible and so parser choice can be shown not to move P1 vs P2.
+    legacy_target, legacy_source = (
+        (seg_named[-1], "policy_segment") if seg_named
+        else (named[-1], "full_text_fallback") if named else (None, "none"))
     stance = ("explore" if explore and not exploit else
               "exploit" if exploit and not explore else
               "both" if explore and exploit else "unclear")
@@ -337,6 +398,12 @@ def policy_flags(clean: str, chosen: str | None) -> dict:
         "policy_target_source": source,
         "action_follows_policy": (None if target is None or chosen is None
                                   else target == chosen),
+        # sensitivity口径 (old last-mention-in-segment); not the headline
+        "policy_target_legacy": legacy_target,
+        "policy_target_source_legacy": legacy_source,
+        "action_follows_policy_legacy": (
+            None if legacy_target is None or chosen is None
+            else legacy_target == chosen),
     }
 
 
@@ -678,10 +745,37 @@ def main():
     ap.add_argument("--dry_run", action="store_true",
                     help="build/validate prompts only; no model, no GPU")
     ap.add_argument("--report", help="re-print tables from a stored result JSON")
+    ap.add_argument("--recompute", action="store_true",
+                    help="with --report: recompute the text-derived flags "
+                         "(completion/grounding/policy) from the stored "
+                         "rationales before printing. Needs no GPU -- these are "
+                         "pure functions of text. Use after fixing a detector; "
+                         "does NOT touch generations, scores, or costs.")
+    ap.add_argument("--write_back", action="store_true",
+                    help="with --recompute: overwrite the JSON in place")
     args = ap.parse_args()
 
     if args.report:
-        report(json.load(open(args.report)))
+        doc = json.load(open(args.report))
+        if args.recompute:
+            bank = {s["state_id"]: s
+                    for s in json.load(open(BANK))["states"]}
+            for arm, rows in doc["rows"].items():
+                for r in rows:
+                    snap = bank[r["state_id"]]
+                    raw, clean = r["rationale_raw"], r["rationale_clean"]
+                    r["completion"] = completion_flags(
+                        arm, raw, clean, r["cost"]["stage1_gen_tokens"])
+                    r["grounding_raw"] = grounding_flags(raw, snap)
+                    r["grounding"] = grounding_flags(clean, snap)
+                    if "choice" in r:
+                        r["policy"] = policy_flags(
+                            clean, r["choice"]["chosen_label"])
+            doc["recomputed"] = True
+            if args.write_back:
+                json.dump(doc, open(args.report, "w"), indent=1)
+                print(f"wrote recomputed flags back to {args.report}\n")
+        report(doc)
         return
 
     bank = json.load(open(BANK))
