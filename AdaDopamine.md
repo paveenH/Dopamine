@@ -327,7 +327,7 @@ Hard 的軌跡分解使這個機制差異尤其清楚：
 
 這個 2×2 是接口對照，不是 coverage 的單因素因果實驗。較嚴謹的結論是：**在 chat 條件下，observed coverage deficit 消失，但 competence 仍未成立，並出現更強的 persistence / convergence deficit**；不能寫成「單獨移除 coverage 後證明了另一個 causal bottleneck」。
 
-### 3.2.5 B1 α main experiment：Easy-bare both-stage（初步結果）
+### 3.2.5 B1 α main experiment：Easy-bare both-stage
 
 Easy-bare 是唯一 competence anchor，因此主實驗固定為 `α∈{−4,0,+4}`、N=20 paired seeds、T=100、temperature=0；α=0 直接復用 Track A（兩 scope 在 α=0 都不註冊 hook，故可復用）。兩個非零條件使用 `steering_scope=both`，並以真實 hook-site counter 驗證每個 Easy episode 的非零注入位置：rationale `100 rounds × 9 layers = 900`，action `100 rounds × 4 candidates × 9 layers = 3600`（`utils.decoder_layer_range` 為半開區間，`11-20` band 實際 steer 9 層；Hard K=5 對應 action `4500`）。
 
