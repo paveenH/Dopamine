@@ -160,7 +160,12 @@ def build_state_bank(source: Path) -> dict:
             "Pair prompt/intervention conditions within the exact snapshot and "
             "report the six state types separately. Event definitions can land "
             "on the same history prefix, so do not pool 120 slots as 120 "
-            "independent states."),
+            "independent states. TWO DIFFERENT UNITS: (a) the six per-type "
+            "tables each use their own 20 slots -- keep all 120 there, because "
+            "one history answers a different diagnostic question under each "
+            "type; (b) any POOLED/overall statistic must deduplicate on "
+            "'state_fingerprint' (the dedup key: a bijection with "
+            "(seed, history, arm_order)) and reports n=107, not 120."),
         "source": {
             "file": source.name,
             "sha256": _sha256(source),

@@ -17,6 +17,7 @@ single ``' A'`` token and silently destroys the intervention.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 
 import bandit_reference as br
