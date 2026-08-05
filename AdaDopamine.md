@@ -271,11 +271,7 @@ Qwen 在 +4 見頂後出現兩種不同失效：+6 的下注退化為常數，+8
 | MMLU 效應量（+4） | δ=**+0.585**，63% 題改變下注 | δ=+0.093，10% 題改變下注 |
 | MMLU 基線可動空間 | 橫跨 bet2/5/10（26.8/68.3/4.7%） | **壓在 bet5（97.9%）** → 幅度受基線天花板限制，非 wanting 弱 |
 
-## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task)
-
-> **狀態（2026-08-04）：pv6 clean-slate protocol。** 2026-07-28 以前的 Bandit 結果因 best-arm position leakage 與 permissive parser 已全部作廢；舊的 `T=50`、分級 reward vector、temperature=1、自由生成後字串解析，以及「+2 峰／倒 U」均不再作為證據。本節只報告 pv6 的 `α=0` capability boundary；Easy-bare 的 `α∈{−4,+4}` two-stage steering 正在運行，尚未填入任何 α 效果。
-
-**研究問題。** 新實驗不預設「找到一個 prompt 後 Llama3-8B 就能完成 Bandit」，而是先測出 native capability boundary，再問 RSN α 改變的是 discovery、exploration stopping、post-discovery utilization、policy persistence，還是只讓行為在 greedy lock 與 uniform flailing 之間移動。Bandit 在此是 information-seeking policy 的行為 probe；任何 dopamine / wanting 類比都必須建立在可解釋的有效 policy 之上，不能只由 OptFrac 命名。
+## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task, 2026-08-04)
 
 ### 3.2.1 pv6 protocol
 
@@ -324,18 +320,76 @@ chat 在兩個環境都增加完整探索：Easy 的 arms discovered 從 `3.60�
 
 Hard 的軌跡分解使這個機制差異尤其清楚：
 
-- **Hard-bare 的 9 個 suffix failures：**7 個 run 從未拉過真最優臂；另外 2 個曾發現，但在後 50 rounds 放棄。
-- **Hard-chat 的 9 個 suffix failures：**0 個 best-never-tried；20/20 都在前 50 rounds 發現真最優臂，但其中 9 個之後放棄，最後一次拉真最優臂均不晚於 round 35。
+- Hard-bare 的 9 個 suffix failures：7 個 run 從未拉過真最優臂；另外 2 個曾發現，但在後 50 rounds 放棄。
+- Hard-chat 的 9 個 suffix failures：0 個 best-never-tried；20/20 都在前 50 rounds 發現真最優臂，但其中 9 個之後放棄，最後一次拉真最優臂均不晚於 round 35。
 
 所以相同的 `SuffFail=.450` 並不代表相同失敗機制：bare 主要是 discovery / coverage failure，chat 則是發現後的 persistence / convergence failure。這也界定了 rule 1 的解釋範圍：它只識別「後綴沒有最優臂」，不能單獨區分「從未發現」與「發現後放棄」，必須與 discovery timing、arms discovered 和 adherence 一起閱讀。
 
 這個 2×2 是接口對照，不是 coverage 的單因素因果實驗。較嚴謹的結論是：**在 chat 條件下，observed coverage deficit 消失，但 competence 仍未成立，並出現更強的 persistence / convergence deficit**；不能寫成「單獨移除 coverage 後證明了另一個 causal bottleneck」。
 
-### 3.2.5 下一步：B1 α main experiment（進行中）
+### 3.2.5 B1 α main experiment：Easy-bare both-stage（初步結果）
 
-Easy-bare 是唯一 competence anchor，因此主實驗固定為 `α∈{−4,0,+4}`、N=20 paired seeds、T=100、temperature=0；α=0 直接復用 Track A，現正運行新增的 `−4/+4`。兩個非零條件使用 both-stage steering，並以真實 hook-site counter 驗證每個 Easy episode 的非零注入位置：rationale `100 rounds × 9 layers = 900`，action `100 rounds × 4 candidates × 9 layers = 3600`（`utils.decoder_layer_range` 為半開區間，`11-20` band 實際 steer 9 層；Hard K=5 對應 action `4500`）。B1 smoke 實測即為 `900 / 3600`。
+Easy-bare 是唯一 competence anchor，因此主實驗固定為 `α∈{−4,0,+4}`、N=20 paired seeds、T=100、temperature=0；α=0 直接復用 Track A（兩 scope 在 α=0 都不註冊 hook，故可復用）。兩個非零條件使用 `steering_scope=both`，並以真實 hook-site counter 驗證每個 Easy episode 的非零注入位置：rationale `100 rounds × 9 layers = 900`，action `100 rounds × 4 candidates × 9 layers = 3600`（`utils.decoder_layer_range` 為半開區間，`11-20` band 實際 steer 9 層；Hard K=5 對應 action `4500`）。
 
-B1 結果尚未產生，因此本節目前不宣稱 α 改善、削弱或救回 Bandit capability。結果落地後依序檢查 discovery、non-novel churn、exploration stopping、adherence / persistence，最後才讀 OptFrac / regret；只有整組指標一致向 competent policy 移動，才可寫成 capability modulation。Hard 若後續跑 α，仍只能描述 failure mode 是否移動，不能使用 capability rescue / improvement 的措辭；chat 不跑 α sweep。
+**注入驗收（先於任何行為判讀）。** 40 個 run 全部讀到 `900 / 3600`，`steering_scope=both`、`steering_scope_version=sv1`、`steered_rationale=True`、`iface` 含 `scbothsv1`，`invalid_rate=0.0`，rationale 無空值，三個 cell 的 seed 完全相同（20/20 配對）。
+**資料來源：** `~/Documents/RSNResult/RoleAnswer/llama3/bandit/pv6/{pv6_easy_bare,pv6_easy_bare_both_am4,pv6_easy_bare_both_ap4}`。
+
+#### Bandit 行為表現（配對 Wilcoxon vs α=0，N=20）
+
+| 指標 | α=−4 | **α=0** | α=+4 | p(−4) | p(+4) | 理想方向 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 平均發現臂數 | **4.00 / 4** | 3.60 / 4 | 3.95 / 4 | .046 | .066 | 需結合後續利用解讀 |
+| 最優臂從未嘗試 | 0 / 20 | 0 / 20 | 0 / 20 | — | — | 越低越好 |
+| First-best round index | 1.60 | 3.90 | 2.40 | 1.00 | .47 | 越早通常越好 |
+| Non-novel churn rate | .061 | **.059** | .159 | .62 | **.0014** | 越低越穩定 |
+| Switch rate | .091 | **.085** | .189 | .82 | **.0013** | 探索完成後越低越好 |
+| 經驗最優 adherence | .901 | **.905** | .672 | .90 | **.0064** | 越高越好 |
+| GreedyFrac | .867 | **.886** | .661 | .67 | **.0021** | 越高越坚持經驗最優 |
+| K×MinFrac(T) | .056 | **.046** | .068 | .47 | .14 | 過高接近 uniform flailing |
+| SuffFail | .200 | **.150** | .250 | — | — | 越低越好 |
+| OptFrac | .657 | **.704** | .573 | .79 | **.011** | 越高越好 |
+| Late OptFrac | .694 | **.739** | .579 | .77 | **.0083** | 越高越好 |
+| Cumulative regret | 17.2 | **14.8** | 21.4 | .79 | **.011** | 越低越好 |
+
+`SuffFail` 不報 p：兩個 cell 各只有 2–5 個 seed 有差異，Wilcoxon 退化（回傳 nan），`.150→.250` 在 N=20 下僅為 2 個 run 之差。`First-best index` 的 `3.90→1.60` 亦不可讀為「−α 更快發現最優臂」——僅 3/20 seed 有差異、p=1.00，均值被個別極端 run 拉動。
+
+#### 文本生成特徵（事後統計，非預註冊指標）
+
+pooled over 20 seeds × 100 rounds = 2000 條 rationale。
+
+| 指標 | α=−4 | α=0 | α=+4 | 含義 |
+| --- | ---: | ---: | ---: | --- |
+| 保持 `Step 1 / Step 2` 結構 | **100%** | 91.7% | 2.4% | rationale 結構穩定性 |
+| 提到 uncertainty | 4.7% | 10.9% | **50.9%** | 對不確定性的強調程度 |
+| 提到 exploration | 2.9% | 5.0% | **33.9%** | 主動討論繼續探索的頻率 |
+| 生成 Python / code | 0% | 0.35% | **4.65%** | 偏離當前決策任務 |
+| 與 α=0 同 round 完全相同文本 | 11.9% | — | 0.55% | steering 對生成模式的改變程度 |
+| Mean choice margin | **1.821** | 1.450 | 0.948 | 最佳與次佳候選的 log-prob 差距 |
+
+Choice margin 為配對顯著：−4 `+0.371 (p=.0073)`、+4 `−0.503 (p=.036)`。margin 越大代表候選偏好越分明，但**不等於策略更正確**——它是候選分布的銳度，不是選對與否。
+
+#### 判讀
+
+**+4 顯著削弱了一個已確立的 competent policy，且落點明確在 persistence 而非 discovery。** discovery 側完全沒動（`best_never_tried` 三個 cell 皆 0/20，`arms_discovered` 3.60→3.95 僅 p=.066）；顯著且互相印證的是 non-novel churn `.059→.159`、switch rate `.085→.189`、adherence `.905→.672`、GreedyFrac `.886→.661`，隨後才是 OptFrac 與 regret 惡化。亦即 +4 不是「探索更多」，而是**在已發現最優臂之後不再堅持利用它**。這與 chat 接口造成的破壞落在同一位置（chat 亦為 adherence `.905→.559`、churn `.059→.243`），但成因不同：chat 是接口改變，這裡是同一接口下的 activation steering。
+
+**−4 在行為層全線 null。** 除 `arms_discovered +0.40 (p=.046，僅 4/20 seed 有差異，8 個指標未作多重校正)` 外，`churn / adherence / GreedyFrac / OptFrac / regret` 的 p 全落在 .62–.90。但**文本層不是 null**：−4 的 `Step 1/Step 2` 結構達 100%、margin 顯著上升、與 α=0 相同文本僅 11.9%，代表 steering 確實改變了生成，只是未轉化為任務收益。
+
+**因此 B1 的效果是單側的**：+α 破壞 persistence，−α 改變文本結構與候選銳度但不改變行為表現。此處**沒有倒 U，只有右臂**——與 GSM8K 的 −6 峰、IGT 的 +2 倒 U 皆不同。
+
+#### 解釋邊界
+
+- 依預註冊判準，capability modulation 需要「整組指標一致向 competent policy 移動」；此處為**反向**移動且僅單側，故正確表述是 **「+α degrades an established competent policy via persistence loss」**，不可寫成 α modulates Bandit capability。
+- 文本比例為事後關鍵詞 / 格式統計，**與行為表格分開陳列**，不可合成單一分數，也不可由文本層的 exploration 措辭上升推論實際有效探索——行為層顯示的是 churn 上升與利用能力下降。
+- 一個尚未區分的替代解釋：+4 可能只是**壓平 candidate 分布**（margin `1.450→0.948`、K×MinFrac 同向上升），而非產生有結構的選擇改變。這在 K=4 的 Easy 上外觀近似「探索變多」，但在 K=5 的 Hard 上預期會使本已脆弱的 discovery 更難收斂。因此**不可假設 action +4 會提高 Hard 表現**。
+
+#### 下一步
+
+1. **Easy-bare action-only ±4**（`steering_scope=action`，Stage 1 不注入）：分離「α 改變 rationale 文本」與「α 直接改變 arm logits」兩條路徑。注意兩 stage 成本極不對稱——Stage 1 為 64 token 自迴歸生成，Stage 2 為 K 候選的一次 batched forward，故 action-only 的耗時與 both-stage 幾乎相同（差異應在 1% 量級），不會減半。
+2. **若要檢驗「rationale −4 + action +4」的階段分工控制器**，最小設計是 `{0,−4}×{0,+4}` 的 2×2，計算 `Δ_interaction = Y(−4,+4) − Y(−4,0) − Y(0,+4) + Y(0,0)`。**現有 `both(−4)` 不可充當 `(−4, 0)` 一格**（它是 rationale=−4 ∧ action=−4），rationale-only 與 mixed 兩格必須新跑；且當前程式僅支援單一 α 的 `both` 與 `action`，需新增獨立的 `rationale_alpha` / `action_alpha` 參數。
+3. **Hard 暫不跑整個 α 矩陣**：先在 Easy 凍結一個 controller 再移植。進入 Hard 的條件是軌跡形狀而非收益顯著——需同時滿足 early novel discovery 不下降、non-novel churn 不增加、late adherence / GreedyFrac 不下降、Late OptFrac 或 regret 不劣於 α=0。Easy 的最優臂本就 20/20 皆能發現，單純把覆蓋率由 3.60 提到 4.00 沒有實質價值，不可作為成功判據。
+4. Hard 若後續跑 α，仍只能描述 failure mode 是否移動，不得使用 capability rescue / improvement 的措辭；chat 不跑 α sweep。
+
+> **關鍵解釋邊界：**「rationale −4、action +4」若成功，說明 RSN 可組合成有效的**階段分工控制器**，這**不等於**「單一 α 具有類多巴胺性質」——因為同一 episode 內同時使用了兩個相反方向。該假設應獨立於 §3.2 的 α dose-response 主線陳述。
 
 ## 3.3 Gamble Task
 
