@@ -1,13 +1,200 @@
 
 ## TODO
 0. 用Qwen2.5-7B复现
-1. B1 主实验：Easy action-only ±4
-Hard-bare α=-4/+4
+1. B1 主实验核查：prompt -> 两阶生成讨论 -> steering作用点 -> 回答情况 
 1. B2 stress test：Hard-bare 跑 α=−4、+4，用于判断 α 是否改变 coverage/lock-in；不预设 rescue。
 1. 得到三点结果后再决定是否做更宽 α sweep 或 C2 uncertainty scaffold。
 2. HumanLLM
 3. Behaviour: 测一下和人类的行为学对齐关系
 
+---
+我同意重新梳理，而且我认为不能只看你列的四段，还要补上两个关键环节：
+
+```text
+环境与状态构造
+    ↓
+Stage 1 prompt → rationale 生成
+    ↓ 仅通过文本传递
+Stage 2 prompt → candidate scores → argmax choice
+    ↓
+reward → 下一轮状态
+    ↓
+跨轮 discovery / persistence / outcome
+```
+
+
+### 1. Prompt 与状态是否表达了我们真正想测的任务
+
+先展示同一个 seed 的 Round 1、首次 reward 后、Round 50、Round 100：
+
+- Stage 1 完整 prompt；
+- raw / sanitized rationale；
+- Stage 2 完整 prompt；
+- 四个 candidate suffix；
+- 实际注入 token。
+
+重点检查：
+
+- successes、trials、empirical rate 是否完全正确；
+- 未尝试臂是否明确作为 unknown，而不是被理解成 0；
+- 剩余轮数有没有 off-by-one；
+- arm identity 和 display position 是否保持 run 内固定；
+- Stage 2 中重复出现的 `Do not state a final choice yet` 是否影响候选打分；
+- rationale 是否被 sanitizer 整行删除或截断；
+- Stage 1 最后一个注入 token 到底是什么。当前只严格审核了 action 的 `Button` 尾 token，rationale 注入点也应显式记录。
+
+这是第一步，后面所有解释都建立在这里。
+
+### 2. Stage 1 到底生成了什么“决策”
+
+不能只统计 `exploration`、`uncertainty` 等关键词，应对 rationale 做结构化编码：
+
+| 文本维度 | 要回答的问题 |
+|---|---|
+| Evidence reading | 是否正确读取次数、reward 和 empirical rate？ |
+| Arithmetic faithfulness | 有没有引用错误数字或错误排序？ |
+| Intended policy | 文本是在建议 explore、exploit、stay、switch，还是没有明确策略？ |
+| Intended arm | 是否隐含或明确指向某条臂？ |
+| Uncertainty | 不确定性来自未试臂、样本少，还是泛泛而谈？ |
+| Horizon sensitivity | 前期和后期的策略语言是否改变？ |
+| Action agreement | 最终选择是否执行了 rationale 中的判断？ |
+
+最好先盲化 α 标签，对分层抽取的文本进行人工核对，再考虑自动分类，避免为现有结果定制关键词。
+
+### 3. Rationale 是否真的影响 Stage 2
+
+这是目前最大的未回答问题。
+
+需要比较同一状态下：
+
+- 正常 rationale；
+- 空 rationale；
+- 来自同状态、不同 α 的 rationale；
+- 保持 action steering 不变，只替换 rationale；
+- 保持 rationale 不变，只改变 action steering。
+
+然后看 candidate score 和 argmax 是否变化。
+
+如果替换 rationale 几乎不改变分数，那么 Stage 1 只是“看起来在思考”，实际选择主要由 Stage 2 prompt/state 决定。反之才能说文本推理是中介机制。
+
+### 4. 固定状态下重新做阶段分解
+
+当前完整 episode 很快分叉，后续差异混合了：
+
+- 当轮 steering；
+- 不同选择；
+- 不同 reward；
+- 不同下一轮统计；
+- 不同 rationale。
+
+因此需要像 GSM8K 的 matched-state 一样，建立 frozen-state replay。对完全相同的状态做：
+
+```text
+rationale α ∈ {−4, 0, +4}
+action α    ∈ {−4, 0, +4}
+```
+
+不一定马上跑全部 2000 个状态，可以预先冻结：
+
+- 每个 seed 的 rounds 1、5、10、25、50、75、100；
+- 未发现最优臂；
+- 刚发现最优臂；
+- 经验最优发生变化；
+- 连续失败后。
+
+这会直接回答：
+
+- α 改变了 rationale 什么内容；
+- 相同 rationale 下，action logits 怎么变；
+- 两阶段是否存在 interaction；
+- 当前镜像失败是直接作用，还是轨迹反馈放大的结果。
+
+这比继续盲目跑完整 episode 更重要。
+
+### 5. Candidate score 不能只看 entropy 和 margin
+
+建议把每条臂的 score 分解为几个可解释成分：
+
+\[
+Score(a,t)
+\sim
+\beta_v \cdot empirical\_rate
++\beta_u \cdot uncertainty
++\beta_n \cdot untried
++\beta_p \cdot previous\_choice
++\text{label FE}
+\]
+
+然后看 α 改变哪个系数：
+
+- `β_untried`：是否真的改变 information seeking；
+- `β_value`：是否改变 reward/value sensitivity；
+- `β_previous_choice`：是否改变 persistence；
+- label fixed effect：是否只是偏好 Button A/B/C/D；
+- round interaction：是否改变 exploration stopping。
+
+尤其要排除固定 label bias。`action +4` 的低覆盖有可能不是“更贪心”，而是某个 Button label 被统一推高，从而形成错误锁定。
+
+### 6. 查看 reward 后的即时反应
+
+Bandit 最适合检查与多巴胺相关的动态行为，但当前结果主要是累计指标。还应分析：
+
+- win-stay；
+- lose-shift；
+- 首次成功后的坚持时间；
+- 连续失败几次后换臂；
+- 经验最优改变后多久跟随；
+- 已发现最优臂后再次离开的概率；
+- 前 20、21–50、51–100 rounds 的变化。
+
+这能区分：
+
+- reward sensitivity；
+- policy persistence；
+- indiscriminate switching；
+- uncertainty-driven exploration；
+- 对负反馈过度敏感。
+
+如果 RSN 真有类多巴胺意义，这些轨迹指标可能比最终 OptFrac 更有理论价值。
+
+### 7. Steering 本身还要做 manipulation check
+
+`steering_fires` 证明“非零向量确实加进去了”，但没有回答：
+
+- α 相对于原 hidden-state norm 有多大；
+- Stage 1 的影响在第几个生成 token 后衰减；
+- 第一处文本分叉通常发生在哪个 token；
+- `+α/−α` 是否沿预期 RSN 方向移动投影；
+- 不同层贡献是否一致；
+- action score 改变是对所有候选统一平移，还是改变候选间相对排序。
+
+这里可以像 GSM8K 一样画 token-level RSN projection，但我建议放在文本与固定状态检查之后。
+
+### 8. 理论解释应预先列出竞争假设
+
+不要只寻找一个能解释结果的“多巴胺理论”。至少同时保留：
+
+1. 动机/信息寻求调节；
+2. precision 或 gain 调节；
+3. response persistence / inertia；
+4. reward sensitivity；
+5. 固定 label/logit bias；
+6. 一般扰动或 task-interface interaction。
+
+每个理论提前写出可区分预测。例如：
+
+- information seeking：应提高 untried bonus，而不是 non-novel churn；
+- persistence：主要改变 previous-choice coefficient；
+- reward sensitivity：主要改变 win-stay/lose-shift；
+- label bias：跨状态持续偏向同一 Button；
+- 一般扰动：entropy 变化但与状态变量没有结构关系。
+
+这样最后找到的理论才不是事后包装。
+
+我建议我们下一步只做第 1 项：选定一个 α=0 Easy-bare seed，完整展示 4 个代表性 rounds 的 Stage 1 prompt、rationale、Stage 2 prompt、candidate score 和 choice，同时核对两个注入 token。确认 prompt 因果链没有隐藏问题后，再进入文本编码。
+
+另外我在代码里看到一个无行为影响的小重复：`score_candidates()` 连续执行了两次相同的 `best = max(scores, key=scores.get)`。它不会改变结果，可以之后整理，不影响当前审计。
+---
 行文可以参考
 nc2026.Hippocampo-neocortical interaction as compressive retrieval-augmented generation
 ---
