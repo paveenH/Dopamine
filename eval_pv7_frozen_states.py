@@ -187,6 +187,29 @@ _POLICY = re.compile(r"policy\s*[:：]", re.I)
 _EXPLORE = re.compile(r"\bexplor\w*", re.I)
 _EXPLOIT = re.compile(r"\bexploit\w*", re.I)
 _ARM_MENTION = re.compile(r"button\s*([A-E])\b", re.I)
+_DECISION_VERB = re.compile(
+    r"\b(explor\w*|exploit\w*|try|tries|choose|choos\w*|select\w*|pick\w*|"
+    r"stick\s+with|continue\s+with|keep\s+with|switch\s+to|go\s+with)\b", re.I)
+# Prompt-continuation markers: the model writing the NEXT round's prompt
+# instead of reasoning. Not a grounding error -- a termination failure.
+_PROMPT_CONTINUATION = re.compile(
+    r"Round\s+\d+\s+of\s+\d+|Future\s+choices\s+after\s+this\s+one", re.I)
+_OPTIONS_BLOCK = re.compile(r"^\s*OPTIONS\s*$|\bOPTIONS\b\s*\n\s*-", re.I | re.M)
+
+
+def _first_decision_clause(body: str, m_pol) -> str:
+    """First sentence/line after `Policy:` -- the decision clause.
+
+    Bounded by whichever comes first: end of line, or sentence-final
+    punctuation. Everything after that is explanation, and buttons named there
+    are not the policy target.
+    """
+    if m_pol is None:
+        return ""
+    seg = body[m_pol.end():].lstrip()
+    line = seg.split("\n", 1)[0]
+    m_end = re.search(r"[.!?](?:\s|$)", line)
+    return line[:m_end.end()] if m_end else line
 _NUM_PAIR = re.compile(r"(\d+)\s*(?:reward|success)\w*\s*(?:/|out of|from)\s*(\d+)", re.I)
 _RATE = re.compile(r"(?:rate|probability)\D{0,12}?([01]?\.\d+)", re.I)
 # Bare observation claims: "1 reward", "gave a reward", "3 trials", "observed
@@ -243,6 +266,15 @@ def completion_flags(arm: str, raw: str, clean: str, n_gen_tokens: int) -> dict:
         "ends_on_sentence_punct": bool(body) and body[-1] in ".!?",
         "hit_token_cap": n_gen_tokens >= MAX_NEW_TOKENS,
         "n_gen_tokens": n_gen_tokens,
+        # TERMINATION failure, not a grounding error: after finishing the
+        # Policy line the model keeps going and writes the NEXT round's prompt
+        # (`Round 2 of 100`, an `OPTIONS` block). Measured on RAW, because a
+        # clean-only view would hide the generation tendency. P1b's whole
+        # purpose is to drive the CLEAN version of these to zero.
+        "raw_continues_next_round": bool(_PROMPT_CONTINUATION.search(raw)),
+        "raw_contains_options": bool(_OPTIONS_BLOCK.search(raw)),
+        "clean_continues_next_round": bool(_PROMPT_CONTINUATION.search(clean)),
+        "clean_contains_options": bool(_OPTIONS_BLOCK.search(clean)),
     }
     return out
 
@@ -635,7 +667,8 @@ def report(doc):
                         for a in arms)
         print(f"   {label:<30}{cells}")
     print(f"\n   {'policy_target_source':<30}" + "".join(f"{a:>18}" for a in arms))
-    for src in ("policy_segment", "full_text_fallback", "none"):
+    for src in ("policy_first_clause", "policy_no_target",
+                "full_text_fallback", "none"):
         cells = ""
         for a in arms:
             rows = _dedup(doc["rows"][a])
@@ -649,11 +682,11 @@ def report(doc):
     print("   a general result.")
     print(f"   {'subset':<38}" + "".join(f"{a:>22}" for a in arms))
     subsets = [
-        ("HEADLINE: policy_segment + clear stance",
-         lambda r: (r["policy"]["policy_target_source"] == "policy_segment"
+        ("HEADLINE: first-clause target + clear stance",
+         lambda r: (r["policy"]["policy_target_source"] == "policy_first_clause"
                     and r["policy"]["stance_is_clear"])),
         ("  ... and collision-free (raw)",
-         lambda r: (r["policy"]["policy_target_source"] == "policy_segment"
+         lambda r: (r["policy"]["policy_target_source"] == "policy_first_clause"
                     and r["policy"]["stance_is_clear"]
                     and not r["completion"]["raw_contains_action_anchor"])),
         ("SENSITIVITY: incl. full_text_fallback", lambda r: True),
