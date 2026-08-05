@@ -242,7 +242,7 @@ and remaining rounds in at most two sentences. Do not state a final choice yet.
   4. 对剩余文本只做首尾空白清理，不做任何语义改写、重排或摘要；
   5. 保存为 `rationale_clean`；
   6. 最后固定追加 `\nChoice: Button`，并对最终 prefill token 做审核（应为 `Button` 后的空格或等价 token，而非 chat control token）；
-  7. α 只在此 action pass 注入。
+  7. α 在此 action pass 的最后一个 prefill token 注入。**（2026-08-05 更新）** 此处描述的是 `--steering_scope action`，它现已降为**机制 ablation**；B1 主实验使用 `--steering_scope both`，即 rationale pass 与 action pass **各自**在自己的最后一个 prefill token 注入一次（decode 均不注入）。两种 scope 在 α=0 时都不注册 hook，故 Track A 的 α=0 cell 对两者通用。详见 `AdaDopamine.md` §3.2.5。
 - action 候选必须经过 tokenizer audit：优先保证共同前缀后的候选 suffix 均为单 token；若无法保证，则对每个完整候选字符串计算 sequence log-probability，并记录 tokenization，不得只比较首 token。
 - 最终 choice 在结构上必为合法臂，`invalid_rate=0`；不再经过自由文本 parser，也不使用 random fallback 改写 trajectory。
 - 每轮保存全部 candidate log-scores、top-1/top-2 margin、选中臂、rationale 与两阶段 prompt attestation，便于区分接近决策边界与稳定 policy。
@@ -433,7 +433,7 @@ Uncertainty scaffold 可使用：
 ### 3.10 最终执行顺序
 
 1. 实现并验证 reference environment、two-stage candidate scoring、counterbalanced seed banks、per-arm reward tapes 和新 schema。
-2. 用 N=3 smoke 分别验证 reference-chat/reference-bare 的 prompt attestation、candidate tokenization、合法 choice 与 α 只注入 action pass；不依据效果选择接口。
+2. 用 N=3 smoke 分别验证 reference-chat/reference-bare 的 prompt attestation、candidate tokenization、合法 choice 与 α 的注入位置（`action` 或 `both`，由 `--steering_scope` 决定，以 `steering_fires` site counter 实测核对）；不依据效果选择接口。
 3. 跑 α=0 Reference-Easy 与 Reference-Hard：chat/bare 分别报告，competence gate 只判 reference-bare。
 4. 在通过 gate 的最难 reference-bare condition 上跑 B1 `−4/0/+4`；reference-bare Reference-Hard 作为 B2 boundary stress test，若与 B1 重合则不重复。
 5. 用预注册 competence gate、`SuffFailFreq × K×MinFrac` 与 discovery / utilization / stability 指标判断 α 是 improvement、rescue、无效还是 lock-to-flail tradeoff。
