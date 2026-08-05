@@ -343,7 +343,7 @@ Easy-bare 是唯一 competence anchor，因此主實驗固定為 `α∈{−4,0,+
 | First-best round index | 1.60 | 3.90 | 2.40 | 1.00 | .47 | 越早通常越好 |
 | Non-novel churn rate | .061 | **.059** | .159 | .62 | **.0014** | 越低越穩定 |
 | Switch rate | .091 | **.085** | .189 | .82 | **.0013** | 探索完成後越低越好 |
-| 經驗最優 adherence | .901 | **.905** | .672 | .90 | **.0064** | 越高越好 |
+| 經驗最優 adherence（late） | .904 | **.905** | .672 | .90 | **.0064** | 越高越好 |
 | GreedyFrac | .867 | **.886** | .661 | .67 | **.0021** | 越高越坚持經驗最優 |
 | K×MinFrac(T) | .056 | **.046** | .068 | .47 | .14 | 過高接近 uniform flailing |
 | SuffFail | .200 | **.150** | .250 | — | — | 越低越好 |
@@ -363,24 +363,66 @@ pooled over 20 seeds × 100 rounds = 2000 條 rationale。
 | 提到 uncertainty | 4.7% | 10.9% | **50.9%** | 對不確定性的強調程度 |
 | 提到 exploration | 2.9% | 5.0% | **33.9%** | 主動討論繼續探索的頻率 |
 | 生成 Python / code | 0% | 0.35% | **4.65%** | 偏離當前決策任務 |
-| 與 α=0 同 round 完全相同文本 | 11.9% | — | 0.55% | steering 對生成模式的改變程度 |
-| Mean choice margin | **1.821** | 1.450 | 0.948 | 最佳與次佳候選的 log-prob 差距 |
 
-Choice margin 為配對顯著：−4 `+0.371 (p=.0073)`、+4 `−0.503 (p=.036)`。margin 越大代表候選偏好越分明，但**不等於策略更正確**——它是候選分布的銳度，不是選對與否。
+**Matched-state 文本比對。** 「與 α=0 相同文本」必須在**相同 prefill history** 下比較——一旦軌跡分岔，輸入本身已不同，文本差異不可歸因於 steering。限定 `(choices, feedbacks)` 前綴完全相同的 round：−4 vs 0 有 315 個 matched-state rounds，其中 **52.4%** 文本完全相同；+4 vs 0 只有 132 個，其中 **1.5%** 相同。兩組 matched-state 數量不同（+4 分岔更早），故此項僅為描述性證據，不可作配對檢驗。
+
+#### Candidate distribution：+4 壓平、−4 銳化
+
+對每 round 的 K 個候選 sequence log-prob 取 softmax 後計算；entropy 與 top-1 均以 `log K` 正規化。
+
+| Candidate distribution | α=−4 | α=0 | α=+4 |
+| --- | ---: | ---: | ---: |
+| Top1−top2 margin | **1.821** | 1.450 | **0.948** |
+| Normalized entropy | **.498** | .612 | **.775** |
+| Normalized top-1 probability | **.755** | .676 | **.557** |
+
+配對 Wilcoxon vs α=0：
+
+- **+4**：margin `Δ=−.502`（bootstrap CI `[−.866, −.172]`，p=.036）、entropy `Δ=+.162`（p=.0027）、top-1 prob `Δ=−.119`（p=.0056）
+- **−4**：三項全部反向且顯著——margin `Δ=+.371`（p=.0073）、entropy `Δ=−.114`（p=.0010）、top-1 prob `Δ=+.080`（p=.0023）
+
+> **結論：both-stage +4 系統性壓平候選分布，−4 系統性銳化候選分布。** 但 rationale 與 action 兩個 pass 同時受 steering，因此這是**整條 policy chain 的分布變化，不能定位為 action hook 的獨立效果**——分離需要 §下一步 的 action-only 條件。
+
+margin 越大代表候選偏好越分明，但**不等於策略更正確**——它是候選分布的銳度，不是選對與否。
+
+#### Novel discovery vs non-novel churn 的數量分解
+
+| 每 episode | α=−4 | α=0 | α=+4 |
+| --- | ---: | ---: | ---: |
+| Novel arms discovered | 4.00 | 3.60 | 3.95 |
+| Non-novel churn 次數 | 6.00 | 5.80 | **15.75** |
+| Non-novel churn rate | .061 | .059 | **.159** |
+
++4 相對 α=0：novel discovery 僅增加 `0.35` 條臂（p=.066），non-novel churn 增加 `9.95` 次（p=.0015）。亦即 **約 96.6% 的額外 switch 是切換到已經嘗試過的臂**。這比「+4 不是探索更多」更精確：
+
+> +4 帶來少量 coverage 增加，但主要效應是 **non-novel churn，而非目標性 information seeking**。
+
+#### 損害發生在「發現最優臂之後」
+
+| 指標 | α=−4 | α=0 | α=+4 |
+| --- | ---: | ---: | ---: |
+| 首次發現最優臂後的 empirical-best adherence | .87 | .90 | **.67** |
+| Late adherence | .904 | .905 | **.672** |
+| Non-greedy rounds / run | 13.70 | 11.45 | **33.75** |
+| 其中發生在首次拉到真最優臂之後 | 12.25 | 10.10 | **32.30** |
+
++4 增加 `22.30` 個 non-greedy rounds（p=.0022），其中 `22.20` 個發生在首次拉到真最優臂**之後**（p=.0029）——約佔 **99.6%**。post-discovery adherence 亦顯著下降（`Δ=−.23`, p=.0017）。
+
+> **+4 的主要損害發生在最優臂已經被發現之後，而不是發現之前。**
 
 #### 判讀
 
-**+4 顯著削弱了一個已確立的 competent policy，且落點明確在 persistence 而非 discovery。** discovery 側完全沒動（`best_never_tried` 三個 cell 皆 0/20，`arms_discovered` 3.60→3.95 僅 p=.066）；顯著且互相印證的是 non-novel churn `.059→.159`、switch rate `.085→.189`、adherence `.905→.672`、GreedyFrac `.886→.661`，隨後才是 OptFrac 與 regret 惡化。亦即 +4 不是「探索更多」，而是**在已發現最優臂之後不再堅持利用它**。這與 chat 接口造成的破壞落在同一位置（chat 亦為 adherence `.905→.559`、churn `.059→.243`），但成因不同：chat 是接口改變，這裡是同一接口下的 activation steering。
+**+4 顯著削弱了一個已確立的 competent policy，且落點明確在 persistence 而非 discovery。** discovery 側完全沒動（`best_never_tried` 三個 cell 皆 0/20，`arms_discovered` 3.60→3.95 僅 p=.066）；顯著且互相印證的是 non-novel churn `.059→.159`、switch rate `.085→.189`、adherence `.905→.672`、GreedyFrac `.886→.661`，隨後才是 OptFrac 與 regret 惡化。上面的兩個分解把落點釘死：額外 switch 有 96.6% 指向已試過的臂，額外 non-greedy round 有 99.6% 發生在最優臂已被發現之後。亦即 +4 不是「探索更多」，而是**在已發現最優臂之後不再堅持利用它**。這與 chat 接口造成的破壞落在同一位置（chat 亦為 adherence `.905→.559`、churn `.059→.243`），但成因不同：chat 是接口改變，這裡是同一接口下的 activation steering。
 
-**−4 在行為層全線 null。** 除 `arms_discovered +0.40 (p=.046，僅 4/20 seed 有差異，8 個指標未作多重校正)` 外，`churn / adherence / GreedyFrac / OptFrac / regret` 的 p 全落在 .62–.90。但**文本層不是 null**：−4 的 `Step 1/Step 2` 結構達 100%、margin 顯著上升、與 α=0 相同文本僅 11.9%，代表 steering 確實改變了生成，只是未轉化為任務收益。
+**−4 對 persistence 與任務收益基本為 null，但增加完整 coverage，並顯著銳化 candidate distribution；這些變化沒有轉化為收益改善。** `churn / adherence / GreedyFrac / OptFrac / regret` 的 p 全落在 .62–.90；`arms_discovered +0.40` 雖 p=.046，但僅 4/20 seed 有差異且 8 個指標未作多重校正，不宜單獨解讀。同時 −4 在生成層明確有效：`Step 1/Step 2` 結構達 100%（α=0 為 91.7%）、candidate distribution 三項銳化指標全部顯著、matched-state 下僅 52.4% 文本與 α=0 相同。亦即 steering 確實改變了 policy chain，只是未在此任務轉化為收益。
 
-**因此 B1 的效果是單側的**：+α 破壞 persistence，−α 改變文本結構與候選銳度但不改變行為表現。此處**沒有倒 U，只有右臂**——與 GSM8K 的 −6 峰、IGT 的 +2 倒 U 皆不同。
+**因此 B1 的效果是單側的**：+α 破壞 persistence，−α 改變文本結構與候選銳度但不改變行為表現。**在已測試的 `−4/0/+4` 三點中，沒有觀察到完整倒 U；當前證據僅顯示正 α 一側的性能損害**——尚未排除更負的 α 出現峰值（GSM8K 的峰在 −6，本實驗未測 ±6/±8）。
 
 #### 解釋邊界
 
 - 依預註冊判準，capability modulation 需要「整組指標一致向 competent policy 移動」；此處為**反向**移動且僅單側，故正確表述是 **「+α degrades an established competent policy via persistence loss」**，不可寫成 α modulates Bandit capability。
 - 文本比例為事後關鍵詞 / 格式統計，**與行為表格分開陳列**，不可合成單一分數，也不可由文本層的 exploration 措辭上升推論實際有效探索——行為層顯示的是 churn 上升與利用能力下降。
-- 一個尚未區分的替代解釋：+4 可能只是**壓平 candidate 分布**（margin `1.450→0.948`、K×MinFrac 同向上升），而非產生有結構的選擇改變。這在 K=4 的 Easy 上外觀近似「探索變多」，但在 K=5 的 Hard 上預期會使本已脆弱的 discovery 更難收斂。因此**不可假設 action +4 會提高 Hard 表現**。
+- **Distribution flattening 已是實證結論，不再是猜測**：+4 三項分布指標一致壓平（margin `−.502`、entropy `+.162`、top-1 prob `−.119`，全部配對顯著），且行為層的額外 switch 96.6% 指向已試過的臂。這在 K=4 的 Easy 上外觀近似「探索變多」，但在 K=5 的 Hard 上預期會使本已脆弱的 discovery 更難收斂。因此**不可假設 action +4 會提高 Hard 表現**。尚未區分的是**壓平發生在哪一段** ——rationale 與 action 兩個 pass 同時受 steering，需 action-only 條件才能定位。
 
 #### 下一步
 
