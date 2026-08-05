@@ -333,6 +333,7 @@ Easy-bare 是唯一 competence anchor，因此主實驗固定為 `α∈{−4,0,+
 
 **注入驗收（先於任何行為判讀）。** 40 個 run 全部讀到 `900 / 3600`，`steering_scope=both`、`steering_scope_version=sv1`、`steered_rationale=True`、`iface` 含 `scbothsv1`，`invalid_rate=0.0`，rationale 無空值，三個 cell 的 seed 完全相同（20/20 配對）。
 **資料來源：** `~/Documents/RSNResult/RoleAnswer/llama3/bandit/pv6/{pv6_easy_bare,pv6_easy_bare_both_am4,pv6_easy_bare_both_ap4}`。
+**重算腳本：** `RoleAnswer/analyze_bandit_pv6_alpha.py`（`python3.10`，`--part attest|behaviour|dist|decomp|text|all`）——本節所有表格由它一次產生，regex、配對單位、bootstrap seed 與 tie 口徑均凍結在該檔內；引用數字前先跑一次確認可復現。
 
 #### Bandit 行為表現（配對 Wilcoxon vs α=0，N=20）
 
@@ -401,12 +402,14 @@ margin 越大代表候選偏好越分明，但**不等於策略更正確**——
 
 | 指標 | α=−4 | α=0 | α=+4 |
 | --- | ---: | ---: | ---: |
-| 首次發現最優臂後的 empirical-best adherence | .87 | .90 | **.67** |
+| 首次發現最優臂後的 empirical-best adherence | .879 | .898 | **.668** |
 | Late adherence | .904 | .905 | **.672** |
-| Non-greedy rounds / run | 13.70 | 11.45 | **33.75** |
-| 其中發生在首次拉到真最優臂之後 | 12.25 | 10.10 | **32.30** |
+| Non-greedy rounds / run | 13.20 | 11.25 | **33.55** |
+| 其中發生在首次拉到真最優臂之後 | 11.75 | 9.90 | **32.10** |
 
-+4 增加 `22.30` 個 non-greedy rounds（p=.0022），其中 `22.20` 個發生在首次拉到真最優臂**之後**（p=.0029）——約佔 **99.6%**。post-discovery adherence 亦顯著下降（`Δ=−.23`, p=.0017）。
++4 增加 `22.30` 個 non-greedy rounds（p=.0021），其中 `22.20` 個發生在首次拉到真最優臂**之後**（p=.0027）——約佔 **99.6%**。post-discovery adherence 亦顯著下降（`Δ=−.23`, p=.0014）。
+
+> **口徑注意：** adherence 與 non-greedy 的「經驗最優」判定**容忍並列**（多臂共享最高經驗均值時全部計為 adherent），與 `evaluate_competence_gate.py` 的 rule 3 一致。改用單一 argmax 會使 late adherence 低估約 0.3pp 並與 frozen gate 不一致。
 
 > **+4 的主要損害發生在最優臂已經被發現之後，而不是發現之前。**
 
