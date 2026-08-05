@@ -292,9 +292,29 @@ run_step B1_ACTION easy "$BANK_EASY" "neg4-${LAYERS}" \
 run_step B1_ACTION easy "$BANK_EASY" "4-${LAYERS}" \
   "pv6_easy_bare_action_ap4" --steering_scope action
 
+# The closing message is step-aware: the gate reminder is correct after Track A
+# but WRONG after B1 (the gate was evaluated 2026-08-04), where it would read as
+# "you skipped the gate". Keying it to the step keeps the log honest.
 echo ""
-echo "Track A done. Next: evaluate the competence gate on reference-bare"
-echo "K=4/K=5 ONLY (4 pre-registered mechanical rules, §3.7), comparing"
-echo "against the FROZEN manifest — not against numbers recomputed now."
-echo "The gate's verdict determines how B1 proceeds; do not start an alpha"
-echo "sweep before it is evaluated."
+case "$ONLY_STEP" in
+  B1_ACTION*)
+    echo "B1_ACTION (mechanism ablation) done. Before reading behaviour, verify"
+    echo "steering_fires per run == rationale 0 / action 3600 (Easy K=4) —"
+    echo "a nonzero rationale count means the scope flag did not take effect."
+    echo "Then: analyze_bandit_pv6_alpha.py --cells am4=<dir>/mdf_-4 ap4=<dir>/mdf_4"
+    echo "(it attests the counts itself and refuses to report on a mismatch)."
+    ;;
+  B1_*)
+    echo "B1 cell done. Verify steering_fires per run == rationale 900 /"
+    echo "action 3600 (Easy K=4) or 4500 (Hard K=5) BEFORE reading behaviour."
+    echo "Hard is failure-mode characterization only — the words capability-"
+    echo "effect / rescue / improvement are NOT available for it."
+    ;;
+  *)
+    echo "Track A done. Next: evaluate the competence gate on reference-bare"
+    echo "K=4/K=5 ONLY (4 pre-registered mechanical rules, §3.7), comparing"
+    echo "against the FROZEN manifest — not against numbers recomputed now."
+    echo "The gate's verdict determines how B1 proceeds; do not start an alpha"
+    echo "sweep before it is evaluated."
+    ;;
+esac
