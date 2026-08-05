@@ -290,12 +290,37 @@ def completion_flags(arm: str, raw: str, clean: str, n_gen_tokens: int) -> dict:
         "raw_contains_options": bool(_OPTIONS_BLOCK.search(raw)),
         "clean_continues_next_round": bool(_PROMPT_CONTINUATION.search(clean)),
         "clean_contains_options": bool(_OPTIONS_BLOCK.search(clean)),
-        # P1b acceptance criteria (meaningful for any arm, but P1b is the one
-        # whose prompt actually demands them).
+        # P1b acceptance criteria.
+        #
+        # WARNING -- the two `clean_*` fields are PARSER-GUARANTEED for P1b:
+        # extract_evidence_policy_block() truncates at the Policy line, so
+        # `clean_ends_after_policy` is True and `clean_continues_next_round` is
+        # False BY CONSTRUCTION. They verify the extractor works; they say
+        # nothing about whether the model obeyed the stop instruction.
+        # Native prompt compliance is the `native_*` block below, all of which
+        # is measured on RAW.
         "clean_ends_after_policy": _ends_after_policy(clean),
         "clean_has_exact_policy_target": _has_exact_policy_target(clean),
+        # NATIVE compliance (raw only): did the MODEL stop where it was told?
+        "native_ends_after_policy": _ends_after_policy(raw.rstrip()),
+        "native_stopped_before_cap": n_gen_tokens < MAX_NEW_TOKENS,
+        "native_two_line_form": _is_two_line_evidence_policy(raw),
+        "n_raw_words": len(_WORD.findall(raw)),
     }
     return out
+
+
+def _is_two_line_evidence_policy(raw: str) -> bool:
+    """RAW is exactly the two requested lines: Evidence content, then Policy.
+
+    The Stage 1 anchor already supplied "Evidence: ", so the model's own text
+    starts mid-line: line 1 is the Evidence content and line 2 is the Policy
+    line. Blank lines are ignored; anything after the Policy line fails.
+    """
+    lines = [ln for ln in (raw or "").strip().splitlines() if ln.strip()]
+    if len(lines) != 2:
+        return False
+    return bool(_POLICY.match(lines[1].strip()))
 
 
 def _ends_after_policy(clean: str) -> bool:
@@ -754,6 +779,25 @@ def report(doc):
             ("hit_token_cap", ("completion", "hit_token_cap")),
             ("starts_redundant_evidence", ("completion", "starts_with_redundant_evidence")),
         ]),
+        ("NATIVE PROMPT COMPLIANCE (RAW only — did the MODEL stop?)\n"
+         "   CAUTION: native_stopped_before_cap is a strict `< cap` threshold.\n"
+         "   P0 reads 99.1% only because pv6's prompt makes it stop at 63/64 --\n"
+         "   an off-by-one artifact, not early stopping. Always cross-check it\n"
+         "   against native_ends_after_policy (P0: 0.0%).", [
+            ("native_stopped_before_cap", ("completion", "native_stopped_before_cap")),
+            ("native_ends_after_policy", ("completion", "native_ends_after_policy")),
+            ("native_two_line_form", ("completion", "native_two_line_form")),
+            ("raw_continues_next_round", ("completion", "raw_continues_next_round")),
+            ("raw_contains_options", ("completion", "raw_contains_options")),
+        ]),
+        ("PARSER-ASSISTED (clean) — P1b's clean_* are TRUE BY CONSTRUCTION;\n"
+         "   they verify the extractor, NOT model compliance. Read the\n"
+         "   NATIVE block above for whether the model itself obeyed.", [
+            ("clean_ends_after_policy", ("completion", "clean_ends_after_policy")),
+            ("clean_has_exact_policy_target",
+             ("completion", "clean_has_exact_policy_target")),
+            ("clean_continues_next_round", ("completion", "clean_continues_next_round")),
+        ]),
         ("ANCHOR COLLISION (clean, and RAW = pre-sanitizer)", [
             ("clean: action anchor", ("completion", "rationale_contains_action_anchor")),
             ("raw:   action anchor", ("completion", "raw_contains_action_anchor")),
@@ -911,6 +955,8 @@ def main():
     ap.add_argument("--size", default="8B")
     ap.add_argument("--arms", nargs="*", default=list(ALL_ARMS))
     ap.add_argument("--out", default="pv7_frozen_eval.json")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="allow --out to replace an existing result file")
     ap.add_argument("--dry_run", action="store_true",
                     help="build/validate prompts only; no model, no GPU")
     ap.add_argument("--report", help="re-print tables from a stored result JSON")
@@ -988,7 +1034,17 @@ def main():
         print(f"[{arm}]", flush=True)
         doc["rows"][arm] = run_arm(arm, vc, bank, env, tokenizer, args.dry_run)
 
-    Path(args.out).write_text(json.dumps(doc, indent=1))
+    # Refuse to clobber a stored result. The frozen Phase 3 file and a P1b
+    # diagnostic run share the same DEFAULT --out, so relying on the caller to
+    # remember a distinct name is one typo away from destroying hours of GPU
+    # time. Fail closed instead of trusting discipline.
+    out_path = Path(args.out)
+    if out_path.exists() and not args.overwrite:
+        raise SystemExit(
+            f"refusing to overwrite existing {out_path}.\n"
+            f"  Pick a new --out (e.g. --out pv7_p1b_eval.json for a P1b run), "
+            f"or pass --overwrite if replacing it is genuinely intended.")
+    out_path.write_text(json.dumps(doc, indent=1))
     print(f"\nwrote {args.out}")
     report(doc)
 
