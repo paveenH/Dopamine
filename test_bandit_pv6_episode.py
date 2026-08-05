@@ -390,7 +390,12 @@ class CountingVC(FakeVC):
     detect a mis-scoped mask or a wrong candidate batch.
     """
 
-    N_LAYERS = 10           # llama3 11-20: the non-zero rows of the mask
+    # llama3 band "11-20": utils.decoder_layer_range(11,20) is HALF-OPEN =
+    # range(10,19) = NINE layers, not ten. Production therefore reads 900 /
+    # 3600 for an Easy T=100 episode, and this fake must agree or the test
+    # green-lights a count the real run can never produce. (The "10 layers"
+    # figure in CLAUDE.md is the HS-storage set: middle + final.)
+    N_LAYERS = 9            # llama3 11-20: the non-zero rows of the mask
 
     def __init__(self, **kw):
         super().__init__(**kw)
