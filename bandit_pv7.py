@@ -27,7 +27,8 @@ PROTOCOL_VERSION = "pv7"
 
 PROMPT_P1 = "p1_structural"
 PROMPT_P2 = "p2_light_hint"
-PROMPT_VARIANTS = (PROMPT_P1, PROMPT_P2)
+PROMPT_P1B = "p1b_terminated"
+PROMPT_VARIANTS = (PROMPT_P1, PROMPT_P2, PROMPT_P1B)
 
 RATIONALE_ANCHOR = "Evidence: "
 ACTION_ANCHOR = "Choose Button: "
@@ -48,6 +49,25 @@ _RATIONALE_INSTRUCTION = (
 _LIGHT_HINT = (
     "Treat empirical rates based on very few trials as weak evidence; an "
     "untried button is unknown, not bad."
+)
+# P1b: P1's structure plus explicit TERMINATION and a mandatory named target.
+# It fixes only Stage 1 defects measured on the frozen states -- 39.3% of P1
+# policies named no button, and 17.8% of P1 generations continued into the next
+# round's prompt. It deliberately adds NO decision hint (that was P2's failure:
+# the hint became a policy prior and pushed the model to call tried arms
+# untried). "Name exactly one button" is a FORMAT requirement, not a nudge
+# toward explore or exploit.
+_P1B_INSTRUCTION = (
+    "Complete exactly two lines and stop after the Policy line. Use no more "
+    "than 35 words total.\n\n"
+    "First line: finish “Evidence:” by briefly stating which "
+    "estimates are well-supported or uncertain.\n"
+    "Second line: write either:\n"
+    "“Policy: EXPLORE Button X because ...”\n"
+    "or\n"
+    "“Policy: EXPLOIT Button X because ...”\n\n"
+    "Name exactly one button. Do not repeat the task or continue after the "
+    "Policy line."
 )
 
 
@@ -133,7 +153,11 @@ def build_rationale_prompt(
     """Stage 1 prompt, ending in exactly ``Evidence:<ASCII space>``."""
     state = render_state(
         arm_map_or_order, history, round_idx, env, prompt_variant)
-    prompt = f"{state}\n\n{_RATIONALE_INSTRUCTION}\n\n{RATIONALE_ANCHOR}"
+    instruction = (_P1B_INSTRUCTION if prompt_variant == PROMPT_P1B
+                   else _RATIONALE_INSTRUCTION)
+    prompt = f"{state}\n\n{instruction}\n\n{RATIONALE_ANCHOR}"
+    # Load-bearing: the instruction is inserted BEFORE the anchor, so the tail
+    # is still "Evidence: " -> token 220 and Stage 1 steering lands unchanged.
     _assert_single_trailing_space(prompt, RATIONALE_ANCHOR)
     return prompt
 
@@ -147,6 +171,29 @@ def sanitize_rationale(raw: str) -> str:
     tokenizer-dependent double-space token rather than the audited token 220.
     """
     return (raw or "").rstrip()
+
+
+_POLICY_LINE = re.compile(r"^\s*policy\s*[:：]", re.I | re.M)
+
+
+def extract_evidence_policy_block(raw: str) -> str:
+    """P1b clean text: the Evidence line plus the Policy line, and nothing after.
+
+    RAW IS NEVER MODIFIED -- the caller stores both, so a continuation failure
+    stays observable. This only decides what Stage 2 sees.
+
+    Truncation is at the END OF THE POLICY LINE, which is what makes the
+    "continue after the Policy line" failure mode harmless to Stage 2 while
+    still being measurable on raw. If no Policy line exists there is nothing to
+    truncate to, so the whole rationale is returned and the caller records the
+    missing policy rather than silently inventing one.
+    """
+    text = (raw or "").rstrip()
+    m = _POLICY_LINE.search(text)
+    if m is None:
+        return text
+    end = text.find("\n", m.end())
+    return (text if end == -1 else text[:end]).rstrip()
 
 
 _ACTION_ANCHOR_MARKER = re.compile(r"choose\s+button\s*[:：]", re.I)
