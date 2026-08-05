@@ -64,7 +64,12 @@ BANK = Path(__file__).with_name("bandit_pv7_frozen_states.json")
 ARMS_P0 = "p0_pv6_interface"
 ARMS_P1 = p7.PROMPT_P1
 ARMS_P2 = p7.PROMPT_P2
+ARMS_P1B = p7.PROMPT_P1B
 ALL_ARMS = (ARMS_P0, ARMS_P1, ARMS_P2)
+# P1b is a DIAGNOSTIC re-run, not part of the original three-arm comparison:
+#   --arms p1b_terminated
+# It is excluded from ALL_ARMS so a bare re-run cannot silently change the
+# frozen Phase 3 result.
 
 # Held constant across arms so generation budget is not confounded with prompt.
 MAX_NEW_TOKENS = 64
@@ -105,7 +110,17 @@ def build_prompts(arm: str, snap: dict, env: br.Environment, clean: str | None):
 
 
 def sanitize_for(arm: str, raw: str) -> str:
-    return br.sanitize_rationale(raw) if arm == ARMS_P0 else p7.sanitize_rationale(raw)
+    """What Stage 2 sees. RAW is always stored separately and never modified.
+
+    P1b truncates at the end of the Policy line: its prompt demands exactly two
+    lines, so anything after them is a continuation failure that must not reach
+    Stage 2 -- while remaining fully visible on raw for measurement.
+    """
+    if arm == ARMS_P0:
+        return br.sanitize_rationale(raw)
+    if arm == ARMS_P1B:
+        return p7.extract_evidence_policy_block(raw)
+    return p7.sanitize_rationale(raw)
 
 
 def candidates_for(arm: str, env: br.Environment) -> tuple[list[str], list[str]]:
@@ -275,8 +290,39 @@ def completion_flags(arm: str, raw: str, clean: str, n_gen_tokens: int) -> dict:
         "raw_contains_options": bool(_OPTIONS_BLOCK.search(raw)),
         "clean_continues_next_round": bool(_PROMPT_CONTINUATION.search(clean)),
         "clean_contains_options": bool(_OPTIONS_BLOCK.search(clean)),
+        # P1b acceptance criteria (meaningful for any arm, but P1b is the one
+        # whose prompt actually demands them).
+        "clean_ends_after_policy": _ends_after_policy(clean),
+        "clean_has_exact_policy_target": _has_exact_policy_target(clean),
     }
     return out
+
+
+def _ends_after_policy(clean: str) -> bool:
+    """Does the clean text stop at the end of the Policy line?"""
+    body = (clean or "").strip()
+    m = _POLICY.search(body)
+    if m is None:
+        return False
+    return "\n" not in body[m.end():]
+
+
+def _has_exact_policy_target(clean: str) -> bool:
+    """Does the policy's FIRST DECISION CLAUSE name exactly one button?
+
+    Uses the same first-clause parser as the headline follow-rate, so
+    "parseable policy" and "policy the follow-rate can score" are the same set
+    -- otherwise this metric would report a target the headline cannot use.
+    """
+    body = (clean or "").strip()
+    clause = _first_decision_clause(body, _POLICY.search(body))
+    if not clause:
+        return False
+    m_verb = _DECISION_VERB.search(clause)
+    if not m_verb:
+        return False
+    return len({m.group(1).upper()
+                for m in _ARM_MENTION.finditer(clause[m_verb.end():])}) == 1
 
 
 def grounding_flags(clean: str, snap: dict) -> dict:
@@ -571,8 +617,98 @@ def _dedup(rows):
     return out
 
 
+def compare_matched_policy(doc_a, doc_b, arm_a=ARMS_P1, arm_b=ARMS_P1B):
+    """MATCHED-POLICY-TARGET paired comparison.
+
+    What it controls: both arms named the SAME non-A button as their policy
+    target. What it does NOT control: the rationale's wording, stance, reasons,
+    length, or grounding -- all of those still differ between arms.
+
+    So the correct claim is NARROW:
+
+        On states where the policy target is the same, does a clearer Stage 1
+        expression raise Stage 2's obedience to that target?
+
+    It is NOT "Stage 1 output is held fixed, therefore any change is Stage 2."
+    A change here is consistent with Stage 2 improving OR with some other
+    uncontrolled property of the rationale text, so this is evidence about the
+    Stage1-expression -> Stage2-obedience link, not a causal Stage 2 result.
+
+    Reports McNemar's exact test: the discordant pairs are the whole evidence.
+    """
+    def index(doc, arm):
+        """Recompute policy from stored TEXT rather than trusting stored flags.
+
+        A JSON written before a parser change carries stale `policy` fields; a
+        stale label silently yields "no matched states", which reads as a
+        finding rather than a stale file. Text is the ground truth here.
+        """
+        out = {}
+        for r in _dedup(doc["rows"][arm]):
+            chosen = r["choice"]["chosen_label"]
+            p = policy_flags(r["rationale_clean"], chosen)
+            if p["policy_target_source"] != "policy_first_clause":
+                continue
+            if p["policy_target"] is None:
+                continue
+            out[r["state_fingerprint"]] = (p["policy_target"], chosen)
+        return out
+
+    ia, ib = index(doc_a, arm_a), index(doc_b, arm_b)
+    shared = sorted(set(ia) & set(ib))
+    matched = [(f, ia[f][0], ia[f][1], ib[f][1]) for f in shared
+               if ia[f][0] == ib[f][0] and ia[f][0] != "Button A"]
+
+    print("\n" + "=" * 78)
+    print("MATCHED-POLICY Stage 2 OBEDIENCE  (identical non-A policy target)")
+    print("=" * 78)
+    print(f"  {arm_a} parseable: {len(ia)}   {arm_b} parseable: {len(ib)}")
+    print(f"  shared states: {len(shared)}   matched non-A policy: {len(matched)}")
+    if not matched:
+        print("  no matched states -- cannot separate Stage 1 from Stage 2 here.")
+        return
+    a_over = sum(1 for _, _, ca, _ in matched if ca == "Button A")
+    b_over = sum(1 for _, _, _, cb in matched if cb == "Button A")
+    n = len(matched)
+    print(f"\n  action == Button A despite a non-A policy:")
+    print(f"    {arm_a:<20} {a_over}/{n} = {100*a_over/n:.1f}%")
+    print(f"    {arm_b:<20} {b_over}/{n} = {100*b_over/n:.1f}%")
+    b01 = sum(1 for _, _, ca, cb in matched
+              if ca == "Button A" and cb != "Button A")
+    b10 = sum(1 for _, _, ca, cb in matched
+              if ca != "Button A" and cb == "Button A")
+    print(f"\n  discordant pairs: fixed by {arm_b} = {b01}, "
+          f"broken by {arm_b} = {b10}")
+    print(f"  McNemar exact p = {_mcnemar_exact(b01, b10):.4f}   "
+          f"(n discordant = {b01 + b10})")
+    print("\n  Reading: only the POLICY TARGET is matched -- wording, stance and")
+    print("  reasoning still differ, so a drop here is NOT by itself a causal")
+    print("  Stage 2 result; it says a clearer Stage 1 expression coincides with")
+    print("  more obedience to the same target. If this does NOT move while")
+    print("  format/grounding do, the label prior in Stage 2 candidate scoring is")
+    print("  the leading explanation, and pv7 should not enter the competence")
+    print("  gate on format alone.")
+
+
+def _mcnemar_exact(b01: int, b10: int) -> float:
+    """Two-sided exact binomial on discordant pairs."""
+    n = b01 + b10
+    if n == 0:
+        return float("nan")
+    k = min(b01, b10)
+    tail = sum(math.comb(n, i) for i in range(0, k + 1)) / (2 ** n)
+    return min(1.0, 2 * tail)
+
+
 def report(doc):
-    arms = [a for a in ALL_ARMS if a in doc["rows"]]
+    # Order by ALL_ARMS, then append any arm not in it (P1b, or a future
+    # diagnostic re-run). Filtering to ALL_ARMS alone left `arms` empty for a
+    # P1b-only run and crashed on arms[0].
+    arms = ([a for a in ALL_ARMS if a in doc["rows"]]
+            + [a for a in doc["rows"] if a not in ALL_ARMS])
+    if not arms:
+        print("no arms in this result file")
+        return
     print("=" * 78)
     print("PHASE 3 — PAIRED INTERFACE COMPARISON on frozen states")
     print("=" * 78)
@@ -778,6 +914,11 @@ def main():
     ap.add_argument("--dry_run", action="store_true",
                     help="build/validate prompts only; no model, no GPU")
     ap.add_argument("--report", help="re-print tables from a stored result JSON")
+    ap.add_argument("--matched_policy", nargs=2,
+                    metavar=("BASELINE_JSON", "P1B_JSON"),
+                    help="paired Stage-2 obedience test on states where both "
+                         "runs produced the SAME non-A policy target; "
+                         "separates a Stage 1 change from a Stage 2 change")
     ap.add_argument("--recompute", action="store_true",
                     help="with --report: recompute the text-derived flags "
                          "(completion/grounding/policy) from the stored "
@@ -787,6 +928,11 @@ def main():
     ap.add_argument("--write_back", action="store_true",
                     help="with --recompute: overwrite the JSON in place")
     args = ap.parse_args()
+
+    if args.matched_policy:
+        a, b = (json.load(open(p_)) for p_ in args.matched_policy)
+        compare_matched_policy(a, b)
+        return
 
     if args.report:
         doc = json.load(open(args.report))
