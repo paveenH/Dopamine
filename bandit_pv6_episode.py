@@ -363,11 +363,17 @@ def run_reference_episode(
                           "steering_scope": steering_scope,
                           "steering_scope_version": STEERING_SCOPE_VERSION,
                           "steered_rationale": bool(steer_rationale),
-                          # OBSERVED hook fires for the whole episode, one per
-                          # (layer, forward). Independent evidence that alpha
-                          # reached the residual stream: a config claiming
-                          # scope=both with rationale_fires==0 is a bug, and
-                          # only this pair can reveal it. None when the model
+                          # OBSERVED injection sites for the whole episode: one
+                          # per (steered layer, sequence, token position) that
+                          # received a non-zero add -- NOT one per hook call.
+                          # A call-counter reports the same number for any layer
+                          # count and any K, so it could not detect a mis-scoped
+                          # mask or a wrong candidate batch. Independent evidence
+                          # that alpha reached the residual stream: a config
+                          # claiming scope=both with rationale_fires==0 is a bug,
+                          # and only this pair can reveal it. Expected per
+                          # episode: rationale = L*T (scope=both) or 0
+                          # (scope=action), action = L*K*T. None when the model
                           # object predates the counter.
                           "steering_fires": (
                               {"rationale": fired_rationale,
