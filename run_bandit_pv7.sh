@@ -22,7 +22,14 @@
 # The no-arg form runs SMOKE only. Everything past it is deliberately opt-in:
 # each is a multi-hour GPU process and must be a conscious choice.
 #
-# Usage:  bash run_bandit_pv7.sh [llama3|qwen25] [SMOKE|A0_EASY|GATE|A0_HARD]
+# LLAMA3 ONLY for now. pv7's invariants are token-id facts about the Llama-3.1
+# tokenizer -- the anchor tail is token 220 and the candidates are 32-35 -- and
+# neither has been audited on Qwen2.5, whose tokenizer may not even encode a
+# bare trailing space as one token. The runtime audit would fail fast, but a
+# usage line offering `qwen25` implies support that does not exist. Adding it
+# is a real task: re-audit both invariants, then re-freeze the state bank.
+#
+# Usage:  bash run_bandit_pv7.sh [llama3] [SMOKE|A0_EASY|GATE|A0_HARD]
 
 set -euo pipefail
 
@@ -43,9 +50,13 @@ case "$MODEL" in
     MODEL_NAME="llama3"; MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
     MODEL_SIZE="8B";     HS_PREFIX="llama3";  LAYERS="11-20" ;;
   qwen25)
-    MODEL_NAME="qwen2.5"; MODEL_DIR="Qwen/Qwen2.5-7B-Instruct"
-    MODEL_SIZE="7B";      HS_PREFIX="qwen2.5"; LAYERS="16-22" ;;
-  *) echo "unknown model '$MODEL' (want: llama3 | qwen25)"; exit 1 ;;
+    echo "pv7 does not support qwen25 yet." >&2
+    echo "  Its anchor (token 220) and candidates (32-35) are Llama-3.1" >&2
+    echo "  tokenizer facts and have NOT been audited on Qwen2.5." >&2
+    echo "  Adding it means re-auditing both, then re-freezing the state" >&2
+    echo "  bank -- not a launcher edit. Use pv6 for Qwen cross-model work." >&2
+    exit 1 ;;
+  *) echo "unknown model '$MODEL' (pv7 supports: llama3)"; exit 1 ;;
 esac
 
 OUT_ROOT="${BASE_DIR}/${MODEL_NAME}/bandit/pv7"

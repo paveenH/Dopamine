@@ -60,6 +60,9 @@ they can disagree only if there is a bug, which is why both exist.
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Sequence
+
 import torch
 
 import bandit_reference as br
@@ -340,18 +343,28 @@ def _norm_entropy(vals: list[float]) -> float:
 
 
 def resume_key(env_name: str, rationale_alpha: float, action_alpha: float,
-               layer_start: int, layer_end: int, n_seeds: int) -> str:
+               layer_start: int, layer_end: int,
+               seeds: Sequence[int]) -> str:
     """Distinct for anything that changes the measurement.
 
     Both instruction versions are in it: a Stage 2 wording change produces
     different trajectories, so reusing a stored row across it would silently
     skip the new configuration -- the exact failure the pv6 `iface` segment was
     added to prevent.
+
+    THE SEEDS THEMSELVES ARE IN IT, not just how many. A count would make the
+    smoke bank (6 12 13) and any other 3-seed set collide, so a resume would
+    return episodes from a DIFFERENT set of environments and report them as
+    this cell. The seed list is order-insensitive (sorted) but content-
+    sensitive, and hashed so the key stays short at N=20.
     """
+    ordered = sorted(int(s) for s in seeds)
+    digest = hashlib.sha1(
+        ",".join(map(str, ordered)).encode()).hexdigest()[:10]
     return (f"{PROTOCOL_VERSION}_{env_name}"
             f"_s1v{STAGE1_INSTRUCTION_VERSION}_s2v{STAGE2_INSTRUCTION_VERSION}"
             f"_ra{rationale_alpha:g}_aa{action_alpha:g}"
-            f"_L{layer_start}-{layer_end}_n{n_seeds}")
+            f"_L{layer_start}-{layer_end}_n{len(ordered)}_sd{digest}")
 
 
 def expected_fires(rationale_alpha: float, action_alpha: float,

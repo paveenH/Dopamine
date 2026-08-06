@@ -221,15 +221,44 @@ def main() -> int:
         check(True, "mixed non-zero alphas raise instead of silently reusing")
 
     print("\n[12] resume key separates every behaviour-affecting version")
-    k0 = ep.resume_key("easy", 0, 0, 11, 20, 20)
+    seeds20 = list(range(20))
+    k0 = ep.resume_key("easy", 0, 0, 11, 20, seeds20)
     check(ep.STAGE1_INSTRUCTION_VERSION in k0
           and ep.STAGE2_INSTRUCTION_VERSION in k0,
           "both instruction versions appear in the resume key")
-    check(k0 != ep.resume_key("easy", 4, 0, 11, 20, 20),
+    check(k0 != ep.resume_key("easy", 4, 0, 11, 20, seeds20),
           "a different rationale_alpha yields a different key")
-    check(ep.resume_key("easy", 4, 0, 11, 20, 20)
-          != ep.resume_key("easy", 0, 4, 11, 20, 20),
+    check(ep.resume_key("easy", 4, 0, 11, 20, seeds20)
+          != ep.resume_key("easy", 0, 4, 11, 20, seeds20),
           "rationale-only and action-only do not collide")
+    # The seed CONTENT must be in the key: a count alone would let the smoke
+    # bank and any other 3-seed set resume into each other, returning
+    # episodes from different environments under this cell's name.
+    check(ep.resume_key("easy", 0, 0, 11, 20, [6, 12, 13])
+          != ep.resume_key("easy", 0, 0, 11, 20, [0, 1, 2]),
+          "same N with DIFFERENT seeds yields a different key")
+    check(ep.resume_key("easy", 0, 0, 11, 20, [13, 6, 12])
+          == ep.resume_key("easy", 0, 0, 11, 20, [6, 12, 13]),
+          "seed ORDER does not change the key")
+    check(ep.resume_key("easy", 0, 0, 11, 20, seeds20)
+          != ep.resume_key("easy", 0, 0, 11, 20, seeds20[:19]),
+          "a subset of seeds yields a different key")
+
+    print("\n[12b] driver-level fail-closed guarantees")
+    dsrc = open("run_bandit_pv7_episodes.py").read()
+    check("if fires != expect:" in dsrc,
+          "driver rejects steering_fires=None instead of skipping the check")
+    check("fires is not None and fires != expect" not in dsrc,
+          "no fail-open steering_fires branch survives")
+    check("vc.model.eval()" in dsrc, "driver puts the model in eval mode")
+    check("len(args.seeds)" not in dsrc,
+          "driver passes the seed LIST to resume_key, not just its length")
+    gsrc = open("evaluate_competence_gate_pv7.py").read()
+    check("for f in fires)" in gsrc and "if f is not None)" not in gsrc,
+          "gate wrapper's all_unsteered fails on a missing fire count")
+    lsrc = open("run_bandit_pv7.sh").read()
+    check("pv7 does not support qwen25 yet" in lsrc,
+          "launcher declares llama3-only rather than implying qwen support")
 
     print("\n[13] a mis-anchored prompt stops the run")
     class BadVC(FakeVC):

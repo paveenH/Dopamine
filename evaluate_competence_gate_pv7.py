@@ -96,12 +96,17 @@ def interface_report(runs: list[dict]) -> dict:
               if "action_follows_policy_rate" in r
               and r["action_follows_policy_rate"] == r["action_follows_policy_rate"]]
     fires = [r.get("steering_fires") for r in runs]
+    # A missing counter FAILS this check. Filtering None out would make an
+    # unattested cell -- the one case where steering cannot be verified at all
+    # -- report True vacuously, which is backwards for a fail-closed check.
+    unsteered = bool(runs) and all(f == {"rationale": 0, "action": 0}
+                                   for f in fires)
     return {
         "policy_parse_rate": st.mean(parse) if parse else float("nan"),
         "action_follows_policy_rate": st.mean(follow) if follow else float("nan"),
         "n_runs_with_parse": len(parse),
-        "all_unsteered": all(f == {"rationale": 0, "action": 0}
-                             for f in fires if f is not None),
+        "all_unsteered": unsteered,
+        "n_runs_without_fire_count": sum(1 for f in fires if f is None),
     }
 
 
@@ -129,7 +134,10 @@ def main() -> int:
             print(f"  policy parse rate        {iface['policy_parse_rate']:.3f}")
             print(f"  action-follows-policy    "
                   f"{iface['action_follows_policy_rate']:.3f}")
-            if not iface["all_unsteered"]:
+            if iface["n_runs_without_fire_count"]:
+                print(f"  WARNING: {iface['n_runs_without_fire_count']} run(s) "
+                      "carry NO steering_fires -- the injection is unattested")
+            elif not iface["all_unsteered"]:
                 print("  WARNING: a run carries non-zero steering_fires in an "
                       "alpha=0 gate cell")
             print("\n  A pass means competence under a STRUCTURED, "

@@ -97,7 +97,7 @@ def main():
                           f"_{args.size}_{ls}_{le}.json")
 
     key = ep.resume_key(args.reference_environment, args.rationale_alpha,
-                        args.action_alpha, ls, le, len(args.seeds))
+                        args.action_alpha, ls, le, args.seeds)
     done = {}
     if out_file.exists() and not args.overwrite:
         prev = json.loads(out_file.read_text())
@@ -118,6 +118,7 @@ def main():
 
     from llms import VicundaModel
     vc = VicundaModel(model_path=args.model_dir)
+    vc.model.eval()          # matches get_answer_bandit.py:1772
     alpha_for_mask = args.rationale_alpha or args.action_alpha
     diff, top, n_layers = load_mask(
         args.base_dir, args.hs, args.type, args.mask_type, args.percentage,
@@ -143,10 +144,19 @@ def main():
         # Attest per episode, not once at the end: a hook that stops firing at
         # episode 7 must stop the run there rather than be discovered after
         # the full budget is spent.
-        if fires is not None and fires != expect:
+        #
+        # `None` (the model object has no counter) is a FAILURE, not a pass.
+        # Skipping the check when the counter is absent would mean the cells
+        # with no attestation are exactly the ones that never get attested --
+        # the intervention would be unverified precisely where it is
+        # unverifiable, which is the opposite of fail-closed.
+        if fires != expect:
             raise SystemExit(
-                f"seed {seed}: steering_fires {fires} != expected {expect}. "
-                "The intervention is not what the config claims; behaviour "
+                f"seed {seed}: steering_fires {fires} != expected {expect}"
+                + (" -- the model object exposes no steering_fire_count(), so "
+                   "the injection cannot be attested at all" if fires is None
+                   else "") +
+                ". The intervention is not what the config claims; behaviour "
                 "read off this cell would be uninterpretable.")
         runs.append(rec)
         print(f"  [{i}/{len(todo)}] seed={seed} "
