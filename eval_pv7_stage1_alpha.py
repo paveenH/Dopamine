@@ -85,6 +85,17 @@ import eval_pv7_frozen_states as fe
 EVAL_VERSION = "pv7-stage1-alpha-v1"
 DEFAULT_BANK = Path(__file__).with_name("bandit_pv7_lockin_states.json")
 DEFAULT_OUT = Path(__file__).with_name("pv7_stage1_alpha.json")
+
+# Set once from --alphas before anything reads it. A module constant rather
+# than a threaded parameter because eleven call sites read it, including
+# report(); a missed site would silently mix alpha sets within one table.
+#
+# SPLITTING ACROSS GPUs: run `--alphas -4 0` and `--alphas 0 4` in separate
+# processes with SEPARATE --out files, then merge with --merge. The alpha=0
+# cell MUST appear in both: it is the paired baseline every contrast is
+# computed against, and it is deterministic (temperature 0, same seed, no
+# hook registered), so the two runs produce the same alpha=0 result. --merge
+# verifies that rather than assuming it.
 ALPHAS = (-4.0, 0.0, 4.0)
 
 # Text-level uncertainty recognition. Deliberately broad: layer 1 asks whether
