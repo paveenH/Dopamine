@@ -54,18 +54,20 @@ the choices" -- not that it produced targeted, uncertainty-driven revisiting.
 THE CONFOUND THIS FILE IS BUILT AROUND
 --------------------------------------
 Beta smoothing does not only express uncertainty; it MOVES THE POINT
-ESTIMATES, and it moves them most for small n. Measured on this bank:
+ESTIMATES, and it moves them most for small n. A model that simply follows
+the largest posterior mean -- doing no uncertainty reasoning at all -- would
+therefore score above the current floor on the primary metric purely from
+re-ranking.
 
-  * 27/123 states have a posterior top arm DIFFERENT from the empirical top
-  * in 17/120 eligible states the posterior-top arm IS a one-shot-zero arm
+Ties matter here and are structural: Beta(1,1) sends every `0/1` arm to
+exactly (0+1)/(1+2) and every untried arm to exactly (0+1)/(0+2), so many
+states have a tied posterior maximum and a bare argmax would silently pick
+the first-listed arm.
 
-So a pure posterior-greedy model -- one doing no uncertainty reasoning at all,
-just picking the highest posterior mean -- would score **14.2%** on the
-primary metric, against the current 1.7% floor. A jump to ~14% under C1 would
-therefore be evidence of RE-RANKING, not of information seeking.
-
-Every state stores `posterior_greedy_arm`, and the report scores each arm
-against that baseline. Without it a positive result is uninterpretable.
+The report therefore prints a re-ranking BAND per run -- a lower bound
+counting only unique maxima and an upper bound counting tied ones -- computed
+from the data, never hardcoded here. A C1/C2 value inside that band is
+consistent with re-ranking alone. Read the band before the primary metric.
 
 WHAT IS NOT PROVIDED
 --------------------
@@ -204,11 +206,12 @@ def posterior_top_arms(state: dict) -> list[str]:
     """ALL arms tied at the maximum posterior mean.
 
     Returned as a set rather than one arm because ties are STRUCTURAL here,
-    not incidental: Beta(1,1) sends every `0/1` arm to exactly 0.33 and every
-    untried arm to exactly 0.50, so 30/123 states in this bank have a tied
-    posterior top. Collapsing that with a bare argmax silently picks the
-    first-listed arm and, on this bank, inflates "posterior-top is a
-    one-shot-zero arm" from 0/120 to 17/120.
+    not incidental: Beta(1,1) sends every `0/1` arm to exactly (0+1)/(1+2)
+    and every untried arm to exactly (0+1)/(0+2), so a tied posterior maximum
+    is common. Collapsing that with a bare argmax silently picks the
+    first-listed arm; when this was first measured on the pv7 lock-in bank it
+    turned a 0-state count into a 17-state one. The report prints both
+    readings per run rather than trusting either alone.
     """
     s = arm_stats(state)
     top = max(v["post_mean"] for v in s.values())
@@ -565,29 +568,56 @@ def report(doc: dict) -> None:
     lo_band = len(pg_low) / len(elig)
     hi_band = len(pg_any) / len(elig)
 
+    # Untargeted redirection: C2 moved the target away from C1's, and the new
+    # target is NEITHER a one-shot-zero arm NOR an untried arm. Computed per
+    # state so it can be bootstrapped like any other rate. Without this,
+    # "persistence holds" is a label over a check that never ran.
+    for s in S:
+        c1c, c2c = s["cells"]["C1"], s["cells"]["C2"]
+        moved = c1c["policy_target"] != c2c["policy_target"]
+        s["cells"]["C1"]["_untargeted_change"] = False
+        s["cells"]["C2"]["_untargeted_change"] = bool(
+            moved
+            and not c2c["policy_targets_one_shot_zero"]
+            and not c2c["policy_targets_untried"])
+    uch = SA.cluster_bootstrap_delta(S, "_untargeted_change", "C1", "C2")
+
     checks = [
         ("1 C2 > C1 on the primary metric",
          d21["delta"] > 0 and d21["lo"] > 0,
          f"delta {d21['delta']:+.3f} CI [{d21['lo']:+.3f}, {d21['hi']:+.3f}]"),
-        ("2 gain not confined to re-ranking states",
-         bool(d_no) and d_no["delta"] > 0,
-         (f"in the non-re-ranking subgroup (n={len(sub_no)}): "
-          f"{d_no['delta']:+.3f}" if d_no else "subgroup empty")),
-        ("3 untried does not blow up",
-         not (unt["delta"] > 0 and unt["lo"] > 0
-              and unt["delta"] > 2 * max(d21["delta"], 1e-9)),
-         f"untried delta {unt['delta']:+.3f}"),
-        ("4 grounding / persistence hold",
-         not (gnd["delta"] > 0 and gnd["lo"] > 0),
-         f"grounding {gnd['delta']:+.3f}, chose_last {chn['delta']:+.3f}"),
+        # Same bar as condition 1: a strong claim cannot rest on a subgroup
+        # point estimate that a single state could have produced.
+        ("2 gain holds off the re-ranking states",
+         bool(d_no) and d_no["delta"] > 0 and d_no["lo"] > 0,
+         (f"n={len(sub_no)}: {d_no['delta']:+.3f} CI "
+          f"[{d_no['lo']:+.3f}, {d_no['hi']:+.3f}]" if d_no
+          else "subgroup empty")),
+        # No ratio test: with a large primary delta, "untried < 2x primary"
+        # would pass even as untried approached 1.0. Require simply that no
+        # increase is detected.
+        ("3 no detected rise in untried targeting",
+         not (unt["delta"] > 0 and unt["lo"] > 0),
+         f"untried {unt['delta']:+.3f} CI "
+         f"[{unt['lo']:+.3f}, {unt['hi']:+.3f}]"),
+        ("4 no detected rise in grounding error or",
+         not (gnd["delta"] > 0 and gnd["lo"] > 0)
+         and not (uch["delta"] > 0 and uch["lo"] > 0),
+         f"grounding {gnd['delta']:+.3f}, untargeted "
+         f"{uch['delta']:+.3f} CI [{uch['lo']:+.3f}, {uch['hi']:+.3f}]"),
+        ("  untargeted target changes", None,
+         f"(chose_last {chn['delta']:+.3f}, reported not gated)"),
         ("5 C2 above the re-ranking band",
          c2_rate > hi_band,
          f"C2 {c2_rate:.3f} vs band {lo_band:.3f}-{hi_band:.3f}"),
     ]
     for label, passed, detail in checks:
-        print(f"  [{'PASS' if passed else 'no  '}] {label:44s} {detail}")
-    n_pass = sum(1 for _, p, _ in checks if p)
-    print(f"\n  {n_pass}/5 conditions met.")
+        mark = "      " if passed is None else \
+            f"  [{'PASS' if passed else 'no  '}]"
+        print(f"{mark} {label:44s} {detail}")
+    gated = [p for _, p, _ in checks if p is not None]
+    n_pass = sum(1 for p in gated if p)
+    print(f"\n  {n_pass}/{len(gated)} conditions met.")
     if n_pass == 5:
         print("  => 'explicit uncertainty produced targeted, uncertainty-")
         print("     driven revisiting' is supported.")
