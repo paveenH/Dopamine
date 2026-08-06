@@ -581,11 +581,33 @@ def main() -> None:
     ap.add_argument("--layers", default="11-20")
     ap.add_argument("--base_dir", default="/data1/paveen/Dopamine/components")
     ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--alphas", type=float, nargs="+", default=None,
+                    help="alpha cells to run (default -4 0 4). To split "
+                         "across GPUs use '-4 0' and '0 4' with separate "
+                         "--out files, then --merge them. alpha=0 must be in "
+                         "every shard: it is the paired baseline.")
+    ap.add_argument("--merge", type=Path, nargs="+",
+                    help="merge shard JSONs into --out and report")
     args = ap.parse_args()
 
     if args.report:
         report(json.loads(args.report.read_text()))
         return
+
+    if args.merge:
+        merge_shards(args.merge, args.out)
+        return
+
+    global ALPHAS
+    if args.alphas is not None:
+        ALPHAS = tuple(float(a) for a in args.alphas)
+        if 0.0 not in ALPHAS:
+            raise SystemExit(
+                "alpha=0 must be included: every contrast is paired against "
+                "it within the same state, and a shard without it cannot be "
+                "merged or interpreted on its own.")
+        if len(set(ALPHAS)) != len(ALPHAS):
+            raise SystemExit(f"duplicate alphas: {ALPHAS}")
 
     bank = json.loads(args.bank.read_text())
     env = br.get_environment("easy")
