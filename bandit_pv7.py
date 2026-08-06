@@ -196,6 +196,25 @@ def extract_evidence_policy_block(raw: str) -> str:
     return (text if end == -1 else text[:end]).rstrip()
 
 
+def strip_policy_line(clean: str) -> str:
+    """Drop the Policy line, keep the Evidence text verbatim.
+
+    Used ONLY by the Stage-2 mask-policy control, which asks what the Policy
+    text itself contributes once the same evidence is still present. Deleting
+    exactly one line (not paraphrasing, not truncating the evidence) is what
+    keeps that contrast interpretable.
+
+    Removes the Policy line and everything after it: the frozen P1b interface
+    truncates at the end of the Policy line already, so a trailing remainder is
+    a continuation failure, not content the model meant Stage 2 to read.
+    """
+    text = (clean or "").rstrip()
+    m = _POLICY_LINE.search(text)
+    if m is None:
+        return text
+    return text[:m.start()].rstrip()
+
+
 _ACTION_ANCHOR_MARKER = re.compile(r"choose\s+button\s*[:：]", re.I)
 _EVIDENCE_ANCHOR_MARKER = re.compile(r"evidence\s*[:：]", re.I)
 
