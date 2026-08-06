@@ -369,9 +369,23 @@ def run_state(vc, state: dict, env, dry_run: bool) -> dict:
             state["arm_order"],
             [(e["arm"], e["reward"]) for e in state["history"]],
             state["round_idx"], env, clean)
-        for leak in ("posterior", "credible", "CHOICE HISTORY"):
-            if leak in a_prompt:
-                raise AssertionError(f"{leak!r} leaked into Stage 2")
+        # Leak check on STRUCTURE, not on words. Stage 2 legitimately embeds
+        # the model's own rationale under MODEL ANALYSIS, and under C1/C2 that
+        # rationale routinely says "posterior mean 0.33" -- which is the model
+        # reasoning, not the scaffold leaking. What must NOT appear is the
+        # scaffold's own rendering: the calculator OPTIONS block, its note, or
+        # the history block, any of which would put the scaffold into the
+        # state description Stage 2 reads.
+        state_part = a_prompt.split("\n\nMODEL ANALYSIS\n", 1)[0]
+        for leak, where in ((_CALC_NOTE, "calculator note"),
+                            ("Beta posterior mean", "calculator OPTIONS"),
+                            ("credible interval", "calculator OPTIONS"),
+                            ("CHOICE HISTORY", "history block")):
+            if leak in state_part:
+                raise AssertionError(
+                    f"{state['state_id']} {arm}: the {where} appears in the "
+                    "Stage 2 state description; Stage 2 must stay the frozen "
+                    "S1 prompt")
         aud_a = ep.audit_pv7_prompt(vc, a_prompt, "action")
         scores, act = ep.score_candidates_pv7(vc, a_prompt, env, None)
         fired_a = vc.steering_fire_count(reset=True)
