@@ -564,6 +564,77 @@ def report(doc: dict) -> None:
     print("exact gap this experiment exists to test (.996 vs .031 at alpha=0).")
 
 
+def merge_shards(paths: list[Path], out: Path) -> None:
+    """Combine per-alpha shards into one result, verifying the shared cells.
+
+    Each shard carries alpha=0. Both were produced at temperature 0, from the
+    same prompt and seed, with no hook registered, so they MUST be identical.
+    Checking that is the point: if they disagree, the two GPUs did not run the
+    same thing and no cross-shard contrast is interpretable. Nondeterminism
+    across devices is real (bf16 accumulation order differs), so this is a
+    live risk, not a formality.
+    """
+    global ALPHAS
+    docs = [json.loads(p.read_text()) for p in paths]
+    base = docs[0]["run_fingerprint"]
+    for p, d in zip(paths[1:], docs[1:]):
+        fp = d["run_fingerprint"]
+        diffs = [k for k, v in fp.items()
+                 if k != "alphas" and base.get(k) != v]
+        if diffs:
+            raise SystemExit(f"{p} differs from {paths[0]} on: {diffs}. "
+                             "The shards are not the same experiment.")
+
+    merged: dict[str, dict] = {}
+    mismatches: list[str] = []
+    for p, d in zip(paths, docs):
+        for s in d["states"]:
+            tgt = merged.setdefault(
+                s["state_id"], {**{k: v for k, v in s.items() if k != "cells"},
+                                "cells": {}})
+            for a, cell in s["cells"].items():
+                if a in tgt["cells"]:
+                    # Compare the behaviour, not the floats: candidate_scores
+                    # can differ in the last bits across devices without the
+                    # argmax or any metric changing.
+                    old, new = tgt["cells"][a], cell
+                    for k in ("action", "rationale_clean", "policy_target",
+                              "policy_stance"):
+                        if old.get(k) != new.get(k):
+                            mismatches.append(
+                                f"{s['state_id']} a={a} {k}: "
+                                f"{old.get(k)!r} != {new.get(k)!r}")
+                    continue
+                tgt["cells"][a] = cell
+    if mismatches:
+        raise SystemExit(
+            f"the shared alpha=0 cells DISAGREE across shards "
+            f"({len(mismatches)} fields). The two runs did not produce the "
+            "same baseline, so no cross-shard contrast is valid:\n  "
+            + "\n  ".join(mismatches[:10]))
+
+    states = sorted(merged.values(), key=lambda s: s["state_id"])
+    alphas = sorted({float(a) for s in states for a in s["cells"]})
+    incomplete = [s["state_id"] for s in states
+                  if len(s["cells"]) != len(alphas)]
+    if incomplete:
+        raise SystemExit(
+            f"{len(incomplete)} state(s) lack a cell for every alpha "
+            f"{alphas}, e.g. {incomplete[:5]}. Merging would compare "
+            "different state sets across alpha.")
+
+    ALPHAS = tuple(alphas)
+    doc = {**docs[0], "states": states,
+           "alphas": alphas,
+           "merged_from": [p.name for p in paths],
+           "run_fingerprint": {**base, "alphas": alphas}}
+    _atomic_write(out, json.dumps(doc, indent=1))
+    print(f"merged {len(paths)} shards -> {out}")
+    print(f"  {len(states)} states, alphas {alphas}, shared alpha=0 verified "
+          "identical\n")
+    report(doc)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--bank", type=Path, default=DEFAULT_BANK)
