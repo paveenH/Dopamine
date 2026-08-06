@@ -63,10 +63,15 @@ import bandit_pv7 as p7
 import bandit_pv7_episode as ep
 import eval_pv7_frozen_states as fe
 import eval_pv7_stage1_alpha as SA
+import bandit_pv8_episode as _p8
 
 
 EVAL_VERSION = "pv7-history-ablation-v1"
-HISTORY_BLOCK_VERSION = "hist-letters-v1"
+# The block renderer lives in the GENERATION module, not here. This file
+# prototyped it, but pv8 episodes are generated with it, so a single
+# definition owned by the production chain is what keeps an analysis edit from
+# silently changing how trajectories were produced.
+HISTORY_BLOCK_VERSION = _p8.HISTORY_BLOCK_VERSION
 DEFAULT_BANK = Path(__file__).with_name("bandit_pv7_lockin_states.json")
 DEFAULT_OUT = Path(__file__).with_name("pv7_history_ablation.json")
 ARMS = ("H0", "H1")
@@ -78,21 +83,18 @@ HASHTAG_RE = SA.HASHTAG_RE
 # ------------------------------------------------------------------ prompts
 
 def _letters(history: list[dict]) -> list[str]:
-    """`Button A` -> `A`. Raises on any label that is not `Button <X>`."""
-    out = []
-    for e in history:
-        m = re.fullmatch(r"Button ([A-Z])", e["arm"])
-        if not m:
-            raise ValueError(f"unexpected arm label {e['arm']!r}")
-        out.append(m.group(1))
-    return out
+    """Delegates to the generation module; kept for the local dict shape."""
+    return _p8._letters([(e["arm"], e["reward"]) for e in history])
 
 
 def history_block(history: list[dict]) -> str:
-    if not history:
-        return "CHOICE HISTORY: none"
-    return ("CHOICE HISTORY (oldest → newest):\n"
-            f"[{' '.join(_letters(history))}]")
+    """Delegates to `bandit_pv8_episode.history_block` -- ONE renderer.
+
+    This file takes {"arm", "reward"} dicts (the state-bank shape) while the
+    generation module takes (arm, reward) pairs; the conversion is the only
+    thing that happens here.
+    """
+    return _p8.history_block([(e["arm"], e["reward"]) for e in history])
 
 
 def build_h1_state(h0_state: str, history: list[dict]) -> str:
