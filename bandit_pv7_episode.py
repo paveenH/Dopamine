@@ -71,11 +71,11 @@ PROTOCOL_VERSION = "pv7"
 # Both are behaviour-affecting and belong in the resume key.
 STAGE1_INSTRUCTION_VERSION = "p1b"
 STAGE2_INSTRUCTION_VERSION = "s1"
-# The Policy extractor/parser. Bumping it changes `policy_target`, which is a
-# RECORDED field only (it never picks the action), so it does not belong in the
-# resume key -- but it must be in metadata, or two runs' policy statistics
-# become silently incomparable.
-POLICY_PARSER_VERSION = "pf1"
+# Re-exported from the parser's canonical home. It is metadata only: bumping it
+# re-labels stored text without changing a trajectory, so it stays OUT of the
+# resume key. If the EXTRACTOR (what Stage 2 reads) ever changes, that is a
+# different thing entirely and must bump the protocol/resume key.
+POLICY_PARSER_VERSION = p7.POLICY_PARSER_VERSION
 
 RATIONALE_MAX_TOKENS = 64
 
@@ -311,32 +311,21 @@ def run_pv7_episode(
 
 
 def _policy_record(clean: str, chosen: str) -> dict:
-    """What Stage 1 intended, and whether Stage 2 did it.
+    """What Stage 1 intended, and whether Stage 2 did it. RECORD ONLY.
 
-    Uses the same first-decision-clause parser as the frozen-state evaluation
-    so policy statistics stay comparable across pv7 phases. RECORD ONLY -- it
-    never chooses the action.
-
-    The import is function-local and guarded: `eval_pv7_frozen_states` pulls in
-    `bandit_pv6_episode` for its P0 arm, and a trajectory runner must not
-    acquire a pv6 dependency at module import. If that module is ever removed
-    or made pv6-only, the runner keeps running and records the parse as failed
-    rather than taking the whole episode down.
+    Hard dependency on `bandit_pv7.parse_policy`, deliberately with NO
+    fallback: the parser is how every pv7 result gets interpreted, so its
+    absence is an engineering fault, not model behaviour. Degrading to
+    "unparsed" would emit trajectories that look valid, pass the gate's
+    read-only contract, and cannot be analysed -- the worst possible failure
+    mode. An ImportError here must stop the run.
     """
-    try:
-        from eval_pv7_frozen_states import policy_flags
-    except ImportError:                                         # pragma: no cover
-        return {"policy_stance": "unclear", "policy_target": None,
-                "policy_target_source": "parser_unavailable",
-                "policy_parsed": False, "action_follows_policy": None}
-    p = policy_flags(clean, chosen)
-    parsed = (p["policy_target_source"] == "policy_first_clause"
-              and p["stance_is_clear"])
+    p = p7.parse_policy(clean, chosen)
     return {
         "policy_stance": p["policy_stance"],
         "policy_target": p["policy_target"],
         "policy_target_source": p["policy_target_source"],
-        "policy_parsed": parsed,
+        "policy_parsed": p["policy_parsed"],
         "action_follows_policy": p["action_follows_policy"],
     }
 

@@ -185,7 +185,21 @@ def main() -> int:
     check("policy_parse_rate" in rec and "action_follows_policy_rate" in rec,
           "episode summarises Stage 1 quality and Stage 2 consistency apart")
 
-    print("\n[9] the parser records intent but never picks the action")
+    print("\n[9] the policy parser is a HARD dependency, not fail-open")
+    # A missing parser is an engineering fault. Degrading to "unparsed" would
+    # emit trajectories that look valid and cannot be analysed, so the runner
+    # must have no fallback path at all.
+    rsrc = open(ep.__file__).read()
+    check("parser_unavailable" not in rsrc,
+          "no fail-open 'parser_unavailable' branch survives")
+    check("except ImportError" not in rsrc,
+          "the parser import is not guarded")
+    check(ep.POLICY_PARSER_VERSION == p7.POLICY_PARSER_VERSION,
+          "parser version is re-exported from its canonical home")
+    check(hasattr(p7, "parse_policy"),
+          "parse_policy lives in bandit_pv7, not in an analysis script")
+
+    print("\n[10] the parser records intent but never picks the action")
     # The fake scores ALWAYS make the first-listed arm win, while every
     # rationale names Button B. If the parser were choosing, actions would be
     # B; they must instead follow the scores.
@@ -198,7 +212,7 @@ def main() -> int:
           or first_arm == "Button B",
           "action_follows_policy can be False -- it is not a tautology")
 
-    print("\n[10] two different non-zero alphas are rejected, not averaged")
+    print("\n[11] two different non-zero alphas are rejected, not averaged")
     try:
         ep.run_pv7_episode(FakeVC(tok), diff, seed=0, env=env,
                            rationale_alpha=4.0, action_alpha=-4.0)
@@ -206,7 +220,7 @@ def main() -> int:
     except ValueError:
         check(True, "mixed non-zero alphas raise instead of silently reusing")
 
-    print("\n[11] resume key separates every behaviour-affecting version")
+    print("\n[12] resume key separates every behaviour-affecting version")
     k0 = ep.resume_key("easy", 0, 0, 11, 20, 20)
     check(ep.STAGE1_INSTRUCTION_VERSION in k0
           and ep.STAGE2_INSTRUCTION_VERSION in k0,
@@ -217,7 +231,7 @@ def main() -> int:
           != ep.resume_key("easy", 0, 4, 11, 20, 20),
           "rationale-only and action-only do not collide")
 
-    print("\n[12] a mis-anchored prompt stops the run")
+    print("\n[13] a mis-anchored prompt stops the run")
     class BadVC(FakeVC):
         pass
     bad = BadVC(tok)

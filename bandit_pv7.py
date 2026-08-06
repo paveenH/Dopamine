@@ -196,6 +196,92 @@ def extract_evidence_policy_block(raw: str) -> str:
     return (text if end == -1 else text[:end]).rstrip()
 
 
+# ── policy parser (canonical home) ───────────────────────────────────────────
+# Lives here, in the pure prompt/state module, so the production runner never
+# has to import an analysis script to read its own output. HEURISTIC and
+# POST-HOC DESCRIPTIVE: it records what Stage 1 said it intended. It NEVER
+# selects the action -- that is always an argmax over the four candidate
+# scores, which is what keeps `action_follows_policy` a measurement rather
+# than a tautology.
+#
+# POLICY_PARSER_VERSION belongs in result metadata, not in the resume key:
+# changing it re-labels stored text without changing a single trajectory.
+POLICY_PARSER_VERSION = "pf1"
+
+_POLICY_MARK = re.compile(r"policy\s*[:：]", re.I)
+_EXPLORE_RE = re.compile(r"\bexplor\w*", re.I)
+_EXPLOIT_RE = re.compile(r"\bexploit\w*", re.I)
+_ARM_MENTION_RE = re.compile(r"button\s*([A-E])\b", re.I)
+_DECISION_VERB_RE = re.compile(
+    r"\b(explor\w*|exploit\w*|try|tries|choose|choos\w*|select\w*|pick\w*|"
+    r"stick\s+with|continue\s+with|keep\s+with|switch\s+to|go\s+with)\b", re.I)
+
+
+def first_decision_clause(body: str, m_pol) -> str:
+    """First sentence/line after `Policy:`. Everything after it is explanation,
+    and a button named there is not the policy target."""
+    if m_pol is None:
+        return ""
+    seg = body[m_pol.end():].lstrip()
+    line = seg.split("\n", 1)[0]
+    m_end = re.search(r"[.!?](?:\s|$)", line)
+    return line[:m_end.end()] if m_end else line
+
+
+def parse_policy(clean: str, chosen: str | None = None) -> dict:
+    """Stage 1's stated intent, and whether Stage 2 executed it.
+
+    Target = the FIRST button after the decision verb in the policy's first
+    clause. Not last-mention: 64-token truncation often ends mid-sentence on an
+    unrelated arm, so "Policy: Explore Button D. Button C currently has the
+    best estimate." would resolve to C. Measured disagreement between the two
+    parsers was 20/102 rows (P1) and 46/95 (P2).
+
+    `policy_parsed` is the strict gate used for headline statistics: an
+    explicit `Policy:` marker, a clear explore/exploit stance, AND a named
+    button. A loose full-text fallback is recorded for sensitivity only,
+    because it will happily return a button mentioned in the Evidence half.
+    """
+    body = (clean or "").strip()
+    explore, exploit = bool(_EXPLORE_RE.search(body)), bool(_EXPLOIT_RE.search(body))
+    named = [f"Button {m.group(1).upper()}"
+             for m in _ARM_MENTION_RE.finditer(body)]
+    m_pol = _POLICY_MARK.search(body)
+
+    clause_target = None
+    clause = first_decision_clause(body, m_pol)
+    if clause:
+        m_verb = _DECISION_VERB_RE.search(clause)
+        if m_verb:
+            m_arm = _ARM_MENTION_RE.search(clause[m_verb.end():])
+            if m_arm:
+                clause_target = f"Button {m_arm.group(1).upper()}"
+
+    if clause_target is not None:
+        target, source = clause_target, "policy_first_clause"
+    elif m_pol is not None:
+        target, source = None, "policy_no_target"
+    elif named:
+        target, source = named[-1], "full_text_fallback"
+    else:
+        target, source = None, "none"
+
+    stance = ("explore" if explore and not exploit else
+              "exploit" if exploit and not explore else
+              "both" if explore and exploit else "unclear")
+    return {
+        "policy_stance": stance,
+        "stance_is_clear": stance in ("explore", "exploit"),
+        "policy_names_button": bool(named),
+        "policy_target": target,
+        "policy_target_source": source,
+        "policy_parsed": source == "policy_first_clause"
+                         and stance in ("explore", "exploit"),
+        "action_follows_policy": (None if target is None or chosen is None
+                                  else target == chosen),
+    }
+
+
 def strip_policy_line(clean: str) -> str:
     """Drop the Policy line, keep the Evidence text verbatim.
 
