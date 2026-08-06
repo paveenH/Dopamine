@@ -11,7 +11,7 @@
     46,
     50
   ],
-  "critical_subset_note": "Select the critical subset by the tag 'is_critical_one_shot_zero' (5 states); 'critical_refs' maps a seed to the grid slot that carries its critical state when the two rounds coincide. These states sit at rounds 1-4, BEFORE any lock has formed. They test whether alpha makes the model re-sample an arm that just returned 0 -- they CANNOT show an established lock being broken. Lock-breaking is tested by the r31/r51/r76/r96 slots of the same five seeds. Selection uses the reward-blind property 'best arm pulled exactly once, observed 0, never again'; that the arm is the true best is recorded, not used to select.",
+  "critical_subset_note": "Select the critical subset by the tag 'is_critical_one_shot_zero' (5 states); 'critical_refs' maps a seed to the grid slot that carries its critical state when the two rounds coincide. These states sit at rounds 1-4, BEFORE any lock has formed. They test whether alpha makes the model re-sample an arm that just returned 0 -- they CANNOT show an established lock being broken, and no frozen state can: a single next choice shows an immediate revisit, while breaking a lock is a trajectory property that only a full episode can measure. Selection is ORACLE-BLIND but not reward-blind -- the property 'pulled exactly once, observed 0, never pulled again' reads observed rewards and the rest of the alpha=0 trajectory; only true-best identity is excluded. This is a post-hoc lock-in diagnostic subset. With n=5, report per-state changes and proportions only: no significance testing, no generalization beyond these five trajectories.",
   "duplicate_state_fingerprints": {},
   "environment": {
     "horizon": 100,

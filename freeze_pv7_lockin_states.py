@@ -33,15 +33,23 @@ and 46 (best arm pulled at r3 -> critical round 4 = the r4 grid slot), giving
 123 stored states: 120 grid + 3 additional critical, with 5 critical slots in
 total once the two references are resolved.
 
-SELECTION IS NOT OUTCOME-BASED
-------------------------------
-The 120 are every seed at every grid round -- no filtering at all, so no
-selection is possible. The 5 critical states ARE selected by a trajectory
-property, and that property is deliberately defined WITHOUT reward
-information: "an arm at n=1 whose single observation was 0, never pulled
-again". That this arm happens to be the true best is a diagnostic fact stored
-under `diagnostics`, never a selection criterion and never visible to a prompt
-renderer. The same definition applied to a non-best arm would qualify equally.
+SELECTION: ORACLE-BLIND, NOT REWARD-BLIND
+-----------------------------------------
+The 120 grid states are every seed at every grid round -- no filtering at all,
+so no selection is possible. They are the primary analysis set.
+
+The 5 critical states ARE selected, and the selection is NOT reward-blind: the
+defining property ("an arm at n=1 whose single observation was 0, never pulled
+again") reads both the observed reward and the rest of the alpha=0 trajectory.
+What it does not read is the arm's true identity. The accurate description is:
+
+    a post-hoc lock-in diagnostic subset, defined on the alpha=0 trajectories,
+    without using true-best-arm identity and without using any alpha effect.
+
+That the arm happens to be the true best is stored under `diagnostics`, never
+used to select and never visible to a prompt renderer. Consequence for
+reporting: with n=5 report per-state changes and proportions only -- no
+significance testing, and no generalization beyond these five trajectories.
 
 WHAT THE CRITICAL SUBSET CAN AND CANNOT SHOW
 --------------------------------------------
@@ -159,7 +167,7 @@ def _make_state(run: dict, env, state_type: str, round_idx: int) -> dict:
         },
         # Diagnostic-only. A prompt renderer must never read this block; it
         # exists so an oracle-assisted SECONDARY metric can be computed after
-        # the primary reward-blind one.
+        # the primary oracle-blind one.
         "diagnostics": {
             "best_arm": run["best_arm"],
             "best_position": run["best_position"],
@@ -268,10 +276,15 @@ def build_state_bank(source: Path) -> dict:
             "These states sit at rounds 1-4, BEFORE any lock "
             "has formed. They test whether alpha makes the model re-sample an "
             "arm that just returned 0 -- they CANNOT show an established lock "
-            "being broken. Lock-breaking is tested by the r31/r51/r76/r96 "
-            "slots of the same five seeds. Selection uses the reward-blind "
-            "property 'best arm pulled exactly once, observed 0, never again'; "
-            "that the arm is the true best is recorded, not used to select."),
+            "being broken, and no frozen state can: a single next choice shows "
+            "an immediate revisit, while breaking a lock is a trajectory "
+            "property that only a full episode can measure. Selection is "
+            "ORACLE-BLIND but not reward-blind -- the property 'pulled exactly "
+            "once, observed 0, never pulled again' reads observed rewards and "
+            "the rest of the alpha=0 trajectory; only true-best identity is "
+            "excluded. This is a post-hoc lock-in diagnostic subset. With n=5, "
+            "report per-state changes and proportions only: no significance "
+            "testing, no generalization beyond these five trajectories."),
         "source": {
             "file": source.name,
             "sha256": _sha256(source),
