@@ -480,6 +480,32 @@ def report(doc: dict) -> None:
                        ("n_hashtags", "n_hashtags")]:
         vals = [_mean(cells(a), key) for a in A]
         print(f"{label:38s} " + "  ".join(f"{v:9.3f}" for v in vals))
+
+    # In a merged run the alpha=0 column for continuous metrics comes from ONE
+    # shard, so a level comparison against the other shard's alpha mixes in a
+    # device difference. The within-shard deltas are the only valid contrast.
+    cd = doc.get("continuous_deltas")
+    if cd:
+        print("\n6b CONTINUOUS CONTRASTS (within-shard deltas, merged run)")
+        print("  The alpha=0 LEVELS above come from one shard only. Read the")
+        print("  deltas below instead: each is (alpha - alpha0) computed on")
+        print("  the GPU that produced both cells, so no cross-device")
+        print("  difference enters it.")
+        for key in CONTINUOUS_KEYS:
+            for a in A:
+                if float(a) == 0.0:
+                    continue
+                vals = [d[a][key] for d in cd.values()
+                        if a in d and key in d[a]]
+                if not vals:
+                    continue
+                m = sum(vals) / len(vals)
+                print(f"  d({key}) a={a:>5s} vs 0   {m:+9.4f}   "
+                      f"(n={len(vals)} states)")
+        sp = doc.get("alpha0_cross_shard_spread") or {}
+        if sp:
+            print("  alpha=0 cross-shard spread (max |diff|): "
+                  + ", ".join(f"{k}={v:.2e}" for k, v in sp.items()))
     for label, key in [("oracle_best_revisit_choice",
                         "oracle_best_revisit_choice"),
                        ("oracle_policy_targets_best",
@@ -566,15 +592,61 @@ def report(doc: dict) -> None:
     print("exact gap this experiment exists to test (.996 vs .031 at alpha=0).")
 
 
+# Continuous logit-derived quantities. These are the values alpha is
+# hypothesised to move, and they are also the ones that differ across devices
+# from bf16 accumulation order alone. They must never be compared across
+# shards: a cross-shard delta would mix the intervention with a hardware
+# artifact. See `_within_shard_deltas`.
+CONTINUOUS_KEYS = ("margin", "norm_entropy")
+
+
+def _within_shard_deltas(doc: dict, alphas: list[float]) -> dict:
+    """Per-state alpha-vs-0 deltas for continuous metrics, computed IN-SHARD.
+
+    Both cells come from the same GPU, so the difference cancels any device
+    offset present in that shard's alpha=0 baseline. Merging these deltas is
+    safe; merging the raw values and subtracting afterwards is not.
+    """
+    out: dict[str, dict] = {}
+    for s in doc["states"]:
+        zero = s["cells"].get("0.0")
+        if zero is None:
+            continue
+        for a in alphas:
+            if a == 0.0:
+                continue
+            cell = s["cells"].get(str(a))
+            if cell is None:
+                continue
+            out.setdefault(s["state_id"], {})[str(a)] = {
+                k: (cell[k] - zero[k])
+                for k in CONTINUOUS_KEYS
+                if isinstance(cell.get(k), (int, float))
+                and isinstance(zero.get(k), (int, float))
+            }
+    return out
+
+
 def merge_shards(paths: list[Path], out: Path) -> None:
-    """Combine per-alpha shards into one result, verifying the shared cells.
+    """Combine per-alpha shards, verifying the shared cells and the coverage.
 
     Each shard carries alpha=0. Both were produced at temperature 0, from the
-    same prompt and seed, with no hook registered, so they MUST be identical.
-    Checking that is the point: if they disagree, the two GPUs did not run the
-    same thing and no cross-shard contrast is interpretable. Nondeterminism
-    across devices is real (bf16 accumulation order differs), so this is a
-    live risk, not a formality.
+    same prompt and seed, with no hook registered, so they MUST agree on
+    BEHAVIOUR. Checking that is the point: if they disagree, the two GPUs did
+    not run the same thing and no cross-shard contrast is interpretable.
+    Nondeterminism across devices is real (bf16 accumulation order differs),
+    so this is a live risk, not a formality.
+
+    TWO THINGS THIS DELIBERATELY DOES NOT DO
+    ----------------------------------------
+    1. It does not accept a shard that is missing states. Checking only that
+       every SEEN state has every alpha would pass a merge where both shards
+       dropped the same state -- 122 states, silently.
+    2. It does not let a continuous metric be compared across shards. The
+       merged doc keeps shard 0's alpha=0 cell for behaviour, but every
+       continuous contrast is precomputed WITHIN its own shard and stored in
+       `continuous_deltas`. Subtracting shard 1's +4 margin from shard 0's
+       alpha=0 margin would fold a device difference into the effect.
     """
     global ALPHAS
     docs = [json.loads(p.read_text()) for p in paths]
@@ -587,18 +659,46 @@ def merge_shards(paths: list[Path], out: Path) -> None:
             raise SystemExit(f"{p} differs from {paths[0]} on: {diffs}. "
                              "The shards are not the same experiment.")
 
+    # Coverage is checked against the BANK, not against whatever the shards
+    # happen to contain, so a state missing from every shard is still caught.
+    bank_path = Path(__file__).with_name(base.get("bank_file", "")) \
+        if base.get("bank_file") else DEFAULT_BANK
+    if not bank_path.exists():
+        bank_path = DEFAULT_BANK
+    expected = {s["state_id"] for s in
+                json.loads(bank_path.read_text())["states"]}
+    for p, d in zip(paths, docs):
+        got = {s["state_id"] for s in d["states"]}
+        if got != expected:
+            miss, extra = expected - got, got - expected
+            raise SystemExit(
+                f"{p} does not cover the bank: {len(got)}/{len(expected)} "
+                f"states"
+                + (f"\n  missing {len(miss)}, e.g. {sorted(miss)[:5]}" if miss
+                   else "")
+                + (f"\n  unexpected {len(extra)}, e.g. {sorted(extra)[:5]}"
+                   if extra else "")
+                + "\n  An incomplete shard cannot be merged: the alpha cells "
+                  "would rest on different state sets.")
+
     merged: dict[str, dict] = {}
     mismatches: list[str] = []
+    deltas: dict[str, dict] = {}
     for p, d in zip(paths, docs):
+        shard_alphas = sorted({float(a) for s in d["states"]
+                               for a in s["cells"]})
+        for sid, per_alpha in _within_shard_deltas(d, shard_alphas).items():
+            deltas.setdefault(sid, {}).update(per_alpha)
         for s in d["states"]:
             tgt = merged.setdefault(
                 s["state_id"], {**{k: v for k, v in s.items() if k != "cells"},
                                 "cells": {}})
             for a, cell in s["cells"].items():
                 if a in tgt["cells"]:
-                    # Compare the behaviour, not the floats: candidate_scores
-                    # can differ in the last bits across devices without the
-                    # argmax or any metric changing.
+                    # Compare BEHAVIOUR, not floats: candidate_scores can
+                    # differ in the last bits across devices without the
+                    # argmax or any categorical metric changing. The floats
+                    # are handled by `continuous_deltas` instead.
                     old, new = tgt["cells"][a], cell
                     for k in ("action", "rationale_clean", "policy_target",
                               "policy_stance"):
@@ -624,16 +724,46 @@ def merge_shards(paths: list[Path], out: Path) -> None:
             f"{len(incomplete)} state(s) lack a cell for every alpha "
             f"{alphas}, e.g. {incomplete[:5]}. Merging would compare "
             "different state sets across alpha.")
+    if len(states) != len(expected):
+        raise SystemExit(f"merged {len(states)} states, bank has "
+                         f"{len(expected)}")
+
+    # Report the shard-internal alpha=0 spread on continuous metrics. Behaviour
+    # already matched, so this is a magnitude check, not a gate: it tells the
+    # reader how much device noise sits under the numbers.
+    spreads = {}
+    for k in CONTINUOUS_KEYS:
+        vals = [[s["cells"]["0.0"].get(k) for s in d["states"]
+                 if "0.0" in s["cells"]] for d in docs]
+        pairs = [(a, b) for a, b in zip(*vals[:2])
+                 if isinstance(a, (int, float)) and isinstance(b, (int, float))]
+        if pairs:
+            spreads[k] = max(abs(a - b) for a, b in pairs)
 
     ALPHAS = tuple(alphas)
     doc = {**docs[0], "states": states,
            "alphas": alphas,
            "merged_from": [p.name for p in paths],
+           "continuous_deltas": deltas,
+           "continuous_delta_note": (
+               "Per-state (alpha - alpha0) for margin/norm_entropy, computed "
+               "WITHIN the shard that produced both cells. Use these for any "
+               "continuous contrast; do NOT subtract raw values across "
+               "shards, which would fold a cross-device bf16 difference into "
+               "the effect."),
+           "alpha0_cross_shard_spread": spreads,
            "run_fingerprint": {**base, "alphas": alphas}}
     _atomic_write(out, json.dumps(doc, indent=1))
     print(f"merged {len(paths)} shards -> {out}")
-    print(f"  {len(states)} states, alphas {alphas}, shared alpha=0 verified "
-          "identical\n")
+    print(f"  {len(states)}/{len(expected)} bank states, alphas {alphas}")
+    print("  shared alpha=0 verified identical on action / rationale / "
+          "policy")
+    if spreads:
+        print("  alpha=0 cross-shard spread on continuous metrics (max |diff|):")
+        for k, v in spreads.items():
+            print(f"    {k:16s} {v:.3e}")
+        print("  continuous contrasts use WITHIN-shard deltas, so this spread")
+        print("  does not enter them.\n")
     report(doc)
 
 
