@@ -352,6 +352,48 @@ def _torch():
     return torch
 
 
+def assert_h0_matches_pv7(results: list[dict], pv7_path: Path) -> None:
+    """H0 must reproduce the stored pv7 alpha=0 rationale, or the run stops.
+
+    H0 IS the pv7 prompt, so a difference is device or version drift, not
+    model behaviour -- and it invalidates the whole point of re-running both
+    arms on one card. Fail-closed at every step: a missing file, a partial
+    state set or a single differing rationale all raise, rather than printing
+    a warning above results that would then be read as if paired.
+    """
+    if not pv7_path.exists():
+        raise SystemExit(
+            f"--pv7_alpha {pv7_path} does not exist. Point it at the stored "
+            "pv7 alpha=0 result, or omit the flag to skip the check "
+            "deliberately -- a typo must not silently disable it.")
+    prev = {s["state_id"]: s for s in
+            json.loads(pv7_path.read_text())["states"]}
+    here = {r["state_id"] for r in results}
+    missing = here - set(prev)
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} state(s) have no pv7 alpha=0 counterpart, e.g. "
+            f"{sorted(missing)[:5]}. The two runs do not cover the same "
+            "states, so H0 cannot be verified against pv7.")
+    extra = set(prev) - here
+    if extra:
+        raise SystemExit(
+            f"this run covers {len(here)} states but the pv7 file has "
+            f"{len(prev)}; {len(extra)} unmatched, e.g. {sorted(extra)[:5]}.")
+    bad = [r["state_id"] for r in results
+           if prev[r["state_id"]]["cells"]["0.0"]["rationale_clean"]
+           != r["cells"]["H0"]["rationale_clean"]]
+    if bad:
+        raise SystemExit(
+            f"H0 differs from the stored pv7 alpha=0 rationale on "
+            f"{len(bad)}/{len(results)} states, e.g. {bad[:5]}.\n"
+            "H0 is the SAME prompt, so this is device or version drift. Any "
+            "H1-H0 contrast read off this run would be uninterpretable. "
+            "Investigate before continuing; do not remove this check.")
+    print(f"\nH0 vs stored pv7 alpha=0: {len(results)}/{len(results)} "
+          "rationales identical")
+
+
 # ------------------------------------------------------------------ report
 
 def _rate(rows, key):
@@ -417,17 +459,34 @@ def report(doc: dict) -> None:
               f"[{r['lo']:+.3f}, {r['hi']:+.3f}]{flag}")
     print("  * = excludes 0. Straddling 0 = NOT DETECTED, never 'no effect'.")
 
-    print("\nPERSISTENCE BY TAIL-RUN LENGTH  (the inertia dose axis)")
-    print("  If History raises persistence monotonically with run length,")
-    print("  that is the imitation reading, not self-monitoring.")
+    print("\nPERSISTENCE BY TAIL-RUN LENGTH  (candidate inertia dose axis)")
+    print("  The quantity that matters is the WITHIN-STATE H1-H0 difference,")
+    print("  and whether that difference grows with tail-run length. The H0")
+    print("  and H1 columns are shown for context only: their LEVELS rise")
+    print("  with round for reasons that have nothing to do with History.")
     print(f"  {'state_type':14s} {'tail_run':>9s} "
-          f"{'H0 last':>9s} {'H1 last':>9s} {'delta':>8s}")
+          f"{'H0 last':>9s} {'H1 last':>9s} {'paired d':>9s} {'n+/n-':>7s}")
     for t in sorted({s["state_type"] for s in S}):
         sub = [s for s in S if s["state_type"] == t]
         tr = st.mean(s["history_diag"]["tail_run"] for s in sub)
         a = _rate([s["cells"]["H0"] for s in sub], "chose_last_chosen")
         b = _rate([s["cells"]["H1"] for s in sub], "chose_last_chosen")
-        print(f"  {t:14s} {tr:9.1f} {a:9.3f} {b:9.3f} {b - a:+8.3f}")
+        # Paired per state: +1 where H1 continues and H0 did not, -1 the
+        # reverse. A level difference between state types is not evidence;
+        # a growing paired delta is.
+        pos = sum(1 for s in sub
+                  if s["cells"]["H1"]["chose_last_chosen"]
+                  and not s["cells"]["H0"]["chose_last_chosen"])
+        neg = sum(1 for s in sub
+                  if s["cells"]["H0"]["chose_last_chosen"]
+                  and not s["cells"]["H1"]["chose_last_chosen"])
+        print(f"  {t:14s} {tr:9.1f} {a:9.3f} {b:9.3f} "
+              f"{(pos - neg) / len(sub):+9.3f} {pos:3d}/{neg:<3d}")
+    print("  INTERPRETATION LIMIT: tail-run grows together with round index,")
+    print("  dominant-arm evidence and the stability of the empirical rate.")
+    print("  A paired delta rising with tail-run is CONSISTENT WITH an")
+    print("  imitation/inertia reading; it does not establish it, because")
+    print("  those covariates are not separated here.")
 
     dis = [s for s in S if s["dissociating"]]
     n_tie = sum(1 for s in S if s.get("empirical_best_tied"))
@@ -467,10 +526,14 @@ def report(doc: dict) -> None:
     print("=" * 76)
     print("  1shot0 revisit UP, late exploit held -> History surfaces lock-in")
     print("  only untried UP                      -> does not fix one-shot-zero")
-    print("  dominant/last-chosen UP              -> the list reinforces inertia")
+    print("  dominant/last-chosen UP              -> consistent with the list")
+    print("                                          reinforcing inertia")
     print("  everything up, margin far down       -> untargeted churn/flailing")
     print("  nothing moves                        -> counts suffice; go to")
     print("                                          the Beta Calculator")
+    print("\n  None of these five is a causal verdict. Each names the reading")
+    print("  a pattern is CONSISTENT WITH, under one state bank, one model")
+    print("  and alpha=0 only.")
 
 
 def main() -> None:
@@ -541,13 +604,27 @@ def main() -> None:
         print(f"  [{i}/{len(todo)}] {sdef['state_id']:34s} "
               + " ".join(f"{a}:{rec['cells'][a]['action'][-1]}" for a in ARMS)
               + f"  ({time.time() - t0:.0f}s)", flush=True)
+        # Counts are computed from `results`, never hardcoded: a bank change
+        # would otherwise leave a stale n in the metadata of a real result.
+        n_dis = sum(1 for r in results if r["dissociating"])
+        n_tie = sum(1 for r in results if r.get("empirical_best_tied"))
+        n_crit = sum(1 for r in results if r["is_critical"])
+        n_seeds = len({r["seed"] for r in results})
         SA._atomic_write(args.out, json.dumps(
             {"eval_version": EVAL_VERSION, "run_fingerprint": fp,
              "arms": list(ARMS), "alpha": 0.0,
+             "n_states": len(results),
+             "n_dissociating": n_dis,
+             "n_empirical_best_tied": n_tie,
+             "n_critical": n_crit,
+             "n_seeds": n_seeds,
              "analysis_unit": (
-                 "Descriptive rates are state-level (n=123). Inference "
-                 "resamples SEEDS (n=20). The dissociating subset (n=20) and "
-                 "the critical subset (n=5) are per-state only."),
+                 f"Descriptive rates are state-level (n={len(results)}). "
+                 f"Inference resamples SEEDS (n={n_seeds}). The dissociating "
+                 f"subset (n={n_dis}) and the critical subset (n={n_crit}) "
+                 "are per-state only, no significance testing. A further "
+                 f"{n_tie} states have a TIED empirical best and are excluded "
+                 "from the dissociating subset."),
              "states": results}, indent=1))
 
     if args.dry_run:
@@ -562,19 +639,8 @@ def main() -> None:
               f"{len(results) * 2} Stage 1 + same Stage 2 scorings")
         return
 
-    if args.pv7_alpha and args.pv7_alpha.exists():
-        prev = {s["state_id"]: s for s in
-                json.loads(args.pv7_alpha.read_text())["states"]}
-        bad = [r["state_id"] for r in results
-               if r["state_id"] in prev
-               and prev[r["state_id"]]["cells"]["0.0"]["rationale_clean"]
-               != r["cells"]["H0"]["rationale_clean"]]
-        print(f"\nH0 vs stored pv7 alpha=0: "
-              f"{len(results) - len(bad)}/{len(results)} identical")
-        if bad:
-            print(f"  DIFFERS on {len(bad)}, e.g. {bad[:5]}")
-            print("  H0 is the same prompt, so a difference is device or")
-            print("  version drift -- investigate before reading H1-H0.")
+    if args.pv7_alpha is not None:
+        assert_h0_matches_pv7(results, args.pv7_alpha)
 
     print(f"\nwrote {args.out}")
     report(json.loads(args.out.read_text()))
