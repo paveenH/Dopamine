@@ -326,6 +326,8 @@ def run_fingerprint(args, bank: dict, bank_path: Path,
         "bank_version": bank["state_bank_version"],
         "bank_sha256": _sha256(bank_path),
         "mask_sha256": mask_sha,
+        # Reads the module constant AFTER --alphas has set it, so a shard
+        # cannot resume from a different shard's file.
         "alphas": list(ALPHAS),
         "action_alpha": 0.0,
         "model": args.model,
