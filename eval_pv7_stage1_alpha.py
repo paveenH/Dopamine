@@ -503,7 +503,11 @@ def report(doc: dict) -> None:
 
     # --- per state type ---------------------------------------------------
     print("\nBY STATE TYPE  (low_sample_revisit_choice n=1, eligible only)")
-    print("  Each row is 20 seeds paired within the state type.")
+    print("  Grid rows are 20 seeds paired within the state type (fewer if a")
+    print("  state has no arm to revisit). The `critical_one_shot_zero` row is")
+    print("  NOT the critical subset: it holds only the critical states whose")
+    print("  round differs from a grid round. The critical subset is n=5 and")
+    print("  is tabulated below by tag.")
     types = sorted({s["state_type"] for s in states})
     for t in types:
         sub = [s for s in elig if s["state_type"] == t]
@@ -511,8 +515,10 @@ def report(doc: dict) -> None:
             continue
         vals = [_rate([s["cells"][a] for s in sub], "low_sample_revisit_choice_n1")
                 for a in A]
+        note = ("   <- not the critical subset; see below (n=5)"
+                if t == "critical_one_shot_zero" else "")
         print(f"  {t:26s} n={len(sub):2d}  "
-              + "  ".join(f"{v:9.3f}" for v in vals))
+              + "  ".join(f"{v:9.3f}" for v in vals) + note)
 
     # --- critical subset: per-state, no statistics ------------------------
     crit = [s for s in states if s["is_critical"]]
