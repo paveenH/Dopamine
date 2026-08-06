@@ -33,23 +33,28 @@ and 46 (best arm pulled at r3 -> critical round 4 = the r4 grid slot), giving
 123 stored states: 120 grid + 3 additional critical, with 5 critical slots in
 total once the two references are resolved.
 
-SELECTION: ORACLE-BLIND, NOT REWARD-BLIND
------------------------------------------
+SELECTION: THE 120 ARE UNSELECTED, THE 5 ARE ORACLE-SELECTED
+------------------------------------------------------------
 The 120 grid states are every seed at every grid round -- no filtering at all,
 so no selection is possible. They are the primary analysis set.
 
-The 5 critical states ARE selected, and the selection is NOT reward-blind: the
-defining property ("an arm at n=1 whose single observation was 0, never pulled
-again") reads both the observed reward and the rest of the alpha=0 trajectory.
-What it does not read is the arm's true identity. The accurate description is:
+The 5 critical states ARE selected, and `_critical_round` reads
+`run["best_arm"]` to do it. They are therefore an ORACLE-SELECTED, post-hoc
+lock-in diagnostic subset, defined on the alpha=0 trajectories: the criterion
+is "the TRUE BEST arm was pulled exactly once, observed 0, and never pulled
+again". It uses true-best identity, observed rewards, and the rest of the
+trajectory. The only thing it does not use is any alpha effect.
 
-    a post-hoc lock-in diagnostic subset, defined on the alpha=0 trajectories,
-    without using true-best-arm identity and without using any alpha effect.
+Calling this oracle-blind would be wrong. The consequence is a reporting rule,
+not a defect: every metric computed on this subset is an ORACLE-ASSISTED
+SECONDARY diagnostic, reported on its own denominator of 5, per-state and as
+proportions only -- no significance testing, no generalization beyond these
+five trajectories, and never as a headline.
 
-That the arm happens to be the true best is stored under `diagnostics`, never
-used to select and never visible to a prompt renderer. Consequence for
-reporting: with n=5 report per-state changes and proportions only -- no
-significance testing, and no generalization beyond these five trajectories.
+The abandoned arm is stored explicitly as `diagnostics.critical_arm`. It must
+never be re-derived by sorting the low-sample set: alphabetical order does not
+encode which arm was abandoned, and on this bank that shortcut mislabels seeds
+3 and 26 (whose critical arm is Button D while Button A sorts first).
 
 WHAT THE CRITICAL SUBSET CAN AND CANNOT SHOW
 --------------------------------------------
@@ -128,9 +133,10 @@ def _critical_round(run: dict) -> int | None:
     """Round index right after the true best arm's single zero, if abandoned.
 
     Returns None unless the best arm was pulled exactly once in the whole
-    episode AND that pull returned 0. `diagnostics.best_arm` is read here --
-    this is the one place the bank consults it, and the resulting slots are
-    labelled as an oracle-selected subset in the output.
+    episode AND that pull returned 0. THIS READS `run["best_arm"]`: the subset
+    is oracle-selected, and every metric computed on it is an oracle-assisted
+    secondary diagnostic. That label is not a caveat bolted on afterwards --
+    it follows from this line.
     """
     choices, feedbacks, best = run["choices"], run["feedbacks"], run["best_arm"]
     idx = [i for i, c in enumerate(choices) if c == best]
@@ -139,7 +145,8 @@ def _critical_round(run: dict) -> int | None:
     return idx[0] + 1
 
 
-def _make_state(run: dict, env, state_type: str, round_idx: int) -> dict:
+def _make_state(run: dict, env, state_type: str, round_idx: int,
+                critical_arm: str | None = None) -> dict:
     choices, feedbacks = run["choices"], run["feedbacks"]
     history = [{"arm": a, "reward": r}
                for a, r in zip(choices[:round_idx], feedbacks[:round_idx])]
@@ -177,6 +184,10 @@ def _make_state(run: dict, env, state_type: str, round_idx: int) -> dict:
             "best_arm_pulls_so_far": counts.get(run["best_arm"], 0),
             "best_arm_is_one_shot_zero": run["best_arm"] in low,
             "episode_suffix_failure": run["suffix_failure"],
+            # The abandoned arm, stored explicitly. NEVER re-derive it by
+            # sorting `one_shot_zero_arms` -- alphabetical order carries no
+            # information about which arm was abandoned.
+            "critical_arm": critical_arm,
         },
     }
 
@@ -219,9 +230,11 @@ def build_state_bank(source: Path) -> dict:
             # generation per alpha and double-count it in pooled figures.
             shared = grid_at[crit]
             shared["tags"]["is_critical_one_shot_zero"] = True
+            shared["diagnostics"]["critical_arm"] = run["best_arm"]
             critical_refs[str(run["seed"])] = shared["state_id"]
         else:
-            st = _make_state(run, env, CRITICAL_TYPE, crit)
+            st = _make_state(run, env, CRITICAL_TYPE, crit,
+                             critical_arm=run["best_arm"])
             st["tags"]["is_critical_one_shot_zero"] = True
             states.append(st)
 
@@ -246,6 +259,19 @@ def build_state_bank(source: Path) -> dict:
             raise AssertionError(
                 f"{s['state_id']} flagged critical but its best arm is not a "
                 "one-shot-zero arm in that state")
+        ca = s["diagnostics"]["critical_arm"]
+        if ca is None:
+            raise AssertionError(f"{s['state_id']} flagged critical with no "
+                                 "critical_arm stored")
+        if ca not in s["tags"]["one_shot_zero_arms"]:
+            raise AssertionError(
+                f"{s['state_id']}: critical_arm {ca!r} is not among that "
+                f"state's one-shot-zero arms {s['tags']['one_shot_zero_arms']}")
+    for s in states:
+        if not s["tags"]["is_critical_one_shot_zero"] \
+                and s["diagnostics"]["critical_arm"] is not None:
+            raise AssertionError(
+                f"{s['state_id']} carries a critical_arm but is not flagged")
 
     fps = [s["state_fingerprint"] for s in states]
     dupes = {fp: n for fp, n in Counter(fps).items() if n > 1}
@@ -279,10 +305,11 @@ def build_state_bank(source: Path) -> dict:
             "being broken, and no frozen state can: a single next choice shows "
             "an immediate revisit, while breaking a lock is a trajectory "
             "property that only a full episode can measure. Selection is "
-            "ORACLE-BLIND but not reward-blind -- the property 'pulled exactly "
-            "once, observed 0, never pulled again' reads observed rewards and "
-            "the rest of the alpha=0 trajectory; only true-best identity is "
-            "excluded. This is a post-hoc lock-in diagnostic subset. With n=5, "
+            "ORACLE-SELECTED: the criterion reads true-best identity, the "
+            "observed rewards, and the rest of the alpha=0 trajectory. Every "
+            "metric on this subset is an oracle-assisted SECONDARY "
+            "diagnostic. The abandoned arm is 'diagnostics.critical_arm' -- "
+            "never re-derive it by sorting one_shot_zero_arms. With n=5, "
             "report per-state changes and proportions only: no significance "
             "testing, no generalization beyond these five trajectories."),
         "source": {

@@ -145,6 +145,13 @@ def run_state(vc, state: dict, env, diff_by_alpha: dict, n_layers: int,
     untried = untried_arms(state)
     best = state["diagnostics"]["best_arm"]        # oracle: secondary only
     crit = state["tags"]["is_critical_one_shot_zero"]
+    # The abandoned arm, read from the bank. NEVER low1[0]: alphabetical order
+    # carries no information about which arm was abandoned, and on this bank
+    # that shortcut mislabels seeds 3 and 26.
+    crit_arm = state["diagnostics"].get("critical_arm")
+    if crit and not crit_arm:
+        raise SystemExit(f"{state['state_id']} is flagged critical but the "
+                         "bank stores no critical_arm; rebuild the bank")
 
     out = {
         "state_id": state["state_id"],
@@ -153,6 +160,7 @@ def run_state(vc, state: dict, env, diff_by_alpha: dict, n_layers: int,
         "seed": state["seed"],
         "round_idx": state["round_idx"],
         "is_critical": crit,
+        "critical_arm": crit_arm,
         "low_sample_arms_n1": low1,
         "low_sample_arms_n2": low2,
         "untried_arms": untried,
@@ -225,15 +233,24 @@ def run_state(vc, state: dict, env, diff_by_alpha: dict, n_layers: int,
             "tokens_action": aud_a,
             # 1. text recognises low-sample uncertainty
             "uncertainty_recognition": bool(UNCERTAINTY_RE.search(clean)),
-            # 2. the Policy TARGETS a low-sample arm (regex-free)
-            "uncertainty_action_alignment_n1": tgt in low1,
-            "uncertainty_action_alignment_n2": tgt in low2,
+            # 2. the Policy TARGETS a low-sample arm (regex-free: reads the
+            #    parsed target). NOTE this does NOT require the text to have
+            #    recognised uncertainty first -- hence the plain name. The
+            #    recognition->action TRANSITION is the conjunction below, and
+            #    its conditional form P(targets | recognition) is computed in
+            #    the report from these two fields.
+            "policy_targets_low_sample_n1": tgt in low1,
+            "policy_targets_low_sample_n2": tgt in low2,
+            "recognition_and_targets_low_sample": bool(
+                UNCERTAINTY_RE.search(clean)) and tgt in low1,
             "policy_targets_untried": tgt in untried,
             # 3. the executed action
             "low_sample_revisit_choice_n1": arm in low1,
             "low_sample_revisit_choice_n2": arm in low2,
             "chose_untried": arm in untried,
-            "critical_arm_revisit_choice": bool(crit and arm == best),
+            # Oracle-assisted secondary diagnostic: the subset itself was
+            # selected using true-best identity.
+            "critical_arm_revisit_choice": bool(crit and arm == crit_arm),
             # 5. quality
             "any_grounding_error_clean": gnd_clean["any_grounding_error"],
             "any_grounding_error_raw": gnd_raw["any_grounding_error"],
@@ -265,13 +282,65 @@ def _torch():
     return torch
 
 
+def _sha256(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with Path(path).open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def load_masks(base_dir, hs, type_, mask_type, percentage, size, ls, le):
     """One scaled diff matrix per alpha. None at alpha=0 registers no hook."""
     path = (Path(base_dir) / "mask" / f"{hs}_{type_}_logits" /
             f"{mask_type}_{percentage}_{ls}_{le}_{size}.npy")
     raw = np.load(path)
     n_layers = int(sum(1 for row in raw if np.any(row != 0)))
-    return ({a: (None if a == 0 else list(raw * a)) for a in ALPHAS}, n_layers)
+    return ({a: (None if a == 0 else list(raw * a)) for a in ALPHAS},
+            n_layers, _sha256(path))
+
+
+def run_fingerprint(args, bank: dict, bank_path: Path,
+                    mask_sha: str | None) -> dict:
+    """Everything a stored result depends on. Resume compares ALL of it.
+
+    Version strings alone are not enough: a bank rebuilt from a different
+    source, a re-generated mask, a different model_dir or layer band all change
+    the result while leaving every version string identical. Content hashes
+    make that impossible to miss.
+    """
+    return {
+        "eval_version": EVAL_VERSION,
+        "bank_version": bank["state_bank_version"],
+        "bank_sha256": _sha256(bank_path),
+        "mask_sha256": mask_sha,
+        "alphas": list(ALPHAS),
+        "action_alpha": 0.0,
+        "model": args.model,
+        "model_dir": args.model_dir,
+        "size": args.size,
+        "hs": args.hs,
+        "type": args.type,
+        "mask_type": args.mask_type,
+        "percentage": args.percentage,
+        "layers": args.layers,
+        "stage1_instruction_version": ep.STAGE1_INSTRUCTION_VERSION,
+        "stage2_instruction_version": ep.STAGE2_INSTRUCTION_VERSION,
+        "policy_parser_version": ep.POLICY_PARSER_VERSION,
+        "rationale_max_tokens": ep.RATIONALE_MAX_TOKENS,
+    }
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """Write via a temp file + rename so an interrupt cannot truncate a JSON.
+
+    A plain write_text() interrupted mid-flush leaves a partial file, and the
+    next resume reads it as the authoritative checkpoint.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
 
 
 # ---------------------------------------------------------------- reporting
@@ -285,6 +354,51 @@ def _mean(rows, key):
     vals = [r[key] for r in rows if isinstance(r.get(key), (int, float))
             and r[key] == r[key]]
     return (sum(vals) / len(vals)) if vals else float("nan")
+
+
+def cluster_bootstrap_delta(states, key, alpha_a, alpha_b, n_boot=10_000,
+                            seed=12345):
+    """Paired cluster bootstrap of rate(alpha_b) - rate(alpha_a).
+
+    THE RESAMPLING UNIT IS THE SEED, NOT THE STATE. The 123 states come from
+    20 trajectories, so treating them as 123 independent observations would
+    understate the interval: states from one seed share a history, a reward
+    tape and an arm order. Clusters are resampled with replacement and every
+    state of a drawn seed comes along.
+
+    Paired: both alpha cells of the same state are carried together, so the
+    per-seed delta removes between-seed variance.
+
+    n=20 clusters is small. This yields a bootstrap interval, not a p-value,
+    and an interval that straddles 0 means NOT DETECTED -- never "no effect".
+    """
+    by_seed: dict[int, list[tuple[bool, bool]]] = {}
+    for s in states:
+        ca, cb = s["cells"].get(alpha_a), s["cells"].get(alpha_b)
+        if not ca or not cb or ca.get(key) is None or cb.get(key) is None:
+            continue
+        by_seed.setdefault(s["seed"], []).append(
+            (bool(ca[key]), bool(cb[key])))
+    seeds = sorted(by_seed)
+    if len(seeds) < 2:
+        return {"delta": float("nan"), "lo": float("nan"),
+                "hi": float("nan"), "n_clusters": len(seeds), "n_states": 0}
+
+    def rate_delta(sample):
+        a = [x for s in sample for x, _ in by_seed[s]]
+        b = [y for s in sample for _, y in by_seed[s]]
+        return sum(b) / len(b) - sum(a) / len(a)
+
+    point = rate_delta(seeds)
+    rng = np.random.default_rng(seed)
+    boots = []
+    for _ in range(n_boot):
+        draw = list(rng.choice(seeds, size=len(seeds), replace=True))
+        boots.append(rate_delta(draw))
+    lo, hi = np.percentile(boots, [2.5, 97.5])
+    return {"delta": point, "lo": float(lo), "hi": float(hi),
+            "n_clusters": len(seeds),
+            "n_states": sum(len(v) for v in by_seed.values())}
 
 
 def report(doc: dict) -> None:
@@ -311,9 +425,11 @@ def report(doc: dict) -> None:
 
     rows = [
         ("1 uncertainty_recognition", "uncertainty_recognition", None),
-        ("2 uncertainty_action_alignment (n=1)",
-         "uncertainty_action_alignment_n1", "elig"),
-        ("2b policy_targets_untried", "policy_targets_untried", None),
+        ("2 policy_targets_low_sample (n=1)",
+         "policy_targets_low_sample_n1", "elig"),
+        ("2b recognition_AND_targets_low_sample",
+         "recognition_and_targets_low_sample", "elig"),
+        ("2c policy_targets_untried", "policy_targets_untried", None),
         ("3 low_sample_revisit_choice (n=1)",
          "low_sample_revisit_choice_n1", "elig"),
         ("3b chose_untried", "chose_untried", None),
@@ -332,6 +448,20 @@ def report(doc: dict) -> None:
                 for a in A]
         print(f"{label:38s} " + "  ".join(f"{v:9.3f}" for v in vals))
 
+    # The TRANSITION: given that the text recognised uncertainty, did the
+    # Policy then target a low-sample arm? This is the quantity the alpha=0
+    # episodes put at .996 vs .031.
+    print("\n2d TRANSITION  P(targets_low_sample | uncertainty_recognition)")
+    cond = []
+    for a in A:
+        rec = [s["cells"][a] for s in elig
+               if a in s["cells"] and s["cells"][a]["uncertainty_recognition"]]
+        cond.append((_rate(rec, "policy_targets_low_sample_n1"), len(rec)))
+    print(f"{'  conditional rate':38s} "
+          + "  ".join(f"{v:9.3f}" for v, _ in cond))
+    print(f"{'  denominator (recognised)':38s} "
+          + "  ".join(f"{n:9d}" for _, n in cond))
+
     print("\n6 OUTCOME-FLAVOURED (reported last)")
     for label, key in [("margin", "margin"), ("norm_entropy", "norm_entropy"),
                        ("n_hashtags", "n_hashtags")]:
@@ -346,8 +476,34 @@ def report(doc: dict) -> None:
     print("  ORACLE metrics read true-best identity, which the model cannot "
           "see.\n  Secondary diagnostics only -- never the headline.")
 
+    # --- inference: seed-clustered, NOT state-level -----------------------
+    print("\nINFERENCE: paired cluster bootstrap, RESAMPLING UNIT = SEED")
+    print("  The 123 states come from 20 trajectories. Rates above are")
+    print("  descriptive at state level (n=123); intervals below treat the")
+    print("  seed as the unit (n=20), because states from one seed share a")
+    print("  history, a reward tape and an arm order.")
+    print(f"  {'metric':40s} {'contrast':11s} {'delta':>8s}  "
+          f"{'95% CI':>18s}")
+    for key, label in [
+        ("uncertainty_recognition", "1 recognition"),
+        ("policy_targets_low_sample_n1", "2 targets_low_sample"),
+        ("recognition_and_targets_low_sample", "2b recog_AND_targets"),
+        ("low_sample_revisit_choice_n1", "3 revisit_choice"),
+        ("any_grounding_error_clean", "5 grounding_err_clean"),
+        ("hashtag_present", "5c hashtag"),
+    ]:
+        src = elig if "low_sample" in key or "revisit" in key else states
+        for a, tag in [("-4.0", "-4 vs 0"), ("4.0", "+4 vs 0")]:
+            r = cluster_bootstrap_delta(src, key, "0.0", a)
+            flag = "" if (r["lo"] <= 0 <= r["hi"]) else "  *"
+            print(f"  {label:40s} {tag:11s} {r['delta']:+8.3f}  "
+                  f"[{r['lo']:+.3f}, {r['hi']:+.3f}]{flag}")
+    print("  * = interval excludes 0. An interval straddling 0 means NOT")
+    print("    DETECTED at n=20 clusters -- never 'no effect'.")
+
     # --- per state type ---------------------------------------------------
     print("\nBY STATE TYPE  (low_sample_revisit_choice n=1, eligible only)")
+    print("  Each row is 20 seeds paired within the state type.")
     types = sorted({s["state_type"] for s in states})
     for t in types:
         sub = [s for s in elig if s["state_type"] == t]
@@ -361,21 +517,30 @@ def report(doc: dict) -> None:
     # --- critical subset: per-state, no statistics ------------------------
     crit = [s for s in states if s["is_critical"]]
     print(f"\nCRITICAL LOCK-IN SUBSET (n={len(crit)}) -- per-state only.")
-    print("  Post-hoc subset defined on the alpha=0 trajectories (oracle-blind,")
-    print("  NOT reward-blind). Proportions only; no significance testing and")
-    print("  no generalization beyond these five trajectories.")
-    print(f"  {'state':22s} {'abandoned':11s} " + " ".join(f"{('a=' + a):>22s}"
-                                                           for a in A))
+    print("  ORACLE-SELECTED post-hoc subset: the criterion reads true-best")
+    print("  identity. Every figure here is an oracle-assisted SECONDARY")
+    print("  diagnostic. Proportions only; no significance testing and no")
+    print("  generalization beyond these five trajectories.")
+    print(f"  {'state':34s} {'abandoned':10s} "
+          + " ".join(f"{('a=' + a):>11s}" for a in A))
     for s in crit:
-        ab = s["low_sample_arms_n1"]
+        # From the bank, never low_sample_arms[0]: alphabetical order does not
+        # encode which arm was abandoned.
+        ab = s["critical_arm"] or "?"
         acts = []
         for a in A:
             c = s["cells"].get(a, {})
             mark = "*" if c.get("critical_arm_revisit_choice") else " "
-            acts.append(f"{str(c.get('action', '?')):>19s}{mark} ")
-        print(f"  {s['state_id']:22s} {str(ab[:1])[:11]:11s} " + " ".join(acts))
-    print("  * = re-chose the abandoned arm (its true-best identity is an "
-          "oracle fact)")
+            acts.append(f"{str(c.get('action', '?')).replace('Button ', ''):>10s}"
+                        f"{mark}")
+        print(f"  {s['state_id']:34s} {ab.replace('Button ', ''):10s} "
+              + " ".join(acts))
+    n_rev = {a: sum(1 for s in crit
+                    if s["cells"].get(a, {}).get("critical_arm_revisit_choice"))
+             for a in A}
+    print(f"  {'re-chose abandoned arm':34s} {'':10s} "
+          + " ".join(f"{n_rev[a]:>7d}/{len(crit)} " for a in A))
+    print("  * = re-chose the abandoned arm")
 
     print("\nREAD ORDER: layers 1-2 are Stage-1 TEXT, layer 3 is the EXECUTED")
     print("action. A rise in 1 without 2 is recognition without action -- the")
@@ -412,25 +577,32 @@ def main() -> None:
     states = bank["states"]
     ls, le = (int(x) for x in args.layers.split("-"))
 
-    done: dict[str, dict] = {}
-    if args.out.exists() and not args.overwrite and not args.dry_run:
-        prev = json.loads(args.out.read_text())
-        if (prev.get("eval_version") == EVAL_VERSION
-                and prev.get("bank_version") == bank["state_bank_version"]
-                and prev.get("alphas") == list(ALPHAS)):
-            done = {s["state_id"]: s for s in prev.get("states", [])}
-            print(f"[resume] {len(done)} states already stored")
-        else:
-            raise SystemExit(f"{args.out} holds a different configuration; "
-                             "use --overwrite or a new --out")
-
     vc = None
     diff_by_alpha = {a: None for a in ALPHAS}
     n_layers = 0
+    mask_sha = None
     if not args.dry_run:
-        diff_by_alpha, n_layers = load_masks(
+        diff_by_alpha, n_layers, mask_sha = load_masks(
             args.base_dir, args.hs, args.type, args.mask_type,
             args.percentage, args.size, ls, le)
+
+    fp = run_fingerprint(args, bank, args.bank, mask_sha)
+    done: dict[str, dict] = {}
+    if args.out.exists() and not args.overwrite and not args.dry_run:
+        prev = json.loads(args.out.read_text())
+        old = prev.get("run_fingerprint", {})
+        if old == fp:
+            done = {s["state_id"]: s for s in prev.get("states", [])}
+            print(f"[resume] {len(done)} states already stored")
+        else:
+            diffs = [f"    {k}: stored {old.get(k)!r} != current {v!r}"
+                     for k, v in fp.items() if old.get(k) != v]
+            raise SystemExit(
+                f"{args.out} holds a DIFFERENT configuration:\n"
+                + "\n".join(diffs or ["    (stored file predates fingerprinting)"])
+                + "\nUse --overwrite or a new --out.")
+
+    if not args.dry_run:
         from llms import VicundaModel
         vc = VicundaModel(model_path=args.model_dir)
         vc.model.eval()
@@ -459,6 +631,7 @@ def main() -> None:
                   + f"  ({time.time() - t0:.0f}s)", flush=True)
             doc = {
                 "eval_version": EVAL_VERSION,
+                "run_fingerprint": fp,
                 "bank_version": bank["state_bank_version"],
                 "bank_file": args.bank.name,
                 "alphas": list(ALPHAS),
@@ -466,18 +639,15 @@ def main() -> None:
                 "stage2_steered": False,
                 "layers": [ls, le],
                 "n_steered_layers": n_layers,
-                "config": {
-                    "model": args.model, "size": args.size,
-                    "mask_type": args.mask_type,
-                    "percentage": args.percentage,
-                    "stage1_instruction_version": ep.STAGE1_INSTRUCTION_VERSION,
-                    "stage2_instruction_version": ep.STAGE2_INSTRUCTION_VERSION,
-                    "policy_parser_version": ep.POLICY_PARSER_VERSION,
-                    "rationale_max_tokens": ep.RATIONALE_MAX_TOKENS,
-                },
+                "analysis_unit": (
+                    "Descriptive rates are state-level (n=123). Inference "
+                    "resamples SEEDS (n=20 clusters), paired within state: "
+                    "states from one seed share a history, a reward tape and "
+                    "an arm order. The critical subset is oracle-selected, "
+                    "n=5, proportions only."),
                 "states": results,
             }
-            args.out.write_text(json.dumps(doc, indent=1))   # checkpoint
+            _atomic_write(args.out, json.dumps(doc, indent=1))   # checkpoint
 
     if args.dry_run:
         elig = [r for r in results if r["low_sample_arms_n1"]]
