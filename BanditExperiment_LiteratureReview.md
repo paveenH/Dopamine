@@ -185,14 +185,17 @@ algorithm-guided prompt 单独命名为诊断对照。
 - 不同规模模型都会过早采用 greedy strategy，action coverage 很快停滞；扩大模型只能减轻，不能消除。
 - 2B 模型还会受 action 在历史中出现频率影响，即使该 action reward 较差。
 - 27B 可以正确计算 UCB，但即使 rationale 正确，仍常执行 greedy action，形成 knowing–doing gap。
-- CoT 明显提高 coverage；没有 CoT 时，各规模模型探索都更少。
+- CoT 明显提高 coverage，但**不能消除 greedy lock**：10 arms 下有 CoT 时 2B 覆盖 40%、9B/27B 覆盖 65%，无 CoT 时全部只有 25%——即使最好的情况也仍有约 1/3 动作空间从未被触及。
 - 在多种 in-context 措施中，**初始 try-all 的改善最大**；这说明模型拿到足够信息后更擅长利用，而自主获取信息是主要短板。
 - RL fine-tuning 能改善 2B/9B 的 regret，并使 2B coverage 增加约 12%，但仍未完全达到理想探索。
+- **CoT 对 RLFT 是 load-bearing 的**：原文 "without CoT, RLFT barely attains the performance of ICL with CoT"——这是**训练侧**结论。
+
+> **CoT 证据分三层，不可合并成“CoT 已证明能帮助小模型探索”**：(a) **prompt-time CoT** 提高 coverage 但上限 65%，greedy lock 仍在；(b) **CoT 对 RLFT** 是必要条件，属训练侧，不能外推到 inference-time 提示；(c) **SFT on UCB-CoT traces** 能逼近 UCB，但那是外部算法蒸馏，不是自主能力。
 
 对本项目的含义：
 
 1. 当前 Llama3-8B 的 greedy lock 不是异常，也不必优先归因于 code bug——**该论文已在 Llama3 族上直接复现同一 bias，这不再是跨模型外推**。
-2. **允许短 CoT 是一个尚未被当前 C/D/D2 正式测试的重要接口维度。**
+2. ~~允许短 CoT 是一个尚未被正式测试的接口维度。~~ **已由 pv7/pv8 测试完毕**：Stage 1 的结构化 short-CoT（`Evidence:` 显式点名评估不确定性 → `Policy: EXPLORE/EXPLOIT`）比文献里的自由格式 CoT 更强，仍未解除 one-shot-zero lock-in（`uncertainty_recognition .996` vs `uncertainty_action_alignment .031`）。**这与上述三层拆分一致——文献中 CoT 最强的证据在训练侧，本就不预期 inference-time 提示能解决问题，所以这不构成接口失败。**
 3. forced initialization 可以验证“获得信息后是否会用”，但不能作为自主 wanting/exploration 的主实验。
 
 ### 2.3 `When Greedy Wins`：为什么 OptFrac / regret 不够
