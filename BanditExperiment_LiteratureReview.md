@@ -17,85 +17,116 @@
 
 ### 1.2 Dopamine Effect in Bandit Task
 
-#### 1.2.1 Tonic Dopamine
+#### 1.2.1 Channel Definition
 
-Tonic Dopamine 在计算神经科学里的定义就是增益/精度调节:
-不改变价值排序，改变价值差被放大的程度（β）
-不决定选哪个动作，决定动作的活力（vigor）
-不改变偏好，改变为偏好付出代价的意愿（effort）
+本节将 α 操作化为 **tonic-like fixed-gain modulation**。α 在各轮 prefill 阶段以固定强度施加，调节给定状态下的基线增益，而不包含随每轮 reward prediction error（RPE）变化的 phasic controller。因此，Bandit 实验的主要问题不是 α 是否改变反馈学习本身，而是它是否改变模型在已有证据之上的行动方式。
 
-α 是 prefill 阶段一次性的静态注入 —— 它改变的是**整个 episode 的基线增益**，而不是随每轮 reward 波动的相位信号。
+- **Tonic-like channel**：背景性的 incentive salience、行动增益与成本—收益权衡，是本实验的主要检验对象。
+- **Phasic channel**：reward-contingent RPE 与 trial-by-trial learning，不是当前 α 操作直接实现的通道。
 
-- **tonic DA** = 背景水平的 incentive salience / 动机增益 → **可调**
-- **phasic DA** = 每次 reward 与预期的偏差（RPE），需要突触可塑性把误差写回权重
+#### 1.2.2 Computational Roles and Behavioral Predictions
 
-#### 1.2.2 Observation Metrics
+**Decision Precision / Inverse Temperature**
 
-**(i) Decision precision / inverse temperature β**
+Tonic DA 可被计算性地联系到行动选择的精度。以 softmax 表示时，inverse temperature β 控制价值差对选择概率的影响：较高的 β 对应较确定的选择，较低的 β 对应较宽的选择分布。本项目对 RSN 的操作性预测为：`+α` 提高 policy sharpness，`−α` 降低 policy sharpness。
 
-*神经科学*：DA 调节纹状体 direct/indirect pathway 的信噪比。DA 高 → 价值差被放大 → 选择更确定；DA 低 → 价值表征被压平 → 选择更随机。这是 softmax 里的 β。
+这一效应应主要在价值接近的状态中检验。当某一臂已具有明显优势时，不同精度都可能产生相同的 argmax 选择，使全局选择一致性出现天花板效应。因此主要读数应包括：
 
-*关键洞察 —— 该在哪里看*：β 的行为读数**只在价值接近时可见**。当最优臂遥遥领先时，任何 β 都选它，argmax 早就锁死。
+- 价值接近状态中的选择一致性、重复率与切换率；
+- 同一冻结状态重复采样时的选择熵；
+- α 与预先定义的 value gap 之间的交互。
 
-- 全局 margin / 全局选择一致性 → 天花板效应，测不出
-- **价值接近的轮次**上的选择一致性、重复率、切换率
+Near-tie 状态应根据环境参数或 α=0 状态下的经验价值差预先定义，不应使用已经受到 α 影响的 candidate margin 进行筛选。
 
-*预测*：+α → 近平局时也果断且一致；−α → 近平局时摇摆、切换增多。
+**Information Investment / Opportunity Cost**
 
-> **方向陷阱**：−α 导致的切换增多**长得像探索但不是探索** —— 那是 random exploration，不是 directed exploration。区分方法：随机探索均匀撒向所有臂，定向探索**偏向样本量少的臂**。两者必须用不同指标分开测，否则会把噪声误读成好奇心。
+Bandit exploration 要求模型暂时放弃当前经验最优臂的期望收益，以取得可能改善后续决策的信息。这个过程可被视为 information investment：其成本是当前回合放弃的预期收益，其潜在效益是降低不确定性并改善未来选择。
 
-**(ii) Response vigor**
+由 tonic DA 的 effort-related choice 类比，可提出一个待检验的 RSN 假设：`+α` 提高为信息支付机会成本的意愿，`−α` 则提高对当前已知收益的依赖。该假设不是一般非贪婪选择的预测，而要求目标具有明确的信息价值：
 
-*神经科学*：Niv, Daw, Joel & Dayan (2007) —— tonic DA 最经典的计算角色。tonic DA 编码**平均奖励率**，决定**行动速度**，不决定选哪个行动。DA 耗竭 → 运动迟缓（bradykinesia），但选择偏好不变。
+- 选择系统性偏向低样本量或高不确定性的臂；
+- 选择随 information value 与 opportunity cost 的相对大小而变化；
+- 新信息在后续轮次中被纳入策略，而非形成无目的切换。
 
-*LLM 里的对应物需要小心*：生物 vigor 是"每单位时间做更多动作"，LLM 里没有真实时间，所以有两种读法：
+**Response Vigor**
 
-| 读法 | 对应物 | +α 预测 | 归属 |
-|---|---|---|---|
-| 承诺速度（潜伏期） | 多快下决定 | 更快承诺、更少犹豫 | **(ii) vigor 的直接对应** |
-| 投入量（努力） | 花多少 token 思考 | 更长的审议 | 更接近 (iii) effort |
+Response vigor 是 tonic DA 的另一经典计算角色，但其 LLM 对应物涉及生成潜伏期、token 数与认知投入之间的解释问题。本项目已在 CGT-seq 中使用 commitment timing 检验这一维度，因此 Bandit 不再将 response vigor 作为主要验证目标。Bandit 中的文本长度与停止行为仅作为接口诊断，不作为核心 dopamine-like readout。
 
-两者在生物学上一致（vigor = 高反应率 = 短潜伏期），但在 LLM 里"更长的 CoT"更像 effort 而非 vigor。**分开命名**：`commit_latency`（ii）与 `deliberation_effort`（iii）。
+#### 1.2.3 Random–Directed Exploration Dissociation
 
-*预测*：+α → 更短的 commit latency；−α → 拖延、犹豫、甚至不作为（对应 DA 耗竭的 apathy）。
+Decision precision 与 information investment 都可能增加非贪婪选择，但二者具有不同的行为签名与 α 方向：
 
-*测量前提*：必须解除 token cap 的右删失，否则这个量不可识别。
-
-**(iii) Effort / opportunity cost**
-
-*神经科学*：Salamone 的 NAcc DA 耗竭实验 —— 大鼠不是不想要食物，而是不愿意为更好的食物**爬栏杆**。DA 低 → 选低努力低回报；DA 高 → 愿意付代价。
-
-*Bandit 里的精确对应*：探索**就是**付出机会成本 —— 放弃当前已知最优的期望收益，换取信息。**这是 Bandit 独有的、其他任务没有的对应关系。**
-
-*预测*：+α → 更愿意"花一轮买信息"；−α → 低努力策略。
-
-#### 1.2.3 Metrics List
-
-**Wanting**
-
-| # | 指标 | 通道 | 说明 |
-|---|---|---|---|
-| 1 | `near_tie_consistency` | (i) | 近平局轮次的选择一致性 |
-| 2 | `state_resample_entropy` | (i) | 同一状态重复采样的选择熵 |
-| 3 | `commit_latency` | (ii) | 承诺前的 token 数 / 是否犹豫（**需解除 cap**） |
-| 4 | `low_n_targeting_rate` | (iii) | 目标臂的样本量分布，是否偏向低 n |
-| 5 | `cost_paid_for_info` | (iii) | 放弃的期望收益（选中臂经验均值 − 最优臂经验均值），条件在非贪婪轮次上 |
-| 6 | `post_sample_integration` | (iii) | 采样低 n 臂之后策略是否随新证据更新（(iii) 的必要条件） |
-
-**不应该动（特异性对照）**
-
-| # | 指标 | 说明 |
+| 维度 | Random exploration from reduced precision | Directed exploration from information investment |
 |---|---|---|
-| 7 | `estimate_accuracy` | 复述的经验均值是否正确 |
-| 8 | `belief_update_correctness` | 反馈后估计是否正确更新 |
-| 9 | `win_stay_lose_shift_absolute` | 对单次反馈的即时敏感度 |
+| α 方向 | `−α` 增加 | `+α` 增加 |
+| 目标分布 | 不系统性偏向低样本量臂 | 偏向低样本量或高不确定性臂 |
+| 与 value gap 的关系 | 主要出现在 near-tie 状态 | 取决于 information value 是否超过 opportunity cost |
+| 后续利用 | 不要求形成一致的证据整合 | 取得信息后应更新后续策略 |
 
-**失败形态检测（倒 U 的两臂）**
+因此，switch rate、non-greedy rate 或 entropy 不能单独解释为 exploration。较完整的分析应同时估计：
 
-| # | 指标 | 臂 |
+\[
+P(a) \propto \exp\left\{\beta_{\alpha}\left[\hat\mu_a + \kappa_{\alpha}U_a - C_a\right]\right\},
+\]
+
+其中 \(\beta_{\alpha}\) 表示一般选择精度，\(\kappa_{\alpha}\) 表示 uncertainty / information-value weighting，\(C_a\) 表示选择该臂的机会成本。α 对 \(\beta\) 与 \(\kappa\) 的影响需要分别检验。
+
+#### 1.2.4 Dose and Baseline Dependence
+
+Dopaminergic modulation 常呈现任务与基线依赖性。对 Bandit 而言，这意味着同一 α 在信息稀缺与信息充分、价值接近与明显优势的状态中可能产生不同效果。分层变量应由环境设计或 α=0 的冻结状态预先定义，避免根据各 α 已经产生的轨迹进行事后筛选。
+
+倒 U 更适合作为最终行为表现的候选形态，而不是每一个机制指标都必须满足的约束。Policy precision、information-value weighting 等机制参数可以在局部 α 区间内单调变化，而 regret 或 OptFrac 可能因为多种机制之间的平衡而呈非单调关系。因此，多 α 剂量扫描用于检验非线性，但不预设峰值必然存在或位于 α=0。
+
+#### 1.2.5 Specificity Controls
+
+Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以操作化 wanting-like action selection 与 feedback-based learning，但没有直接的 hedonic liking 测量。
+
+α 的主要预测位于给定证据后的行动政策。以下指标用于检验其是否同时改变基础计算或反馈更新能力：
+
+- `estimate_accuracy`：对已观察次数、成功数与经验均值的复述准确性；
+- `belief_update_correctness`：获得新反馈后，显式估计是否正确更新；
+- conditional feedback sensitivity：在控制更新后信念与当前 value gap 后，反馈是否仍额外改变行动。
+
+这些指标的稳定性支持作用通道的选择性，但只能说明 RSN 操作没有普遍改变计算或更新能力，不能单独证明生物学上的 dopamine specificity。Win-stay / lose-shift 同时受到学习与行动精度影响，因此作为描述性指标报告，不预注册为严格的零效应对照。
+
+#### 1.2.6 Evaluation Metrics
+
+**Primary Wanting-like Metrics**
+
+| # | Metric | Computational role | Interpretation |
+|---|---|---|---|
+| 1 | `near_tie_consistency` | Precision | Near-tie 状态中的选择一致性 |
+| 2 | `state_resample_entropy` | Precision | 同一冻结状态重复采样的选择熵 |
+| 3 | `low_n_targeting_rate` | Information investment | 非贪婪选择是否偏向低样本量臂 |
+| 4 | `uncertainty_targeting_rate` | Information investment | 非贪婪选择是否偏向高不确定性臂 |
+| 5 | `cost_paid_for_info` | Information investment | 为取得信息而放弃的经验收益 |
+| 6 | `post_sample_integration` | Information utilization | 取得新信息后，后续策略是否据此更新 |
+
+**Specificity Metrics**
+
+| # | Metric | Interpretation |
 |---|---|---|
-| 10 | 过早锁定率、同一臂最长连段、格式僵化 | 右臂 |
-| 11 | 不作为率、空生成、无法完成格式 | 左臂 |
+| 7 | `estimate_accuracy` | 是否正确读取并复述已观察证据 |
+| 8 | `belief_update_correctness` | 是否根据新反馈正确更新显式估计 |
+| 9 | `win_stay_lose_shift_absolute` | 描述对单次反馈的即时行为反应，不作为严格 null |
+
+**Failure-mode Metrics**
+
+| # | Regime | Metrics |
+|---|---|---|
+| 10 | Excessive commitment | 过早锁定率、one-shot-zero abandonment、同一臂最长连段 |
+| 11 | Reduced engagement / interface failure | 空生成、未完成 Policy、无有效动作；必须与动机解释分开 |
+
+#### 1.2.7 Prompt Design Constraints
+
+后续 Bandit prompt 与状态设计应满足以下约束：
+
+1. **Near-tie observability**：预先构造足够的价值接近状态，使 precision effect 可识别；不应仅依赖全程缩小真实 arm gap。
+2. **Uncertainty variation**：独立操纵样本量或 posterior uncertainty，使低价值与高不确定性不完全重合。
+3. **Measurable opportunity cost**：提供计算经验收益与信息成本所需的事实，但不提供 UCB、uncertainty bonus 或行动建议。
+4. **No algorithm instruction**：呈现证据不等于教导权衡规则；任何 algorithm-guided support 必须作为独立 positive control。
+5. **Matched-state evaluation**：precision 与 information targeting 优先在冻结的相同历史上进行配对比较，再由完整在线 episode 检验长期后果。
+6. **Competence headroom**：基线必须具备基本证据利用能力，同时保留可改善空间；天花板条件不能用于判断 α 是否能够提高最终表现。
 
 ### 1.3 对当前实验最重要的改进
 
