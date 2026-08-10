@@ -1,10 +1,15 @@
 
 ## TODO
 0. 用Qwen2.5-7B复现
-1. Prompt修改的思路：1）突出奖励机制 -> 内化到奖励和模型自己是相关的；强调探索（未知选项可能带来的收益）2）prompt层面对于exploitation和exploration的区分是否有做到？看Paper里面是怎么区分
-1. steering的活成也需要重新考虑
-1. 指标部分需要完善，也是按exploitation和exploration来做区分
-1. Bandit可能要计入AG（外部计算 exploitation value、exploration bonus，写入 prompt）In-context Demonstration？
+1. 可以考虑额外提供的资讯：
+   UCB score
+   exploration bonus
+   posterior uncertainty
+   Thompson-sampling probability
+1.**SH（Summarized History）**：将长的逐轮 time–action–reward 历史压缩为每个 arm 的选择次数与平均 reward；LLM 仍需自行判断何时探索、何时利用。
+**AG（Algorithm-Guided Support）**：在 SH 基础上，由外部按 UCB／LinUCB 计算每个 arm 的 exploitation value 与 exploration bonus，并写入 prompt；LLM 主要比较总分后选 action。因此它是算法支架，不能视为模型自行从原始历史学出了 UCB。
+**In-context Demonstration**：在 prompt 中提供 5 条由 UCB 生成的完整交互轨迹，让模型在当前任务中模仿其选择规律。核心是“历史表示 → UCB 的下一步 action”，而不是提供自然语言 CoT 式理由。
+1. steering的位置也需要重新考虑
 2. HumanLLM
 3. Behaviour: 测一下和人类的行为学对齐关系
 ---
