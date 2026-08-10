@@ -113,7 +113,9 @@ print(' '.join(map(str, br.build_seed_bank(br.get_environment('easy')))))")"
 run_cell () {
   local tag="$1" env="$2" seeds="$3" out="$4" ra="$5"; shift 5
   if [ "$ONLY_STEP" != "$tag" ] && [ "$ONLY_STEP" != "ALL" ]; then return; fi
-  if [ "$ONLY_STEP" = "ALL" ] && [ "$tag" = "SMOKE" ]; then return; fi
+  # ALL means the six formal cells only. Smokes are explicit preflight steps
+  # and must not be silently re-run as part of the overnight sweep.
+  if [ "$ONLY_STEP" = "ALL" ] && [[ "$tag" == SMOKE* ]]; then return; fi
   echo ""
   echo "######################################################################"
   echo "# STEP ${tag}: env=${env}  rationale_alpha=${ra}  action_alpha=0"
