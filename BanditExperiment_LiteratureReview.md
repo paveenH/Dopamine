@@ -15,11 +15,89 @@
 2. **自主发现未知选项（discovery / exploration）**：小模型容易过早锁定少数选项。Gemma2 2B/9B/27B（Llama3 与 Qwen2.5 在其 Appendix C.4 复现且 bias 持续）、Qwen2.5 3B/7B 与本项目 Llama3-8B 都出现过 action coverage 停滞、greedy lock、frequency bias 或 suffix failure。
 3. **稳定完成“探索后收敛”的完整策略**：未经专门训练的小模型并不可靠。提示、短 CoT、历史摘要、任务规模和训练方式都会显著改变结果；平均 regret 或 OptFrac 好看，也可能只是早期碰巧找到最优臂后一直锁定。
 
-因此，当前 Bandit 不应被简单判断为“模型会”或“模型不会”。更准确的研究问题是：
+### 1.2 Dopamine Effect in Bandit Task
 
-> RSN α 改变的是未知选项的信息寻求、已知证据的利用，还是一般性的策略持续性？
+#### 1.2.1 Tonic Dopamine
 
-### 1.2 对当前实验最重要的改进
+Tonic Dopamine 在计算神经科学里的定义就是增益/精度调节:
+不改变价值排序，改变价值差被放大的程度（β）
+不决定选哪个动作，决定动作的活力（vigor）
+不改变偏好，改变为偏好付出代价的意愿（effort）
+
+α 是 prefill 阶段一次性的静态注入 —— 它改变的是**整个 episode 的基线增益**，而不是随每轮 reward 波动的相位信号。
+
+- **tonic DA** = 背景水平的 incentive salience / 动机增益 → **可调**
+- **phasic DA** = 每次 reward 与预期的偏差（RPE），需要突触可塑性把误差写回权重
+
+#### 1.2.2 Observation Metrics
+
+**(i) Decision precision / inverse temperature β**
+
+*神经科学*：DA 调节纹状体 direct/indirect pathway 的信噪比。DA 高 → 价值差被放大 → 选择更确定；DA 低 → 价值表征被压平 → 选择更随机。这是 softmax 里的 β。
+
+*关键洞察 —— 该在哪里看*：β 的行为读数**只在价值接近时可见**。当最优臂遥遥领先时，任何 β 都选它，argmax 早就锁死。
+
+- 全局 margin / 全局选择一致性 → 天花板效应，测不出
+- **价值接近的轮次**上的选择一致性、重复率、切换率
+
+*预测*：+α → 近平局时也果断且一致；−α → 近平局时摇摆、切换增多。
+
+> **方向陷阱**：−α 导致的切换增多**长得像探索但不是探索** —— 那是 random exploration，不是 directed exploration。区分方法：随机探索均匀撒向所有臂，定向探索**偏向样本量少的臂**。两者必须用不同指标分开测，否则会把噪声误读成好奇心。
+
+**(ii) Response vigor**
+
+*神经科学*：Niv, Daw, Joel & Dayan (2007) —— tonic DA 最经典的计算角色。tonic DA 编码**平均奖励率**，决定**行动速度**，不决定选哪个行动。DA 耗竭 → 运动迟缓（bradykinesia），但选择偏好不变。
+
+*LLM 里的对应物需要小心*：生物 vigor 是"每单位时间做更多动作"，LLM 里没有真实时间，所以有两种读法：
+
+| 读法 | 对应物 | +α 预测 | 归属 |
+|---|---|---|---|
+| 承诺速度（潜伏期） | 多快下决定 | 更快承诺、更少犹豫 | **(ii) vigor 的直接对应** |
+| 投入量（努力） | 花多少 token 思考 | 更长的审议 | 更接近 (iii) effort |
+
+两者在生物学上一致（vigor = 高反应率 = 短潜伏期），但在 LLM 里"更长的 CoT"更像 effort 而非 vigor。**分开命名**：`commit_latency`（ii）与 `deliberation_effort`（iii）。
+
+*预测*：+α → 更短的 commit latency；−α → 拖延、犹豫、甚至不作为（对应 DA 耗竭的 apathy）。
+
+*测量前提*：必须解除 token cap 的右删失，否则这个量不可识别。
+
+**(iii) Effort / opportunity cost**
+
+*神经科学*：Salamone 的 NAcc DA 耗竭实验 —— 大鼠不是不想要食物，而是不愿意为更好的食物**爬栏杆**。DA 低 → 选低努力低回报；DA 高 → 愿意付代价。
+
+*Bandit 里的精确对应*：探索**就是**付出机会成本 —— 放弃当前已知最优的期望收益，换取信息。**这是 Bandit 独有的、其他任务没有的对应关系。**
+
+*预测*：+α → 更愿意"花一轮买信息"；−α → 低努力策略。
+
+#### 1.2.3 Metrics List
+
+**Wanting**
+
+| # | 指标 | 通道 | 说明 |
+|---|---|---|---|
+| 1 | `near_tie_consistency` | (i) | 近平局轮次的选择一致性 |
+| 2 | `state_resample_entropy` | (i) | 同一状态重复采样的选择熵 |
+| 3 | `commit_latency` | (ii) | 承诺前的 token 数 / 是否犹豫（**需解除 cap**） |
+| 4 | `low_n_targeting_rate` | (iii) | 目标臂的样本量分布，是否偏向低 n |
+| 5 | `cost_paid_for_info` | (iii) | 放弃的期望收益（选中臂经验均值 − 最优臂经验均值），条件在非贪婪轮次上 |
+| 6 | `post_sample_integration` | (iii) | 采样低 n 臂之后策略是否随新证据更新（(iii) 的必要条件） |
+
+**不应该动（特异性对照）**
+
+| # | 指标 | 说明 |
+|---|---|---|
+| 7 | `estimate_accuracy` | 复述的经验均值是否正确 |
+| 8 | `belief_update_correctness` | 反馈后估计是否正确更新 |
+| 9 | `win_stay_lose_shift_absolute` | 对单次反馈的即时敏感度 |
+
+**失败形态检测（倒 U 的两臂）**
+
+| # | 指标 | 臂 |
+|---|---|---|
+| 10 | 过早锁定率、同一臂最长连段、格式僵化 | 右臂 |
+| 11 | 不作为率、空生成、无法完成格式 | 左臂 |
+
+### 1.3 对当前实验最重要的改进
 
 优先级从高到低：
 
@@ -265,8 +343,11 @@ LLM 负责生成、预测或执行局部子任务
 2. **reward-prediction diagnostic**：让 LLM 只判断哪个 option 的证据最强，不让它决定是否 exploration。
 
 但不能把 external controller 用于 α 主实验，否则 exploration timing 已被程序决定，正好删除待测行为。
+---
+TODO: Add: Supposed Dopamine effecy in Bandit & Current Result
 
-## 3. PLAN
+---
+## 4. PLAN
 
 ### 3.1 已完成的迭代路径
 
