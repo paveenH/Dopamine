@@ -14,6 +14,7 @@ it correctly.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 
@@ -145,6 +146,17 @@ def main() -> int:
           "hashtag spray cut, Policy line kept")
     check(p9ep.apply_stop("clean")[1] is None, "no marker on clean text")
 
+    print("\n[5b] stop_reason vocabulary (judged on RAW text)")
+    for text, want in (
+            ("Evidence: a\n\nPolicy: EXPLOIT Button A because x.", "native_clean"),
+            ("Evidence: a\n\nPolicy: EXPLOIT Button A.  #t #u", "stop_marker_applied"),
+            ("Evidence: a\n\nPolicy: EXPLOIT Button A.\nRound 5 of 100.",
+             "continued_after_policy"),
+            ("Evidence: a is fine.", "no_policy_line"),
+            ("   ", "empty")):
+        check(p9.stop_reason(text) == want,
+              f"stop_reason -> {want} ({p9.stop_reason(text)})")
+
     # ── 6. episode runner ───────────────────────────────────────────────────
     print("\n[6] episode runner")
     probe = subprocess.run(
@@ -167,14 +179,35 @@ def main() -> int:
     check(rec["steering_fires"] == {"rationale": 0, "action": 0},
           "alpha=0 fires nothing")
     check(all("#" not in r["rationale_clean"] for r in rec["rounds"]),
-          "stop shim strips the spray on the unsteered path too")
+          "stop rule strips the spray from what Stage 2 reads")
     check(all("Policy: EXPLORE Button B" in r["rationale_clean"]
-              for r in rec["rounds"]), "Policy line survives the stop shim")
-    check(rec["stop_reason_counts"].get("clean") == 5,
-          f"stop_reason recorded: {rec['stop_reason_counts']}")
+              for r in rec["rounds"]), "Policy line survives the stop rule")
+    # THE RAW RECORD MUST NOT BE TRUNCATED. An earlier implementation wrapped
+    # generate/regenerate, so the loop stored ALREADY-CUT text as
+    # `rationale_raw`: the tail became unrecoverable and every round reported
+    # a clean native stop whether or not the model actually terminated. That
+    # is the single measurement PV9 exists to make, so it is asserted here.
+    check(all("#tag" in r["rationale_raw"] for r in rec["rounds"]),
+          "rationale_raw keeps the untruncated continuation")
+    check(all(r["rationale_stopped"] != r["rationale_raw"]
+              for r in rec["rounds"]), "rationale_stopped stored separately")
+    check(all(r["stop_marker"] == "#" for r in rec["rounds"]),
+          "stop_marker records which marker fired")
+    check(rec["stop_reason_counts"].get("stop_marker_applied") == 5,
+          f"a sprayed reply is NOT reported as native: {rec['stop_reason_counts']}")
     # The shim must be restored, or a later episode in the same process would
     # silently keep truncating.
-    check("_call" not in repr(vc.generate), "generate restored after the episode")
+    check(p7.extract_evidence_policy_block.__module__ == "bandit_pv7",
+          "extractor restored after the episode")
+
+    # A natively terminating reply must read `native_clean` -- otherwise the
+    # metric could not tell the two cases apart in either direction.
+    vc_n = FakeVC(tok, reply="Evidence: B untried.\nPolicy: EXPLORE Button B ok.")
+    rec_n = p9ep.run_pv9_episode(vc_n, None, seed=0, env=small)
+    check(rec_n["stop_reason_counts"].get("native_clean") == 5,
+          f"native termination reads native_clean: {rec_n['stop_reason_counts']}")
+    check(all(r["stop_marker"] is None for r in rec_n["rounds"]),
+          "no marker recorded when none fired")
 
     vc2 = FakeVC(tok, reply=reply)
     diff = [None] * 32
@@ -194,14 +227,16 @@ def main() -> int:
     # caught exactly this -- the steered cells kept the hashtag spray while
     # alpha=0 did not.
     check(all("#" not in r["rationale_clean"] for r in rec2["rounds"]),
-          "steered path is truncated too (regenerate is wrapped as well)")
+          "steered path gets the same post-processing")
+    check(all("#tag" in r["rationale_raw"] for r in rec2["rounds"]),
+          "steered rationale_raw is untruncated too")
     check(rec2["stop_reason_counts"] == rec["stop_reason_counts"],
           f"identical stop_reason across alphas: {rec2['stop_reason_counts']}")
     check([r["rationale_clean"] for r in rec2["rounds"]] ==
           [r["rationale_clean"] for r in rec["rounds"]],
           "same reply text yields byte-identical clean text on both paths")
-    for m in ("generate", "regenerate"):
-        check("_call" not in repr(getattr(vc2, m)), f"{m} restored after the episode")
+    check(p7.extract_evidence_policy_block.__module__ == "bandit_pv7",
+          "extractor restored after the steered episode")
     # Same reply text under both alphas, so any trajectory difference would be
     # the harness, not the model.
     check([r["action"] for r in rec["rounds"]] ==
@@ -223,6 +258,40 @@ def main() -> int:
                     model_config={"mask_sha256": "x"}), "model config in the key")
     for seg in ("scscore-v1", "cucue-v1", "ststop-hash-v1"):
         check(seg in base, f"{seg} in the key")
+
+    # ── 8. gate wrapper reads the PV9 basis, not pv6's ──────────────────────
+    print("\n[8] gate manifest binding")
+    import evaluate_competence_gate as gate
+    import evaluate_competence_gate_pv9 as gpv9
+    before = gate.MANIFEST
+    # The frozen evaluator hardcodes the pv6 file, which has NO neartie block,
+    # so without the rebind every neartie evaluation dies on
+    # "reference_neartie not in the frozen manifest".
+    man = json.load(open(before))
+    check("neartie" not in man["environments"],
+          "pv6 manifest has no neartie (why the rebind is required)")
+    with gpv9.pv9_manifest():
+        inner = gate.MANIFEST
+        man9 = json.load(open(inner))
+        check(inner == gpv9.PV9_MANIFEST, "manifest rebound inside the scope")
+        check("neartie" in man9["environments"], "PV9 manifest has neartie")
+        check(man9["environments"]["easy"] == man["environments"]["easy"],
+              "easy basis identical across manifests (rebind is safe)")
+    check(gate.MANIFEST == before,
+          "manifest restored -- a later pv6/pv7/pv8 eval is unaffected")
+    gpv9.assert_easy_basis_agrees()
+    check(True, "assert_easy_basis_agrees passes")
+    # NearTie baselines must not drift: they are the only comparison basis a
+    # non-eligible environment has.
+    ntb = man9["environments"]["neartie"]["policies"]
+    check(abs(ntb["greedy"]["suff_fail_freq_half"]["point"] - 0.55) < 1e-9,
+          f"neartie Greedy SuffFail frozen at .550 "
+          f"({ntb['greedy']['suff_fail_freq_half']['point']})")
+    check(abs(ntb["greedy"]["late_opt_frac"]["point"] - 0.36) < 1e-9,
+          f"neartie Greedy late_opt frozen at .360 "
+          f"({ntb['greedy']['late_opt_frac']['point']})")
+    check(abs(ntb["random"]["k_min_frac_full"]["point"] - 0.794) < 1e-9,
+          "neartie Random KxMinFrac frozen at .794")
 
     print("\n" + "=" * 60)
     if FAILS:

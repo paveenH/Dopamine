@@ -22,11 +22,20 @@ comparable to neartie's own Random/Greedy baselines -- but the wrapper prints
 a not-a-competence-anchor header and refuses to call the result a verdict.
 This mirrors how the pv6 evaluator treats a chat directory.
 
-BASELINE MANIFEST
------------------
-PV9 uses `bandit_pv9_baseline_manifest.json` (easy + neartie). Its `easy`
-block is asserted identical to the pv6 manifest, so PV9-Easy and pv8-Easy are
-judged against one basis.
+BASELINE MANIFEST -- REBOUND, NOT INHERITED
+-------------------------------------------
+`evaluate_competence_gate.MANIFEST` is hardcoded to the pv6 file, which has no
+`neartie` block, so calling the frozen `evaluate()` directly fails with
+"reference_neartie not in the frozen manifest". This wrapper therefore rebinds
+that module constant to `bandit_pv9_baseline_manifest.json` around the call
+and restores it in a `finally`.
+
+Rebinding is safe precisely because the two manifests AGREE on `easy`
+(asserted by `freeze_pv9_baseline.py --check`, and again here before any
+evaluation runs): PV9-Easy and pv8-Easy are judged against one basis, and the
+only thing the rebind adds is the neartie block. It is scoped and restored so
+a caller importing both wrappers in one process cannot leak the PV9 basis into
+a pv6/pv7/pv8 evaluation.
 
 WHAT A PASS MEANS, AND WHAT IT DOES NOT  (frozen wording -- do not soften)
 -------------------------------------------------------------------------
@@ -58,6 +67,47 @@ import sys
 
 import bandit_reference as br
 import evaluate_competence_gate as gate
+
+PV9_MANIFEST = "bandit_pv9_baseline_manifest.json"
+
+
+class pv9_manifest:
+    """Point the frozen evaluator at the PV9 basis, then put it back.
+
+    `gate.MANIFEST` is a module constant read at call time. Mutating it
+    permanently would make any later pv6/pv7/pv8 evaluation in the same
+    process silently use the PV9 basis, so the swap is scoped.
+    """
+
+    def __enter__(self):
+        self.original = gate.MANIFEST
+        gate.MANIFEST = PV9_MANIFEST
+        return self
+
+    def __exit__(self, *exc):
+        gate.MANIFEST = self.original
+        return False
+
+
+def assert_easy_basis_agrees() -> None:
+    """The rebind is only legitimate while easy is identical across manifests.
+
+    Checked before evaluating anything: if the two ever diverge, PV9-Easy and
+    pv8-Easy would be judged against different bases while appearing
+    comparable, which is worse than a hard stop.
+    """
+    if not os.path.exists(PV9_MANIFEST):
+        raise SystemExit(f"missing {PV9_MANIFEST}; run freeze_pv9_baseline.py")
+    with open(PV9_MANIFEST) as f:
+        pv9 = json.load(f)
+    if not os.path.exists(gate.MANIFEST):
+        return
+    with open(gate.MANIFEST) as f:
+        pv6 = json.load(f)
+    if pv9["environments"]["easy"] != pv6["environments"]["easy"]:
+        raise SystemExit(
+            "the easy basis differs between the pv6 and PV9 manifests; "
+            "PV9-Easy would not be comparable to pv8-Easy")
 
 
 def load_pv9_dir(path: str):
@@ -132,6 +182,8 @@ def main() -> int:
     if not args.result:
         ap.error("--result is required")
 
+    assert_easy_basis_agrees()
+
     verdicts = []
     for path in args.result:
         for d, env, f in load_pv9_dir(path):
@@ -151,9 +203,12 @@ def main() -> int:
                 print("!! and do not use the words capability-effect / rescue "
                       "/ improvement.")
                 print("!" * 68)
-            # The FROZEN rules, imported not reimplemented.
-            res = gate.evaluate(runs, env, bank, label)
+            # The FROZEN rules, imported not reimplemented. The manifest is
+            # rebound only for the duration of the call.
+            with pv9_manifest():
+                res = gate.evaluate(runs, env, bank, label)
             gate.report(res)
+            res["baseline_manifest"] = PV9_MANIFEST
             res["competence_eligible"] = env.competence_eligible
             res["is_verdict"] = env.competence_eligible
 

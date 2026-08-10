@@ -200,18 +200,26 @@ def build_rationale_prompt(
 
 
 def stop_reason(raw: str) -> str:
-    """Which mechanism ended this rationale -- recorded, never inferred later.
+    """How this rationale ended. Judged on UNTRUNCATED generation output.
 
-    Without this, a clean stored rationale is ambiguous between "the model
-    terminated correctly" and "post-processing hid a continuation", and the
-    whole question of whether PV9 fixed termination becomes unanswerable.
+    This is the measurement that decides whether PV9 fixed termination or
+    merely hid the failure, so it must never be fed post-processed text --
+    every round would then read `native_clean`. `bandit_pv9_episode` stores
+    `rationale_raw` byte-exact for exactly this reason.
+
+        native_clean           terminated on its own, at the Policy line
+        stop_marker_applied    ran on into a stop marker; the tail was cut
+        continued_after_policy kept writing past the Policy line, no marker
+        no_policy_line         never produced a Policy line
+        empty                  produced nothing
     """
     text = raw or ""
     if not text.strip():
         return "empty"
-    if any(s in text for s in STOP_STRINGS):
-        return "stop_string_missed"      # generation ran past a stop marker
-    if p7._POLICY_LINE.search(text) is None:
+    if any(m in text for m in STOP_STRINGS):
+        return "stop_marker_applied"
+    m = p7._POLICY_LINE.search(text)
+    if m is None:
         return "no_policy_line"
-    tail = text[p7._POLICY_LINE.search(text).end():]
-    return "continued_after_policy" if "\n" in tail.rstrip() else "clean"
+    return ("continued_after_policy"
+            if "\n" in text[m.end():].rstrip() else "native_clean")

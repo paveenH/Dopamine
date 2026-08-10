@@ -10,29 +10,31 @@ cannot drift, and changes exactly two things.
     1. the Stage-1 prompt  (patched in, as pv8 does)
     2. stop strings on the Stage-1 generation
 
-WHY THE STOP RULE IS APPLIED IN POST, TO BOTH PATHS
----------------------------------------------------
-The two Stage-1 paths are DIFFERENT METHODS: unsteered calls `vc.generate`,
-which has no `stop_strings` parameter at all (llms.py:690); steered calls
-`vc.regenerate`, which does (llms.py:845). Two consequences drove this design:
+WHERE THE STOP RULE IS APPLIED, AND WHY NOT AT GENERATION
+---------------------------------------------------------
+The rule wraps `p7.extract_evidence_policy_block` -- the single point where
+Stage 1's text becomes what Stage 2 reads -- and NOT `generate`/`regenerate`.
 
-  * pv7's loop never passes `stop_strings` to `regenerate`, so no cell gets
-    model-side stopping today.
-  * If it were passed only where the parameter exists, the steered cells would
-    stop decoding early and the alpha=0 cell would not. Cross-alpha
-    comparisons would then confound the intervention with a generation
-    setting -- unreadable, and exactly what this protocol cannot afford.
+Wrapping the generation calls was the first implementation and it was WRONG:
+the loop stores the returned string as `rationale_raw`, so truncating there
+overwrites the raw record. The hashtag tail became unrecoverable, `stop_reason`
+could never see a `#`, and every round would report `clean` whether the model
+terminated natively or was cut in post -- destroying the one measurement that
+distinguishes "PV9 fixed termination" from "post-processing hid it".
 
-So the rule is applied UNIFORMLY as post-truncation of the returned text, by
-wrapping BOTH methods for the duration of an episode. Identical
-post-condition on every path, at the cost of decoding some tokens that are
-then discarded. Stage 2 reads the same thing either way, which is what has to
-match; the discarded tail stays visible in `rationale_raw`.
+Wrapping the extractor keeps both properties that matter:
 
-This also avoids HF's `stop_strings` semantics, which halt on the marker
-appearing ANYWHERE in the output -- the trap that cost CGT a sweep
-(invalid_rate 0.02 -> 0.11 when a prompt token was used as a stop marker).
-Post-truncation on a marker that cannot occur in the prompt is strictly safer.
+  * `rationale_raw` is byte-exact generation output, on BOTH paths.
+  * The two paths still share one post-processing rule. That symmetry is
+    load-bearing: unsteered calls `vc.generate`, which has no `stop_strings`
+    parameter at all (llms.py:690), while steered calls `vc.regenerate`, which
+    does (llms.py:845). Passing it only where it exists would make stopping an
+    alpha-correlated generation setting and no cross-alpha comparison would be
+    readable.
+
+Applying the rule in post also avoids HF `stop_strings` semantics, which halt
+on the marker appearing ANYWHERE in the output -- the trap that cost CGT a
+sweep (invalid_rate 0.02 -> 0.11 when a prompt token was used as a marker).
 
 WHY NOT ALSO STOP STAGE 2
 -------------------------
@@ -80,42 +82,34 @@ def apply_stop(text: str) -> tuple[str, str | None]:
 
 
 class _StopShim:
-    """Post-truncate Stage-1 output at the first stop marker, on BOTH paths.
+    """Apply the stop rule where the rationale becomes Stage-2 input.
 
-    Wraps `generate` AND `regenerate`, because the unsteered and steered cells
-    go through different methods and must end up with the same
-    post-condition; wrapping only one would make the stop rule an alpha-
-    correlated generation setting. Patches the bound methods for the duration
-    of one episode and restores them in a `finally`, the same containment
-    pattern pv8 uses for the prompt.
+    Patches `bandit_pv7.extract_evidence_policy_block` for the duration of one
+    episode and restores it in a `finally`, the same containment pattern pv8
+    uses for the prompt. Generation is left untouched, so `rationale_raw`
+    stays byte-exact and the truncation stays auditable.
 
     Stage 2 does NOT generate -- it is constrained teacher-forced scoring --
-    so it is deliberately not wrapped.
+    so there is nothing else to wrap.
     """
 
-    _METHODS = ("generate", "regenerate")
-
-    def __init__(self, vc):
-        self.vc = vc
-        self.originals = {m: getattr(vc, m) for m in self._METHODS}
-
-    @staticmethod
-    def _wrap(original):
-        def _call(*args, **kwargs):
-            out = original(*args, **kwargs)
-            if isinstance(out, list):
-                return [apply_stop(t)[0] for t in out]
-            return apply_stop(out)[0]
-        return _call
+    def __init__(self):
+        self.original = p7.extract_evidence_policy_block
 
     def __enter__(self):
-        for name, original in self.originals.items():
-            setattr(self.vc, name, self._wrap(original))
+        original = self.original
+
+        def _extract(raw: str) -> str:
+            # Stop marker first, then the Policy-line truncation: cutting the
+            # spray before extraction is what keeps a trailing "#..." from
+            # being read as a continuation of the Policy line.
+            return original(apply_stop(raw)[0])
+
+        p7.extract_evidence_policy_block = _extract
         return self
 
     def __exit__(self, *exc):
-        for name, original in self.originals.items():
-            setattr(self.vc, name, original)
+        p7.extract_evidence_policy_block = self.original
         return False
 
 
@@ -136,7 +130,7 @@ def run_pv9_episode(vc, diff_mtx, seed: int, env, rationale_alpha: float = 0.0,
 
     p7.build_rationale_prompt = _p9
     try:
-        with _StopShim(vc):
+        with _StopShim():
             rec = p7ep.run_pv7_episode(
                 vc, diff_mtx, seed=seed, env=env,
                 rationale_alpha=rationale_alpha, action_alpha=action_alpha,
@@ -157,6 +151,12 @@ def run_pv9_episode(vc, diff_mtx, seed: int, env, rationale_alpha: float = 0.0,
     # "PV9 fixed termination" and "post-processing hid the continuation" stay
     # distinguishable -- without this the two are observationally identical.
     for rd in rec["rounds"]:
+        # `rationale_raw` is untouched generation output; `rationale_stopped`
+        # is what the extractor actually saw. Storing both is what makes the
+        # termination question answerable after the fact.
+        stopped, marker = apply_stop(rd["rationale_raw"])
+        rd["rationale_stopped"] = stopped
+        rd["stop_marker"] = marker
         rd["stop_reason"] = p9.stop_reason(rd["rationale_raw"])
     reasons = [rd["stop_reason"] for rd in rec["rounds"]]
     rec["stop_reason_counts"] = {r: reasons.count(r) for r in sorted(set(reasons))}
@@ -164,7 +164,7 @@ def run_pv9_episode(vc, diff_mtx, seed: int, env, rationale_alpha: float = 0.0,
     # STAGE-1-ONLY INFORMATION ISOLATION, asserted rather than trusted: the
     # entire attribution argument (a changed action came from Stage 1's
     # reasoning, not from priming Stage 2's candidate logits) rests on it.
-    for rd in rec.get("attestation", {}).values():
+    for name, rd in rec.get("attestation", {}).items():
         rp, ap = rd["rationale_prompt"], rd["action_prompt"]
         for token, label in ((p9._UNTRIED_CUE, "untried cue"),
                              ("Your score so far", "score line"),
@@ -175,6 +175,14 @@ def run_pv9_episode(vc, diff_mtx, seed: int, env, rationale_alpha: float = 0.0,
             raise AssertionError("PV9 Stage-1 prompt lacks the score line")
         if "CHOICE HISTORY" not in rp:
             raise AssertionError("PV9 Stage-1 prompt lacks the history block")
+        # At round 0 every arm is untried, so the cue MUST be present. Only
+        # checking that it stays out of Stage 2 would leave a silently
+        # cue-less Stage 1 undetected -- and a missing cue is the difference
+        # between this protocol and pv8.
+        if name == "round_0" and p9._UNTRIED_CUE not in rp:
+            raise AssertionError(
+                "PV9 round-0 Stage-1 prompt lacks the untried-arm cue, but "
+                "every arm is untried at round 0")
     return rec
 
 

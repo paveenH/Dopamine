@@ -49,6 +49,7 @@
 #
 # Steps:
 #   SMOKE       N=3  Easy alpha=0, --attest      protocol correctness only
+#   SMOKE_AM4   N=1  Easy alpha=-4, --attest     the STEERED path (see below)
 #   A0_EASY / AM4_EASY / AP4_EASY        N=20 Easy,    ra = 0 / -4 / +4
 #   A0_NT   / AM4_NT   / AP4_NT          N=20 NearTie, ra = 0 / -4 / +4
 #   ALL         the six formal cells, sequentially (unattended overnight)
@@ -62,8 +63,14 @@
 # 32-35), audited on the Llama-3.1 tokenizer only.
 #
 # Usage:
-#   bash run_bandit_pv9.sh [llama3] [SMOKE|ALL|GATE|A0_EASY|AM4_EASY|AP4_EASY|
+#   bash run_bandit_pv9.sh [llama3] [SMOKE|SMOKE_AM4|ALL|GATE|
+#                                    A0_EASY|AM4_EASY|AP4_EASY|
 #                                    A0_NT|AM4_NT|AP4_NT]
+#
+# Run SMOKE then SMOKE_AM4 before ALL. The two smokes cover DIFFERENT code:
+# alpha=0 never registers a hook, so only the steered smoke exercises
+# `regenerate`, the mask load and the 900-fire count. The formal cells do fail
+# closed on a bad fire count, but by then A0_EASY may have burned hours.
 
 set -euo pipefail
 
@@ -138,6 +145,15 @@ run_cell () {
 #   - protocol == "pv9"; resume_key carries pv9 + score/cue/stop versions
 #   - wall-clock per episode -> the real 6 x N=20 budget
 run_cell SMOKE easy "${SMOKE_SEEDS}" "${OUT_ROOT}/pv9_easy_bare_smoke" 0 --attest
+
+# ── SMOKE_AM4 (N=1): the STEERED path, which alpha=0 cannot reach ─────────
+# alpha=0 registers no hook anywhere, so SMOKE above never touches
+# `regenerate`, the mask file, or the fire counter. Check afterwards:
+#   - steering_fires == {rationale: 900, action: 0}  (L=9 x T=100; a 0 means
+#     the hook never fired, 3200 means zero rows are being counted)
+#   - the mask actually loaded from base_dir (the driver exits if it is absent)
+#   - one episode's wall clock -> the six-cell budget
+run_cell SMOKE_AM4 easy "6" "${OUT_ROOT}/pv9_easy_bare_smoke_am4" -4 --attest
 
 # ── The six formal cells, one directory each ──────────────────────────────
 # Separate --ans_file per cell is MANDATORY, not tidiness: the detail JSON
