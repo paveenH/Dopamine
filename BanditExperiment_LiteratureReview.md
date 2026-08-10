@@ -1,11 +1,11 @@
-# Bandit 实验：相关文献、模型能力边界与改进方案
+# Bandit Experiments: Literature, Capability Boundaries, and Design Revisions
 
 > 更新：2026-08-09
 > 目的：结合近期 Bandit–LLM 文献与本项目 Llama3-8B 的 pv6–pv8 结果，分解 utilization、native exploration 与 RSN modulation，并规划下一轮实验。
 
-## 1. 结论先行
+## 1. Summary of Conclusions
 
-### 1.1 小模型能不能做 Bandit？
+### 1.1 Can Small Models Do Bandit Tasks?
 
 **可以，但不是无条件地可以。**
 
@@ -117,36 +117,56 @@ Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以
 | 10 | Excessive commitment | 过早锁定率、one-shot-zero abandonment、同一臂最长连段 |
 | 11 | Reduced engagement / interface failure | 空生成、未完成 Policy、无有效动作；必须与动机解释分开 |
 
-#### 1.2.7 Prompt Design Constraints
+### 1.3 Prompt Design Constraints
 
-后续 Bandit prompt 与状态设计应满足以下约束：
+1. **Self-Relevant Reward Framing**: 每次 reward 会累积为模型自己的任务分数，最终表现由累计分数决定。这项修改的目的，是提高 reward 的 motivational salience，使模型将选择结果与自身任务表现联系起来，而不是提供新的 Bandit 算法或探索规则。累计分数本来就可以由各 arm 的 rewards 相加得到，因此该修改主要改变 reward framing，不增加实质性的决策信息。
+2. 从未尝试过的 arm 才附加推动探索的提示 “Exploring this button may improve future rewards.“
+3. 128 tokens
 
-1. **Near-tie observability**：预先构造足够的价值接近状态，使 precision effect 可识别；不应仅依赖全程缩小真实 arm gap。
-2. **Uncertainty variation**：独立操纵样本量或 posterior uncertainty，使低价值与高不确定性不完全重合。
-3. **Measurable opportunity cost**：提供计算经验收益与信息成本所需的事实，但不提供 UCB、uncertainty bonus 或行动建议。
-4. **No algorithm instruction**：呈现证据不等于教导权衡规则；任何 algorithm-guided support 必须作为独立 positive control。
-5. **Matched-state evaluation**：precision 与 information targeting 优先在冻结的相同历史上进行配对比较，再由完整在线 episode 检验长期后果。
-6. **Competence headroom**：基线必须具备基本证据利用能力，同时保留可改善空间；天花板条件不能用于判断 α 是否能够提高最终表现。
+```text
 
-### 1.3 对当前实验最重要的改进
+You are the decision-maker in this task. Each button has a fixed but
+unknown probability of producing a reward of 1; otherwise, it produces
+a reward of 0. These probabilities may differ across buttons. Each reward of 1 adds one point to your cumulative task score, while a reward of 0 adds no points. Your performance is determined by your final cumulative score.
 
-优先级从高到低：
+Choose one button in each of 100 rounds to maximize your final cumulative score.
 
-1. **把 capability validation 与 α 主实验分开**：用外部提供的平衡初始证据验证 utilization；主实验仍保留自主 exploration。
-2. **保留并重新定位 short-CoT 接口对照**：pv7/pv8 的 Stage 1 已经要求模型先写 `Evidence`，再写 `Policy: EXPLORE/EXPLOIT Button X`，因此当前问题不是“没有思考空间”，而是模型虽然能描述 uncertainty，却很少把它转化为 information-seeking action。下一轮应比较 direct choice、native short-CoT 与显式 uncertainty-to-action policy scaffold；后者属于外部策略帮助，不能作为自主 exploration 证据。文献中的 prompt CoT、SFT 的 UCB-CoT target 与 RL 训练效果必须分开表述。
-3. **使用难度阶梯**：先 K=2，再 K=3，最后才是当前 K=5；不能用 K=5 的失败直接推断模型完全没有 Bandit 能力。依据是 EVOLvE 的任务参数扫描（MAB K=5/20、reward 分布、\(\Delta_{\min}\)）与 When Greedy Wins 的模型内梯度（7B 在 K=2/3/5 随迭代提升且 K 越小越准，3B 停滞）——两者都是论文内部比较，**不依赖已弃用的 TextBandit 跨模型差异**。
-4. **保留简洁 summary，不再增加解释段落**：将 tried / untried 分开，并显式给出 `successes / trials / rate`；不要继续在 prompt 中堆采样理论。
-5. **指标按 discovery / utilization / stability / outcome 分层**：coverage 和 OptFrac 都不能单独作为主结论；加入 GreedyFreq、SuffixFail 和 matched-history divergence。
+Round 61 of 100. Future choices after this one: 39.
+Your score so far: 42 points.
 
-## 2. Paper
-### Paper Summary
+CHOICE HISTORY (oldest → newest):
+[A B A C ...]
+
+OPTIONS
+- Button A: 30 rewards / 40 trials, empirical rate 0.75
+- Button B: 8 rewards / 15 trials, empirical rate 0.53
+- Button C: 3 rewards / 5 trials, empirical rate 0.60
+- Button D: UNTRIED (unknown). Exploring this button may improve future rewards.
+
+Complete exactly two lines and stop after the Policy line. Use no more
+than 50 words total.
+
+First line: finish “Evidence:” by briefly comparing the strength and
+uncertainty of the available evidence.
+Second line: write either:
+“Policy: EXPLORE Button X because ...”
+or
+“Policy: EXPLOIT Button X because ...”
+
+Keep both lines concise. Name exactly one button. Do not repeat the task
+or continue after the Policy line.
+
+Evidence:
+```
+
+## 2. Literature
+### 2.0 Paper Summary
 | 论文 | Bandit 在论文中的角色 | 是否证明 LLM 自己会做 Bandit | 对本项目的直接价值 |
 |---|---|---:|---|
 | [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html) | 直接评估 LLM 在 BanditBench 中的 in-context exploration（**MAB K=5/20；CB K=10/30**），并比较 summary、UCB guidance、few-shot 与 fine-tuning | 基线部分是；algorithm-guided / distillation 部分不是纯自主能力 | 最直接支持 structured summary、难度阶梯与 exploration-optimality 分析，同时要求把“模型自主探索”与“外部算法供给探索”分开 |
 | [LLMs are Greedy Agents](https://arxiv.org/abs/2504.16078) | Gemma2 2B/9B/27B 主实验，**Llama3 / Qwen2.5 在 Appendix C.4 复现且 bias 持续**；环境含 MAB（K=10/20，T=50）、contextual bandit 与**文字井字棋** | 是，且系统分析失败模式 | 最直接：greediness、frequency bias、knowing–doing gap；CoT、try-all、summary 和 RLFT 的作用。**Llama3 上的同族直接证据** |
 | [When Greedy Wins](https://arxiv.org/abs/2509.24923) | Qwen2.5 3B/7B 学习 meta-bandit policy（**K=2/3/5 训练 + K=10 OOD 泛化**） | 是，但主要研究训练后策略 | 平均 reward 提升不等于探索改善；必须报告 GreedyFreq、SuffixFail、双峰和早停探索；**提供文献中唯一的模型内 K 难度梯度** |
 | [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118) | 经典 TS/回归 Bandit 负责探索，LLM 只预测 reward | 否，反而指出直接选臂常次优 | 支持把 reward understanding 与 action selection 拆开；经典算法控制应作为上界/诊断，不是 α 主实验 |
-| ~~[TextBandit](https://arxiv.org/abs/2510.13878)~~ | ~~开源 LLM 直接根据语言化 0/1 feedback 选臂~~ | — | **不采用**：few-shot 教了 5 个不同最优臂，与固定最优臂的结构假设自相矛盾（详见 §2.4）。其跨模型差异不构成证据 |
 | [Should You Use Your LLM to Explore or Exploit?](https://arxiv.org/abs/2502.00225) | 将 exploration oracle 与 exploitation oracle 分开测试；模型含 GPT-5-nano / GPT-4 / GPT-4o / GPT-3.5 / Qwen-2.5 / Gemma-3 / Mistral-7B / DeepSeek-R1-Distill-Qwen | 是能力分解，不是完整 policy | 为本项目提供最干净的诊断框架：不要用一个端到端分数同时测 discovery 与 utilization。**reasoning model 相对占优，但所有 LLM 配置仍弱于简单线性回归** |
 
 
@@ -244,14 +264,13 @@ Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以
   - **Exploration oracle（第3节，Figure 6–8）**：反过来，只测"能否从巨大、语义丰富的动作空间里生成一组有代表性的候选臂"，不涉及利用——候选生成后交给标准算法（UCB1）实际跑 T 轮。三类任务：MovieLens 电影推荐、arXiv 论文标题推荐（Figure 6）、开放式"哲学"问答。核心发现：**LLM 生成的候选集显著优于"仅凭类别/无信息"的 baseline，证明其真正利用了输入的具体语义**；LLM 更适合扮演"智能离散化/缩小搜索空间"的角色，而非直接做决策。
   - **整体结论**：现阶段 LLM 在 exploitation（精确统计判断）上仍不如经典统计方法可靠，即便是前沿推理模型也需要昂贵的 mitigation 才能追平简单 baseline；但在 exploration（生成语义候选集）上表现稳健，是更值得信赖的用法。
 
-
-### 2.1 `EVOLvE`：当前实验设计的直接来源与边界
+### 2.1 `EVOLvE`: Direct Source of the Current Design, and Its Boundaries
 
 EVOLvE 在 BanditBench 中系统评估 context-free MAB 与 contextual bandit。MAB 同时改变
 reward distribution、gap、arm 数量和名称表示：包括 Bernoulli / Gaussian、K=5 / K=20，
 以及无语义的 Video 标签与语义丰富的 Clothes 名称（CB 另用 MovieLens，K=10 / K=30，
 与 MAB 的 K 不是同一套）。论文测试 Gemma-2B、Gemma-9B、
-Gemini-1.5 Flash 和 Gemini-1.5 Pro（**均非 7–8B 开源模型**），并比较四个层次：
+Gemini-1.5 Flash 和 Gemini-1.5 Pro，并比较四个层次：
 
 1. **Raw History (RH)**：把历次 action–reward 序列直接交给模型；
 2. **Summarized History (SH)**：提供每个 arm 的 empirical mean、pull count 和当前
@@ -267,29 +286,9 @@ Gemini Pro 的 overall win-rate 分别只有 7.6%、10.5%、27.7% 和 45.5%。�
 win-rate 反而从 10.5% 降到 5.3%。真正明显的提升主要来自 carefully matched 的
 few-shot / fine-tuning 或显式算法支持，而不是一句泛化的“think step by step”。
 
-这对本项目有四个直接含义：
+### 2.2 `LLMs are Greedy Agents`: The Most Direct Design Basis
 
-1. 当前 `TRIED / UNTRIED + rewards / trials / rate` 不是任意 prompt engineering，
-   而是与论文的 sufficient-statistics contextualization 同方向；它减少读取历史的
-   负担，但不保证模型自动获得 exploration policy。
-2. 若把 UCB bonus 或“现在应该探索哪个 arm”直接写进 prompt，属于 **AG 条件**：
-   可以作为能力上界或 scaffolded-policy 对照，但不能再解释为 Llama3-8B 自主产生
-   exploration，也不适合作为 RSN α 的唯一主实验。
-3. 论文用随时间变化的 `MinFrac` 与 `OptFrac` 区分早期广泛探索和后期利用，并明确
-   提醒高 OptFrac 可能只是偶然先选中最优臂。这直接支持本项目把 novel exploration、
-   lock / persistence、late adherence 与 regret 分开报告。
-4. 论文显示 smaller model 经 UCB trajectory distillation 后可以超过较大但未优化的
-   模型，因此“小模型做不好”更准确地表示**off-the-shelf in-context policy 不可靠**，
-   而不是不存在可训练或可 scaffold 的 Bandit 能力。
-
-需要保留的边界是：EVOLvE 的 improved condition 大量依赖外部计算的 UCB 信息、
-oracle demonstrations 或参数微调；它不能证明仅靠增加自然语言解释，Llama3-8B 就能
-稳定完成当前 K=5 自主探索。相反，它支持将 E-direct 作为自主行为主条件，并把更强的
-algorithm-guided prompt 单独命名为诊断对照。
-
-### 2.2 `LLMs are Greedy Agents`：最直接的设计依据
-
-该研究在 BanditBench 的 Gaussian/Bernoulli MAB 上测试 Gemma2 2B、9B、27B（**K=10 / K=20 arms**），horizon 同样是 50；并在 Appendix C.4 用 **Llama3 与 Qwen2.5** 复现 greediness 分析，明确指出 bias 持续。重要发现包括：
+在 BanditBench 的 Gaussian/Bernoulli MAB 上测试 Gemma2 2B、9B、27B（**K=10 / K=20 arms**），horizon 同样是 50；并在 Appendix C.4 用 **Llama3 与 Qwen2.5** 复现 greediness 分析，明确指出 bias 持续。重要发现包括：
 
 - 不同规模模型都会过早采用 greedy strategy，action coverage 很快停滞；扩大模型只能减轻，不能消除。
 - 2B 模型还会受 action 在历史中出现频率影响，即使该 action reward 较差。
@@ -299,15 +298,7 @@ algorithm-guided prompt 单独命名为诊断对照。
 - RL fine-tuning 能改善 2B/9B 的 regret，并使 2B coverage 增加约 12%，但仍未完全达到理想探索。
 - **CoT 对 RLFT 是 load-bearing 的**：原文 "without CoT, RLFT barely attains the performance of ICL with CoT"——这是**训练侧**结论。
 
-> **CoT 证据分三层，不可合并成“CoT 已证明能帮助小模型探索”**：(a) **prompt-time CoT** 提高 coverage 但上限 65%，greedy lock 仍在；(b) **CoT 对 RLFT** 是必要条件，属训练侧，不能外推到 inference-time 提示；(c) **SFT on UCB-CoT traces** 能逼近 UCB，但那是外部算法蒸馏，不是自主能力。
-
-对本项目的含义：
-
-1. 当前 Llama3-8B 的 greedy lock 不是异常，也不必优先归因于 code bug——**该论文已在 Llama3 族上直接复现同一 bias，这不再是跨模型外推**。
-2. ~~允许短 CoT 是一个尚未被正式测试的接口维度。~~ **已由 pv7/pv8 测试完毕**：Stage 1 的结构化 short-CoT（`Evidence:` 显式点名评估不确定性 → `Policy: EXPLORE/EXPLOIT`）比文献里的自由格式 CoT 更强，仍未解除 one-shot-zero lock-in（`uncertainty_recognition .996` vs `uncertainty_action_alignment .031`）。**这与上述三层拆分一致——文献中 CoT 最强的证据在训练侧，本就不预期 inference-time 提示能解决问题，所以这不构成接口失败。**
-3. forced initialization 可以验证“获得信息后是否会用”，但不能作为自主 wanting/exploration 的主实验。
-
-### 2.3 `When Greedy Wins`：为什么 OptFrac / regret 不够
+### 2.3 `When Greedy Wins`: Why OptFrac / Regret Are Insufficient
 
 该研究在 Qwen2.5 3B/7B 上比较 pretrain、SFT 与多种 RL：
 
@@ -325,22 +316,7 @@ algorithm-guided prompt 单独命名为诊断对照。
 - 这不是“更好的 exploration”，而是更弱的 policy persistence。
 - 下一版分析应增加 GreedyFreq / SuffixFail，避免把高 coverage 或偶然高 OptFrac 误写成学习。
 
-### 2.4 `TextBandit`：**不采用**（设定自相矛盾，仅存档）
-
-TextBandit 使用语言化反馈（“earned a token” / “did not earn a token”），每轮重建包含完整历史的 prompt，不使用 CoT，测试 Qwen3-4B、Qwen3-8B、Llama3.1-8B 与 Phi-2。论文报告：
-
-- Qwen3-4B 的 best-arm selection rate 达 89.2%；
-- Llama3.1-8B 为 31.6%，其他多数模型也低于经典算法；
-- 模型规模与结果并非单调关系；
-- 任务从 2 到 5 arms，简单 2-arm 条件更容易出现正结果。
-
-这个结果只能说明：
-
-> 小模型在某些非常简单、特定 prompt / few-shot / arm-label 条件下能够形成 Bandit-like adaptation。
-
-**但本项目已决定不引用该论文的任何结论。** 其 few-shot 示例教给模型 5 个不同的“最优臂”，与“最优臂固定”这一结构性假设（也是 best-arm selection rate 的计算前提）自相矛盾；加上 baseline 数字的源码 bug、无均值/无置信区间的图表、核心发现无消融支撑，其跨模型差异（Qwen3-4B 好 / Llama3.1-8B 差）说明不了任何事。**难度阶梯的正当性改由 EVOLvE 的任务参数扫描与 When Greedy Wins 的模型内 K=2/3/5 梯度支撑**（两者都是同一论文内部的比较，比跨论文比模型干净）。本节仅作存档。
-
-### 2.5 `Should You Use Your LLM to Explore or Exploit?`：能力应拆开测
+### 2.4 `Should You Use Your LLM to Explore or Exploit?`: Capabilities Must Be Tested Separately
 
 该研究测试 GPT-5-nano、GPT-4、GPT-4o、GPT-3.5、Qwen-2.5、Gemma-3、Mistral-7B 与 DeepSeek-R1-Distill-Qwen（reasoning model）。它不要求 LLM 一次完成完整 Bandit policy，而是分别测试：
 
@@ -356,98 +332,18 @@ TextBandit 使用语言化反馈（“earned a token” / “did not earn a toke
 
 对当前 K=5 boutique task 而言，臂名只是任意标签，不存在可利用的语义 action space。因此“LLM 擅长语义探索”并不能帮助当前任务；真正可借鉴的是**分离 discovery 与 utilization**。
 
-### 2.6 三篇“Bandit 调度 LLM”的论文：只能作为方法类比
+## 3. Plan
 
-`OPTS`、`BanditSpec` 与 `LLM-Enhanced MAB` 的共同结构是：
-
-```text
-经典 Bandit 算法负责探索/调度
-        ↓
-LLM 负责生成、预测或执行局部子任务
-```
-
-它们说明外部 TS/UCB/EXP3 controller 可以稳定处理 exploration–exploitation，但不说明 LLM 本身学会了该策略。
-
-对本项目可以提供两类对照：
-
-1. **algorithmic upper bound**：同一组 reward seeds 下跑 UCB / TS，确认环境和 gap 足以产生学习；
-2. **reward-prediction diagnostic**：让 LLM 只判断哪个 option 的证据最强，不让它决定是否 exploration。
-
-但不能把 external controller 用于 α 主实验，否则 exploration timing 已被程序决定，正好删除待测行为。
----
-TODO: Add: Supposed Dopamine effecy in Bandit & Current Result
-
----
-## 4. PLAN
-
-### 3.1 已完成的迭代路径
+### 3.1 Completed Iteration Path
 
 - **pv6** 首次建立了可运行的 reference Bandit 与 competence gate，但也暴露了 rationale 截断、选项显示漂移、Stage 2 指令冲突与 label prior 等接口问题。
 - **pv7** 用结构化 `Evidence → Policy → constrained choice` 修复了两阶段接口。模型能读取样本数与 empirical rate，也能稳定执行自己的 Policy；但仍出现 one-shot-zero lock-in，严格 competence gate 未通过。
 - **pv7 frozen-state diagnostics** 表明：history 改善了文本格式，calculator 改善了 uncertainty 的表述，α 改变了 rationale 与决策锐度；但它们都没有稳定促成对 `1 trial / 0 reward` 臂的定向重访。
 - **pv8** 把 choice history 放回完整 100-round online episode。结果复现 pv7：α 双向调节 policy commitment / decision sharpness，但未改变 targeted information seeking、SuffFail 或 outcome。
 
-因此，pv6–pv8 作为已完成的接口与机制迭代保留，不再在其上无上限追加 prompt patch。新一轮实验从 capability decomposition 重新规划。
+### 3.3 
 
-### 3.2 新一轮的三个问题
 
-1. **Utilization**：给定外部平衡、足量的证据时，Llama3-8B 能否识别并稳定利用较优臂？
-2. **Native exploration**：不提供 uncertainty bonus、UCB/TS 推荐或 oracle demonstration 时，模型能否随着反馈自主形成 explore→exploit？该能力在 K=2/3/5 的边界在哪里？
-3. **RSN modulation**：在一个行为可解释的 online condition 中，α 改变的是 targeted discovery、utilization、exploration stopping 还是 policy commitment？
-
-Capability validation 与 α 主实验必须分开。如果 α=0 条件未建立 native competence anchor，α 仍可用于 failure-mode characterization，但不能称为 capability improvement 或 rescue。
-
-### 3.3 实验路径
-
-#### Phase A — 先分解 capability
-
-1. **Utilization probe**：由程序提供每臂平衡的初始 observations，单独测试模型是否会读取样本数、均值并选择证据支持的较优臂。这是 utilization control，不计作自主 exploration。
-2. **Native online ladder**：在同一 summary、decoding、seed/tape 与指标口径下，依次跑 K=2 → K=3 → K=5。K=2 是最小 stochastic-adaptation floor，K=3 是主要 competence-anchor 候选，K=5 是 boundary stress test。不用 K=5 失败直接推论模型完全没有 Bandit 能力。
-3. **α=0 接口对照**：在最低成本的环境上比较：
-   - direct constrained choice；
-   - native short-CoT：先评估 evidence / uncertainty / remaining horizon，再自行决定 `EXPLORE` 或 `EXPLOIT`；
-   - policy-scaffolded short-CoT：显式提醒小样本证据弱，并要求考虑一次新观测对后续决策的信息价值。
-
-当前 pv7/pv8 Stage 1 已经属于 short-CoT。新对照不应再要求模型“更彻底地 exploitation”：这会强化已观察到的 one-shot-zero lock-in。native short-CoT 不提供 UCB/TS 计算或推荐臂；policy-scaffolded 条件必须单列，不能冒充 native capability。
-
-#### Phase B — 再跑 α
-
-1. 先冻结 Phase A 选出的 environment、prompt、temperature、seed bank、reward tape 与 analysis parser。
-2. 优先在“最简单但已呈现可解释 Bandit-like adaptation”的 native online condition 上跑 `α ∈ {−4, 0, +4}`；先不扩大 dose range。
-3. Stage 1 rationale/policy 是当前的主要 steering 候选位置；Stage 2 保持为可审核的 constrained executor。若日后改变作用点，必须作为独立 mechanism ablation，不与主协议混合。
-4. α 的结论按 `validity → discovery → utilization → stability → outcome` 解释；只有 novel/targeted exploration 与后期利用同时改善，才能写 information-seeking improvement。只改变 margin/entropy、switching 或 non-novel churn，仍只是 commitment/persistence modulation。
-
-#### Phase C — 支架与训练对照
-
-- summary/counts 属于状态表示；
-- balanced warm-start 属于 utilization control；
-- Beta/credible interval 属于 calculator-assisted representation；
-- UCB/TS score、recommendation 或 demonstration 属于 algorithm-guided policy；
-- UCB-CoT imitation 是 SFT target，RL-OG / RL-STG / RL-ALG 则分别是不同 reward signal 的训练条件。
-
-这些条件用于定位“表示、决策还是训练”哪一层缺失，不与 native α 主实验合并。
-
-### 3.4 固定的分析顺序
-
-1. **Validity**：prompt/tokenizer/steering attestation、legal action、paired seeds/tapes。
-2. **Discovery**：arms tried、novel pulls、one-shot-zero revisit、SuffixFail。
-3. **Utilization**：empirical-best adherence、GreedyFreq、warm-start exploitation accuracy。
-4. **Stability**：exploration stopping、non-novel churn、longest streak、matched-history divergence。
-5. **Outcome**：late OptFrac、reward 与 regret，最后报告。
-
-`K×MinFrac(t)` 只作为与 SuffixFail 配对的 anti-flailing 诊断：它的后期下降能排除持续均匀乱试，但“整体很低”不能单独证明有效 exploration，也可能是过早 lock-in。
-
-### 3.5 下一步
-
-暂不直接写新 episode code。先冻结以下规格：
-
-1. K=2/3/5 的 reward probabilities、horizon 与进阶/停止条件；
-2. utilization probe 的平衡初始证据；
-3. direct / native short-CoT / policy-scaffolded 三个 prompt 的精确文本；
-4. competence gate 是否沿用，以及 K=2 与 K=3 各自允许的结论强度；
-5. 新 protocol version、counterbalanced seed bank 与预注册 analysis parser。
-
-上述五项确定后，再开始新一轮实现与实验。
 
 ## References
 
