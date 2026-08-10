@@ -3,7 +3,16 @@
 > 更新：2026-08-09
 > 目的：结合近期 Bandit–LLM 文献与本项目 Llama3-8B 的 pv6–pv8 结果，分解 utilization、native exploration 与 RSN modulation，并规划下一轮实验。
 
+
 ## 1. Summary of Conclusions
+
+### Completed Iteration Path
+
+- **pv6** 首次建立了可运行的 reference Bandit 与 competence gate，但也暴露了 rationale 截断、选项显示漂移、Stage 2 指令冲突与 label prior 等接口问题。
+- **pv7** 用结构化 `Evidence → Policy → constrained choice` 修复了两阶段接口。模型能读取样本数与 empirical rate，也能稳定执行自己的 Policy；但仍出现 one-shot-zero lock-in，严格 competence gate 未通过。
+- **pv7 frozen-state diagnostics** 表明：history 改善了文本格式，calculator 改善了 uncertainty 的表述，α 改变了 rationale 与决策锐度；但它们都没有稳定促成对 `1 trial / 0 reward` 臂的定向重访。
+- **pv8** 把 choice history 放回完整 100-round online episode。结果复现 pv7：α 双向调节 policy commitment / decision sharpness，但未改变 targeted information seeking、SuffFail 或 outcome。
+
 
 ### 1.1 Can Small Models Do Bandit Tasks?
 
@@ -119,10 +128,20 @@ Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以
 
 ### 1.3 Prompt Design Constraints
 
-1. **Self-Relevant Reward Framing**: 每次 reward 会累积为模型自己的任务分数，最终表现由累计分数决定。这项修改的目的，是提高 reward 的 motivational salience，使模型将选择结果与自身任务表现联系起来，而不是提供新的 Bandit 算法或探索规则。累计分数本来就可以由各 arm 的 rewards 相加得到，因此该修改主要改变 reward framing，不增加实质性的决策信息。
-2. 从未尝试过的 arm 才附加推动探索的提示 “Exploring this button may improve future rewards.“
-3. 128 tokens
+#### PV9 Prompt Modifications
 
+1. **Self-Relevant Reward Framing**  
+   将每次 reward 表述为模型自身任务分数的一部分，并以最终累计分数评价表现。该修改增强 reward 的 motivational salience，但不增加新的决策信息或算法规则。
+
+2. **Untried-Arm Exploration Cue**  
+   仅对从未尝试过的 arm（\(n=0\)）附加提示：  
+   `Exploring this button may improve future rewards.`
+
+3. **Generation and Output Control**  
+   将 `max_new_tokens` 提高至 128，同时保留两行格式和 50-word 上限。代码截取第一个完整的 `Policy:` 句，后续续写不传入 Stage 2，但保留原始输出用于格式审计。
+
+4. **Explicit Reward Distribution**  
+   明确说明每个 arm 都具有固定但未知的 Bernoulli reward probability，帮助模型正确理解环境结构，但不透露真实概率或探索算法。
 ```text
 
 You are the decision-maker in this task. Each button has a fixed but
@@ -331,19 +350,6 @@ few-shot / fine-tuning 或显式算法支持，而不是一句泛化的“think 
 - LLM 更适合在大而有语义的空间中提出 exploration candidates，而不是替代完整 Bandit 算法。
 
 对当前 K=5 boutique task 而言，臂名只是任意标签，不存在可利用的语义 action space。因此“LLM 擅长语义探索”并不能帮助当前任务；真正可借鉴的是**分离 discovery 与 utilization**。
-
-## 3. Plan
-
-### 3.1 Completed Iteration Path
-
-- **pv6** 首次建立了可运行的 reference Bandit 与 competence gate，但也暴露了 rationale 截断、选项显示漂移、Stage 2 指令冲突与 label prior 等接口问题。
-- **pv7** 用结构化 `Evidence → Policy → constrained choice` 修复了两阶段接口。模型能读取样本数与 empirical rate，也能稳定执行自己的 Policy；但仍出现 one-shot-zero lock-in，严格 competence gate 未通过。
-- **pv7 frozen-state diagnostics** 表明：history 改善了文本格式，calculator 改善了 uncertainty 的表述，α 改变了 rationale 与决策锐度；但它们都没有稳定促成对 `1 trial / 0 reward` 臂的定向重访。
-- **pv8** 把 choice history 放回完整 100-round online episode。结果复现 pv7：α 双向调节 policy commitment / decision sharpness，但未改变 targeted information seeking、SuffFail 或 outcome。
-
-### 3.3 
-
-
 
 ## References
 
