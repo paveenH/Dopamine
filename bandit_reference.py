@@ -98,6 +98,26 @@ ENVIRONMENTS: dict[str, Environment] = {
         probs=(0.60, 0.40, 0.40, 0.40, 0.40), horizon=100,
         is_reference=True, competence_eligible=True,
     ),
+    # PV9 mechanism environment. NOT from Krishnamurthy et al. and NOT written
+    # in their mu*=0.5+Delta/2 parameterization, so its gate numbers are
+    # comparable only to its OWN Random/Greedy baselines -- never to the
+    # published reference figures.
+    #
+    # Purpose: create states where two arms compete on close empirical value,
+    # which the reference `easy` (.75 vs .25) structurally cannot. Only the top
+    # TWO arms are near-tied; the other two sit far below, so the argmax
+    # contest is local and a precision effect has one clear address.
+    #
+    # competence_eligible=False, deliberately. With a true gap of 0.05 and
+    # ~T/k=25 pulls per arm, the empirical-rate standard error (~0.10) is
+    # DOUBLE the gap, so the best arm is statistically unidentifiable for much
+    # of the horizon. A high SuffFail here measures the environment, not the
+    # policy, and must never be read as a competence verdict.
+    "neartie": Environment(
+        name="reference_neartie", k=4,
+        probs=(0.60, 0.55, 0.25, 0.25), horizon=100,
+        is_reference=False, competence_eligible=False,
+    ),
     # Not from the reference paper. Diagnostic floor only (§3.2 / Track C):
     # at K=2 "exploration" degenerates to "did it switch to the other arm",
     # which cannot support an information-seeking claim. Never a competence

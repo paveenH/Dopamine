@@ -306,7 +306,7 @@ def run_reference_mode(env_key, n_seeds):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--reference_environment", choices=["easy", "hard",
+    ap.add_argument("--reference_environment", choices=["easy", "neartie", "hard",
                                                         "native_floor"],
                     default=None,
                     help="pv6 F-reference mode. Uses bandit_reference.py's "
