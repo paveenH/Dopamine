@@ -145,8 +145,11 @@ Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以
 ```text
 
 You are the decision-maker in this task. Each button has a fixed but
-unknown probability of producing a reward of 1; otherwise, it produces
-a reward of 0. These probabilities may differ across buttons. Each reward of 1 adds one point to your cumulative task score, while a reward of 0 adds no points. Your performance is determined by your final cumulative score.
+unknown probability of producing a binary reward of 0 or 1, and these
+probabilities may differ across buttons.
+
+Your cumulative task score is the sum of rewards across all rounds.
+Your performance is determined by your final score.
 
 Choose one button in each of 100 rounds to maximize your final cumulative score.
 
