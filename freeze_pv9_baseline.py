@@ -25,6 +25,7 @@ mean PV9-Easy is being judged against a different basis than pv8-Easy.
 """
 import argparse
 import json
+import math
 import os
 
 import bandit_reference as br
@@ -39,6 +40,61 @@ def _roundtrip(obj):
     return json.loads(json.dumps(obj, sort_keys=True))
 
 
+# Floats are compared with a relative tolerance; everything else exactly.
+#
+# WHY THIS IS NOT A RELAXATION OF THE FREEZE
+# ------------------------------------------
+# The Easy cells ran on one host (python 3.10, arm64) and later cells on
+# another (python 3.12, x86_64). Identical inputs through identical code give
+# summation results that differ in the last ULP -- 0.04 vs 0.04000000000000001,
+# 0.9696969696969692 vs ...697. An exact `!=` reads that as "the frozen basis
+# does not reproduce" and refuses to run, on two machines that in fact agree.
+#
+# The tolerance is 1e-9 RELATIVE. The gate compares point estimates at the 0.05
+# scale (SuffFail 0.200 vs Greedy 0.250), so a 1e-9 relative difference cannot
+# move any verdict; a real basis change -- a different seed bank, environment
+# or policy -- is orders of magnitude larger and still fails. Structure is
+# unaffected: a missing/extra key, a changed seed list, a type change or a
+# length change is still an exact mismatch.
+_REL_TOL = 1e-9
+
+
+def _diff(a, b, path=""):
+    """Paths where `a` and `b` disagree. Floats within _REL_TOL agree.
+
+    Returns a list of human-readable differences so a genuine mismatch says
+    WHERE, rather than only that the manifest failed.
+    """
+    if isinstance(a, bool) or isinstance(b, bool):
+        return [] if a is b else [f"{path}: {a!r} vs {b!r}"]
+    if isinstance(a, float) or isinstance(b, float):
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            if math.isclose(a, b, rel_tol=_REL_TOL, abs_tol=_REL_TOL):
+                return []
+            return [f"{path}: {a!r} vs {b!r}  (delta {b - a:+.3e})"]
+        return [f"{path}: {a!r} vs {b!r}"]
+    if type(a) is not type(b):
+        return [f"{path}: type {type(a).__name__} vs {type(b).__name__}"]
+    if isinstance(a, dict):
+        out = []
+        for k in sorted(set(a) | set(b)):
+            if k not in a:
+                out.append(f"{path}/{k}: missing from stored")
+            elif k not in b:
+                out.append(f"{path}/{k}: missing from recompute")
+            else:
+                out += _diff(a[k], b[k], f"{path}/{k}")
+        return out
+    if isinstance(a, list):
+        if len(a) != len(b):
+            return [f"{path}: length {len(a)} vs {len(b)}"]
+        out = []
+        for i, (x, y) in enumerate(zip(a, b)):
+            out += _diff(x, y, f"{path}[{i}]")
+        return out
+    return [] if a == b else [f"{path}: {a!r} vs {b!r}"]
+
+
 def check_easy_agrees_with_pv6(man: dict) -> bool:
     """PV9-Easy and pv8-Easy must share one basis, or they are not comparable."""
     if not os.path.exists(PV6_PATH):
@@ -48,10 +104,15 @@ def check_easy_agrees_with_pv6(man: dict) -> bool:
         pv6 = json.load(f)
     a = _roundtrip(man["environments"]["easy"])
     b = _roundtrip(pv6["environments"]["easy"])
-    if a == b:
+    d = _diff(a, b, "easy")
+    if not d:
         print("  OK: easy basis is identical to the pv6 manifest")
         return True
     print("  MISMATCH: easy basis differs from the pv6 manifest")
+    for line in d[:20]:
+        print(f"    {line}")
+    if len(d) > 20:
+        print(f"    ... and {len(d) - 20} more")
     return False
 
 
@@ -70,8 +131,13 @@ def main() -> int:
             return 1
         with open(args.path) as f:
             stored = json.load(f)
-        if stored != _roundtrip(man):
+        d = _diff(stored, _roundtrip(man))
+        if d:
             print(f"MISMATCH: {args.path} differs from a fresh recompute")
+            for line in d[:20]:
+                print(f"  {line}")
+            if len(d) > 20:
+                print(f"  ... and {len(d) - 20} more")
             return 1
         print(f"OK: {args.path} matches a fresh recompute")
         ok = check_easy_agrees_with_pv6(man)
