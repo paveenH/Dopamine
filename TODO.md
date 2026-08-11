@@ -1,4 +1,60 @@
+## TODO — ACL ARR
 
+### 1. Freeze Bandit PV9
+
+- [ ] 完成 Easy + NearTie 冻结分析器
+- [ ] 输出五项 primary metrics、Holm 校正及 paired/cluster inference
+- [ ] 将结果写入 `AdaBandit.md`
+- [ ] 固定结论：α 改变策略措辞，但未改变 directed exploration
+- [ ] 此后不再修改 Llama PV9 协议或追加版本
+
+### 2. Qwen Replication
+
+- [ ] 重新验证 Qwen 的 tokenizer、anchor、candidate IDs 与 steering fires
+- [ ] 复现一个稳定正结果任务
+- [ ] 复现 Bandit Easy + NearTie 的关键条件
+- [ ] 检验“行为正效应 + Bandit边界”能否跨模型成立
+
+### 3. Causal Specificity Controls
+
+- [ ] 整理 Thinking Curve 已有 random/orthogonal control
+- [ ] 确认控制方向与 RSN direction 在范数、层及 α 上匹配
+- [ ] 在一个代表性行为任务上补直接 random/orthogonal control
+- [ ] 区分 RSN特异效应与一般hidden-state扰动
+
+### 4. Base–Instruct Analysis
+
+- [ ] 选择同架构的 Llama Base / Instruct
+- [ ] 比较 baseline RSN projection
+- [ ] 比较两者对 `−α/0/+α` 的行为敏感度
+- [ ] 检验 `Checkpoint × α` interaction
+- [ ] 不将 Base解释为“低多巴胺”，只讨论post-training是否建立或增强该控制轴
+
+### 5. Consolidate Behavioral Evidence
+
+- [ ] 完善 confidence betting 的未完成部分
+- [ ] 冻结 CGT-seq / IGT / GSM8K / Thinking Curve 的主指标
+- [ ] 区分文本效应、行为效应和结果效应
+- [ ] 删除或降级不稳健、不可复现及事后选择的结果
+- [ ] 建立统一的跨任务主张：confidence、commitment、effort/engagement
+
+### 6. Paper Positioning
+
+- [ ] 主贡献定位为 `role-conditioned behavioral gain control`
+- [ ] Dopamine定位为 `selective dopamine-like functional analogy`
+- [ ] 将Bandit写成directed exploration的边界证据
+- [ ] 明确不声称RSN实现完整的dopamine/RPE系统
+- [ ] 整理社会角色—多巴胺、wanting及decision policy相关文献
+
+### 7. Paper Preparation
+
+- [ ] 确定3–5项跨任务主要假设
+- [ ] 制作统一主结果图和机制示意图
+- [ ] 汇总模型、seed、prompt、steering和统计规格
+- [ ] 完成 Limitations、Responsible NLP及可复现性清单
+- [ ] 撰写ACL ARR长文初稿
+
+优先顺序：**PV9冻结 → Qwen → 直接控制 → Base–Instruct → 全文整合**。Human-trained Llama和人类行为相似性分析暂列 optional，不阻塞首轮ARR投稿。
 ## TODO
 0. 用Qwen2.5-7B复现
 1. 当前看起来不管怎样 模型始终都会选择经验概率最高的arm 很难推动
