@@ -485,6 +485,30 @@ pooled（分母为 eligible states）
 | one-shot-zero revisit | Easy | 7/1947 = .0036 | 8/1944 = .0041 | 6/1948 = .0031 |
 | | NearTie | 7/1947 = .0036 | 11/1946 = .0057 | 9/1934 = .0047 |
 
+#### `untried targeting（r≥6，存在未试臂）`
+
+例如 Easy α=0：`17/187 = .0909`
+
+这里是 **20 个 episode（seeds）× 每个 100 轮 = 2000 个总轮次**，不是只算 20 轮。
+
+`17/187` 的计算是：
+
+- 从 2000 轮中筛出第 6 轮以后、且当时仍存在未试 arm 的轮次，共 **187 轮**。
+- 其中 **17 轮**模型选择了未试 arm。
+- 剩余 **170 轮**模型选择了已经试过的 arm。
+
+在这 187 个合格轮次内，“选择未试臂”和“没有选择未试臂”是互斥的。
+即：有 187 次补齐探索的机会，模型只有 17 次选择未试臂。
+
+#### `one-shot-zero revisit`
+
+例如 Easy α=0：`8/1944 = .0041`
+
+- **分母 1944**：存在至少一个“此前只被选择过一次，而且那次 reward=0”的 arm 的轮次数。
+- **分子 8**：在这些轮次中，模型实际重新选择该 one-shot-zero arm 的次数。
+
+即：有 1944 次可以复查“一次失败 arm”的机会，模型只有 8 次真的回去尝试。 -> 某个 arm 只被选择过一次，而且这次 reward=0 后，模型几乎不会再选择它。-> 模型很容易把一次负反馈当成充分证据，随后长期忽略该 arm。
+
 ### 4.2 Directed exploration（PRIMARY）
 
 **4.2.1 `policy_uncertainty_targeting_rate`（BAND）**
@@ -499,6 +523,33 @@ pooled（分母为 eligible states）
 | | NearTie | .003 | .004 | .001 |
 
 per-seed median eligible denominator = **0**（两环境）→ pooled 为主读数。
+> 模型虽然会在 cue 推动下尝试未探索的 arm，但此后几乎不会主动选择低样本量、高不确定性或仅尝试一次便获得 0 的 arm -> 模型缺乏自主的 uncertainty-directed exploration，容易在少量证据后转入 greedy lock-in。
+
+#### Posterior Bernoulli Reward
+
+PV9 是 Bernoulli reward（0/1），因此使用 Beta–Bernoulli posterior 计算每个 arm 的不确定性。
+假设先验为：`p_i ~ Beta(1, 1)`
+某个 arm 已获得：
+
+- \(s\) 次 reward=1
+- \(f\) 次 reward=0
+
+则 posterior 为：`p_i | data ~ Beta(a, b)`, where `a = 1 + s` and `b = 1 + f`.
+
+Posterior mean 是：`E[p_i] = a / (a + b)`
+
+Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
+
+例如：
+
+| 观察 | Posterior | Mean | Variance |
+|---|---|---:|---:|
+| 从未尝试 | Beta(1,1) | .500 | .0833 |
+| 1次，reward=0 | Beta(1,2) | .333 | .0556 |
+| 1次，reward=1 | Beta(2,1) | .667 | .0556 |
+| 10次，7个1、3个0 | Beta(8,4) | .667 | .0171 |
+
+>通常采样次数越多，posterior variance 越小。因此“选择 posterior variance 最大的 arm”表示模型选择当前证据最少、估计最不确定的选项。需要注意：这个 variance 是**分析阶段根据完整 action–reward history 计算的**，并没有在 prompt 中直接告诉模型。在 PV9 里它与 arm 的采样次数高度相关，所以该指标更准确地衡量“低样本量／高不确定性 targeting”，不能声称已经把纯粹的不确定性偏好与低样本量偏好完全分开。
 
 **4.2.2 `policy_weighting_model`：`α × low-n/uncertainty`（`b_information`）**
 
