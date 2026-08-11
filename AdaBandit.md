@@ -12,6 +12,7 @@
 - **pv7** 用结构化 `Evidence → Policy → constrained choice` 修复了两阶段接口。模型能读取样本数与 empirical rate，也能稳定执行自己的 Policy；但仍出现 one-shot-zero lock-in，严格 competence gate 未通过。
 - **pv7 frozen-state diagnostics** 表明：history 改善了文本格式，calculator 改善了 uncertainty 的表述，α 改变了 rationale 与决策锐度；但它们都没有稳定促成对 `1 trial / 0 reward` 臂的定向重访。
 - **pv8** 把 choice history 放回完整 100-round online episode。结果复现 pv7：α 双向调节 policy commitment / decision sharpness，但未改变 targeted information seeking、SuffFail 或 outcome。
+- **pv9** 加入四项 Stage-1 修改（score framing / untried cue / 生成控制 / 显式 Bernoulli 说明）与第二个环境 NearTie。**Easy-bare 首次通过 competence gate**（pv7 曾以平手告负），四项修改化解了 pv7 的 one-shot-zero lock-in；但 α 的 outcome 层仍为 null，只在 mechanism 层（EXPLORE 表述、explore 关键词）有 dose-response。详见 §1.3。
 
 
 ### 1.1 Can Small Models Do Bandit Tasks?
@@ -115,7 +116,8 @@ Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以
 
 | # | Metric | Interpretation |
 |---|---|---|
-| 7 | `estimate_accuracy` | 是否正确读取并复述已观察证据 |
+| 7 | `estimate_accuracy` | 是否正确读取并复述已观察证据。**不等于 uncertainty reasoning 正确**——见下方 `uncertainty_calibration` |
+| 7b | `uncertainty_calibration` | 语言中的不确定性是否随样本量下降（PV9 Easy 实测为**反向**，见 §1.3） |
 | 8 | `belief_update_correctness` | 是否根据新反馈正确更新显式估计 |
 | 9 | `win_stay_lose_shift_absolute` | 描述对单次反馈的即时行为反应，不作为严格 null |
 
@@ -130,34 +132,85 @@ Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以
 
 #### PV9 Prompt Modifications
 
-1. **Self-Relevant Reward Framing**  
-   将每次 reward 表述为模型自身任务分数的一部分，并以最终累计分数评价表现。该修改增强 reward 的 motivational salience，但不增加新的决策信息或算法规则。
+PV9 = pv8 + 四项 Stage-1 修改 + 第二个环境。**Stage 2 逐字节未变**（frozen S1，只给 counts）：
+cue / score / history 全部只在 Stage 1，因为把任何一项放进 Stage 2 都会直接抬高该 button 的
+candidate logit，届时选臂变化将无法归因于 Stage 1 的推理。
 
-2. **Untried-Arm Exploration Cue**  
-   仅对从未尝试过的 arm（\(n=0\)）附加提示：  
+实现：`bandit_pv9.py`（纯 prompt 层，不含模型）、`bandit_pv9_episode.py`、
+`run_bandit_pv9_episodes.py`、`run_bandit_pv9.sh`、`evaluate_competence_gate_pv9.py`、
+`freeze_pv9_baseline.py` + `bandit_pv9_baseline_manifest.json`、`test_bandit_pv9.py`。
+沿用 pv8 的 containment 模式：`run_pv9_episode` 临时 patch `p7.build_rationale_prompt`
+并在 `finally` 还原，因此 steering 语义 / fire 计数 / reward tapes / record schema 均不会漂移。
+
+1. **Self-Relevant Reward Framing**（`SCORE_BLOCK_VERSION='score-v1'`）
+   将 reward 表述为模型自身任务分数的一部分（`Your score so far: N points.`），
+   并以最终累计分数评价表现。增强 reward 的 motivational salience，
+   不增加新的决策信息或算法规则。
+
+2. **Untried-Arm Exploration Cue**（`UNTRIED_CUE_VERSION='cue-v1'`）
+   仅对从未尝试过的 arm（\(n=0\)）附加提示：
    `Exploring this button may improve future rewards.`
+   **这是 scaffold，不是 native 行为**：pv8 实测 EXPLORE 只有 ~3% 的地板，
+   H2（information investment）在地板上无法检验，cue 的作用是把读数抬离地板。
+   它陈述了收益方向，因此属于 strategy 侧；此处观察到的任何探索都必须写作
+   **scaffolded discovery**。cue 在 arm 有 1 次 pull 后即消失，
+   所以它**不可能**驱动 one-shot-zero 的重访——该失败模式保持未受干预且可测。
 
-3. **Generation and Output Control**  
-   将 `max_new_tokens` 提高至 128，同时保留两行格式和 50-word 上限。代码截取第一个完整的 `Policy:` 句，后续续写不传入 Stage 2，但保留原始输出用于格式审计。
+3. **Generation and Output Control**（`stop_strings_version='stop-hash-v1'`）
+   `RATIONALE_MAX_TOKENS=128`、`RATIONALE_WORD_LIMIT=50`、`STOP_STRINGS=('#',)`。
+   每轮保留**三层文本**，`stop_reason` 依 **raw** 文本判定，取值为五元词表
+   `native_clean / stop_marker_applied / continued_after_policy / no_policy_line / empty`：
 
-4. **Explicit Reward Distribution**  
-   明确说明每个 arm 都具有固定但未知的 Bernoulli reward probability，帮助模型正确理解环境结构，但不透露真实概率或探索算法。
+   | 层 | 内容 |
+   |---|---|
+   | `rationale_raw` | 未截断的原始生成，供格式审计 |
+   | `rationale_stopped` | 应用 stop marker 后 |
+   | `rationale_clean` | **Stage 2 实际看到的文本** |
+
+   > **`STOP_STRINGS` 是 `('#',)` 而非 `'\n\n'`，这是实测排除的结果，不是偏好。**
+   > 模型的输出结构是 Evidence → 空行 → Policy：在 pv8 存量数据上 1999/2000 轮含空行且
+   > **全部落在 Policy 之前**；PV9 自身数据复核为 **2000/2000**。
+   > 用 `\n\n` 会截断几乎每一条 Policy。未经重新实测不得"改进"此项。
+
+4. **Explicit Reward Distribution**
+   明确说明每个 arm 具有固定但未知的 Bernoulli reward probability，
+   帮助模型正确理解环境结构，但不透露真实概率或探索算法。
+
+版本常量（全部进 resume key）：`STAGE1_INSTRUCTION_VERSION='p9'`、
+`STAGE2_INSTRUCTION_VERSION='s1'`（冻结继承）、`SCORE_BLOCK_VERSION='score-v1'`、
+`UNTRIED_CUE_VERSION='cue-v1'`、`HISTORY_BLOCK_VERSION='hist-letters-v1'`。
+
+**α=0 必须重跑**：Stage-1 prompt 已变，存量 pv8 的 α=0 不是本协议的 baseline。
+三档 α 用同一 seed bank 与同一 reward tapes，一个 α 一个目录。
+
+#### 第二个环境：NearTie
+
+| env | K | probs | T | competence_eligible |
+|---|---|---|---|---|
+| `easy` | 4 | 0.75 / 0.25×3 | 100 | **True** |
+| `neartie` | 4 | 0.60 / 0.55 / 0.25×2 | 100 | **False** |
+
+NearTie 是 **mechanism environment，永远不是 competence anchor**：gap=0.05 而 ~25 pulls/arm
+时经验 SE≈0.10 是 gap 的两倍，其 SuffFail 测的是环境不是策略，gate 输出仅为 diagnostic。
+它存在的理由是 Easy 贴近天花板、α 无发挥空间（与 pv6 Easy、Qwen MMLU betting 同一个
+baseline-ceiling 问题）。
+
+**两个环境共用一套 seed bank**——`build_seed_bank` 只依赖 `(seed, k)` 而两者都是 K=4，
+这正是二者 seed-paired 的依据；`run_bandit_pv9.sh` 由 `easy` 导出 `FORMAL_SEEDS` 再传给
+NearTie 各 cell。
+
+#### 已验证的 Stage-1 prompt（由 `bandit_pv9.build_rationale_prompt` 直接渲染）
+
 ```text
-
-You are the decision-maker in this task. Each button has a fixed but
-unknown probability of producing a binary reward of 0 or 1, and these
-probabilities may differ across buttons.
-
-Your cumulative task score is the sum of rewards across all rounds.
-Your performance is determined by your final score.
+You are the decision-maker in this task. Each button has a fixed but unknown probability of producing a reward of 1; otherwise it produces a reward of 0. These probabilities may differ across buttons. Your performance is your final cumulative score.
 
 Choose one button in each of 100 rounds to maximize your final cumulative score.
 
 Round 61 of 100. Future choices after this one: 39.
-Your score so far: 42 points.
+Your score so far: 41 points.
 
 CHOICE HISTORY (oldest → newest):
-[A B A C ...]
+[A A A ... A B B ... B C C C C C]   (60 letters, elided here)
 
 OPTIONS
 - Button A: 30 rewards / 40 trials, empirical rate 0.75
@@ -165,21 +218,22 @@ OPTIONS
 - Button C: 3 rewards / 5 trials, empirical rate 0.60
 - Button D: UNTRIED (unknown). Exploring this button may improve future rewards.
 
-Complete exactly two lines and stop after the Policy line. Use no more
-than 50 words total.
+Complete exactly two lines and stop after the Policy line. Use no more than 50 words total.
 
-First line: finish “Evidence:” by briefly comparing the strength and
-uncertainty of the available evidence.
+First line: finish “Evidence:” by briefly comparing the strength and uncertainty of the available evidence.
 Second line: write either:
 “Policy: EXPLORE Button X because ...”
 or
 “Policy: EXPLOIT Button X because ...”
 
-Keep both lines concise. Name exactly one button. Do not repeat the task
-or continue after the Policy line.
+Keep both lines concise. Name exactly one button. Do not repeat the task or continue after the Policy line.
 
-Evidence:
+Evidence: 
 ```
+
+> 注：以上为代码实际输出，非手抄。CHOICE HISTORY 行在此处省略中段字母以便阅读；
+> 真实 prompt 逐轮增长（T=100 时 184→323 tokens），anchor 每轮均为 token 220。
+
 
 ## 2. Literature
 ### 2.0 Paper Summary
