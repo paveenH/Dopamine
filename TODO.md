@@ -57,6 +57,7 @@
 优先顺序：**PV9冻结 → Qwen → 直接控制 → Base–Instruct → 全文整合**。Human-trained Llama和人类行为相似性分析暂列 optional，不阻塞首轮ARR投稿。
 ## TODO
 0. 用Qwen2.5-7B复现
+1. 添加 posterior variance 最大的 arm”表示模型选择当前证据最少、估计最不确定的选项。
 1. 当前看起来不管怎样 模型始终都会选择经验概率最高的arm 很难推动
 1. 可以考虑额外提供的资讯：
    UCB score
