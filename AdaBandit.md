@@ -1071,7 +1071,7 @@ Policy: COMMIT Button X
 
 因此，PV10-A 对应 **pure exploration under a fixed budget**；PV10-B 对应 **active information sampling and optimal stopping**。建议先完成 A，再决定是否追加 B。
 
-#### Stage 2 可以取消
+**Stage 2 可以取消**
 
 Stage 1 可以直接输出一个结构化决策：
 
@@ -1092,56 +1092,8 @@ Policy: COMMIT Button A
 这样测到的是 α 对 `SAMPLE/COMMIT` 决策本身的影响，而不是“Stage 1 先说、Stage 2 再执行”的文本传导。若保留 Stage 2，它更适合作为独立的 executor-fidelity control，不应成为主任务必需环节。
 
 ## 3. Literature
-1. **Hertwig et al. (2004)**  
-   奠定 decisions-from-experience 的“先采样、后最终选择”范式。[Psychological Science](https://pubmed.ncbi.nlm.nih.gov/15270998/)
 
-2. **Appelhoff, Hertwig & Spitzer (2023)**  
-   与 PV10-A/B 最贴近。实验比较：
 
-   - full control：选择采样对象，也决定何时停止；
-   - partial control：选择采样对象，但采样总数固定；
-   - no control：被动接受 yoked samples。
-
-   结果显示，完整的停止控制提高最终选择准确性及证据编码；仅能决定采样哪个选项而不能决定何时停止，并未产生同样优势。[Cerebral Cortex](https://academic.oup.com/cercor/article/33/1/207/6546260)
-
-3. **Voss et al. (2011)**  
-   主动和 yoked 被动条件看到相同信息，但 volitional control 改善记忆，并涉及以 hippocampus 为中心的网络。适合支持 agency/active learning 背景，但不是 dopamine 或 BAI 证据。[Nature Neuroscience](https://pubmed.ncbi.nlm.nih.gov/21102449/)
-
-4. **Markant & Gureckis (2014)**  
-   主动选择样本会形成 hypothesis-dependent sampling policy。适合说明主动采样不仅是接收更多信息，还会改变信息选择过程。[JEP: General](https://www.researchgate.net/publication/236079716_Is_It_Better_to_Select_or_to_Receive_Learning_via_Active_and_Passive_Hypothesis_Testing)
-
-### Dopamine-related references
-
-5. **Dopamine manipulations drive changes in information sampling in healthy volunteers (2019)**  
-   双盲交叉设计使用 ropinirole、amisulpride 与 placebo，在 Beads 和 Best Choice tasks 中发现任务依赖的信息采样变化。最适合支持“dopamine may modulate sampling and commitment”，但不能概括为“DA 越高，采样越多”。[Journal of Psychopharmacology](https://pmc.ncbi.nlm.nih.gov/articles/PMC6996051/)
-
-6. **Chakroun et al. (2020)**  
-   四臂 restless Bandit 药理实验显示，L-dopa 减少 directed exploration，而未可靠改变 random exploration。这与资料中声称“DA 增加 random exploration”的方向不同。[eLife](https://pubmed.ncbi.nlm.nih.gov/32484779/)
-
-7. **Meder et al. (2026)**  
-   Parkinson’s off-medication 表现为 directed exploration 增加、random exploration 不变，并伴随 generalization 与 exploitation 缺陷。进一步说明 dopamine 与 exploration 不是简单单调关系，而要区分 exploration 类型。[Science Advances, in press](https://charleywu.github.io/publications/)
-
-8. **Dopamine regulates decision thresholds in human reinforcement learning (2023)**  
-   支持 dopamine 可以影响 decision threshold，但任务是 RL evidence accumulation，不是自由 `SAMPLE/COMMIT`。只能作为 stopping-threshold 的间接参考。[Nature Communications](https://www.nature.com/articles/s41467-023-41130-y)
-
-## 五、文献综述最合适的结构
-
-建议后续 literature review 分成三节：
-
-1. **Pure exploration and decisions from experience**  
-   为什么把采样收益与最终选择分离。
-
-2. **Agency and endogenous stopping**  
-   固定预算、自由停止与 yoked passive sampling 分别测什么。
-
-3. **Dopamine, information sampling, and commitment**  
-   强调 DA 效应具有任务、受体、基线和 exploration-type 依赖性，不预设 `+α → 更多采样`。
-
-最稳妥的 PV10 预注册预测也应保持竞争关系：
-
-> +α 可能提高目标承诺和停止倾向，导致更早 commit；也可能提高终局目标的 motivational salience，促进更系统的信息收集。PV10 的目的正是区分这两个机制，而不是预设 dopamine 必然增加 exploration。
-
-另外，如果实验本身没有加入 active-versus-yoked 条件，我们只能说 PV10 **借鉴了 agency literature**，不能声称实验直接验证了“agency advantage”。
 ## References
 
 1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.
