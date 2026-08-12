@@ -12,8 +12,7 @@
 - **pv7** 用结构化 `Evidence → Policy → constrained choice` 修复了两阶段接口。模型能读取样本数与 empirical rate，也能稳定执行自己的 Policy；但仍出现 one-shot-zero lock-in，严格 competence gate 未通过。
 - **pv7 frozen-state diagnostics** 表明：history 改善了文本格式，calculator 改善了 uncertainty 的表述，α 改变了 rationale 与决策锐度；但它们都没有稳定促成对 `1 trial / 0 reward` 臂的定向重访。
 - **pv8** 把 choice history 放回完整 100-round online episode。结果复现 pv7：α 双向调节 policy commitment / decision sharpness，但未改变 targeted information seeking、SuffFail 或 outcome。
-- **pv9** 加入四项 Stage-1 修改（score framing / untried cue / 生成控制 / 显式 Bernoulli 说明）与第二个环境 NearTie。**Easy-bare 首次通过 competence gate**（pv7 曾以平手告负），四项修改化解了 pv7 的 one-shot-zero lock-in；但 α 的 outcome 层仍为 null，只在 mechanism 层（EXPLORE 表述、explore 关键词）有 dose-response。详见 §1.3。
-
+- **pv9** 加入四项 Stage-1 修改（score framing / untried cue / 生成控制 / 显式 Bernoulli 说明）与第二个环境 NearTie。**Easy-bare 首次通过 competence gate**，四项修改化解了 pv7 的 one-shot-zero lock-in；但 α 的 outcome 层仍为 null，只在 mechanism 层（EXPLORE 表述、explore 关键词）有 dose-response。详见 §1.3。
 
 ### 1.1 Can Small Models Do Bandit Tasks?
 
@@ -25,110 +24,8 @@
 2. **自主发现未知选项（discovery / exploration）**：小模型容易过早锁定少数选项。Gemma2 2B/9B/27B（Llama3 与 Qwen2.5 在其 Appendix C.4 复现且 bias 持续）、Qwen2.5 3B/7B 与本项目 Llama3-8B 都出现过 action coverage 停滞、greedy lock、frequency bias 或 suffix failure。
 3. **稳定完成“探索后收敛”的完整策略**：未经专门训练的小模型并不可靠。提示、短 CoT、历史摘要、任务规模和训练方式都会显著改变结果；平均 regret 或 OptFrac 好看，也可能只是早期碰巧找到最优臂后一直锁定。
 
-### 1.2 Dopamine Effect in Bandit Task
 
-#### 1.2.1 Channel Definition
-
-本节将 α 操作化为 **tonic-like fixed-gain modulation**。α 在各轮 prefill 阶段以固定强度施加，调节给定状态下的基线增益，而不包含随每轮 reward prediction error（RPE）变化的 phasic controller。因此，Bandit 实验的主要问题不是 α 是否改变反馈学习本身，而是它是否改变模型在已有证据之上的行动方式。
-
-- **Tonic-like channel**：背景性的 incentive salience、行动增益与成本—收益权衡，是本实验的主要检验对象。
-- **Phasic channel**：reward-contingent RPE 与 trial-by-trial learning，不是当前 α 操作直接实现的通道。
-
-#### 1.2.2 Computational Roles and Behavioral Predictions
-
-**Decision Precision / Inverse Temperature**
-
-Tonic DA 可被计算性地联系到行动选择的精度。以 softmax 表示时，inverse temperature β 控制价值差对选择概率的影响：较高的 β 对应较确定的选择，较低的 β 对应较宽的选择分布。本项目对 RSN 的操作性预测为：`+α` 提高 policy sharpness，`−α` 降低 policy sharpness。
-
-这一效应应主要在价值接近的状态中检验。当某一臂已具有明显优势时，不同精度都可能产生相同的 argmax 选择，使全局选择一致性出现天花板效应。因此主要读数应包括：
-
-- 价值接近状态中的选择一致性、重复率与切换率；
-- 同一冻结状态重复采样时的选择熵；
-- α 与预先定义的 value gap 之间的交互。
-
-Near-tie 状态应根据环境参数或 α=0 状态下的经验价值差预先定义，不应使用已经受到 α 影响的 candidate margin 进行筛选。
-
-**Information Investment / Opportunity Cost**
-
-Bandit exploration 要求模型暂时放弃当前经验最优臂的期望收益，以取得可能改善后续决策的信息。这个过程可被视为 information investment：其成本是当前回合放弃的预期收益，其潜在效益是降低不确定性并改善未来选择。
-
-由 tonic DA 的 effort-related choice 类比，可提出一个待检验的 RSN 假设：`+α` 提高为信息支付机会成本的意愿，`−α` 则提高对当前已知收益的依赖。该假设不是一般非贪婪选择的预测，而要求目标具有明确的信息价值：
-
-- 选择系统性偏向低样本量或高不确定性的臂；
-- 选择随 information value 与 opportunity cost 的相对大小而变化；
-- 新信息在后续轮次中被纳入策略，而非形成无目的切换。
-
-**Response Vigor**
-
-Response vigor 是 tonic DA 的另一经典计算角色，但其 LLM 对应物涉及生成潜伏期、token 数与认知投入之间的解释问题。本项目已在 CGT-seq 中使用 commitment timing 检验这一维度，因此 Bandit 不再将 response vigor 作为主要验证目标。Bandit 中的文本长度与停止行为仅作为接口诊断，不作为核心 dopamine-like readout。
-
-#### 1.2.3 Random–Directed Exploration Dissociation
-
-Decision precision 与 information investment 都可能增加非贪婪选择，但二者具有不同的行为签名与 α 方向：
-
-| 维度 | Random exploration from reduced precision | Directed exploration from information investment |
-|---|---|---|
-| α 方向 | `−α` 增加 | `+α` 增加 |
-| 目标分布 | 不系统性偏向低样本量臂 | 偏向低样本量或高不确定性臂 |
-| 与 value gap 的关系 | 主要出现在 near-tie 状态 | 取决于 information value 是否超过 opportunity cost |
-| 后续利用 | 不要求形成一致的证据整合 | 取得信息后应更新后续策略 |
-
-因此，switch rate、non-greedy rate 或 entropy 不能单独解释为 exploration。较完整的分析应同时估计：
-
-\[
-P(a) \propto \exp\left\{\beta_{\alpha}\left[\hat\mu_a + \kappa_{\alpha}U_a - C_a\right]\right\},
-\]
-
-其中 \(\beta_{\alpha}\) 表示一般选择精度，\(\kappa_{\alpha}\) 表示 uncertainty / information-value weighting，\(C_a\) 表示选择该臂的机会成本。α 对 \(\beta\) 与 \(\kappa\) 的影响需要分别检验。
-
-#### 1.2.4 Dose and Baseline Dependence
-
-Dopaminergic modulation 常呈现任务与基线依赖性。对 Bandit 而言，这意味着同一 α 在信息稀缺与信息充分、价值接近与明显优势的状态中可能产生不同效果。分层变量应由环境设计或 α=0 的冻结状态预先定义，避免根据各 α 已经产生的轨迹进行事后筛选。
-
-倒 U 更适合作为最终行为表现的候选形态，而不是每一个机制指标都必须满足的约束。Policy precision、information-value weighting 等机制参数可以在局部 α 区间内单调变化，而 regret 或 OptFrac 可能因为多种机制之间的平衡而呈非单调关系。因此，多 α 剂量扫描用于检验非线性，但不预设峰值必然存在或位于 α=0。
-
-#### 1.2.5 Specificity Controls
-
-Wanting、liking 与 learning 应保持概念区分。当前 Bandit 范式可以操作化 wanting-like action selection 与 feedback-based learning，但没有直接的 hedonic liking 测量。
-
-α 的主要预测位于给定证据后的行动政策。以下指标用于检验其是否同时改变基础计算或反馈更新能力：
-
-- `estimate_accuracy`：对已观察次数、成功数与经验均值的复述准确性；
-- `belief_update_correctness`：获得新反馈后，显式估计是否正确更新；
-- conditional feedback sensitivity：在控制更新后信念与当前 value gap 后，反馈是否仍额外改变行动。
-
-这些指标的稳定性支持作用通道的选择性，但只能说明 RSN 操作没有普遍改变计算或更新能力，不能单独证明生物学上的 dopamine specificity。Win-stay / lose-shift 同时受到学习与行动精度影响，因此作为描述性指标报告，不预注册为严格的零效应对照。
-
-#### 1.2.6 Evaluation Metrics
-
-**Primary Wanting-like Metrics**
-
-| # | Metric | Computational role | Interpretation |
-|---|---|---|---|
-| 1 | `near_tie_consistency` | Precision | Near-tie 状态中的选择一致性 |
-| 2 | `state_resample_entropy` | Precision | 同一冻结状态重复采样的选择熵 |
-| 3 | `low_n_targeting_rate` | Information investment | 非贪婪选择是否偏向低样本量臂 |
-| 4 | `uncertainty_targeting_rate` | Information investment | 非贪婪选择是否偏向高不确定性臂 |
-| 5 | `cost_paid_for_info` | Information investment | 为取得信息而放弃的经验收益 |
-| 6 | `post_sample_integration` | Information utilization | 取得新信息后，后续策略是否据此更新 |
-
-**Specificity Metrics**
-
-| # | Metric | Interpretation |
-|---|---|---|
-| 7 | `estimate_accuracy` | 是否正确读取并复述已观察证据。**不等于 uncertainty reasoning 正确**——见下方 `uncertainty_calibration` |
-| 7b | `uncertainty_calibration` | 语言中的不确定性是否随样本量下降（PV9 Easy 实测为**反向**，见 §1.3） |
-| 8 | `belief_update_correctness` | 是否根据新反馈正确更新显式估计 |
-| 9 | `win_stay_lose_shift_absolute` | 描述对单次反馈的即时行为反应，不作为严格 null |
-
-**Failure-mode Metrics**
-
-| # | Regime | Metrics |
-|---|---|---|
-| 10 | Excessive commitment | 过早锁定率、one-shot-zero abandonment、同一臂最长连段 |
-| 11 | Reduced engagement / interface failure | 空生成、未完成 Policy、无有效动作；必须与动机解释分开 |
-
-### 1.3 Prompt Design Constraints
+### 1.2 Prompt Design Constraints
 
 #### PV9 Prompt Modifications
 
@@ -176,14 +73,11 @@ candidate logit，届时选臂变化将无法归因于 Stage 1 的推理。
    明确说明每个 arm 具有固定但未知的 Bernoulli reward probability，
    帮助模型正确理解环境结构，但不透露真实概率或探索算法。
 
-版本常量（全部进 resume key）：`STAGE1_INSTRUCTION_VERSION='p9'`、
-`STAGE2_INSTRUCTION_VERSION='s1'`（冻结继承）、`SCORE_BLOCK_VERSION='score-v1'`、
+版本常量：`STAGE1_INSTRUCTION_VERSION='p9'`、
+`STAGE2_INSTRUCTION_VERSION='s1'`、`SCORE_BLOCK_VERSION='score-v1'`、
 `UNTRIED_CUE_VERSION='cue-v1'`、`HISTORY_BLOCK_VERSION='hist-letters-v1'`。
 
-**α=0 必须重跑**：Stage-1 prompt 已变，存量 pv8 的 α=0 不是本协议的 baseline。
-三档 α 用同一 seed bank 与同一 reward tapes，一个 α 一个目录。
-
-#### 第二个环境：NearTie
+#### NearTie
 
 | env | K | probs | T | competence_eligible |
 |---|---|---|---|---|
@@ -199,7 +93,7 @@ baseline-ceiling 问题）。
 这正是二者 seed-paired 的依据；`run_bandit_pv9.sh` 由 `easy` 导出 `FORMAL_SEEDS` 再传给
 NearTie 各 cell。
 
-#### 已验证的 Stage-1 prompt（由 `bandit_pv9.build_rationale_prompt` 直接渲染）
+####  Stage-1 prompt（`bandit_pv9.build_rationale_prompt`）
 
 ```text
 You are the decision-maker in this task. Each button has a fixed but unknown probability of producing a reward of 1; otherwise it produces a reward of 0. These probabilities may differ across buttons. Your performance is your final cumulative score.
@@ -230,10 +124,7 @@ Keep both lines concise. Name exactly one button. Do not repeat the task or cont
 
 Evidence: 
 ```
-
-> 注：以上为代码实际输出，非手抄。CHOICE HISTORY 行在此处省略中段字母以便阅读；
 > 真实 prompt 逐轮增长（T=100 时 184→323 tokens），anchor 每轮均为 token 220。
-
 
 ## 2. Literature
 ### 2.0 Paper Summary
@@ -424,7 +315,7 @@ few-shot / fine-tuning 或显式算法支持，而不是一句泛化的“think 
 PV9 六格在线扫描（Easy × NearTie，`rationale_alpha ∈ {−4, 0, +4}`，`action_alpha=0`），每格 20 seeds × 100 rounds。
 数据源 `analyze_bandit_pv9.py`（冻结分析器，`--part all`）。统计单位固定为 **seed（n=20）**，同环境内按 seed 配对（共用冻结 bank 与 reward tape），paired Wilcoxon + seed-cluster bootstrap 95% CI；pooled round 计数仅作描述。`*` = raw p<.05。
 
-**口径提示（读表必须）**
+**口径提示**
 - `late_opt_frac` / `final_score` 在两个环境下均为**严格双峰**（0 或 1，无中间值），均值仅描述性，主读数为 lock-correct 计数 + exact McNemar。
 - Beta(1,1) 并列为结构性（`0/1`→1/3，未试→1/2），故 uncertainty targeting 报 **BAND**（unique-max 下界 .. tie-inclusive 上界）。
 - σ 与 n 在 PV9 不可分离（corr(SD, log n) ≈ −.99），交互项命名 `b_information`，**不是** GP-UCB 的 β。
@@ -449,9 +340,9 @@ PV9 六格在线扫描（Easy × NearTie，`rationale_alpha ∈ {−4, 0, +4}`�
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | `policy_parse_rate` | Easy | .985 | .994 | .991 | .480 | .414 |
-| | NearTie | .996 | .997 | .999 | .854 | .194 |
+| | NearTie | .996 | .997 | .998 | .854 | .180 |
 | `action_follows_policy` | Easy | .994 | .997 | .999 | .167 | .257 |
-| | NearTie | .995 | .997 | .998 | .715 | .109 |
+| | NearTie | .995 | .997 | 1.000 | .715 | .068 |
 | format flags（4 项） | 两环境 | ≤.001 | ≤.001 | ≤.001 | ns | ns |
 
 `stop_reason`（pooled rounds）
@@ -459,31 +350,31 @@ PV9 六格在线扫描（Easy × NearTie，`rationale_alpha ∈ {−4, 0, +4}`�
 | 环境 | α | `stop_marker_applied` | `continued_after_policy` | `native_clean` |
 |---|---|---|---|---|
 | Easy | −4 / 0 / +4 | .793 / .783 / .798 | .114 / .127 / .144 | .093 / .090 / .058 |
-| NearTie | −4 / 0 / +4 | .759 / .821 / .854 | .129 / .114 / .110 | .113 / .066 / .036 |
+| NearTie | −4 / 0 / +4 | .759 / .821 / .870 | .129 / .114 / .085 | .113 / .066 / .045 |
 
 ### 4.1 Discovery（cue-scaffolded）
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | `arms_discovered` | Easy | 3.95 | 3.95 | 3.95 | 1.000 | n/a |
-| | NearTie | 4.00 | 4.00 | 3.95 | n/a | .317 |
+| | NearTie | 4.00 | 4.00 | 4.00 | n/a | n/a |
 | `best_never_tried` | Easy | 0/20 | 0/20 | 0/20 | n/a | n/a |
 | | NearTie | 0/20 | 0/20 | 0/20 | n/a | n/a |
 | incomplete scan | Easy | .050 | .050 | .050 | 1.000 | n/a |
-| | NearTie | .000 | .000 | .050 | n/a | .317 |
+| | NearTie | .000 | .000 | .000 | n/a | n/a |
 | first pull of best arm | Easy | 2.55 | 2.85 | 2.65 | .131 | .414 |
-| | NearTie | 2.55 | 2.85 | 3.00 | .131 | .915 |
+| | NearTie | 2.55 | 2.85 | 2.60 | .131 | .339 |
 | round of full coverage | Easy | 9.79 | 10.42 | 9.37 | .271 | .720 |
-| | NearTie | 12.20 | 15.30 | 10.32 | .396 | .555 |
+| | NearTie | 12.20 | 15.30 | 7.95 | .396 | .098 |
 
 pooled（分母为 eligible states）
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 |
 |---|---|---|---|---|
 | untried targeting（r≥6，存在未试臂） | Easy | 11/184 = .0598 | 17/187 = .0909 | 12/174 = .0690 |
-| | NearTie | 12/142 = .0845 | 16/198 = .0808 | 12/193 = .0622 |
+| | NearTie | 12/142 = .0845 | 16/198 = .0808 | 12/58 = .2069 |
 | one-shot-zero revisit | Easy | 7/1947 = .0036 | 8/1944 = .0041 | 6/1948 = .0031 |
-| | NearTie | 7/1947 = .0036 | 11/1946 = .0057 | 9/1934 = .0047 |
+| | NearTie | 7/1947 = .0036 | 11/1946 = .0057 | 8/1950 = .0041 |
 
 #### `untried targeting（r≥6，存在未试臂）`
 
@@ -516,11 +407,11 @@ pooled（分母为 eligible states）
 | 口径 | 环境 | α=−4 | α=0 | α=+4 |
 |---|---|---|---|---|
 | unique-max（下界，pooled） | Easy | **0/98 = .0000** | **0/265 = .0000** | **0/119 = .0000** |
-| | NearTie | **0/164 = .0000** | **0/246 = .0000** | **0/236 = .0000** |
+| | NearTie | **0/164 = .0000** | **0/246 = .0000** | **0/190 = .0000** |
 | tie-inclusive（上界，pooled） | Easy | 5/1254 = .0040 | 4/1306 = .0031 | 5/1321 = .0038 |
-| | NearTie | 4/1257 = .0032 | 4/1081 = .0037 | 2/1123 = .0018 |
+| | NearTie | 4/1257 = .0032 | 4/1081 = .0037 | 2/1382 = .0014 |
 | action 层（executor check） | Easy | .004 | .005 | .005 |
-| | NearTie | .003 | .004 | .001 |
+| | NearTie | .003 | .004 | .002 |
 
 per-seed median eligible denominator = **0**（两环境）→ pooled 为主读数。
 > 模型虽然会在 cue 推动下尝试未探索的 arm，但此后几乎不会主动选择低样本量、高不确定性或仅尝试一次便获得 0 的 arm -> 模型缺乏自主的 uncertainty-directed exploration，容易在少量证据后转入 greedy lock-in。
@@ -559,17 +450,17 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 | term | Easy coef [95% CI] | NearTie coef [95% CI] |
 |---|---|---|
-| `mu` | 6.753 [5.328, 10.921] * | 8.543 [6.662, 13.329] * |
-| `w` | −2.671 [−5.130, 1.528] | −2.208 [−5.922, 0.869] |
-| `a_mu` | 0.213 [−0.504, 0.503] | 0.157 [−1.013, 1.011] |
-| **`a_info`** | **0.121 [−0.124, 0.418]** | **−0.027 [−0.204, 0.167]** |
-| `pos` | 0.229 [−0.089, 0.566] | 0.197 [−0.193, 0.423] |
-| `rec` | 0.984 [0.562, 1.165] * | 1.368 [0.864, 1.666] * |
-| `logn` | 0.829 [0.321, 1.861] * | 1.062 [0.395, 1.787] * |
-| `lab_B` | −1.155 [−2.160, −0.127] * | −0.351 [−1.214, 0.611] |
-| `lab_C` | −0.617 [−1.387, 0.569] | 0.285 [−0.407, 1.072] |
-| `lab_D` | −1.439 [−2.383, −0.064] * | −0.524 [−1.530, 0.399] |
-| n decisions | 5138（converged） | 5154（converged） |
+| `mu` | 6.753 [5.328, 10.921] * | 9.270 [7.533, 15.028] * |
+| `w` | −2.671 [−5.130, 1.528] | −3.539 [−8.012, −0.574] * |
+| `a_mu` | 0.213 [−0.504, 0.503] | 0.314 [−0.593, 0.887] |
+| **`a_info`** | **0.121 [−0.124, 0.418]** | **−0.004 [−0.124, 0.190]** |
+| `pos` | 0.229 [−0.089, 0.566] | 0.225 [−0.148, 0.469] |
+| `rec` | 0.984 [0.562, 1.165] * | 1.261 [0.883, 1.449] * |
+| `logn` | 0.829 [0.321, 1.861] * | 0.767 [0.007, 1.435] * |
+| `lab_B` | −1.155 [−2.160, −0.127] * | −0.345 [−1.180, 0.493] |
+| `lab_C` | −0.617 [−1.387, 0.569] | 0.147 [−0.651, 1.167] |
+| `lab_D` | −1.439 [−2.383, −0.064] * | −0.501 [−1.391, 0.349] |
+| n decisions | 5138（converged） | 5291（converged） |
 
 > 模型选择某个 arm，是因为它当前看起来收益高、样本少、最近选过、采样次数多，还是因为按钮标签或位置？
 - `mu`：该 arm 当前估计的收益。系数显著为正，说明模型强烈偏向当前价值高的 arm。
@@ -589,9 +480,9 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 | term | Easy coef [95% CI] | NearTie coef [95% CI] |
 |---|---|---|
-| `mu` | 6.593 [5.233, 10.661] * | 9.662 [7.207, 15.054] * |
-| `w` | −6.284 [−42.843, 6.058] | −39.803 [−72.538, −20.470] * |
-| **`a_info`** | **0.639 [−0.201, 2.117]** | **−0.067 [−1.168, 0.877]** |
+| `mu` | 6.593 [5.233, 10.661] * | 10.670 [8.568, 14.041] * |
+| `w` | −6.284 [−42.843, 6.058] | −49.256 [−72.505, −22.606] * |
+| **`a_info`** | **0.639 [−0.201, 2.117]** | **0.131 [−0.506, 1.133]** |
 
 >把低样本指标 `w=1/√n` 换成更正式的 `posterior SD = √variance`，检查结论是否依赖不确定性的计算方式。
 
@@ -601,7 +492,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
   - NearTie 显著为负，表示控制其他因素后，模型反而更少选择 posterior SD 较高的 arm。
 - `a_info` 是关键的 α 交互项：
   - Easy：`0.639 [−0.201, 2.117]`
-  - NearTie：`−0.067 [−1.168, 0.877]`
+  - NearTie：`0.131 [−0.506, 1.133]`
   - 两个 CI 都包含 0，因此 α 没有可靠改变模型对不确定性的权重。
 > 所以敏感性分析与主分析结论一致：模型偏向当前估计价值较高的 arm，但没有证据表明 α 增加或降低了 uncertainty weighting。
 
@@ -612,7 +503,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 | 环境 | α=−4 | α=0 | α=+4 |
 |---|---|---|---|
 | Easy | 5/1696 = .0029 | 8/1693 = .0047 | 7/1706 = .0041 |
-| NearTie | 7/1738 = .0040 | 9/1682 = .0054 | 10/1687 = .0059 |
+| NearTie | 7/1738 = .0040 | 9/1682 = .0054 | 8/1822 = .0044 |
 
 > 开局扫描结束后（r≥6），且所有臂都至少试过一次时，模型是否主动选择当前采样次数很少的臂。
 
@@ -631,7 +522,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 | | +4 | 296 | 0 (.000) | 1 (.003) | 283 (.956) | 0 | 12 (.041) | 79 |
 | NearTie | −4 | 213 | 3 (.014) | 1 (.005) | 119 (.559) | 0 | 90 (.423) | 80 |
 | | 0 | 277 | 2 (.007) | 2 (.007) | 237 (.856) | 0 | 36 (.130) | 82 |
-| | +4 | 362 | 2 (.006) | 1 (.003) | 303 (.837) | 0 | 56 (.155) | 81 |
+| | +4 | 270 | 1 (.004) | 1 (.004) | 242 (.896) | 0 | 26 (.096) | 80 |
 
 **稳健性（剔除各格自身 lock-wrong episodes，`late_opt_frac < .2`）** — Easy：`costly_error` .517/.148/.041 → **.073/.049/.034**，`best_only` → .902/.951/.966；per-seed median `costly_error` = **0.000（三格）**，paired p=.317。
 
@@ -656,15 +547,15 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | switch rate | Easy | .072 | .062 | .063 | .112 | .937 |
-| | NearTie | .079 | .077 | .074 | .675 | .859 |
+| | NearTie | .079 | .077 | .071 | .675 | .410 |
 | non-novel churn | Easy | .042 | .032 | .033 | .133 | .844 |
-| | NearTie | .049 | .046 | .044 | .807 | .722 |
+| | NearTie | .049 | .046 | .040 | .807 | .480 |
 | max single-arm share | Easy | .939 | .949 | .950 | .698 | .779 |
-| | NearTie | .905 | .910 | .921 | .925 | .284 |
+| | NearTie | .905 | .910 | .923 | .925 | .083 |
 | `near_tie_choice_sharpness`（margin） | Easy | 4.177 | 4.268 | 4.699 | .231 | **.019\*** |
-| | NearTie | 4.005 | 4.250 | 4.400 | .388 | .189 |
+| | NearTie | 4.005 | 4.250 | 4.404 | .388 | .133 |
 | `candidate_distribution_entropy` | Easy | .124 | .119 | .089 | .216 | .090 |
-| | NearTie | .140 | .121 | .107 | .154 | **.033\*** |
+| | NearTie | .140 | .121 | .107 | .154 | .076 |
 
 **NearTie `α × posterior_gap`**（连续；bins 仅供显示。m = Stage-2 margin，g = policy 指向经验最优臂）
 
@@ -680,7 +571,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 - `entropy`：候选分布的不确定程度；越低表示越集中。
 从 −4 → 0 → +4：
 - Easy margin：`4.177 → 4.268 → 4.699`，+4 raw `p=.019`
-- NearTie entropy：`.140 → .121 → .107`，+4 raw `p=.033`
+- NearTie entropy：`.140 → .121 → .107`，+4 raw `p=.076`
 
 >两环境方向一致：**+4 的候选分布更尖锐、更确定；−4 相对更平坦。** 但显著性没有在同一指标上跨环境复现，而且整体 Holm 校正后没有 primary survivor。
 
@@ -688,13 +579,13 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 | gap bin | α=−4 | α=0 | α=+4 |
 |---|---|---|---|
-| [0.00, 0.05) | n=636 m=4.17 g=.91 | n=579 m=4.41 g=.97 | n=615 m=4.87 g=.75 |
-| [0.05, 0.10) | n=208 m=3.62 g=.50 | n=319 m=4.52 g=.70 | n=220 m=4.66 g=.75 |
-| [0.10, 0.20) | n=381 m=3.79 g=.95 | n=355 m=3.57 g=.71 | n=386 m=3.81 g=.69 |
-| [0.20, 1.00) | n=531 m=4.09 g=.98 | n=441 m=4.67 g=.98 | n=483 m=4.57 g=.99 |
+| [0.00, 0.05) | n=636 m=4.17 g=.91 | n=579 m=4.41 g=.97 | n=558 m=4.82 g=.87 |
+| [0.05, 0.10) | n=208 m=3.62 g=.50 | n=319 m=4.52 g=.70 | n=252 m=4.28 g=.84 |
+| [0.10, 0.20) | n=381 m=3.79 g=.95 | n=355 m=3.57 g=.71 | n=539 m=3.94 g=.77 |
+| [0.20, 1.00) | n=531 m=4.09 g=.98 | n=441 m=4.67 g=.98 | n=492 m=4.63 g=1.00 |
 
-per-seed slope of margin on gap：−4 = +0.165，0 = +4.445，+4 = −0.647。
-`α × gap`：−4 d=−4.280 [−12.075, +1.830] p=.798；+4 d=−2.293 [−5.643, +0.619] p=.212。
+per-seed slope of margin on gap：−4 = +0.165，0 = +4.445，+4 = +0.658。
+`α × gap`：−4 d=−4.280 [−12.075, +1.830] p=.798；+4 d=−3.788 [−10.260, +0.474] p=.374。
 
 这张表检验的是：**α 对决策锐度的影响，是否特别集中在价值接近的状态。**
 
@@ -709,14 +600,14 @@ per-seed slope of margin on gap：−4 = +0.165，0 = +4.445，+4 = −0.647。
 
 - α=0 的 slope 为 `+4.445`，符合 gap 越大、margin 越大的方向。
 - −4 为 `+0.165`，接近零。
-- +4 为 `−0.647`，甚至略微反向。
+- +4 为 `+0.658`。
 - 但是两个 `α × gap` 交互的置信区间都包含0：
   - −4：`−4.280 [−12.075, +1.830]`
-  - +4：`−2.293 [−5.643, +0.619]`
+  - +4：`−3.788 [−10.260, +0.474]`
 
 因此，**没有统计证据证明 α 改变了 margin 对 value gap 的敏感性**。
 
-还有一个值得注意的例子：在最小 gap `[0,.05)` 中，+4 的 margin 最高（4.87），但 greedy alignment 只有 `.75`，低于 α=0 的 `.97`。这说明“候选分布更尖锐”不等于“更准确地选择经验最优臂”；它可能只是对某个目标更加确信。
+还有一个值得注意的例子：在最小 gap `[0,.05)` 中，+4 的 margin 最高（4.82），但 greedy alignment 只有 `.87`，低于 α=0 的 `.97`。这说明“候选分布更尖锐”不等于“更准确地选择经验最优臂”；它可能只是对某个目标更加确信。
 > 最简结论： +4 的整体 margin 较高，但这种锐化没有随 value gap 系统变化。因此目前只能说它可能提高一般性的输出锐度，不能说它选择性增强了 near-tie 状态下的 decision precision。
 
 ### 4.4 Utilization and specificity
@@ -724,17 +615,17 @@ per-seed slope of margin on gap：−4 = +0.165，0 = +4.445，+4 = −0.647。
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | policy → empirical-best | Easy | .870 | .876 | .837 | .656 | .575 |
-| | NearTie | .899 | .875 | .790 | .507 | .213 |
+| | NearTie | .899 | .875 | .867 | .507 | .594 |
 | action → empirical-best | Easy | .870 | .874 | .833 | .388 | .374 |
-| | NearTie | .902 | .874 | .790 | .463 | .213 |
+| | NearTie | .902 | .874 | .867 | .463 | .480 |
 | policy → posterior-mean-best | Easy | .751 | .780 | .779 | .248 | .767 |
-| | NearTie | .701 | .675 | .637 | .272 | .754 |
+| | NearTie | .701 | .675 | .754 | .272 | .109 |
 | post-discovery adherence | Easy | .862 | .866 | .829 | .844 | .556 |
-| | NearTie | .878 | .840 | .796 | .572 | .530 |
+| | NearTie | .878 | .840 | .844 | .572 | .426 |
 | win-stay（描述性） | Easy | .953 | .966 | .964 | .093 | .859 |
-| | NearTie | .953 | .951 | .959 | .917 | .345 |
+| | NearTie | .953 | .951 | .959 | .917 | .158 |
 | lose-shift（描述性） | Easy | .138 | .124 | .122 | .407 | .807 |
-| | NearTie | .114 | .107 | .109 | .826 | .507 |
+| | NearTie | .114 | .107 | .106 | .826 | .826 |
 
 **Estimate claims（严格邻接解析；宽松模式会把 "79 trials of Button C … 21 trials of OTHER buttons" 误绑而读出 ~.80）**
 
@@ -847,30 +738,30 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | GreedyFrac r1–4 | Easy | .317 | .417 | .300 | .058 | **.047\*** |
-| | NearTie | .283 | .367 | .317 | .096 | .671 |
+| | NearTie | .283 | .367 | .267 | .096 | .071 |
 | GreedyFrac r5–9 | Easy | .770 | .750 | .770 | .434 | .674 |
-| | NearTie | .790 | .710 | .780 | .059 | .206 |
+| | NearTie | .790 | .710 | .760 | .059 | .372 |
 | GreedyFrac r10–49 | Easy | .844 | .855 | .819 | .928 | .859 |
-| | NearTie | .855 | .809 | .790 | .806 | .514 |
+| | NearTie | .855 | .809 | .785 | .806 | .928 |
 | GreedyFrac r50–100 | Easy | .893 | .886 | .852 | .893 | .518 |
-| | NearTie | .915 | .883 | .813 | .270 | .345 |
+| | NearTie | .915 | .883 | .912 | .270 | .249 |
 | longest same-arm run | Easy | 74.8 | 79.8 | 80.3 | .368 | .529 |
-| | NearTie | 74.2 | 75.5 | 78.8 | .619 | .801 |
+| | NearTie | 74.2 | 75.5 | 76.8 | .619 | .706 |
 | `suffix_failure` | Easy | .300 | .200 | .200 | .157 | n/a |
-| | NearTie | .500 | .350 | .350 | .083 | 1.000 |
+| | NearTie | .500 | .350 | .400 | .083 | .317 |
 | premature lock | Easy | .350 | .300 | .350 | .655 | .564 |
-| | NearTie | .300 | .350 | .400 | .564 | .564 |
+| | NearTie | .300 | .350 | .300 | .564 | .564 |
 | wrong-arm lock | Easy | .150 | .050 | .050 | .157 | n/a |
-| | NearTie | .150 | .150 | .200 | n/a | .317 |
+| | NearTie | .150 | .150 | .150 | n/a | n/a |
 
 **Abandonment（pooled）**
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 |
 |---|---|---|---|---|
 | one-shot-ZERO abandoned | Easy | 44/52 = .846 | 43/52 = .827 | 45/52 = .865 |
-| | NearTie | 43/52 = .827 | 40/52 = .769 | 41/51 = .804 |
+| | NearTie | 43/52 = .827 | 40/52 = .769 | 43/52 = .827 |
 | one-shot-POSITIVE abandoned | Easy | 2/27 = .074 | 1/27 = .037 | 1/27 = .037 |
-| | NearTie | 1/28 = .036 | 2/28 = .071 | 2/28 = .071 |
+| | NearTie | 1/28 = .036 | 2/28 = .071 | 1/28 = .036 |
 
 **双峰 outcome：lock 计数 + exact McNemar（主读数）**
 
@@ -881,7 +772,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | | +4 | 16/20 | 4 | 0 | .793 | 0 / 0 / 20 | n/a |
 | NearTie | −4 | 8/20 | 12 | 0 | .401 | 0 / 3 / 17 | .250 |
 | | 0 | 11/20 | 9 | 0 | .556 | — | — |
-| | +4 | 10/20 | 9 | 1 | .538 | 0 / 1 / 19 | 1.000 |
+| | +4 | 10/20 | 9 | 1 | .535 | 0 / 0 / 20 | n/a |
 
 **NearTie arm-tier shares**（`.55` 非严重失败，故严格 `late_opt_frac` 低估表现）
 
@@ -889,32 +780,32 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 |---|---|---|---|---|
 | −4 | .396 | .329 | .725 | .275 |
 | 0 | .526 | .195 | .721 | .279 |
-| +4 | .512 | .234 | .747 | .254 |
+| +4 | .514 | .266 | .781 | .219 |
 
 ### 4.6 Text and language–behaviour dissociation
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | `stance=explore` | Easy | .080 | .049 | .043 | **.015\*** | **.027\*** |
-| | NearTie | .097 | .065 | .051 | **.012\*** | **.012\*** |
+| | NearTie | .097 | .065 | .046 | **.012\*** | **.003\*** |
 | `stance=exploit` | Easy | .906 | .945 | .948 | **.010\*** | .205 |
-| | NearTie | .899 | .933 | .948 | **.021\*** | **.005\*** |
+| | NearTie | .899 | .933 | .953 | **.021\*** | **.001\*** |
 | `stance=both` | Easy | .015 | .007 | .009 | .680 | .414 |
-| | NearTie | .004 | .003 | .001 | .854 | .197 |
+| | NearTie | .004 | .003 | .002 | .854 | .180 |
 | kw: `explor*` | Easy | .095 | .056 | .052 | **.011\*** | .232 |
-| | NearTie | .101 | .068 | .052 | **.016\*** | **.005\*** |
+| | NearTie | .101 | .068 | .047 | **.016\*** | **.001\*** |
 | kw: most trials | Easy | .067 | .058 | .077 | .501 | .248 |
-| | NearTie | .125 | .076 | .089 | **.031\*** | .758 |
+| | NearTie | .125 | .076 | .058 | **.031\*** | .816 |
 | kw: highest rate | Easy | .912 | .916 | .925 | .977 | .510 |
-| | NearTie | .860 | .871 | .869 | .495 | .925 |
+| | NearTie | .860 | .871 | .907 | .495 | .277 |
 | kw: future/information | Easy | .047 | .023 | .020 | .151 | .598 |
-| | NearTie | .063 | .026 | .019 | .070 | .171 |
+| | NearTie | .063 | .026 | .027 | .070 | .888 |
 | kw: hedge | Easy | .889 | .931 | .911 | .312 | .129 |
-| | NearTie | .910 | .916 | .902 | .869 | .285 |
+| | NearTie | .910 | .916 | .910 | .869 | .904 |
 | kw: confident | Easy | .444 | .326 | .309 | .053 | .952 |
-| | NearTie | .398 | .185 | .200 | **<.001\*** | .898 |
+| | NearTie | .398 | .185 | .214 | **<.001\*** | .729 |
 | rationale chars | Easy | 269.6 | 267.2 | 264.0 | .571 | .812 |
-| | NearTie | 286.6 | 259.8 | 246.0 | **.011\*** | **.036\*** |
+| | NearTie | 286.6 | 259.8 | 248.3 | **.011\*** | .083 |
 
 **`stance_behavior_alignment_broad` 与分解**（broad = non-greedy ∪ untried）
 
@@ -925,7 +816,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | | +4 | 86 | 82/86 = .953 | **79** | 1 | 0 | 0 | 2 | 4 |
 | NearTie | −4 | 194 | 86/194 = .443 | **79** | 4 | 0 | 0 | 3 | 108 |
 | | 0 | 129 | 84/129 = .651 | **80** | 4 | 0 | 0 | 0 | 45 |
-| | +4 | 102 | 83/102 = .814 | **79** | 3 | 1 | 0 | 0 | 19 |
+| | +4 | 91 | 83/91 = .912 | **80** | 2 | 0 | 0 | 1 | 8 |
 
 **Matched-state 衰减链**（与 α=0 共享相同 `(choices, feedbacks)` 前缀的轮次）
 
@@ -934,24 +825,24 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | Easy | −4 | 346 | .688 | .488 | .098 | .101 | .049 | .052 |
 | | +4 | 574 | .589 | .453 | .139 | .023 | .024 | .026 |
 | NearTie | −4 | 442 | .781 | .581 | .075 | .138 | .036 | .038 |
-| | +4 | 499 | .659 | .453 | .144 | .046 | .030 | .032 |
+| | +4 | 498 | .582 | .371 | .120 | .052 | .030 | .032 |
 
 ### 4.7 Outcome
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
 | mean reward | Easy | .574 | .617 | .614 | .339 | .446 |
-| | NearTie | .462 | .469 | .479 | .839 | .287 |
+| | NearTie | .462 | .469 | .483 | .839 | .172 |
 | `opt_frac` | Easy | .667 | .764 | .761 | .184 | .600 |
-| | NearTie | .396 | .526 | .512 | .284 | .514 |
+| | NearTie | .396 | .526 | .514 | .284 | .865 |
 | `late_opt_frac`（双峰） | Easy | .694 | .796 | .793 | .068 | .180 |
-| | NearTie | .401 | .556 | .538 | .058 | .400 |
+| | NearTie | .401 | .556 | .535 | .058 | .056 |
 | `cum_regret` | Easy | 16.6 | 11.8 | 11.9 | .167 | .527 |
-| | NearTie | 11.3 | 10.7 | 10.0 | .807 | .280 |
+| | NearTie | 11.3 | 10.7 | 9.0 | .807 | .386 |
 | `k_min_frac` | Easy | .038 | .038 | .038 | 1.000 | n/a |
-| | NearTie | .040 | .040 | .038 | n/a | .317 |
+| | NearTie | .040 | .040 | .040 | n/a | n/a |
 | `greedy_frac` | Easy | .849 | .853 | .818 | .655 | .575 |
-| | NearTie | .865 | .829 | .787 | .656 | .507 |
+| | NearTie | .865 | .829 | .833 | .656 | .366 |
 
 **Final score（总分 = T=100 轮 reward 之和；即 Stage-1 prompt 中 `Your score so far: N points.` 的量）**
 
@@ -962,7 +853,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | | +4 | 61.40 | 19.64 | 67.5 | [21, 82] | −0.35 [−1.35, +0.50] | .496 |
 | NearTie | −4 | 46.15 | 14.07 | 50.5 | [20, 62] | −0.70 [−2.40, +0.60] | .839 |
 | | 0 | 46.85 | 14.48 | 51.5 | [20, 62] | — | — |
-| | +4 | **47.95** | 13.77 | 51.5 | [20, 62] | +1.10 [−0.15, +2.85] | .287 |
+| | +4 | **48.35** | 13.83 | 52.0 | [20, 62] | +1.50 [−0.25, +4.00] | .172 |
 
 **与冻结算法基线对照**（manifest 仅存 `cum_regret`，故两侧同以 `E[score] = 100·p* − cum_regret` 推导；实得与期望差 1.0–2.6 分 = tape 采样噪声）
 
@@ -975,7 +866,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | | **model α=−4** | **58.38** | [48.90, 67.72] |
 | | RANDOM | 37.55 | [36.67, 38.40] |
 | NearTie（p\*=.60，天花板 60） | ORACLE | 60.00 | — |
-| | **model α=+4** | **49.96** | [43.78, 55.35] |
+| | **model α=+4** | **50.99** | [44.94, 56.08] |
 | | **model α=0** | **49.26** | [42.88, 54.91] |
 | | GREEDY | 48.79 | [42.55, 54.27] |
 | | **model α=−4** | **48.71** | [42.52, 54.24] |
@@ -990,7 +881,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | | +4 | .500 | .555 | .645 | .635 | .600 | .635 | .635 | .620 | .660 | .655 | — | **NONE** |
 | NearTie | −4 | .415 | .430 | .420 | .490 | .460 | .530 | .485 | .475 | .440 | .470 | — | **NONE** |
 | | 0 | .390 | .455 | .425 | .520 | .460 | .520 | .485 | .495 | .460 | .475 | — | — |
-| | +4 | .420 | .470 | .435 | .535 | .465 | .525 | .475 | .485 | .485 | .500 | — | **NONE** |
+| | +4 | .420 | .455 | .480 | .520 | .495 | .540 | .480 | .505 | .460 | .480 | — | **NONE** |
 
 ### 4.8 Primary readouts（Holm，单一 family，16 tests）
 
@@ -999,14 +890,14 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | 1 | `policy_uncertainty_targeting`（unique-max） | Easy | .000 | .000 | .000 | n/a | n/a | — |
 | 1 | | NearTie | .000 | .000 | .000 | n/a | n/a | — |
 | 2 | `b_information` | Easy | — | — | — | CI [−.124, +.418] 含 0 | | — |
-| 2 | | NearTie | — | — | — | CI [−.204, +.167] 含 0 | | — |
-| 3 | `α × posterior_gap` | NearTie | — | — | — | .798 | .212 | — |
-| 4 | `stance_align_broad` | Easy | .810 | .897 | .971 | .0421 | .0422 | .3365 / .3365 |
-| 4 | | NearTie | .712 | .790 | .899 | .1355 | .0214 | .6775 / .1926 |
-| 5 | `suffix_failure` | Easy | .300 | .200 | .200 | .1573 | n/a | .6775 |
-| 5 | | NearTie | .500 | .350 | .350 | .0833 | 1.0000 | .4996 / 1.0000 |
-| 5 | `wrong-arm lock` | Easy | .150 | .050 | .050 | .1573 | n/a | .6775 |
-| 5 | | NearTie | .150 | .150 | .200 | n/a | .3173 | .6775 |
+| 2 | | NearTie | — | — | — | CI [−.124, +.190] 含 0 | | — |
+| 3 | `α × posterior_gap` | NearTie | — | — | — | .798 | .374 | — |
+| 4 | `stance_align_broad` | Easy | .810 | .897 | .971 | .0421 | .0422 | .2944 / .2944 |
+| 4 | | NearTie | .712 | .790 | .944 | .1355 | **.0050** | .5420 / **.0400\*** |
+| 5 | `suffix_failure` | Easy | .300 | .200 | .200 | .1573 | n/a | .5420 |
+| 5 | | NearTie | .500 | .350 | .400 | .0833 | .3173 | .4163 / .5420 |
+| 5 | `wrong-arm lock` | Easy | .150 | .050 | .050 | .1573 | n/a | .5420 |
+| 5 | | NearTie | .150 | .150 | .150 | n/a | n/a | — |
 
 **Holm survivors: NONE**（16 个检定中最小 adj p = .1926）
 
@@ -1019,21 +910,21 @@ DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共�
 | `policy_uncertainty_targeting` | −4 | .000 | .000 | n/a | — | n/a |
 | | +4 | .000 | .000 | n/a | — | n/a |
 | `stance_behavior_alignment_broad` | −4 | −.087 | −.077 | +.010 | [−.080, +.115] | .833 |
-| | +4 | +.074 | +.109 | +.036 | [−.019, +.094] | .238 |
+| | +4 | +.074 | +.154 | +.081 | [+.029, +.139] | **.021\*** |
 | `EXPLORE stance rate` | −4 | +.031 | +.032 | +.001 | [−.018, +.023] | .878 |
-| | +4 | −.006 | −.014 | −.007 | [−.016, −.001] | .116 |
+| | +4 | −.006 | −.019 | −.013 | [−.026, −.003] | **.007\*** |
 | `suffix_failure` | −4 | +.100 | +.150 | +.050 | [+.000, +.150] | .317 |
-| | +4 | .000 | .000 | .000 | [−.150, +.150] | 1.000 |
-| `wrong-arm lock` | −4 | +.100 | .000 | −.100 | [−.250, +.000] | .157 |
 | | +4 | .000 | +.050 | +.050 | [+.000, +.150] | .317 |
+| `wrong-arm lock` | −4 | +.100 | .000 | −.100 | [−.250, +.000] | .157 |
+| | +4 | .000 | .000 | .000 | [+.000, +.000] | n/a |
 | `late_opt_frac`（双峰） | −4 | −.102 | −.155 | −.053 | [−.150, +.004] | .436 |
-| | +4 | −.003 | −.018 | −.015 | [−.108, +.066] | .763 |
+| | +4 | −.003 | −.021 | −.018 | [−.040, +.000] | .204 |
 | `Stage-2 margin` | −4 | −.091 | −.245 | −.154 | [−.564, +.206] | .795 |
-| | +4 | +.431 | +.150 | −.281 | [−.729, +.096] | .312 |
+| | +4 | +.431 | +.154 | −.277 | [−.692, +.001] | .122 |
 
 **除 `EXPLORE stance rate` +4（CI [−.016, −.001]，p=.116，效应量 −.007）外，全部 CI 含 0 → 环境交互未检出。**
 
-# Bandit Experiments: Best-arm Identification
+# Best Arm Identification (BAI) / Pure Exploration）Bandit
 
 ## 1. Motivation
 
@@ -1103,6 +994,134 @@ PV10 是对 PV9 的机制诊断，而不是为了寻找显著结果：
 - 若 +α 造成更早锁定且表现不升，支持 **commitment/persistence account**。
 
 PV9 测量的是是否愿意牺牲即时奖励购买信息；PV10 测量的是为了最终识别目标如何分配采样资源。二者结合可以判断 α 的作用是否取决于任务的 **goal framing**。
+
+## 2. Design
+### PV10-A: Fixed-budget Sampling
+
+模型获得固定的采样预算，例如 100 次；采样结束后必须选择最佳 arm。
+
+```text
+Rounds 1–100:
+SAMPLE Button X
+
+After Round 100:
+FINAL: Button X
+```
+
+它主要测量：
+
+- 如何在 arms 之间分配有限样本；
+- 是否偏向高不确定性或 top-two candidate arms；
+- 是否过早集中于当前领先 arm；
+- 最终 best-arm identification accuracy。
+
+这个版本最干净，适合先跑，因为所有 α 条件拥有相同信息预算。
+
+### PV10-B: Self-paced Sampling and Commitment
+
+模型每轮可以继续采样，也可以随时做最终承诺：
+
+```text
+Policy: SAMPLE Button X
+```
+
+或：
+
+```text
+Policy: COMMIT Button X
+```
+
+但必须同时设置：
+
+- 一个最大上限，例如 `T_max = 100`；
+- 或者每次采样具有明确成本，例如最终得分为：
+
+\[
+\text{Score}=\mathbb{1}(\text{correct identification})-\lambda N_{\text{samples}}
+\]
+
+否则“什么时候停止”没有代价，也就无法判断模型是否采样过多。
+
+这个版本测的是另一种机制：
+
+- `sampling allocation`：采样哪个 arm；
+- `stopping threshold`：什么时候认为证据已经足够；
+- `commitment accuracy`：承诺是否正确；
+- `premature commitment` 与 `over-sampling`。
+
+因此，PV10-A 对应 **pure exploration under a fixed budget**；PV10-B 对应 **active information sampling and optimal stopping**。建议先完成 A，再决定是否追加 B。
+
+#### Stage 2 可以取消
+
+Stage 1 可以直接输出一个结构化决策：
+
+```text
+Evidence: ...
+Policy: SAMPLE Button C
+```
+
+或：
+
+```text
+Evidence: ...
+Policy: COMMIT Button A
+```
+
+然后由 code parser 直接执行。
+
+这样测到的是 α 对 `SAMPLE/COMMIT` 决策本身的影响，而不是“Stage 1 先说、Stage 2 再执行”的文本传导。若保留 Stage 2，它更适合作为独立的 executor-fidelity control，不应成为主任务必需环节。
+
+## 3. Literature
+1. **Hertwig et al. (2004)**  
+   奠定 decisions-from-experience 的“先采样、后最终选择”范式。[Psychological Science](https://pubmed.ncbi.nlm.nih.gov/15270998/)
+
+2. **Appelhoff, Hertwig & Spitzer (2023)**  
+   与 PV10-A/B 最贴近。实验比较：
+
+   - full control：选择采样对象，也决定何时停止；
+   - partial control：选择采样对象，但采样总数固定；
+   - no control：被动接受 yoked samples。
+
+   结果显示，完整的停止控制提高最终选择准确性及证据编码；仅能决定采样哪个选项而不能决定何时停止，并未产生同样优势。[Cerebral Cortex](https://academic.oup.com/cercor/article/33/1/207/6546260)
+
+3. **Voss et al. (2011)**  
+   主动和 yoked 被动条件看到相同信息，但 volitional control 改善记忆，并涉及以 hippocampus 为中心的网络。适合支持 agency/active learning 背景，但不是 dopamine 或 BAI 证据。[Nature Neuroscience](https://pubmed.ncbi.nlm.nih.gov/21102449/)
+
+4. **Markant & Gureckis (2014)**  
+   主动选择样本会形成 hypothesis-dependent sampling policy。适合说明主动采样不仅是接收更多信息，还会改变信息选择过程。[JEP: General](https://www.researchgate.net/publication/236079716_Is_It_Better_to_Select_or_to_Receive_Learning_via_Active_and_Passive_Hypothesis_Testing)
+
+### Dopamine-related references
+
+5. **Dopamine manipulations drive changes in information sampling in healthy volunteers (2019)**  
+   双盲交叉设计使用 ropinirole、amisulpride 与 placebo，在 Beads 和 Best Choice tasks 中发现任务依赖的信息采样变化。最适合支持“dopamine may modulate sampling and commitment”，但不能概括为“DA 越高，采样越多”。[Journal of Psychopharmacology](https://pmc.ncbi.nlm.nih.gov/articles/PMC6996051/)
+
+6. **Chakroun et al. (2020)**  
+   四臂 restless Bandit 药理实验显示，L-dopa 减少 directed exploration，而未可靠改变 random exploration。这与资料中声称“DA 增加 random exploration”的方向不同。[eLife](https://pubmed.ncbi.nlm.nih.gov/32484779/)
+
+7. **Meder et al. (2026)**  
+   Parkinson’s off-medication 表现为 directed exploration 增加、random exploration 不变，并伴随 generalization 与 exploitation 缺陷。进一步说明 dopamine 与 exploration 不是简单单调关系，而要区分 exploration 类型。[Science Advances, in press](https://charleywu.github.io/publications/)
+
+8. **Dopamine regulates decision thresholds in human reinforcement learning (2023)**  
+   支持 dopamine 可以影响 decision threshold，但任务是 RL evidence accumulation，不是自由 `SAMPLE/COMMIT`。只能作为 stopping-threshold 的间接参考。[Nature Communications](https://www.nature.com/articles/s41467-023-41130-y)
+
+## 五、文献综述最合适的结构
+
+建议后续 literature review 分成三节：
+
+1. **Pure exploration and decisions from experience**  
+   为什么把采样收益与最终选择分离。
+
+2. **Agency and endogenous stopping**  
+   固定预算、自由停止与 yoked passive sampling 分别测什么。
+
+3. **Dopamine, information sampling, and commitment**  
+   强调 DA 效应具有任务、受体、基线和 exploration-type 依赖性，不预设 `+α → 更多采样`。
+
+最稳妥的 PV10 预注册预测也应保持竞争关系：
+
+> +α 可能提高目标承诺和停止倾向，导致更早 commit；也可能提高终局目标的 motivational salience，促进更系统的信息收集。PV10 的目的正是区分这两个机制，而不是预设 dopamine 必然增加 exploration。
+
+另外，如果实验本身没有加入 active-versus-yoked 条件，我们只能说 PV10 **借鉴了 agency literature**，不能声称实验直接验证了“agency advantage”。
 ## References
 
 1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.
