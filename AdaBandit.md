@@ -1033,6 +1033,76 @@ DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共�
 
 **除 `EXPLORE stance rate` +4（CI [−.016, −.001]，p=.116，效应量 −.007）外，全部 CI 含 0 → 环境交互未检出。**
 
+# Bandit Experiments: Best-arm Identification
+
+## 1. Motivation
+
+PV9 要求模型在 100 轮内最大化累计奖励，属于 **reward-maximizing Bandit**。在这种设定下，探索会牺牲即时收益，因此 PV9 检验的是模型是否愿意承担机会成本以获取信息。
+
+PV10 将目标改为：经过 100 轮采样后，正确识别 reward probability 最高的 arm。任务因此转变为 **best-arm identification / pure exploration**：
+
+- 前期采样用于降低不同 arm 的不确定性；
+- 重复选择当前最佳 arm 本身不会直接提高最终得分；
+- 模型需要在信息收集结束后，最终 commit 到一个 arm。
+
+这可以检验 PV9 的 α-null 是否源于累计奖励目标本身鼓励模型过早进入 exploitation。
+
+### Competing Predictions
+
+| Potential mechanism | −α prediction | +α prediction |
+|---|---|---|
+| Decision precision | 判断较摇摆，采样较分散 | 更快形成明确判断 |
+| Goal motivation / information investment | 信息投入不足或随机采样 | 系统性采样低证据或高不确定性 arm |
+| Commitment / persistence | 延迟承诺 | 可能过早锁定当前领先 arm |
+| Final performance | 可能因证据整合不足而下降 | 适量可能提高；过高可能因 premature commitment 下降 |
+
+因此，+α 存在两种竞争性解释：
+
+1. **Motivational account**：+α 提高“正确识别最优臂”这一终局目标的 salience，促进定向信息获取并提高最终识别率。
+2. **Commitment account**：+α 放大当前领先 arm 的吸引力，导致过早锁定并减少验证性探索。
+
+### Experimental Design
+
+实验分为两个明确阶段：
+
+```text
+Exploration phase:
+You have 100 trials to gather evidence. Rewards during these trials do not
+directly determine your score.
+
+Final decision:
+After 100 trials, select the button with the highest unknown reward
+probability. You receive one final score for identifying it correctly.
+```
+
+最小实验配置：
+
+- Bernoulli reward probabilities：`[0.60, 0.50, 0.40, 0.30]`
+- α：`−4 / 0 / +4`
+- 20 个配对 seeds，arm labels 随机排列
+- 100 个 evidence-gathering rounds
+- 最后独立输出 `FINAL: Button X`
+- 不提供真实 reward probabilities
+- 不累积中间 task score
+- 不提供额外 exploration cue
+- α 仅作用于 Stage 1，Stage 2 保持 unsteered
+
+### Primary Metrics
+
+1. 最终最优臂识别率  
+2. Posterior-uncertainty-max targeting rate  
+3. 各 arm 的采样分配与最低采样数  
+4. Premature commitment：过早集中选择当前 empirical-best arm  
+
+### Interpretation
+
+PV10 是对 PV9 的机制诊断，而不是为了寻找显著结果：
+
+- 若 α 仍不改变 uncertainty targeting，说明 α 可能不是 directed-exploration controller。
+- 若 +α 增加定向采样并提高识别率，支持 **goal-dependent wanting**。
+- 若 +α 造成更早锁定且表现不升，支持 **commitment/persistence account**。
+
+PV9 测量的是是否愿意牺牲即时奖励购买信息；PV10 测量的是为了最终识别目标如何分配采样资源。二者结合可以判断 α 的作用是否取决于任务的 **goal framing**。
 ## References
 
 1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.
@@ -1043,3 +1113,6 @@ DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共�
 6. Sun et al. (2025/2026). [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118).
 7. Lim et al. (2025). [TextBandit: Evaluating Probabilistic Reasoning in LLMs Through Language-Only Decision Tasks](https://arxiv.org/abs/2510.13878).
 8. Harris & Slivkins (2025/2026). [Should You Use Your Large Language Model to Explore or Exploit?](https://arxiv.org/abs/2502.00225).
+
+
+
