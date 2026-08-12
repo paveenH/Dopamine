@@ -1,3 +1,12 @@
+
+
+## TODO
+1. 改变模型的策略，从max score变成找到最优臂 -> PV10
+2. 整理一个版本的PV9的结果
+3. steering的位置也需要重新考虑？
+4. HumanLLM
+5. Behaviour: 测一下和人类的行为学对齐关系
+
 ## TODO — ACL ARR
 
 ### 1. Freeze Bandit PV9
@@ -55,21 +64,19 @@
 - [ ] 撰写ACL ARR长文初稿
 
 优先顺序：**PV9冻结 → Qwen → 直接控制 → Base–Instruct → 全文整合**。Human-trained Llama和人类行为相似性分析暂列 optional，不阻塞首轮ARR投稿。
-## TODO
-0. 用Qwen2.5-7B复现
-1. 添加 posterior variance 最大的 arm”表示模型选择当前证据最少、估计最不确定的选项。
-1. 当前看起来不管怎样 模型始终都会选择经验概率最高的arm 很难推动
-1. 可以考虑额外提供的资讯：
-   UCB score
-   exploration bonus
-   posterior uncertainty
-   Thompson-sampling probability
-1.**SH（Summarized History）**：将长的逐轮 time–action–reward 历史压缩为每个 arm 的选择次数与平均 reward；LLM 仍需自行判断何时探索、何时利用。
-**AG（Algorithm-Guided Support）**：在 SH 基础上，由外部按 UCB／LinUCB 计算每个 arm 的 exploitation value 与 exploration bonus，并写入 prompt；LLM 主要比较总分后选 action。因此它是算法支架，不能视为模型自行从原始历史学出了 UCB。
-**In-context Demonstration**：在 prompt 中提供 5 条由 UCB 生成的完整交互轨迹，让模型在当前任务中模仿其选择规律。核心是“历史表示 → UCB 的下一步 action”，而不是提供自然语言 CoT 式理由。
-1. steering的位置也需要重新考虑
-2. HumanLLM
-3. Behaviour: 测一下和人类的行为学对齐关系
+
+### 可以考虑额外提供的资讯：
+
+| Support | Information provided | Interpretation |
+|---|---|---|
+| **Summarized History (SH)** | 每个 arm 的选择次数、累计奖励及 empirical mean | 仅压缩交互历史；模型仍需自行判断何时探索或利用 |
+| **Posterior Uncertainty** | 每个 arm 的 posterior variance／SD | 明示不确定性，但仍由模型决定是否赋予其信息价值 |
+| **Exploration Bonus** | 根据样本量或 uncertainty 计算的探索奖励 | 已将不确定性转换为行动价值，属于部分 algorithmic support |
+| **UCB Score** | Exploitation value + exploration bonus | 外部算法已完成核心权衡；模型主要负责比较分数并选择 |
+| **Thompson-Sampling Probability** | 各 arm 成为最优臂的后验概率，或由后验采样得到的选择概率 | 若模型只按概率选择，则探索主要由外部 Bayesian algorithm 产生 |
+| **In-context Demonstration** | 提供由 UCB 生成的完整交互轨迹与下一步 action | 让模型模仿“history → UCB action”的映射，而非自行发现探索规则 |
+| **Oracle Behavior Fine-Tuning (OFT)** | 使用 UCB／LinUCB 专家轨迹进行 post-training | 将算法策略蒸馏进模型；可改善表现，但不等同于原始模型的自主探索能力 |
+
 ---
 行文可以参考
 nc2026.Hippocampo-neocortical interaction as compressive retrieval-augmented generation
