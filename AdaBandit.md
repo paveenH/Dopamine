@@ -464,7 +464,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 > 模型选择某个 arm，是因为它当前看起来收益高、样本少、最近选过、采样次数多，还是因为按钮标签或位置？
 - `mu`：该 arm 当前估计的收益。系数显著为正，说明模型强烈偏向当前价值高的 arm。
-- `w = 1/√n`：低样本量指标；越大表示采样越少、越不确定。系数为负但 CI 包含 0，未检出模型主动偏好低样本 arm。
+- `w = 1/√n`：低样本量指标；越大表示采样越少、越不确定。Easy 的 CI 包含 0；NearTie 的系数显著为负，说明在价值接近、较需要补充信息的环境中，模型反而较少选择低样本量 arm。这是跨 α 的总体选择倾向，不是 α 效应。
 - `a_mu`：α 是否改变模型对预期收益 `mu` 的权重。两环境均未检出。
 - `a_info`：核心指标，α 是否改变模型对低样本量／高不确定性 arm 的权重。Easy 和 NearTie 的 CI 都包含 0，因此未检出 α 效应。
 - `pos`：展示位置效应，不显著。
@@ -472,7 +472,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 - `logn`：采样次数效应。显著为正，模型偏向已经尝试很多次的 arm，符合 incumbent/greedy 惯性。
 - `lab_B/C/D`：相对于 Button A 的标签效应。Easy 中 B、D 明显弱于 A，说明存在标签先验。
 
-> 核心结论是：模型主要根据当前估计收益、选择历史和既有采样量作决定；没有证据表明它会主动提高低样本／高不确定 arm 的权重，也没有证据表明 α 改变了这种权重。
+> 核心结论是：模型主要根据当前估计收益、选择历史和既有采样量作决定。NearTie 进一步显示模型总体上回避低样本／高不确定 arm；但 `a_info` 仍跨 0，因此没有证据表明 α 改变了这种权重。
 
 `posterior SD` 敏感性分析只是把 `1/√n` 换成另一种不确定性表示，检查结论是否依赖具体公式。系数是模型中的相对权重，不是直接的选择概率。
 
@@ -573,7 +573,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 - Easy margin：`4.177 → 4.268 → 4.699`，+4 raw `p=.019`
 - NearTie entropy：`.140 → .121 → .107`，+4 raw `p=.076`
 
->两环境方向一致：**+4 的候选分布更尖锐、更确定；−4 相对更平坦。** 但显著性没有在同一指标上跨环境复现，而且整体 Holm 校正后没有 primary survivor。
+>两环境方向一致：**+4 的候选分布更尖锐、更确定；−4 相对更平坦。** 但显著性没有在同一指标上跨环境复现；Holm 校正后存活的唯一 primary 是 NearTie 的 `stance_align_broad`，不是 margin、entropy 或 directed-exploration 指标。
 
 > α 对候选分布的 decision-precision analogue 呈现一致但较弱的方向性变化：+4 提高分布锐度，−4 降低锐度；然而该变化没有稳定转化为 switching、churn 或选择集中度的行为差异。也就是：**logit 层似乎更果断，但实际选择轨迹基本不变。**
 
@@ -899,7 +899,11 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | 5 | `wrong-arm lock` | Easy | .150 | .050 | .050 | .1573 | n/a | .5420 |
 | 5 | | NearTie | .150 | .150 | .150 | n/a | n/a | — |
 
-**Holm survivors: NONE**（16 个检定中最小 adj p = .1926）
+**Holm survivor: NearTie `stance_align_broad`, +4 vs 0**（adjusted `p=.0400`）。
+
+该结果表示 +4 提高了“模型自报 `EXPLORE` 时，其目标至少属于 non-greedy 或 untried”的一致性，而不是增加探索行为本身：NearTie 中 `EXPLORE` 的绝对兑现次数几乎不变（−4/0/+4 = **86/84/83**），其中 +4 的 83 次有 **80 次**是 cue 驱动的 untried-arm 初始覆盖，指向 uncertainty-max 的只有 **2 次**。对齐率从 `.790` 升至 `.944`，主要因为 +4 减少了未兑现的 `EXPLORE` 表述，而不是产生更多 uncertainty-directed sampling。
+
+因此，更新后的 primary 结论不是“所有指标均 null”，而是：**α 对政策标签与行为的一致性存在一个条件性效应，但定向探索的数量、uncertainty weighting、错误锁定与结果指标仍未显示可靠改善。**
 
 ### 4.9 Environment dependence（DiD）
 
@@ -922,7 +926,23 @@ DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共�
 | `Stage-2 margin` | −4 | −.091 | −.245 | −.154 | [−.564, +.206] | .795 |
 | | +4 | +.431 | +.154 | −.277 | [−.692, +.001] | .122 |
 
-**除 `EXPLORE stance rate` +4（CI [−.016, −.001]，p=.116，效应量 −.007）外，全部 CI 含 0 → 环境交互未检出。**
+两项 +4 的未校正 DiD 置信区间不含 0：
+
+- `stance_behavior_alignment_broad`：NearTie 相较 Easy 的 +4 对齐效应更强（DiD `+.081`, `p=.021`）。
+- `EXPLORE stance rate`：+4 在 NearTie 中更明显地减少 `EXPLORE` 表述（DiD `−.013`, `p=.007`）。
+
+这两项共同指向**环境依赖的政策表达／语义—行为对齐**：在价值更接近的 NearTie 中，+4 更少使用 `EXPLORE` 标签，但一旦使用便更少落回 empirical-greedy 行为。它们不表示更多探索，因为 uncertainty targeting 仍为 0、兑现的绝对次数几乎恒定，且 final score / regret / lock outcomes 均未改善。由于本节同时检验多个 DiD 对比而未另作 family-wise 校正，这两项应标为 exploratory environment interactions，而非新的定向探索主证据。
+
+### Overall interpretation
+
+更新后的 NearTie +4 不再支持“α 完全只改文字、所有 primary 均为 null”的最强表述。更准确的结论是：
+
+1. **模型具有稳定的 greedy / uncertainty-avoidant 基线。** NearTie 中 `w<0`，而 uncertainty-max targeting 仍为 0；模型会准确读取经验率，却不会系统性购买信息。
+2. **α 改变政策表达及其一致性。** −4 更常自报 `EXPLORE`；+4 更少自报，但在 NearTie 中自报与广义行为类别的对齐更高。候选分布锐化仅为次级、未校正信号。
+3. **PV9 未检出 α 对 directed exploration 的调节。** `a_info` 两环境均跨 0，low-n／uncertainty targeting 仍在地板，唯一存活的对齐指标主要由 cue-supported coverage 和分母变化构成。
+4. **α 未带来可靠的任务改善。** reward、regret、late optimal choice、suffix failure 与 wrong-arm lock 均无稳健差异。
+
+因此，PV9 仍应定位为 RSN–dopamine 类比的**作用边界证据**，但措辞需要从“α 只有文字效应”收紧为：**α 调节 policy stance、commitment-related sharpness，以及困难环境中的 stance–behavior consistency；在这个协议中，它没有表现为 uncertainty-directed exploration controller，也没有改善 Bandit outcome。**
 
 # Best Arm Identification (BAI) / Pure Exploration）Bandit
 
@@ -1132,6 +1152,4 @@ Policy: COMMIT Button A
 6. Sun et al. (2025/2026). [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118).
 7. Lim et al. (2025). [TextBandit: Evaluating Probabilistic Reasoning in LLMs Through Language-Only Decision Tasks](https://arxiv.org/abs/2510.13878).
 8. Harris & Slivkins (2025/2026). [Should You Use Your Large Language Model to Explore or Exploit?](https://arxiv.org/abs/2502.00225).
-
-
 
