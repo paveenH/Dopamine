@@ -256,7 +256,17 @@ Evidence:
     - 第四层（L4，图里标"return"）— 输出形式：return action（只输出一个 arm）vs return distribution over actions（输出一个跨 arm 的概率分布，格式类似 "blue:a,green:b,..."）。
     - 第五层（L5，图里标"final prompt"）— 是否 CoT：reply-only（直接给答案，不解释）vs chain-of-thought（先"let's think step by step"再给答案）。
   - 唯一成功：BSSC̃0 = Buttons 场景 + Suggestive framing + Summarized history + Reinforced CoT + temperature 0（GPT-4）
-
+- **Bandit.Human.2025.Comparing Exploration-Exploitation Strategies of LLMs and Humans. Insights from Standard Multi-armed Bandit Experiments**
+  - 论文让 LLM、Human 与经典 Bandit algorithms 在相同的多臂老虎机环境中完成任务，并比较完整的选择轨迹；Human 数据主要作为同任务的行为与表现基线，而非个体级相关性／digital twin 分析。
+  - 实验包括：简单的 2-arm 平稳 Bandit，以及更复杂的 4-arm、300-round 非平稳 Bandit。Gaussian reward 指每个 arm 的回报是连续的正态分布随机值，而非 0/1；非平稳指 arm 的真实平均 reward 会随时间漂移。
+  - 论文核心是用 choice model 将轨迹分解为三个行为参数：
+    - **β**：按当前估计收益稳定选择的程度；β 越低，随机探索越多。
+    - **φ**：对高不确定性 arm 的偏好，即作者定义的 uncertainty-directed exploration。
+    - **ρ**：重复上一轮所选 arm 的倾向（choice perseveration）。
+  - 基础 LLM 的 CoT manipulation 很轻量：`Do not explain, answer the number.`  → `You can think out loud and answer the number.`
+  - **Exploitation rate** 定义为：某一轮是否选择截至该轮、自己过去观测平均 reward 最高的 arm；它衡量是否跟随当前经验最优臂，不等于选择真实最优臂，也不能单独代表探索能力。
+  - 结论：在简单、平稳 Bandit 中，CoT／thinking 通常使 LLM 的行为参数更接近人类，部分结果指标也可接近人类；但在复杂、非平稳环境中，LLM 仍缺少人类式的稳定适应与有效 uncertainty-directed exploration。thinking 可降低 regret，却没有可靠地修复这一机制缺口。
+  - 因此，较低 regret 或较高 exploitation rate 不足以证明 LLM 具备有效 directed exploration；仍需直接检查其是否会因不确定性而重新采样信息不足的 arm。
 
 ### 2.1 `EVOLvE`: Direct Source of the Current Design, and Its Boundaries
 
