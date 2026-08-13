@@ -127,7 +127,7 @@ Evidence:
 > 真实 prompt 逐轮增长（T=100 时 184→323 tokens），anchor 每轮均为 token 220。
 
 ## 2. Literature
-### 2.0 Paper Summary
+### Mluti-Arm Bandit LLM
 | 论文 | Bandit 在论文中的角色 | 是否证明 LLM 自己会做 Bandit | 对本项目的直接价值 |
 |---|---|---:|---|
 | [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html) | 直接评估 LLM 在 BanditBench 中的 in-context exploration（**MAB K=5/20；CB K=10/30**），并比较 summary、UCB guidance、few-shot 与 fine-tuning | 基线部分是；algorithm-guided / distillation 部分不是纯自主能力 | 最直接支持 structured summary、难度阶梯与 exploration-optimality 分析，同时要求把“模型自主探索”与“外部算法供给探索”分开 |
@@ -268,75 +268,25 @@ Evidence:
   - 结论：在简单、平稳 Bandit 中，CoT／thinking 通常使 LLM 的行为参数更接近人类，部分结果指标也可接近人类；但在复杂、非平稳环境中，LLM 仍缺少人类式的稳定适应与有效 uncertainty-directed exploration。thinking 可降低 regret，却没有可靠地修复这一机制缺口。
   - 因此，较低 regret 或较高 exploitation rate 不足以证明 LLM 具备有效 directed exploration；仍需直接检查其是否会因不确定性而重新采样信息不足的 arm。
 
-### 2.1 `EVOLvE`: Direct Source of the Current Design, and Its Boundaries
+### Mluti-Arm Bandit Human
+- **[Bandit.Human.jepg2014.Humans Use Directed and Random Exploration to Solve the Explore–Exploit Dilemma](https://pmc.ncbi.nlm.nih.gov/articles/PMC5635655/)**
+  - 提出 **Horizon Task**，核心目的是解决自由选择 Bandit 中的 **reward–information confound**：reward 看起来较高的 arm 会被更多选择，也因此自然累积更多观察；所以仅从自然轨迹无法判断某次选择是因即时 reward，还是因 arm 的信息价值／不确定性。
+  - 任务为 2-arm、平稳 Gaussian Bandit。每局先进行 4 次 forced-choice trials，由实验者控制两臂的既有信息量：
+    - `[1,3]`：一臂仅观察 1 次，另一臂观察 3 次；前者信息较少、较不确定。
+    - `[2,2]`：两臂各观察 2 次，信息量相等。
+  - 随后才进行第一次自由选择，并操纵 horizon：后续只剩 **1** 次自由选择，或还剩 **6** 次。长 horizon 下，新获得的信息有更多未来利用价值，因此理应更值得探索。
+  - 由于信息量由 forced choices 预先指定，且与两臂已观察到的平均 reward 解耦，第一次自由选择能较干净地区分探索机制。
+  - 作者以 logistic choice model 拟合该次选择：
+    \[
+    Q_a = R_a + \alpha I_a + B s_a
+    \]
+    其中 \(R_a\) 是观察到的 reward 估计、\(I_a\) 是信息量、\(B s_a\) 控制左右位置偏好；choice noise \(\sigma_d\) 则决定选择的随机性。
+    - \(\alpha\)：information bonus；长 horizon 时若更偏向信息较少／更不确定的 arm，表示 **directed exploration** 增加。
+    - \(\sigma_d\)：decision noise；长 horizon 时若选择更不完全由当前 reward 差异决定，表示 **random exploration** 增加。
+  - 核心发现：horizon 较长时，人类的 \(\alpha\) 与 \(\sigma_d\) 都提高——人类会同时增加信息导向探索与随机探索，并根据“信息是否还能在未来带来收益”调节两者。
 
-EVOLvE 在 BanditBench 中系统评估 context-free MAB 与 contextual bandit。MAB 同时改变
-reward distribution、gap、arm 数量和名称表示：包括 Bernoulli / Gaussian、K=5 / K=20，
-以及无语义的 Video 标签与语义丰富的 Clothes 名称（CB 另用 MovieLens，K=10 / K=30，
-与 MAB 的 K 不是同一套）。论文测试 Gemma-2B、Gemma-9B、
-Gemini-1.5 Flash 和 Gemini-1.5 Pro，并比较四个层次：
 
-1. **Raw History (RH)**：把历次 action–reward 序列直接交给模型；
-2. **Summarized History (SH)**：提供每个 arm 的 empirical mean、pull count 和当前
-   horizon；
-3. **Algorithm-Guided Support (AG)**：除 summary 外，进一步提供 UCB 的 exploitation
-   value 与 exploration bonus；
-4. **algorithm distillation**：使用 UCB oracle trajectory 做 few-shot demonstration
-   或 Oracle Behavior Fine-Tuning。
-
-论文的 off-the-shelf MAB 基线整体较弱：RH 下 Gemma-2B、Gemma-9B、Gemini Flash 和
-Gemini Pro 的 overall win-rate 分别只有 7.6%、10.5%、27.7% 和 45.5%。结构化 history
-通常有帮助，但并非对每个模型都单调改善；例如 SH 对 Gemma-9B 的 aggregate
-win-rate 反而从 10.5% 降到 5.3%。真正明显的提升主要来自 carefully matched 的
-few-shot / fine-tuning 或显式算法支持，而不是一句泛化的“think step by step”。
-
-### 2.2 `LLMs are Greedy Agents`: The Most Direct Design Basis
-
-在 BanditBench 的 Gaussian/Bernoulli MAB 上测试 Gemma2 2B、9B、27B（**K=10 / K=20 arms**），horizon 同样是 50；并在 Appendix C.4 用 **Llama3 与 Qwen2.5** 复现 greediness 分析，明确指出 bias 持续。重要发现包括：
-
-- 不同规模模型都会过早采用 greedy strategy，action coverage 很快停滞；扩大模型只能减轻，不能消除。
-- 2B 模型还会受 action 在历史中出现频率影响，即使该 action reward 较差。
-- 27B 可以正确计算 UCB，但即使 rationale 正确，仍常执行 greedy action，形成 knowing–doing gap。
-- CoT 明显提高 coverage，但**不能消除 greedy lock**：10 arms 下有 CoT 时 2B 覆盖 40%、9B/27B 覆盖 65%，无 CoT 时全部只有 25%——即使最好的情况也仍有约 1/3 动作空间从未被触及。
-- 在多种 in-context 措施中，**初始 try-all 的改善最大**；这说明模型拿到足够信息后更擅长利用，而自主获取信息是主要短板。
-- RL fine-tuning 能改善 2B/9B 的 regret，并使 2B coverage 增加约 12%，但仍未完全达到理想探索。
-- **CoT 对 RLFT 是 load-bearing 的**：原文 "without CoT, RLFT barely attains the performance of ICL with CoT"——这是**训练侧**结论。
-
-### 2.3 `When Greedy Wins`: Why OptFrac / Regret Are Insufficient
-
-该研究在 Qwen2.5 3B/7B 上比较 pretrain、SFT 与多种 RL：
-
-- 7B 能通过训练获得接近 UCB/Thompson sampling 的平均表现，并泛化到更长 horizon。
-- 3B 直接从环境 reward 学习较困难，但通过 UCB teacher 的 SFT/模仿学习可以明显改善。
-- 训练后的模型可能**更快进入 exploitation，也更容易发生早期灾难性错误**。
-- 最优臂选择率会变成双峰：一些 episode 几乎一直选择最优臂，另一些几乎永久放弃。
-- 因此论文额外使用：
-  - `GreedyFreq@t`：前 t 轮选择当前 greedy arm 的比例；
-  - `SuffixFail@t`：从某个时间点以后永久不再选择真正最优臂的 episode 比例。
-
-这与本项目完全同向：
-
-- D 的 α=+4 提高 coverage，但主要增加的是 non-novel switching，late adherence 明显下降。
-- 这不是“更好的 exploration”，而是更弱的 policy persistence。
-- 下一版分析应增加 GreedyFreq / SuffixFail，避免把高 coverage 或偶然高 OptFrac 误写成学习。
-
-### 2.4 `Should You Use Your LLM to Explore or Exploit?`: Capabilities Must Be Tested Separately
-
-该研究测试 GPT-5-nano、GPT-4、GPT-4o、GPT-3.5、Qwen-2.5、Gemma-3、Mistral-7B 与 DeepSeek-R1-Distill-Qwen（reasoning model）。它不要求 LLM 一次完成完整 Bandit policy，而是分别测试：
-
-- exploitation oracle：给定历史，选择当前最优 action；
-- exploration oracle：在大而有语义的 action space 中提出值得尝试的候选。
-
-核心结论是：
-
-- LLM 在小型、数值化 exploitation task 上可以有一定表现；
-- reasoning model 在 exploitation 上相对占优，但**所有被测 LLM 配置（含 tool use / summarization mitigation）仍全面弱于一个简单线性回归 baseline**，且推理模型太慢/太贵；
-- succinct summary 和工具会改善结果，但仍常不如简单 regression；
-- LLM 更适合在大而有语义的空间中提出 exploration candidates，而不是替代完整 Bandit 算法。
-
-对当前 K=5 boutique task 而言，臂名只是任意标签，不存在可利用的语义 action space。因此“LLM 擅长语义探索”并不能帮助当前任务；真正可借鉴的是**分离 discovery 与 utilization**。
-
-## 3. Dopamine Literatur
+### Dopamine
 - **Dopamine.sa2026.Dopamine depletion in Parkinson’s increases directed but not random exploration**
   - 研究范式：8×8空间相关的multi-armed bandit网格任务，共8轮×每轮25次点击。三组被试：PD off levodopa（PD−，n=34）、PD on levodopa（PD+，n=34）、年龄匹配的polyneuropathy对照组（n=35，无中枢多巴胺系统受累）。网格奖励空间平滑分布（由Gaussian process生成），因此高效搜索需要跨邻近tile做generalization，而不只是逐个追踪选项价值。
   - PD−患者获得reward明显更少，学习曲线几乎平坦，exploitation比例极低（~3% vs PD+ 16% / Control 26%）且不随trial推进而上升，缺乏正常的explore→exploit转换；PD+表现接近控制组，levodopa几乎完全恢复了performance；PD−的search distance对上一次reward大小不敏感（拿到高reward不会就近搜索，拿到低reward也不会跑远）——说明没有利用网格的空间结构。
@@ -347,7 +297,7 @@ few-shot / fine-tuning 或显式算法支持，而不是一句泛化的“think 
   - 多巴胺耗竭并不会让选择变得更"随机/noisy"——而是特异性地过度赋予"不确定性本身"以价值（novelty-seeking失控），同时削弱利用结构的能力；levodopa能使之正常化。这与此前"levodopa在健康人中反而降低directed exploration"的发现方向相反、机制一致，提示dopamine对β的效应可能是跨越"耗竭→过量"整个谱系的倒U型。
   - Some metrics in Figure2：learning curve； exploitation 比例；exploit 随 trial 演变；连续点击的空间距离分布；search distance 对上一次 reward 的敏感度
 
-## 4. Result
+## 3. Result
 
 PV9 六格在线扫描（Easy × NearTie，`rationale_alpha ∈ {−4, 0, +4}`，`action_alpha=0`），每格 20 seeds × 100 rounds。
 数据源 `analyze_bandit_pv9.py`（冻结分析器，`--part all`）。统计单位固定为 **seed（n=20）**，同环境内按 seed 配对（共用冻结 bank 与 reward tape），paired Wilcoxon + seed-cluster bootstrap 95% CI；pooled round 计数仅作描述。`*` = raw p<.05。
@@ -359,7 +309,7 @@ PV9 六格在线扫描（Easy × NearTie，`rationale_alpha ∈ {−4, 0, +4}`�
 - NearTie `competence_eligible=False`，其 gate 输出仅为 diagnostic。
 - host 未记录于 JSON，标记为 `pending`。
 
-### 4.0 Validity
+### 3.0 Validity
 
 | 项目 | Easy | NearTie |
 |---|---|---|
@@ -389,7 +339,7 @@ PV9 六格在线扫描（Easy × NearTie，`rationale_alpha ∈ {−4, 0, +4}`�
 | Easy | −4 / 0 / +4 | .793 / .783 / .798 | .114 / .127 / .144 | .093 / .090 / .058 |
 | NearTie | −4 / 0 / +4 | .759 / .821 / .870 | .129 / .114 / .085 | .113 / .066 / .045 |
 
-### 4.1 Discovery（cue-scaffolded）
+### 3.1 Discovery（cue-scaffolded）
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
@@ -437,7 +387,7 @@ pooled（分母为 eligible states）
 
 即：有 1944 次可以复查“一次失败 arm”的机会，模型只有 8 次真的回去尝试。 -> 某个 arm 只被选择过一次，而且这次 reward=0 后，模型几乎不会再选择它。-> 模型很容易把一次负反馈当成充分证据，随后长期忽略该 arm。
 
-### 4.2 Directed exploration（PRIMARY）
+### 3.2 Directed exploration（PRIMARY）
 
 **4.2.1 `policy_uncertainty_targeting_rate`（BAND）**
 
@@ -579,7 +529,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 > +4 可能增强了对既有目标的坚持，使模型在该臂因短期噪声暂时失去经验第一名时，仍继续选择它。这是一种 resistance to empirical-greedy switching 或 correct persistence，而不是 information-seeking exploration。
 
-### 4.3 Precision / randomness（analogue）
+### 3.3 Precision / randomness（analogue）
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
@@ -647,7 +597,7 @@ per-seed slope of margin on gap：−4 = +0.165，0 = +4.445，+4 = +0.658。
 还有一个值得注意的例子：在最小 gap `[0,.05)` 中，+4 的 margin 最高（4.82），但 greedy alignment 只有 `.87`，低于 α=0 的 `.97`。这说明“候选分布更尖锐”不等于“更准确地选择经验最优臂”；它可能只是对某个目标更加确信。
 > 最简结论： +4 的整体 margin 较高，但这种锐化没有随 value gap 系统变化。因此目前只能说它可能提高一般性的输出锐度，不能说它选择性增强了 near-tie 状态下的 decision precision。
 
-### 4.4 Utilization and specificity
+### 3.4 Utilization and specificity
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
@@ -770,7 +720,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 
 这是一个有趣的**文本层次级发现**，但不是探索行为证据，而且目前采用 pooled correlation 和词汇解析，适合作描述性结果，不宜作为主要 α 效应。
 
-### 4.5 Persistence and failure modes
+### 3.5 Persistence and failure modes
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
@@ -819,7 +769,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | 0 | .526 | .195 | .721 | .279 |
 | +4 | .514 | .266 | .781 | .219 |
 
-### 4.6 Text and language–behaviour dissociation
+### 3.6 Text and language–behaviour dissociation
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
@@ -864,7 +814,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | NearTie | −4 | 442 | .781 | .581 | .075 | .138 | .036 | .038 |
 | | +4 | 498 | .582 | .371 | .120 | .052 | .030 | .032 |
 
-### 4.7 Outcome
+### 3.7 Outcome
 
 | 指标 | 环境 | α=−4 | α=0 | α=+4 | p(−4) | p(+4) |
 |---|---|---|---|---|---|---|
@@ -920,7 +870,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 | | 0 | .390 | .455 | .425 | .520 | .460 | .520 | .485 | .495 | .460 | .475 | — | — |
 | | +4 | .420 | .455 | .480 | .520 | .495 | .540 | .480 | .505 | .460 | .480 | — | **NONE** |
 
-### 4.8 Primary readouts（Holm，单一 family，16 tests）
+### 3.8 Primary readouts（Holm，单一 family，16 tests）
 
 | # | 指标 | 环境 | α=−4 | α=0 | α=+4 | raw p(−4) | raw p(+4) | Holm adj |
 |---|---|---|---|---|---|---|---|---|
@@ -942,7 +892,7 @@ NearTie −4 仍有轻微反向校准：`ρ=+.057`，但比0和+4弱得多。
 
 因此，更新后的 primary 结论不是“所有指标均 null”，而是：**α 对政策标签与行为的一致性存在一个条件性效应，但定向探索的数量、uncertainty weighting、错误锁定与结果指标仍未显示可靠改善。**
 
-### 4.9 Environment dependence（DiD）
+### 3.9 Environment dependence（DiD）
 
 DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共有 n=20。DiD 为二阶差分，方差约为一阶的两倍；CI 含 0 记作 **未检出**。
 
@@ -1158,4 +1108,3 @@ Policy: COMMIT Button A
 6. Sun et al. (2025/2026). [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118).
 7. Lim et al. (2025). [TextBandit: Evaluating Probabilistic Reasoning in LLMs Through Language-Only Decision Tasks](https://arxiv.org/abs/2510.13878).
 8. Harris & Slivkins (2025/2026). [Should You Use Your Large Language Model to Explore or Exploit?](https://arxiv.org/abs/2502.00225).
-
