@@ -1071,6 +1071,23 @@ Policy: COMMIT Button X
 
 因此，PV10-A 对应 **pure exploration under a fixed budget**；PV10-B 对应 **active information sampling and optimal stopping**。建议先完成 A，再决定是否追加 B。
 
+**参照定义：fixed-confidence BAI 的标准 stopping rule**（算法侧参照，非模型侧规则）
+
+经典 fixed-confidence BAI（如 LUCB、Track-and-Stop）不预设采样预算，而是要求算法在有限步内以概率 `≥ 1−δ` 输出正确的最优臂：
+
+- **δ-correct**：停止时间 τ（随机）与输出 arm `k̂` 满足 `P(k̂ = k*) ≥ 1 − δ`，其中 `k*` 是真实最优臂。
+- **LUCB-style stopping rule**：每轮维护每个 arm 的置信区间 `[L_k(t), U_k(t)]`；令 `b(t) = argmax_k θ̂_k(t)`（当前经验最优臂），`c(t) = argmax_{k≠b(t)} U_k(t)`（除 b(t) 外置信上界最高的挑战者）。算法停止的条件是
+
+  \[
+  L_{b(t)}(t) \;>\; \max_{k \neq b(t)} U_k(t)
+  \]
+
+  即当前最优臂的置信下界已经高于所有其他 arm 的置信上界——不确定性区间不再重叠，才允许 commit。
+
+这套判据来自经典统计 BAI 文献（如 Kaufmann & Kalyanakrishnan 2013; Jamieson et al. 2014 的 LUCB；也是本节 §3 引用的 MIT 论文 `PP-LUCB` 用的框架），本质是把"何时停止采样"变成一个**可证明正确率**的条件，而不是靠固定 T_max 或人为设置的 λ·N_samples 惩罚项。
+
+**与 PV10-B 的关系**：PV10-B 目前设计是让模型自己输出 `SAMPLE` / `COMMIT`，停止决策是**模型的自主行为**，用 T_max 或采样成本 λ 只是防止"无限采样不用付出代价"这一退化解。上面这套 LUCB stopping rule 不是要模型学会计算置信区间，而是可以用作**算法侧的对照 baseline**——即用经典 δ-correct 判据跑一个"理性 agent 应该在什么时候停"的参照轨迹，再对比模型的实际 COMMIT 时机是过早（premature commitment）还是过晚（over-sampling）。这与 §4 已有的 GREEDY / ORACLE / RANDOM baseline 对照是同一思路的延伸。
+
 **Stage 2 可以取消**
 
 Stage 1 可以直接输出一个结构化决策：
