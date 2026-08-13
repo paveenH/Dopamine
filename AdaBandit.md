@@ -231,6 +231,33 @@ Evidence:
   - **Exploration oracle（第3节，Figure 6–8）**：反过来，只测"能否从巨大、语义丰富的动作空间里生成一组有代表性的候选臂"，不涉及利用——候选生成后交给标准算法（UCB1）实际跑 T 轮。三类任务：MovieLens 电影推荐、arXiv 论文标题推荐（Figure 6）、开放式"哲学"问答。核心发现：**LLM 生成的候选集显著优于"仅凭类别/无信息"的 baseline，证明其真正利用了输入的具体语义**；LLM 更适合扮演"智能离散化/缩小搜索空间"的角色，而非直接做决策。
   - **整体结论**：现阶段 LLM 在 exploitation（精确统计判断）上仍不如经典统计方法可靠，即便是前沿推理模型也需要昂贵的 mitigation 才能追平简单 baseline；但在 exploration（生成语义候选集）上表现稳健，是更值得信赖的用法。
 
+- **Bandit.nips2024.Krishnamurthy et al. Can Large Language Models Explore In-Context?**
+  - 系统研究"LLM 能否 in-context explore"的第一篇论文（Microsoft Research, NeurIPS 2024），与本项目 pv6–pv9 的设计路径高度重合，`SuffFailFreq` / `MinFrac` / bimodal 分析这套 surrogate statistics 就直接来自这篇。
+  - **任务**：纯文字 Bernoulli MAB，hard instance K=5/Δ=0.2（主实验）+ easy instance K=4/Δ=0.5（对照），T=100（主）/200/500（robustness check）。评测 GPT-3.5、GPT-4、Llama2，baseline 用 UCB 与 Thompson Sampling（TS）。
+    - **UCB**：给每个 arm 算"经验均值 + 不确定性 bonus `√(log T / n_a)`"，每轮选 index 最高的 arm；试的次数越少 bonus 越大，随试验增多逐渐收敛到真实最优臂——确定性、结构化的探索（optimism under uncertainty）。
+    - **TS**：给每个 arm 维护 Beta-Bernoulli 后验分布，每轮各抽一个样本、选样本值最大的 arm；不确定性越大后验越宽，越容易被抽中试探——探索通过随机采样方差自动实现。
+  - **Prompt 设计空间**：5 个独立二元开关、`2^5=32` 种组合（Figure 2 是一张自顶向下遍历生成 prompt 的决策图）：
+    1. **scenario**：buttons（按按钮）vs advertisements（选广告投放）——只是换故事包装，任务本质不变。
+    2. **framing**：neutral（中性描述规则）vs **suggestive**（明确提示"要平衡 exploration/exploitation"）。Adverts 场景下 suggestive framing 的具体写法："A good strategy to optimize for clicks in these situations requires balancing exploration and exploitation. **You need to explore to try out all of the options and find those with high click rates, but you also have to exploit the information that you have to accumulate clicks.**" Neutral 版本则只说 "You are in a room with 5 buttons labeled blue, green, red, yellow, purple. Each button is associated with a Bernoulli distribution..."，不含任何探索提示。
+    3. **history 呈现**：raw（逐轮列出 "green button, reward 1"）vs **summarized**（汇总成"每个 arm 试了几次、平均 reward 多少"）。
+    4. **输出形式**：return action（只输出一个 arm）vs return distribution over actions（输出跨 arm 概率分布）。
+    5. **CoT**：reply-only（直接给答案）vs chain-of-thought / **reinforced CoT**（GPT-4 只在 system prompt 提醒一次 CoT 不够稳定，需在 user prompt 末尾再提醒一次）。
+    - 用五字母编码命名配置，如 **BSSC̃0** = Buttons + Suggestive framing + Summarized history + reinforced CoT（C 上加波浪号）+ temperature 0；基础配置叫 **BNRN0**（Buttons + Neutral + Raw history + No CoT + temp 0）。
+  - **核心指标（surrogate statistics）**，用于在中等规模实验下就能可靠检测长期探索失败：
+    - **`SuffFailFreq(t)`**：`SuffFail(t,R) = 1` 当且仅当 replicate R 从时间步 t 到 T 这段"后缀"区间里**一次都没选过最优臂**；对所有 replicate 取平均即得 `SuffFailFreq(t)`。该曲线随 t 单调不减；早期快速爬升并趋平，意味着大部分 replicate 很早就永久放弃了最优臂——这是**不可逆的长期探索失败**（suffix failure）。
+    - **`K·MinFrac(t)`**：`MinFrac(t,R)` = 被选最少的那个 arm在 `[1,t]` 里的占比；乘以 K 归一化后，好算法应随 t 增大而单调下降（逐渐把预算集中到最优臂），若长期维持高位不降，说明模型一直近似均匀摇摆、从未真正收敛——**uniform-like failure**，与 suffix failure 是两种不同的病理，且互不蕴含（可以同时避开 suffix failure 却仍是 uniform-like failure，见下）。
+    - **`GreedyFrac`**：某配置的逐轮决策与纯 Greedy 算法重合的比例，用来判断"是不是几乎完全在模仿 Greedy"。
+  - `SuffFailFreq`、双峰 lock-correct/lock-wrong 计数、`K·MinFrac` 这套分析框架也应直接迁移到 PV10 的结果分析中。
+  - 文章的配置考量：
+    - 第一层（L1）— scenario：buttons scenario（按按钮）vs advertisements scenario（选广告投放）。这只是换个"故事包装"，任务本质相同（都是 5-arm Bernoulli bandit），用来检验结果是否对 framing 的具体措辞敏感。
+    - 第二层（L2）— framing：neutral framing（中性描述任务规则）vs suggestive framing（明确提示"要平衡 exploration 和 exploitation"，就是我们上一条讨论的那句话）。
+    - 中间的固定层：MAB problem description（不是开关，是所有配置共享的固定说明——arm 的 Bernoulli 分布、时间步数、目标）。
+    - 第三层（L3）— history 呈现方式：raw history（逐轮列出 "green button, reward 1"）vs summarized history（汇总成"每个 arm 试了几次、平均 reward 多少"）。
+    - 第四层（L4，图里标"return"）— 输出形式：return action（只输出一个 arm）vs return distribution over actions（输出一个跨 arm 的概率分布，格式类似 "blue:a,green:b,..."）。
+    - 第五层（L5，图里标"final prompt"）— 是否 CoT：reply-only（直接给答案，不解释）vs chain-of-thought（先"let's think step by step"再给答案）。
+  - 唯一成功：BSSC̃0 = Buttons 场景 + Suggestive framing + Summarized history + Reinforced CoT + temperature 0（GPT-4）
+
+
 ### 2.1 `EVOLvE`: Direct Source of the Current Design, and Its Boundaries
 
 EVOLvE 在 BanditBench 中系统评估 context-free MAB 与 contextual bandit。MAB 同时改变
