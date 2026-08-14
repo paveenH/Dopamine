@@ -126,7 +126,19 @@ def load_cell(result_dir: Path) -> list[dict]:
     episodes: list[dict] = []
     for f in files:
         data = json.loads(f.read_text())
-        episodes.extend(data if isinstance(data, list) else data.get("episodes", [data]))
+        if isinstance(data, list):
+            episodes.extend(data)
+            continue
+        # The driver writes episodes under "runs". An earlier build read
+        # "episodes" and fell back to [data], which wrapped the WHOLE payload
+        # as a single pseudo-episode: the gate then read n=1 with every
+        # criterion degenerate instead of erroring. Fail closed instead.
+        if "runs" not in data:
+            raise SystemExit(
+                f"{f} has no 'runs' key. PV10 cells are written by "
+                f"run_bandit_pv10_episodes.py, which stores episodes under "
+                f"'runs'; refusing to guess at the schema.")
+        episodes.extend(data["runs"])
     return episodes
 
 
