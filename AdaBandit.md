@@ -329,7 +329,7 @@ Evidence:
   - BAI 的标准 outcome 是最终 $e_n$ 或 final simple regret，而不是 `late_opt_frac` 等轨迹行为指标。因此 PV10 应把“最终推荐是否正确”作为独立主结果，同时保留**采样轨迹来分析**证据如何分配。
   - **icml2013.Almost Optimal Exploration in Multi-Armed Bandits**——colt2010 的后续理论优化工作，把 SR/UCB-E 的误差再压低一些，提出的新算法 Sequential Halving 比 SR 更简单也更稳，是比 SR 更好的 fixed-budget baseline 候选。
 
-- **Bandit.BAI.iclr2026.In-Context Learning for Pure Exploration**
+- **Bandit.BAI.iclr-workshop2026.In-Context Learning for Pure Exploration**
   - 在一族任务上专门训练小型 Transformer agent。
   - 论文将 pure exploration 统一表述为 **Active Sequential Hypothesis Testing**：目标不是最大化累计 reward，而是主动选择 query、收集信息，最终识别真实 hypothesis。
     - 在 **BAI** 中，query 是“采哪个 arm”，hypothesis 是“哪个 arm 最优”。
@@ -460,7 +460,7 @@ pooled（分母为 eligible states）
 
 ### 3.2 Directed exploration（PRIMARY）
 
-**4.2.1 `policy_uncertainty_targeting_rate`（BAND）**
+**3.2.1 `policy_uncertainty_targeting_rate`（BAND）**
 
 | 口径 | 环境 | α=−4 | α=0 | α=+4 |
 |---|---|---|---|---|
@@ -500,7 +500,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 >通常采样次数越多，posterior variance 越小。因此“选择 posterior variance 最大的 arm”表示模型选择当前证据最少、估计最不确定的选项。需要注意：这个 variance 是**分析阶段根据完整 action–reward history 计算的**，并没有在 prompt 中直接告诉模型。在 PV9 里它与 arm 的采样次数高度相关，所以该指标更准确地衡量“低样本量／高不确定性 targeting”，不能声称已经把纯粹的不确定性偏好与低样本量偏好完全分开。
 
-**4.2.2 `policy_weighting_model`：`α × low-n/uncertainty`（`b_information`）**
+**3.2.2 `policy_weighting_model`：`α × low-n/uncertainty`（`b_information`）**
 
 主参数化 `w = 1/√n`
 
@@ -556,7 +556,7 @@ Posterior variance 是：`Var(p_i) = ab / [(a + b)^2 (a + b + 1)]`
 
 >需要注意，posterior SD 的数值尺度与 `1/√n` 不同，因此两张表的系数大小不能直接比较；它又与采样次数高度相关，所以 NearTie 的负系数更适合作为模型表现出的回避不确定性，而不是一个完全独立的机制参数。
 
-**4.2.3 low-n targeting（r≥6，全臂已试，pooled）**
+**3.2.3 low-n targeting（r≥6，全臂已试，pooled）**
 
 | 环境 | α=−4 | α=0 | α=+4 |
 |---|---|---|---|
@@ -1032,43 +1032,88 @@ PV10 将目标改为：经过 100 轮采样后，正确识别 reward probability
 
 #### Experimental Design
 
-实验分为两个明确阶段：
+实验分为两个明确阶段：**fixed-budget evidence acquisition** 与
+**final identification**。主实验为 PV10-A；自主停止的 PV10-B 暂不与主实验同时开启。
 
 ```text
 Exploration phase:
-You have 100 trials to gather evidence. Rewards during these trials do not
-directly determine your score.
+You have a fixed budget of 100 samples. Sampling rewards are observations,
+not points. Use them to identify the button with the highest reward probability.
 
 Final decision:
 After 100 trials, select the button with the highest unknown reward
 probability. You receive one final score for identifying it correctly.
 ```
 
-最小实验配置：
+主实验配置：
 
-- Bernoulli reward probabilities：`[0.60, 0.50, 0.40, 0.30]`
+- Bernoulli reward probabilities 候选：`[0.60, 0.50, 0.40, 0.30]`。在模型生成前，先用
+  Uniform / Greedy / Sequential Halving / TTPS 的离线模拟确认该环境不处于全员天花板或全员机会水平；
+  随后冻结 probabilities 与 horizon，不根据 α 效果调整难度。
 - α：`−4 / 0 / +4`
-- 20 个配对 seeds，arm labels 随机排列
-- 100 个 evidence-gathering rounds
-- 最后独立输出 `FINAL: Button X`
+- 首批正式实验使用 20 个配对 seeds，arm labels 随机排列。不另设 smoke cell。
+- 总预算为 100 次采样：开始时由环境对每个 arm 强制采样一次，剩余 96 次由模型自适应分配。
+  四次初始化的展示顺序按 seed 随机化，并在三个 α cells 中保持一致，避免固定 A→B→C→D 形成顺序提示。
+  这将主问题限定为“获得最小初始证据后如何分配信息预算”；从全零历史开始的 native discovery
+  可作为未来 diagnostic，不与主实验混合。
+- 第 100 次采样后，使用独立、unsteered 的 constrained final stage 输出 `FINAL: Button X`。
 - 不提供真实 reward probabilities
 - 不累积中间 task score
 - 不提供额外 exploration cue
-- α 仅作用于 Stage 1，Stage 2 保持 unsteered
+- α 仅作用于 Stage 1 rationale / policy formation；每轮 Stage 2 与最终 identification stage 均保持 unsteered。
+- 三个 α cells 共用 seed、arm mapping 与 arm-specific reward tapes。即同一 seed 中，对同一 arm 的第
+  `j` 次采样读取同一个预先生成的 reward；不同 α 可因行为不同而观测到不同轨迹。
+
+20 seeds 是首个冻结的正式 tranche，之后可在**协议、模型、环境与 seed 生成规则均不变**的前提下
+追加 seeds。扩样不应以“继续加到显著”为停止规则；N=20 结果与扩样后结果分别报告，并对全部
+paired seeds 统一重算。
 
 #### Primary Metrics
 
-1. 最终最优臂识别率  
-2. Posterior-uncertainty-max targeting rate  
-3. 各 arm 的采样分配与最低采样数  
-4. Premature commitment：过早集中选择当前 empirical-best arm  
+PV10 区分 **outcome**、**evidence quality** 与 **acquisition behaviour**：
+
+1. **Final identification**：最终推荐是否为真实 best arm（binary correctness），并报告 final simple regret。
+2. **Evidence quality**：根据每条轨迹的 Bernoulli observations 离线计算真实 best arm 的 posterior
+   probability / posterior error probability。该 posterior 是分析模型，不表示 LLM 内部实现了 Bayesian inference。
+3. **Acquisition quality**：模型是否将采样分配给仍可能成为 best 的 leader / challenger；主要读数为
+   top-two-candidate targeting 与 chosen-arm expected-information-gain relative to the best available query。
+
+次级轨迹指标包括各 arm 的采样数、MinFrac、allocation concentration、switching 与 run length。
+`posterior-variance-max targeting` 保留为 sensitivity / descriptive readout，不单独定义 BAI 中的合理探索：
+方差最大的 arm 可能已明显不是 best candidate，继续采样它未必能有效区分 leader 与 challenger。
+
+**Premature commitment** 也不等同于单纯的集中采样。只有在另一个 challenger 仍有不可忽略的
+`P(best)` 或 leader–challenger 证据仍明显重叠时，模型却持续将预算集中于单一 arm，才记为
+evidence-inconsistent concentration。HHI、最长 run 与 MinFrac 只能作为其描述性组件。
+
+#### Minimum Capability / Interpretability Check
+
+PV10 的目的不是证明模型完美掌握 BAI，也不要求 α=0 超越所有经典算法后才允许分析 RSN。
+该检查只排除“任务对模型完全不可执行”的情况，使 α 差异仍可解释为 BAI 语境中的行为变化。最低检查包括：
+
+- sample action 与 final recommendation 的结构化输出基本有效；
+- 行为不是完全固定在某一 label / display position；
+- 最终推荐或采样分配显示出对 action–reward evidence 的一定敏感性；
+- 整体行为不处于完全随机、完全不解析或单一 label lock 的退化状态。
+
+Uniform、Greedy、Sequential Halving 与 TTPS 用于定位模型行为与任务难度，不构成必须逐项通过的
+competence gate。若模型只表现出有限但可辨识的 BAI 能力，仍可作为 RSN 行为调制实验；结论应依据
+baseline 的实际能力范围限定，而不将 α 效应写成 BAI capability improvement。
+
+#### Statistical Unit and Reporting
+
+- seed 是推断单位；round-level observations 不作为独立样本。
+- α 对比使用 paired-seed effects 与 confidence intervals；多个 primary contrasts 在一个预先声明的 family 内校正。
+- N=20 时 binary final accuracy 的功效有限，因此同时报告 effect size、paired discordance 与连续的 evidence-quality /
+  acquisition-quality 读数；不把单一 `p>.05` 解释为没有行为影响。
 
 #### Interpretation
 
 PV10 是对 PV9 的机制诊断，而不是为了寻找显著结果：
 
-- 若 α 仍不改变 uncertainty targeting，说明 α 可能不是 directed-exploration controller。
-- 若 +α 增加定向采样并提高识别率，支持 **goal-dependent wanting**。
+- 若 α 仍不改变 ambiguity-directed acquisition，说明 α 可能不是 directed-exploration controller。
+- 若 +α 增加有效信息采样并提高 evidence quality / final identification，支持 **goal-dependent information investment**；
+  若只改变表述或分配形状而不改变证据质量，则不足以支持该解释。
 - 若 +α 造成更早锁定且表现不升，支持 **commitment/persistence account**。
 
 PV9 测量的是是否愿意牺牲即时奖励购买信息；PV10 测量的是为了最终识别目标如何分配采样资源。二者结合可以判断 α 的作用是否取决于任务的 **goal framing**。
@@ -1076,26 +1121,32 @@ PV9 测量的是是否愿意牺牲即时奖励购买信息；PV10 测量的是�
 ### 4.2 Design
 #### PV10-A: Fixed-budget Sampling
 
-模型获得固定的采样预算，例如 100 次；采样结束后必须选择最佳 arm。
+模型获得 100 次固定采样预算；前 4 次由环境对每个 arm 各采样一次，模型分配其余 96 次，
+采样结束后必须选择最佳 arm。
 
 ```text
-Rounds 1–100:
+Initial observations (4 samples):
+one observation from each button
+
+Adaptive rounds (96 samples):
 SAMPLE Button X
 
-After Round 100:
+After all 100 samples:
 FINAL: Button X
 ```
 
 它主要测量：
 
 - 如何在 arms 之间分配有限样本；
-- 是否偏向高不确定性或 top-two candidate arms；
-- 是否过早集中于当前领先 arm；
+- 是否将样本分配给仍难以区分的 leader / challenger；
+- 是否出现 evidence-inconsistent concentration；
 - 最终 best-arm identification accuracy。
 
-这个版本最干净，适合先跑，因为所有 α 条件拥有相同信息预算。
+这是 PV10 当前唯一的主实验：所有 α 条件拥有相同预算、配对 reward tapes 与相同的最小初始证据。
 
 #### PV10-B: Self-paced Sampling and Commitment
+
+**Deferred extension，不与 PV10-A 首批正式实验同时运行。**
 
 模型每轮可以继续采样，也可以随时做最终承诺：
 
@@ -1146,25 +1197,22 @@ Policy: COMMIT Button X
 
 **与 PV10-B 的关系**：PV10-B 目前设计是让模型自己输出 `SAMPLE` / `COMMIT`，停止决策是**模型的自主行为**，用 T_max 或采样成本 λ 只是防止"无限采样不用付出代价"这一退化解。上面这套 LUCB stopping rule 不是要模型学会计算置信区间，而是可以用作**算法侧的对照 baseline**——即用经典 δ-correct 判据跑一个"理性 agent 应该在什么时候停"的参照轨迹，再对比模型的实际 COMMIT 时机是过早（premature commitment）还是过晚（over-sampling）。这与 §4 已有的 GREEDY / ORACLE / RANDOM baseline 对照是同一思路的延伸。
 
-**Stage 2 可以取消**
+**Stage 2 保留为主协议的 executor-isolation layer**
 
-Stage 1 可以直接输出一个结构化决策：
+Stage 1 输出结构化政策：
 
 ```text
 Evidence: ...
 Policy: SAMPLE Button C
 ```
 
-或：
+Stage 2 沿用 unsteered constrained candidate scoring 执行该 policy，并保留
+`policy_target` / `action` / `action_follows_policy` 的分离记录。这样可区分 α 改变了 acquisition policy，
+还是只改变 executor fidelity；也保持与 PV9 的干预位置可比。
 
-```text
-Evidence: ...
-Policy: COMMIT Button A
-```
-
-然后由 code parser 直接执行。
-
-这样测到的是 α 对 `SAMPLE/COMMIT` 决策本身的影响，而不是“Stage 1 先说、Stage 2 再执行”的文本传导。若保留 Stage 2，它更适合作为独立的 executor-fidelity control，不应成为主任务必需环节。
+全部 100 次采样结束后，另建 unsteered final-identification prompt，使用完整证据对 A–D 做 constrained scoring。
+因此主实验中 α 直接操纵的是逐轮信息获取政策，最终识别只通过已改变的证据轨迹间接受影响。
+直接由 parser 执行 Stage-1 policy 可作为未来 ablation，不是 PV10-A 主协议。
 
 ## References
 
