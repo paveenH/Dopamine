@@ -1,7 +1,6 @@
 
 ## TODO
-1. 改变模型的策略，从max score变成找到最优臂 -> PV10；
-3. steering的位置也需要重新考虑？
+1. 改变模型的策略，从max score变成找到最优臂 -> PV10；[doing pv10b]
 4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Meta 新模型
