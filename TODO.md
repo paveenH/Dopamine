@@ -1,11 +1,13 @@
 
-
 ## TODO
-1. 改变模型的策略，从max score变成找到最优臂 -> PV10
-2. 整理一个版本的PV9的结果
+1. 改变模型的策略，从max score变成找到最优臂 -> PV10；
 3. steering的位置也需要重新考虑？
 4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
+6. Meta 新模型
+GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
+https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
+Inkling-Small
 
 ## TODO — ACL ARR
 
