@@ -269,7 +269,7 @@ Evidence:
   - 因此，较低 regret 或较高 exploitation rate 不足以证明 LLM 具备有效 directed exploration；仍需直接检查其是否会因不确定性而重新采样信息不足的 arm。
 
 ### Mluti-Arm Bandit Human
-- **[Bandit.Human.jepg2014.Humans Use Directed and Random Exploration to Solve the Explore–Exploit Dilemma](https://pmc.ncbi.nlm.nih.gov/articles/PMC5635655/)**
+- **Bandit.Human.jepg2014.Humans Use Directed and Random Exploration to Solve the Explore–Exploit Dilemma**
   - 提出 **Horizon Task**，核心目的是解决自由选择 Bandit 中的 **reward–information confound**：reward 看起来较高的 arm 会被更多选择，也因此自然累积更多观察；所以仅从自然轨迹无法判断某次选择是因即时 reward，还是因 arm 的信息价值／不确定性。
   - 任务为 2-arm、平稳 Gaussian Bandit。每局先进行 4 次 forced-choice trials，由实验者控制两臂的既有信息量：
     - `[1,3]`：一臂仅观察 1 次，另一臂观察 3 次；前者信息较少、较不确定。
@@ -277,13 +277,88 @@ Evidence:
   - 随后才进行第一次自由选择，并操纵 horizon：后续只剩 **1** 次自由选择，或还剩 **6** 次。长 horizon 下，新获得的信息有更多未来利用价值，因此理应更值得探索。
   - 由于信息量由 forced choices 预先指定，且与两臂已观察到的平均 reward 解耦，第一次自由选择能较干净地区分探索机制。
   - 作者以 logistic choice model 拟合该次选择：
-    \[
+    $$
     Q_a = R_a + \alpha I_a + B s_a
-    \]
-    其中 \(R_a\) 是观察到的 reward 估计、\(I_a\) 是信息量、\(B s_a\) 控制左右位置偏好；choice noise \(\sigma_d\) 则决定选择的随机性。
-    - \(\alpha\)：information bonus；长 horizon 时若更偏向信息较少／更不确定的 arm，表示 **directed exploration** 增加。
-    - \(\sigma_d\)：decision noise；长 horizon 时若选择更不完全由当前 reward 差异决定，表示 **random exploration** 增加。
-  - 核心发现：horizon 较长时，人类的 \(\alpha\) 与 \(\sigma_d\) 都提高——人类会同时增加信息导向探索与随机探索，并根据“信息是否还能在未来带来收益”调节两者。
+    $$
+    其中 $R_a$ 是观察到的 reward 估计、$I_a$ 是信息量、$B s_a$ 控制左右位置偏好；choice noise $\sigma_d$ 则决定选择的随机性。
+    - $\alpha$：information bonus；长 horizon 时若更偏向信息较少／更不确定的 arm，表示 **directed exploration** 增加。
+    - $\sigma_d$：decision noise；长 horizon 时若选择更不完全由当前 reward 差异决定，表示 **random exploration** 增加。
+  - 核心发现：horizon 较长时，人类的 $\alpha$ 与 $\sigma_d$ 都提高——人类会同时增加信息导向探索与随机探索，并根据"信息是否还能在未来带来收益"调节两者。
+
+- **Bandit.Human.cignition2018.Deconstructing the human algorithms for exploration**
+  - 核心启示：必须区分「定向信息寻求」与「随机扰动」；不能把更多 switching、非 greedy 选择或较高 entropy 直接称为探索。
+  - 人类行为最符合 **directed exploration + random exploration 的混合策略**：
+    - **Directed exploration（以 UCB 为代表）**：对相对更不确定的 arm 加入 information bonus。因此，不确定性会改变选择曲线的偏置（bias / intercept）：即使两臂预期收益相同，人也更偏向选择较不确定的 arm。
+    - **Random exploration（以 Thompson sampling 为代表）**：从价值后验中随机采样。因此，总不确定性会改变选择曲线的斜率（slope）：整体越不确定，当前 value 差异对选择的约束越弱，选择越随机。
+  - 两个 2-arm、平稳 Gaussian bandit 实验；每位被试完成 20 个 block，每个 block 10 轮：
+    - **Experiment 1**：一个 arm 恒定回报 0，另一个 arm 的平均回报未知且有噪声；用于制造相对不确定性差异。
+    - **Experiment 2**：两个 arm 都是随机回报、初始不确定性相等；用于检验整体不确定性对随机性的作用。
+  - 作者以 Kalman filter 估计每轮的价值差异 $V$、相对不确定性 $RU$ 与总不确定性 $TU$，并拟合：
+    $$
+    P(\text{choose arm 1}) = \Phi(w_1 V + w_2 RU + w_3 V/TU)
+    $$
+    - $V$：两臂当前估计 value 的差异
+    - $RU$：relative uncertainty
+    - $TU$：total uncertainty
+    - $\Phi$：probit 函数（把线性分数转成 0–1 的选择概率）
+    - Hybrid model（同时包含两种机制）优于纯 UCB、纯 Thompson sampling 与只看 value 的模型。
+  - **Human 结论**：人类既会因某一 arm 相对更未知而定向地选择它，也会在整体都不确定时提高选择随机性；两者是可区分、但会共同出现的探索机制。
+
+- **Bandit.Human.nhb2018.Generalization guides human exploration in vast decision spaces**
+  - 与前两篇（K=2 臂）不同，这篇处理的是**大规模、空间相关**的决策空间：1D 30 臂 / 2D 121 臂（11×11）网格，每个格子的 reward 在空间上是相关的（"rough" vs "smooth" 环境，由 RBF kernel 的 length-scale λ 控制相关强度）——相邻选项 reward 相似，观察一个选项能推断附近选项的价值，这正是 generalization 在探索中的作用。同时操纵 accumulation（累积收益）vs maximization（找全局最大）目标，以及 short/long search horizon。
+  - 核心模型对比：
+    - **Option learning**：把每个选项当独立个体学习（类似 Kalman filter，等价于前两篇论文的建模方式），不做跨选项泛化。
+    - **Function learning**：用 Gaussian Process regression 对整个 reward 空间拟合一个连续函数，可泛化到未观测的选项，给出预测均值 $m(x)$ 和不确定性 $s(x)$。
+    - 两者都配合 UCB 采样：$UCB(x)=m(x)+\beta s(x)$（$\beta$=directed exploration bonus），再过 softmax 选择（温度 $\tau$=undirected/noisy exploration）。
+  - 三个实验（1D、2D、以及基于真实农业产量数据的自然环境）一致显示：**function learning + UCB 模型远胜 option learning**（后者学习速度太慢，无法解释人类在大空间下的快速学习/泛化），且用交叉验证预测准确率和贝叶斯模型比较（PXP≈0.98–1）确认。
+  - 人类存在系统性的空间相关程度低估（undergeneralization）倾向（估计的 λ 显著低于环境真实值），但模拟显示这种低估在很多环境下反而带来更好的搜索表现——undergeneralization 未必是缺陷，可能是一种有用的启发式偏置。
+  - 同样恢复出可分离、可辨识的 β（directed exploration）与 τ（undirected exploration）参数，呼应前两篇 directed vs random 两分的框架，但这里是在更大、结构化的空间上验证。
+  - **跟 PV10 的相关性**：(1) 提供了 K 很大且带结构（可泛化）的任务设计模板，可用于扩展 PV9 目前较小的 Easy(K=4)/Hard(K=5) 环境；(2) function learning vs option learning 的模型对比框架，可直接套用于检验 LLM 探索时是否在利用 arm 间的结构相似性做泛化，还是把每个 arm 当独立处理；(3) undergeneralization-can-be-adaptive 的结论提醒：若未来测 LLM 在结构化空间下的泛化强度，"泛化程度与最优不一致"不能直接等同于缺陷。
+
+### Best Arm Identificatio
+
+- **Bandit.BAI.colt2010.Best Arm Identification in Multi-Armed Bandits**
+  - 正式定义了 pure exploration / BAI 问题（Fig. 1）：Bandit 分为固定预算的探索阶段与最终推荐阶段。探索过程不以**累计 regret**评价，但每次采样仍消耗有限预算 $n$；最终只评估推荐臂 $J_n$ 是否为真实最优臂，即误判率 $e_n = \Pr(J_n \neq i^*)$。这正是 PV10 从 reward-maximizing 转向 BAI 的正式定义来源。
+  - 论文以两个 gap-based 指标形式化任务难度：
+    $H_1 = \sum_{i=1}^{K} 1/\Delta_i^2$
+    
+    $H_2 = \max_i i\Delta_{(i)}^{-2}$
+    
+    其中 $\Delta_i$ 是最佳臂与 arm $i$ 的平均 reward 差距，$\Delta_{(i)}$ 按 gap 排序。两者至多相差一个 $\log K$ 因子：gap 越小、接近最佳的竞争 arm 越多，$H_1/H_2$ 越大，识别最佳臂所需的样本预算也越高。
+  - 这为 PV9 的 Easy、Hard、NearTie 环境提供了形式化依据：NearTie 比 Easy 难，不是因为 arm 更多，而是最佳臂与 challenger 的 $\Delta$ 更小，因此 $H_1/H_2$ 更高。
+  - **UCB-E**：每轮选择 `经验均值 + 探索 bonus` 最高的 arm。它需要比传统、以累计 regret 为目标的 UCB 更强的探索：其参数 $a$ 应在 $n/H_1$ 量级，而非 $\log n$。这说明 BAI 的目标本身要求持续收集区分最佳臂所需的证据；但这只是与 PV9 的 explore-stance 变化在任务直觉上相呼应，不能据此把 α 的语气效应直接解释为有效 BAI 探索。
+  - UCB-E 在已知任务难度时可取得接近最优的误判率下降；但所需参数依赖不可观测的 $H_1$，实践中难以准确调节。
+  - **SR（Successive Rejects）**：无参数算法，共分 $K-1$ 个 phase。每个 phase 对尚未淘汰的 arm 均匀补样，再剔除当前经验均值最低的 arm；最后存活者即最终推荐臂。其误判率只比理论最优多一个约 $\log K$ 的因子。
+  - **Adaptive UCB-E**：在线估计任务难度并调整 UCB-E 参数；实验表现优于 SR，但作者未给出与 SR 同等级的理论保证。
+  - BAI 的标准 outcome 是最终 $e_n$ 或 final simple regret，而不是 `late_opt_frac` 等轨迹行为指标。因此 PV10 应把“最终推荐是否正确”作为独立主结果，同时保留采样轨迹来分析证据如何分配。
+  - SR 可作为 PV10 的候选 algorithmic baseline，与现有 Greedy / Random / Oracle 基线并列；它尤其适合衡量 LLM 是否会像一个纯探索算法那样，逐步排除明显较差的 arm，并把后期预算留给真正接近的竞争者。
+
+- **Bandit.BAI.iclr2026.In-Context Learning for Pure Exploration**
+  - 在一族任务上专门训练小型 Transformer agent。
+  - 论文将 pure exploration 统一表述为 **Active Sequential Hypothesis Testing**：目标不是最大化累计 reward，而是主动选择 query、收集信息，最终识别真实 hypothesis。
+    - 在 **BAI** 中，query 是“采哪个 arm”，hypothesis 是“哪个 arm 最优”。
+    - 在一般搜索任务中，两者可以不同：MNIST 中 query 是揭开哪个 patch，hypothesis 是图片类别。
+  - **ICPE（In-Context Pure Explorer）**：在大量同类 Bandit／搜索任务上进行 meta-training；测试新任务时不更新参数，只读取该任务不断累积的 trajectory，并依此决定下一次 query 和最终答案。
+  - **两种 pure-exploration 设定**
+    - **Fixed-budget**：给定 $N$ 次采样，最大化最终识别正确率 $P(\hat H_N=H^*)$。
+    - **Fixed-confidence**：要求正确率达到 $1-\delta$，并尽快停止。
+  - **主要实验**
+    - **Stochastic BAI**：在 Gaussian Bandit 中比较 ICPE、Track-and-Stop（TaS）、TTPS、Uniform 与 I-DPT。
+    - **Deterministic Bandit**：预算 $N=K$ 时，最优策略是每个 arm 恰好采一次。ICPE 未被显式写入该规则，却学到近乎完整的 unique-action coverage 与接近 100% 的最终识别正确率。
+    - **Magic action / magic chain**：某个确定不是最佳的 action，其观测却编码最佳 arm 的身份。ICPE 学会采这种诊断性 action，并沿信息链继续查询；说明它可利用跨 action 的隐藏信息结构，而不只是追踪各 arm 自己的 reward／variance。
+    - **MNIST patch sampling 与 binary search**：属于一般 sequential hypothesis testing，而非标准 BAI。前者学会依图片线索选择有区分力的 patch；后者学出接近最优的二分搜索，最坏 stopping time 与 $\log_2 K$ 对齐。
+  - **指标**
+    - **Average stopping time $\tau$**：平均采样多少步后停止；越低越省样本，但必须结合 correctness 解读。
+    - **Survival function of $\tau$**：$\Pr(\tau>t)$，到第 $t$ 步仍未停止的比例；用于检查是否有难以收敛的长尾任务。
+    - **Correctness**：$P(\hat H_\tau=H^*)$ 或 $P(\hat H_N=H^*)$；最终识别是否正确，是 pure exploration 的主要 outcome。
+    - **Fraction of unique actions**：deterministic Bandit 的 coverage 指标；衡量是否浪费预算重复采已知 arm。
+  - **Baselines**
+    - **Uniform**：每轮均匀随机选择 action；无学习，可能重复采样。
+    - **TaS（Track-and-Stop）**：经典 fixed-confidence BAI 方法；理论保证强，但较保守。
+    - **TTPS（Top-Two Posterior Sampling）**：围绕最可混淆候选分配样本的 BAI 方法。
+    - **DQN**：经典深度强化学习 baseline，将历史作为 state 直接学习。
+    - **I-DPT**：保留 learned inference posterior，但行动时仅对 posterior 贪婪选择、没有专门学习 acquisition policy；较大 $K$ 时可能“停止较快但 correctness 不达标”。
+    - **I-IDS**：在 magic-action 任务中，以 ICPE 的 inference 为基础再使用 IDS 选 action；用于检验仅有推断能力是否足以处理隐藏信息结构。
 
 
 ### Dopamine
