@@ -320,18 +320,14 @@ Evidence:
 - **Bandit.BAI.colt2010.Best Arm Identification in Multi-Armed Bandits**
   - 正式定义了 pure exploration / BAI 问题（Fig. 1）：Bandit 分为固定预算的探索阶段与最终推荐阶段。探索过程不以**累计 regret**评价，但每次采样仍消耗有限预算 $n$；最终只评估推荐臂 $J_n$ 是否为真实最优臂，即误判率 $e_n = \Pr(J_n \neq i^*)$。这正是 PV10 从 reward-maximizing 转向 BAI 的正式定义来源。
   - 论文以两个 gap-based 指标形式化任务难度：
-    $H_1 = \sum_{i=1}^{K} 1/\Delta_i^2$
-    
-    $H_2 = \max_i i\Delta_{(i)}^{-2}$
-    
-    其中 $\Delta_i$ 是最佳臂与 arm $i$ 的平均 reward 差距，$\Delta_{(i)}$ 按 gap 排序。两者至多相差一个 $\log K$ 因子：gap 越小、接近最佳的竞争 arm 越多，$H_1/H_2$ 越大，识别最佳臂所需的样本预算也越高。
-  - 这为 PV9 的 Easy、Hard、NearTie 环境提供了形式化依据：NearTie 比 Easy 难，不是因为 arm 更多，而是最佳臂与 challenger 的 $\Delta$ 更小，因此 $H_1/H_2$ 更高。
-  - **UCB-E**：每轮选择 `经验均值 + 探索 bonus` 最高的 arm。它需要比传统、以累计 regret 为目标的 UCB 更强的探索：其参数 $a$ 应在 $n/H_1$ 量级，而非 $\log n$。这说明 BAI 的目标本身要求持续收集区分最佳臂所需的证据；但这只是与 PV9 的 explore-stance 变化在任务直觉上相呼应，不能据此把 α 的语气效应直接解释为有效 BAI 探索。
-  - UCB-E 在已知任务难度时可取得接近最优的误判率下降；但所需参数依赖不可观测的 $H_1$，实践中难以准确调节。
+    - $H_1 = \sum_{i=1}^{K} 1/\Delta_i^2$
+    - $H_2 = \max_i i\Delta_{(i)}^{-2}$
+    - 其中 $\Delta_i$ 是最佳臂与 arm $i$ 的平均 reward 差距，$\Delta_{(i)}$ 按 gap 排序。两者至多相差一个 $\log K$ 因子：gap 越小、接近最佳的竞争 arm 越多，$H_1/H_2$ 越大，识别最佳臂所需的样本预算也越高。
+  - **UCB-E**：每轮选择 `经验均值 + 探索 bonus` 最高的 arm。它需要比传统、以累计 regret 为目标的 UCB 更强的探索：其参数 $a$ 应在 $n/H_1$ 量级，而非 $\log n$。UCB-E 在已知任务难度时可取得接近最优的误判率下降；但所需参数依赖不可观测的 $H_1$，实践中难以准确调节。
   - **SR（Successive Rejects）**：无参数算法，共分 $K-1$ 个 phase。每个 phase 对尚未淘汰的 arm 均匀补样，再剔除当前经验均值最低的 arm；最后存活者即最终推荐臂。其误判率只比理论最优多一个约 $\log K$ 的因子。
   - **Adaptive UCB-E**：在线估计任务难度并调整 UCB-E 参数；实验表现优于 SR，但作者未给出与 SR 同等级的理论保证。
-  - BAI 的标准 outcome 是最终 $e_n$ 或 final simple regret，而不是 `late_opt_frac` 等轨迹行为指标。因此 PV10 应把“最终推荐是否正确”作为独立主结果，同时保留采样轨迹来分析证据如何分配。
-  - SR 可作为 PV10 的候选 algorithmic baseline，与现有 Greedy / Random / Oracle 基线并列；它尤其适合衡量 LLM 是否会像一个纯探索算法那样，逐步排除明显较差的 arm，并把后期预算留给真正接近的竞争者。
+  - BAI 的标准 outcome 是最终 $e_n$ 或 final simple regret，而不是 `late_opt_frac` 等轨迹行为指标。因此 PV10 应把“最终推荐是否正确”作为独立主结果，同时保留**采样轨迹来分析**证据如何分配。
+  - **icml2013.Almost Optimal Exploration in Multi-Armed Bandits**——colt2010 的后续理论优化工作，把 SR/UCB-E 的误差再压低一些，提出的新算法 Sequential Halving 比 SR 更简单也更稳，是比 SR 更好的 fixed-budget baseline 候选。
 
 - **Bandit.BAI.iclr2026.In-Context Learning for Pure Exploration**
   - 在一族任务上专门训练小型 Transformer agent。
