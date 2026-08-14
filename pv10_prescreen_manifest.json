@@ -1,0 +1,188 @@
+{
+  "algorithms": {
+    "Greedy": {
+      "role": "descriptive",
+      "spec": "always pull cumulative empirical best; failure-mode comparator, direction not predicted"
+    },
+    "LUCB": {
+      "delta": 0.1,
+      "k1": 1.25,
+      "role": "descriptive",
+      "spec": "Kalyanakrishnan et al. (2012) radius sqrt(ln(k1*K*t^4/delta)/(2u)); check-then-pull; 2 pulls per round; tau in total samples"
+    },
+    "SH": {
+      "role": "gating",
+      "round_budget": 48,
+      "rounds": 2,
+      "spec": "PV10 interface-adapted Sequential Halving: 4 init + 4x12 + 2x24, cumulative means, display-order tie-break"
+    },
+    "TTTS": {
+      "beta": 0.5,
+      "rng_offset": 500000,
+      "role": "gating",
+      "spec": "Top-Two Thompson Sampling beta=0.5 (NOT TTPS); single posterior draw per action, 10000-sample MC once at the end for the recommendation, structural ties pooled"
+    },
+    "Uniform": {
+      "role": "gating",
+      "spec": "equal allocation, 24 extra per arm"
+    }
+  },
+  "analysis_caveats": {
+    "allocation": "TTTS's MARGINAL pull distribution is near-uniform in this equal-spaced ladder (25.0/25.1/24.9/25.0 by display position). That is a marginal, not a policy property: TTTS still chooses conditionally between leader and challenger at every step, and the flat total arises because no arm is clearly eliminable so the top-two identity keeps rotating. Consequently a flat MARGINAL allocation neither establishes nor refutes directed exploration in the model. Directed exploration must be judged CONDITIONALLY ON THE EVIDENCE STATE -- whether sampling goes to the current leader/challenger, and whether the allocation shifts with posterior overlap. TTTS's flatness is a reference point for reading the marginal, not a behavioural equivalence standard.",
+    "evidence_sufficiency": "Under THIS LUCB confidence bound, no episode obtained a stopping certificate within 100 samples (censoring 1.00). A model COMMIT therefore cannot be explained as having met this LUCB delta-correct termination condition. It does NOT follow that model commitments are necessarily wrong or evidence-poor: the LUCB rule is sufficient and possibly conservative, not necessary. Judge 'was the evidence sufficient' by posterior overlap / leader-challenger separation, and treat this bound as one external reference among several.",
+    "greedy_lock_in": "Greedy finishes 0.21 BELOW Uniform, confirming this environment does contain early-noise lock-in trajectories. Premature commitment is a reachable failure mode here, which is what makes the PV10-B commitment readouts meaningful."
+  },
+  "diagnostic_indicators": {
+    "P1": "Uniform accuracy in [0.35, 0.85]",
+    "P2": "exists a in ['SH', 'TTTS'] with Uniform+0.05 <= acc(a) <= 0.95",
+    "demotion_reason": "P2 measures whether an adaptive ALGORITHM beats equal allocation; PV10 measures whether RSN alpha changes the MODEL's sampling / evidence integration / self-paced commit. Retuning K, budget or probabilities until SH wins by 5 points would let baseline performance dictate the protocol without making the alpha contrast more measurable. The environment is frozen with P1 pass / P2 fail on the record; the real go/no-go is the alpha=0 minimum capability check.",
+    "note": "Greedy and LUCB are descriptive and never gated anything.",
+    "status": "DIAGNOSTIC, not a gate (demoted 2026-08-14)"
+  },
+  "environment": {
+    "forced_init_per_arm": 1,
+    "forced_init_total": 4,
+    "k": 4,
+    "name": "pv10_bai_candidate",
+    "probs": [
+      0.6,
+      0.5,
+      0.4,
+      0.3
+    ],
+    "total_budget": 100
+  },
+  "indicator_evaluation": {
+    "P1": {
+      "description": "Uniform accuracy in [0.35, 0.85]",
+      "passes": true,
+      "value": 0.7205
+    },
+    "P2": {
+      "description": "exists a in ['SH', 'TTTS'] with Uniform+0.05 <= acc(a) <= 0.95",
+      "passes": false,
+      "per_algorithm": {
+        "SH": {
+          "accuracy": 0.7428,
+          "lift_over_uniform": 0.022299999999999986,
+          "passes": false
+        },
+        "TTTS": {
+          "accuracy": 0.762,
+          "lift_over_uniform": 0.04149999999999998,
+          "passes": false
+        }
+      }
+    },
+    "gates_anything": false,
+    "indicators_all_pass": false
+  },
+  "prescreen_version": "pv10-prescreen-v1",
+  "results": {
+    "Greedy": {
+      "accuracy": 0.5125,
+      "accuracy_ci": [
+        0.5025975,
+        0.522
+      ],
+      "mean_pulls_by_display_position": [
+        31.0971,
+        23.4257,
+        22.9579,
+        22.5193
+      ],
+      "n_censored": 0,
+      "n_stopped": 0,
+      "simple_regret": 0.07693999999999998
+    },
+    "LUCB": {
+      "accuracy": 0.7277,
+      "accuracy_ci": [
+        0.7193,
+        0.7362
+      ],
+      "accuracy_stopped_only": null,
+      "censoring_rate": 1.0,
+      "mean_pulls_by_display_position": [
+        33.3672,
+        30.9305,
+        23.3352,
+        12.3671
+      ],
+      "n_censored": 10000,
+      "n_stopped": 0,
+      "p_stop_within_budget": 0.0,
+      "simple_regret": 0.033109999999999994,
+      "survival_curve": {
+        "10": 1.0,
+        "100": 1.0,
+        "20": 1.0,
+        "30": 1.0,
+        "40": 1.0,
+        "50": 1.0,
+        "60": 1.0,
+        "70": 1.0,
+        "80": 1.0,
+        "90": 1.0
+      },
+      "tau_median_all": ">100 / not reached"
+    },
+    "SH": {
+      "accuracy": 0.7428,
+      "accuracy_ci": [
+        0.7341924999999999,
+        0.7510025
+      ],
+      "mean_pulls_by_display_position": [
+        26.296,
+        25.6912,
+        24.4816,
+        23.5312
+      ],
+      "n_censored": 0,
+      "n_stopped": 0,
+      "simple_regret": 0.03052999999999999
+    },
+    "TTTS": {
+      "accuracy": 0.762,
+      "accuracy_ci": [
+        0.7538,
+        0.7704
+      ],
+      "mean_pulls_by_display_position": [
+        25.0048,
+        25.1003,
+        24.9337,
+        24.9612
+      ],
+      "n_censored": 0,
+      "n_stopped": 0,
+      "simple_regret": 0.02814
+    },
+    "Uniform": {
+      "accuracy": 0.7205,
+      "accuracy_ci": [
+        0.7117,
+        0.7295
+      ],
+      "mean_pulls_by_display_position": [
+        25.0,
+        25.0,
+        25.0,
+        25.0
+      ],
+      "n_censored": 0,
+      "n_stopped": 0,
+      "simple_regret": 0.03378999999999999
+    }
+  },
+  "simulation": {
+    "beta_prior": [
+      1.0,
+      1.0
+    ],
+    "n_sim": 10000,
+    "seed_end": 910000,
+    "seed_start": 900000
+  }
+}

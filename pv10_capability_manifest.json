@@ -1,0 +1,68 @@
+{
+  "capability_version": "pv10-capability-v1",
+  "chance_floor_k4": 0.25,
+  "criteria": {
+    "C1_interface_validity": {
+      "direction": ">=",
+      "excludes": "most episodes unparseable -- no behaviour to read",
+      "statistic": "fraction of episodes whose termination_reason is not invalid_policy",
+      "threshold": 0.5
+    },
+    "C2_label_non_degeneration": {
+      "direction": "<",
+      "excludes": "every commit goes to the same label (label lock)",
+      "statistic": "fraction of terminating episodes whose committed arm carries the MODAL committed label",
+      "threshold": 1.0
+    },
+    "C3_row_non_degeneration": {
+      "direction": "<",
+      "excludes": "every commit goes to the same display row (position lock)",
+      "statistic": "fraction of terminating episodes whose committed arm sits in the MODAL display row",
+      "threshold": 1.0
+    },
+    "C4_evidence_sensitivity": {
+      "direction": ">",
+      "excludes": "commitment independent of observed evidence; 0.35 sits just above the 1/K=0.25 chance floor and well below any competence claim",
+      "statistic": "fraction of commits landing on an arm in the empirical-best set at commit time (tie-tolerant)",
+      "threshold": 0.35
+    }
+  },
+  "evaluator_mtime_advisory": 1786702284.1712008,
+  "evaluator_sha256": "adb184136dd932debfe287d446eecbe5ba5e12d134a120b4df4a426606c19827",
+  "module_sha256": {
+    "bandit_pv10.py": "79902ff3b8583664dda73b0a2bb5191c8765f8b043554d1dcd385864421a3401",
+    "bandit_pv10_episode.py": "f6a5c86701f60fa50d03f036474c87814c3e93b05d28ec68864b11410b95e6c7"
+  },
+  "order_bank_sha256": "d876e90224dd4bb1c89c6e8f5eefbc0bce621cd4f1d9a76848dab10f72b23f79",
+  "prescreen_manifest_sha256": "5d912daa1aad306440b78843b5ad70aced7405d1a7118cfc1f6a89d17d817536",
+  "seed_bank": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    8,
+    11,
+    14,
+    19,
+    22,
+    23,
+    26,
+    31,
+    32,
+    46,
+    48,
+    50,
+    53,
+    57
+  ],
+  "seed_bank_sha256": "0740bf6bc30d7c6bf399e9b947c2ddcd8633fd92e05fb55165771b68124135ee",
+  "versions": {
+    "interface_tag": "pv10_p10_orders-v1_pv10-strict-v1_k4_T100_s15a04f1fc533",
+    "order": "orders-v1",
+    "policy_parser": "pv10-strict-v1",
+    "protocol": "pv10",
+    "stage1_instruction": "p10"
+  }
+}
