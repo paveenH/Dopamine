@@ -1008,11 +1008,12 @@ DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共�
 
 PV9 要求模型在 100 轮内最大化累计奖励，属于 **reward-maximizing Bandit**。在这种设定下，探索会牺牲即时收益，因此 PV9 检验的是模型是否愿意承担机会成本以获取信息。
 
-PV10 将目标改为：经过 100 轮采样后，正确识别 reward probability 最高的 arm。任务因此转变为 **best-arm identification / pure exploration**：
+PV10 将目标改为：在最多 100 次采样内，用尽可能少的样本形成充分把握，并正确识别 reward probability
+最高的 arm。任务因此转变为带自主停止的 **best-arm identification / pure exploration**：
 
 - 前期采样用于降低不同 arm 的不确定性；
 - 重复选择当前最佳 arm 本身不会直接提高最终得分；
-- 模型需要在信息收集结束后，最终 commit 到一个 arm。
+- 模型需要自行判断证据何时足够，并 commit 到一个 arm。
 
 这可以检验 PV9 的 α-null 是否源于累计奖励目标本身鼓励模型过早进入 exploitation。
 
@@ -1032,35 +1033,41 @@ PV10 将目标改为：经过 100 轮采样后，正确识别 reward probability
 
 #### Experimental Design
 
-实验分为两个明确阶段：**fixed-budget evidence acquisition** 与
-**final identification**。主实验为 PV10-A；自主停止的 PV10-B 暂不与主实验同时开启。
+主实验为 **PV10-B: self-paced sampling and commitment**。模型每轮在同一次生成中先阐述理由，
+随后直接选择继续采样或作出最终承诺：
 
 ```text
-Exploration phase:
-You have a fixed budget of 100 samples. Sampling rewards are observations,
-not points. Use them to identify the button with the highest reward probability.
+Reasoning: ...
+Decision: SAMPLE Button X
+```
 
-Final decision:
-After 100 trials, select the button with the highest unknown reward
-probability. You receive one final score for identifying it correctly.
+或：
+
+```text
+Reasoning: ...
+Decision: COMMIT Button X
 ```
 
 主实验配置：
 
 - Bernoulli reward probabilities 候选：`[0.60, 0.50, 0.40, 0.30]`。在模型生成前，先用
-  Uniform / Greedy / Sequential Halving / TTPS 的离线模拟确认该环境不处于全员天花板或全员机会水平；
-  随后冻结 probabilities 与 horizon，不根据 α 效果调整难度。
+  Uniform / Greedy / Sequential Halving / TTPS 及 fixed-confidence stopping baseline 的离线模拟确认该环境
+  不处于全员天花板或全员机会水平；随后冻结 probabilities 与 `T_max`，不根据 α 效果调整难度。
 - α：`−4 / 0 / +4`
 - 首批正式实验使用 20 个配对 seeds，arm labels 随机排列。不另设 smoke cell。
-- 总预算为 100 次采样：开始时由环境对每个 arm 强制采样一次，剩余 96 次由模型自适应分配。
+- 最多允许 100 次采样：开始时由环境对每个 arm 强制采样一次，之后由模型自适应决定采样对象与停止时间。
   四次初始化的展示顺序按 seed 随机化，并在三个 α cells 中保持一致，避免固定 A→B→C→D 形成顺序提示。
-  这将主问题限定为“获得最小初始证据后如何分配信息预算”；从全零历史开始的 native discovery
+  这将主问题限定为“获得最小初始证据后如何分配信息并形成承诺”；从全零历史开始的 native discovery
   可作为未来 diagnostic，不与主实验混合。
-- 第 100 次采样后，使用独立、unsteered 的 constrained final stage 输出 `FINAL: Button X`。
+- 任务给出固定置信目标，例如错误概率不超过 `δ = 0.05`（95% confidence），并要求在达到该目标时尽早
+  commit。该目标定义“更快”的前提；离线 posterior 仅用于分析实际证据是否达到目标，不表示模型内部执行 Bayesian inference。
+- 若模型采样至 `T_max = 100` 仍未自主 commit，则进入同一生成接口的 mandatory terminal decision，
+  此时只允许 `Decision: COMMIT Button X`。该 episode 标记为 `max-budget/censored`，不与自主停止混为一类。
 - 不提供真实 reward probabilities
 - 不累积中间 task score
 - 不提供额外 exploration cue
-- α 仅作用于 Stage 1 rationale / policy formation；每轮 Stage 2 与最终 identification stage 均保持 unsteered。
+- 不使用独立 Stage 2；α 在每轮单次 reasoning/decision generation 的 prefill anchor 注入一次
+  （prefill-only、output-side，不在 decode 中持续注入），解析出的 `SAMPLE` 或 `COMMIT` 直接驱动环境。
 - 三个 α cells 共用 seed、arm mapping 与 arm-specific reward tapes。即同一 seed 中，对同一 arm 的第
   `j` 次采样读取同一个预先生成的 reward；不同 α 可因行为不同而观测到不同轨迹。
 
@@ -1070,33 +1077,39 @@ paired seeds 统一重算。
 
 #### Primary Metrics
 
-PV10 区分 **outcome**、**evidence quality** 与 **acquisition behaviour**：
+PV10 区分 **stopping / commitment**、**outcome**、**evidence quality** 与 **acquisition behaviour**：
 
-1. **Final identification**：最终推荐是否为真实 best arm（binary correctness），并报告 final simple regret。
-2. **Evidence quality**：根据每条轨迹的 Bernoulli observations 离线计算真实 best arm 的 posterior
-   probability / posterior error probability。该 posterior 是分析模型，不表示 LLM 内部实现了 Bayesian inference。
-3. **Acquisition quality**：模型是否将采样分配给仍可能成为 best 的 leader / challenger；主要读数为
+1. **Stopping / commitment**：自主停止的 sample count `τ`、随 sample count 的 cumulative commit probability，
+   以及到达 `T_max` 的 censoring rate。
+2. **Final identification**：commit 是否指向真实 best arm（binary correctness），并报告 final simple regret。
+3. **Evidence at commitment**：根据 commit 前的 Bernoulli observations，离线计算 committed arm / true best arm
+   的 posterior probability、posterior error probability，以及 leader–challenger overlap。该 posterior 是分析模型，
+   不表示 LLM 内部实现了 Bayesian inference。
+4. **Acquisition quality before commitment**：模型是否将采样分配给仍可能成为 best 的 leader / challenger；主要读数为
    top-two-candidate targeting 与 chosen-arm expected-information-gain relative to the best available query。
 
-次级轨迹指标包括各 arm 的采样数、MinFrac、allocation concentration、switching 与 run length。
+主要解释对象是 **accuracy–sample tradeoff**，而不是单独的 `τ`：只有更早 commit 且正确率不下降、
+commit 时证据仍充分，才可称为“更快形成有效判断”。次级轨迹指标包括各 arm 的采样数、MinFrac、
+allocation concentration、switching 与 run length。
 `posterior-variance-max targeting` 保留为 sensitivity / descriptive readout，不单独定义 BAI 中的合理探索：
 方差最大的 arm 可能已明显不是 best candidate，继续采样它未必能有效区分 leader 与 challenger。
 
-**Premature commitment** 也不等同于单纯的集中采样。只有在另一个 challenger 仍有不可忽略的
-`P(best)` 或 leader–challenger 证据仍明显重叠时，模型却持续将预算集中于单一 arm，才记为
-evidence-inconsistent concentration。HHI、最长 run 与 MinFrac 只能作为其描述性组件。
+**Premature commitment** 不由“停止较早”单独定义。只有 commit 时另一个 challenger 仍有不可忽略的
+`P(best)`、leader–challenger 证据仍明显重叠，或实际 posterior error 高于预设 `δ`，才记为证据不足的承诺。
+相反，到达 `T_max` 仍未自主 commit，或在证据已充分后继续大量采样，作为 delayed commitment /
+over-sampling 描述。
 
 #### Minimum Capability / Interpretability Check
 
 PV10 的目的不是证明模型完美掌握 BAI，也不要求 α=0 超越所有经典算法后才允许分析 RSN。
 该检查只排除“任务对模型完全不可执行”的情况，使 α 差异仍可解释为 BAI 语境中的行为变化。最低检查包括：
 
-- sample action 与 final recommendation 的结构化输出基本有效；
+- `SAMPLE` / `COMMIT` 的结构化输出基本有效；
 - 行为不是完全固定在某一 label / display position；
-- 最终推荐或采样分配显示出对 action–reward evidence 的一定敏感性；
+- commit timing、最终推荐或采样分配显示出对 action–reward evidence 的一定敏感性；
 - 整体行为不处于完全随机、完全不解析或单一 label lock 的退化状态。
 
-Uniform、Greedy、Sequential Halving 与 TTPS 用于定位模型行为与任务难度，不构成必须逐项通过的
+Uniform、Greedy、Sequential Halving、TTPS 与 fixed-confidence stopping algorithms 用于定位模型行为与任务难度，不构成必须逐项通过的
 competence gate。若模型只表现出有限但可辨识的 BAI 能力，仍可作为 RSN 行为调制实验；结论应依据
 baseline 的实际能力范围限定，而不将 α 效应写成 BAI capability improvement。
 
@@ -1106,6 +1119,8 @@ baseline 的实际能力范围限定，而不将 α 效应写成 BAI capability 
 - α 对比使用 paired-seed effects 与 confidence intervals；多个 primary contrasts 在一个预先声明的 family 内校正。
 - N=20 时 binary final accuracy 的功效有限，因此同时报告 effect size、paired discordance 与连续的 evidence-quality /
   acquisition-quality 读数；不把单一 `p>.05` 解释为没有行为影响。
+- 不同 α 可能在不同时间停止，因此 acquisition 指标只使用 commit 前的有效 decision opportunities，并同时报告
+  sample-count-matched / risk-set analyses，避免把较早停止机械地解释为较少探索。
 
 #### Interpretation
 
@@ -1114,62 +1129,41 @@ PV10 是对 PV9 的机制诊断，而不是为了寻找显著结果：
 - 若 α 仍不改变 ambiguity-directed acquisition，说明 α 可能不是 directed-exploration controller。
 - 若 +α 增加有效信息采样并提高 evidence quality / final identification，支持 **goal-dependent information investment**；
   若只改变表述或分配形状而不改变证据质量，则不足以支持该解释。
-- 若 +α 造成更早锁定且表现不升，支持 **commitment/persistence account**。
+- 若 +α 更早 commit、正确率不降且 commit evidence 达到相同标准，支持“更快形成有效判断”；若只是更早
+  commit，但证据不足或错误率上升，则支持 **premature commitment / lower stopping threshold**。
 
 PV9 测量的是是否愿意牺牲即时奖励购买信息；PV10 测量的是为了最终识别目标如何分配采样资源。二者结合可以判断 α 的作用是否取决于任务的 **goal framing**。
 
 ### 4.2 Design
-#### PV10-A: Fixed-budget Sampling
-
-模型获得 100 次固定采样预算；前 4 次由环境对每个 arm 各采样一次，模型分配其余 96 次，
-采样结束后必须选择最佳 arm。
-
-```text
-Initial observations (4 samples):
-one observation from each button
-
-Adaptive rounds (96 samples):
-SAMPLE Button X
-
-After all 100 samples:
-FINAL: Button X
-```
-
-它主要测量：
-
-- 如何在 arms 之间分配有限样本；
-- 是否将样本分配给仍难以区分的 leader / challenger；
-- 是否出现 evidence-inconsistent concentration；
-- 最终 best-arm identification accuracy。
-
-这是 PV10 当前唯一的主实验：所有 α 条件拥有相同预算、配对 reward tapes 与相同的最小初始证据。
-
 #### PV10-B: Self-paced Sampling and Commitment
 
-**Deferred extension，不与 PV10-A 首批正式实验同时运行。**
+**PV10 当前主实验。**
 
 模型每轮可以继续采样，也可以随时做最终承诺：
 
 ```text
-Policy: SAMPLE Button X
+Reasoning: ...
+Decision: SAMPLE Button X
 ```
 
 或：
 
 ```text
-Policy: COMMIT Button X
+Reasoning: ...
+Decision: COMMIT Button X
 ```
 
-但必须同时设置：
+这里采用 fixed-confidence framing：目标错误率上限为 `δ = 0.05`，模型被要求在认为错误概率不超过该
+阈值时尽快 commit，同时设置 `T_max = 100` 作为安全上限。`T_max` 只负责截断无限采样，本身不定义
+“合理停止”；停止质量由 commit 时的证据、正确率与 fixed-confidence baseline 共同判断。
 
-- 一个最大上限，例如 `T_max = 100`；
-- 或者每次采样具有明确成本，例如最终得分为：
+若未来改用显式采样成本，可以定义：
 
-\[
+$$
 \text{Score}=\mathbb{1}(\text{correct identification})-\lambda N_{\text{samples}}
-\]
+$$
 
-否则“什么时候停止”没有代价，也就无法判断模型是否采样过多。
+但这会引入另一套效用函数，因此不与首批 fixed-confidence 实验混合。
 
 这个版本测的是另一种机制：
 
@@ -1178,41 +1172,53 @@ Policy: COMMIT Button X
 - `commitment accuracy`：承诺是否正确；
 - `premature commitment` 与 `over-sampling`。
 
-因此，PV10-A 对应 **pure exploration under a fixed budget**；PV10-B 对应 **active information sampling and optimal stopping**。建议先完成 A，再决定是否追加 B。
+因此，PV10-B 同时测量 **active information sampling** 与 **stopping / commitment**。较早停止本身不是更好，
+必须结合正确率与 commit 时的证据解释。
 
 **参照定义：fixed-confidence BAI 的标准 stopping rule**（算法侧参照，非模型侧规则）
 
 经典 fixed-confidence BAI（如 LUCB、Track-and-Stop）不预设采样预算，而是要求算法在有限步内以概率 `≥ 1−δ` 输出正确的最优臂：
 
-- **δ-correct**：停止时间 τ（随机）与输出 arm `k̂` 满足 `P(k̂ = k*) ≥ 1 − δ`，其中 `k*` 是真实最优臂。
+- **δ-correct**：停止时间 τ（随机）与输出 arm `k̂` 满足
+
+  $$
+  P(\hat{k}=k^*) \geq 1-\delta
+  $$
+
+  其中 `k*` 是真实最优臂。
 - **LUCB-style stopping rule**：每轮维护每个 arm 的置信区间 `[L_k(t), U_k(t)]`；令 `b(t) = argmax_k θ̂_k(t)`（当前经验最优臂），`c(t) = argmax_{k≠b(t)} U_k(t)`（除 b(t) 外置信上界最高的挑战者）。算法停止的条件是
 
-  \[
+  $$
   L_{b(t)}(t) \;>\; \max_{k \neq b(t)} U_k(t)
-  \]
+  $$
 
   即当前最优臂的置信下界已经高于所有其他 arm 的置信上界——不确定性区间不再重叠，才允许 commit。
 
 这套判据来自经典统计 BAI 文献（如 Kaufmann & Kalyanakrishnan 2013; Jamieson et al. 2014 的 LUCB；也是本节 §3 引用的 MIT 论文 `PP-LUCB` 用的框架），本质是把"何时停止采样"变成一个**可证明正确率**的条件，而不是靠固定 T_max 或人为设置的 λ·N_samples 惩罚项。
 
-**与 PV10-B 的关系**：PV10-B 目前设计是让模型自己输出 `SAMPLE` / `COMMIT`，停止决策是**模型的自主行为**，用 T_max 或采样成本 λ 只是防止"无限采样不用付出代价"这一退化解。上面这套 LUCB stopping rule 不是要模型学会计算置信区间，而是可以用作**算法侧的对照 baseline**——即用经典 δ-correct 判据跑一个"理性 agent 应该在什么时候停"的参照轨迹，再对比模型的实际 COMMIT 时机是过早（premature commitment）还是过晚（over-sampling）。这与 §4 已有的 GREEDY / ORACLE / RANDOM baseline 对照是同一思路的延伸。
+**与 PV10-B 的关系**：上面这套 LUCB stopping rule 不是要求模型显式计算置信区间，而是算法侧的
+fixed-confidence baseline。它提供“在相同 reward tape 上，统计算法何时认为证据足够”的参照；模型的
+实际 COMMIT 可以相对它描述为较早、较晚或证据阈值不同，但不能仅凭时间差判定非理性。
 
-**Stage 2 保留为主协议的 executor-isolation layer**
+**单阶段 reasoning–decision 接口（不使用 Stage 2）**
 
-Stage 1 输出结构化政策：
+每轮只生成一次完整回应。严格 parser 只读取最后一个格式正确的 `Decision:` 行：
 
-```text
-Evidence: ...
-Policy: SAMPLE Button C
-```
+- `Decision: SAMPLE Button X`：环境立即采样 X 并返回 observation；
+- `Decision: COMMIT Button X`：episode 立即停止并记录 X 为最终识别；
+- 缺失、重复冲突或超出候选集合的 decision：记为 invalid，不使用宽松 fallback 猜测。
 
-Stage 2 沿用 unsteered constrained candidate scoring 执行该 policy，并保留
-`policy_target` / `action` / `action_follows_policy` 的分离记录。这样可区分 α 改变了 acquisition policy，
-还是只改变 executor fidelity；也保持与 PV9 的干预位置可比。
+因此 `Decision` 是模型实际行为，不再区分 `policy_target` / `action` / `action_follows_policy`。这会放弃
+PV9 的 executor-isolation 分解，但更直接对应 PV10 的问题：α 是否改变信息采样与自主承诺的联合过程。
+输出有效率与 native stopping completion 作为 validity 指标单独报告。
 
-全部 100 次采样结束后，另建 unsteered final-identification prompt，使用完整证据对 A–D 做 constrained scoring。
-因此主实验中 α 直接操纵的是逐轮信息获取政策，最终识别只通过已改变的证据轨迹间接受影响。
-直接由 parser 执行 Stage-1 policy 可作为未来 ablation，不是 PV10-A 主协议。
+#### PV10-A: Fixed-budget Sampling
+
+**Deferred mechanism control，不与 PV10-B 首批正式实验同时运行。**
+
+若 PV10-B 发现 α 改变 stopping time，但较早停止导致各条件拥有不同数量的 acquisition opportunities，
+则追加固定 100 次采样的 PV10-A。在相同预算下比较 leader–challenger targeting、information gain、
+evidence quality 与 final identification，可帮助区分 α 改变的是 sampling allocation，还是主要改变 stopping threshold。
 
 ## References
 
