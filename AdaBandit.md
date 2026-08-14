@@ -1291,6 +1291,8 @@ PV9 的 executor-isolation 分解，但更直接对应 PV10 的问题：α 是�
 则追加固定 100 次采样的 PV10-A。在相同预算下比较 leader–challenger targeting、information gain、
 evidence quality 与 final identification，可帮助区分 α 改变的是 sampling allocation，还是主要改变 stopping threshold。
 
+### 4.3 
+
 ## References
 
 1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.
