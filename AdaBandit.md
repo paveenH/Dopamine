@@ -315,7 +315,7 @@ Evidence:
   - 同样恢复出可分离、可辨识的 β（directed exploration）与 τ（undirected exploration）参数，呼应前两篇 directed vs random 两分的框架，但这里是在更大、结构化的空间上验证。
   - **跟 PV10 的相关性**：(1) 提供了 K 很大且带结构（可泛化）的任务设计模板，可用于扩展 PV9 目前较小的 Easy(K=4)/Hard(K=5) 环境；(2) function learning vs option learning 的模型对比框架，可直接套用于检验 LLM 探索时是否在利用 arm 间的结构相似性做泛化，还是把每个 arm 当独立处理；(3) undergeneralization-can-be-adaptive 的结论提醒：若未来测 LLM 在结构化空间下的泛化强度，"泛化程度与最优不一致"不能直接等同于缺陷。
 
-### Best Arm Identificatio
+### Best Arm Identification
 
 - **Bandit.BAI.colt2010.Best Arm Identification in Multi-Armed Bandits**
   - 正式定义了 pure exploration / BAI 问题（Fig. 1）：Bandit 分为固定预算的探索阶段与最终推荐阶段。探索过程不以**累计 regret**评价，但每次采样仍消耗有限预算 $n$；最终只评估推荐臂 $J_n$ 是否为真实最优臂，即误判率 $e_n = \Pr(J_n \neq i^*)$。这正是 PV10 从 reward-maximizing 转向 BAI 的正式定义来源。
@@ -1002,9 +1002,9 @@ DiD = (NearTie_α − NearTie_0) − (Easy_α − Easy_0)，seeds 两环境共�
 
 因此，PV9 仍应定位为 RSN–dopamine 类比的**作用边界证据**，但措辞需要从“α 只有文字效应”收紧为：**α 调节 policy stance、commitment-related sharpness，以及困难环境中的 stance–behavior consistency；在这个协议中，它没有表现为 uncertainty-directed exploration controller，也没有改善 Bandit outcome。**
 
-# Best Arm Identification (BAI) / Pure Exploration）Bandit
+## 4. PV10 Design: Best Arm Identification (BAI) / Pure Exploration
 
-## 1. Motivation
+### 4.1 Motivation
 
 PV9 要求模型在 100 轮内最大化累计奖励，属于 **reward-maximizing Bandit**。在这种设定下，探索会牺牲即时收益，因此 PV9 检验的是模型是否愿意承担机会成本以获取信息。
 
@@ -1016,7 +1016,7 @@ PV10 将目标改为：经过 100 轮采样后，正确识别 reward probability
 
 这可以检验 PV9 的 α-null 是否源于累计奖励目标本身鼓励模型过早进入 exploitation。
 
-### Competing Predictions
+#### Competing Predictions
 
 | Potential mechanism | −α prediction | +α prediction |
 |---|---|---|
@@ -1030,7 +1030,7 @@ PV10 将目标改为：经过 100 轮采样后，正确识别 reward probability
 1. **Motivational account**：+α 提高“正确识别最优臂”这一终局目标的 salience，促进定向信息获取并提高最终识别率。
 2. **Commitment account**：+α 放大当前领先 arm 的吸引力，导致过早锁定并减少验证性探索。
 
-### Experimental Design
+#### Experimental Design
 
 实验分为两个明确阶段：
 
@@ -1056,14 +1056,14 @@ probability. You receive one final score for identifying it correctly.
 - 不提供额外 exploration cue
 - α 仅作用于 Stage 1，Stage 2 保持 unsteered
 
-### Primary Metrics
+#### Primary Metrics
 
 1. 最终最优臂识别率  
 2. Posterior-uncertainty-max targeting rate  
 3. 各 arm 的采样分配与最低采样数  
 4. Premature commitment：过早集中选择当前 empirical-best arm  
 
-### Interpretation
+#### Interpretation
 
 PV10 是对 PV9 的机制诊断，而不是为了寻找显著结果：
 
@@ -1073,8 +1073,8 @@ PV10 是对 PV9 的机制诊断，而不是为了寻找显著结果：
 
 PV9 测量的是是否愿意牺牲即时奖励购买信息；PV10 测量的是为了最终识别目标如何分配采样资源。二者结合可以判断 α 的作用是否取决于任务的 **goal framing**。
 
-## 2. Design
-### PV10-A: Fixed-budget Sampling
+### 4.2 Design
+#### PV10-A: Fixed-budget Sampling
 
 模型获得固定的采样预算，例如 100 次；采样结束后必须选择最佳 arm。
 
@@ -1095,7 +1095,7 @@ FINAL: Button X
 
 这个版本最干净，适合先跑，因为所有 α 条件拥有相同信息预算。
 
-### PV10-B: Self-paced Sampling and Commitment
+#### PV10-B: Self-paced Sampling and Commitment
 
 模型每轮可以继续采样，也可以随时做最终承诺：
 
@@ -1165,9 +1165,6 @@ Policy: COMMIT Button A
 然后由 code parser 直接执行。
 
 这样测到的是 α 对 `SAMPLE/COMMIT` 决策本身的影响，而不是“Stage 1 先说、Stage 2 再执行”的文本传导。若保留 Stage 2，它更适合作为独立的 executor-fidelity control，不应成为主任务必需环节。
-
-## 3. Literature
-
 
 ## References
 
