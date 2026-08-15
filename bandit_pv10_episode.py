@@ -110,8 +110,16 @@ def run_pv10_episode(
     max_new_tokens: int = p10.RATIONALE_MAX_TOKENS,
     n_steered_layers: int = 9,
     interface_tag: str = "",
+    prompt_module=p10,
 ) -> dict:
     """Run one PV10-B episode.
+
+    `prompt_module` selects the protocol's prompt surface. It defaults to
+    bandit_pv10 (PV10-B) so every existing caller is byte-identical; PV10-A
+    passes bandit_pv10a, which withholds COMMIT until the budget is spent and
+    then delegates to THIS module's frozen terminal prompt. Only the prompt
+    varies -- parser, anchor, steering, tapes and records are shared, which is
+    what makes an A-vs-B difference attributable to the stopping decision.
 
     `orders` must come from the frozen bank-level `assign_orders`, never from a
     per-seed `make_orders` -- see that function's binding-consequence note.
@@ -175,7 +183,7 @@ def run_pv10_episode(
 
     while termination is None:
         terminal = (n >= total_budget)
-        prompt = p10.build_decision_prompt(
+        prompt = prompt_module.build_decision_prompt(
             display_order, counts, history, n=n, total_budget=total_budget)
         audit = _audit(vc, prompt)
 
@@ -317,8 +325,13 @@ def run_pv10_episode(
 
     return {
         # -- identity / provenance ------------------------------------------
-        "protocol_version": p10.PROTOCOL_VERSION,
-        "stage1_instruction_version": p10.STAGE1_INSTRUCTION_VERSION,
+        # from prompt_module, NOT p10: a PV10-A episode must not label itself
+        # "pv10" or its records would be pooled with PV10-B's.
+        "protocol_version": getattr(
+            prompt_module, "PROTOCOL_VERSION", p10.PROTOCOL_VERSION),
+        "stage1_instruction_version": getattr(
+            prompt_module, "STAGE1_INSTRUCTION_VERSION",
+            p10.STAGE1_INSTRUCTION_VERSION),
         "policy_parser_version": p10.POLICY_PARSER_VERSION,
         "order_version": p10.ORDER_VERSION,
         "interface_tag": interface_tag,
