@@ -31,6 +31,38 @@
   "verification": "An identical FakeVC episode was run under the frozen module (daef625) and the current one; the two episode records are byte-identical after JSON canonicalisation. This was MEASURED, not asserted.",
   "bandit_pv10_py_unchanged": true,
   "note": "bandit_pv10.py -- the PV10-B prompt surface, parser and anchor -- is byte-unchanged. Only the runner's plumbing moved.",
-  "consequence": "module_sha256 for bandit_pv10_episode.py necessarily changes. The basis is re-frozen below; the ORIGINAL manifest is preserved as pv10_capability_manifest.frozen_daef625.json so the pre-amendment basis remains inspectable and the stored alpha=0 PASS stays auditable."
+  "consequence": "module_sha256 for bandit_pv10_episode.py necessarily changes. The basis is re-frozen below; the ORIGINAL manifest is preserved as pv10_capability_manifest.frozen_daef625.json so the pre-amendment basis remains inspectable and the stored alpha=0 PASS stays auditable.",
+  "audit_chain": {
+   "order_of_events": [
+    "1. basis frozen at commit daef625 (manifest a455d4dd...)",
+    "2. all three PV10-B cells (a0/am4/ap4, 20 seeds each) RUN and stored",
+    "3. loader bug found while reading the stored data (amendment 01)",
+    "4. prompt_module added for PV10-A (amendment 02)",
+    "5. basis re-frozen; original manifest preserved alongside"
+   ],
+   "old_manifest_file": "pv10_capability_manifest.frozen_daef625.json",
+   "old_manifest_sha256": "a455d4dd990a0367e5d0c00cb96ae53c0e3b753a1c403919026bacb5d03a15da",
+   "new_manifest_file": "pv10_capability_manifest.json",
+   "new_manifest_sha256": "6db85973ab728b11fdf092e3eaf31a9028b7891da0886beeefb9f56b303d2b30",
+   "evaluator_commit_frozen": "daef625",
+   "evaluator_commit_repaired": "07df9d7",
+   "repo_head_at_refreeze": "e027153",
+   "refreeze_date": "2026-08-14",
+   "keys_that_changed_between_manifests": [
+    "evaluator_mtime_advisory",
+    "evaluator_sha256",
+    "module_sha256"
+   ],
+   "keys_verified_identical": [
+    "criteria",
+    "seed_bank",
+    "seed_bank_sha256",
+    "order_bank_sha256",
+    "prescreen_manifest_sha256",
+    "versions",
+    "chance_floor_k4"
+   ],
+   "data_predates_refreeze": true
+  }
  }
 }
