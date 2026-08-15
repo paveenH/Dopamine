@@ -1291,7 +1291,33 @@ PV9 的 executor-isolation 分解，但更直接对应 PV10 的问题：α 是�
 则追加固定 100 次采样的 PV10-A。在相同预算下比较 leader–challenger targeting、information gain、
 evidence quality 与 final identification，可帮助区分 α 改变的是 sampling allocation，还是主要改变 stopping threshold。
 
-### 4.3 
+### 4.3 Premature Commitment and Confirmatory Search in LLMs
+
+这里的 **premature commitment and confirmatory search** 不应被理解为单一机制，而是一组行为上相近的
+失败模式：模型较早形成一个局部候选，随后重复强化该候选，较少主动搜索、证伪或回到替代路径。
+
+- **Bandit action selection**：Schmied et al. 的 *LLMs are Greedy Agents* 观察到模型过早选择当前
+  empirical-best 或 context 中出现最频繁的 arm，造成 action coverage 停滞，并出现“理由中知道应探索、
+  最终动作仍然 greedy”的 knowing--doing gap。Chen et al. 的 *When Greedy Wins* 进一步发现，SFT/RL
+  虽可降低平均 regret，却可能让模型更快进入 exploitation，并增加永久放弃真最优臂的 suffix failure。
+- **Planning and search**：Yao et al. 的 *Tree of Thoughts* 指出，标准自回归推理是 token-level、从左到右的
+  单路径过程，缺少显式 lookahead 与 backtracking；加入多分支搜索、自我评估和回溯后，GPT-4 在 Game of 24
+  上由 CoT 的 4% 提升到 74%。这说明外部搜索结构可以缓解早期路径承诺，但不等于证明普通解码中的所有错误
+  都来自同一种“贪心机制”。
+- **Hypothesis testing**：Jhaveri et al. 的 *Failing to Falsify* 在交互式规则发现任务中发现，11 个不同家族
+  和规模的 LLM 经常提出与当前假设相容的测试，而不是尝试证伪它，形成 confirmatory sampling；显式要求
+  考虑反例的干预将平均规则发现率从 42% 提高到 56%。
+- **Clinical information seeking**：Braitsch et al. 的 OncoRounds 实验要求 32 个模型主动请求临床资料后再
+  诊断。信息利用率从前两轮约 57% 降到最后一轮 25.7%，主要错误表现为 search satisficing、anchoring 与
+  premature closure：模型在关键分子和细胞遗传学资料尚未获取时便停止搜索并提交判断。
+- **Flexible clinical reasoning**：Kim et al. 的 mARC-QA 用反常规的长尾临床情境触发 Einstellung effect。
+  模型容易沿训练数据中的熟悉共现模式作答，即使题目提供了否定该模式的关键约束，并同时表现出低准确率下的
+  过度自信；这更接近模式匹配层面的认知定势，而不是主动信息采样本身。
+
+这些工作共同表明，类似的“早期承诺—重复强化—忽略替代假设”结构不仅出现在 Bandit，也出现在规划、假设
+检验与临床决策中。PV10-B 提供了一个更容易量化的 pure-exploration 实例：当前 empirical-best arm 相当于
+工作假设，继续采样 incumbent 构成 **incumbent-biased confirmatory sampling**，而采样 leader 的
+challenger 才真正检验当前判断。跨任务的行为结构可以比较，但目前不能据此断言它们具有相同的内部机制。
 
 ## References
 
@@ -1303,3 +1329,7 @@ evidence quality 与 final identification，可帮助区分 α 改变的是 samp
 6. Sun et al. (2025/2026). [Large Language Model-Enhanced Multi-Armed Bandits](https://arxiv.org/abs/2502.01118).
 7. Lim et al. (2025). [TextBandit: Evaluating Probabilistic Reasoning in LLMs Through Language-Only Decision Tasks](https://arxiv.org/abs/2510.13878).
 8. Harris & Slivkins (2025/2026). [Should You Use Your Large Language Model to Explore or Exploit?](https://arxiv.org/abs/2502.00225).
+9. Yao et al. (2023). [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601).
+10. Jhaveri et al. (2026). [Failing to Falsify: Evaluating and Mitigating Confirmation Bias in Language Models](https://arxiv.org/abs/2604.02485).
+11. Braitsch et al. (2026). [Information-seeking failures of large language models in agentic clinical reasoning](https://arxiv.org/abs/2607.10275).
+12. Kim et al. (2025). [Limitations of large language models in clinical problem-solving arising from inflexible reasoning](https://doi.org/10.1038/s41598-025-22940-0).
