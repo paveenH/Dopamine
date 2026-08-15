@@ -23,5 +23,14 @@
  "why_the_freeze_did_not_catch_it": "The manifest verifies the evaluator's HASH, not its correctness against the driver's actual output schema. No end-to-end test ever ran the evaluator over a real driver-written file. Freezing prevents tampering; it does not establish that the two halves were ever wired together.",
  "remediation": "test_pv10_gate_end_to_end.py: writes a payload in the driver's real schema, asserts the evaluator recovers every episode, and asserts a payload lacking 'runs' fails closed.",
  "reporting_rule": "The formal conclusion is ONLY: alpha=0 capability gate PASS. The +-4 PASS results are DESCRIPTIVE interface checks -- the gate is defined on the alpha=0 cell and was never a per-alpha criterion.",
- "C4_interpretation_limit": "C4 = .778 says the model usually commits to an arm inside its CURRENT empirical-best set. It is NOT a general 'evidence utilisation' measure, for two reasons: (a) ties make the set frequently larger than one arm, so the random reference is NOT strictly 1/K = .25 and the chance floor is higher than the stated .25; (b) the empirical-best set is produced by the model's OWN concentrated sampling, so agreeing with it is partly self-consistency, not external correctness. Report C4 as 'commits inside its own empirical-best set', never as evidence ability."
+ "C4_interpretation_limit": "C4 = .778 says the model usually commits to an arm inside its CURRENT empirical-best set. It is NOT a general 'evidence utilisation' measure, for two reasons: (a) ties make the set frequently larger than one arm, so the random reference is NOT strictly 1/K = .25 and the chance floor is higher than the stated .25; (b) the empirical-best set is produced by the model's OWN concentrated sampling, so agreeing with it is partly self-consistency, not external correctness. Report C4 as 'commits inside its own empirical-best set', never as evidence ability.",
+ "amendment_02_prompt_module": {
+  "date": "2026-08-14",
+  "reason": "PV10-A (fixed-budget control) needs the episode runner to accept a different prompt surface. bandit_pv10_episode.run_pv10_episode gained a `prompt_module` parameter DEFAULTING to bandit_pv10, and the two version fields now read from that module so a PV10-A episode cannot label itself 'pv10'.",
+  "pv10b_behaviour_unchanged": true,
+  "verification": "An identical FakeVC episode was run under the frozen module (daef625) and the current one; the two episode records are byte-identical after JSON canonicalisation. This was MEASURED, not asserted.",
+  "bandit_pv10_py_unchanged": true,
+  "note": "bandit_pv10.py -- the PV10-B prompt surface, parser and anchor -- is byte-unchanged. Only the runner's plumbing moved.",
+  "consequence": "module_sha256 for bandit_pv10_episode.py necessarily changes. The basis is re-frozen below; the ORIGINAL manifest is preserved as pv10_capability_manifest.frozen_daef625.json so the pre-amendment basis remains inspectable and the stored alpha=0 PASS stays auditable."
+ }
 }
