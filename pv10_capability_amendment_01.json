@@ -1,0 +1,27 @@
+{
+ "amendment_id": "pv10-capability-amendment-01",
+ "kind": "schema_repair",
+ "date": "2026-08-14",
+ "supersedes_nothing": true,
+ "original_manifest_untouched": true,
+ "original_manifest_sha256": "a455d4dd990a0367e5d0c00cb96ae53c0e3b753a1c403919026bacb5d03a15da",
+ "what_was_wrong": "load_cell() read episodes under the key 'episodes' and fell back to [data] when absent. run_bandit_pv10_episodes.py writes them under 'runs'. The fallback therefore wrapped the ENTIRE cell payload as one pseudo-episode: the gate read n=1, C1=1.0000 over that single object, and C2/C3/C4 degenerate -> a spurious FAIL verdict. It did not raise; it silently produced a well-formed but meaningless result (fail-open).",
+ "what_was_changed": "load_cell() only. Reads data['runs']; raises SystemExit when 'runs' is absent instead of guessing at the schema (fail-closed).",
+ "what_was_NOT_changed": [
+  "FROZEN_CRITERIA (thresholds, directions, criterion definitions)",
+  "evaluate() and every criterion computation",
+  "the four criteria C1-C4 and their justifications",
+  "the prescreen basis, seed bank, order bank, module hashes"
+ ],
+ "evaluator_sha256_frozen": "adb184136dd932debfe287d446eecbe5ba5e12d134a120b4df4a426606c19827",
+ "evaluator_sha256_repaired": "8806af173c96691f827519b8c31b15779a648f906aa264414c98b2d53560c3f8",
+ "evaluator_commit_frozen": "daef625",
+ "evaluator_commit_repaired": "07df9d7",
+ "frozen_criteria_sha256_before_and_after": "be205de8a77bd30e8ed255bf6196402f3125888cec5b4b59dc7ce9e839aff494",
+ "frozen_criteria_unchanged": true,
+ "timing_disclosure": "THE REPAIR HAPPENED AFTER THE DATA EXISTED. All three cells (a0, am4, ap4; 20 seeds each) were already on disk when the loader bug was found. This is disclosed rather than hidden: a reader must be able to see that the evaluator was touched post-hoc, and verify from the hashes above that only loading changed and no criterion moved.",
+ "why_the_freeze_did_not_catch_it": "The manifest verifies the evaluator's HASH, not its correctness against the driver's actual output schema. No end-to-end test ever ran the evaluator over a real driver-written file. Freezing prevents tampering; it does not establish that the two halves were ever wired together.",
+ "remediation": "test_pv10_gate_end_to_end.py: writes a payload in the driver's real schema, asserts the evaluator recovers every episode, and asserts a payload lacking 'runs' fails closed.",
+ "reporting_rule": "The formal conclusion is ONLY: alpha=0 capability gate PASS. The +-4 PASS results are DESCRIPTIVE interface checks -- the gate is defined on the alpha=0 cell and was never a per-alpha criterion.",
+ "C4_interpretation_limit": "C4 = .778 says the model usually commits to an arm inside its CURRENT empirical-best set. It is NOT a general 'evidence utilisation' measure, for two reasons: (a) ties make the set frequently larger than one arm, so the random reference is NOT strictly 1/K = .25 and the chance floor is higher than the stated .25; (b) the empirical-best set is produced by the model's OWN concentrated sampling, so agreeing with it is partly self-consistency, not external correctness. Report C4 as 'commits inside its own empirical-best set', never as evidence ability."
+}
