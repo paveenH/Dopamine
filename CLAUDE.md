@@ -37,6 +37,33 @@ Behavioral guidelines to reduce common LLM coding mistakes. **Tradeoff:** these 
 - "Refactor X" → "Ensure tests pass before and after"
 - For multi-step tasks, state a brief plan (`step → verify: check`). Strong success criteria let you loop independently; weak criteria ("make it work") require constant clarification.
 
+## 0.5 Instruction maintenance
+
+This file contains executable project rules, not a lab notebook. When adding or changing a non-trivial rule:
+
+1. State the rule's scope, the observed failure or decision that motivated it, and where the evidence lives.
+2. Prefer amending an existing rule over adding a near-duplicate.
+3. Do not preserve a rule solely because it is old. Retain it only while its stated failure mode, dependency, or frozen-protocol role still applies.
+4. For a frozen protocol, record its version/date and the artifact, test, manifest, or result that makes the rule binding.
+5. When a rule is obsolete, replace it with a short historical pointer rather than silently deleting or restating it.
+6. Keep rationale concise. Detailed history belongs in the linked design/result document (`AdaBandit.md`, `AdaDopamine*.md`, amendment JSONs, `test_*.py`), not here.
+
+**Provenance comments.** Add a `<!-- Why / Evidence / Scope -->` comment only to rules that are easy to misdelete, misedit, or misread — frozen protocols, counter-intuitive results, and interface/run invariants. Not to ordinary coding conventions.
+
+```md
+<!-- Why: PV10 parser once accepted malformed outputs and produced analysable-looking but invalid data.
+Evidence: pv10_capability_amendment_01.json; test_pv10_gate_end_to_end.py.
+Scope: PV10 only. Review if protocol version changes. -->
+- PV10 parsing is fail-closed; never substitute a fallback action.
+```
+
+Three provenance categories are worth the space in this repo:
+- **Frozen rules** — why it cannot change, when it was frozen, which manifest/test enforces it.
+- **Counter-intuitive conclusions** — the specific failure that produced the reading, and which protocol it applies to (e.g. "flat allocation is NOT evidence of absent directed exploration" holds because TTTS's near-uniform distribution is marginal).
+- **Interface / run invariants** — anchor token, parser, seed pairing, output directory: state what breaks (incomparability or a silent error), not just the requirement.
+
+Markdown/HTML comments are still visible context to an agent — they are not stripped from the prompt. Keep them to two or three lines and push the long history into the linked doc.
+
 ## Project
 
 **Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/CLAUDE.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work.

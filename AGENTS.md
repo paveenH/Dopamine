@@ -39,7 +39,9 @@ Behavioral guidelines to reduce common LLM coding mistakes. **Tradeoff:** these 
 
 ## Project
 
-**Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/CLAUDE.md` contains the full theory map and phase plan; this file covers only repo-local conventions and recent (Phase 2 GSM8K) work. The definitive, continuously-updated repo brief is `CLAUDE.md` (its Claude twin) — when this file and `CLAUDE.md` disagree, `CLAUDE.md` wins; keep the two in sync when editing repo conventions.
+**Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering.
+
+For project facts, experimental claims, frozen-protocol rules, and run conventions, read `CLAUDE.md` first — it is the single canonical source and wins on any disagreement. This file holds only Codex-specific execution guidance. When a convention changes, update `CLAUDE.md` and record here only the Codex-specific delta; do not re-state repo facts in both files. `CLAUDE.md` §0.5 (Instruction maintenance) governs how rules are added, amended, and retired in both files.
 
 **Required reading before non-trivial changes:**
 - `AdaDopamine_gsm8k.md` — current GSM8K re-run state. Since 2026-05-30, old Phase 1/2 GSM8K numbers are not comparable because the prompt and layer-offset pipeline changed (`<|eot_id|>` terminator fix + symmetrized templates); the eot re-run is the authoritative data.
