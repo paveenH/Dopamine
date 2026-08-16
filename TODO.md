@@ -1,7 +1,6 @@
 
 ## TODO
-1. 改变模型的策略，从max score变成找到最优臂 -> PV10；[pv10b] -> 结果还是探索不足 ✔
-2. pv10a 
+2. pv10a (running done,还没有分析结果)
 3. PV10-B-Falsification，加入显式竞争假设提示
 4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
