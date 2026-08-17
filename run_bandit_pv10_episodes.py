@@ -72,14 +72,35 @@ def model_config_fingerprint(model_dir, hs, type_, mask_type, percentage,
         json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
-def resume_key(alpha, ls, le, seeds, model_config) -> str:
+def resume_key(alpha, ls, le, seeds, model_config, pm=None) -> str:
     """Cell identity. Seed CONTENT is hashed, not merely its length.
 
     Two different 20-seed sets would otherwise resume into each other and return
     episodes from different environments under this cell's name.
+
+    `pm` is the prompt module; its Stage-1 version enters the key so PV10-B and
+    PV10-C cannot resume into each other.
     """
-    return (f"{p10.interface_tag(4, seeds)}_a{alpha}_L{ls}-{le}_"
+    pm = p10 if pm is None else pm
+    return (f"{interface_tag_for(pm, 4, seeds)}_a{alpha}_L{ls}-{le}_"
             f"m{model_config}")
+
+
+def interface_tag_for(pm, k: int, seeds) -> str:
+    """`p10.interface_tag` with the PROMPT MODULE's Stage-1 version.
+
+    p10.interface_tag reads STAGE1_INSTRUCTION_VERSION from bandit_pv10's own
+    globals, so PV10-C would otherwise inherit B's tag and the two cells would
+    share a resume key -- C could resume into stored B episodes and silently
+    return them as its own.
+    """
+    base = p10.interface_tag(k, seeds)
+    own = getattr(pm, "STAGE1_INSTRUCTION_VERSION",
+                  p10.STAGE1_INSTRUCTION_VERSION)
+    if own == p10.STAGE1_INSTRUCTION_VERSION:
+        return base
+    return base.replace(f"_{p10.STAGE1_INSTRUCTION_VERSION}_",
+                        f"_{own}_", 1)
 
 
 def main() -> None:
@@ -93,6 +114,11 @@ def main() -> None:
     ap.add_argument("--mask_type", default="nmd")
     ap.add_argument("--percentage", type=float, default=0.5)
     ap.add_argument("--layers", default="11-20")
+    ap.add_argument("--prompt_variant", default="B", choices=["B", "C"],
+                    help="B = PV10-B (bandit_pv10). C = PV10-C, the competitor"
+                         " cue in the sampling clause (bandit_pv10c). The"
+                         " variant enters the resume key, so B and C cannot"
+                         " resume into each other.")
     ap.add_argument("--alpha", type=float, default=0.0)
     ap.add_argument("--seeds", type=int, nargs="+", required=True)
     ap.add_argument("--base_dir", default="/data1/paveen/Dopamine/components")
@@ -150,6 +176,13 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / f"bandit_pv10_{env.name}_{args.size}_{ls}_{le}.json"
 
+    # Prompt surface. PV10-C differs from PV10-B ONLY in the sampling clause;
+    # the terminal prompt is byte-identical (asserted in test_bandit_pv10c.py).
+    if args.prompt_variant == "C":
+        import bandit_pv10c as pm
+    else:
+        pm = p10
+
     # ---- 2. mask + resume key, BEFORE loading the model ---------------------
     mask_dir = os.path.join(args.base_dir, "mask", f"{args.hs}_{args.type}_logits")
     mask_path = os.path.join(
@@ -159,7 +192,7 @@ def main() -> None:
     model_cfg = model_config_fingerprint(
         args.model_dir, args.hs, args.type, args.mask_type,
         args.percentage, args.size, mask_path)
-    key = resume_key(args.alpha, ls, le, bank, model_cfg)
+    key = resume_key(args.alpha, ls, le, bank, model_cfg, pm)
 
     done: dict[int, dict] = {}
     if out_file.exists() and not args.overwrite:
@@ -187,7 +220,7 @@ def main() -> None:
         args.base_dir, args.hs, args.type, args.mask_type, args.percentage,
         args.size, ls, le, args.alpha)
 
-    tag = p10.interface_tag(env.k, bank)
+    tag = interface_tag_for(pm, env.k, bank)
     print(f"env={env.name} K={env.k} T={p10.TOTAL_BUDGET} "
           f"layers={ls}-{le} (L={n_layers}) TOP={top}")
     print(f"alpha={args.alpha}  interface={tag}")
@@ -208,7 +241,8 @@ def main() -> None:
             total_budget=p10.TOTAL_BUDGET,
             max_new_tokens=args.max_new_tokens,
             n_steered_layers=n_layers,
-            interface_tag=tag)
+            interface_tag=tag,
+            prompt_module=pm)
         runs.append(rec)
 
         payload = {
