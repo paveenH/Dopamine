@@ -1,0 +1,110 @@
+{
+  "amendment_id": "pv10_amendment_02_stop_parity",
+  "date": "2026-08-17",
+  "status": "PRE-DATA for pv10-strict-v2 cells; POST-DATA for the voided PV10-A v1 cells",
+  "title": "Stop-sequence semantics unified across alpha=0 and +-4; marker excluded before parsing",
+  "what_failed": {
+    "observed": "58 of 60 PV10-A v1 episodes terminated as invalid_policy; 0/20 alpha=0 episodes reached the fixed budget n=100, so the fixed-budget control never exercised its own design.",
+    "terminating_round_breakdown": {
+      "policy_line_with_bare_trailing_marker": 33,
+      "policy_line_with_inline_marker_comment": 14,
+      "other_malformation_no_marker": 11,
+      "total": 58
+    },
+    "median_exit_n": {
+      "a0": 25.5,
+      "am4": 25.0,
+      "ap4": 7.5
+    }
+  },
+  "root_causes": [
+    {
+      "id": "RC1_stop_parity",
+      "defect": "llms.VicundaModel.generate() had no stop_strings parameter while regenerate() did. alpha=0 registers no hook and therefore takes the generate path, so alpha=0 cells generated with NO stop marker while their own +-4 cells stopped on '#'.",
+      "consequence": "The two arms of one experiment had different generation boundaries. Any alpha contrast was confounded by generation length, not only by steering.",
+      "evidence": "median generation chars, PV10-A: a0(generate)=489 vs ap4(regenerate)=226; stop-marker hit rate 0.690 vs 0.776. PV10-B: a0=413 vs ap4=157.",
+      "fix": "generate() gained stop_strings (default None, so every pre-existing caller is byte-identical) and forwards the tokenizer as HF requires; the episode runner now passes p10.STOP_STRINGS on BOTH paths."
+    },
+    {
+      "id": "RC2_runtime_parser_contract",
+      "defect": "HF stop_strings halts only AFTER the marker is emitted, leaving it in the returned text, while _POLICY_RE anchors on $ and tolerates only [.!]. The runtime treated '#' as a boundary and the parser did not.",
+      "consequence": "A canonical Policy line ending in the marker was read as malformed; 47 of 58 terminating rounds died this way.",
+      "fix": "bandit_pv10.apply_stop_boundary() truncates at the first marker, EXCLUDING it. The episode parses only the truncated text."
+    }
+  ],
+  "explicitly_rejected_alternatives": [
+    {
+      "option": "(a) relax _POLICY_RE to tolerate a trailing '#'",
+      "why_rejected": "Rescues only the 33 bare-marker cases, not the 14 inline-comment cases; tolerating the comment too would be equivalent to truncation but with a permanently looser regex."
+    },
+    {
+      "option": "(b) give PV10-A its own stop string",
+      "why_rejected": "Breaks the A/B shared-object guarantee that makes the two protocols comparable."
+    },
+    {
+      "option": "delete the 'must name exactly one button' clause from PV10-A",
+      "why_rejected": "FALSIFIED. PV10-B contains the identical clause (bandit_pv10.py) and does not fail, and the 33-case majority has no echoed text to delete. Diagnosis corrected before any edit was made."
+    }
+  ],
+  "strictness_preserved": {
+    "claim": "This is a control-token boundary fix, NOT parser leniency.",
+    "regex_unchanged": true,
+    "still_invalid": [
+      "prose after the arm (explained instead of committing)",
+      "two or more conflicting directives before the marker",
+      "no canonical directive before the marker",
+      "arm outside the episode arm set",
+      "SAMPLE at the terminal prompt"
+    ],
+    "still_valid": [
+      "agreeing repeated directives (unambiguous intent)"
+    ],
+    "verified_by": "test_pv10_stop_parity.py"
+  },
+  "version_changes": {
+    "POLICY_PARSER_VERSION": {
+      "from": "pv10-strict-v1",
+      "to": "pv10-strict-v2"
+    },
+    "propagates_to_interface_tag": true,
+    "resume_safety": "v1 cells cannot resume into v2 cells; new results must be written to a new directory."
+  },
+  "record_schema_additions": [
+    "raw_generation",
+    "generation_stopped",
+    "generation_stopped_char_count",
+    "stop_marker_truncated"
+  ],
+  "data_status": {
+    "pv10a_v1_a0_am4_ap4": "VOID -- interface failure. Not analysable for accuracy, RSN or alpha effects.",
+    "pv10b_v1": "RETAINED unchanged. Reported results stand.",
+    "pv10b_v1_comparability_caveat": "PV10-B v1 ran with the alpha=0/+-4 stop asymmetry (RC1) and the v1 parser (RC2). An offline v2 re-parse changes 1 round in 412 (a0), 1 in 307 (am4), 0 in 343 (ap4) -- so most ACTIONS are unchanged. This does NOT restore the affected round: a changed action alters every subsequent state, and re-parsing cannot regenerate the trajectory. A strict A/B comparison therefore requires PV10-B to be re-run under v2; the stored v1 results remain valid on their own terms."
+  },
+  "test_coverage": {
+    "added": "test_pv10_stop_parity.py",
+    "negative_control": "6 of its checks verified to FAIL against pre-fix code at commit HEAD",
+    "limitation": "Unit tests verify the harness contract only. They cannot show a real model will stay in format under the fixed-budget prompt -- only a GPU run can."
+  },
+  "rerun_order": [
+    "PV10-A alpha=0 (20 seeds) first",
+    "confirm episodes reach n=100 and no new systematic malformed mode",
+    "only then +-4; no blind three-cell parallel run"
+  ],
+  "audit_chain": {
+    "commit_before_fix": "2dccd44",
+    "sha256_before": {
+      "bandit_pv10.py": "79902ff3b8583664dda73b0a2bb5191c8765f8b043554d1dcd385864421a3401",
+      "bandit_pv10_episode.py": "2424151feb1315e29fbd704deebd6f849dd8200debba323bb4052ac513c30086",
+      "llms.py": "fab44820df8075776b52425b53ecd1eff22c480321bbc7e786c45edd4badcf82"
+    },
+    "sha256_after": {
+      "bandit_pv10.py": "d5e93d3cc027d12ccd0bfea2897a6aff83be4736c128ccdb1d04fdde28a77a68",
+      "bandit_pv10_episode.py": "b677270ca0fdaa810fb7c224347e287ffbbf30a9f8f356e44377185fc8fe3841",
+      "llms.py": "3c3da1a55b6ff9523819240d833624ad7a426b67416cb7e9fdb0ca97c5bfa54a",
+      "bandit_pv10a.py": "31b6200098bcd36258e466ed904a7dc69038cf02c50dadd6d503daca95fd5230"
+    },
+    "bandit_pv10a_py_unchanged_by_this_amendment": true,
+    "pv10b_prompt_bytes_unchanged": "verified: build_decision_prompt identical at n=4,20,99,100",
+    "pv10a_terminal_prompt_still_identical_to_pv10b": true
+  }
+}
