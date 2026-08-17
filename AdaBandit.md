@@ -1319,6 +1319,19 @@ evidence quality 与 final identification，可帮助区分 α 改变的是 samp
 工作假设，继续采样 incumbent 构成 **incumbent-biased confirmatory sampling**，而采样 leader 的
 challenger 才真正检验当前判断。跨任务的行为结构可以比较，但目前不能据此断言它们具有相同的内部机制。
 
+### 4.4 Results
+
+PV10-B 可以执行，但模型通常很早停止，并把采样集中在少数早期领先的 arm 上；识别准确率整体较低，
+也没有检测到可靠的 α 效应。matched-budget 分析表明，问题不只是停止过早，采样分配本身也存在
+greedy lock-in。
+
+PV10-A 移除了中途 COMMIT，但仍有 30–40% episode 因 `invalid_policy` 提前退出，且退出集合随 α
+不同，因此不能解释跨 cell accuracy。即使在成功用满 100 个样本的 episode 中，模型仍经常只采样某些
+arm 一次，并将大部分预算集中在少数候选上；强制继续采样没有修复信息获取策略。
+
+因此，PV10-A/B 都没有提供可支持 RSN 改善 BAI 的结果，目前仅作为过早承诺与 confirmatory sampling
+的诊断证据保留。PV10-A 不再追加 v3；下一步用 PV10-C 测试显式竞争假设提示能否改善采样行为。
+
 ## References
 
 1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.
