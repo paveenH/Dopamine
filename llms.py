@@ -694,10 +694,20 @@ class VicundaModel:
         top_p: float = 0.9,
         temperature: float = 0.0,
         batch_size: int = 1,
+        stop_strings: list[str] = None,
     ) -> list[str]:
         """
         Generate responses for a batch of input prompts.
         batch_size > 1 enables true batched inference for speedup.
+
+        stop_strings: optional HF `generate(stop_strings=...)` markers. Default
+            None keeps every existing caller byte-identical. It exists because
+            `regenerate` accepted stop_strings and this did not, so an alpha=0
+            cell (which takes this path, registering no hook) ran with NO stop
+            marker while its own +-4 cells ran with one -- the two arms of the
+            same experiment had different generation boundaries. Same caveat as
+            regenerate: HF halts on the marker appearing ANYWHERE, so never use
+            a marker that the prompt itself contains.
         """
         do_sample = temperature > 0
         top_p_val = top_p if do_sample else None
@@ -714,8 +724,7 @@ class VicundaModel:
             attention_mask = tokens.attention_mask.to(self.model.device)
             prompt_len = input_ids.shape[1]
 
-            output_ids = self.model.generate(
-                input_ids,
+            gen_kwargs = dict(
                 attention_mask=attention_mask,
                 max_new_tokens=max_new_tokens,
                 do_sample=do_sample,
@@ -725,6 +734,11 @@ class VicundaModel:
                 eos_token_id=self.terminators,
                 pad_token_id=self.tokenizer.pad_token_id,
             )
+            if stop_strings:
+                gen_kwargs["stop_strings"] = stop_strings
+                gen_kwargs["tokenizer"] = self.tokenizer
+
+            output_ids = self.model.generate(input_ids, **gen_kwargs)
             for seq in output_ids:
                 gen_ids = seq[prompt_len:]
                 text = self.tokenizer.decode(

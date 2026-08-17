@@ -54,7 +54,7 @@ from dataclasses import dataclass
 
 PROTOCOL_VERSION = "pv10"
 STAGE1_INSTRUCTION_VERSION = "p10"
-POLICY_PARSER_VERSION = "pv10-strict-v1"
+POLICY_PARSER_VERSION = "pv10-strict-v2"
 ORDER_VERSION = "orders-v1"
 
 ARM_LABELS = ("A", "B", "C", "D", "E")
@@ -78,6 +78,42 @@ RATIONALE_MAX_TOKENS = 128
 # line, so stopping on "\n\n" would truncate nearly every Policy. Do not
 # "improve" this without re-measuring that.
 STOP_STRINGS = ("#",)
+
+
+def apply_stop_boundary(raw: str, stop_strings=STOP_STRINGS) -> str:
+    """Truncate a generation at the first stop marker, EXCLUDING the marker.
+
+    Why this exists (v2, after the PV10-A interface failure):
+
+    HF `stop_strings` halts generation only AFTER the marker has been emitted,
+    so the marker is still present in the returned text. The runtime therefore
+    treated "#" as a boundary while the parser did not -- `_POLICY_RE` anchors
+    on `$` and tolerates only `[.!]`, so a Policy line ending in the marker was
+    read as `malformed`. In PV10-A that voided 47 of 58 terminating rounds:
+    33 `Policy: SAMPLE Button C #` and 14 `... # Note: ...`.
+
+    This is NOT a leniency fix and it is NOT stripping model content. The
+    marker is a CONTROL token owned by the harness; everything at or after it
+    was never inside the decision the model was asked to make. What survives is
+    parsed by the SAME strict regex, unrelaxed:
+
+      * a trailing "#" no longer voids an otherwise canonical Policy line
+      * "# Note: ..." is removed with the marker, not silently recovered as an
+        action -- if the pre-marker text holds no canonical directive the round
+        is still invalid
+      * two or more directives BEFORE the marker still conflict and still void
+      * "explained instead of committing" stays a visible failure signature
+
+    Callers must store the untruncated generation as `raw_generation` for
+    audit and parse only the value returned here.
+    """
+    text = raw or ""
+    cut = len(text)
+    for marker in stop_strings or ():
+        i = text.find(marker)
+        if i != -1:
+            cut = min(cut, i)
+    return text[:cut]
 
 
 # ───────────────────────────── per-seed orders ──────────────────────────────

@@ -205,9 +205,14 @@ def run_pv10_episode(
                     max_new_tokens=max_new_tokens, temperature=0.0,
                     stop_strings=list(p10.STOP_STRINGS))
             else:
+                # stop_strings MUST match the steered branch above. Before v2
+                # this call omitted them, so an alpha=0 cell generated with NO
+                # stop marker while its own +-4 cells stopped on "#": the two
+                # arms of one experiment had different generation boundaries.
                 out = vc.generate(inputs=[prompt],
                                   max_new_tokens=max_new_tokens,
-                                  temperature=0.0)
+                                  temperature=0.0,
+                                  stop_strings=list(p10.STOP_STRINGS))
         except Exception as e:      # INFRA, not model behaviour
             raise EpisodeInfrastructureError(
                 f"generation failed at seed={seed} decision={decision_index} "
@@ -227,7 +232,13 @@ def run_pv10_episode(
                 "so injection cannot be attested")
         fires_total += fired
 
-        pol = p10.parse_policy(raw, display_order, terminal=terminal)
+        # Three text layers (v2): raw_generation is the untruncated audit
+        # record; generation_stopped is raw cut at the first stop marker with
+        # the marker EXCLUDED; only the stopped text is parsed, by the same
+        # unrelaxed regex. The marker is a harness control token, so nothing
+        # at or after it was ever part of the decision.
+        stopped = p10.apply_stop_boundary(raw)
+        pol = p10.parse_policy(stopped, display_order, terminal=terminal)
 
         rec = {
             "decision_index": decision_index,
@@ -243,8 +254,12 @@ def run_pv10_episode(
             "prompt_tail_token_id": audit["tail_token_id"],
             "interface_tag": interface_tag,
             "raw": raw,
+            "raw_generation": raw,
+            "generation_stopped": stopped,
             "generation_char_count": len(raw),
+            "generation_stopped_char_count": len(stopped),
             "generation_hit_stop_marker": any(s in raw for s in p10.STOP_STRINGS),
+            "stop_marker_truncated": len(stopped) < len(raw),
             "valid": pol.valid,
             "action": pol.action,
             "arm": pol.arm,
