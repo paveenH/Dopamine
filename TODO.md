@@ -1,6 +1,6 @@
 
 ## TODO
-3. PV10-B-Falsification，加入显式竞争假设提示
+3. PV10-C（PV10-B-Falsification）：加入显式竞争假设提示
 4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Meta 新模型
@@ -231,4 +231,3 @@ analysis freeze
 | 12 | 共享刺激集設計 + neural encoding | 登頂級期刊的路 |
 | 13 | **Pressure × Confidence Dissociation** | 區分 DA-like commitment vs confidence |
 | 14 | **Task Difficulty × RSN Activation（現有數據）** | DA effort/uncertainty 對應 |
-
