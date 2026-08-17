@@ -106,5 +106,33 @@
     "bandit_pv10a_py_unchanged_by_this_amendment": true,
     "pv10b_prompt_bytes_unchanged": "verified: build_decision_prompt identical at n=4,20,99,100",
     "pv10a_terminal_prompt_still_identical_to_pv10b": true
+  },
+  "manifest_refreeze": {
+    "reason": "POLICY_PARSER_VERSION v1->v2 propagates into interface_tag, so the frozen basis legitimately did not reproduce. The guard fired correctly and was not bypassed.",
+    "old_manifest_preserved_as": "pv10_capability_manifest.frozen_pv10-strict-v1.json",
+    "old_manifest_sha256": "6db85973ab728b11fdf092e3eaf31a9028b7891da0886beeefb9f56b303d2b30",
+    "new_manifest_sha256": "f852665a76d7656a7d56a1d0d69c7e0a866ef607df1b3faddfef3b83268e892b",
+    "what_changed_in_basis": [
+      "module_sha256",
+      "versions.policy_parser",
+      "versions.interface_tag"
+    ],
+    "what_did_not_change": {
+      "criteria": true,
+      "FROZEN_CRITERIA_sha256_prefix": "be205de8a77bd30e",
+      "seed_bank": true,
+      "order_bank_sha256": true,
+      "chance_floor_k4": true
+    },
+    "event_order": [
+      "1. PV10-A v1 data collected and found to be an interface failure",
+      "2. root causes diagnosed (RC1 stop parity, RC2 runtime/parser contract)",
+      "3. an initially proposed fix (delete a prompt clause) was FALSIFIED before any edit",
+      "4. code fixed; test_pv10_stop_parity.py added and verified to fail against pre-fix code",
+      "5. PV10-B prompt bytes verified unchanged; full PV10 suite green",
+      "6. v1 manifest preserved, then deliberately deleted and re-frozen per the guard's own instruction"
+    ],
+    "data_predates_refreeze": true,
+    "gate_verdict_status": "PV10-B v1 alpha=0 capability PASS was judged against the v1 basis and remains citable under that basis. Any v2 cell must be judged against the v2 basis."
   }
 }
