@@ -1,6 +1,8 @@
 
 ## TODO
-3. PV10-C（PV10-B-Falsification）：加入显式竞争假设提示
+3. PV10-C（PV10-B-Falsification）：加入显式竞争假设提示 顺便修复之前的问题
+[1] 302722
+[2] 302723
 4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Meta 新模型
