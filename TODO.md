@@ -1,6 +1,8 @@
 
 ## TODO
-2. pv10a (running done,还没有分析结果)
+2. pv10a (running 修复Code stop问题)
+[1] 55746
+[2] 55747
 3. PV10-B-Falsification，加入显式竞争假设提示
 4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
