@@ -24,6 +24,14 @@
 # 11-20 layer band are Llama-3.1 facts. Qwen would need both re-audited and the
 # order/seed bases re-frozen.
 
+# NOTE (pv10-strict-v2, 2026-08-17): the stop-parity fix changes the resume
+# key, so a re-run here will NOT resume the stored v1 cells -- it would start
+# fresh and write v2 episodes into a v1 directory. The stored PV10-B v1 results
+# are RETAINED and remain citable against the v1 basis
+# (pv10_capability_manifest.frozen_pv10-strict-v1.json). If PV10-B is re-run
+# under v2 for a strict A/B comparison, send it to pv10_v2_* dirs first.
+# See pv10_capability_amendment_02.json.
+
 set -euo pipefail
 
 MODEL="${1:-llama3}"

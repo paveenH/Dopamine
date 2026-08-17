@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # PV10-A launcher: FIXED-BUDGET mechanism control for PV10-B.
 #
-#   bash run_bandit_pv10a.sh llama3 [CHECK|A0|AM4|AP4]
+#   bash run_bandit_pv10a.sh llama3 [CHECK|A0|AM4|AP4|PM4]
+#
+# TWO-GPU LAYOUT (one card each, run concurrently):
+#   CUDA_VISIBLE_DEVICES=0 bash run_bandit_pv10a.sh llama3 A0
+#   CUDA_VISIBLE_DEVICES=1 bash run_bandit_pv10a.sh llama3 PM4
+#
+# llms.py loads with device_map="auto", which claims every VISIBLE device, so
+# CUDA_VISIBLE_DEVICES is what actually separates the two jobs -- without it
+# both processes would map across both cards and collide.
 #
 # PV10-B's alpha=0 result confounds two things: the model committed after a
 # median of 13 samples with some arm still at a single pull, so weak
@@ -24,9 +32,11 @@
 # reached n=100. Fixed in pv10-strict-v2; v2 results go to pv10a_v2_*, which
 # cannot resume into the v1 cells. See pv10_capability_amendment_02.json.
 #
-# Run A0 alone first and confirm episodes REACH n=100 before running +-4. Do
-# not launch the three cells in parallel: an interface-level failure has now
-# happened once on this protocol.
+# INTERPRETATION ORDER IS UNCHANGED BY THE GPU LAYOUT. Running +-4 on a second
+# card concurrently is a scheduling choice, not a licence to read them first:
+# alpha=0 is what says whether the fixed-budget control WORKS at all. If A0
+# does not reach n=100, the +-4 cells are void for the same reason v1 was, and
+# no alpha contrast may be reported from them.
 
 set -euo pipefail
 
@@ -56,6 +66,7 @@ SEEDS="0 1 2 3 4 5 8 11 14 19 22 23 26 31 32 46 48 50 53 57"
 run_cell () {
   local alpha="$1" dir="$2"
   echo "=== PV10-A  alpha=${alpha}  ->  ${dir}"
+  echo "    CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset: ALL GPUs>}  pid=$$"
   ${PY} run_bandit_pv10a_episodes.py \
     --model "${MODEL}" --model_dir "${MODEL_DIR}" --size "${SIZE}" \
     --hs "${HS}" --type "${TYPE}" --mask_type "${MASK_TYPE}" \
@@ -83,5 +94,12 @@ case "${STEP}" in
   AM4)   run_cell -4 "${OUT_ROOT}/pv10a_v2_am4" ;;
   AP4)   run_cell  4 "${OUT_ROOT}/pv10a_v2_ap4" ;;
 
-  *) echo "unknown step: ${STEP}"; echo "expected: CHECK A0 AM4 AP4"; exit 1 ;;
+  # Both alpha cells SEQUENTIALLY on one card. They share a device, so they
+  # must not run at the same time; A0 runs concurrently on the other card.
+  PM4)   ${PY} test_pv10_stop_parity.py
+         run_cell -4 "${OUT_ROOT}/pv10a_v2_am4"
+         run_cell  4 "${OUT_ROOT}/pv10a_v2_ap4" ;;
+
+  *) echo "unknown step: ${STEP}"
+     echo "expected: CHECK A0 AM4 AP4 PM4"; exit 1 ;;
 esac
