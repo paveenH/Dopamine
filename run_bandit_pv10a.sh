@@ -18,6 +18,15 @@
 #
 # PV10-A is a CONTROL, not a competence claim. Its accuracy is not comparable
 # to a self-paced PV10-B number: the model did not choose when to stop.
+#
+# v1 (pv10a_a0/_am4/_ap4) is VOID: an alpha=0 / +-4 stop-path asymmetry plus a
+# runtime/parser contract gap voided 58/60 episodes, and 0/20 alpha=0 episodes
+# reached n=100. Fixed in pv10-strict-v2; v2 results go to pv10a_v2_*, which
+# cannot resume into the v1 cells. See pv10_capability_amendment_02.json.
+#
+# Run A0 alone first and confirm episodes REACH n=100 before running +-4. Do
+# not launch the three cells in parallel: an interface-level failure has now
+# happened once on this protocol.
 
 set -euo pipefail
 
@@ -60,17 +69,19 @@ case "${STEP}" in
          ${PY} test_bandit_pv10.py
          ${PY} test_bandit_pv10a.py
          ${PY} test_bandit_pv10_episode.py
-         ${PY} test_pv10_gate_end_to_end.py ;;
+         ${PY} test_pv10_gate_end_to_end.py
+         ${PY} test_pv10_stop_parity.py ;;
 
   A0)    ${PY} test_bandit_pv10a.py
-         run_cell 0 "${OUT_ROOT}/pv10a_a0"
+         ${PY} test_pv10_stop_parity.py
+         run_cell 0 "${OUT_ROOT}/pv10a_v2_a0"
          echo
          echo "STOP. Read the alpha=0 allocation before running +-4:"
          echo "  single-arm share still high -> acquisition defect"
          echo "  allocation improved         -> stopping-threshold defect" ;;
 
-  AM4)   run_cell -4 "${OUT_ROOT}/pv10a_am4" ;;
-  AP4)   run_cell  4 "${OUT_ROOT}/pv10a_ap4" ;;
+  AM4)   run_cell -4 "${OUT_ROOT}/pv10a_v2_am4" ;;
+  AP4)   run_cell  4 "${OUT_ROOT}/pv10a_v2_ap4" ;;
 
   *) echo "unknown step: ${STEP}"; echo "expected: CHECK A0 AM4 AP4"; exit 1 ;;
 esac
