@@ -8,7 +8,7 @@ https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
 Inkling-Small
 
 ## TODO — ACL ARR
-### 1c. Controlled Evidence-State Micro-Episodes（新协议，待实现）
+### 1c. Controlled Evidence-State Micro-Episodes
 - [ ] 合成 counts 状态（**不取自任何 α=0 轨迹**）
 - [ ] `SAMPLE` 后返回真实 reward 并允许后续决策
 - [ ] Commitment block：样本平衡，操纵证据弱/强 × 剩余 horizon
