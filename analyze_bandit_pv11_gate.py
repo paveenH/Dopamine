@@ -537,6 +537,39 @@ def selftest() -> int:
     if r["verdict"] == "PASS":
         fails.append("a partial block still reported PASS")
 
+    # ── ONE COMPLETE BLOCK MUST FAIL ──────────────────────────────────────
+    # Regression. An earlier build returned verdict=PASS for a complete
+    # Commitment block alone, with M2 reported as "not applicable": the
+    # verdict took `all()` over only the APPLICABLE rules, and `all([m1])` is
+    # True. An unmeasured prerequisite is not a satisfied one.
+    for block in ("commitment", "acquisition"):
+        subset = [x for x in runs if x["block"] == block]
+        r = evaluate(subset)
+        other = "acquisition" if block == "commitment" else "commitment"
+        if r["verdict"] == "PASS":
+            fails.append(
+                f"a complete {block} block ALONE reported PASS -- the "
+                f"missing {other} rule was treated as an exemption")
+        if not any("ABSENT" in e for e in r["errors"]):
+            fails.append(
+                f"{block}-only run did not flag the absent {other} block")
+        key = "M2" if block == "commitment" else "M1"
+        if r[key]["applicable"]:
+            fails.append(f"{key} reported applicable with its block absent")
+        # the measured rule should still be readable, just not sufficient
+        measured = "M1" if block == "commitment" else "M2"
+        if not r[measured]["applicable"]:
+            fails.append(f"{measured} was not measured despite its block "
+                         f"being complete")
+
+    # verdict_basis must expose WHY, not just the verdict
+    r = evaluate([x for x in runs if x["block"] == "commitment"])
+    vb = r["verdict_basis"]
+    if vb["M2_applicable"] or vb["M2_passes"] is not None:
+        fails.append("verdict_basis misreports an absent rule as measured")
+    if not vb["M1_passes"]:
+        fails.append("verdict_basis lost the measured rule's result")
+
     # duplicates must ERROR
     r = evaluate(runs + runs[:1])
     if not any("duplicate" in e for e in r["errors"]):
@@ -553,7 +586,7 @@ def selftest() -> int:
         for f in fails:
             print(f"  - {f}")
         return 1
-    print("ok  analyze_bandit_pv11_gate.py --selftest  (9 checks)")
+    print("ok  analyze_bandit_pv11_gate.py --selftest  (11 checks)")
     return 0
 
 

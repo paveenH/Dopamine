@@ -155,10 +155,17 @@ def main() -> None:
     ap.add_argument("--size", default="8B")
     ap.add_argument("--max_new_tokens", type=int,
                     default=ep.RATIONALE_MAX_TOKENS)
+    # A block-restricted or truncated run CANNOT be gated: the gate requires
+    # both complete blocks and treats a missing one as a FAILURE, not as its
+    # rule not applying. These flags exist for smoke/debug only, and the
+    # driver says so at startup rather than letting a partial file look like
+    # a gateable result.
     ap.add_argument("--block", choices=["all", "commitment", "acquisition"],
-                    default="all")
+                    default="all",
+                    help="SMOKE/DEBUG ONLY -- a single block cannot be gated")
     ap.add_argument("--limit", type=int, default=0,
-                    help="run only the first N states (smoke use only)")
+                    help="SMOKE/DEBUG ONLY -- run only the first N states; "
+                         "a truncated run cannot be gated")
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -182,6 +189,12 @@ def main() -> None:
         states = states[:args.limit]
     print(f"[bank] {len(states)} states  "
           f"canonical={manifest['state_bank_canonical_sha256'][:16]}")
+    if args.block != "all" or args.limit:
+        print(f"[WARNING] this is a PARTIAL run "
+              f"(block={args.block}, limit={args.limit or 'none'}). "
+              f"The gate requires BOTH complete blocks and will report FAIL "
+              f"on this output -- it is for smoke/debug only, not for a gate "
+              f"decision.")
 
     out_file = Path(args.ans_file)
     out_file.parent.mkdir(parents=True, exist_ok=True)

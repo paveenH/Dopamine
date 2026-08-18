@@ -177,6 +177,28 @@ def main() -> int:
         except SystemExit:
             pass
 
+    # ── ONE COMPLETE BLOCK MUST FAIL, on real driver output ───────────────
+    # Same regression as the gate's selftest, but driven through the FILE
+    # path: a block-restricted run is a legitimate thing for the driver to
+    # produce (`--block commitment`), so the refusal has to happen in the
+    # gate, on real serialized records, not only on synthetic ones.
+    with tempfile.TemporaryDirectory() as td:
+        for block in ("commitment", "acquisition"):
+            subset = [r for r in runs if r["block"] == block]
+            path = Path(td) / f"{block}_only.json"
+            _write_like_driver(subset, path)
+            loaded, _ = gate.load_runs(path)
+            check(len(loaded) == 80,
+                  f"{block}-only file did not load its 80 episodes")
+            res_one = gate.evaluate(loaded)
+            other = "acquisition" if block == "commitment" else "commitment"
+            check(res_one["verdict"] == "FAIL",
+                  f"a complete {block} block ALONE reported "
+                  f"{res_one['verdict']} -- the missing {other} rule was "
+                  f"treated as an exemption")
+            check(any("ABSENT" in e for e in res_one["errors"]),
+                  f"{block}-only run did not flag the absent {other} block")
+
     # ── an insensitive decider must FAIL, so PASS is not automatic ─────────
     def flat(prompt: str) -> str:
         if "You may take no further samples." in prompt:
