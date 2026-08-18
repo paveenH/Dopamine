@@ -20,7 +20,7 @@ Inkling-Small
 ### 1b. PV10 online line — CLOSED (2026-08-18)
 
 - [x] PV10-C acquisition gate 判定：**四项全部反向，未运行 ±4**
-- [x] 结果与三层结构写入 `AdaBandit.md` §4.5
+- [x] 简洁结论并入 `AdaBandit.md` §4.4 的 PV9–PV10 总表
 - [x] `.774` competitor alignment 标记 DEPRECATED / construct-invalid（计算保留可复现，不得引用）
 - [x] 冻结结论：在线 PV10-A/B/C 关闭，不再增加提示文字类干预
 
