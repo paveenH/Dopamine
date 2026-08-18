@@ -184,13 +184,67 @@ def model_config_fingerprint(model_dir, hs, type_, mask_type, percentage,
         json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
-def resume_key(alpha, ls, le, bank, model_config) -> str:
-    """Cell identity. Bank CONTENT is hashed, not merely its state count."""
-    horizons = sorted({s["remaining_horizon"] for s in bank["states"]})
-    tag = p11.interface_tag(
-        (s["state_uid"] for s in bank["states"]), horizons)
+def scope_tag(states: list[dict], block: str) -> str:
+    """Interface tag over the states ACTUALLY RUN, not over the whole bank.
+
+    `--block` was a smoke/debug flag whose scope never reached the resume key:
+    the driver filtered `states` but handed the UNFILTERED `bank` to
+    `resume_key`, so `--block acquisition` and `--block all` produced a
+    byte-identical key and would silently resume into each other. That is
+    harmless for a debug run and a blocker the moment a single block becomes a
+    formal cell (PV11-Acq, see pv11_amendment_01.json), which is why it is
+    fixed here rather than in the original freeze.
+
+    Scope enters the identity TWICE, on purpose:
+      * the tag is computed over the run states, so the horizon segment and
+        the uid digest describe the real scope (acquisition is H=20 only,
+        hence `H20`, while the full bank spans `H5-20`);
+      * an explicit `_blk<name>` segment is appended, so a human reads the
+        scope off the key, and so a DIFFERENT future filter that happened to
+        select the same uid set could not collide with this one.
+
+    `block == "all"` appends nothing and computes over every state, which is
+    what keeps the stored alpha=0 cell's key and tag byte-identical. That
+    asymmetry is deliberate and is the same convention pv6 used for
+    `steering_scope` and `ut`.
+    """
+    horizons = sorted({s["remaining_horizon"] for s in states})
+    tag = p11.interface_tag((s["state_uid"] for s in states), horizons)
+    return tag if block == "all" else f"{tag}_blk{block}"
+
+
+def resume_key(alpha, ls, le, bank, model_config, states=None,
+               block: str = "all") -> str:
+    """Cell identity. Bank CONTENT is hashed, not merely its state count.
+
+    `states`/`block` describe the SCOPE actually run. Defaulting them to the
+    whole bank keeps every pre-existing call byte-identical.
+    """
+    if states is None:
+        states = bank["states"]
+    tag = scope_tag(states, block)
     return (f"{tag}_bank{bank_fingerprint(bank)}_a{alpha}_L{ls}-{le}_"
             f"m{model_config}")
+
+
+def check_resumed_uids(done: dict, expected: list[str], block: str) -> None:
+    """Resume must agree on WHICH states are stored, not merely how many.
+
+    A count check passes while holding the wrong block entirely, which is the
+    exact failure the scope fix exists to prevent -- so the count is the one
+    thing this does NOT rely on.
+    """
+    exp = set(expected)
+    stored = set(done)
+    if len(stored) != len(done):                      # dict keys are unique;
+        raise SystemExit("duplicate state_uid in stored runs")
+    alien = sorted(stored - exp)
+    if alien:
+        raise SystemExit(
+            f"stored runs contain {len(alien)} state_uid(s) outside this "
+            f"cell's scope (block={block}); first few: {alien[:3]}\n"
+            f"This file belongs to a different scope. Use a separate "
+            f"--ans_file per cell, or --overwrite.")
 
 
 # ──────────────────────────────────── main ──────────────────────────────────
@@ -289,13 +343,21 @@ def main() -> None:
     model_cfg = model_config_fingerprint(
         args.model_dir, args.hs, args.type, args.mask_type,
         args.percentage, args.size, mask_path)
-    key = resume_key(args.alpha, ls, le, bank, model_cfg)
+    key = resume_key(args.alpha, ls, le, bank, model_cfg,
+                     states=states, block=args.block)
 
     done: dict[str, dict] = {}
     if out_file.exists() and not args.overwrite:
         prev = json.loads(out_file.read_text())
         if prev.get("resume_key") == key:
-            done = {r["state_uid"]: r for r in prev.get("runs", [])}
+            stored_runs = prev.get("runs", [])
+            done = {r["state_uid"]: r for r in stored_runs}
+            if len(done) != len(stored_runs):
+                raise SystemExit(
+                    f"{out_file} contains duplicate state_uid entries "
+                    f"({len(stored_runs)} runs, {len(done)} unique)")
+            check_resumed_uids(
+                done, [s["state_uid"] for s in states], args.block)
             print(f"[resume] {len(done)} episodes already stored")
         else:
             raise SystemExit(
@@ -317,9 +379,7 @@ def main() -> None:
         args.base_dir, args.hs, args.type, args.mask_type, args.percentage,
         args.size, ls, le, args.alpha)
 
-    horizons = sorted({s["remaining_horizon"] for s in bank["states"]})
-    tag = p11.interface_tag(
-        (s["state_uid"] for s in bank["states"]), horizons)
+    tag = scope_tag(states, args.block)
     print(f"protocol={p11.PROTOCOL_VERSION} bank={p11.STATE_BANK_VERSION} "
           f"parser={p11.POLICY_PARSER_VERSION}")
     print(f"layers={ls}-{le} (L={n_layers}) TOP={top}  alpha={args.alpha}")
@@ -377,7 +437,23 @@ def main() -> None:
               f"fires={rec['attestation']['steering_fires']:4d} "
               f"({time.time() - t0:.1f}s)")
 
-    print(f"\nwrote {out_file}  ({len(runs)} episodes)")
+    # A cell is complete only when it holds EXACTLY its scope's states -- no
+    # missing state (a silently short cell), no extra (a scope collision).
+    stored_uids = {r["state_uid"] for r in runs}
+    expected_uids = {s["state_uid"] for s in states}
+    if stored_uids != expected_uids:
+        missing = sorted(expected_uids - stored_uids)
+        extra = sorted(stored_uids - expected_uids)
+        raise SystemExit(
+            f"INCOMPLETE CELL: stored {len(stored_uids)} of "
+            f"{len(expected_uids)} expected states "
+            f"(block={args.block})\n"
+            f"  missing: {len(missing)} {missing[:3]}\n"
+            f"  extra:   {len(extra)} {extra[:3]}\n"
+            f"{out_file} was written; re-run to fill it in.")
+
+    print(f"\nwrote {out_file}  ({len(runs)} episodes, "
+          f"block={args.block}, complete)")
 
 
 if __name__ == "__main__":
