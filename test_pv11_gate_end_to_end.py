@@ -20,13 +20,16 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, "/Users/paveenhuang/Downloads/Dopamine")
+# Resolve from THIS file's location, never a hardcoded path: these tests run
+# on the analysis box and on the server, and an absolute local path makes the
+# suite pass in one place and crash in the other.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import analyze_bandit_pv11_gate as gate
 import bandit_pv11 as p11
 import bandit_pv11_episode as ep
 
-HERE = Path("/Users/paveenhuang/Downloads/Dopamine")
+HERE = Path(__file__).resolve().parent
 FAILURES: list[str] = []
 
 
