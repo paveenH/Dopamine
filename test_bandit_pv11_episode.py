@@ -312,6 +312,85 @@ def main() -> int:
     except ep.EpisodeInfrastructureError:
         pass
 
+    # ── 12b. EMPTY generation is infrastructure, NOT an invalid policy ─────
+    # Both shapes must fail closed. `[]` would otherwise raise a bare
+    # IndexError (an unhandled crash, not a diagnosable failure), and `[""]`
+    # would parse as invalid_policy -- entering the ITT denominator as though
+    # the model had emitted an unparseable decision when it emitted nothing at
+    # all. That is how an infrastructure fault becomes a published invalid
+    # rate; PV10-A v1's 58/60 loss is the precedent for taking it seriously.
+    class EmptyList(FakeVC):
+        def generate(self, inputs, **kw):
+            self.prompts.append(inputs[0])
+            self._pending = 0
+            return []
+
+    class EmptyString(FakeVC):
+        def generate(self, inputs, **kw):
+            self.prompts.append(inputs[0])
+            self._pending = 0
+            return [""]
+
+    class Whitespace(FakeVC):
+        def generate(self, inputs, **kw):
+            self.prompts.append(inputs[0])
+            self._pending = 0
+            return ["   \n  "]
+
+    class NotAString(FakeVC):
+        def generate(self, inputs, **kw):
+            self.prompts.append(inputs[0])
+            self._pending = 0
+            return [{"text": "oops"}]
+
+    for cls, label in ((EmptyList, "an empty list"),
+                       (EmptyString, "an empty string"),
+                       (Whitespace, "a whitespace-only string"),
+                       (NotAString, "a non-string payload")):
+        try:
+            r_bad = ep.run_pv11_episode(cls([]), st)
+            check(False,
+                  f"{label} was not treated as an infrastructure failure; "
+                  f"got termination="
+                  f"{r_bad['secondary_trajectory']['termination_reason']}")
+        except ep.EpisodeInfrastructureError:
+            pass
+        except IndexError:
+            check(False, f"{label} raised a bare IndexError instead of "
+                         f"EpisodeInfrastructureError")
+
+    # The same must hold on the STEERED path, which returns via regenerate.
+    class EmptySteered(FakeVC):
+        def regenerate(self, inputs, diff_matrices=None, **kw):
+            if diff_matrices is None:
+                raise ValueError("regenerate requires diff_matrices")
+            self.prompts.append(inputs[0])
+            self._pending = self.n_layers
+            return [""]
+
+    try:
+        ep.run_pv11_episode(EmptySteered([]), st,
+                            alpha=4.0, diff_mtx=[[0.0]])
+        check(False, "an empty steered generation was not failed closed")
+    except ep.EpisodeInfrastructureError:
+        pass
+
+    # An empty reply MID-episode (after a valid SAMPLE) must also fail closed
+    # rather than truncating the trajectory into a plausible-looking record.
+    class EmptyLater(FakeVC):
+        def generate(self, inputs, **kw):
+            self.prompts.append(inputs[0])
+            self._pending = 0
+            if len(self.prompts) == 1:
+                return [R("SAMPLE", "A")]
+            return [""]
+
+    try:
+        ep.run_pv11_episode(EmptyLater([]), st)
+        check(False, "a mid-episode empty generation was not failed closed")
+    except ep.EpisodeInfrastructureError:
+        pass
+
     # ── 13. the opening prompt is byte-identical across the four cells ─────
     # except for the probe's OPTION line -- the manipulation itself.
     opens = {}
