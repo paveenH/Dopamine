@@ -40,8 +40,24 @@ def main() -> int:
     fresh = B.build_bank()
     check(B.canonical(fresh) == B.canonical(bank),
           "stored bank does not reproduce from the builder")
-    check(manifest["state_bank_sha256"] == B.sha256(bank),
-          "manifest state_bank_sha256 does not match the stored bank")
+    check(manifest["state_bank_canonical_sha256"] == B.sha256(bank),
+          "manifest canonical digest does not match the stored bank")
+    # The two digests are different objects and must not be conflated: the
+    # canonical one is over the normalized serialization, the file one over the
+    # bytes an auditor would run `shasum -a 256` against.
+    check(manifest["state_bank_file_sha256"]
+          == B._file_sha256(HERE / "pv11_state_bank.json"),
+          "manifest state_bank_file_sha256 does not match the bytes on disk")
+    check(manifest["state_bank_canonical_sha256"]
+          != manifest["state_bank_file_sha256"],
+          "canonical and file digests are equal -- one of them is miscomputed")
+    # Calibration hashes must be FULL sha256, not prefixes: a 12-char prefix
+    # detects substitution but cannot verify integrity.
+    for name, src in manifest["calibration_basis"]["sources"].items():
+        check("sha256" in src and len(src["sha256"]) == 64,
+              f"calibration source {name} lacks a full 64-char sha256")
+        check(all(c in "0123456789abcdef" for c in src["sha256"]),
+              f"calibration source {name} sha256 is not lowercase hex")
 
     # ── sizes ───────────────────────────────────────────────────────────────
     comm = [s for s in states if s["block"] == "commitment"]
@@ -200,6 +216,8 @@ def main() -> int:
           "gate denominator convention is no longer ITT")
     check("does not trigger prompt iteration" in gate["on_failure"],
           "the frozen gate-failure wording has been altered")
+    check("no_single_cell_is_causal" in gate["M2_acquisition_sensitivity"],
+          "M2 lost the no-single-cell-is-causal constraint")
 
     if FAILURES:
         print(f"FAIL ({len(FAILURES)})")
