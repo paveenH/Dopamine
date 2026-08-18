@@ -2,7 +2,7 @@
 # PV11: Controlled Evidence-State Micro-Episodes.
 #
 #   bash run_bandit_pv11.sh llama3 CHECK   # no GPU, ~10s
-#   bash run_bandit_pv11.sh llama3 SMOKE   # 12 states, both blocks
+#   bash run_bandit_pv11.sh llama3 SMOKE   # 16 balanced states, ~10 min
 #   bash run_bandit_pv11.sh llama3 A0      # 160 states, alpha=0
 #   bash run_bandit_pv11.sh llama3 GATE    # read M1/M2, then STOP
 #
@@ -82,25 +82,13 @@ check () {
   echo "HF cache and re-run CHECK before trusting the anchor."
 }
 
-# Smoke: the ONLY step before A0 where a real model sees a real prompt.
-# Everything in CHECK is FakeVC or pure string work, so a prompt that the
-# model cannot follow would pass every offline test and only surface an hour
-# into A0. Deliberately covers BOTH blocks: M2 is the protocol's core question
-# and a Commitment-only smoke leaves it untested.
-smoke () {
-  local block="$1" n="$2"
-  local file="${SMOKE_DIR}/pv11_smoke_${block}.json"
-  mkdir -p "${SMOKE_DIR}"
-  echo
-  echo "=== PV11 SMOKE  block=${block}  n=${n}  ->  ${file}"
-  echo "    NOT gateable -- a partial run by construction."
-  ${PY} run_bandit_pv11_episodes.py \
-    --model_dir "${MODEL_DIR}" --size "${SIZE}" \
-    --hs "${HS}" --type "${TYPE}" --mask_type "${MASK_TYPE}" \
-    --percentage "${PERCENTAGE}" --layers "${LAYERS}" \
-    --alpha 0 --block "${block}" --limit "${n}" \
-    --base_dir "${BASE_DIR}" --ans_file "${file}"
-}
+# The pilot is the ONLY step before A0 where a real model sees a real prompt.
+# Everything in CHECK is FakeVC or pure string work, so a prompt the model
+# cannot follow would pass every offline test and only surface an hour into
+# A0. It covers BOTH blocks and is DESIGN-BALANCED rather than the first N
+# states: `--limit 6` lands on state_ids {0,1} and two labels, where a
+# constant first arm cannot be told apart from a label preference.
+# See pilot_subset() in run_bandit_pv11_episodes.py.
 
 case "${STEP}" in
   CHECK)
@@ -112,11 +100,22 @@ case "${STEP}" in
   # a first action that is constant across cells cannot move either gate rule.
   SMOKE)
     check
-    smoke commitment "${SMOKE_N:-6}"
-    smoke acquisition "${SMOKE_N:-6}"
+    mkdir -p "${SMOKE_DIR}"
     echo
-    echo "Inspect the text before A0:"
-    echo "  ${PY} inspect_pv11_smoke.py ${SMOKE_DIR}" ;;
+    echo "=== PV11 PILOT  16 design-balanced states  ->  ${SMOKE_DIR}"
+    echo "    NOT gateable -- a partial run by construction."
+    echo "    Both blocks span all 4 labels, 4 display rows and all 4 cells,"
+    echo "    so a constant first action cannot be a label or row preference."
+    ${PY} run_bandit_pv11_episodes.py \
+      --model_dir "${MODEL_DIR}" --size "${SIZE}" \
+      --hs "${HS}" --type "${TYPE}" --mask_type "${MASK_TYPE}" \
+      --percentage "${PERCENTAGE}" --layers "${LAYERS}" \
+      --alpha 0 --pilot \
+      --base_dir "${BASE_DIR}" \
+      --ans_file "${SMOKE_DIR}/pv11_pilot.json"
+    echo
+    echo "Read the TEXT before deciding on A0:"
+    echo "  ${PY} inspect_pv11_smoke.py ${SMOKE_DIR}/pv11_pilot.json" ;;
 
   A0)
     check

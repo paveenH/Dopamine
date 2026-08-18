@@ -93,6 +93,60 @@ def bank_fingerprint(bank: dict) -> str:
     return bld.sha256(bank)[:16]
 
 
+def pilot_subset(states: list[dict]) -> list[dict]:
+    """A DESIGN-BALANCED 16-state pilot. SMOKE/DEBUG ONLY, never gateable.
+
+    `--limit N` takes the FIRST N states, which land on one or two state_ids
+    and one or two labels -- exactly the confound a pilot is meant to break.
+    Observed: `--limit 6` on either block covers state_ids {0, 1} only, so a
+    constant first arm there cannot be distinguished from a label preference.
+
+    This instead takes:
+
+      Commitment (8): the full evidence x horizon 2x2, twice, on state_ids
+        chosen so the leading LABEL and its DISPLAY ROW both rotate. If the
+        model still opens with the same arm across four different leader
+        labels, that is a label-independent finding.
+
+      Acquisition (8): the full sample-size x rate 2x2, twice, on state_ids
+        whose probe carries different labels, rows and TRUE ranks.
+
+    Balance is checked and printed, not assumed. The subset is deterministic
+    -- no RNG -- so two pilots are comparable.
+    """
+    out = []
+    comm = [s for s in states if s["block"] == "commitment"]
+    acq = [s for s in states if s["block"] == "acquisition"]
+
+    # Commitment: one state_id per LEADER LABEL, so all four labels appear.
+    # Label and display row are collinear in this block BY CONSTRUCTION
+    # (the leader is A@row1, B@row4, C@row3, D@row2 for every state_id), so
+    # rotating the label is the most a pilot can do here -- it cannot
+    # separate label from row, and this function does not pretend to.
+    # Two horizons are kept and evidence is crossed against the label so the
+    # 2x2 is still covered:  A/B carry weak, C/D carry strong.
+    for sid, ev in ((0, "weak"), (1, "weak"), (2, "strong"), (3, "strong")):
+        for hz in ("short", "long"):
+            out += [s for s in comm if s["state_id"] == sid
+                    and s["cell"] == f"{ev}/{hz}"]
+
+    # Acquisition: FOUR state_ids, each contributing a different cell of the
+    # 2x2. state_ids 0-3 span all four probe LABELS, all four display ROWS and
+    # all four TRUE RANKS (A@1@1, B@2@2, C@3@3, D@4@4), so a constant first
+    # arm across them cannot be a label or row preference.
+    #
+    # This deliberately trades within-state_id pairing for factor coverage:
+    # each cell appears twice, on two different state_ids, rather than four
+    # cells on one state_id. A pilot exists to break the confound, not to
+    # estimate a cell difference -- the formal 20-per-cell run does that.
+    for i, cell in enumerate(("low_n/low_rate", "matched_n/low_rate",
+                              "low_n/high_rate", "matched_n/high_rate")):
+        for sid in (i, (i + 1) % 4):
+            out += [s for s in acq if s["state_id"] == sid
+                    and s["cell"] == cell]
+    return out
+
+
 # ─────────────────────────────── mask + keys ────────────────────────────────
 
 def load_mask(base_dir, hs, type_, mask_type, percentage, size, ls, le, alpha):
@@ -166,6 +220,9 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0,
                     help="SMOKE/DEBUG ONLY -- run only the first N states; "
                          "a truncated run cannot be gated")
+    ap.add_argument("--pilot", action="store_true",
+                    help="SMOKE/DEBUG ONLY -- a DESIGN-BALANCED 16-state "
+                         "subset instead of the first N; see pilot_subset()")
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -185,13 +242,35 @@ def main() -> None:
         HERE / "pv11_state_bank.json", HERE / "pv11_state_manifest.json")
     if args.block != "all":
         states = [s for s in states if s["block"] == args.block]
-    if args.limit:
+    if args.pilot and args.limit:
+        raise SystemExit("--pilot and --limit are mutually exclusive")
+    if args.pilot:
+        states = pilot_subset(states)
+    elif args.limit:
         states = states[:args.limit]
     print(f"[bank] {len(states)} states  "
           f"canonical={manifest['state_bank_canonical_sha256'][:16]}")
-    if args.block != "all" or args.limit:
+    if args.pilot:
+        # Print the balance rather than asserting it: the point of the pilot
+        # is to break the label/row/state_id confound, so the reader must be
+        # able to see that it did.
+        comm_p = [s for s in states if s["block"] == "commitment"]
+        acq_p = [s for s in states if s["block"] == "acquisition"]
+        if comm_p:
+            print(f"[pilot] commitment {len(comm_p)}  "
+                  f"leader labels={sorted({s['true_best'] for s in comm_p})}  "
+                  f"cells={len({s['cell'] for s in comm_p})}/4")
+        if acq_p:
+            print(f"[pilot] acquisition {len(acq_p)}  "
+                  f"probe labels={sorted({s['probe_label'] for s in acq_p})}  "
+                  f"probe rows={sorted({s['probe_display_row'] for s in acq_p})}  "
+                  f"probe true ranks="
+                  f"{sorted({s['probe_true_rank'] for s in acq_p})}  "
+                  f"cells={len({s['cell'] for s in acq_p})}/4")
+    if args.block != "all" or args.limit or args.pilot:
         print(f"[WARNING] this is a PARTIAL run "
-              f"(block={args.block}, limit={args.limit or 'none'}). "
+              f"(block={args.block}, limit={args.limit or 'none'}"
+              f"{', pilot' if args.pilot else ''}). "
               f"The gate requires BOTH complete blocks and will report FAIL "
               f"on this output -- it is for smoke/debug only, not for a gate "
               f"decision.")
