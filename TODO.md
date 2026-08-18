@@ -9,13 +9,7 @@ Inkling-Small
 
 ## TODO — ACL ARR
 
-### 1. Freeze Bandit PV9
 
-- [ ] 完成 Easy + NearTie 冻结分析器
-- [ ] 输出五项 primary metrics、Holm 校正及 paired/cluster inference
-- [ ] 将结果写入 `AdaBandit.md`
-- [ ] 固定结论：α 改变策略措辞，但未改变 directed exploration
-- [ ] 此后不再修改 Llama PV9 协议或追加版本
 
 ### 1b. PV10 online line — CLOSED (2026-08-18)
 
