@@ -2,10 +2,11 @@
 # PV11: Controlled Evidence-State Micro-Episodes.
 #
 #   bash run_bandit_pv11.sh llama3 CHECK   # no GPU, ~10s
+#   bash run_bandit_pv11.sh llama3 SMOKE   # 12 states, both blocks
 #   bash run_bandit_pv11.sh llama3 A0      # 160 states, alpha=0
 #   bash run_bandit_pv11.sh llama3 GATE    # read M1/M2, then STOP
 #
-# The order is CHECK -> A0 -> GATE and the launcher STOPS at GATE. There is
+# The order is CHECK -> SMOKE -> A0 -> GATE and the launcher STOPS at GATE. There is
 # deliberately no step that runs -4/+4:
 #
 #   M1 and M2 both pass -> implement and run the steered cells on the SAME
@@ -56,6 +57,12 @@ BASE_DIR="${BASE_DIR:-/data1/paveen/Dopamine/components}"
 OUT_ROOT="${OUT_ROOT:-${BASE_DIR}/${MODEL}/bandit/pv11}"
 A0_DIR="${OUT_ROOT}/pv11_a0"
 A0_FILE="${A0_DIR}/bandit_pv11_alpha0.json"
+# Smoke output lives under the SAME tree as the formal cells, never /tmp:
+# a smoke file in a system temp dir is deleted on reboot and is invisible to
+# anyone reading the results tree, so a puzzling formal result cannot be
+# checked against the smoke that preceded it. Its own subdirectory, and a
+# name that says what it is, so it can never be mistaken for a gateable cell.
+SMOKE_DIR="${OUT_ROOT}/smoke"
 
 # Every check is offline and runs BEFORE any GPU time is spent. The bank check
 # is first: a bank that does not reproduce from its builder makes everything
@@ -75,9 +82,41 @@ check () {
   echo "HF cache and re-run CHECK before trusting the anchor."
 }
 
+# Smoke: the ONLY step before A0 where a real model sees a real prompt.
+# Everything in CHECK is FakeVC or pure string work, so a prompt that the
+# model cannot follow would pass every offline test and only surface an hour
+# into A0. Deliberately covers BOTH blocks: M2 is the protocol's core question
+# and a Commitment-only smoke leaves it untested.
+smoke () {
+  local block="$1" n="$2"
+  local file="${SMOKE_DIR}/pv11_smoke_${block}.json"
+  mkdir -p "${SMOKE_DIR}"
+  echo
+  echo "=== PV11 SMOKE  block=${block}  n=${n}  ->  ${file}"
+  echo "    NOT gateable -- a partial run by construction."
+  ${PY} run_bandit_pv11_episodes.py \
+    --model_dir "${MODEL_DIR}" --size "${SIZE}" \
+    --hs "${HS}" --type "${TYPE}" --mask_type "${MASK_TYPE}" \
+    --percentage "${PERCENTAGE}" --layers "${LAYERS}" \
+    --alpha 0 --block "${block}" --limit "${n}" \
+    --base_dir "${BASE_DIR}" --ans_file "${file}"
+}
+
 case "${STEP}" in
   CHECK)
     check ;;
+
+  # Read the generated TEXT, not only the summary line. What matters is
+  # whether the model follows the two-line format, whether it drifts into
+  # document/code completion, and whether the first action varies at all --
+  # a first action that is constant across cells cannot move either gate rule.
+  SMOKE)
+    check
+    smoke commitment "${SMOKE_N:-6}"
+    smoke acquisition "${SMOKE_N:-6}"
+    echo
+    echo "Inspect the text before A0:"
+    echo "  ${PY} inspect_pv11_smoke.py ${SMOKE_DIR}" ;;
 
   A0)
     check
@@ -122,6 +161,6 @@ case "${STEP}" in
 
   *)
     echo "unknown step: ${STEP}"
-    echo "expected: CHECK A0 GATE"
+    echo "expected: CHECK SMOKE A0 GATE"
     exit 1 ;;
 esac
