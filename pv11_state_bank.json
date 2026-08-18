@@ -1,0 +1,6974 @@
+{
+  "arm_labels": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "k": 4,
+  "n_states": 160,
+  "protocol_version": "pv11",
+  "state_bank_version": "pv11-states-v1",
+  "states": [
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 0,
+      "state_uid": "C-weak-short-00",
+      "tape_key": "C-00",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 0,
+      "state_uid": "C-weak-long-00",
+      "tape_key": "C-00",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 0,
+      "state_uid": "C-strong-short-00",
+      "tape_key": "C-00",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 0,
+      "state_uid": "C-strong-long-00",
+      "tape_key": "C-00",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 1,
+      "state_uid": "C-weak-short-01",
+      "tape_key": "C-01",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 1,
+      "state_uid": "C-weak-long-01",
+      "tape_key": "C-01",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 1,
+      "state_uid": "C-strong-short-01",
+      "tape_key": "C-01",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 1,
+      "state_uid": "C-strong-long-01",
+      "tape_key": "C-01",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 2,
+      "state_uid": "C-weak-short-02",
+      "tape_key": "C-02",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 2,
+      "state_uid": "C-weak-long-02",
+      "tape_key": "C-02",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 2,
+      "state_uid": "C-strong-short-02",
+      "tape_key": "C-02",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 2,
+      "state_uid": "C-strong-long-02",
+      "tape_key": "C-02",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 3,
+      "state_uid": "C-weak-short-03",
+      "tape_key": "C-03",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 3,
+      "state_uid": "C-weak-long-03",
+      "tape_key": "C-03",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 3,
+      "state_uid": "C-strong-short-03",
+      "tape_key": "C-03",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 3,
+      "state_uid": "C-strong-long-03",
+      "tape_key": "C-03",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 4,
+      "state_uid": "C-weak-short-04",
+      "tape_key": "C-04",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 4,
+      "state_uid": "C-weak-long-04",
+      "tape_key": "C-04",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 4,
+      "state_uid": "C-strong-short-04",
+      "tape_key": "C-04",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 4,
+      "state_uid": "C-strong-long-04",
+      "tape_key": "C-04",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 5,
+      "state_uid": "C-weak-short-05",
+      "tape_key": "C-05",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 5,
+      "state_uid": "C-weak-long-05",
+      "tape_key": "C-05",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 5,
+      "state_uid": "C-strong-short-05",
+      "tape_key": "C-05",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 5,
+      "state_uid": "C-strong-long-05",
+      "tape_key": "C-05",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 6,
+      "state_uid": "C-weak-short-06",
+      "tape_key": "C-06",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 6,
+      "state_uid": "C-weak-long-06",
+      "tape_key": "C-06",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 6,
+      "state_uid": "C-strong-short-06",
+      "tape_key": "C-06",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 6,
+      "state_uid": "C-strong-long-06",
+      "tape_key": "C-06",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 7,
+      "state_uid": "C-weak-short-07",
+      "tape_key": "C-07",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 7,
+      "state_uid": "C-weak-long-07",
+      "tape_key": "C-07",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 7,
+      "state_uid": "C-strong-short-07",
+      "tape_key": "C-07",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 7,
+      "state_uid": "C-strong-long-07",
+      "tape_key": "C-07",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 8,
+      "state_uid": "C-weak-short-08",
+      "tape_key": "C-08",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 8,
+      "state_uid": "C-weak-long-08",
+      "tape_key": "C-08",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 8,
+      "state_uid": "C-strong-short-08",
+      "tape_key": "C-08",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 8,
+      "state_uid": "C-strong-long-08",
+      "tape_key": "C-08",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 9,
+      "state_uid": "C-weak-short-09",
+      "tape_key": "C-09",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 9,
+      "state_uid": "C-weak-long-09",
+      "tape_key": "C-09",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 9,
+      "state_uid": "C-strong-short-09",
+      "tape_key": "C-09",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 9,
+      "state_uid": "C-strong-long-09",
+      "tape_key": "C-09",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 10,
+      "state_uid": "C-weak-short-10",
+      "tape_key": "C-10",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 10,
+      "state_uid": "C-weak-long-10",
+      "tape_key": "C-10",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 10,
+      "state_uid": "C-strong-short-10",
+      "tape_key": "C-10",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 10,
+      "state_uid": "C-strong-long-10",
+      "tape_key": "C-10",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 11,
+      "state_uid": "C-weak-short-11",
+      "tape_key": "C-11",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 11,
+      "state_uid": "C-weak-long-11",
+      "tape_key": "C-11",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 11,
+      "state_uid": "C-strong-short-11",
+      "tape_key": "C-11",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 11,
+      "state_uid": "C-strong-long-11",
+      "tape_key": "C-11",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 12,
+      "state_uid": "C-weak-short-12",
+      "tape_key": "C-12",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 12,
+      "state_uid": "C-weak-long-12",
+      "tape_key": "C-12",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 12,
+      "state_uid": "C-strong-short-12",
+      "tape_key": "C-12",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 12,
+      "state_uid": "C-strong-long-12",
+      "tape_key": "C-12",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 13,
+      "state_uid": "C-weak-short-13",
+      "tape_key": "C-13",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 13,
+      "state_uid": "C-weak-long-13",
+      "tape_key": "C-13",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 13,
+      "state_uid": "C-strong-short-13",
+      "tape_key": "C-13",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 13,
+      "state_uid": "C-strong-long-13",
+      "tape_key": "C-13",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 14,
+      "state_uid": "C-weak-short-14",
+      "tape_key": "C-14",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 14,
+      "state_uid": "C-weak-long-14",
+      "tape_key": "C-14",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 14,
+      "state_uid": "C-strong-short-14",
+      "tape_key": "C-14",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 14,
+      "state_uid": "C-strong-long-14",
+      "tape_key": "C-14",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 15,
+      "state_uid": "C-weak-short-15",
+      "tape_key": "C-15",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 15,
+      "state_uid": "C-weak-long-15",
+      "tape_key": "C-15",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 15,
+      "state_uid": "C-strong-short-15",
+      "tape_key": "C-15",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 15,
+      "state_uid": "C-strong-long-15",
+      "tape_key": "C-15",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 16,
+      "state_uid": "C-weak-short-16",
+      "tape_key": "C-16",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 16,
+      "state_uid": "C-weak-long-16",
+      "tape_key": "C-16",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 5,
+      "state_id": 16,
+      "state_uid": "C-strong-short-16",
+      "tape_key": "C-16",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          14,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "remaining_horizon": 20,
+      "state_id": 16,
+      "state_uid": "C-strong-long-16",
+      "tape_key": "C-16",
+      "true_best": "A"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 17,
+      "state_uid": "C-weak-short-17",
+      "tape_key": "C-17",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 17,
+      "state_uid": "C-weak-long-17",
+      "tape_key": "C-17",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 5,
+      "state_id": 17,
+      "state_uid": "C-strong-short-17",
+      "tape_key": "C-17",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          6,
+          20
+        ],
+        "B": [
+          14,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "remaining_horizon": 20,
+      "state_id": 17,
+      "state_uid": "C-strong-long-17",
+      "tape_key": "C-17",
+      "true_best": "B"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 18,
+      "state_uid": "C-weak-short-18",
+      "tape_key": "C-18",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          11,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 18,
+      "state_uid": "C-weak-long-18",
+      "tape_key": "C-18",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 5,
+      "state_id": 18,
+      "state_uid": "C-strong-short-18",
+      "tape_key": "C-18",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          6,
+          20
+        ],
+        "C": [
+          14,
+          20
+        ],
+        "D": [
+          10,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.3,
+        "C": 0.6,
+        "D": 0.5
+      },
+      "remaining_horizon": 20,
+      "state_id": 18,
+      "state_uid": "C-strong-long-18",
+      "tape_key": "C-18",
+      "true_best": "C"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 19,
+      "state_uid": "C-weak-short-19",
+      "tape_key": "C-19",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "weak/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          11,
+          20
+        ]
+      },
+      "evidence": "weak",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 19,
+      "state_uid": "C-weak-long-19",
+      "tape_key": "C-19",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/short",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "short",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 5,
+      "state_id": 19,
+      "state_uid": "C-strong-short-19",
+      "tape_key": "C-19",
+      "true_best": "D"
+    },
+    {
+      "block": "commitment",
+      "cell": "strong/long",
+      "display_order": [
+        "C",
+        "D",
+        "A",
+        "B"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          10,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          14,
+          20
+        ]
+      },
+      "evidence": "strong",
+      "horizon_name": "long",
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "remaining_horizon": 20,
+      "state_id": 19,
+      "state_uid": "C-strong-long-19",
+      "tape_key": "C-19",
+      "true_best": "D"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          3,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 0,
+      "state_uid": "A-low_n-high_rate-00",
+      "tape_key": "A-00",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          2,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 0,
+      "state_uid": "A-low_n-low_rate-00",
+      "tape_key": "A-00",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          12,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 0,
+      "state_uid": "A-matched_n-high_rate-00",
+      "tape_key": "A-00",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 0,
+      "state_uid": "A-matched_n-low_rate-00",
+      "tape_key": "A-00",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          3,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 1,
+      "state_uid": "A-low_n-high_rate-01",
+      "tape_key": "A-01",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          2,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 1,
+      "state_uid": "A-low_n-low_rate-01",
+      "tape_key": "A-01",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          12,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 1,
+      "state_uid": "A-matched_n-high_rate-01",
+      "tape_key": "A-01",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 1,
+      "state_uid": "A-matched_n-low_rate-01",
+      "tape_key": "A-01",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          3,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 2,
+      "state_uid": "A-low_n-high_rate-02",
+      "tape_key": "A-02",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          2,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 2,
+      "state_uid": "A-low_n-low_rate-02",
+      "tape_key": "A-02",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          12,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 2,
+      "state_uid": "A-matched_n-high_rate-02",
+      "tape_key": "A-02",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 2,
+      "state_uid": "A-matched_n-low_rate-02",
+      "tape_key": "A-02",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          3,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 3,
+      "state_uid": "A-low_n-high_rate-03",
+      "tape_key": "A-03",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          2,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 3,
+      "state_uid": "A-low_n-low_rate-03",
+      "tape_key": "A-03",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          12,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 3,
+      "state_uid": "A-matched_n-high_rate-03",
+      "tape_key": "A-03",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 3,
+      "state_uid": "A-matched_n-low_rate-03",
+      "tape_key": "A-03",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          3,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 4,
+      "state_uid": "A-low_n-high_rate-04",
+      "tape_key": "A-04",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          2,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 4,
+      "state_uid": "A-low_n-low_rate-04",
+      "tape_key": "A-04",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          12,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 4,
+      "state_uid": "A-matched_n-high_rate-04",
+      "tape_key": "A-04",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 4,
+      "state_uid": "A-matched_n-low_rate-04",
+      "tape_key": "A-04",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          3,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 5,
+      "state_uid": "A-low_n-high_rate-05",
+      "tape_key": "A-05",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          2,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 5,
+      "state_uid": "A-low_n-low_rate-05",
+      "tape_key": "A-05",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          12,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 5,
+      "state_uid": "A-matched_n-high_rate-05",
+      "tape_key": "A-05",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 5,
+      "state_uid": "A-matched_n-low_rate-05",
+      "tape_key": "A-05",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          3,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 6,
+      "state_uid": "A-low_n-high_rate-06",
+      "tape_key": "A-06",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          2,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 6,
+      "state_uid": "A-low_n-low_rate-06",
+      "tape_key": "A-06",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          12,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 6,
+      "state_uid": "A-matched_n-high_rate-06",
+      "tape_key": "A-06",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 6,
+      "state_uid": "A-matched_n-low_rate-06",
+      "tape_key": "A-06",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "B",
+        "C",
+        "D",
+        "A"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          3,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 4,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 7,
+      "state_uid": "A-low_n-high_rate-07",
+      "tape_key": "A-07",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "B",
+        "C",
+        "D",
+        "A"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          2,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 4,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 7,
+      "state_uid": "A-low_n-low_rate-07",
+      "tape_key": "A-07",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "B",
+        "C",
+        "D",
+        "A"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          12,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 4,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 7,
+      "state_uid": "A-matched_n-high_rate-07",
+      "tape_key": "A-07",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "B",
+        "C",
+        "D",
+        "A"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.3,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 4,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 7,
+      "state_uid": "A-matched_n-low_rate-07",
+      "tape_key": "A-07",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          3,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.6,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 8,
+      "state_uid": "A-low_n-high_rate-08",
+      "tape_key": "A-08",
+      "true_best": "C"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          2,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.6,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 8,
+      "state_uid": "A-low_n-low_rate-08",
+      "tape_key": "A-08",
+      "true_best": "C"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          12,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.6,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 8,
+      "state_uid": "A-matched_n-high_rate-08",
+      "tape_key": "A-08",
+      "true_best": "C"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "B",
+        "D",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.6,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 8,
+      "state_uid": "A-matched_n-low_rate-08",
+      "tape_key": "A-08",
+      "true_best": "C"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "D",
+        "A",
+        "B",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          3,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.5
+      },
+      "probe_display_row": 1,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 9,
+      "state_uid": "A-low_n-high_rate-09",
+      "tape_key": "A-09",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "D",
+        "A",
+        "B",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          2,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.5
+      },
+      "probe_display_row": 1,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 9,
+      "state_uid": "A-low_n-low_rate-09",
+      "tape_key": "A-09",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "D",
+        "A",
+        "B",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          12,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.5
+      },
+      "probe_display_row": 1,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 9,
+      "state_uid": "A-matched_n-high_rate-09",
+      "tape_key": "A-09",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "D",
+        "A",
+        "B",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.5
+      },
+      "probe_display_row": 1,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 9,
+      "state_uid": "A-matched_n-low_rate-09",
+      "tape_key": "A-09",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          3,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 10,
+      "state_uid": "A-low_n-high_rate-10",
+      "tape_key": "A-10",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          2,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 10,
+      "state_uid": "A-low_n-low_rate-10",
+      "tape_key": "A-10",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          12,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 10,
+      "state_uid": "A-matched_n-high_rate-10",
+      "tape_key": "A-10",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "B",
+        "A",
+        "C",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.4,
+        "B": 0.6,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 10,
+      "state_uid": "A-matched_n-low_rate-10",
+      "tape_key": "A-10",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          3,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.3,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 11,
+      "state_uid": "A-low_n-high_rate-11",
+      "tape_key": "A-11",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          2,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.3,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 11,
+      "state_uid": "A-low_n-low_rate-11",
+      "tape_key": "A-11",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          12,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.3,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 11,
+      "state_uid": "A-matched_n-high_rate-11",
+      "tape_key": "A-11",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.3,
+        "C": 0.5,
+        "D": 0.4
+      },
+      "probe_display_row": 3,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 11,
+      "state_uid": "A-matched_n-low_rate-11",
+      "tape_key": "A-11",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          3,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 12,
+      "state_uid": "A-low_n-high_rate-12",
+      "tape_key": "A-12",
+      "true_best": "D"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          2,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 12,
+      "state_uid": "A-low_n-low_rate-12",
+      "tape_key": "A-12",
+      "true_best": "D"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          12,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 12,
+      "state_uid": "A-matched_n-high_rate-12",
+      "tape_key": "A-12",
+      "true_best": "D"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.4,
+        "C": 0.3,
+        "D": 0.6
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 12,
+      "state_uid": "A-matched_n-low_rate-12",
+      "tape_key": "A-12",
+      "true_best": "D"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          3,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 13,
+      "state_uid": "A-low_n-high_rate-13",
+      "tape_key": "A-13",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          2,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 13,
+      "state_uid": "A-low_n-low_rate-13",
+      "tape_key": "A-13",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          12,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 13,
+      "state_uid": "A-matched_n-high_rate-13",
+      "tape_key": "A-13",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.5,
+        "B": 0.6,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 13,
+      "state_uid": "A-matched_n-low_rate-13",
+      "tape_key": "A-13",
+      "true_best": "B"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          3,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 14,
+      "state_uid": "A-low_n-high_rate-14",
+      "tape_key": "A-14",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          2,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 14,
+      "state_uid": "A-low_n-low_rate-14",
+      "tape_key": "A-14",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          12,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 14,
+      "state_uid": "A-matched_n-high_rate-14",
+      "tape_key": "A-14",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.4,
+        "C": 0.5,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 14,
+      "state_uid": "A-matched_n-low_rate-14",
+      "tape_key": "A-14",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          3,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 15,
+      "state_uid": "A-low_n-high_rate-15",
+      "tape_key": "A-15",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          2,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 15,
+      "state_uid": "A-low_n-low_rate-15",
+      "tape_key": "A-15",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          12,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 15,
+      "state_uid": "A-matched_n-high_rate-15",
+      "tape_key": "A-15",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.3,
+        "D": 0.4
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 15,
+      "state_uid": "A-matched_n-low_rate-15",
+      "tape_key": "A-15",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          3,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 16,
+      "state_uid": "A-low_n-high_rate-16",
+      "tape_key": "A-16",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          2,
+          5
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 16,
+      "state_uid": "A-low_n-low_rate-16",
+      "tape_key": "A-16",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          12,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 16,
+      "state_uid": "A-matched_n-high_rate-16",
+      "tape_key": "A-16",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "B",
+        "C",
+        "A",
+        "D"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          8,
+          20
+        ],
+        "B": [
+          11,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 3,
+      "probe_label": "A",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 1,
+      "remaining_horizon": 20,
+      "state_id": 16,
+      "state_uid": "A-matched_n-low_rate-16",
+      "tape_key": "A-16",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          3,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 17,
+      "state_uid": "A-low_n-high_rate-17",
+      "tape_key": "A-17",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          2,
+          5
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 17,
+      "state_uid": "A-low_n-low_rate-17",
+      "tape_key": "A-17",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "B",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          12,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 17,
+      "state_uid": "A-matched_n-high_rate-17",
+      "tape_key": "A-17",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "C",
+        "D",
+        "B"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          8,
+          20
+        ],
+        "C": [
+          10,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 4,
+      "probe_label": "B",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 2,
+      "remaining_horizon": 20,
+      "state_id": 17,
+      "state_uid": "A-matched_n-low_rate-17",
+      "tape_key": "A-17",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          3,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 18,
+      "state_uid": "A-low_n-high_rate-18",
+      "tape_key": "A-18",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          2,
+          5
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 18,
+      "state_uid": "A-low_n-low_rate-18",
+      "tape_key": "A-18",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "C",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          12,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 18,
+      "state_uid": "A-matched_n-high_rate-18",
+      "tape_key": "A-18",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "C",
+        "A",
+        "B",
+        "D"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          8,
+          20
+        ],
+        "D": [
+          6,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 1,
+      "probe_label": "C",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 3,
+      "remaining_horizon": 20,
+      "state_id": 18,
+      "state_uid": "A-matched_n-low_rate-18",
+      "tape_key": "A-18",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/high_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          3,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 19,
+      "state_uid": "A-low_n-high_rate-19",
+      "tape_key": "A-19",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "low_n/low_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          2,
+          5
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "low_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 19,
+      "state_uid": "A-low_n-low_rate-19",
+      "tape_key": "A-19",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/high_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "D",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          12,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "high_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 19,
+      "state_uid": "A-matched_n-high_rate-19",
+      "tape_key": "A-19",
+      "true_best": "A"
+    },
+    {
+      "block": "acquisition",
+      "cell": "matched_n/low_rate",
+      "display_order": [
+        "A",
+        "D",
+        "B",
+        "C"
+      ],
+      "displayed_best": "A",
+      "displayed_counts": {
+        "A": [
+          11,
+          20
+        ],
+        "B": [
+          10,
+          20
+        ],
+        "C": [
+          6,
+          20
+        ],
+        "D": [
+          8,
+          20
+        ]
+      },
+      "latent_probs": {
+        "A": 0.6,
+        "B": 0.5,
+        "C": 0.4,
+        "D": 0.3
+      },
+      "probe_display_row": 2,
+      "probe_label": "D",
+      "probe_rate_level": "low_rate",
+      "probe_sample_size": "matched_n",
+      "probe_true_rank": 4,
+      "remaining_horizon": 20,
+      "state_id": 19,
+      "state_uid": "A-matched_n-low_rate-19",
+      "tape_key": "A-19",
+      "true_best": "A"
+    }
+  ]
+}
