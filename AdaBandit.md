@@ -1339,7 +1339,7 @@ PV9–PV10 共同显示出 **recognition–action dissociation**：模型能够�
 使多数 episode 延长至终局，因此其 COMMIT 分布不与 B 作同质比较；它主要复现并放大了 SAMPLE 阶段的
 incumbent persistence。
 
-### 4.5 Next protocol: Controlled Evidence-State Micro-Episodes（设计，未实现）
+## 5 Controlled Evidence-State Micro-Episodes
 
 这个协议不再让模型从头跑完整的在线 Bandit，而是把模型放进预先构造、跨条件完全相同的证据状态，
 优先比较它在该状态下的第一步动作。这样可以把“是否愿意继续采样”和“会采哪一个 arm”从长轨迹中的
