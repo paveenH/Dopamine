@@ -1,0 +1,171 @@
+{
+  "amendment_id": "pv11_amendment_01",
+  "protocol": "PV11",
+  "title": "Acquisition-only exploratory follow-up (PV11-Acq): Commitment/M1 withdrawn on construct grounds, Acquisition/M2 carried forward",
+  "status": "frozen",
+
+  "temporal_order": {
+    "statement": "This amendment was written AFTER the alpha=0 run (PV11-A0) completed and after the frozen manipulation gate returned FAIL, and BEFORE any steered (alpha != 0) PV11 episode was generated or inspected. No +-4 data existed at the time of writing.",
+    "a0_inspected": true,
+    "gate_verdict_at_time_of_writing": "FAIL (M1 fail, M2 pass)",
+    "steered_data_inspected": false,
+    "why_this_matters": "Downgrading a block after seeing its own steered result would be post-hoc. The construct defects that withdraw M1 are visible in alpha=0 alone and are properties of the state bank, not of any outcome."
+  },
+
+  "experiment_status": {
+    "is_full_pv11_gate_pass": false,
+    "is_competence_claim": false,
+    "character": "exploratory, controlled-state, single-metric follow-up",
+    "statement": "PV11-Acq is an exploratory Acquisition-only follow-up justified by M2 having passed the frozen gate rule. It does NOT constitute a PV11 gate PASS, does not establish BAI competence, and does not license the words capability-effect, rescue, or improvement for any result it produces."
+  },
+
+  "m1_withdrawal": {
+    "verdict_retained": "FAIL",
+    "reason_for_withdrawal": "construct invalidity, established from alpha=0 data alone",
+    "defects": [
+      {
+        "id": "label_row_collinearity",
+        "detail": "In build_commitment(), the best-arm label rotates as (r + sid) % 4 while the display row rotates as (j + 2*sid) % 4. The EVEN multiplier makes the two perfectly collinear: only 4 of 16 label x row cells are populated (A-1, B-4, C-3, D-2, five states each). Marginals are 5/5/5/5, which is why a marginal balance check does not catch it.",
+        "consequence": "Any COMMIT concentrated on one label is indistinguishable from one concentrated on one display row.",
+        "note": "This is the same even-multiplier defect that was caught and fixed for the PROBE row assignment in the Acquisition block. It survived in Commitment because the frozen manifest balance_claim is scoped to the probe only."
+      },
+      {
+        "id": "unique_visible_prompt_degeneracy",
+        "detail": "Latent rank is not visible at the first step, so within one label x row pattern the five state_ids of a cell render a BYTE-IDENTICAL opening prompt. Verified: each Commitment cell has exactly 4 unique first-step prompt_sha256 values, not 20. With temperature=0 the five slots are one decision repeated five times.",
+        "consequence": "The observed strong/long 5/20 is 1 of 4 unique visible prompts. The effective n for M1 is 4 per cell. A 0.15 threshold has no meaning at that granularity.",
+        "verified_counts": {
+          "strong/long": {"slots": "5/20", "unique": "1/4"},
+          "strong/short": {"slots": "0/20", "unique": "0/4"},
+          "weak/long": {"slots": "0/20", "unique": "0/4"},
+          "weak/short": {"slots": "0/20", "unique": "0/4"},
+          "inconsistent_fingerprints": 0
+        }
+      },
+      {
+        "id": "evidence_ladder_may_not_span_the_threshold",
+        "detail": "strong is 14/20 (.70) against a .50 runner-up; weak is 11/20 (.55) against .50. It is not established that .70 vs .50 crosses this interface's commitment threshold at all.",
+        "consequence": "A null on M1 cannot separate 'insensitive to evidence strength' from 'the manipulation never reached the decision boundary'. This defect is NOT repairable by fixing the rotation multiplier; it requires a different evidence ladder, i.e. a new protocol."
+      }
+    ],
+    "what_m1_does_NOT_show": "M1's failure is not 'the model never commits in PV11'. In the Commitment block's secondary trajectories, 30/80 episodes terminated in autonomous_commit, 36/80 in forced_commit and 14/80 in invalid_policy; several committed after only 1-2 additional samples. The accurate statement is that STRONG EVIDENCE DID NOT RELIABLY INCREASE IMMEDIATE FIRST-STEP COMMITMENT, measured on 4 unique prompts per cell.",
+    "disposition": "The Commitment block is withdrawn from PV11 and is not repaired in place. A redesign (fixed horizon, >=3 evidence levels including one far above threshold, 20 genuinely distinct label x row balanced visible prompts) is a SEPARATE protocol with its own manifest and its own gate. No PV11 steered Commitment data will be generated.",
+    "explicitly_forbidden": "No commitment/threshold interpretation may be drawn from any PV11-Acq result, including from its secondary trajectories."
+  },
+
+  "m2_basis": {
+    "verdict_under_frozen_rule": "PASS",
+    "frozen_slot_weighted_itt": {
+      "low_n/low_rate": "4/20 = 0.200",
+      "matched_n/low_rate": "0/20 = 0.000",
+      "contrast": "+0.200",
+      "threshold": 0.15
+    },
+    "unique_visible_prompt_recount": {
+      "low_n/low_rate": "3/16 = 0.1875",
+      "matched_n/low_rate": "0/16 = 0.000",
+      "contrast": "+0.1875",
+      "verdict_unchanged": true,
+      "note": "Acquisition degrades to 16 unique prompts per cell, not 4, because the probe's rank, label and display row are crossed. This is one order of magnitude less degenerate than Commitment and the contrast still clears the frozen threshold under both readings."
+    },
+    "why_the_low_rate_pair_is_the_only_causal_contrast": "In both low_rate cells the probe's displayed rate is .40 and the probe is NOT the displayed best arm. Sampling it therefore cannot be rate-chasing. Probe label, display row, displayed rate and the other three arms are held identical across the pair; ONLY sample size differs (5 vs 20 trials).",
+    "residual_confounds_not_excluded_by_a_single_cell": "A per-cell probe rate excludes rate-chasing but does NOT exclude random choice, a label preference, or a display-row preference. Only the cross-cell DIFFERENCE has causal content.",
+    "acquisition_balance_verified": "probe_label is exactly 20/20/20/20 across the 80 acquisition states, and within every cell the probe label x probe row crossing is balanced to within a max-min difference of 1, matching the frozen manifest balance_claim."
+  },
+
+  "high_rate_cells_scope_limit": {
+    "observed": {"low_n/high_rate": "16/20", "matched_n/high_rate": "20/20"},
+    "what_they_CAN_support": "They show that sample size changed choice: with the displayed rate held at .60, reducing the probe's trials from 20 to 5 reduced probe sampling by 4 slots. This is a real, reportable effect of sample size on choice.",
+    "what_they_CANNOT_support": "They cannot identify an INFORMATION-SEEKING motive, because in these cells the probe IS the displayed best arm, so sampling it is inseparable from rate-chasing. This is precisely the structure that produced PV10-C's deprecated .774 construct failure.",
+    "ruling": "high_rate cells are DESCRIPTIVE ONLY and are excluded from the primary metric and from every uncertainty-directed-acquisition conclusion. They may not be used to re-characterize the low_rate result.",
+    "rejected_wording": "Do NOT write 'low sample size weakened the model's trust in extreme empirical rates' as a primary conclusion. That reading is driven by the 20/20 -> 16/20 change in the construct-limited high_rate cells, i.e. it would let a cell that cannot identify motive redefine the interpretation of the one cell that can."
+  },
+
+  "primary_metric": {
+    "name": "first_step_probe_sampling_low_rate_contrast",
+    "definition": "P(first action = SAMPLE probe | low_n/low_rate) - P(first action = SAMPLE probe | matched_n/low_rate)",
+    "estimand_scope": "FIRST ACTION ONLY. After the first action, choice and realized reward fork the trajectory, so no later round is state-matched across alpha.",
+    "pairing": "by state_uid; the two cells share state_id, latent probabilities, reward tape, probe label and probe display row.",
+    "reported_under_two_readings": [
+      {"id": "slot_weighted_itt", "role": "continuity with the frozen gate", "denominator": "all 20 states of a cell", "invalid_handling": "invalid counts in the denominator and in no numerator"},
+      {"id": "unique_visible_prompt", "role": "PRIMARY descriptive reading for PV11-Acq", "denominator": "the 16 distinct opening-prompt fingerprints of a cell", "invalid_handling": "same"}
+    ]
+  },
+
+  "power_limitation": {
+    "alpha0_positive_events": {"slot_weighted": 4, "unique_prompt": 3},
+    "statement": "The alpha=0 baseline for the primary contrast rests on 3 positive events under the unique-prompt reading (4 under slot weighting). Statistical power is very low by construction.",
+    "binding_consequences": [
+      "No significance claim, in either direction, for the primary contrast.",
+      "No claim of improvement, rescue, or capability effect.",
+      "No claim of NO EFFECT or equivalence. A null result CANNOT be distinguished from insufficient power at this baseline, and must be reported as 'not detected at n=3 baseline', never as 'alpha does not affect acquisition'.",
+      "All three possible outcomes are to be reported descriptively with their denominators attached."
+    ],
+    "baseline_concentration_disclosure": "The 3 positive fingerprints in low_n/low_rate are probe=C row=3, probe=C row=4, and probe=A row=3 (the last covering 2 slots). The effect is not spread across the design; this must be stated whenever the contrast is reported."
+  },
+
+  "duplicate_prompt_handling": {
+    "rule": "De-duplicate by the opening-prompt fingerprint (first_action.prompt_sha256), NOT by state_id.",
+    "inconsistency_rule": "If two slots sharing a fingerprint produce different first actions, that MUST be reported explicitly. A representative may not be chosen arbitrarily, and the slot-weighted and unique-prompt readings will diverge; report both.",
+    "alpha0_status": "At alpha=0, 0 fingerprints were inconsistent in any of the 8 cells (temperature=0). Steered cells are not assumed to inherit this and must be re-checked."
+  },
+
+  "secondary_reporting": {
+    "permitted": [
+      "the full 2x2 including the high_rate cells and their interaction, labelled descriptive",
+      "empirical-leader following at the first step",
+      "first-step interface validity and invalid_kind breakdown",
+      "attestation (steering_fires vs expected_fires) per cell"
+    ],
+    "permitted_with_label_only": "Secondary trajectory statistics may be reported as interface/behaviour description. They are NOT state-matched and may not be used to support or rescue any first-step conclusion.",
+    "observed_at_alpha0_for_context": {
+      "acquisition_first_step_validity": "160/160 overall; 0 first-step invalid in the acquisition block",
+      "acquisition_per_round_validity": "1521/1529 = 0.9948",
+      "acquisition_termination": {"autonomous_commit": 22, "forced_commit": 50, "invalid_policy": 8},
+      "incumbent_biased_confirmatory_sampling": "Subsequent sampling is overwhelmingly on the current empirical leader. After one pull the leader holds 21 trials against 20, and the model then cites 'its sample size is larger than the others' as the reason to continue sampling it. From round 2 onward that statement is literally TRUE; the defect is circular justification -- sampling the leader creates the sample-size advantage that is then used to justify sampling the leader -- not a factual error. Same family as PV10-C's incumbent bias.",
+      "recognition_action_mismatch": "Reason text asserting that more sampling is needed co-occurs with an immediate COMMIT Policy line, reproducing the PV9/PV10 recognition-action dissociation."
+    }
+  },
+
+  "prohibited_reporting": [
+    "any commitment-threshold or evidence-strength conclusion",
+    "any full-PV11 competence or gate-PASS claim",
+    "using secondary trajectories or final identification accuracy to support a first-step conclusion",
+    "using the high_rate cells to draw an information-seeking conclusion",
+    "significance, improvement, or equivalence claims on the primary contrast",
+    "count-based empirical_top2_share in any form (standing PV10 prohibition)"
+  ],
+
+  "termination_rule": {
+    "statement": "PV11-Acq runs alpha = -4 and +4 once. After that the BAI line CLOSES, regardless of outcome.",
+    "explicitly_excluded_after_the_run": [
+      "prompt iteration",
+      "horizon or STOP_STRINGS changes",
+      "metric redefinition",
+      "additional evidence levels or M1 repair",
+      "a further follow-up protocol intended to obtain a positive result"
+    ],
+    "rationale": "Four representation-layer interventions (Stage-1 alpha, choice history, Beta calculator, competitor cue) have already failed at the same point. M2 is the only manipulation-check-passing, strictly state-matched cross-alpha metric this line has produced; one clean measurement of it is the appropriate end point."
+  },
+
+  "execution_scope": {
+    "states_run": "the 80 acquisition states only",
+    "commitment_states_run": 0,
+    "alphas": [-4, 4],
+    "alpha0_reused": "PV11-A0 is retained unmodified and its acquisition half serves as the alpha=0 cell. It is NOT overwritten or regenerated.",
+    "held_identical_across_alpha": ["state bank", "prompt surface", "reward tapes", "per-state seed", "display orders", "parser", "horizon"],
+    "expected_attestation": "steering_fires must equal expected_fires per episode; at alpha=0 both are 0 because no hook is registered. A None fire count is a FAILURE, not a skip."
+  },
+
+  "provenance": {
+    "a0_result": "llama3/bandit/pv11/pv11_a0/bandit_pv11_alpha0.json",
+    "a0_n_states": 160,
+    "state_bank_canonical_sha256": "c324c058fc4ac9bcb1d633a2576f174d1c7ef53ef2b9c85b18848c3f6e62d648",
+    "state_bank_file_sha256": "0402d6ee359d6e717d6f2d2a0162a09f9c23dfd426fb4830cbeb874508a4191a",
+    "manifest_sha256": "a08893e4d0079544767c42f45b3010b4eae2e7ee74b275e3ae9cdbe551edb7c6",
+    "interface_tag": "pv11_p11_pv11-states-v1_pv10-strict-v2_k4_H5-20_s64e7fb3e4947",
+    "policy_parser_version": "pv10-strict-v2",
+    "stage1_instruction_version": "p11",
+    "a0_attestation": "160/160 episodes: steering_fires = expected_fires = 0; no episode exceeded (H+1) model calls; single interface_tag",
+    "unchanged_artifacts": "pv11_state_bank.json, pv11_state_manifest.json, bandit_pv11.py and bandit_pv11_episode.py are NOT modified by this amendment. PV11-Acq is a restriction of which states are run, not a change to the protocol object."
+  }
+}
