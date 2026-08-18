@@ -1,0 +1,99 @@
+{
+  "manifest_id": "pv11_acq_analysis_manifest",
+  "purpose": "Freeze the PV11-Acq analysis code BEFORE any steered episode exists, so the reported metric cannot be chosen after seeing the +-4 result. This manifest is separate from pv11_amendment_01.json on purpose: adding an analyzer hash to the amendment would require editing an artifact whose value is that it has not been edited since it was committed.",
+  "references_amendment": {
+    "id": "pv11_amendment_01",
+    "file": "pv11_amendment_01.json",
+    "sha256": "7f72b42d752b84a8c0765403574aa8519f0a51c99bd0cf9df76e47d18deb4741",
+    "commit": "528bf131ea05cb247b6eb42a64401b0374f1b43e",
+    "relationship": "This manifest is downstream of the amendment and does not modify it. Every reading rule enforced by the analyzer is specified there; the analyzer is the executable form of those rules, not a new decision."
+  },
+  "frozen_artifacts": {
+    "analyzer": {
+      "file": "analyze_bandit_pv11_acq.py",
+      "sha256": "271d3a7ee78a7ad16d4b07fd9fb18f11fd94e4230de89f035a75ab68988b4a07",
+      "role": "the single definition of every PV11-Acq number"
+    },
+    "guard_test": {
+      "file": "test_pv11_acq_analyzer.py",
+      "sha256": "49b3a297cea2a621b0e26e632c854da3b734d9c5967aa90ec130ca079005c5ff",
+      "role": "drives all 14 fail-closed guards by synthetic mutation of the stored alpha=0 file, plus two must-succeed controls"
+    }
+  },
+  "frozen_before": {
+    "steered_episodes_existing": 0,
+    "statement": "No PV11 episode with alpha != 0 had been generated or inspected when these hashes were computed. The alpha=0 cell was already complete and had been inspected; that is what the amendment records."
+  },
+  "primary_metric": {
+    "name": "first_step_probe_sampling_low_rate_contrast",
+    "definition": "P(first action = SAMPLE probe | low_n/low_rate) - P(first action = SAMPLE probe | matched_n/low_rate)",
+    "why_only_this_pair": "In both low_rate cells the probe's displayed rate is .40 and the probe is NOT the displayed best arm, so sampling it cannot be rate-chasing. Probe label, display row, displayed rate and the other three arms are identical across the pair; ONLY sample size differs.",
+    "readings": {
+      "slot_weighted": {
+        "denominator": "all 20 design slots of a cell",
+        "alpha0_value": "4/20 - 0/20 = +0.200",
+        "role": "continuity with the frozen gate, which was defined this way"
+      },
+      "unique_prompt": {
+        "denominator": "the 16 distinct opening-prompt fingerprints",
+        "alpha0_value": "3/16 - 0/16 = +0.1875",
+        "role": "PRIMARY descriptive reading for PV11-Acq",
+        "why": "Latent rank is invisible at the first step, so several slots render a byte-identical prompt. At temperature=0 those are one decision repeated, not independent samples."
+      }
+    },
+    "invalid_handling": "ITT is primary: an invalid first action counts in the denominator and in no numerator. valid-only is reported beside it with its own denominator.",
+    "estimand_scope": "FIRST ACTION ONLY. After it, choice and realized reward fork the trajectory, so no later round is state-matched across alpha."
+  },
+  "descriptive_only": {
+    "cells": [
+      "low_n/high_rate",
+      "matched_n/high_rate"
+    ],
+    "alpha0_values": {
+      "low_n/high_rate": "16/20",
+      "matched_n/high_rate": "20/20"
+    },
+    "can_support": "that sample size changed choice with the displayed rate held at .60",
+    "cannot_support": "any information-seeking motive: there the probe IS the displayed best arm, so sampling it is inseparable from rate-chasing -- the structure behind PV10-C's deprecated .774",
+    "ruling": "excluded from the primary metric; may not re-characterize the low_rate result"
+  },
+  "power": {
+    "alpha0_positive_events": {
+      "unique_prompt": 3,
+      "slot_weighted": 4
+    },
+    "baseline_concentration": [
+      "probe=A display_row=3 (2 slots)",
+      "probe=C display_row=3 (1 slot)",
+      "probe=C display_row=4 (1 slot)"
+    ],
+    "enforced_in_code": "The analyzer prints NO p-value for the primary contrast. With 3 positive events a significance test would imply a precision this design does not have.",
+    "null_wording": "'not detected at this low-power baseline'. NEVER 'RSN does not affect acquisition' and never an equivalence claim: a null cannot be distinguished from insufficient power here."
+  },
+  "pairing_attestation": {
+    "fails_closed_on": [
+      "a cell that does not present the same 80 state_uids as the others",
+      "duplicate state_uid within a cell",
+      "fewer or more than 20 states in any of the four cells",
+      "an alpha that disagrees with the flag it was passed under",
+      "commitment runs inside a cell declaring block=acquisition",
+      "any drift in state_id / cell / display_order / opening_counts / latent_probs / tape_key / true_best / displayed_best / probe_label / horizon",
+      "any drift in protocol / state-bank / parser version",
+      "a differing state-bank hash, manifest hash, model/mask fingerprint or mask path",
+      "steering_fires != expected_fires, a None fire count, a steered cell with 0 fires, or an alpha=0 cell with nonzero fires",
+      "an interface tag that does not match its own declared scope"
+    ],
+    "asserts_rather_than_intersects": "A silent seed intersection would reintroduce the survival selection that made PV10-A's cross-cell accuracy uninterpretable.",
+    "interface_tag_is_EXPECTED_to_differ": "The alpha=0 cell is the original full-bank run (H5-20, block=all); the steered cells are acquisition-only (H20, _blkacquisition). Requiring equality would force re-running a baseline that genuinely predates the amendment. Each tag is instead checked against its own scope."
+  },
+  "alpha0_source": {
+    "file": "llama3/bandit/pv11/pv11_a0/bandit_pv11_alpha0.json",
+    "handling": "Read in place and filtered to its 80 acquisition states. NOT copied, NOT resumed into a new directory, NOT regenerated. Re-running it to make a label match would replace a real pre-amendment baseline with a later one.",
+    "reproduces_frozen_values": true
+  },
+  "not_analysed": {
+    "commitment_block": "Withdrawn on construct grounds (pv11_amendment_01.json). The analyzer loads acquisition states only and raises if handed commitment data. No commitment or threshold conclusion may be drawn from PV11-Acq."
+  },
+  "usage": "python3.10 analyze_bandit_pv11_acq.py --a0 <full A0>.json --am4 <acq -4>.json --ap4 <acq +4>.json",
+  "verification": "python3.10 test_pv11_acq_analyzer.py  (14 guards + 2 controls)"
+}
