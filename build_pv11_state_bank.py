@@ -42,9 +42,22 @@ sampling the challenger is decoupled from chasing its rate. Hence the
 Acquisition block crosses `probe sample size` with `probe empirical rate`:
 
     low-n  / high-rate  -> ambiguous (information OR rate-chasing)
-    low-n  / low-rate   -> CLEAN: sampling it can only be information-seeking
+    low-n  / low-rate    -> rate-chasing is excluded, but random / label /
+                            position preference are NOT
     matched-n / high-rate -> rate-chasing control
     matched-n / low-rate  -> sample-size control
+
+NO SINGLE CELL IS A CAUSAL READOUT. Sampling the probe in low-n/low-rate rules
+out rate-chasing, because the probe is not the displayed leader there -- but it
+does not rule out random choice, a label preference, or a row preference, all
+of which are live given PV10's documented Button-A prior. The quantity with
+causal content is the CROSS-CELL DIFFERENCE
+
+    P(sample probe | low-n/low-rate) - P(sample probe | matched-n/low-rate)
+
+in which the probe's label, display row, displayed rate and the other three
+arms are all held identical and ONLY its sample size changes. That difference,
+not any cell's level, is M2's primary. A per-cell rate is descriptive.
 
 The name `probe_arm` (never `challenger`) is deliberate: under high-rate the
 probe IS the empirical leader, and a metric named "challenger" would then be
@@ -290,7 +303,13 @@ def canonical(obj) -> str:
 
 
 def sha256(obj) -> str:
+    """Digest of the CANONICAL serialization -- stable under reformatting."""
     return hashlib.sha256(canonical(obj).encode()).hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    """Digest of the BYTES on disk -- what `shasum -a 256` reports."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # ─────────────────────────────── manifest ───────────────────────────────────
@@ -305,9 +324,24 @@ CALIBRATION_BASIS = {
                "states -- see the module docstring on selection bias and "
                "non-orthogonality."),
     "sources": {
-        "pv10a_v2_a0": {"sha256_prefix": "cfceec33d50c"},
-        "pv10b_v2_a0": {"sha256_prefix": "bddae1fc7375"},
-        "pv10c_a0":    {"sha256_prefix": "d9ac63de846c"},
+        "pv10a_v2_a0": {
+            "path": ("llama3/bandit/pv10a/pv10a_v2_a0/"
+                     "bandit_pv10a_pv10_bai_candidate_8B_11_20.json"),
+            "sha256": ("cfceec33d50cc0e5a7a0b05ee2fd0baba569fe048472"
+                       "2097dc27447b3d057c05"),
+        },
+        "pv10b_v2_a0": {
+            "path": ("llama3/bandit/pv10b_v2/pv10b_v2_a0/"
+                     "bandit_pv10_pv10_bai_candidate_8B_11_20.json"),
+            "sha256": ("bddae1fc7375cc66d981382ed09ea5c07f397103a7ac"
+                       "eb3d76c9247f38624885"),
+        },
+        "pv10c_a0": {
+            "path": ("llama3/bandit/pv10c/pv10c_a0/"
+                     "bandit_pv10_pv10_bai_candidate_8B_11_20.json"),
+            "sha256": ("d9ac63de846c5b5549f03133b7e4769224afa35e65a1"
+                       "0cd182a4439f62e1a28c"),
+        },
     },
     "observed": {
         "exit_arm_trials_q25_median_q75": {
@@ -375,6 +409,16 @@ MANIPULATION_GATE = {
                              "information-seeking from rate-chasing; that "
                              "conflation is exactly what invalidated PV10-C's "
                              ".774"),
+        "no_single_cell_is_causal": (
+            "A per-cell rate is DESCRIPTIVE. Sampling the probe in "
+            "low_n/low_rate excludes rate-chasing (the probe is not the "
+            "displayed leader there) but does NOT exclude random choice, a "
+            "label preference, or a display-row preference -- all live given "
+            "PV10's documented Button-A prior. Causal content lives only in "
+            "the cross-cell difference, where the probe's label, display row, "
+            "displayed rate and the other three arms are identical and ONLY "
+            "its sample size changes. Never report a low_n/low_rate level as "
+            "evidence of information-seeking."),
         "why_not_an_absolute_floor": ("an absolute floor such as 4/20 = .20 "
                                       "sits at the K=4 random-sampling rate "
                                       "(~.25), so uniform random behaviour "
@@ -454,7 +498,15 @@ def build_manifest(bank: dict) -> dict:
         "state_bank_version": STATE_BANK_VERSION,
         "builder_sha256": hashlib.sha256(
             Path(__file__).read_bytes()).hexdigest(),
-        "state_bank_sha256": sha256(bank),
+        # Two DIFFERENT digests, deliberately named apart. The canonical one
+        # is over the sort-keys/no-whitespace serialization of the object, so
+        # it is stable under reformatting and is what --check compares. The
+        # file one is the plain SHA256 of the bytes on disk, which is what an
+        # external auditor computes with `shasum -a 256`. Reporting only the
+        # canonical digest under a bare `state_bank_sha256` invited exactly
+        # that confusion.
+        "state_bank_canonical_sha256": sha256(bank),
+        "state_bank_file_sha256": None,   # filled after the file is written
         "k": K,
         "arm_labels": list(ARM_LABELS),
         "n_states": bank["n_states"],
@@ -503,21 +555,45 @@ def main() -> int:
                 ok = False
                 continue
             stored = json.loads(path.read_text())
+            if path is MANIFEST_PATH:
+                # The freshly built manifest cannot know the on-disk digest,
+                # so carry the stored value across for the comparison and
+                # verify it separately against the actual bytes.
+                fresh = dict(fresh)
+                fresh["state_bank_file_sha256"] = stored.get(
+                    "state_bank_file_sha256")
             if canonical(stored) != canonical(fresh):
                 print(f"MISMATCH {path.name}")
                 ok = False
             else:
                 print(f"ok {path.name}")
+        if ok and BANK_PATH.exists() and MANIFEST_PATH.exists():
+            stored_m = json.loads(MANIFEST_PATH.read_text())
+            actual = _file_sha256(BANK_PATH)
+            if stored_m.get("state_bank_file_sha256") != actual:
+                print("MISMATCH pv11_state_bank.json byte digest")
+                print(f"  manifest {stored_m.get('state_bank_file_sha256')}")
+                print(f"  actual   {actual}")
+                ok = False
+            else:
+                print("ok bank byte digest")
         if ok:
-            print(f"\nstate_bank_sha256 {manifest['state_bank_sha256']}")
+            print(f"\ncanonical sha256  "
+                  f"{manifest['state_bank_canonical_sha256']}")
+            print(f"file      sha256  "
+                  f"{_file_sha256(BANK_PATH)}")
         return 0 if ok else 1
 
+    # Order matters: the bank file must exist before its byte digest can be
+    # taken, so the manifest is completed in a second pass.
     BANK_PATH.write_text(json.dumps(bank, indent=2, sort_keys=True) + "\n")
+    manifest["state_bank_file_sha256"] = _file_sha256(BANK_PATH)
     MANIFEST_PATH.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     print(f"wrote {BANK_PATH.name} ({bank['n_states']} states)")
     print(f"wrote {MANIFEST_PATH.name}")
-    print(f"state_bank_sha256 {manifest['state_bank_sha256']}")
+    print(f"  canonical sha256  {manifest['state_bank_canonical_sha256']}")
+    print(f"  file      sha256  {manifest['state_bank_file_sha256']}")
     return 0
 
 
