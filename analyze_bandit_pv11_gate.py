@@ -54,6 +54,13 @@ FROZEN FREE PARAMETERS
     separate INTERFACE check. It is not a capability criterion and does not
     enter M1/M2.
 
+VERDICT
+-------
+PASS requires ALL of: no completeness errors, BOTH rules applicable, and BOTH
+rules passing. A rule that could not be measured because its block is absent
+counts as a FAILURE, never as "not applicable" -- an unmeasured prerequisite is
+not a satisfied one. The gate therefore requires the COMPLETE 160-state bank.
+
 ON FAILURE
 ----------
 Manipulation-gate failure does not trigger prompt iteration. It means that this
@@ -160,16 +167,30 @@ def check_completeness(runs: list[dict]) -> list[str]:
         if extra:
             errors.append(f"{len(extra)} states not in the bank: "
                           f"{sorted(extra)[:5]}")
-        # A block-restricted run is legitimate; a partial BLOCK is not.
+        # BOTH blocks must be present AND complete. An earlier build treated
+        # a block-restricted run as legitimate and only rejected a PARTIAL
+        # block; a complete Commitment block alone then reported
+        # verdict=PASS with M2 "not applicable", which inverts the rule that
+        # BOTH prerequisites must hold. A missing block is the strongest
+        # possible failure of its rule, not an exemption from it.
         for block in ("commitment", "acquisition"):
             b_expected = {s["state_uid"] for s in bank["states"]
                           if s["block"] == block}
             b_got = got & b_expected
-            if b_got and b_got != b_expected:
+            if not b_got:
+                errors.append(
+                    f"{block}: block entirely ABSENT ({len(b_expected)} "
+                    f"states). The gate requires BOTH blocks -- a missing "
+                    f"block cannot be read as its rule not applying.")
+            elif b_got != b_expected:
                 errors.append(
                     f"{block}: {len(b_expected - b_got)} states missing "
                     f"(have {len(b_got)}/{len(b_expected)}) -- a partial "
                     f"block cannot be gated")
+        if missing:
+            errors.append(
+                f"{len(missing)} of the 160 bank states are missing; the "
+                f"gate is defined on the COMPLETE bank")
     alphas = {r["alpha"] for r in runs}
     if alphas != {0.0}:
         errors.append(f"gate is defined on alpha=0 only; found {alphas}")
@@ -310,10 +331,25 @@ def evaluate(runs: list[dict]) -> dict:
         }
     out["M2"] = m2
 
-    applicable = [m for m in (m1, m2) if m["applicable"]]
-    out["verdict"] = ("PASS" if (not out["errors"] and applicable
-                                 and all(m["passes"] for m in applicable))
+    # BOTH rules must be applicable AND pass. `all()` over only the
+    # APPLICABLE rules is the bug this replaces: with M2 absent, `all([m1])`
+    # is True and a Commitment-only run reported PASS. There is no reading
+    # under which an unmeasured prerequisite counts as satisfied.
+    both_applicable = m1["applicable"] and m2["applicable"]
+    both_pass = (m1["applicable"] and m1.get("passes", False)
+                 and m2["applicable"] and m2.get("passes", False))
+    out["verdict"] = ("PASS" if (not out["errors"] and both_applicable
+                                 and both_pass)
                       else "FAIL")
+    out["verdict_basis"] = {
+        "no_errors": not out["errors"],
+        "M1_applicable": m1["applicable"],
+        "M1_passes": m1.get("passes") if m1["applicable"] else None,
+        "M2_applicable": m2["applicable"],
+        "M2_passes": m2.get("passes") if m2["applicable"] else None,
+        "rule": ("PASS requires: no errors AND both rules applicable AND "
+                 "both rules passing"),
+    }
     return out
 
 
@@ -347,6 +383,10 @@ def report(res: dict) -> None:
     print()
 
     m1 = res["M1"]
+    if not m1["applicable"]:
+        print("M1  NOT MEASURED -- the commitment block is absent.")
+        print("    A missing rule is a FAILURE, not an exemption.")
+        print()
     if m1["applicable"]:
         print("M1  first-step COMMIT vs evidence strength")
         for cell in COMMITMENT_CELLS:
@@ -368,6 +408,10 @@ def report(res: dict) -> None:
         print()
 
     m2 = res["M2"]
+    if not m2["applicable"]:
+        print("M2  NOT MEASURED -- the acquisition block is absent.")
+        print("    A missing rule is a FAILURE, not an exemption.")
+        print()
     if m2["applicable"]:
         print("M2  first-step probe SAMPLE vs probe sample size "
               "(displayed rate held at .40)")
