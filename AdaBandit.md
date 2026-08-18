@@ -1296,28 +1296,23 @@ evidence quality 与 final identification，可帮助区分 α 改变的是 samp
 这里的 **premature commitment and confirmatory search** 不应被理解为单一机制，而是一组行为上相近的
 失败模式：模型较早形成一个局部候选，随后重复强化该候选，较少主动搜索、证伪或回到替代路径。
 
-- **Bandit action selection**：Schmied et al. 的 *LLMs are Greedy Agents* 观察到模型过早选择当前
-  empirical-best 或 context 中出现最频繁的 arm，造成 action coverage 停滞，并出现“理由中知道应探索、
-  最终动作仍然 greedy”的 knowing--doing gap。Chen et al. 的 *When Greedy Wins* 进一步发现，SFT/RL
-  虽可降低平均 regret，却可能让模型更快进入 exploitation，并增加永久放弃真最优臂的 suffix failure。
-- **Planning and search**：Yao et al. 的 *Tree of Thoughts* 指出，标准自回归推理是 token-level、从左到右的
-  单路径过程，缺少显式 lookahead 与 backtracking；加入多分支搜索、自我评估和回溯后，GPT-4 在 Game of 24
-  上由 CoT 的 4% 提升到 74%。这说明外部搜索结构可以缓解早期路径承诺，但不等于证明普通解码中的所有错误
-  都来自同一种“贪心机制”。
-- **Hypothesis testing**：Jhaveri et al. 的 *Failing to Falsify* 在交互式规则发现任务中发现，11 个不同家族
-  和规模的 LLM 经常提出与当前假设相容的测试，而不是尝试证伪它，形成 confirmatory sampling；显式要求
-  考虑反例的干预将平均规则发现率从 42% 提高到 56%。
-- **Clinical information seeking**：Braitsch et al. 的 OncoRounds 实验要求 32 个模型主动请求临床资料后再
-  诊断。信息利用率从前两轮约 57% 降到最后一轮 25.7%，主要错误表现为 search satisficing、anchoring 与
-  premature closure：模型在关键分子和细胞遗传学资料尚未获取时便停止搜索并提交判断。
-- **Flexible clinical reasoning**：Kim et al. 的 mARC-QA 用反常规的长尾临床情境触发 Einstellung effect。
-  模型容易沿训练数据中的熟悉共现模式作答，即使题目提供了否定该模式的关键约束，并同时表现出低准确率下的
-  过度自信；这更接近模式匹配层面的认知定势，而不是主动信息采样本身。
+| 论文与场景 | 观察到的行为 | 与 PV10 的关系 |
+|---|---|---|
+| [Schmied et al., *LLMs are Greedy Agents*](https://arxiv.org/abs/2504.16078)：Bandit / Tic-tac-toe | 区分 greediness、frequency bias 与 knowing--doing gap；模型即使正确计算探索量，最终动作仍可能保持 greedy。 | **最直接对应**：历史中采得最多的 arm 形成行动惯性，而不确定性识别没有转化为 SAMPLE。 |
+| [Chen et al., *When Greedy Wins*](https://arxiv.org/abs/2509.24923)：Meta-Bandit training | SFT/RL 可以降低平均 regret，却也可能更早进入 exploitation，并增加永久放弃真最优臂的 suffix failure。 | 说明平均表现改善不等于探索策略改善，训练也可能强化局部 exploitation。 |
+| [Saparov & He, *Language Models Are Greedy Reasoners*](https://arxiv.org/abs/2210.01240)：Formal reasoning | 模型能完成单步推理，却难以规划和系统探索多条证明路径。 | 对应“局部判断正确、全局搜索失败”，但不是主动信息采样实验。 |
+| [Yao et al., *Tree of Thoughts*](https://arxiv.org/abs/2305.10601)：Planning and search | 标准单路径推理缺少显式 lookahead 与 backtracking；多分支搜索、自我评估与回溯可显著改善任务表现。 | 说明外部搜索结构可以缓解早期路径承诺，但不能证明其内部机制与 Bandit 相同。 |
+| [Jhaveri et al., *Failing to Falsify*](https://arxiv.org/abs/2604.02485)：Hypothesis testing | 模型偏向提出支持当前假设的测试，而非主动证伪；显式反例提示提高规则发现率，但未完全消除偏误。 | 与 incumbent-biased confirmatory sampling 的行为结构相近。 |
+| [Braitsch et al., *Information-seeking Failures in Agentic Clinical Reasoning*](https://arxiv.org/abs/2607.10275)：Clinical diagnosis | 模型形成初步诊断后减少关键信息请求，表现为 anchoring、search satisficing 与 premature closure。 | 是跨场景的主动信息搜集类比：局部合理理由可能与最终正确性脱节。 |
+| [Kim et al., *Limitations ... Arising from Inflexible Reasoning*](https://doi.org/10.1038/s41598-025-22940-0)：Clinical reasoning | 模型容易被熟悉的共现模式锁定，即使语境已经否定该模式，仍表现出 Einstellung effect 与过度自信。 | 属于更宽泛的模式定势，不直接等同于 Bandit acquisition。 |
 
-这些工作共同表明，类似的“早期承诺—重复强化—忽略替代假设”结构不仅出现在 Bandit，也出现在规划、假设
-检验与临床决策中。PV10-B 提供了一个更容易量化的 pure-exploration 实例：当前 empirical-best arm 相当于
-工作假设，继续采样 incumbent 构成 **incumbent-biased confirmatory sampling**，而采样 leader 的
-challenger 才真正检验当前判断。跨任务的行为结构可以比较，但目前不能据此断言它们具有相同的内部机制。
+PV10 最接近其中的 **frequency-biased incumbent persistence** 与 **recognition--action dissociation**：
+早期领先臂被再次采样后，在历史中变得更频繁；其他臂因样本不足而被模型判为“不可靠”，模型却继续采样
+incumbent，使这一差异自我强化。当前 empirical-best arm 因而相当于工作假设，继续采样它构成
+**incumbent-biased confirmatory sampling**，而采样低证据 challenger 才真正检验当前判断。
+
+这是一种跨任务可比较的行为结构，不代表上述任务共享同一个内部机制。PV10 进一步观察到的
+sampling--commit asymmetry 及其直接指标统一放在 §4.4，不在本节重复。
 
 ### 4.4 Results
 
@@ -1331,6 +1326,18 @@ challenger 才真正检验当前判断。跨任务的行为结构可以比较，
 PV9–PV10 共同显示出 **recognition–action dissociation**：模型能够谈论探索、不确定性和竞争假设，
 但这些表征变化没有稳定转化为信息采集行为。现有结果不支持 RSN 改善 Bandit exploration 或 BAI；
 在线 PV10-A/B/C 到此关闭，不再继续增加同类提示词干预。
+
+另一个稳定的行为签名是 **sampling–commit asymmetry**，而不是一套统一的统计策略：
+
+| 阶段 | 局部启发式 | 直接证据（α=0） |
+|---|---|---|
+| **SAMPLE** | 重复当前采样次数最多的 incumbent | B-v2 为 367/394 = .931，C 为 1549/1648 = .940；两格的 per-seed 中位数均为 1.00。pooled 比例仅作动作层描述，不用于跨 cell 推断。 |
+| **COMMIT** | 追逐表面经验率最高的候选，即使样本很少 | B-v2 中 8/19 次提交落在仅采 1–2 次的 arm，且这 8 次全部属于当时经验率最高集合；提交臂样本数中位数仅为 4。 |
+
+因此模型在继续行动时倾向复制历史中最常出现的选择，在最终判断时又可能被低样本高经验率吸引。
+两种局部启发式都会忽略 information value，并共同造成较差的 best-arm identification。C 改变了停止条件，
+使多数 episode 延长至终局，因此其 COMMIT 分布不与 B 作同质比较；它主要复现并放大了 SAMPLE 阶段的
+incumbent persistence。
 
 ### 4.5 Next protocol: Controlled Evidence-State Micro-Episodes（设计，未实现）
 
