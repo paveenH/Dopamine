@@ -140,9 +140,22 @@ def main() -> int:
               f"{uid}: first pull of A differs across cells")
     # determinism across processes: recompute, must be identical
     check(ep.tape_reward("A-00", "A", 0, 0.6) == want, "tape not deterministic")
-    check(ep.tape_reward("A-00", "A", 0, 0.6)
-          != ep.tape_reward("A-01", "A", 0, 0.6)
-          or True, "")  # different keys may coincide; not asserted
+
+    # `prob` must NOT enter the key. The four cells of a state_id share one
+    # latent, so comparing them cannot detect a prob-keyed tape (verified by
+    # mutation: adding prob to the key left that check green). The property is
+    # that the underlying UNIFORM is a function of the tape position alone, so
+    # the draw must be monotone in prob at a FIXED position -- true for a
+    # shared u, false if prob is hashed into the key.
+    for key, arm in (("A-00", "A"), ("C-07", "B"), ("A-13", "D")):
+        for idx in range(6):
+            seq = [ep.tape_reward(key, arm, idx, p / 100.0)
+                   for p in range(0, 101, 5)]
+            check(seq == sorted(seq),
+                  f"tape draw is not monotone in prob at {key}/{arm}/{idx} -- "
+                  f"prob has leaked into the hash key")
+            check(seq[0] == 0 and seq[-1] == 1,
+                  f"tape draw at {key}/{arm}/{idx} is not p=0 -> 0, p=1 -> 1")
 
     # ── 5. invalid TERMINATES and stays in the denominator ─────────────────
     vc = FakeVC(["Reason: x\nPolicy: COMMIT Button A because it looks best"])
