@@ -530,6 +530,66 @@ python3.10 test_bandit_pv10c.py           # Reason: still ends on token 220;
                                           # B/C resume keys distinct
 bash -n run_bandit_pv10c.sh
 
+# pv11 = Controlled Evidence-State Micro-Episodes. The online PV10-A/B/C line
+# is closed; PV11 hands the model a SYNTHETIC evidence state instead of one it
+# generated, so "willing to continue" and "which arm to sample" separate at a
+# state-matched FIRST ACTION. No GPU; the anchor assertions use the real
+# Llama-3.1 tokenizer from the local HF cache and print SKIP (never pass
+# silently) when it is absent.
+python3.10 build_pv11_state_bank.py --check   # the 160-state bank reproduces
+                                              # from its builder, and BOTH
+                                              # digests match: canonical (over
+                                              # the normalized object) and file
+                                              # (over the bytes on disk). They
+                                              # are different numbers on
+                                              # purpose -- see the manifest.
+python3.10 test_pv11_state_bank.py            # counts legality, EXACT 5/5/5/5
+                                              # marginals, pairwise crossings
+                                              # within max-min <= 1 (exact
+                                              # joint orthogonality is NOT
+                                              # attainable at n=20 and is not
+                                              # claimed)
+python3.10 test_bandit_pv11.py                # token 220; withheld fields
+                                              # (history / totals / probe
+                                              # identity) absent; each cell
+                                              # differs from its sibling in
+                                              # exactly ONE line; (H+1)*L
+                                              # fires, NOT PV10's tau-3
+python3.10 test_bandit_pv11_episode.py        # FakeVC: no forced init, first
+                                              # action captured BEFORE any
+                                              # state update, tape pairing
+                                              # across cells and alphas, empty
+                                              # generation fails closed, and
+                                              # attestation rejects a WRONG
+                                              # fire count (a fake that models
+                                              # INTENT cannot test ARITHMETIC
+                                              # -- verified by mutation)
+python3.10 analyze_bandit_pv11_gate.py --selftest   # M1/M2 discriminating
+                                                    # power, incl. that ONE
+                                                    # complete block alone
+                                                    # must FAIL
+python3.10 test_pv11_gate_end_to_end.py       # the gate reads what the DRIVER
+                                              # actually writes ("runs"), by
+                                              # running real episodes and
+                                              # serializing them -- the PV10
+                                              # loader bug is the precedent
+bash -n run_bandit_pv11.sh
+
+# One launcher, and it STOPS at GATE by design:
+#   bash run_bandit_pv11.sh llama3 CHECK   # every offline check above
+#   bash run_bandit_pv11.sh llama3 SMOKE   # 16 DESIGN-BALANCED states, ~10min
+#   bash run_bandit_pv11.sh llama3 A0      # 160 states, ~60min
+#   bash run_bandit_pv11.sh llama3 GATE    # M1/M2 verdict, then stop
+# There is deliberately no +-4 step: the steered cells are gated on alpha=0,
+# and a failing gate CLOSES the protocol rather than being re-tuned. Both the
+# launcher (no alpha flag) and the driver (--alpha != 0 exits) enforce this,
+# independently, so editing one does not silently unlock the other.
+python3.10 inspect_pv11_smoke.py <dir>/pv11_pilot.json   # READ THE TEXT: the
+                                              # driver's summary line cannot
+                                              # show code-completion drift, a
+                                              # constant first action, or a
+                                              # false claim about sample size
+
 # pv10 gate + tables (needs a synced pv10 result dir; no GPU):
 python3.10 evaluate_pv10_capability.py --result <dir>/pv10_a0
 python3.10 analyze_bandit_pv10.py --cells am4=<dir>/pv10_am4 \
