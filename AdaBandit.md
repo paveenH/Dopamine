@@ -1332,6 +1332,92 @@ arm 一次，并将大部分预算集中在少数候选上；强制继续采样�
 因此，PV10-A/B 都没有提供可支持 RSN 改善 BAI 的结果，目前仅作为过早承诺与 confirmatory sampling
 的诊断证据保留。PV10-A 不再追加 v3；下一步用 PV10-C 测试显式竞争假设提示能否改善采样行为。
 
+### 4.5 PV10-C Result: acquisition gate FAILED, online PV10 line CLOSED
+
+冻结结论（2026-08-18，α=0，N=20，B-v2 与 C 同 seed / tape / order / parser v2 配对，attestation 通过）：
+
+> PV10-B/C jointly reveal a recognition–action dissociation. The baseline often commits prematurely to
+> under-sampled high-rate arms. The competitor cue increases uncertainty recognition and delays
+> commitment, but does not redirect sampling toward under-sampled alternatives, instead prolonging the
+> incumbent-biased confirmatory sampling **already present in the baseline**. Because the acquisition
+> gate failed, no steered PV10-C cells were run.
+
+**采集门槛四项全部反向**，因此 C 的 ±4 未运行，且不应运行：
+
+| | B-v2 A0 | C A0 | 门槛 | 判定 |
+|---|---:|---:|---|---|
+| `min_trials` 中位数 | 1.0（18/20） | 1.0（20/20） | 离开 1 | 反向 |
+| `max_arm_share` | .637 | .895 | 下降 | 反向（配对 +.335，15/4） |
+| `true_top2` | .493 | .432 | 上升 | 反向 |
+| `entropy/logK` | .668 | .251 | — | 崩塌（配对 −.526，3/16） |
+| ITT accuracy | 6/20 = .300 | 3/20 = .150 | — | McNemar p=.453，仅方向性 |
+
+`osz_revisit_frac` 是唯一正向项（.212→.354），但 τ 中位数从 12 升到 100，采样机会多了约 8 倍；
+它不构成定向信息采集证据。
+
+**Incumbent lock 是基线性质，不是 cue 的副作用。** 首个 adaptive arm 即最终最多采样臂：B 18/20，
+C 19/20；采当前最多样本臂 B .931 / C .940，采最少样本臂 B .081 / C .019。B 的最长连采中位数只有
+4.0 而 C 是 66.5，差异来自 τ（B 中位数 12），不是策略差异。cue 把 episode 拉长，让既有的确认式
+采样显形。
+
+**语言持续，行动迅速归零（按决策轮分箱，C）：**
+
+| 决策轮 | competitor 词出现率 | 采最少样本臂 | 采最多样本臂 |
+|---|---:|---:|---:|
+| 0–9 | .450 | .125 | .965 |
+| 10–29 | .493 | .008 | .942 |
+| 30–59 | .527 | .004 | .967 |
+| 60–95 | .506 | .002 | .900 |
+
+竞争假设语言全程稳定在 ~.45–.53，而低样本臂采集塌陷 60 倍。这排除了"cue 影响随时间衰减"的解释：
+模型从未停止谈论比较，只是几乎立刻停止执行它。（注意 n=100 的终局轮按设计使用与 PV10-B 字节相同的
+terminal prompt，cue 本就不在其中，因此终局文本不含 cue 不构成衰减证据。）
+
+**闭合循环**（seed 31 r48 为直接证据：C 已 8/10 领先、A 为 16/40，模型写"需要更多采样来区分"后又采
+了 48 轮 A）：竞争臂样本少 → 判定其不可靠 → 继续采 incumbent"确认优势" → 竞争臂样本仍少 → 永远
+不满足 commit 条件 → n=100 强制提交。C 有 12/20 为 `forced_commit`，B 仅 1/20。
+
+**三层结构（本节的可引用结论）：**
+1. **识别层正确** —— 模型能准确复述低样本与不确定性状态；
+2. **动作层不响应** —— SAMPLE 不朝该识别移动（采最少样本臂 .019）；
+3. **终局读取层退化** —— C 的 12 条"最高经验率"式提交理由中 7 条与实际 counts 矛盾（seed 0：
+   A=49/97 却称最高，C=1/1、D=1/1；seed 46 把 26/71 写成"26 trials with 26 rewards"）。
+
+因此 CLAUDE.md 中"模型能读、能复述、只是不行动"的预注册读法**仅适用于采样阶段**，不适用于终局比较。
+
+**`emp_top2` 的正确解释**：B 的 .837 不是更好的证据利用，而是停得早、incumbent 尚未污染经验率前二；
+C 跑满 100 轮把单臂顶到 97 次，one-shot `1/1` 臂持续占据经验率前列而模型仍采已回落的 incumbent。
+该指标测到的是**动作与经验率排序的分离**，不是证据质量。
+
+<!-- Why: `.774` competitor alignment 会被读成 falsification alignment，实际 291/308 采的是最多样本臂、仅 4/308 采最少样本臂。
+Evidence: analyze_bandit_pv10c.py 模块 docstring 的 DEPRECATED 段；本节分箱表。
+Scope: 所有 PV10-C competitor 指标。 -->
+**`next_sample_targets_competitor` = .774 已 DEPRECATED，不得引用。** 这是 construct failure 而非
+实现 bug：`empirical_leader` 按经验率 argmax 正确执行，但 one-shot `1/1` 臂会成为 leader，于是被长期
+确认的 incumbent 被判为"competitor"，继续采 incumbent 反而计为对齐。计算在 analyzer 中原样保留以
+保证审计可复现；**不得改写 leader 定义后覆盖 .774**。有效替代读数为采最多/最少样本臂的比例。
+
+**在线 PV10-A/B/C 全线关闭。** 四次表征层干预（Stage-1 α、choice history、Beta calculator、
+competitor cue）已全部在同一位置失败：抬高 recognition 而不移动 acquisition。不再增加"请考虑竞争
+假设"类提示文字。下一步改用动作层受控协议（§4.6），且任何强制采集必须标记为 mechanism control，
+不得称为自主探索。
+
+### 4.6 Next protocol: Controlled Evidence-State Micro-Episodes（设计，未实现）
+
+新协议而非 PV10-D 在线变体。要点：
+
+- 证据状态**全部由 counts 合成**，不取自任何 α=0 轨迹（pv7 state bank 的教训：按结果抽状态等于用
+  自身历史拟合提示）。这也使证据强度 × 样本平衡成为真正的正交因子设计。
+- `SAMPLE` 后**必须真实返回 reward 并允许后续决策**；否则信息没有行为价值，null 不可解释。
+- 第一轮动作是主要的 state-matched estimand；后续轨迹与最终准确率为次要结果。
+- 拆成两个小 block，避免过大的全因子设计：
+  - **Commitment block**：样本平衡，操纵证据弱/强与剩余 horizon。
+  - **Acquisition block**：证据接近、challenger 样本不足，操纵 challenger 经验率**高/低**两个子格，
+    并提供真实后续反馈。两个子格是必需的——否则采 challenger 与追高经验率混淆，正是 `.774` 假阳性
+    的成因。
+- 先只跑 α=0。两项 manipulation check 通过才运行 ±4：(1) 强证据更容易 COMMIT；(2) 采样目标对样本
+  不足产生最低限度响应。
+
 ## References
 
 1. Nie et al. (2025). [EVOLvE: Evaluating and Optimizing LLMs For In-Context Exploration](https://proceedings.mlr.press/v267/nie25b.html). ICML 2025.

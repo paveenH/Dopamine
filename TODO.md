@@ -1,10 +1,9 @@
 
 ## TODO
-3. PV10-C（PV10-B-Falsification）：加入显式竞争假设提示 顺便修复之前的问题
-4. HumanLLM
 5. Behaviour: 测一下和人类的行为学对齐关系
-6. Meta 新模型
-GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
+6. Model:
+HumanLLM
+Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
 https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
 Inkling-Small
 
@@ -17,6 +16,30 @@ Inkling-Small
 - [ ] 将结果写入 `AdaBandit.md`
 - [ ] 固定结论：α 改变策略措辞，但未改变 directed exploration
 - [ ] 此后不再修改 Llama PV9 协议或追加版本
+
+### 1b. PV10 online line — CLOSED (2026-08-18)
+
+- [x] PV10-C acquisition gate 判定：**四项全部反向，未运行 ±4**
+- [x] 结果与三层结构写入 `AdaBandit.md` §4.5
+- [x] `.774` competitor alignment 标记 DEPRECATED / construct-invalid（计算保留可复现，不得引用）
+- [x] 冻结结论：在线 PV10-A/B/C 关闭，不再增加提示文字类干预
+
+三层结构（引用时按层区分，勿合并）：
+1. **识别层正确** —— 能准确复述低样本与不确定性；
+2. **动作层不响应** —— 采最少样本臂 .019（B .081）；
+3. **终局读取层退化** —— 12 条"最高经验率"提交理由中 7 条与 counts 矛盾。
+
+停止规则决定失败表现：**B 过早提交**到低样本高率臂；**C 抬高阈值但延长既有的确认式采样**至耗尽预算。
+incumbent lock 是基线性质（B .931 / C .940 采最多样本臂），非 cue 副作用。
+
+### 1c. Controlled Evidence-State Micro-Episodes（新协议，待实现）
+
+- [ ] 合成 counts 状态（**不取自任何 α=0 轨迹**）
+- [ ] `SAMPLE` 后返回真实 reward 并允许后续决策
+- [ ] Commitment block：样本平衡，操纵证据弱/强 × 剩余 horizon
+- [ ] Acquisition block：证据接近、challenger 样本不足，操纵 challenger 经验率**高/低**两子格
+- [ ] α=0 manipulation check：(1) 强证据更易 COMMIT；(2) 采样对样本不足有最低限度响应
+- [ ] 两项通过后才跑 ±4；强制采集只能称 mechanism control
 
 ### 2. Qwen Replication
 
