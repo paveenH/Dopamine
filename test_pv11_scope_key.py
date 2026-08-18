@@ -148,6 +148,28 @@ check_true("scope is not ignored",
            != drv.resume_key(-4.0, 11, 20, bank, MODEL_CFG,
                              states=states_all, block="all"))
 
+# The two halves of the fix must be tested INDEPENDENTLY. Mutation testing
+# caught this: reverting `states` to the full bank left every check above
+# green, because the `_blk` label alone still separated the keys. Holding the
+# label FIXED isolates whether the state-set half is actually live.
+check_true("state set alone separates the tag (label held fixed)",
+           drv.scope_tag(states_acq, "all")
+           != drv.scope_tag(states_all, "all"),
+           "scope_tag ignored its `states` argument")
+check_true("state set alone separates the key (label held fixed)",
+           drv.resume_key(-4.0, 11, 20, bank, MODEL_CFG,
+                          states=states_acq, block="all")
+           != drv.resume_key(-4.0, 11, 20, bank, MODEL_CFG,
+                             states=states_all, block="all"),
+           "resume_key ignored its `states` argument")
+# ...and symmetrically, the label alone must separate them with the state
+# set held fixed, so neither half can silently carry the other.
+check_true("label alone separates the key (state set held fixed)",
+           drv.resume_key(-4.0, 11, 20, bank, MODEL_CFG,
+                          states=states_all, block="acquisition")
+           != drv.resume_key(-4.0, 11, 20, bank, MODEL_CFG,
+                             states=states_all, block="all"))
+
 print()
 if failures:
     print(f"FAILED ({len(failures)}): {failures}")

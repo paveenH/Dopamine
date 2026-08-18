@@ -265,12 +265,22 @@ def main() -> None:
                     default=ep.RATIONALE_MAX_TOKENS)
     # A block-restricted or truncated run CANNOT be gated: the gate requires
     # both complete blocks and treats a missing one as a FAILURE, not as its
-    # rule not applying. These flags exist for smoke/debug only, and the
+    # rule not applying. --limit/--pilot remain smoke/debug only, and the
     # driver says so at startup rather than letting a partial file look like
     # a gateable result.
+    #
+    # `--block acquisition` was promoted to a FORMAL scope by
+    # pv11_amendment_01.json (Commitment withdrawn on construct grounds,
+    # Acquisition carried forward). It is still not gateable -- the amendment
+    # is explicit that PV11-Acq is an exploratory follow-up and NOT a PV11
+    # gate PASS -- but it is no longer merely a debug filter, which is why
+    # its scope now enters the resume key and the interface tag. See
+    # scope_tag().
     ap.add_argument("--block", choices=["all", "commitment", "acquisition"],
                     default="all",
-                    help="SMOKE/DEBUG ONLY -- a single block cannot be gated")
+                    help="`acquisition` is the formal PV11-Acq scope "
+                         "(pv11_amendment_01.json); it is NOT gateable. "
+                         "`commitment` is withdrawn and debug-only.")
     ap.add_argument("--limit", type=int, default=0,
                     help="SMOKE/DEBUG ONLY -- run only the first N states; "
                          "a truncated run cannot be gated")
@@ -321,7 +331,16 @@ def main() -> None:
                   f"probe true ranks="
                   f"{sorted({s['probe_true_rank'] for s in acq_p})}  "
                   f"cells={len({s['cell'] for s in acq_p})}/4")
-    if args.block != "all" or args.limit or args.pilot:
+    if args.block == "acquisition" and not args.limit and not args.pilot:
+        print("[SCOPE] PV11-Acq: the 80 acquisition states only, per "
+              "pv11_amendment_01.json.")
+        print("        This is an exploratory Acquisition-only follow-up. "
+              "It is NOT a PV11 gate PASS,")
+        print("        and no commitment/threshold conclusion may be drawn "
+              "from it. The gate requires")
+        print("        BOTH complete blocks and will report FAIL on this "
+              "output by design.")
+    elif args.block != "all" or args.limit or args.pilot:
         print(f"[WARNING] this is a PARTIAL run "
               f"(block={args.block}, limit={args.limit or 'none'}"
               f"{', pilot' if args.pilot else ''}). "
