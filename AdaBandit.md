@@ -1322,10 +1322,12 @@ sampling--commit asymmetry 及其直接指标统一放在 §4.4，不在本节�
 | **PV10-B** | Self-paced BAI；模型自主 SAMPLE 或 COMMIT | 模型经常过早提交，并对早期 incumbent 进行确认式采样；识别准确率整体较低。matched-budget Uniform 对照表明，问题不仅是停止过早，采样分配本身也较差；未检测到可靠的 α 效应。 |
 | **PV10-A** | 移除中途 COMMIT，强制继续采样 | 在这一受控条件下仍未出现更均衡或更有信息的采样，部分 episode 还受到累计格式失败影响。该实验只能作为机制诊断，不能支持 RSN 改善 BAI。 |
 | **PV10-C** | 在 PV10-B 中显式要求比较 strongest alternative | 提示提高了不确定性与竞争假设的语言识别，也延迟了提交，但没有把 SAMPLE 转向低样本替代臂，反而延长了基线已有的 incumbent-biased confirmatory sampling。采集门槛失败，因此未运行 ±4。 |
+| **PV11**（§5） | 用合成证据状态取代在线轨迹，比较 state-matched 的第一步动作 | Commitment block 因 label×row 共线与 unique-prompt 退化而**构造失效**，已撤回；Acquisition block 通过并作为 PV11-Acq 推进。 |
+| **PV11-Acq**（§5.2） | 在完全相同的证据状态下，仅改变 probe 的样本量 | 主要对比在低功效条件下**未检出** α 效应（基线仅 3 个正事件，不作显著性或等价性主张）。更稳定的发现是样本量优势消失后模型从不采样低经验率 arm。BAI 线按预定规则关闭。 |
 
-PV9–PV10 共同显示出 **recognition–action dissociation**：模型能够谈论探索、不确定性和竞争假设，
+PV9–PV11 共同显示出 **recognition–action dissociation**：模型能够谈论探索、不确定性和竞争假设，
 但这些表征变化没有稳定转化为信息采集行为。现有结果不支持 RSN 改善 Bandit exploration 或 BAI；
-在线 PV10-A/B/C 到此关闭，不再继续增加同类提示词干预。
+整条 BAI 线（在线 PV10-A/B/C 与受控 PV11）到此关闭，不再继续增加同类提示词干预。
 
 另一个稳定的行为签名是 **sampling–commit asymmetry**，而不是一套统一的统计策略：
 
@@ -1358,6 +1360,55 @@ incumbent persistence。
     的成因。
 - 先只跑 α=0。两项 manipulation check 通过才运行 ±4：(1) 强证据更容易 COMMIT；(2) 采样目标对样本
   不足产生最低限度响应。
+
+### 5.1 α=0 Gate：M1 撤回，M2 通过
+
+α=0 跑完 160 states 后，gate 未整体通过，但两个 block 的失败性质不同。
+
+**M1（Commitment）在构造层面失效，不是未达阈值。** 这是仅凭 α=0 数据即可判定的设计缺陷，
+因此撤回属于预注册而非事后调整：
+
+- **label × row 共线**。state bank 的构造使 16 个 label×row 交叉只填充了 4 个（A-1、B-4、C-3、D-2，各 5 格），
+  label 与 display row 无法分离。
+- **unique-prompt 退化**。latent rank 在第一步不可见，temperature=0 下每格 20 个 slot 只渲染出 **4 个**
+  独特的开局 prompt，即同一个决策重复 5 次，而非 20 个独立样本。
+- 首步 75/75 采样了显示最优臂，横跨全部 4 个 label 与 4 个 row —— 排除了 label 偏好与 row 偏好，
+  剩下的是**跟随显示经验率**，而 M1 的设计无法把它与 commitment 倾向分开。
+
+**M2（Acquisition）在两种口径下都通过**，作为 PV11-Acq 单独推进。撤回与承接的完整冻结记录见
+`pv11_amendment_01.json`（sha256 `7f72b42d…`）；分析口径另冻结于 `pv11_acq_analysis_manifest.json`，
+两者互不修改。
+
+### 5.2 PV11-Acq 结果：低功效条件下未检出
+
+α=±4 各 80 states，attestation 干净（每格 80/80，`steering_fires == expected_fires` 无一例外，
+α=0 零 hook，三格共用同一 state bank 与 manifest），fingerprint 一致性 0 冲突。
+
+**主要对比**（`low_n/low_rate − matched_n/low_rate`，唯一具因果内容的量：probe 显示率固定 .40 且非显示最优，
+故采样它不可能是追率）：
+
+| α | slot ITT | unique ITT（主口径） |
+|---|---|---|
+| 0 | 4/20 − 0/20 = +0.200 | 3/16 − 0/16 = **+0.1875** |
+| −4 | 4/20 − 0/20 = +0.200 | 3/16 − 0/16 = **+0.1875** |
+| +4 | 3/20 − 0/20 = +0.150 | 2/16 − 0/16 = **+0.1250** |
+
+**结论：低功效条件下未检出 RSN 对 uncertainty-directed acquisition 的影响。** 不是成功，也不能证明无效。
+α=−4 与 α=0 逐格完全相同；+4 只少一个独特 prompt 的正例。基线仅 3 个正事件，且集中在少数 fingerprint
+（probe=A row3 两格、probe=C row3、probe=C row4），无法支持任何方向性解释。按预注册规则不印 p 值，
+不作显著性、改善或**等价性**主张。
+
+**更稳定的行为发现是 `matched_n/low_rate` 三格恒为 0/20**：当低经验率 arm 不再具有低样本量优势时，
+模型从不选择它。这说明信息采集行为非常脆弱，主要策略仍是追随当前显示最优臂 —— 与 PV10-C 同向。
+
+descriptive 的 high_rate 两格接近天花板（.80–1.00），按冻结口径不可用于识别信息寻求动机：
+那里 probe 就是显示最优臂，采样它与追率不可分离，正是 `.774` 构造失败的结构。
+
+**次级描述（非 state-matched，首步之后轨迹已分叉，不可用于支持或挽救首步结论）**：forced termination
+随 α 变化为 42 / 50 / 59（α=−4/0/+4），autonomous 相应为 30 / 22 / 13。可记为「α 可能影响承诺相关行为，
+但没有转化为首步信息采集差异」。**不要写成复现了 PV9 的 sharpening** —— PV9 测的是选择分布锐度，
+这里是自主停止倾向，两者不是同一构念。
+
 
 ## References
 
