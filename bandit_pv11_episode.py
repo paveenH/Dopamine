@@ -148,8 +148,15 @@ def run_pv11_episode(
         raise ValueError("displayed_counts and latent_probs disagree on arms")
 
     # A stable per-state integer for torch seeding, so sampling luck is matched
-    # across alpha cells at the same decision index. Derived from the state_uid
-    # rather than passed in, so two cells of one state_id cannot drift apart.
+    # across the ALPHA CELLS of one state_uid at the same decision index.
+    # Derived from state_uid rather than passed in, so the alpha cells of a
+    # given state cannot drift apart through a caller mistake.
+    #
+    # SCOPE, precisely: the four cells of a state_id have DIFFERENT state_uids
+    # and therefore different generation seeds. They are paired by the reward
+    # TAPE, not by generation noise. That is adequate because generation runs
+    # at temperature=0; if a future variant samples at temperature > 0, this
+    # must be re-derived from tape_key instead.
     state_seed = int.from_bytes(
         hashlib.sha256(state["state_uid"].encode()).digest()[:4], "big")
 
@@ -197,11 +204,30 @@ def run_pv11_episode(
                 f"generation failed at state={state['state_uid']} "
                 f"call={model_calls}: {type(e).__name__}: {e}") from e
 
+        # Empty output is INFRASTRUCTURE, not model behaviour, and both of its
+        # shapes must fail closed. An empty list would raise IndexError below,
+        # and an empty string would parse as `invalid_policy` -- silently
+        # entering the ITT denominator as though the model had produced an
+        # unparseable decision. It did not produce anything; the wrapper did.
+        # Recording that as behaviour is how an infrastructure fault becomes a
+        # published invalid rate.
+        if isinstance(out, list) and not out:
+            raise EpisodeInfrastructureError(
+                f"generation returned an EMPTY LIST at "
+                f"state={state['state_uid']} call={model_calls}")
         raw = out[0] if isinstance(out, list) else out
         if raw is None:
             raise EpisodeInfrastructureError(
                 f"generation returned None at state={state['state_uid']} "
                 f"call={model_calls}")
+        if not isinstance(raw, str):
+            raise EpisodeInfrastructureError(
+                f"generation returned {type(raw).__name__}, not str, at "
+                f"state={state['state_uid']} call={model_calls}")
+        if not raw.strip():
+            raise EpisodeInfrastructureError(
+                f"generation returned EMPTY TEXT at "
+                f"state={state['state_uid']} call={model_calls}: {raw!r}")
 
         fired = vc.steering_fire_count(reset=True) if can_count else None
         if fired is None:
