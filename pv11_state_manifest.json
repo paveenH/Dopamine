@@ -1,0 +1,200 @@
+{
+  "analysis_constraints": {
+    "balance_claim": "probe true rank, probe label and probe display row are each EXACTLY 5/5/5/5 marginally. Their pairwise crossings are balanced only to within a max-min cell-count difference of 1; with 20 states and three 4-level factors exact joint orthogonality is unattainable and is NOT claimed.",
+    "history_prohibition": "PV11's main experiment must NOT include per-pull arm-label history. Current evidence is represented ONLY by explicit counts/rates. This avoids binding sample size to label token frequency, and structurally prevents reconstructing count-based metrics from a label history -- the degeneration that made empirical_top2_share banned in count-based form. A history-present presentation control may be run only AFTER the full +-4 main experiment.",
+    "itt_denominator": "M1/M2 primaries use ITT: the denominator is all 20 states of the cell; invalid counts in the denominator and not in any numerator. valid-only figures are reported ALONGSIDE with their explicit denominator. invalid is its own first-action category. Rationale: PV10-A's cross-alpha accuracy became uninterpretable because each cell dropped a different, alpha-dependent seed set.",
+    "no_cross_block_pooling": "Commitment and Acquisition are analysed separately and their horizon effects must never be merged. Their initial evidence totals differ (80 trials for Commitment; 65 or 80 for Acquisition), so '20 more samples' denotes a different fraction of accumulated evidence in each block.",
+    "primary_estimand": "the FIRST action only. It is the sole strictly state-matched quantity: after it, action and reward fork the trajectory. Everything downstream is secondary/descriptive and must never be called a state-matched alpha effect.",
+    "shared_within_state_id": "The four cells of one state_id share latent_probs and tape_key in BOTH blocks, so each block's 2x2 is a within-state_id contrast.",
+    "tape_indexing": "Continuation reward tapes start at pull index 0 at the FIRST SAMPLE AFTER the synthetic state. They do not continue the synthetic counts' notional pull history -- those counts are a display, not a sampled history. All alpha cells share the tape for a given (tape_key, arm, pull_index).",
+    "within_cell_reference_is_diagnostic": "P(sample probe) > mean P(sample other non-leader arms) is a PER-CELL DIAGNOSTIC and is NOT cross-cell comparable, because it asks a different question in each: in low_n the probe is the only low-sample arm ('is the under-sampled arm preferred'), while in matched_n all arms are at 20 ('is the low-rate arm preferred at equal n'). It does not participate in PASS/FAIL."
+  },
+  "arm_labels": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "blocks": {
+    "acquisition": {
+      "design": "2 sample size x 2 rate x 20 matched state_ids",
+      "fixed_arms": {
+        "alternative": [
+          10,
+          20
+        ],
+        "incumbent": [
+          11,
+          20
+        ],
+        "other": [
+          6,
+          20
+        ]
+      },
+      "horizon": 20,
+      "n_states": 80,
+      "naming": "the arm is `probe_arm`, never `challenger`: under high_rate it IS the empirical leader, and a name asserting otherwise is how .774 happened",
+      "probe_counts": {
+        "low_n/high_rate": [
+          3,
+          5
+        ],
+        "low_n/low_rate": [
+          2,
+          5
+        ],
+        "matched_n/high_rate": [
+          12,
+          20
+        ],
+        "matched_n/low_rate": [
+          8,
+          20
+        ]
+      }
+    },
+    "commitment": {
+      "counts": {
+        "strong": [
+          [
+            14,
+            20
+          ],
+          [
+            10,
+            20
+          ],
+          [
+            8,
+            20
+          ],
+          [
+            6,
+            20
+          ]
+        ],
+        "weak": [
+          [
+            11,
+            20
+          ],
+          [
+            10,
+            20
+          ],
+          [
+            8,
+            20
+          ],
+          [
+            6,
+            20
+          ]
+        ]
+      },
+      "design": "2 evidence x 2 horizon x 20 matched state_ids",
+      "horizons": {
+        "long": 20,
+        "short": 5
+      },
+      "n_states": 80,
+      "trials_per_arm": 20
+    }
+  },
+  "builder_sha256": "a4b42ce3c0bd25187dd35af5624f31a8961fe219db6b58abb3117f3c97fb7cce",
+  "calibration_basis": {
+    "caveat": "These distributions are themselves products of PV10's failing policy (max_arm_share .96 in PV10-C is lock-in, not a target). They bound attainable magnitudes only; their skewed central values are deliberately NOT copied.",
+    "derivation": {
+      "commitment_gap_strong_0.20": "inside the .049-.287 range spanned by the three alpha=0 cells",
+      "commitment_gap_weak_0.05": "matches PV10-A median gap .049; n=20 is the smallest n expressing .05 exactly",
+      "horizon_5_and_20": "PV10-B commits with a median 88 budget remaining; 5 and 20 bracket a scarce and an ample continuation without exposing a total",
+      "probe_low_n_5": "above the pervasive min_trials=1 floor but well below matched-n, so under-sampling is unambiguous",
+      "trials_20": "within the observed exit-arm trial range; PV10-A Q75 is 39, so 20 is reachable and not extreme"
+    },
+    "observed": {
+      "exit_arm_trials_q25_median_q75": {
+        "pv10a_v2_a0": [
+          1,
+          4,
+          39
+        ],
+        "pv10b_v2_a0": [
+          1,
+          1,
+          3
+        ],
+        "pv10c_a0": [
+          1,
+          1,
+          23.5
+        ]
+      },
+      "leader_challenger_gap_median": {
+        "pv10a_v2_a0": 0.049,
+        "pv10b_v2_a0": 0.238,
+        "pv10c_a0": 0.287
+      },
+      "max_arm_share_median": {
+        "pv10a_v2_a0": 0.556,
+        "pv10b_v2_a0": 0.571,
+        "pv10c_a0": 0.96
+      },
+      "remaining_budget_at_commit_median": {
+        "pv10a_v2_a0": 0,
+        "pv10b_v2_a0": 88,
+        "pv10c_a0": 0
+      }
+    },
+    "policy": "PV10-A/B/C alpha=0 cells ONLY. Steered cells excluded so the choice of synthetic magnitudes cannot be influenced by steered behaviour. Used to BOUND magnitudes, never to copy states -- see the module docstring on selection bias and non-orthogonality.",
+    "sources": {
+      "pv10a_v2_a0": {
+        "sha256_prefix": "cfceec33d50c"
+      },
+      "pv10b_v2_a0": {
+        "sha256_prefix": "bddae1fc7375"
+      },
+      "pv10c_a0": {
+        "sha256_prefix": "d9ac63de846c"
+      }
+    }
+  },
+  "k": 4,
+  "latent_ladder": [
+    0.6,
+    0.5,
+    0.4,
+    0.3
+  ],
+  "manipulation_gate": {
+    "M1_commitment_sensitivity": {
+      "direction": ">=",
+      "primary": "P(COMMIT | strong) - P(COMMIT | weak) >= 0.15, pooled over horizons",
+      "rationale": "if commitment does not respond to evidence strength at alpha=0, a steered commitment contrast has no behaviour to move",
+      "secondary": "no pronounced reversal within either horizon level; reported, human-read, NOT mechanized",
+      "statistic": "P(first action = COMMIT)",
+      "threshold": 0.15
+    },
+    "M2_acquisition_sensitivity": {
+      "direction": ">=",
+      "primary": "P(sample probe | low_n/low_rate) - P(sample probe | matched_n/low_rate) >= 0.15",
+      "statistic": "P(first action = SAMPLE probe_arm)",
+      "threshold": 0.15,
+      "why_low_rate_only": "the high_rate cells cannot separate information-seeking from rate-chasing; that conflation is exactly what invalidated PV10-C's .774",
+      "why_not_an_absolute_floor": "an absolute floor such as 4/20 = .20 sits at the K=4 random-sampling rate (~.25), so uniform random behaviour would PASS it. The cross-cell difference is ~0 under random sampling, so only the difference is gated."
+    },
+    "denominator_convention": "ITT",
+    "interface_validity": {
+      "direction": ">=",
+      "note": "interface check, NOT a capability criterion",
+      "statistic": "fraction of states with a parseable first action",
+      "threshold": 0.9
+    },
+    "on_failure": "Manipulation-gate failure does not trigger prompt iteration. It means that this controlled interface did not elicit the prerequisite behavior needed for an interpretable steering test; no steered cells are run.",
+    "unit_of_inference": "state (n=20 matched state_ids per cell)"
+  },
+  "n_states": 160,
+  "protocol_version": "pv11",
+  "state_bank_sha256": "c324c058fc4ac9bcb1d633a2576f174d1c7ef53ef2b9c85b18848c3f6e62d648",
+  "state_bank_version": "pv11-states-v1"
+}
