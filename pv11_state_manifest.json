@@ -102,7 +102,7 @@
       "trials_per_arm": 20
     }
   },
-  "builder_sha256": "a4b42ce3c0bd25187dd35af5624f31a8961fe219db6b58abb3117f3c97fb7cce",
+  "builder_sha256": "3012a408bf97a9d3a24e2bdf6035803fa34a1639e6ace8b9cd4c2c2f6ecccd40",
   "calibration_basis": {
     "caveat": "These distributions are themselves products of PV10's failing policy (max_arm_share .96 in PV10-C is lock-in, not a target). They bound attainable magnitudes only; their skewed central values are deliberately NOT copied.",
     "derivation": {
@@ -149,13 +149,16 @@
     "policy": "PV10-A/B/C alpha=0 cells ONLY. Steered cells excluded so the choice of synthetic magnitudes cannot be influenced by steered behaviour. Used to BOUND magnitudes, never to copy states -- see the module docstring on selection bias and non-orthogonality.",
     "sources": {
       "pv10a_v2_a0": {
-        "sha256_prefix": "cfceec33d50c"
+        "path": "llama3/bandit/pv10a/pv10a_v2_a0/bandit_pv10a_pv10_bai_candidate_8B_11_20.json",
+        "sha256": "cfceec33d50cc0e5a7a0b05ee2fd0baba569fe0484722097dc27447b3d057c05"
       },
       "pv10b_v2_a0": {
-        "sha256_prefix": "bddae1fc7375"
+        "path": "llama3/bandit/pv10b_v2/pv10b_v2_a0/bandit_pv10_pv10_bai_candidate_8B_11_20.json",
+        "sha256": "bddae1fc7375cc66d981382ed09ea5c07f397103a7aceb3d76c9247f38624885"
       },
       "pv10c_a0": {
-        "sha256_prefix": "d9ac63de846c"
+        "path": "llama3/bandit/pv10c/pv10c_a0/bandit_pv10_pv10_bai_candidate_8B_11_20.json",
+        "sha256": "d9ac63de846c5b5549f03133b7e4769224afa35e65a10cd182a4439f62e1a28c"
       }
     }
   },
@@ -177,6 +180,7 @@
     },
     "M2_acquisition_sensitivity": {
       "direction": ">=",
+      "no_single_cell_is_causal": "A per-cell rate is DESCRIPTIVE. Sampling the probe in low_n/low_rate excludes rate-chasing (the probe is not the displayed leader there) but does NOT exclude random choice, a label preference, or a display-row preference -- all live given PV10's documented Button-A prior. Causal content lives only in the cross-cell difference, where the probe's label, display row, displayed rate and the other three arms are identical and ONLY its sample size changes. Never report a low_n/low_rate level as evidence of information-seeking.",
       "primary": "P(sample probe | low_n/low_rate) - P(sample probe | matched_n/low_rate) >= 0.15",
       "statistic": "P(first action = SAMPLE probe_arm)",
       "threshold": 0.15,
@@ -195,6 +199,7 @@
   },
   "n_states": 160,
   "protocol_version": "pv11",
-  "state_bank_sha256": "c324c058fc4ac9bcb1d633a2576f174d1c7ef53ef2b9c85b18848c3f6e62d648",
+  "state_bank_canonical_sha256": "c324c058fc4ac9bcb1d633a2576f174d1c7ef53ef2b9c85b18848c3f6e62d648",
+  "state_bank_file_sha256": "0402d6ee359d6e717d6f2d2a0162a09f9c23dfd426fb4830cbeb874508a4191a",
   "state_bank_version": "pv11-states-v1"
 }
