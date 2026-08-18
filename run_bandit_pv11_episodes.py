@@ -8,11 +8,24 @@ Thin on purpose. Order of operations, and each step's reason:
   3. load the model
   4. run, writing after EVERY episode so a crash loses at most one
 
-ALPHA=0 ONLY, ENFORCED. `--alpha` accepts nothing else. The +-4 cells may be
-run only after the alpha=0 manipulation gate passes, and if it fails the
-protocol closes rather than being re-tuned -- so the driver must not make a
-steered run reachable by a flag flip. Removing this guard is a protocol change,
-not a convenience.
+ALPHA x BLOCK IS ENFORCED AS A PAIR. Only two combinations are runnable:
+
+    block=all          alpha=0        the original 160-state baseline
+    block=acquisition  alpha in {-4, +4}   PV11-Acq (pv11_amendment_01.json)
+
+Everything else is refused, including the three that look harmless:
+
+  * full-bank +-4 -- the gate FAILED, so steering the whole protocol is not
+    authorized; only the Acquisition follow-up is.
+  * acquisition alpha=0 -- it already exists inside the full A0 file. Running
+    it again would collect a second baseline and invite quoting whichever one
+    suits, when the real baseline is the one that predates the amendment.
+  * commitment at any alpha -- withdrawn on construct grounds.
+
+The original guard was alpha=0-only. It was widened, not removed, and only
+after an amendment authorized the specific cells above; the pairing is what
+keeps "the gate failed" from decaying into "any alpha is now reachable by a
+flag flip". Widening it again is a protocol change, not a convenience.
 
 RESUME KEY
 ----------
@@ -290,14 +303,32 @@ def main() -> None:
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
-    # ALPHA=0 ONLY. See the module docstring: the steered cells are gated on
-    # the alpha=0 manipulation check, and a failing gate CLOSES the protocol.
-    if args.alpha != 0.0:
+    # ALPHA x BLOCK, checked as a PAIR. See the module docstring. Neither
+    # value is legal on its own: alpha=-4 is authorized for acquisition and
+    # refused for the full bank, and alpha=0 is the reverse.
+    _ALLOWED = {("all", 0.0), ("acquisition", -4.0), ("acquisition", 4.0)}
+    if (args.block, float(args.alpha)) not in _ALLOWED:
+        if args.block == "commitment":
+            why = ("the Commitment block is WITHDRAWN on construct grounds "
+                   "(pv11_amendment_01.json) and is debug-only")
+        elif args.block == "all" and args.alpha != 0.0:
+            why = ("the full-bank gate FAILED, so steering the whole "
+                   "protocol is not authorized; only PV11-Acq is. Use "
+                   "--block acquisition")
+        elif args.block == "acquisition" and args.alpha == 0.0:
+            why = ("the acquisition alpha=0 cell ALREADY EXISTS inside the "
+                   "original full 160-state A0 file, which is the baseline "
+                   "that predates the amendment. Read it in place; do not "
+                   "collect a second one")
+        else:
+            why = (f"alpha={args.alpha} is not one of the authorized "
+                   f"magnitudes {{-4, +4}}")
         raise SystemExit(
-            f"--alpha={args.alpha} refused. PV11 runs alpha=0 only until the "
-            f"manipulation gate passes; if it fails the protocol closes and "
-            f"no steered cells are run. Lifting this guard is a protocol "
-            f"change, not a flag.")
+            f"REFUSED: --block {args.block} --alpha {args.alpha}\n"
+            f"  {why}.\n"
+            f"  Authorized cells: block=all alpha=0; "
+            f"block=acquisition alpha=-4 or +4.\n"
+            f"  Widening this is a protocol change, not a flag.")
 
     ls, le = (int(x) for x in args.layers.split("-"))
 
