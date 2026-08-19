@@ -463,12 +463,19 @@ def main():
         "chat" if args.use_chat else "bare",
         f"it{args.inject_turn_len if args.inject_turn else 1}",
         f"m{os.path.basename(args.model_dir.rstrip('/'))}",
-        f"k{args.mask_type}{args.percentage}",
+        # FULL mask fingerprint: the file that gets loaded is
+        # mask/{hs}_{type}_logits/{mask_type}_{pct}_{st}_{en}_{size}{_abs}.npy,
+        # so hs / type / abs all select a DIFFERENT mask. Omitting them lets an
+        # --abs run (or a different mask dir) hit the stored non-abs row and be
+        # silently skipped -- the same class of bug the iface segment exists to
+        # prevent. Layers are already in the key via (start, end).
+        f"k{args.hs}{args.type}{args.mask_type}{args.percentage}"
+        + ("abs" if args.abs else ""),
         f"n{args.num_runs}",
     ])
     LEGACY_IFACE = "_".join([
         "pvv1", "andefault", "chat", "it1",
-        "mLlama-3.1-8B-Instruct", "knmd0.5", "n20",
+        "mLlama-3.1-8B-Instruct", "kllama3nonnmd0.5", "n20",
     ])
     print(f"[iface] {IFACE}")
 

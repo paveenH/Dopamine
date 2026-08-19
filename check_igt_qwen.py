@@ -66,6 +66,10 @@ def main():
     ap.add_argument("--base_dir", default="/data1/paveen/Dopamine/components")
     ap.add_argument("--prompt_ver", default="v6b")
     ap.add_argument("--anchor", default="default")
+    ap.add_argument("--max_new_tokens", type=int, default=200,
+                    help="Budget for the PARSER check. Must match the launcher's "
+                         "MAX_NEW_TOKENS (200) -- a short sample stops mid-rationale "
+                         "before the `Chest:` line and would fail spuriously.")
     args = ap.parse_args()
 
     failures = []
@@ -204,16 +208,28 @@ def main():
                              prefill_tail_len=1)
         z = vc.steering_fire_count(reset=False)
         print(f"  fires at alpha=0 : {z}   {'OK (expected 0)' if z == 0 else '<-- expected 0'}")
-        print(f"  generation       : {out0[0][:160]!r}")
+        print(f"  generation (16t) : {out0[0][:160]!r}")
         if z != 0:
             failures.append(f"alpha=0 fires {z} != 0")
-        # the parser must accept what alpha=0 actually produces
+
+        # PARSER CHECK — must use the REAL generation budget, not the 16 tokens
+        # the fires check uses. IGT reasons BEFORE committing (v6b invites it), so
+        # a 16-token sample routinely stops mid-rationale with no `Chest:` line
+        # yet: judging the parser on it would report a spurious FAILURE for a
+        # perfectly healthy interface. Fires are a prefill property and are
+        # unaffected by the budget, so the cheap 16 stays where it is.
         import random as _r
-        choice, valid = ig.parse_choice(out0[0], _r.Random(0))
+        out_full = vc.regenerate([prompts["round 1"]], diff_matrices=zero_mtx,
+                                 max_new_tokens=args.max_new_tokens,
+                                 prefill_only=True, prefill_tail_len=1)
+        choice, valid = ig.parse_choice(out_full[0], _r.Random(0))
+        print(f"\n  parser check at the REAL budget "
+              f"(max_new_tokens={args.max_new_tokens}):")
+        print(f"  generation       : {out_full[0][:300]!r}")
         print(f"  parse_choice     : choice={choice} valid={valid}"
               f"   {'OK' if valid else '<-- alpha=0 generation does not parse'}")
         if not valid:
-            failures.append("alpha=0 generation failed to parse "
+            failures.append("alpha=0 generation failed to parse at the real budget "
                             "(baseline would be pure fallback noise)")
 
     # -------------------------------------------------------------------- verdict

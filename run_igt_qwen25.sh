@@ -27,7 +27,16 @@
 #         decks, so the level condition is required alongside the slope.
 #   3. cycle_score < 0.80                  (not mechanical round-robin)
 #   4. max_run_len != 100                  (no whole-episode constant deck)
-#   5. median(delib_tok) > 0               (v3/v5 collapsed to zero reasoning)
+#   5. median-of-run-medians of delib_tok > 0, read from `delib_tok_median`
+#      -- NOT from `delib_tok`, which is a per-run MEAN and cannot express the
+#      collapse: a simulated 90%-bare run reads mean 1.10 / median 0.0, so the
+#      mean would PASS a run that has essentially stopped reasoning.
+#      AGGREGATION IS ACROSS RUNS AND MUST BE THE MEDIAN, because bimodality is
+#      NORMAL here: Llama v6b alpha=0 -- a cell that passed and is the published
+#      main line -- has 9/20 runs at exactly median 0 (whole runs of bare
+#      "Chest: N") while its median-of-run-medians is 32.2. A rule reading "no
+#      run may have median 0" would fail the reference model itself.
+#      Report `delib_tok_zero_frac` alongside (Llama alpha=0 reads 0.451).
 #   6. premature_stop_rate < 0.15
 # If the baseline FAILS, stop Qwen2.5-7B IGT and consider a larger Qwen; do not
 # iterate the prompt (the v1->v6b chain was already run on Llama).
@@ -85,7 +94,8 @@ if [ "$1" == "--check" ]; then
         --alpha 4 \
         --base_dir "${BASE_DIR}" \
         --prompt_ver "${PROMPT_VER}" \
-        --anchor "${ANCHOR}"
+        --anchor "${ANCHOR}" \
+        --max_new_tokens "${MAX_NEW_TOKENS}"
     exit $?
 elif [ "$1" == "--baseline" ]; then
     CONFIGS="${BASELINE_CONFIGS}"; NUM_RUNS=5
