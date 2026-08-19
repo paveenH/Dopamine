@@ -74,6 +74,21 @@ PILOT_CONFIGS="0-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE}"
 # overwrite the stored +-4 pilot.
 PILOT2_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE}"
 
+# v5 DOSE-RANGE PILOT (frozen prompt, 2026-08-19). v5 passed the alpha=0 knowing
+# gate that v4 failed (qdm_major_red .719/.854 vs v4's .306/.65), so this is no
+# longer prompt tuning -- it is a PRE-DECLARED dose-range pilot with the prompt
+# held fixed. Seven cells so the usable band is found in one pass:
+#   * EVERY cell is reported. Selecting a subset after seeing the numbers is
+#     exactly the freedom the alpha=0-only gate rule exists to remove.
+#   * Check the knowing/invalid gate PER CELL first, behaviour second.
+#   * Usable band := the largest CONTIGUOUS SYMMETRIC range whose every cell
+#     passes. +-4 / +-6 are boundary diagnostics, not conclusions.
+#   * alpha=0 is re-run at N=5 with these seeds. The stored N=3 calibration is
+#     NOT reused -- cross-alpha stats are paired by run index, so mixing an N=3
+#     baseline into an N=5 sweep breaks the pairing.
+# Still a PILOT: N=20 comes later, and only over the band selected here.
+V5_DOSE_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE} neg6-${LS}-${LE} 6-${LS}-${LE}"
+
 # ==================== Modes ====================
 if [ "$1" == "--check" ]; then
     cd "${WORK_DIR}"
@@ -105,6 +120,12 @@ elif [ "$1" == "--pilot2_asc" ]; then
 elif [ "$1" == "--pilot2_desc" ]; then
     CONFIGS="${PILOT2_CONFIGS}"; NUM_RUNS=5
     PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v4_qwen_pilot2"
+elif [ "$1" == "--v5_pilot_desc" ]; then
+    CONFIGS="${V5_DOSE_CONFIGS}"; NUM_RUNS=5; PROMPT_VER="v5"
+    PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v5_qwen_pilot"
+elif [ "$1" == "--v5_pilot_asc" ]; then
+    CONFIGS="${V5_DOSE_CONFIGS}"; NUM_RUNS=5; PROMPT_VER="v5"
+    PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v5_qwen_pilot"
 elif [ "$1" == "--asc" ]; then
     CONFIGS="${FULL_CONFIGS}"
     PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v4_qwen"
@@ -112,8 +133,11 @@ elif [ "$1" == "--desc" ]; then
     CONFIGS="${FULL_CONFIGS}"
     PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v4_qwen"
 else
-    echo "Usage: bash run_cgt_seq_qwen25.sh --check | --pilot_asc | --pilot_desc | --pilot2_asc | --pilot2_desc | --asc | --desc"
-    echo "       Run --check first, then BOTH pilots, then the full sweeps."
+    echo "Usage: bash run_cgt_seq_qwen25.sh --check"
+    echo "       v4 (FROZEN as boundary evidence): --pilot_asc | --pilot_desc | --pilot2_asc | --pilot2_desc | --asc | --desc"
+    echo "       v5 (current line):                --v5_pilot_asc | --v5_pilot_desc"
+    echo "       Run --check first. There is deliberately NO v5 full branch:"
+    echo "       N=20 is unlocked only after the v5 dose pilot passes per-cell."
     exit 1
 fi
 
