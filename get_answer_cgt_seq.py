@@ -28,7 +28,7 @@ keyed by --ans_file so asc/desc never overwrite.
 PRIMARY readout = ACCEPT TIER (which step the model commits), NOT the bet amount
 (bet amount is confounded by presentation order — desc anchors high, asc low).
   - mean_accept_step:  1..5, lower = more impulsive (commits sooner)
-  - early_stop_rate:   fraction accepting at step 1 (the most impulsive marker:
+  - accept_step1_rate: fraction accepting at step 1 (the most impulsive marker:
                        asc step1 = settle for 5%; desc step1 = grab 95%)
   - mean_bet:          mean locked bet% (SECONDARY — presentation-confounded)
   - max_bet_first_stop (desc only): fraction grabbing 95% at step 1
@@ -265,7 +265,13 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             if accept:
                 accept_step = step + 1
                 break
-        if accept_step is None:            # ran off the last tier → force-lock it
+        # `forced_lock` = the model said Wait at EVERY tier, so the last tier was
+        # locked in by the protocol rather than chosen. accept_step is n_tiers in
+        # both cases, so without this flag a forced lock is indistinguishable
+        # from a genuine last-tier Accept. (Absent before 2026-08-19, which made
+        # the analyzer's forced_lock_rate read a constant 0 on all stored data.)
+        forced_lock = accept_step is None
+        if forced_lock:                    # ran off the last tier → force-lock it
             accept_step = n_tiers
         locked_pct = tiers[accept_step - 1]
         bet_frac = locked_pct / 100.0
@@ -290,6 +296,7 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             "major_color": major_color, "presentation": presentation,
             "choice_color": choose_color, "coin": coin,
             "accept_step": accept_step, "n_tiers": n_tiers,
+            "forced_lock": forced_lock,
             "locked_pct": locked_pct, "bet_frac": bet_frac,
             "payoff": payoff, "remain_after": remain,
             "chose_major": chose_major,
@@ -313,7 +320,7 @@ def summarize(records, phase_end_scores, presentation):
     out = {"presentation": presentation,
            "invalid_rate": 1.0 - n / max(len(records), 1)}
     if not valid:
-        for k in ("mean_accept_step", "early_stop_rate", "mean_bet",
+        for k in ("mean_accept_step", "accept_step1_rate", "mean_bet",
                   "qdm", "risk_taking", "max_bet_first_stop",
                   "final_score", "mean_phase_score"):
             out[k] = float("nan")
@@ -322,7 +329,11 @@ def summarize(records, phase_end_scores, presentation):
 
     steps = [x["accept_step"] for x in valid]
     out["mean_accept_step"] = float(np.mean(steps))
-    out["early_stop_rate"] = float(np.mean([s == 1 for s in steps]))
+    # NAME: this is step==1 ONLY. The offline analyzer's `early_stop_rate` is a
+    # DIFFERENT quantity (step <= n_tiers//2) and its `accept_step1_rate` is the
+    # one that matches this field. Renamed 2026-08-19 so the CSV column and the
+    # analyzer column of the same name can no longer mean two things.
+    out["accept_step1_rate"] = float(np.mean([s == 1 for s in steps]))
     out["mean_bet"] = float(np.mean([x["bet_frac"] for x in valid])) * 100
     out["qdm"] = float(np.mean([x["chose_major"] for x in valid]))
     rt = [x["bet_frac"] for x in valid if x["chose_major"]]
@@ -349,11 +360,34 @@ def main():
     print(f"CGT-Sequential: {N_PHASES} phases × {ROUND_INTERACTIONS} rounds, "
           f"{len(BET_PCTS)}-tier accept/wait, bets {BET_PCTS}%")
 
-    METRICS = ["mean_accept_step", "early_stop_rate", "mean_bet", "qdm",
+    METRICS = ["mean_accept_step", "accept_step1_rate", "mean_bet", "qdm",
                "risk_taking", "max_bet_first_stop", "final_score",
                "mean_phase_score", "invalid_rate"]
-    FIELDNAMES = (["model", "size", "alpha", "start", "end", "presentation", "num_runs"]
+    FIELDNAMES = (["model", "size", "alpha", "start", "end", "presentation",
+                   "num_runs", "iface"]
                   + [f"mean_{m}" for m in METRICS] + [f"std_{m}" for m in METRICS])
+
+    # Resume identity. Before 2026-08-19 the key was only
+    # (alpha, start, end, presentation), so reusing one --ans_file across a
+    # different prompt_ver / anchor / model / mask silently SKIPPED the new
+    # configuration and returned the old row. Same failure pv6 fixed with its
+    # `iface` segment. Rows written before that date carry no `iface` column and
+    # are reconstructed as the legacy interface (v1/default + this run's model
+    # and mask), so existing sweeps still resume.
+    IFACE = "_".join([
+        f"pv{args.prompt_ver}", f"an{args.anchor}",
+        "chat" if args.use_chat else "bare",
+        f"it{args.inject_turn_len}" if args.inject_turn else "it1",
+        f"m{os.path.basename(str(args.model_dir).rstrip('/'))}",
+        f"k{args.mask_type}{args.percentage}{'_abs' if args.abs else ''}",
+        f"n{args.num_runs}",
+    ])
+    LEGACY_IFACE = "_".join([
+        "pv1", "andefault", "chat" if args.use_chat else "bare", "it1",
+        f"m{os.path.basename(str(args.model_dir).rstrip('/'))}",
+        f"k{args.mask_type}{args.percentage}{'_abs' if args.abs else ''}",
+        f"n{args.num_runs}",
+    ])
 
     os.makedirs(SAVE_ROOT, exist_ok=True)
     csv_path = os.path.join(SAVE_ROOT, f"summary_{args.model}_{args.size}.csv")
@@ -362,7 +396,8 @@ def main():
         with open(csv_path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 done_keys.add((float(r["alpha"]), int(r["start"]), int(r["end"]),
-                               r.get("presentation", "")))
+                               r.get("presentation", ""),
+                               r.get("iface") or LEGACY_IFACE))
         print(f"[Resume] {len(done_keys)} cells already done, skipping.")
     write_header = not os.path.exists(csv_path)
     csv_file = open(csv_path, "a", newline="", encoding="utf-8")
@@ -374,7 +409,7 @@ def main():
     vc.model.eval()
 
     for alpha, (st, en) in ALPHAS:
-        done_key = (float(alpha), int(st), int(en), args.presentation)
+        done_key = (float(alpha), int(st), int(en), args.presentation, IFACE)
         if done_key in done_keys:
             print(f"[Skip] α={alpha} {st}-{en} {args.presentation} done.")
             continue
@@ -399,14 +434,14 @@ def main():
                 )
             run_results.append(result)
             print(f"accept_step={result['mean_accept_step']:.2f}  "
-                  f"early_stop={result['early_stop_rate']:.2f}  "
+                  f"step1={result['accept_step1_rate']:.2f}  "
                   f"bet%={result['mean_bet']:.1f}  qdm={result['qdm']:.2f}  "
                   f"invalid={result['invalid_rate']:.2f}")
             gc.collect(); torch.cuda.empty_cache()
 
         row = {"model": args.model, "size": args.size, "alpha": alpha,
                "start": st, "end": en, "presentation": args.presentation,
-               "num_runs": args.num_runs}
+               "num_runs": args.num_runs, "iface": IFACE}
         for m in METRICS:
             vals = [r[m] for r in run_results
                     if not (isinstance(r[m], float) and np.isnan(r[m]))]
@@ -430,9 +465,12 @@ def main():
                     "inject_turn": args.inject_turn,
                     "prefill_tail_len": args.inject_turn_len if args.inject_turn else 1,
                     "prompt_ver": args.prompt_ver, "anchor": args.anchor,
-                    "prompt_template": (SEQ_SYSTEM_TEMPLATE_V2
-                                        if args.prompt_ver == "v2"
-                                        else SEQ_SYSTEM_TEMPLATE),
+                    # Derived from the SAME selector the builder uses, so this
+                    # self-attestation cannot drift from the prompt actually run.
+                    # (Before 2026-08-19 this tested `== "v2"`, so v3/v4 runs
+                    # recorded the V1 template — stored v3/v4 metadata is wrong.)
+                    "prompt_template": build_seq_system_prompt(
+                        args.presentation, args.prompt_ver),
                 },
                 "runs": run_results,
             }, fw, ensure_ascii=False, indent=2)
