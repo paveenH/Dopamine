@@ -10,6 +10,8 @@ Inkling-Small
 Qwen
 1. CGT-seq
 
+有什么是等待可以收益的task?
+
 ## TO DO — ACL ARR
 ### 1. Consolidate Existing Evidence
 - [ ] 冻结 CGT-seq / IGT / GSM8K / Thinking Curve 的主指标与统计口径。
