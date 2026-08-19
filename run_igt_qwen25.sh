@@ -145,7 +145,10 @@ if [ $? -eq 0 ]; then
     echo "[Done] IGT ${MODEL_NAME} — $(date)"
     echo "Evaluate the baseline gate (from RoleAnswer/), with Qwen's OWN tokenizer:"
     echo "  python3.10 analyze_igt.py --dir ${MODEL_NAME}/${ANS_FILE} \\"
-    echo "      --tokenizer ${MODEL_DIR}"
+    echo "      --tokenizer ${MODEL_DIR} --baseline_gate"
+    echo ""
+    echo "  --baseline_gate prints PASS/FAIL for each of the six frozen rules."
+    echo "  Rule 5 is a MEDIAN across runs and cannot be read from the mean+-sd table."
 else
     echo "[FAILED] IGT ${MODEL_NAME} — $(date)"
     exit 1
