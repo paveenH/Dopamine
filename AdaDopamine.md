@@ -322,111 +322,62 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 
 **範式定位**：透明機率下的 sequential betting。每輪先選顏色（blue/red，機率由 chest count 明示），再按 ascending（5→25→50→75→95）或 descending（95→75→50→25→5）逐檔 reveal bet size，模型輸出 `Accept` / `Wait`。
 
-> **命名**：本節的 sequential 版（`get_answer_cgt_seq.py`）才是**忠實的 CGT**（Rogers 1999 / CANTAB），其靈魂正是 betting-stage 的 ascending/descending 操縱。
-**主結果版本**：使用 **v4 prompt** 作為 paper 主線。v4 在每個 bet tier 只提示方向（`The next offer will be larger/smaller.`）。
+> **命名**：本節的 sequential 版才是**忠實的 CGT**（Rogers 1999 / CANTAB），其靈魂正是 betting-stage 的 ascending/descending 操縱。同目錄的 CGT-Simultaneous 砍掉了這一步，嚴格講不是 CGT。
 
-**Full sweep（Llama3-8B-IT，v4 prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**。
+**三個主張**（其餘為支撐與邊界）：
 
-| α | asc invalid | desc invalid | asc step | desc step | step avg | asc step1 | desc step1 | DAI(bet) | asc QDM | desc QDM | QDM mean |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| −8 | 100.0% | 99.4% | — | 3.75 | — | — | 12.5% | — | — | 0.75 | — |
-| −6 | 22.8% | 14.1% | 3.56 | 3.89 | 3.73 | 20.6% | 10.8% | −33.38 | 0.70 | 0.72 | 0.71 |
-| −4 | 7.0% | 1.6% | 3.45 | 4.47 | 3.96 | 32.9% | 3.7% | −44.14 | 0.75 | 0.78 | 0.77 |
-| −2 | 1.8% | 0.2% | 3.03 | 3.79 | 3.41 | 33.7% | 12.2% | −18.84 | 0.79 | 0.78 | 0.78 |
-| 0 | 0.0% | 0.0% | 2.63 | 2.97 | 2.80 | 37.4% | 25.9% | +8.77 | 0.76 | 0.75 | 0.76 |
-| +2 | 0.0% | 0.0% | 2.05 | 2.20 | 2.12 | 48.4% | 42.8% | +40.01 | 0.76 | 0.75 | 0.75 |
-| +4 | 0.0% | 0.0% | 1.63 | 1.53 | 1.58 | 60.9% | 65.3% | +64.77 | 0.74 | 0.71 | 0.73 |
-| +6 | 0.2% | 0.3% | 1.40 | 1.31 | 1.36 | 71.2% | 77.7% | +74.76 | 0.74 | 0.73 | 0.73 |
-| +8 | 20.2% | 18.1% | 1.16 | 1.19 | 1.17 | 86.9% | 87.7% | +82.61 | 0.67 | 0.65 | 0.66 |
+1. **主讀數 `accept_step` 單調隨 α。** +α 更早 commit、−α 更願意等；ρ = **−0.96（asc）/ −0.92（desc）**，clean range（−4…+6）內每一檔對 α=0 皆 `p<0.001`（paired Wilcoxon，n=20）。
+2. **DAI 展寬，是本節最穩健的效應。** 八檔（−8 無可用配對）paired bootstrap 95% CI **兩兩互不重疊、且皆不含 0**：`−6 −32.93 [−37.71, −28.17]`、`−4 −43.93 [−47.42, −40.66]`、`−2 −18.81 [−23.58, −14.47]`、`0 +8.77 [+4.05, +12.97]`、`+2 +40.01 [+36.84, +43.39]`、`+4 +64.77 [+62.17, +67.18]`、`+6 +74.76 [+73.09, +76.49]`、`+8 +82.61 [+80.95, +84.24]`（per-run 配對差；上表 `DAI(bet)` 欄為 mean-of-means，兩者差 ≤0.5，**以配對值為準**）。**在 clean range 內 DAI 隨 α 單調遞增**；唯一的例外是 −6（−32.93）高於 −4（−43.93），而 −6 已是 invalid 14–23% 的 over-steer 帶，其下注分佈受格式失敗污染——不要把它讀成負臂的轉折。
+3. **QDM 不動 = wanting–knowing 解離。** clean range 內 QDM 僅在 0.71–0.79 之間浮動，動態範圍遠小於 accept timing；全九檔中達顯著的只有 −6 / −2 / +4 / +8 四格，且**每一格的配對 Δ 絕對值都 ≤0.10**（其中 −6/+8 已在 over-steer 帶）。+8 掉到 0.66 屬 overload 的格式退化，不是知識損失。
 
-**Derived readout**：
+**Full sweep（Llama3-8B-IT，v4 prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**
 
-| α | mean step avg | step1 avg | DAI = desc bet − asc bet | invalid avg | interpretation |
-|---:|---:|---:|---:|---:|---|
-| −8 | — | — | — | 99.7% | boundary collapse；stage-onset breakdown，行為指標不可解讀 |
-| −6 | 3.73 | 15.7% | −33.38 | 18.5% | delayed commitment + stage confusion；不納入 clean fit |
-| −4 | 3.96 | 18.3% | −44.14 | 4.3% | clean delayed commitment / strongest waiting |
-| −2 | 3.41 | 23.0% | −18.84 | 1.0% | negative-side transition |
-| 0 | 2.80 | 31.7% | +8.77 | 0.0% | baseline |
-| +2 | 2.12 | 45.6% | +40.01 | 0.0% | earlier commitment |
-| +4 | 1.58 | 63.1% | +64.77 | 0.0% | strong immediate commitment |
-| +6 | 1.36 | 74.5% | +74.76 | 0.3% | strongest clean delay-aversion signal |
-| +8 | 1.17 | 87.3% | +82.61 | 19.2% | positive overload；dirty / malformed generation starts |
+| α | asc inv | desc inv | asc step | desc step | asc step1 | desc step1 | DAI(bet) | asc QDM | desc QDM | 讀法 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| −8 | 100.0% | 99.4% | — | 3.75 | — | 12.5% | — | — | 0.75 | ⛔ boundary collapse，行為指標不可解讀 |
+| −6 | 22.8% | 14.1% | 3.56 | 3.89 | 20.6% | 10.8% | −33.38 | 0.70 | 0.72 | ⚠ delayed commitment + stage confusion，不納入 clean fit |
+| −4 | 7.0% | 1.6% | 3.45 | 4.47 | 32.9% | 3.7% | −44.14 | 0.75 | 0.78 | clean delayed commitment / 最強等待 |
+| −2 | 1.8% | 0.2% | 3.03 | 3.79 | 33.7% | 12.2% | −18.84 | 0.79 | 0.78 | negative-side transition |
+| 0 | 0.0% | 0.0% | 2.63 | 2.97 | 37.4% | 25.9% | +8.77 | 0.76 | 0.75 | baseline |
+| +2 | 0.0% | 0.0% | 2.05 | 2.20 | 48.4% | 42.8% | +40.01 | 0.76 | 0.75 | earlier commitment |
+| +4 | 0.0% | 0.0% | 1.63 | 1.53 | 60.9% | 65.3% | +64.77 | 0.74 | 0.71 | strong immediate commitment |
+| +6 | 0.2% | 0.3% | 1.40 | 1.31 | 71.2% | 77.7% | +74.76 | 0.74 | 0.73 | 最強 clean delay-aversion 訊號 |
+| +8 | 20.2% | 18.1% | 1.16 | 1.19 | 86.9% | 87.7% | +82.61 | 0.67 | 0.65 | ⚠ positive overload，dirty / malformed 生成開始 |
 
-**Outcome sanity（final score；每個 phase reset 100，final = 8 phases sum）**：
+**Clean range = −4…+6**：−6 已越過 over-steer 閘門——asc invalid 22.8%、desc 14.1%，其行為指標受格式失敗污染，**列出但不納入 fit**；±8 兩端各自崩壞（見下方失效模式）。asc/desc 一律分列——平均會抹掉 presentation 效應，而 presentation 正是 CGT 的操縱變項。
 
-| α | asc final score | asc median | desc final score | desc median | asc mean phase | desc mean phase |
-|---:|---:|---:|---:|---:|---:|---:|
-| −8 | — | — | 1947.0 ± 2547.1 | 649.0 | — | 243.4 ± 318.4 |
-| −6 | 891.7 ± 1177.6 | 626.5 | 1509.5 ± 1174.4 | 1210.5 | 111.5 ± 147.2 | 188.7 ± 146.8 |
-| −4 | 3716.2 ± 6562.2 | 733.0 | 1498.9 ± 574.5 | 1403.5 | 464.5 ± 820.3 | 187.4 ± 71.8 |
-| −2 | 4305.2 ± 5650.9 | 1796.0 | 1872.7 ± 807.4 | 1731.5 | 538.2 ± 706.4 | 234.1 ± 100.9 |
-| 0 | 1374.3 ± 1133.8 | 985.5 | 2615.4 ± 2088.2 | 1597.5 | 171.8 ± 141.7 | 326.9 ± 261.0 |
-| +2 | 1215.8 ± 418.6 | 1227.5 | 5857.6 ± 7206.4 | 3240.5 | 152.0 ± 52.3 | 732.2 ± 900.8 |
-| +4 | 1070.8 ± 376.6 | 1024.5 | 5323.5 ± 7566.6 | 1049.0 | 133.9 ± 47.1 | 665.4 ± 945.8 |
-| +6 | 1020.4 ± 304.3 | 964.0 | 2059.4 ± 3677.4 | 804.0 | 127.5 ± 38.0 | 257.4 ± 459.7 |
-| +8 | 925.3 ± 171.1 | 897.0 | 2787.9 ± 6200.2 | 535.0 | 115.7 ± 21.4 | 348.5 ± 775.0 |
+**統計口徑**：runs 以 `seed=run_idx` 跨 α 配對（run *i* 在每個 α cell 面對逐輪相同的 chest 序列；asc/desc 同 index 亦然，已在 v4 數據上逐輪核對）。統計單位 = **run（配對，n=20）**：paired Wilcoxon + paired bootstrap CI。**2026-08-19 之前使用非配對 MWU，該版本 p 值一律作廢**；KW / Spearman 不受影響。改動只影響顯著性表述，上表描述性數值不變。
 
-
-**統計口徑（2026-08-19 修正，取代先前的 MWU 報告）**
-
-`get_answer_cgt_seq.py` 以 `seed=run_idx` 產生環境，因此 run *i* 在**所有 α cell** 面對逐輪完全相同的 chest 序列；asc 與 desc 的同 index run 亦共享同一序列（已在 v4 存儲數據上逐輪核對 `(blue, red, major_color)`）。統計單位固定為 **run（配對，n=20）**：α0-vs-α 對比使用 **paired Wilcoxon**，DAI 使用 **paired bootstrap 95% CI**。2026-08-19 之前 `analyze_cgt_seq.py` 用的是非配對 Mann-Whitney，捨棄了配對結構；**該版本產生的 p 值一律作廢**。KW 與 Spearman ρ 未受影響（兩者本就是跨格／邊際統計，不使用配對）。
-
-上面各表為描述性均值，數值不變；改動只影響顯著性表述。主結果不變：`mean_accept_step` 在兩條件下 ρ = **−0.96（asc）/ −0.92（desc）**，clean range 內每一檔 α 對 α=0 皆 `p<0.001`。
-
-| Metric | asc（−6 / −4 / −2 ‖ +2 / +4 / +6 / +8） | desc（同上，另附 −8） | 讀法 |
+| Metric（Δ vs α=0） | asc（−6/−4/−2 ‖ +2/+4/+6/+8） | desc（同上） | 讀法 |
 |---|---|---|---|
-| `mean_accept_step` Δ (p) | `+0.80/+0.73/+0.42` ‖ `−0.60/−1.01/−1.27/−1.45`，全部 `p≤1e−4` | `+0.85/+1.61/+0.90` ‖ `−0.70/−1.34/−1.56/−1.66`，全部 `p<1e−4`；−8 `p=.156, n=7` | 主讀數，雙條件一致 |
-| `accept_step1_rate` Δ (p) | `−0.18(p<1e−4)/−0.03(n.s.)/−0.04(n.s.)` ‖ `+0.09/+0.23/+0.33/+0.48`，`p≤.002` | `−0.13/−0.25/−0.16` ‖ `+0.16/+0.38/+0.52/+0.59`，全部 `p≤5e−4` | 負臂在 asc 較弱（asc step1 = 5% 小注，本就低吸引力） |
-| `mean_bet` Δ (p) | `+17.7/+16.6/+9.5` ‖ `−13.9/−23.3/−29.1/−33.2`，全部 `p≤1e−4` | `−19.4/−37.1/−20.5` ‖ `+16.2/+30.7/+35.3/+37.4`，全部 `p<1e−4` | 方向相反 = presentation-confounded，符合設計 |
-| `qdm` Δ (p) | 僅 −6 `(−0.049, p=.001)`、−2 `(+0.017, p=.040)`、+8 `(−0.091, p<.001)` 顯著 | 僅 −6 `(p=.040)`、+4 `(−0.023, p=.020)`、+8 `(−0.103, p<1e−4)` 顯著 | knowing 未被系統性推動；+8 的下滑屬 overload |
+| `mean_accept_step` | `+0.80/+0.73/+0.42` ‖ `−0.60/−1.01/−1.27/−1.45`，全 `p≤1e−4` | `+0.85/+1.61/+0.90` ‖ `−0.70/−1.34/−1.56/−1.66`，全 `p<1e−4` | 主讀數，雙條件一致 |
+| `accept_step1_rate` | `−0.18(p<1e−4)/−0.03(n.s.)/−0.04(n.s.)` ‖ `+0.09/+0.23/+0.33/+0.48`，`p≤.002` | `−0.13/−0.25/−0.16` ‖ `+0.16/+0.38/+0.52/+0.59`，全 `p≤5e−4` | 負臂在 asc 較弱：asc 的 step 1 只有 5%，本就低吸引力 |
+| `qdm` | 僅 −6 `(−0.049, p=.001)`、−2 `(+0.017, p=.040)`、+8 `(−0.091, p<.001)` | 僅 −6 `(p=.040)`、+4 `(−0.023, p=.020)`、+8 `(−0.103, p<1e−4)` | knowing 未被系統性推動 |
 
-**DAI(bet)（paired bootstrap 95% CI，n=20 對）**：`−6: −32.93 [−37.71, −28.17]`、`−4: −43.93 [−47.42, −40.66]`、`−2: −18.81 [−23.58, −14.47]`、`0: +8.77 [+4.05, +12.97]`、`+2: +40.01 [+36.84, +43.39]`、`+4: +64.77 [+62.17, +67.18]`、`+6: +74.76 [+73.09, +76.49]`、`+8: +82.61 [+80.95, +84.24]`。每一檔的 CI 皆不含 0，且互不重疊——DAI 的單調展寬是本節最穩健的效應。（配對值與上表 `DAI(bet)` 欄有 ≤0.5 的差異：上表是 mean-of-means，此處是 per-run 配對差的均值。以配對值為準。）
+> **⚠ 五格顯著性表述改變，主結論不受影響。** `desc mean_accept_step −8`（`.031→.156`）、`desc mean_bet −8`（`.029→.156`）、`desc final_score +6`（`.024→.154`）、`desc final_score +8`（`.002→.064`）轉 n.s.；`asc qdm −2`（`.278→.040`）轉 sig。
+> 兩個 −8 的翻轉是**修正偽陽性**：−8 的 `invalid≈0.99`，20 runs 只有 7 個留下可用值（asc 為 0），舊 MWU 拿 7 個倖存者比 20 個 baseline。這與「−8 是 over-steer、本就排除在 clean fit 外」一致。`final_score` 的兩格則印證既有措辭——該指標 std ≫ mean（例：desc +2 = 5858±7206），**只作 downstream sanity，不得當作顯著的雙向峰**。
 
-> **⚠ 五個格子的顯著性表述改變，主結論不受影響。** `desc mean_accept_step −8`（`p=.031→.156`）、`desc mean_bet −8`（`.029→.156`）、`desc final_score +6`（`.024→.154`）、`desc final_score +8`（`.002→.064`）由 sig 轉 n.s.；`asc qdm −2`（`.278→.040`）由 n.s. 轉 sig。
->
-> **兩個 −8 的翻轉是修正偽陽性，不是損失統計效力。** −8 的 `invalid_rate≈0.99`、`empty_gen_rate≈0.95`，20 個 run 只有 7 個留下可用值（asc 為 0）。舊 MWU 拿這 7 個倖存者去比 20 個 baseline，本質是倖存者偏差；配對檢驗把它顯式暴露為 `n=7`。這與既有結論一致——**−8 是 over-steer，本就排除在 clean fit 之外**。
->
-> `final_score` 的兩個翻轉同樣印證既有的謹慎措辭：該指標 std ≫ mean，**只作定性報告，不得作為顯著的雙向峰**。
+**主要讀數定義**：`accept_step` = 在第幾檔按下 `Accept`（1–5，越低 = 越早 commit）；`step1` = `accept_step=1` 的比例（asc 的 step 1 是 5%、desc 是 95%，兩者同時高 = immediate commitment 而非追高風險）；`DAI` = `mean_bet_desc − mean_bet_asc`，反映同一個 early-accept 傾向在兩序列中的分化（desc 搶高注 / asc 接低注），因此是 presentation-order-induced delay aversion，不是純 risk preference；`QDM` = 是否選機率較高的顏色（knowing control，崩掉則 betting 指標不能解讀為 wanting）。
 
-**Key metrics**：
-- **QDM（Quality of Decision Making）**：是否選擇 chest 數量較多、機率較高的顏色。這是 knowing / probability-use control；若 QDM 崩掉，betting 指標不能解讀為單純 wanting。
-- **accept step**：模型在第幾個 bet tier 按下 `Accept`（1–5）。這是本實驗主讀數；數值越低 = 越早 commit / 越不等待。
-- **early stop**：`accept_step=1` 的比例。ascending 的 step 1 是 5%，descending 的 step 1 是 95%；兩者都高代表 immediate commitment，而不是單純追求高風險。
-- **bet%**：最終鎖定的下注比例。它必須和 presentation order 一起讀：ascending 早按會降低 bet%，descending 早按會提高 bet%。
-- **DAI（Delay Aversion Index）**：`mean_bet_desc − mean_bet_asc`。DAI 變大表示同一個 early-accept 傾向在兩種序列中產生分化：descending 搶高注、ascending 接低注；因此它反映 presentation-order-induced delay aversion，而不是純 risk preference。
-- **invalid**：格式 / 階段失敗率。α=−8 幾乎全崩、α=+8 開始退化；主結論依賴 clean range **−6..+6**。
+**機制解讀**
 
-**Text-level diagnosis**：
-- **α+ 不是單純 risk seeking，而是 immediate commitment / early stopping。** 若是純風險尋求，ascending 中應該等待到 75/95 才按；但 α+ 在 ascending 也提早 `Accept`，因此 asc bet 下降、desc bet 上升，DAI 展寬。v4 已明確告知未來方向（`next offer will be larger/smaller`），所以早停不是 rule-ignorance artifact，而是 action-commitment / delay-aversion phenotype。
-- **α− 的 clean 區間表現為 delayed commitment。** −4 / −2 主要是 `Wait→Wait→...→Accept` chain；−6 開始出現 color-stage `Wait` 泄漏，說明負端不是單純理性保守，而是接近 stage-control failure。
-- **−8 是 stage-onset breakdown，而非低風險偏好。** v4 −8 的主要文本特徵是空輸出與階段錯位：asc valid = 0/1280，desc valid = 8/1280；`raw_color` empty 分別 1068/1280、1065/1280；乾淨 color 只有 185/1280、175/1280；color 階段泄漏 `Accept/Wait` 為 25/1280、35/1280；bet-stage 空輸出多達 2362 / 2387 條。少數非空長文本也不是正常推理，而是上下文回放或流程質疑（如 `Outcome from previous round...`、`I think you skipped an offer...`、`You can't accept a bet of 95% of 0 points...`）。因此 −8 應解釋為 under-wanting / initiation failure / stage-control collapse：模型無法穩定進入 Color / Accept-Wait 的動作格式。
-- **QDM 不是主效應。** clean range 內 QDM 約 0.71–0.78，動態範圍遠小於 accept timing；+8 QDM 掉到 0.66，屬於 positive overload / 格式退化。α 對 probability choice 只有弱穩定效應，主效應仍是 commit timing。
+- **+α 是 immediate commitment，不是 risk seeking。** 若為純風險尋求，ascending 應等到 75/95 才按；但 +α 在 ascending 也提早 `Accept`，於是 asc bet 下降、desc bet 上升，DAI 展寬。v4 已明確告知方向（`next offer will be larger/smaller`），故早停不是 rule-ignorance artifact。
+- **−α 的 clean 區間是 delayed commitment。** −4/−2 主要是 `Wait→Wait→…→Accept` chain；−6 起出現 color-stage `Wait` 洩漏，說明負端不是理性保守，而是接近 stage-control failure。
+- **二階交互：`desc−asc` 的符號隨 α 翻轉。** −α 在 descending 比 ascending **更願意等**（`+1.02 @−4`），+α 在 descending **更早 commit**（`−0.10 @+4`）。即 presentation order 以 α 依賴的方向調制 commitment latency。
 
-**α × presentation interaction in commitment latency**
+**兩種失效模式（方向不同，勿混為「效果變弱」）**
 
-`desc_step − asc_step`（clean range −4..+4 粗體；±6 / ±8 ⚠ 為 over-steer 帶，invalid 高，僅供參考）：
+- **−8 = 垮 / stage-onset breakdown**，不是低風險偏好。asc valid `0/1280`、desc `8/1280`；`raw_color` 空輸出 1068/1065，乾淨 color 僅 185/175，color 階段洩漏 `Accept/Wait` 25/35，bet 階段空輸出 2362/2387。少數非空文本是上下文回放或流程質疑（`I think you skipped an offer...`、`You can't accept a bet of 95% of 0 points...`），不是推理。解讀為 under-wanting / initiation failure：模型無法穩定進入動作格式。
+- **+8 = 散 / overload**：生成非空但 malformed，QDM 隨之掉到 0.66。
 
-| α | asc step | desc step | desc−asc |
-|---:|---:|---:|---:|
-| −6 ⚠ | 3.56 | 3.89 | +0.33 |
-| **−4** | 3.45 | 4.47 | **+1.02** |
-| **−2** | 3.03 | 3.79 | **+0.76** |
-| **0** | 2.63 | 2.97 | +0.34 |
-| **+2** | 2.05 | 2.20 | +0.15 |
-| **+4** | 1.63 | 1.53 | **−0.10** |
-| +6 ⚠ | 1.40 | 1.31 | −0.09 |
-| +8 ⚠ | 1.16 | 1.19 | +0.04 |
+**與人類 CGT 的區別（措辭邊界）**
 
-**`desc_step − asc_step` 的符號隨 α 翻轉**: −α 在 descending 比在 ascending **更願意等**（desc_step − asc_step = +1.02 @α=−4），+α 在 descending 比在 ascending **更早 commit**（−0.10 @α=+4）。
+- **沒有真實反應時**：人類 CGT 可量 decision latency；LLM 無 motor latency，只能用 tier position 近似 commitment timing。
+- **等待成本不同**：人類的等待有時間與抑制成本；LLM 的等待只是多輸出一個 `Wait`，故測的是 token-level sequential commitment。
+- **下注不是金錢激勵**：final score 只作 downstream outcome / sanity，不作主機制指標。
+- **風險偏好 ≠ 延遲厭惡**：人類高 risk seeking 會在 asc 等大注、desc 搶大注；本模型 +α 在**兩種序列都提早** `Accept`，故精確說法是 immediate commitment / delay aversion。
 
-> The primary effect of α is monotonic control over commitment timing. A second-order interaction emerges in the ascending/descending contrast: relative to ascending, negative α waits *longer* under descending (desc−asc step = +1.02 at α=−4), while positive α commits *earlier* under descending (−0.10 at α=+4). The sign of desc−asc flips with α, so presentation order modulates commitment latency in an α-dependent direction.
-
-**與人類行為學 CGT 的區別**：
-- **沒有真實反應時**：人類 CGT 可量 decision latency / deliberation time；LLM 沒有 motor latency，只能用 `Accept/Wait` 的 tier position 近似 commitment timing。
-- **等待成本不同**：人類 ascending/descending 的等待有時間與抑制成本；LLM 的等待只是多輸出一個 `Wait`，因此這裡測的是 token-level sequential commitment，不等同於真人的物理等待。
-- **下注不是金錢激勵**：人類受試者面對真實或任務內獎賞；LLM 只是在文本規則中最大化 points，所以 final score 只能當 downstream outcome / sanity，不作主機制指標。
-- **風險偏好與延遲厭惡要分開**：人類高 risk seeking 會在 ascending 等大注、descending 搶大注；本模型 α+ 在兩種序列都提早 `Accept`，所以更精確的解釋是 immediate commitment / delay aversion，而不是「更愛冒險」。
+> 實作細節（prompt 版本 v1–v4 的取捨、anchor 規則、已確認的回歸 commit、分析器口徑與過度操縱閘門）見 `CLAUDE.md` 的 cgt_sequential 條目。
 
 
 ### Iowa Gambling Task (IGT)
