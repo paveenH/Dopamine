@@ -8,14 +8,6 @@ https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
 Inkling-Small
 
 ## TODO — ACL ARR
-### 1c. Controlled Evidence-State Micro-Episodes
-- [ ] 合成 counts 状态（**不取自任何 α=0 轨迹**）
-- [ ] `SAMPLE` 后返回真实 reward 并允许后续决策
-- [ ] Commitment block：样本平衡，操纵证据弱/强 × 剩余 horizon
-- [ ] Acquisition block：证据接近、challenger 样本不足，操纵 challenger 经验率**高/低**两子格
-- [ ] α=0 manipulation check：(1) 强证据更易 COMMIT；(2) 采样对样本不足有最低限度响应
-- [ ] 两项通过后才跑 ±4；强制采集只能称 mechanism control
-
 ### 2. Qwen Replication
 
 - [ ] 重新验证 Qwen 的 tokenizer、anchor、candidate IDs 与 steering fires
