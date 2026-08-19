@@ -1,5 +1,5 @@
 
-## TODO
+## TO DO
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
 HumanLLM
@@ -7,10 +7,11 @@ Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter
 https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
 Inkling-Small
 
-## TODO — ACL ARR
-### 1. Consolidate Existing Evidence
+Qwen
+1. CGT-seq
 
-- [ ] 完善 confidence betting 尚未完成的分析。
+## TO DO — ACL ARR
+### 1. Consolidate Existing Evidence
 - [ ] 冻结 CGT-seq / IGT / GSM8K / Thinking Curve 的主指标与统计口径。
 - [ ] 区分文本效应、行为效应与结果效应，删除或降级不稳健、不可复现及事后选择的结果。
 - [ ] 从现有结果中确定 3–5 项跨任务主要假设，建立统一主张：confidence、commitment、effort/engagement。
