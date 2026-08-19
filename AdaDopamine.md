@@ -330,6 +330,8 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 2. **DAI 在 clean range 內單調展寬，是本節最穩健的效應。** 主結論建立在 **−4…+6 六檔**上：其 paired bootstrap 95% CI 兩兩互不重疊、皆不含 0，且隨 α 單調遞增。**−6 與 +8 的 CI 一併列出僅供診斷，不參與主要行為結論**（兩者皆越過 over-steer 閘門）：`−6 −32.93 [−37.71, −28.17]`、`−4 −43.93 [−47.42, −40.66]`、`−2 −18.81 [−23.58, −14.47]`、`0 +8.77 [+4.05, +12.97]`、`+2 +40.01 [+36.84, +43.39]`、`+4 +64.77 [+62.17, +67.18]`、`+6 +74.76 [+73.09, +76.49]`、`+8 +82.61 [+80.95, +84.24]`（per-run 配對差。v4 每格皆為完整 20 對，故配對均值與 mean-of-means **逐位相同**，上表 `DAI(bet)` 欄即同一組數值）。單調性在 clean range 內成立；**−6（−32.93）反而高於 −4（−43.93），這正是把它排除在主結論外的理由**——該格 invalid 14–23%，下注分佈已受格式失敗污染，不可讀為負臂轉折。
 3. **QDM 相對穩定、效應很小 = wanting–knowing 解離。** clean range 內 QDM 僅在 0.71–0.79 之間浮動，動態範圍遠小於 accept timing；全九檔中達顯著的只有 −6 / −2 / +4 / +8 四格，且**每一格的配對 Δ 絕對值都約 ≤0.10**（最大為 desc +8 的 −0.103；−6/+8 兩格本就在 over-steer 帶）。措辭上不寫「QDM 不動」——它有可測的小幅變化，只是量級不足以解釋 accept timing 的移動。+8 掉到 0.66 屬 overload 的格式退化，不是知識損失。
 
+   **QDM 的成分分解（2026-08-19 新增診斷）：** 總體 QDM 由兩個成分疊加而成——一個恆定的 **red-favouring label 偏好**（`qdm_major_red` 減 `qdm_major_blue`，clean range 內 gap 0.11–0.19，兩子群皆落在 0.58–0.84）與一條**機率使用梯度**（`asym_gradient`，即 asym-8 減 asym-2，按 major color 分層後等權平均，clean range 內 0.15–0.22）。**clean range 內未檢測到兩者隨 α 的系統性變化**（label gap ρ(α)=−0.09 asc / +0.04 desc；asym gradient ρ=+0.19 / +0.12），因此「knowing 相對穩定」不僅成立於平均值，也成立於其兩個成分——α 移動的是 commitment timing，而非顏色判斷策略。n.s. 不構成等效性證明，僅表示在本設計下未檢出。逐格統計見 `analyze_cgt_seq.py` 輸出，此處不展開。
+
 **Full sweep（Llama3-8B-IT，v4 prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**
 
 | α | asc inv | desc inv | asc step | desc step | asc step1 | desc step1 | DAI(bet) | asc QDM | desc QDM | 讀法 |
@@ -368,7 +370,7 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 **兩種失效模式（方向不同，勿混為「效果變弱」）**
 
 - **−8 = 垮 / stage-onset breakdown**，不是低風險偏好。asc valid `0/1280`、desc `8/1280`；`raw_color` 空輸出 1068/1065，乾淨 color 僅 185/175，color 階段洩漏 `Accept/Wait` 25/35，bet 階段空輸出 2362/2387。少數非空文本是上下文回放或流程質疑（`I think you skipped an offer...`、`You can't accept a bet of 95% of 0 points...`），不是推理。解讀為 under-wanting / initiation failure：模型無法穩定進入動作格式。
-- **+8 = 散 / overload**：生成非空但 malformed，QDM 隨之掉到 0.66。
+- **+8 = 散 / overload**：生成非空但 malformed，QDM 隨之掉到 0.66。該下降是 **major-red 子群單側塌縮**（`qdm_major_red` 0.82→0.59，paired p<.001，asc/desc 皆然），而 `qdm_major_blue` 未動（p=0.198 / 0.294）——即 +8 抹平的是既有的 red 偏好，而非整體判斷力，與「格式退化而非知識損失」一致。
 
 **與人類 CGT 的區別（措辭邊界）**
 
