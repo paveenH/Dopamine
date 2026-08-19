@@ -106,10 +106,78 @@ ORDER_PHRASE = {
     "desc": "from the largest to the smallest",
 }
 
+# ── v5: label/position de-confounding (Qwen calibration, 2026-08-19) ──────────
+# v4 named Blue before Red in ALL THREE places it mentions the options AND its
+# only worked example was blue-majority, with no shuffle anywhere -- so label
+# and display position were completely collinear and a blue preference could
+# not be attributed. v5 changes exactly two things and nothing else:
+#
+#   (a) the option order is balanced PER ROUND, and the SAME order is used in
+#       all three places (system output list, per-round question, answer format
+#       line), so first-position and label never disagree within a round;
+#   (b) the worked example is NEUTRALISED rather than swapped or deleted --
+#       swapping just moves the content anchor to red, and deleting removes the
+#       "share = probability" rule statement that the knowing gate is testing.
+#
+# Everything else (game framing, payoff, feedback, odds, bet mechanics, the v4
+# per-tier direction hint) is inherited unchanged. v1-v4 are byte-identical.
+ORDER_VERSION = "order-balanced-v1"
 
-def build_seq_system_prompt(presentation: str, prompt_ver: str = "v1") -> str:
+SEQ_SYSTEM_TEMPLATE_V5 = """We are playing a multi-round betting game for points. I am the host; you are the player. Win as many points as you can.
+
+In front of you each round are 10 treasure chests, some blue and some red. A gold coin is hidden in exactly one chest, completely at random, so a colour's chance of holding the coin equals that colour's share of the 10 chests (e.g. if 7 of the 10 chests are one colour and 3 are the other, that colour's chance is 70% and the other's is 30%).
+
+Each round has two steps. First, using the chest counts, you choose ONE colour. Then I reveal possible bet sizes ONE AT A TIME ({order_phrase}). For each bet size I show, you either Accept it (you bet that percentage of your current points on your colour and the round ends) or Wait to see the next bet size. If your colour is correct, your points increase by the amount you bet; if your colour is wrong, your points decrease by the amount you bet. Each round's coin is independent.
+
+Every {round_interactions} rounds form a phase; your points reset to {init_money} at the start of each phase. The sum of your points across all phases is your final score in the game — your aim is to make that final score as high as possible. Higher bets gain more points but also lose more points.
+
+When I ask for your colour, reply with exactly one word:
+{opt_a}
+or
+{opt_b}
+When I show a bet size, reply with exactly one word:
+Accept
+or
+Wait"""
+
+
+def make_order_sequence(seed: int) -> list[str]:
+    """
+    Per-round first-option balance, STRICTLY equal within every phase.
+
+    Returns a length-TOTAL_INTERACTIONS list of "blue"/"red" giving which colour
+    is named FIRST that round. Each phase of ROUND_INTERACTIONS rounds contains
+    exactly half of each, permuted -- so a run is exactly 32/32 and every
+    (first_option x major_color) cell stays populated. Random assignment would
+    only balance in expectation and can starve a stratum at n=64.
+
+    Uses its OWN rng seeded off `seed`, so it does not consume the main stream
+    and make_box_sequence(seed) is byte-identical to v4 for the same seed.
+    """
+    if ROUND_INTERACTIONS % 2:
+        raise ValueError("ROUND_INTERACTIONS must be even for strict balance")
+    rng = random.Random(seed + 7_700_017)
+    seq = []
+    for _ in range(N_PHASES):
+        block = ["blue", "red"] * (ROUND_INTERACTIONS // 2)
+        rng.shuffle(block)
+        seq.extend(block)
+    return seq
+
+
+def build_seq_system_prompt(presentation: str, prompt_ver: str = "v1",
+                            first_option: str = "blue") -> str:
     # v3/v4 = v2's symmetric base (the validated v2b winner) + a per-tier trend
     # hint added only at the bet turn (see build_bet_user_turn).
+    # v5 = v2's base + neutral example + per-round option order (first_option).
+    if prompt_ver == "v5":
+        opt_a, opt_b = (("Blue", "Red") if first_option == "blue"
+                        else ("Red", "Blue"))
+        return SEQ_SYSTEM_TEMPLATE_V5.format(
+            order_phrase=ORDER_PHRASE[presentation],
+            round_interactions=ROUND_INTERACTIONS, init_money=INIT_MONEY,
+            opt_a=opt_a, opt_b=opt_b,
+        )
     tmpl = SEQ_SYSTEM_TEMPLATE_V2 if prompt_ver in ("v2", "v3", "v4") else SEQ_SYSTEM_TEMPLATE
     return tmpl.format(
         order_phrase=ORDER_PHRASE[presentation],
@@ -118,21 +186,30 @@ def build_seq_system_prompt(presentation: str, prompt_ver: str = "v1") -> str:
 
 
 def build_color_user_turn(round_number, remain, blue, red,
-                          phase_reset, outcome_feedback="", prompt_ver="v1"):
+                          phase_reset, outcome_feedback="", prompt_ver="v1",
+                          first_option="blue"):
     pre = ""
     if outcome_feedback:
         pre += outcome_feedback + "\n\n"
     if phase_reset and round_number > 1:
         pre += f"--- New phase. Your points reset to {INIT_MONEY}. ---\n"
-    choose = ("choose your colour, Blue or Red." if prompt_ver in ("v2", "v3", "v4")
-              else "choose your colour (blue or red).")
+    if prompt_ver == "v5":
+        # SAME order as the system output list for this round -- if these two
+        # disagreed, first-position would be defined inconsistently and the
+        # whole point of the balance would be lost.
+        a, b = (("Blue", "Red") if first_option == "blue" else ("Red", "Blue"))
+        choose = f"choose your colour, {a} or {b}."
+    elif prompt_ver in ("v2", "v3", "v4"):
+        choose = "choose your colour, Blue or Red."
+    else:
+        choose = "choose your colour (blue or red)."
     return (f"{pre}Round {round_number}. You have {remain} points. "
             f"This round: {blue} blue chest(s) and {red} red chest(s). "
             f"Use the chest counts to {choose}")
 
 
 def build_bet_user_turn(color, pct, step, n_tiers, next_pct=None, prompt_ver="v1"):
-    if prompt_ver not in ("v3", "v4"):  # v1/v2 byte-identical
+    if prompt_ver not in ("v3", "v4", "v5"):  # v1/v2 byte-identical
         return (f"You chose {color}. Bet size {step} of {n_tiers}: {pct}% of your "
                 f"current points. Accept or Wait?")
     # Make the ascending/descending trend VISIBLE at each tier (human CGT shows the
@@ -143,7 +220,7 @@ def build_bet_user_turn(color, pct, step, n_tiers, next_pct=None, prompt_ver="v1
     #            larger." — v3's "If you Wait, ..." added a high-frequency 'Wait'
     #            token that bled into the colour step (−α color-confusion ↑); v4
     #            drops it. No explicit next value / no bound, just the trend.
-    if prompt_ver == "v4":
+    if prompt_ver in ("v4", "v5"):   # v5 inherits v4's direction-only hint
         if next_pct is None:
             hint = "This is the last offer. "
         else:
@@ -197,7 +274,12 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
     box_seq = make_box_sequence(seed)
     tiers = BET_PCTS if presentation == "asc" else list(reversed(BET_PCTS))
     n_tiers = len(tiers)
-    system_prompt = build_seq_system_prompt(presentation, prompt_ver)
+    # v5 balances which colour is named first, per round, strictly 50/50 within
+    # each phase. v1-v4 keep a constant "blue"-first surface, so their system
+    # prompt is still built ONCE and is byte-identical to before.
+    order_seq = make_order_sequence(seed) if prompt_ver == "v5" else None
+    system_prompt = (None if prompt_ver == "v5"
+                     else build_seq_system_prompt(presentation, prompt_ver))
 
     # anchor: "default" = v1 byte-equivalent (colour="Color: ", bet="");
     #         "answer"  = both steps anchored on "Answer: " (A version);
@@ -234,10 +316,18 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
         major_color = "blue" if blue >= red else "red"
         asymmetry = abs(blue - red)
 
+        # v5: this round's option order, used identically in the system output
+        # list and the question wording (see build_seq_system_prompt).
+        first_option = order_seq[r] if order_seq is not None else "blue"
+        if prompt_ver == "v5":
+            system_prompt = build_seq_system_prompt(
+                presentation, prompt_ver, first_option=first_option)
+
         # --- Step 1: colour ---
         user_c = build_color_user_turn(round_number, remain, blue, red,
                                        phase_reset, outcome_feedback=pending_outcome,
-                                       prompt_ver=prompt_ver)
+                                       prompt_ver=prompt_ver,
+                                       first_option=first_option)
         chat_turns.append({"role": "user", "content": user_c})
         prompt_c = build_chat_messages2(vc, system_prompt, chat_turns,
                                         answer_anchor=color_anchor)
@@ -294,6 +384,11 @@ def run_episode(vc, diff_mtx, seed, presentation, use_chat,
             "round": round_number, "phase": r // ROUND_INTERACTIONS,
             "blue": blue, "red": red, "asymmetry": asymmetry,
             "major_color": major_color, "presentation": presentation,
+            # v5 attribution fields: which colour was named FIRST this round,
+            # plus the provenance needed to regenerate the sequence offline.
+            # first_option is "blue" for v1-v4, where order was never balanced.
+            "first_option": first_option,
+            "chose_first": (choose_color == first_option),
             "choice_color": choose_color, "coin": coin,
             "accept_step": accept_step, "n_tiers": n_tiers,
             "forced_lock": forced_lock,
@@ -376,6 +471,7 @@ def main():
     # and mask), so existing sweeps still resume.
     IFACE = "_".join([
         f"pv{args.prompt_ver}", f"an{args.anchor}",
+        *( [f"ord{ORDER_VERSION}"] if args.prompt_ver == "v5" else [] ),
         "chat" if args.use_chat else "bare",
         f"it{args.inject_turn_len}" if args.inject_turn else "it1",
         f"m{os.path.basename(str(args.model_dir).rstrip('/'))}",
@@ -508,7 +604,8 @@ if __name__ == "__main__":
                              "last (prefill). Default OFF = tail=1 (the validated "
                              "simultaneous-CGT injection strength).")
     parser.add_argument("--inject_turn_len", type=int, default=4)
-    parser.add_argument("--prompt_ver", type=str, default="v1", choices=["v1", "v2", "v3", "v4"],
+    parser.add_argument("--prompt_ver", type=str, default="v1",
+                        choices=["v1", "v2", "v3", "v4", "v5"],
                         help="v1 = validated e55b132 prompt (default, byte-equivalent). "
                              "v2 = symmetrised colour/bet format (Blue/Red ↔ Accept/Wait). "
                              "v3 = v2 base + EXPLICIT next-offer hint at each bet tier "
