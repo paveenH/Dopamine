@@ -180,15 +180,28 @@ def main():
                 elif fires == raw_mask.shape[0]:
                     print("  hint: zero rows are being counted (all 32 layers)")
 
-        # alpha=0 must register NO hook at all (house convention: unsteered is a
-        # different code path from steered-by-zero)
+        # alpha=0 must exercise the REAL driver path. CGT-seq differs from the
+        # pv6/PV10 convention here: `run_episode` has a single `gen` closure that
+        # ALWAYS calls `vc.regenerate(diff_matrices=diff_mtx)`, and the driver
+        # builds `diff_mtx = list(raw_mask * alpha)` — so at alpha=0 it passes a
+        # real ALL-ZERO matrix rather than skipping the hook. (regenerate also
+        # rejects diff_matrices=None, llms.py:880, so there is no no-diff branch
+        # to take.) Hooks therefore DO register and the zero add DOES execute;
+        # fires read 0 only because `_layer_is_steered` (llms.py:947) is False on
+        # an all-zero row. Checking `vc.generate` instead would verify a path the
+        # experiment never runs. Do not "fix" the driver to match pv6 — that would
+        # change the Llama protocol whose results are frozen.
+        zero_mtx = list(raw_mask * 0.0)
         vc.steering_fire_count(reset=True)
-        vc.generate([prompts["bet step"]], max_new_tokens=4)
+        out0 = vc.regenerate([prompts["bet step"]], diff_matrices=zero_mtx,
+                             max_new_tokens=8, prefill_only=True,
+                             prefill_tail_len=1)
         z = vc.steering_fire_count(reset=False)
-        print(f"\nalpha=0 path (generate, no diff): fires={z}  "
-              f"{'OK' if z == 0 else '<-- should be 0'}")
+        print(f"\nalpha=0 path (regenerate + all-zero diff, the REAL driver path):")
+        print(f"  fires={z}   {'OK' if z == 0 else '<-- should be 0'}")
+        print(f"  generation : {out0[0][:120]!r}")
         if z != 0:
-            failures.append(f"alpha=0 path fired {z} times")
+            failures.append(f"alpha=0 (all-zero diff) fired {z} times, expected 0")
 
     # -------------------------------------------------------------------- verdict
     hr("VERDICT")
