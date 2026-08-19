@@ -7,10 +7,8 @@ Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter
 https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
 Inkling-Small
 
-Qwen
-1. CGT-seq
-
 有什么是等待可以收益的task?
+Manifold
 
 ## TO DO — ACL ARR
 ### 1. Consolidate Existing Evidence
