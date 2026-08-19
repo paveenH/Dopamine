@@ -445,17 +445,55 @@ def main():
     METRICS = (["net_score", "p_adv", "p_disadv", "p_A", "p_B", "p_C", "p_D",
                 "b_pref_among_disadv", "final_score", "invalid_rate"]
                + [f"net_block{b + 1}" for b in range(n_blocks)])
-    FIELDNAMES = (["model", "size", "alpha", "start", "end", "num_runs"]
+    FIELDNAMES = (["model", "size", "alpha", "start", "end", "num_runs", "iface"]
                   + [f"mean_{m}" for m in METRICS] + [f"std_{m}" for m in METRICS])
+
+    # Resume key: (alpha, start, end, IFACE). The interface segment was added
+    # 2026-08-19 -- before it, the key was (alpha, start, end) alone, so reusing
+    # one --ans_file across a different MODEL, prompt version, mask or run count
+    # returned the stored row and SILENTLY SKIPPED the new configuration. Same
+    # failure pv6 and CGT-seq each had to fix, and the Qwen port is exactly the
+    # case that triggers it (same alpha/layers, different model).
+    #
+    # Rows written before that date carry no `iface` column and are reconstructed
+    # as the LEGACY interface, so every stored Llama sweep still resumes.
+    IFACE = "_".join([
+        f"pv{args.prompt_ver}",
+        f"an{args.anchor}",
+        "chat" if args.use_chat else "bare",
+        f"it{args.inject_turn_len if args.inject_turn else 1}",
+        f"m{os.path.basename(args.model_dir.rstrip('/'))}",
+        f"k{args.mask_type}{args.percentage}",
+        f"n{args.num_runs}",
+    ])
+    LEGACY_IFACE = "_".join([
+        "pvv1", "andefault", "chat", "it1",
+        "mLlama-3.1-8B-Instruct", "knmd0.5", "n20",
+    ])
+    print(f"[iface] {IFACE}")
 
     os.makedirs(SAVE_ROOT, exist_ok=True)
     csv_path = os.path.join(SAVE_ROOT, f"summary_{args.model}_{args.size}.csv")
     done_keys = set()
+    legacy_header = False
     if os.path.exists(csv_path):
         with open(csv_path, newline="", encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                done_keys.add((float(r["alpha"]), int(r["start"]), int(r["end"])))
+            rdr = csv.DictReader(f)
+            legacy_header = rdr.fieldnames is not None and "iface" not in rdr.fieldnames
+            for r in rdr:
+                done_keys.add((float(r["alpha"]), int(r["start"]), int(r["end"]),
+                               r.get("iface") or LEGACY_IFACE))
         print(f"[Resume] {len(done_keys)} cells already done, skipping.")
+        if legacy_header:
+            # A DictWriter with the new FIELDNAMES would append rows whose columns
+            # no longer line up with the stored header. Fail closed rather than
+            # corrupting a completed sweep's summary.
+            raise SystemExit(
+                f"[FATAL] {csv_path} predates the `iface` column.\n"
+                "        Appending would misalign every new row against the old header.\n"
+                "        Use a NEW --ans_file for this run (the per-cell JSON under\n"
+                "        mdf_*/ is untouched and still readable), or move the old CSV\n"
+                "        aside if you intend to rebuild it.")
     write_header = not os.path.exists(csv_path)
     csv_file = open(csv_path, "a", newline="", encoding="utf-8")
     writer = csv.DictWriter(csv_file, fieldnames=FIELDNAMES)
@@ -466,7 +504,7 @@ def main():
     vc.model.eval()
 
     for alpha, (st, en) in ALPHAS:
-        done_key = (float(alpha), int(st), int(en))
+        done_key = (float(alpha), int(st), int(en), IFACE)
         if done_key in done_keys:
             print(f"[Skip] α={alpha} {st}-{en} done.")
             continue
@@ -497,7 +535,8 @@ def main():
                   f"invalid={result['invalid_rate']:.2f}")
             gc.collect(); torch.cuda.empty_cache()
 
-        row = {"model": args.model, "size": args.size, "alpha": alpha,
+        row = {"iface": IFACE,
+               "model": args.model, "size": args.size, "alpha": alpha,
                "start": st, "end": en, "num_runs": args.num_runs}
         for m in METRICS:
             vals = [r[m] for r in run_results
