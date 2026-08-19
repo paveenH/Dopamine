@@ -273,18 +273,19 @@ Qwen 在 +4 見頂後出現兩種不同失效：+6 的下注退化為常數，+8
 
 ## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task, PV9)
 
-### Main Results
-
 PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（`.60/.55/.25/.25`）兩個環境中測試 `α∈{−4,0,+4}`；每格為 20 paired seeds × 100 rounds。α 只注入負責產生 evidence 與 policy 的 Stage 1，Stage 2 executor 完全未 steering。完整協議、指標定義與分析表見 `AdaBandit.md` §4；此處只保留可直接支撐主要結論的結果。
 
 | Core readout | Easy（−4 / 0 / +4） | NearTie（−4 / 0 / +4） | Main implication |
 |---|---:|---:|---|
 | Unique uncertainty-max targeting | **0/98 / 0/265 / 0/119** | **0/164 / 0/246 / 0/190** | 六格均未主动选择唯一最不确定的 arm |
+| `α × low-n/uncertainty` (`a_info`) | `0.121 [−.124, .418]` | `−.004 [−.124, .190]` | 兩環境 CI 均跨 0，未檢出 α 改變 information weighting |
 | Self-reported `EXPLORE` stance | `.080 / .049 / .043` | `.097 / .065 / .046` | −α 更常写 `EXPLORE`，+α 更少写；两环境方向一致 |
 | `EXPLORE` stance–behavior alignment | `.810 / .897 / .971` | `.712 / .790 / .944` | NearTie 的 +4 效应通过 Holm 校正（`p_adj=.040`），但反映较少“说探索却仍 greedy”，不是探索次数增加 |
 | True-best persistence among non-greedy choices | `.463 / .843 / .956` | `.559 / .856 / .896` | +4 偏离 empirical-greedy 时，大多仍在选择因短期噪声而暂时落后的真实最优臂，而非探索未知臂 |
 | Stage-2 candidate margin | `4.177 / 4.268 / 4.699` | `4.005 / 4.250 / 4.404` | +4 的候选分布较尖锐；仅 Easy 的 +4 达 raw significance（`p=.019`） |
 | Final task score | `57.35 / 61.75 / 61.40` | `46.15 / 46.85 / 48.35` | 两环境均无可靠的绩效改善 |
+
+`Unique uncertainty-max targeting` 的分母不是全部 2000 輪，而是當時存在**唯一** posterior-uncertainty 最大 arm 的合格 Policy 輪次；Beta posterior 經常產生結構性並列，因此這是 pooled unique-max 下界。即使採 tie-inclusive 上界，六格的 action-level targeting 仍只有約 `.2%–.5%`。相應地，主要推斷不只依賴地板率，還依賴上表 `a_info` 在兩個環境均跨 0：目前沒有證據顯示 α 改變模型對低樣本量／高不確定性選項的權重。
 
 α 明确改变了 Stage-1 的**政策表达**，而不只是标点或格式：在输入 history 完全相同的 matched states 中，−4/+4 分别改写 Easy 的 `68.8%/58.9%` 文本，但最终 action 只改变 `5.2%/2.6%`。NearTie 亦呈现相同衰减（文本 `78.1%/58.2%`，action `3.8%/3.2%`）。因此，α 对语义 stance 与候选分布锐度的影响，大多没有传导为不同的 arm selection。
 
@@ -292,7 +293,8 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 
 非贪婪选择的分解进一步显示一种 **correct persistence**：当真实最优臂受短期 reward noise 影响、暂时失去 empirical-best 地位时，+4 的非贪婪选择仍有 Easy `283/296=95.6%`、NearTie `242/270=89.6%` 指向该真实最优臂。这个结果更接近对既有目标的坚持／抵抗短期经验噪声，而不是为了获取信息而探索。不过它是条件式、描述性的组成比例；一般性的 switch rate、longest run 与 single-arm concentration 均无显著 α 效应，因此不能扩大解释为 +α 普遍增强 perseveration。
 
-> **Conclusion.** PV9 未检出 α 对 uncertainty-directed information seeking 或 Bandit outcome 的可靠调节。α 更稳定地影响 policy stance、commitment-related sharpness，以及困难环境中的 stance–behavior consistency。Bandit 因而构成 RSN–dopamine 类比的**作用边界证据**：在此协议中，RSN α 不是一般性的 exploration controller。
+> **Conclusion.** PV9 未检出 α 对 uncertainty-directed information seeking 或 Bandit outcome 的可靠调节。α 稳定改变 policy stance，并在 candidate sharpness 上呈现方向一致但次级、未经 family-wise 校正的变化；唯一通过 primary-family Holm 校正的是 NearTie 的条件式 stance–behavior alignment。Bandit 因而构成 RSN–dopamine 类比的**作用边界证据**：在此协议中，RSN α 不是一般性的 exploration controller。
+
 
 ## 3.3 Gamble Task
 
