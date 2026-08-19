@@ -327,17 +327,17 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 **三個主張**（其餘為支撐與邊界）：
 
 1. **主讀數 `accept_step` 單調隨 α。** +α 更早 commit、−α 更願意等；ρ = **−0.96（asc）/ −0.92（desc）**，clean range（−4…+6）內每一檔對 α=0 皆 `p<0.001`（paired Wilcoxon，n=20）。
-2. **DAI 展寬，是本節最穩健的效應。** 八檔（−8 無可用配對）paired bootstrap 95% CI **兩兩互不重疊、且皆不含 0**：`−6 −32.93 [−37.71, −28.17]`、`−4 −43.93 [−47.42, −40.66]`、`−2 −18.81 [−23.58, −14.47]`、`0 +8.77 [+4.05, +12.97]`、`+2 +40.01 [+36.84, +43.39]`、`+4 +64.77 [+62.17, +67.18]`、`+6 +74.76 [+73.09, +76.49]`、`+8 +82.61 [+80.95, +84.24]`（per-run 配對差；上表 `DAI(bet)` 欄為 mean-of-means，兩者差 ≤0.5，**以配對值為準**）。**在 clean range 內 DAI 隨 α 單調遞增**；唯一的例外是 −6（−32.93）高於 −4（−43.93），而 −6 已是 invalid 14–23% 的 over-steer 帶，其下注分佈受格式失敗污染——不要把它讀成負臂的轉折。
-3. **QDM 不動 = wanting–knowing 解離。** clean range 內 QDM 僅在 0.71–0.79 之間浮動，動態範圍遠小於 accept timing；全九檔中達顯著的只有 −6 / −2 / +4 / +8 四格，且**每一格的配對 Δ 絕對值都 ≤0.10**（其中 −6/+8 已在 over-steer 帶）。+8 掉到 0.66 屬 overload 的格式退化，不是知識損失。
+2. **DAI 在 clean range 內單調展寬，是本節最穩健的效應。** 主結論建立在 **−4…+6 六檔**上：其 paired bootstrap 95% CI 兩兩互不重疊、皆不含 0，且隨 α 單調遞增。**−6 與 +8 的 CI 一併列出僅供診斷，不參與主要行為結論**（兩者皆越過 over-steer 閘門）：`−6 −32.93 [−37.71, −28.17]`、`−4 −43.93 [−47.42, −40.66]`、`−2 −18.81 [−23.58, −14.47]`、`0 +8.77 [+4.05, +12.97]`、`+2 +40.01 [+36.84, +43.39]`、`+4 +64.77 [+62.17, +67.18]`、`+6 +74.76 [+73.09, +76.49]`、`+8 +82.61 [+80.95, +84.24]`（per-run 配對差。v4 每格皆為完整 20 對，故配對均值與 mean-of-means **逐位相同**，上表 `DAI(bet)` 欄即同一組數值）。單調性在 clean range 內成立；**−6（−32.93）反而高於 −4（−43.93），這正是把它排除在主結論外的理由**——該格 invalid 14–23%，下注分佈已受格式失敗污染，不可讀為負臂轉折。
+3. **QDM 相對穩定、效應很小 = wanting–knowing 解離。** clean range 內 QDM 僅在 0.71–0.79 之間浮動，動態範圍遠小於 accept timing；全九檔中達顯著的只有 −6 / −2 / +4 / +8 四格，且**每一格的配對 Δ 絕對值都約 ≤0.10**（最大為 desc +8 的 −0.103；−6/+8 兩格本就在 over-steer 帶）。措辭上不寫「QDM 不動」——它有可測的小幅變化，只是量級不足以解釋 accept timing 的移動。+8 掉到 0.66 屬 overload 的格式退化，不是知識損失。
 
 **Full sweep（Llama3-8B-IT，v4 prompt，layers 11–20，20 runs/cell，1280 rounds/condition）**
 
 | α | asc inv | desc inv | asc step | desc step | asc step1 | desc step1 | DAI(bet) | asc QDM | desc QDM | 讀法 |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | −8 | 100.0% | 99.4% | — | 3.75 | — | 12.5% | — | — | 0.75 | ⛔ boundary collapse，行為指標不可解讀 |
-| −6 | 22.8% | 14.1% | 3.56 | 3.89 | 20.6% | 10.8% | −33.38 | 0.70 | 0.72 | ⚠ delayed commitment + stage confusion，不納入 clean fit |
-| −4 | 7.0% | 1.6% | 3.45 | 4.47 | 32.9% | 3.7% | −44.14 | 0.75 | 0.78 | clean delayed commitment / 最強等待 |
-| −2 | 1.8% | 0.2% | 3.03 | 3.79 | 33.7% | 12.2% | −18.84 | 0.79 | 0.78 | negative-side transition |
+| −6 | 22.8% | 14.1% | 3.56 | 3.89 | 20.6% | 10.8% | −32.93 | 0.70 | 0.72 | ⚠ delayed commitment + stage confusion，不納入 clean fit |
+| −4 | 7.0% | 1.6% | 3.45 | 4.47 | 32.9% | 3.7% | −43.93 | 0.75 | 0.78 | clean delayed commitment / 最強等待 |
+| −2 | 1.8% | 0.2% | 3.03 | 3.79 | 33.7% | 12.2% | −18.81 | 0.79 | 0.78 | negative-side transition |
 | 0 | 0.0% | 0.0% | 2.63 | 2.97 | 37.4% | 25.9% | +8.77 | 0.76 | 0.75 | baseline |
 | +2 | 0.0% | 0.0% | 2.05 | 2.20 | 48.4% | 42.8% | +40.01 | 0.76 | 0.75 | earlier commitment |
 | +4 | 0.0% | 0.0% | 1.63 | 1.53 | 60.9% | 65.3% | +64.77 | 0.74 | 0.71 | strong immediate commitment |
@@ -352,7 +352,7 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 |---|---|---|---|
 | `mean_accept_step` | `+0.80/+0.73/+0.42` ‖ `−0.60/−1.01/−1.27/−1.45`，全 `p≤1e−4` | `+0.85/+1.61/+0.90` ‖ `−0.70/−1.34/−1.56/−1.66`，全 `p<1e−4` | 主讀數，雙條件一致 |
 | `accept_step1_rate` | `−0.18(p<1e−4)/−0.03(n.s.)/−0.04(n.s.)` ‖ `+0.09/+0.23/+0.33/+0.48`，`p≤.002` | `−0.13/−0.25/−0.16` ‖ `+0.16/+0.38/+0.52/+0.59`，全 `p≤5e−4` | 負臂在 asc 較弱：asc 的 step 1 只有 5%，本就低吸引力 |
-| `qdm` | 僅 −6 `(−0.049, p=.001)`、−2 `(+0.017, p=.040)`、+8 `(−0.091, p<.001)` | 僅 −6 `(p=.040)`、+4 `(−0.023, p=.020)`、+8 `(−0.103, p<1e−4)` | knowing 未被系統性推動 |
+| `qdm` | 僅 −6 `(−0.049, p=.001)`、−2 `(+0.017, p=.040)`、+8 `(−0.091, p<.001)` | 僅 −6 `(p=.040)`、+4 `(−0.023, p=.020)`、+8 `(−0.103, p<1e−4)` | knowing 未被系統性推動；效應量約 ≤0.10 |
 
 > **⚠ 五格顯著性表述改變，主結論不受影響。** `desc mean_accept_step −8`（`.031→.156`）、`desc mean_bet −8`（`.029→.156`）、`desc final_score +6`（`.024→.154`）、`desc final_score +8`（`.002→.064`）轉 n.s.；`asc qdm −2`（`.278→.040`）轉 sig。
 > 兩個 −8 的翻轉是**修正偽陽性**：−8 的 `invalid≈0.99`，20 runs 只有 7 個留下可用值（asc 為 0），舊 MWU 拿 7 個倖存者比 20 個 baseline。這與「−8 是 over-steer、本就排除在 clean fit 外」一致。`final_score` 的兩格則印證既有措辭——該指標 std ≫ mean（例：desc +2 = 5858±7206），**只作 downstream sanity，不得當作顯著的雙向峰**。
@@ -521,7 +521,7 @@ Answer:
 
 **說明：**
 - **Confidence Betting / Bandit** 的結果在 §3.1 / §3.2，此處只標範式血統，不重複結果表。
-- **CGT** 已完成（CGT-Sequential，結果見 §3.3）：忠實復現 Rogers 1999 / CANTAB 的升降序 betting-stage，主指標 = 延遲厭惡（accept_step / DAI），ρ≈−0.91 雙條件，qdm 不動。注意命名——**CGT-Simultaneous（simple5）嚴格講不是 CGT**（砍掉升降序操縱），是 transparent-odds single-shot betting probe，作為 Confidence Betting 的 confidence-confound control（機率透明排除「更自信」解釋）。
+- **CGT** 已完成（CGT-Sequential，結果見 §3.3）：忠實復現 Rogers 1999 / CANTAB 的升降序 betting-stage，主指標 = 延遲厭惡（accept_step / DAI），ρ = −0.96（asc）/ −0.92（desc），qdm 相對穩定（效應約 ≤0.10）。注意命名——**CGT-Simultaneous（simple5）嚴格講不是 CGT**（砍掉升降序操縱），是 transparent-odds single-shot betting probe，作為 Confidence Betting 的 confidence-confound control（機率透明排除「更自信」解釋）。
 - **IGT** 已完成（2026-06-25，v6b −8→+8 × 20 runs，結果見 §3.3 IGT Full Results）：deck schedule 對碼經典 Bechara 1994（A/B 劣勢、C/D 優勢；B = 罕見巨罰 trap deck），100 trials 單一連續學習曲線。主結果 = **+2 局部峰**，`delib_tok` 為跨 prompt 版本唯一穩定讀數。
 
 **四個範式的互補結構**（為何是這四個而非任意四個）：它們沿兩個維度張開，覆蓋 wanting 能表達的不同出口——
