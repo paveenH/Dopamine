@@ -1357,6 +1357,28 @@ probe 的显示经验率和其他选项，只改变其样本量，用来检验�
 结合 PV9–PV10，较稳定的结论仍是：模型能够识别并描述不确定性，却主要追随当前显示最优或已经占优的
 选项，这种识别没有稳定转化为获取信息的行动。PV11 没有改变这一判断，BAI 实验线到此结束。
 
+## Protocol Lineage and Conclusions
+
+下表整理整条 Bandit 实验线。不同版本不能视为同一实验的连续 dose sweep：pre-pv6 与 pv6–pv9 的环境、介面和统计口径不同；PV10 起更把目标由 cumulative-reward maximization 改成 Best-Arm Identification（BAI），因此只适合做机制上的前后衔接，不能直接合并效果量。
+
+| Version | 主要修改／问题 | 结论 | 证据地位 |
+|---|---|---|---|
+| **Legacy / pv1–pv4**（2026-07-28 前） | best arm 固定落在第一显示位置，permissive parser 又会把复述选单误判为有效选择 | 原先的 inverted-U、`+2` peak 与跨任务 working-point 比较无法区分 steering、位置偏误和解析偏误 | **全部作废，不可引用或离线补救** |
+| **pv5**（E-direct / E-CoT） | 修正格式并建立 capability ladder；E-direct 稳定，E-CoT 仍有 2–6% 格式失败 | 模型会读取 empirical-best，但容易由第一次 reward=1 建立 self-reinforcing incumbent；缺口是低样本／高不确定 arm 的重采样，而非基本 evidence integration | α=0 能力与失败模式证据；E-CoT 边际效果未确立 |
+| **pv6**（F-reference） | clean-slate reference、冻结 gate／seed／algorithmic baselines；α 同时进入 rationale 与 action | Easy 通过 gate、Hard 未通过；Easy 中 `+4` 损害的是 post-discovery persistence，不是增加 discovery，`−4` 行为近 null 但分布与文字有变化 | 可引用的 capability-boundary 结果；已被后续介面取代，不能与 pv7+ pooled |
+| **pv7** | `Evidence → Policy → constrained choice`，修复截断、Stage-2 指令冲突和 option drift | Stage 2 几乎忠实执行 Policy，但 Easy gate 与 Greedy 打平而未通过；失败集中在 one-shot-zero lock-in，显示降低 executor noise 后暴露 Stage-1 deficit | 无 competence anchor；full-episode α 效果不可作 capability improvement 解读 |
+| **pv7 frozen-state diagnostics** | 分别加入 Stage-1 α、choice history、Beta calculator | α 改写 rationale 并调节 margin／entropy；history 改善格式；calculator 提高 posterior 表述，但三者都没有稳定促成 one-shot-zero 重访 | 机制诊断；只能说 immediate choice 未移动，不能证明干预普遍无效 |
+| **pv8** | 将 choice history 放回完整 100-round online episode，Stage 2 保持不变 | 复现 recognition–action gap：α 调节 policy commitment／decision sharpness，但未改变 targeted information seeking、SuffFail 或 outcome | 被 pv9 取代；保留为 full-episode 机制过渡证据 |
+| **pv9** | 加入 score framing、untried cue、generation control、Bernoulli 说明与 NearTie | Easy 首次通过 pv7-lineage gate；α 改变 policy stance 与次级 sharpness，NearTie 有条件式 alignment 效应，但 directed exploration、information weighting 和 outcome 均未可靠改善 | **reward-maximizing Bandit 的主要边界实验** |
+| **PV10-B** | 改为 self-paced BAI；模型自主 `SAMPLE` 或 `COMMIT` | capability check 通过，但约在 10% budget 即提交；识别率低于 matched-budget Uniform，采样集中且 `min_trials` 中位数为 1；未检出可靠 α 效应 | BAI 主机制结果；与 pv9 outcome 不可直接比较 |
+| **PV10-A v1** | 移除中途 COMMIT，尝试 fixed-budget control | stop parity 与 runtime/parser contract 失配，58/60 episodes invalid，固定预算操纵实际未成立 | **作废：介面失败，不是行为结果** |
+| **PV10-A v2** | 修复 stop parity 与 control-token boundary | 完成者即使被迫采满 100 次，仍维持 `min_trials=1`、集中于自选 pair；显示瓶颈在 acquisition policy，而不只是过早停止 | interface-compromised diagnostic；30–40% episode 累积格式失败，已关闭 |
+| **PV10-C** | 明示比较 strongest alternative／falsification cue | cue 提高竞争假设的语言表述并延迟提交，却没有把 SAMPLE 转向低样本 arm，反而延长既有 incumbent-biased confirmatory sampling；acquisition gate 四项全失败 | 仅 α=0；未运行 ±4，online PV10 线关闭 |
+| **PV11 Commitment** | 合成 evidence states，企图 state-match commitment | label × row 共线，且 20 slots 只形成 4 个 unique prompts，无法把 displayed-rate following 与 commitment 分离 | **construct-invalid，已撤回** |
+| **PV11-Acq** | 在相同 evidence state 中只改变 probe sample size，检验第一步 acquisition | primary contrast 为 `.1875/.1875/.1250`（−4/0/+4），基线仅 3 个正事件；α 效应在低功效下未检出。当低样本优势消失时，三格均不选 low-rate arm | 不支持成功，也不能主张无效或等价；BAI 线按预定规则关闭 |
+
+跨版本最稳定的结论是 **recognition–action dissociation**：模型可以读取、计算并描述不确定性，也会因 α 或提示而改变相关语言与决策锐度，但这些表征变化没有稳定转化为主动购买资讯的行为。pv9 因此保留为论文中的主要 Bandit 边界实验；PV10–PV11 用于补充 acquisition、stopping 与 sampling–commit asymmetry 的机制诊断，不再新增同类 prompt、seed 或跨模型实验。
+
 
 ## References
 
