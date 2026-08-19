@@ -89,6 +89,25 @@ PILOT2_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE}"
 # Still a PILOT: N=20 comes later, and only over the band selected here.
 V5_DOSE_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE} neg6-${LS}-${LE} 6-${LS}-${LE}"
 
+# v5 FULL (N=20). Band frozen at -2/0/+2 by the dose pilot, which passed the
+# per-cell knowing gate at desc -2/0/+2 and asc 0/+2. +-4 / +-6 are EXCLUDED:
+# +4/+6 fail qdm_red (.269/.106 desc) as the Blue-label prior is amplified past
+# the evidence, and -4/-6 fail invalid (~.52-.63) via colour-step digit drift.
+#
+# desc is the PRE-REGISTERED MAIN ANALYSIS (all three cells passed, bidirectional
+# behavioural response, accept_step 3.75/1.63/1.09).
+#
+# asc -2 is a BOUNDARY CELL: its pilot invalid was .0531, just OVER the
+# pre-registered .05 threshold. It is NOT re-labelled as passing. Only if N=20
+# brings it under .05 may the full two-condition replication and the DAI be
+# reported; otherwise report desc cross-model replication alone and demote
+# asc/DAI to boundary evidence -- NOT a complete replication.
+#
+# Watch desc +2: pilot qdm_red = .569, only .019 above the .55 threshold, and
+# qdm_label_gap grows monotonically with +alpha. This cell can genuinely fail at
+# N=20; that is a result, not a reason to widen the gate.
+V5_FULL_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE}"
+
 # ==================== Modes ====================
 if [ "$1" == "--check" ]; then
     cd "${WORK_DIR}"
@@ -126,6 +145,12 @@ elif [ "$1" == "--v5_pilot_desc" ]; then
 elif [ "$1" == "--v5_pilot_asc" ]; then
     CONFIGS="${V5_DOSE_CONFIGS}"; NUM_RUNS=5; PROMPT_VER="v5"
     PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v5_qwen_pilot"
+elif [ "$1" == "--v5_full_desc" ]; then
+    CONFIGS="${V5_FULL_CONFIGS}"; NUM_RUNS=20; PROMPT_VER="v5"
+    PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v5_qwen_full"
+elif [ "$1" == "--v5_full_asc" ]; then
+    CONFIGS="${V5_FULL_CONFIGS}"; NUM_RUNS=20; PROMPT_VER="v5"
+    PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v5_qwen_full"
 elif [ "$1" == "--asc" ]; then
     CONFIGS="${FULL_CONFIGS}"
     PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v4_qwen"
@@ -135,9 +160,10 @@ elif [ "$1" == "--desc" ]; then
 else
     echo "Usage: bash run_cgt_seq_qwen25.sh --check"
     echo "       v4 (FROZEN as boundary evidence): --pilot_asc | --pilot_desc | --pilot2_asc | --pilot2_desc | --asc | --desc"
-    echo "       v5 (current line):                --v5_pilot_asc | --v5_pilot_desc"
-    echo "       Run --check first. There is deliberately NO v5 full branch:"
-    echo "       N=20 is unlocked only after the v5 dose pilot passes per-cell."
+    echo "       v5 pilot (dose range, N=5):       --v5_pilot_asc | --v5_pilot_desc"
+    echo "       v5 full  (-2/0/+2, N=20):         --v5_full_asc  | --v5_full_desc"
+    echo "       Run --check first. v5 full is the band the dose pilot selected;"
+    echo "       widening it means re-running the pilot, not editing this file."
     exit 1
 fi
 
