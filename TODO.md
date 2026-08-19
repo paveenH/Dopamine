@@ -8,92 +8,64 @@ https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
 Inkling-Small
 
 ## TODO — ACL ARR
-### 2. Qwen Replication
+### 1. Consolidate Existing Evidence
 
-- [ ] 重新验证 Qwen 的 tokenizer、anchor、candidate IDs 与 steering fires
-- [ ] 复现一个稳定正结果任务
-- [ ] 复现 Bandit Easy + NearTie 的关键条件
-- [ ] 检验“行为正效应 + Bandit边界”能否跨模型成立
+- [ ] 完善 confidence betting 尚未完成的分析。
+- [ ] 冻结 CGT-seq / IGT / GSM8K / Thinking Curve 的主指标与统计口径。
+- [ ] 区分文本效应、行为效应与结果效应，删除或降级不稳健、不可复现及事后选择的结果。
+- [ ] 从现有结果中确定 3–5 项跨任务主要假设，建立统一主张：confidence、commitment、effort/engagement。
+- [x] 完成 PV9–PV11 总结并关闭 Bandit/BAI 实验线。若论文保留 Bandit，以 PV9 作为主要边界实验；PV10–PV11 仅作机制补充或 Appendix，不再新增 prompt、seed 或跨模型复现。
 
-### 3. Causal Specificity Controls
+### 2. Cross-Model Positive-Result Replication
 
-- [ ] 整理 Thinking Curve 已有 random/orthogonal control
-- [ ] 确认控制方向与 RSN direction 在范数、层及 α 上匹配
-- [ ] 在一个代表性行为任务上补直接 random/orthogonal control
-- [ ] 区分 RSN特异效应与一般hidden-state扰动
+**目标：** 验证至少一个稳定的 RSN 行为效应不局限于 Llama3-8B，而不是复制全部 benchmark。
 
-### 4. Base–Instruct Analysis
+- [ ] 在第 1 步完成后选择一个最稳定的正结果任务。
+- [ ] 重新验证 Qwen 的 tokenizer、anchor、candidate IDs、mask 与 steering fires。
+- [ ] 使用模型自身定位的 direction 与校准后的 α / `ΔG_prefill`，不直接搬用 Llama 的 mask 或 raw dose。
+- [ ] 复现该任务的主指标、方向性与必要的 validity checks。
+- [ ] 若无法复现，将跨模型主张明确限定为当前模型范围；不以 Bandit 负结果作为跨模型 gate。
 
-- [ ] 选择同架构的 Llama Base / Instruct
-- [ ] 比较 baseline RSN projection
-- [ ] 比较两者对 `−α/0/+α` 的行为敏感度
-- [ ] 检验 `Checkpoint × α` interaction
-- [ ] 不将 Base解释为“低多巴胺”，只讨论post-training是否建立或增强该控制轴
+### 3. Direct Causal-Specificity Control
 
-### 5. Consolidate Behavioral Evidence
+**目标：** 区分 RSN direction 的效应与一般 hidden-state perturbation。
 
-- [ ] 完善 confidence betting 的未完成部分
-- [ ] 冻结 CGT-seq / IGT / GSM8K / Thinking Curve 的主指标
-- [ ] 区分文本效应、行为效应和结果效应
-- [ ] 删除或降级不稳健、不可复现及事后选择的结果
-- [ ] 建立统一的跨任务主张：confidence、commitment、effort/engagement
+- [ ] 整理 Thinking Curve 已有 random / orthogonal controls 及其可支持的结论。
+- [ ] 选择与第 2 步相同或同等稳定的代表性行为任务。
+- [ ] 构造在范数、层、support 与 α 上匹配的 random / orthogonal direction control。
+- [ ] 比较行为主指标并冻结 direction-specificity 的判定口径。
 
-### 6. Paper Positioning
+### 4. Paper Positioning and Preparation（与实验并行）
 
-- [ ] 主贡献定位为 `role-conditioned behavioral gain control`
-- [ ] Dopamine定位为 `selective dopamine-like functional analogy`
-- [ ] 将Bandit写成directed exploration的边界证据
-- [ ] 明确不声称RSN实现完整的dopamine/RPE系统
-- [ ] 整理社会角色—多巴胺、wanting及decision policy相关文献
+- [ ] 将主贡献定位为 `role-conditioned behavioral gain control`。
+- [ ] 将 dopamine 定位为 `selective dopamine-like functional analogy`，明确不声称 RSN 实现完整 dopamine / RPE 系统。
+- [x] 将 Bandit 定位为 directed exploration 的边界证据，不用于估计第三个 working point。
+- [ ] 整理社会角色—dopamine、wanting 与 decision policy 文献。
+- [ ] 制作统一主结果图与机制示意图。
+- [ ] 汇总模型、seed、prompt、steering 与统计规格。
+- [ ] 完成 Limitations、Responsible NLP 与可复现性清单。
+- [ ] 撰写 ACL ARR 长文初稿。
 
-### 7. Paper Preparation
+### 5. Optional Extensions（不阻塞首轮投稿）
 
-- [ ] 确定3–5项跨任务主要假设
-- [ ] 制作统一主结果图和机制示意图
-- [ ] 汇总模型、seed、prompt、steering和统计规格
-- [ ] 完成 Limitations、Responsible NLP及可复现性清单
-- [ ] 撰写ACL ARR长文初稿
+- [ ] Base–Instruct：选择同架构 checkpoints，分别 self-localize RSN，比较 projection、direction overlap、behavioral working point 与 `Checkpoint × α` interaction。
+- [ ] 只讨论 post-training 是否建立或增强该控制轴，不将 Base 解释为“低多巴胺”。
+- [ ] HumanLLM / 人类行为相似性分析。
+- [ ] 其他模型（Mistral、Muse-Glimmer、Inkling-Small）仅在 Qwen 结果明确后考虑。
+- [ ] 人脑、fMRI/EEG、commit prediction 与动态 controller 留待主论文证据闭合后。
 
-优先顺序：**PV9冻结 → Qwen → 直接控制 → Base–Instruct → 全文整合**。Human-trained Llama和人类行为相似性分析暂列 optional，不阻塞首轮ARR投稿。
-
-### 可以考虑额外提供的资讯：
-
-| Support | Information provided | Interpretation |
-|---|---|---|
-| **Summarized History (SH)** | 每个 arm 的选择次数、累计奖励及 empirical mean | 仅压缩交互历史；模型仍需自行判断何时探索或利用 |
-| **Posterior Uncertainty** | 每个 arm 的 posterior variance／SD | 明示不确定性，但仍由模型决定是否赋予其信息价值 |
-| **Exploration Bonus** | 根据样本量或 uncertainty 计算的探索奖励 | 已将不确定性转换为行动价值，属于部分 algorithmic support |
-| **UCB Score** | Exploitation value + exploration bonus | 外部算法已完成核心权衡；模型主要负责比较分数并选择 |
-| **Thompson-Sampling Probability** | 各 arm 成为最优臂的后验概率，或由后验采样得到的选择概率 | 若模型只按概率选择，则探索主要由外部 Bayesian algorithm 产生 |
-| **In-context Demonstration** | 提供由 UCB 生成的完整交互轨迹与下一步 action | 让模型模仿“history → UCB action”的映射，而非自行发现探索规则 |
-| **Oracle Behavior Fine-Tuning (OFT)** | 使用 UCB／LinUCB 专家轨迹进行 post-training | 将算法策略蒸馏进模型；可改善表现，但不等同于原始模型的自主探索能力 |
-
----
-行文可以参考
-nc2026.Hippocampo-neocortical interaction as compressive retrieval-augmented generation
-
----
-### 5. Cross-Model and Post-Training Replication
-
-**目标：** 判断该 latent gain mechanism 是否可泛化，以及 post-training 是创造还是 sharpen 它。
- 
-- 在同一模型家族的 Base → SFT → DPO/Instruction-tuned checkpoints 上分别 self-localize RSN。
-- 比较 neuron/layer overlap、direction similarity、`G_prefill` gain、behavioral working point 和 steering sensitivity。
-- 先用 Betting + GSM8K 两个代表任务；主结论稳定后再扩展 Qwen/Mistral，不立即复制全部 benchmark。
-- 所有模型使用各自定位的方向与各自校准的 α/`ΔG_prefill`，避免直接搬用 Llama 的 mask 和 raw dose。
-
-**完成标准：** 至少一个独立模型或同家族训练阶段复现 direction-specific、task-dependent working point；若只在 Llama3-IT 成立，则将结论限定为 model-specific mechanism。
-
-人脑、fMRI/EEG、commit prediction 与动态 controller 暂时放到以上验证之后。当前执行顺序：
+执行顺序：
 
 ```text
-analysis freeze
-→ RSN specificity
-→ slow-state behavioral validation
-→ α × anxiety scale
-→ direction-specific causal controls
-→ cross-model/post-training replication
+现有行为证据与主张冻结
+→ 选择一个稳定正结果任务
+→ Qwen 跨模型复现
+→ 同一代表任务的直接方向控制
+→ 主结果图、全文与复现材料
+→ Optional extensions
 ```
+
+行文参考：*Hippocampo-neocortical interaction as compressive retrieval-augmented generation*（Nature Communications, 2026）。
 
 # Follow-up
 
