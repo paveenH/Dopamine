@@ -289,16 +289,25 @@ def main():
     vc.model.eval()
     tok = vc.tokenizer
 
-    diff_mtx = None
-    if args.alpha != 0:
-        mask_path = os.path.join(
-            args.base_dir, "mask", f"{args.hs}_{args.type}_logits",
-            f"{args.mask_type}_{args.percentage}_{args.layer_start}_{args.layer_end}_{args.size}.npy")
-        raw = np.load(mask_path)
-        diff_mtx = list(raw * args.alpha)
-        print(f"[mask] {mask_path} shape={raw.shape} alpha={args.alpha}")
-    else:
-        print("[mask] alpha=0 -> no steering matrices (pure observation)")
+    # Mask is loaded UNCONDITIONALLY and multiplied by alpha, exactly as the
+    # frozen driver does (get_answer_cgt_seq.py:418-419). At alpha=0 this yields
+    # a REAL all-zero matrix, NOT None: `regenerate` rejects None (llms.py:880)
+    # because CGT-seq has no no-diff branch, so hooks still register and the
+    # zero add still executes. This is deliberately NOT the pv6/PV10 "no hook at
+    # all" convention -- passing None here would both crash and, worse, put the
+    # diagnostic on a different execution path than the driver it is diagnosing.
+    mask_path = os.path.join(
+        args.base_dir, "mask", f"{args.hs}_{args.type}_logits",
+        f"{args.mask_type}_{args.percentage}_{args.layer_start}_{args.layer_end}_{args.size}.npy")
+    raw = np.load(mask_path)
+    diff_mtx = list(raw * args.alpha)
+    nz = int(np.count_nonzero(raw))
+    print(f"[mask] {mask_path} shape={raw.shape} nonzero_rows="
+          f"{int((raw != 0).any(axis=1).sum())} alpha={args.alpha}")
+    if args.alpha == 0:
+        assert all(not m.any() for m in diff_mtx), "alpha=0 must give an all-zero diff"
+        print(f"[mask] alpha=0 -> all-zero diff (hooks register, zero add runs, "
+              f"steering_fires will read 0). mask nonzero entries={nz}")
 
     cand_map = {c: _cand_ids(tok, f) for c, f in CAND_FORMS.items()}
     print("[cand]", {c: [(f, i) for f, i in v] for c, v in cand_map.items()})
