@@ -24,6 +24,18 @@ What this script CAN separate is H3 from {H1,H2}:
   * if the margin is flat/blue-pinned across asymmetry
     -> the candidate preference is internal, and no format fix will help.
 
+SCOPE: THIS IS NOT A REPLAY OF THE STORED PILOT STATES.
+The trajectory is generated afresh at temperature=1.0, so only the box
+sequence is shared with a stored run of the same seed (make_box_sequence is
+seed-determined); the colour choices and accept steps are RESAMPLED, and the
+chat history therefore diverges from the pilot after the first round it
+differs. What is paired here is (logits, generation) AT THE SAME STATE WITHIN
+THIS RUN -- not this run against the stored pilot. Do not compare row-by-row
+against a pilot record, and do not describe this as "re-scoring the stored v4
+states". Re-scoring stored states would require replaying each round's exact
+chat history, which this script deliberately does not do (that would need the
+full stored turn text, which the pilot records do not retain).
+
 CONTRACT (deliberately narrow; this is a diagnostic, not an experiment)
 ----------------------------------------------------------------------
 * Does NOT modify get_answer_cgt_seq.py, and does NOT write into any existing
@@ -38,12 +50,13 @@ CONTRACT (deliberately narrow; this is a diagnostic, not an experiment)
   moves the injection site -- the pv7 failure).
 * Scores the FULL continuation log-prob (sum over all candidate tokens), not
   just the first token, since "Blue"/"Red" need not be single tokens.
-* Records BOTH the free-generation answer and logP(Blue)-logP(Red) for the
-  SAME state, so the generation-vs-representation comparison is paired.
+* Records BOTH the free-generation answer and logP(Blue)-logP(Red) at the
+  SAME state within this run, so the generation-vs-representation comparison
+  is paired (see SCOPE above -- paired within-run, NOT against the pilot).
 
 The trajectory is driven by FREE GENERATION exactly as the driver does it, so
-the visited states are the real ones. Logit scoring is a pure read-out at each
-colour step and never feeds back into the trajectory.
+the visited states are states the protocol really produces. Logit scoring is a
+pure read-out at each colour step and never feeds back into the trajectory.
 """
 import argparse, json, os
 import numpy as np
@@ -56,11 +69,19 @@ from get_answer_cgt import build_chat_messages2
 
 
 # ── candidate surface forms ────────────────────────────────────────────────
-# v2/v3/v4 tell the model to reply with exactly one word "Blue" / "Red"; the
-# "Color: " anchor means the continuation starts mid-line. Both capitalisations
-# are scored and the better one is reported per colour, so a tokenizer-specific
-# casing preference cannot masquerade as a colour preference.
+# v2/v3/v4 tell the model to reply with exactly one word "Blue" / "Red", and the
+# "Color: " anchor means the continuation starts mid-line.
+#
+# PRIMARY metric is the PROMPT-SPECIFIED pair: logP("Blue") - logP("Red").
+# All four surface forms are stored, and a case-INSENSITIVE sensitivity check
+# is reported as logsumexp(Blue, blue) - logsumexp(Red, red).
+#
+# A per-colour max() over {Blue, blue} / {Red, red} is deliberately NOT used:
+# the max is taken independently per colour, so when logP(blue) > logP(Blue)
+# while logP(Red) > logP(red) the "margin" compares TWO DIFFERENT casings and
+# can flip sign. It is neither a total colour probability nor a casing control.
 CAND_FORMS = {"blue": ["Blue", "blue"], "red": ["Red", "red"]}
+PRIMARY_FORM = {"blue": "Blue", "red": "Red"}   # exactly what the prompt asks for
 
 
 def _cand_ids(tok, forms):
@@ -97,10 +118,20 @@ def audit_id_level_concat(tok, prompt, cand_ids):
     return len(p_ids), p_ids
 
 
+def _logsumexp2(a, b):
+    m = max(a, b)
+    return m + float(np.log(np.exp(a - m) + np.exp(b - m)))
+
+
 def score_candidates(vc, prompt, cand_map, diff_mtx):
     """
-    Full-continuation log-prob for every candidate surface form.
-    Returns {colour: {"logp": float, "form": str, "n_tok": int}}.
+    Full-continuation log-prob for EVERY candidate surface form.
+
+    Returns {"per_form": {form: {"logp","n_tok","colour"}},
+             "primary":  {colour: logp}}   # the prompt-specified casing only
+
+    No max() and no aggregation is applied here; the caller decides which
+    contrast to report. See CAND_FORMS for why a per-colour max is wrong.
     """
     forms, id_lists, owners = [], [], []
     for colour, flist in cand_map.items():
@@ -111,17 +142,19 @@ def score_candidates(vc, prompt, cand_map, diff_mtx):
     per_pos = vc.regenerate_logits_teacher_forcing(
         prompts=prompts, answer_token_ids=id_lists, diff_matrices=diff_mtx)
 
-    best = {}
+    per_form = {}
     for colour, form, ids, logits in zip(owners, forms, id_lists, per_pos):
-        # logits[k] predicts token ids[k]
+        # logits[k] predicts token ids[k]; sum over the whole continuation so
+        # a multi-token surface form in a future prompt version stays correct.
         lp = 0.0
         for k, tid in enumerate(ids):
             row = logits[k].astype(np.float64)
             row = row - row.max()
             lp += float(row[tid] - np.log(np.exp(row).sum()))
-        if colour not in best or lp > best[colour]["logp"]:
-            best[colour] = {"logp": lp, "form": form, "n_tok": len(ids)}
-    return best
+        per_form[form] = {"logp": lp, "n_tok": len(ids), "colour": colour}
+
+    primary = {c: per_form[PRIMARY_FORM[c]]["logp"] for c in cand_map}
+    return {"per_form": per_form, "primary": primary}
 
 
 def run_diag(vc, diff_mtx, seed, presentation, prompt_ver, anchor,
@@ -195,7 +228,12 @@ def run_diag(vc, diff_mtx, seed, presentation, prompt_ver, anchor,
 
         # --- logit read-out (does NOT affect the trajectory) ---
         scored = score_candidates(vc, prompt_c, cand_map, diff_mtx)
-        margin = scored["blue"]["logp"] - scored["red"]["logp"]
+        pf = scored["per_form"]
+        # PRIMARY: the exact casing the prompt asks for.
+        margin = scored["primary"]["blue"] - scored["primary"]["red"]
+        # SENSITIVITY: case-insensitive, via logsumexp over each colour's forms.
+        margin_ci = (_logsumexp2(pf["Blue"]["logp"], pf["blue"]["logp"])
+                     - _logsumexp2(pf["Red"]["logp"], pf["red"]["logp"]))
 
         # --- free generation, exactly as the driver ---
         raw_c = color_anchor + gen(prompt_c)
@@ -244,11 +282,12 @@ def run_diag(vc, diff_mtx, seed, presentation, prompt_ver, anchor,
             "major_color": major_color, "presentation": presentation,
             "gen_color": choose_color, "gen_valid": color_valid,
             "raw_color": raw_c,
-            "logp_blue": scored["blue"]["logp"],
-            "logp_red": scored["red"]["logp"],
-            "margin_blue_minus_red": margin,
-            "form_blue": scored["blue"]["form"], "form_red": scored["red"]["form"],
-            "ntok_blue": scored["blue"]["n_tok"], "ntok_red": scored["red"]["n_tok"],
+            # PRIMARY contrast (prompt-specified casing), plus every raw form.
+            "logp_Blue": pf["Blue"]["logp"], "logp_blue": pf["blue"]["logp"],
+            "logp_Red": pf["Red"]["logp"], "logp_red": pf["red"]["logp"],
+            "margin_blue_minus_red": margin,          # logP(Blue) - logP(Red)
+            "margin_case_insensitive": margin_ci,     # sensitivity analysis
+            "ntok_Blue": pf["Blue"]["n_tok"], "ntok_Red": pf["Red"]["n_tok"],
             "accept_step": accept_step, "chose_major": choose_color == major_color,
             "valid": color_valid and seq_valid,
         })
