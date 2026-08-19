@@ -17,6 +17,8 @@
 #   bash run_cgt_seq_qwen25.sh --check         # tokenizer/anchor/mask/fires, no data
 #   bash run_cgt_seq_qwen25.sh --pilot_asc     # a=0/+-4, 5 runs, ascending
 #   bash run_cgt_seq_qwen25.sh --pilot_desc    # a=0/+-4, 5 runs, descending
+#   bash run_cgt_seq_qwen25.sh --pilot2_asc    # a=0/+-2, 5 runs (narrow-band retry)
+#   bash run_cgt_seq_qwen25.sh --pilot2_desc
 #   # -> analyze both; only if the pilot is valid:
 #   bash run_cgt_seq_qwen25.sh --asc           # full -8..+8, 20 runs
 #   bash run_cgt_seq_qwen25.sh --desc
@@ -66,6 +68,11 @@ ANCHOR="default"         # colour step "Color: ", bet step NO anchor (validated)
 
 FULL_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE} neg6-${LS}-${LE} 6-${LS}-${LE} neg8-${LS}-${LE} 8-${LS}-${LE}"
 PILOT_CONFIGS="0-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE}"
+# +-2 pilot: the +-4 pilot FAILED its validity gate (-4 = colour-step format
+# drift, +4 = a stimulus-independent constant). This asks whether Qwen simply
+# has a NARROWER usable band at these layers. Separate ANS_FILE so it cannot
+# overwrite the stored +-4 pilot.
+PILOT2_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE}"
 
 # ==================== Modes ====================
 if [ "$1" == "--check" ]; then
@@ -92,6 +99,12 @@ elif [ "$1" == "--pilot_asc" ]; then
 elif [ "$1" == "--pilot_desc" ]; then
     CONFIGS="${PILOT_CONFIGS}"; NUM_RUNS=5
     PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v4_qwen_pilot"
+elif [ "$1" == "--pilot2_asc" ]; then
+    CONFIGS="${PILOT2_CONFIGS}"; NUM_RUNS=5
+    PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v4_qwen_pilot2"
+elif [ "$1" == "--pilot2_desc" ]; then
+    CONFIGS="${PILOT2_CONFIGS}"; NUM_RUNS=5
+    PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v4_qwen_pilot2"
 elif [ "$1" == "--asc" ]; then
     CONFIGS="${FULL_CONFIGS}"
     PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v4_qwen"
@@ -99,7 +112,7 @@ elif [ "$1" == "--desc" ]; then
     CONFIGS="${FULL_CONFIGS}"
     PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v4_qwen"
 else
-    echo "Usage: bash run_cgt_seq_qwen25.sh --check | --pilot_asc | --pilot_desc | --asc | --desc"
+    echo "Usage: bash run_cgt_seq_qwen25.sh --check | --pilot_asc | --pilot_desc | --pilot2_asc | --pilot2_desc | --asc | --desc"
     echo "       Run --check first, then BOTH pilots, then the full sweeps."
     exit 1
 fi
