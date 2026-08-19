@@ -77,6 +77,13 @@ PROMPT_VER="v6b"         # Llama's natural/unforced main line (invitation cue)
 ANCHOR="default"         # NO anchor -- an anchor kills the reasoning span
 
 BASELINE_CONFIGS="0-${LS}-${LE}"
+# FULL sweep: the same nine alphas as the Llama v6b main line, so the two models'
+# dose curves are directly comparable. Runs ONLY via --auto, which gates it on the
+# alpha=0 baseline -- there is deliberately no bare --full branch, because a full
+# sweep launched before the baseline is judged can spend a whole night producing
+# eight steered cells standing on an invalid baseline (exactly what CGT-seq's
+# alpha=0 failure would have cost).
+FULL_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE} neg6-${LS}-${LE} 6-${LS}-${LE} neg8-${LS}-${LE} 8-${LS}-${LE}"
 
 # ==================== Modes ====================
 if [ "$1" == "--check" ]; then
@@ -100,8 +107,21 @@ if [ "$1" == "--check" ]; then
 elif [ "$1" == "--baseline" ]; then
     CONFIGS="${BASELINE_CONFIGS}"; NUM_RUNS=5
     ANS_FILE="igt/qwen_v6b_baseline"
+elif [ "$1" == "--full" ]; then
+    # Full sweep, same nine alphas as the Llama v6b main line so the two models'
+    # dose curves are directly comparable.
+    #
+    # NOTE (user decision, 2026-08-19): run WITHOUT waiting on the alpha=0
+    # baseline gate. The gate still applies to the RESULT -- evaluate it on this
+    # sweep's own mdf_0 cell before reading any steered cell:
+    #   python3.10 analyze_igt.py --dir qwen2.5/igt/qwen_v6b_full \
+    #       --tokenizer Qwen/Qwen2.5-7B-Instruct --baseline_gate
+    # If alpha=0 fails there, the eight steered cells stand on an invalid
+    # baseline and are not interpretable, whatever their behaviour looks like.
+    CONFIGS="${FULL_CONFIGS}"; NUM_RUNS=20
+    ANS_FILE="igt/qwen_v6b_full"
 else
-    echo "Usage: bash run_igt_qwen25.sh --check | --baseline"
+    echo "Usage: bash run_igt_qwen25.sh --check | --baseline | --full"
     echo "       Run --check first, then the alpha=0 baseline."
     echo "       The -2/0/+2 pilot is unlocked only after the baseline gate passes"
     echo "       (see the gate in this script's header); N=20 only after that."
