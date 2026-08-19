@@ -565,8 +565,23 @@ def main():
                     # self-attestation cannot drift from the prompt actually run.
                     # (Before 2026-08-19 this tested `== "v2"`, so v3/v4 runs
                     # recorded the V1 template — stored v3/v4 metadata is wrong.)
-                    "prompt_template": build_seq_system_prompt(
-                        args.presentation, args.prompt_ver),
+                    # v5's system prompt CHANGES EVERY ROUND (the option order
+                    # is balanced per round), so a single string cannot attest
+                    # it. Store BOTH orders plus the order version; the
+                    # per-round order itself is recoverable from each record's
+                    # `first_option`, and regenerable via make_order_sequence.
+                    **({
+                        "prompt_template_first_blue": build_seq_system_prompt(
+                            args.presentation, args.prompt_ver,
+                            first_option="blue"),
+                        "prompt_template_first_red": build_seq_system_prompt(
+                            args.presentation, args.prompt_ver,
+                            first_option="red"),
+                        "order_version": ORDER_VERSION,
+                    } if args.prompt_ver == "v5" else {
+                        "prompt_template": build_seq_system_prompt(
+                            args.presentation, args.prompt_ver),
+                    }),
                 },
                 "runs": run_results,
             }, fw, ensure_ascii=False, indent=2)
