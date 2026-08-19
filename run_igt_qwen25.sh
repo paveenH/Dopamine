@@ -107,6 +107,34 @@ if [ "$1" == "--check" ]; then
 elif [ "$1" == "--baseline" ]; then
     CONFIGS="${BASELINE_CONFIGS}"; NUM_RUNS=5
     ANS_FILE="igt/qwen_v6b_baseline"
+elif [ "$1" == "--neg" ] || [ "$1" == "--pos" ]; then
+    # TWO-CARD SPLIT of the full sweep, cut BY SIGN with alpha=0 on BOTH cards.
+    #
+    # Why by sign and not by run: cross-alpha comparison is PAIRED BY SEED
+    # (seed=run_idx, so every alpha faces the same deck order), and bf16 greedy
+    # is not bit-reproducible across GPUs -- one Llama re-run gave 205/300 text
+    # mismatches. Splitting runs across cards would put the two halves of one
+    # cell on different machines. Splitting by sign keeps every "alpha vs 0"
+    # contrast -- the primary reading -- on ONE card.
+    #
+    # alpha=0 is deliberately run TWICE, once per card, so each arm has its own
+    # same-card baseline. The extra ~1.5h is free while the second card is idle.
+    #
+    # LIMIT: the negative-vs-positive-arm comparison is now CROSS-CARD and is a
+    # PREVIEW, not paired evidence. Do not report it as a paired contrast. Each
+    # arm against its own alpha=0 is fully paired and is the main reading.
+    #
+    # Separate ANS_FILE per arm: the detail JSON is named igt_{size}_{ls}_{le}.json
+    # with no alpha in it, and summary_*.csv is per-ans_file, so two concurrent
+    # processes sharing a dir would overwrite each other's mdf_0 and race the CSV.
+    if [ "$1" == "--neg" ]; then
+        CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} neg4-${LS}-${LE} neg6-${LS}-${LE} neg8-${LS}-${LE}"
+        ANS_FILE="igt/qwen_v6b_neg"
+    else
+        CONFIGS="0-${LS}-${LE} 2-${LS}-${LE} 4-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
+        ANS_FILE="igt/qwen_v6b_pos"
+    fi
+    NUM_RUNS=20
 elif [ "$1" == "--full" ]; then
     # Full sweep, same nine alphas as the Llama v6b main line so the two models'
     # dose curves are directly comparable.
@@ -122,6 +150,10 @@ elif [ "$1" == "--full" ]; then
     ANS_FILE="igt/qwen_v6b_full"
 else
     echo "Usage: bash run_igt_qwen25.sh --check | --baseline | --full"
+    echo "       Two-card split of the full sweep (alpha=0 on BOTH cards):"
+    echo "         CUDA_VISIBLE_DEVICES=0 bash run_igt_qwen25.sh --neg"
+    echo "         CUDA_VISIBLE_DEVICES=1 bash run_igt_qwen25.sh --pos"
+    echo "       Each arm vs its OWN alpha=0 is paired; neg-vs-pos is cross-card."
     echo "       Run --check first, then the alpha=0 baseline."
     echo "       The -2/0/+2 pilot is unlocked only after the baseline gate passes"
     echo "       (see the gate in this script's header); N=20 only after that."
