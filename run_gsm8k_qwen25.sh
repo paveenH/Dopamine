@@ -86,6 +86,13 @@ LE=22
 
 ANS_NOCOT="answer_mdf_gsm8k"
 ANS_COT="answer_mdf_gsm8k_cot"
+# --cot-full writes here instead. Separate dir because the -4/0/+4 cells in
+# ANS_COT have unrecoverable GPU provenance (the summary CSV records model /
+# size / alpha / layers / task / role / acc / suite / cot -- no device field),
+# and bf16 greedy is not byte-reproducible across GPUs. Rather than guess, run
+# all nine on ONE card into a clean dir; the old three cells are KEPT as a
+# consistency cross-check, not deleted.
+ANS_COT9="answer_mdf_gsm8k_cot9"
 
 # alpha=0 is run by --baseline; --nocot covers the remaining 8.
 CONFIG_BASELINE="0-${LS}-${LE}"
@@ -104,6 +111,11 @@ CONFIGS_COT6="neg6-${LS}-${LE} 6-${LS}-${LE}"
 # "CoT was never tested in the range where the effect lives".
 CONFIGS_COT_REST="neg8-${LS}-${LE} neg6-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
 CONFIGS_COT_REST4="neg8-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} 8-${LS}-${LE}"
+# --cot-full: the authoritative CoT curve. Same nine alphas as No-CoT, one card,
+# one clean dir, sequential. alpha=0 is INCLUDED (unlike --nocot, which excludes
+# it because --baseline already wrote it) -- ANS_COT9 starts empty, so its
+# alpha=0 must be generated here or the curve has no baseline.
+CONFIGS_COT_FULL="neg8-${LS}-${LE} neg6-${LS}-${LE} neg4-${LS}-${LE} neg2-${LS}-${LE} 0-${LS}-${LE} 2-${LS}-${LE} 4-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
 
 # ==================== Paths ====================
 DATA="data1"
@@ -229,6 +241,21 @@ case "${MODE}" in
     rc=$?
     ;;
 
+  --cot-full)
+    OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_COT9}"
+    banner "--cot-full (AUTHORITATIVE CoT curve: all nine alphas, one card)" \
+           "${OUT}/mdf_<alpha>" "${CONFIGS_COT_FULL}"
+    echo "Runs the nine alphas SEQUENTIALLY on whatever card you pin. Do NOT"
+    echo "split this across GPUs: cross-alpha contrasts are paired by question"
+    echo "index, and bf16 greedy is not byte-reproducible across devices."
+    echo ""
+    echo "Writes to ${ANS_COT9} (clean dir). The existing ${ANS_COT} cells"
+    echo "(-4/0/+4) are NOT touched and stay available as a consistency check."
+    echo ""
+    run_sweep "${CONFIGS_COT_FULL}" "${ANS_COT9}" "--cot"
+    rc=$?
+    ;;
+
   --cot-rest|--cot-rest4)
     OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_COT}"
     if [ "$1" == "--cot-rest4" ]; then
@@ -249,7 +276,7 @@ case "${MODE}" in
     ;;
 
   *)
-    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot|--cot6|--cot-rest|--cot-rest4}"
+    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot|--cot6|--cot-rest|--cot-rest4|--cot-full}"
     echo ""
     echo "  --check     technical pre-flight only (model/mask/layers/paths/fires)"
     echo "  --baseline  alpha=0  -> No-CoT mdf_0   (the final cell, then READ it)"
@@ -258,6 +285,8 @@ case "${MODE}" in
     echo "  --cot6      CoT -6/+6 only -> extends that same curve (same card)"
     echo "  --cot-rest  CoT -8/-6/-2/+2/+6/+8 -> completes the nine-alpha curve"
     echo "  --cot-rest4 CoT -8/-2/+2/+8 -> same, when --cot6 already ran"
+    echo "  --cot-full  AUTHORITATIVE CoT: all nine alphas, one card, clean dir"
+    echo "              -> ${ANS_COT9} (old ${ANS_COT} kept as cross-check)"
     echo ""
     echo "Pin CUDA_VISIBLE_DEVICES and keep it identical across all three runs:"
     echo "  CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_qwen25.sh --baseline"
