@@ -688,11 +688,23 @@ Holm family = 8 个非零 α。只有 **+6 (p_adj=.016)** 与 **+8 (p_adj=7.7e�
 
 +8 修好 78 题、弄坏 24 题。这 78 题在 α=0 时的状态:
 
-- **64.1%(50/78)**:gold 字符串**已在 α=0 文本中** —— 算出来了但没提交对,纯 utilization。
+- **64.1%(50/78)**:α=0 文本中已出现 **gold-compatible information**。
+  - 其中仅 **24.4%(19/78)** 的**末端 marker 已经正确**(完成了明确的答案修正)。
+  - 另 **39.7%(31/78)** gold 出现在文本里但**末端 marker 仍是错的** —— 有修订过程,**没有闭环**。
 - **35.9%(28/78)**:α=0 文本中根本没有 gold —— 先算再答这个顺序本身让计算得以完成。
 
-即 **约 2/3 是利用率改善,约 1/3 是原先未算出**。整体 gold_in 只从 87.0% 动到 89.0%,
-而 first_acc 从 68.0% 到 86.0% —— RSN 主要改善的是**已有推理成果的提交**,不是凭空增加数学能力。
+<!-- Why: gold-in-text is a permissive string match and does NOT establish that the model
+formed a correct solution; only the last-marker-correct subset does. Reporting 64.1% alone
+overstates utilization and was corrected on 2026-08-20.
+Evidence: 31/78 have gold in text but a WRONG final marker.
+Scope: every Qwen utilization claim. -->
+**保守写法(必须照此措辞):** 在 +8 修好的题中,约三分之二在 α=0 文本里已出现
+gold-compatible information,但只有约四分之一完成了明确的末端答案修正。
+**Qwen 展现出修订过程,却经常没有完成"推理—更新—重新提交"的闭环。**
+`gold_in_text` 只能说明正确数字出现在文本中,**不等于模型已形成正确解答**。
+
+整体 gold_in 只从 87.0% 动到 89.0%,而 first_acc 从 68.0% 到 86.0% —— 所以
+**α 不是赋予了修正能力,而是把计算移到第一次正式提交之前,使事后修正不再必要。**
 
 <!-- Why: strict marker-only last-answer accuracy (58->78) was reported once and is NOT the
 authoritative figure; the gap is entirely the 57 no-marker samples at alpha=0 falling to 9 at +8,
@@ -737,11 +749,34 @@ CoT 提高正确率但不动顺序;翻转顺序的是 +α 且要到 +6/+8。**�
 
 **不复现 Llama 的原始 α 方向,但复现"commitment dynamics 可被 α 干预"。**
 Llama 的 +α 加剧抢答;Qwen 的 +α **消除**抢答(答案在前 94.3% → 4.0%)。方向相反。
+
+<!-- Why: the two models differ in mask, layer band (L=9 vs L=6) and activation scale, so the
+same nominal alpha is NOT the same effective dose; a sign-based cross-model claim would be
+comparing two different interventions.
+Evidence: Llama 11-20 L=9 vs Qwen 16-22 L=6; separate NMD masks.
+Scope: every cross-model alpha comparison. -->
+**"相同推动"目前只能指相同的名义 α,不能指相同的有效剂量。** 两模型 mask、层带
+(L=9 vs L=6)、激活尺度都不同。冻结措辞:**相同方向的 RSN 干预,在不同模型中产生相反的
+行为变化,提示其效应依赖模型原有的工作点与内部映射,而不是由 α 的符号单独决定。**
+真正可跨模型比较的不是 raw α,而是它把模型推到的 **commitment state**:
+提交位置、候选震荡、任务边界保持、提交后修订。
 但两个模型的 α=0 基线是**同一表型**(都在抢答:Qwen α=0 时 gold 已在文本 87% 而 first_acc 仅 68%,
 填进答案槽位的不是它算出的答案),且两端极值都出现**承诺形成失败**
 (Qwen −8 抢答率 91.7% 反低于 −4 的 96.3%,而候选震荡 max markers 达 134)。
 
 因此**不能**写"Qwen 基线偏左 / under-wanting"—— 负向端它表现的是脚本执行失准而非谨慎。
+Qwen 更像有**两个不同的失控出口**,中间夹着一个较优区间:
+
+| 区段 | 表现 |
+|---|---|
+| 低端(−8…−4) | 无法稳定锁定答案,候选反复震荡(max markers 达 134) |
+| 中段(−2…+4) | 僵硬执行"先填答案、再补推理"的训练脚本 |
+| 较高端(+6/+8) | 先处理、后提交,准确率提高 |
+| 更高端(未测) | 停止控制与任务边界失守的**潜在风险** |
+
+**`+10/+12` 值得跑,预测可证伪:** 准确率应在某处见顶后下降,同时 contamination /
+续写 / 其他边界失控继续上升。**但这是待证伪预测 —— 不得因 +8 已有 60.3% contamination
+就提前宣布右臂成立**(+8 的 contamination 已验证不是涨点来源,clean 子集仍 83.97%)。
 可支持的写法:**两个模型都显示 RSN 改变 commitment dynamics,但基线工作点、方向与表面出口是模型依赖的。**
 MMLU-E / betting 上两模型方向一致(`+α` 提高承诺),提示共同底层可能是 **commitment gain**,
 而表面症状由各自生成习惯决定 —— 窄输出通道(单 token)压住个体差异,自由生成则放大它。
@@ -752,6 +787,19 @@ MMLU-E / betting 上两模型方向一致(`+α` 提高承诺),提示共同底层
 **待补:** CoT 九档;Llama 冻结文本 detector(`analyze_loop_anxiety.py` 的 `ANXIETY_PATTERNS`)
 原样移植到 Qwen 做九档配对表 —— **必须原样跑,不得改正则**(改了就失去可比性),
 并标注"零命中可能是措辞迁移造成的假阴性";MATH 九档 No-CoT。
+
+**冻结 detector 必须配少量盲法人工标注。** 两者分工不同:冻结 detector 负责**可比性**,
+人工标注负责判断"未检出"究竟是真没有该表型,还是 Qwen 用了不同措辞。缺了后者,
+detector 的零命中无法与真实缺失区分,画像也就不能升级为跨模型表型比较。
+
+### 4.7 总框架(冻结)
+
+> **RSN 不直接对应固定的"多巴胺剂量",而是对模型既有的承诺控制系统施加增益。
+> 模型因基线工作点和训练形成的输出策略不同,会从不同的失控状态进入较优区间,
+> 也可能在更高剂量下从另一侧失控。**
+
+这层框架取代"每个模型都表现同一套 dopamine 症状"的写法;它可证伪(见上面的 +10/+12 预测),
+且把可跨模型比较的量定位在 commitment state 而非 raw α。
 
 ## References
 
