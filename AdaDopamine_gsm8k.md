@@ -631,11 +631,8 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 
 ## 4. Qwen2.5-7B-Instruct 跨模型复现 (2026-08-20)
 
-直接复现:同 300 题、同 driver、同模板、neutral / plain / greedy / `max_new_tokens=768` / bs=24。
-Qwen 专属参数:层带 **16–21**(写作 exclusive `16-22`,**L=6**;Llama 的 `11-20` 是 L=9,不可迁移)、
-mask `nmd_0.5_16_22_7B.npy`、`size=7B`(28 层)。注入落点实测 token **220** = `' '`(`Answer: ` 锚点),
-No-CoT / CoT 一致。ACC 由 `RoleAnswer/analyze_first_last_acc_qwen.py` 离线计算,它 **import**
-`analyze_first_last_acc` 的抽取器,故与 Llama 表出自同一份代码。
+本节保留结果与结论。模型配置、运行方式、抽取口径与 detector 审计细节见 `CLAUDE.md`
+的 **Cross-model Qwen2.5 GSM8K** 条目。
 
 ### 4.1 No-CoT 九档主表 (n=300)
 
@@ -656,19 +653,14 @@ No-CoT / CoT 一致。ACC 由 `RoleAnswer/analyze_first_last_acc_qwen.py` 离线
 Holm family = 8 个非零 α。只有 **+6 (p_adj=.016)** 与 **+8 (p_adj=7.7e−08)** 显著;
 **−8 raw p=.021 未过 Holm (.124),只能写方向性,不得写显著**。
 
-**`commit%` 与 marker 存在率是两个数,不可混用。** `commit%`(81.0 @ α=0)= 可解析的
-`#### <数字>`(`all_hash()` 匹配,Llama 可比);裸 `####` 子串存在率是 **100.0**。
-差额来自 Qwen 写 `70\n####\n\n`(有 marker,后面没数字)。两个数都对。
+Qwen α=0 的裸 `####` 存在率为 100%,不是 Mistral 式抽取地板。`commit%` 只计算可解析的
+`#### <数字>`,故与 marker 存在率不同。
 
-**这不是 Mistral 式抽取地板,故不转 CoT-only。** gold-in-text 87.0% vs first_acc 68.0%(19pp)
-且 **0/300 缺 marker**;Mistral 是 51% vs 19% 且 65–70% 从不发 `####`。
-`gold_in_text` 是**宽松诊断**(向上偏,匹配无关数字),唯一用途就是这个判别,永远不是准确率。
-
-### 4.2 `+6/+8` 的生成顺序相变 (threshold-like ordering transition)
+### 4.2 `+6/+8` 的 commitment-ordering 转折
 
 α ≤ +4 时 Qwen 有 90–96% 样本**先答后推**(`3\n####\n\n` 然后才写 "To solve this problem…");
 到 +8 该比例塌到 **4.0%**,96% 转为正常的先推理后 `#### N`。`posN_med` 从 0.003 跳到 0.754。
-**相变发生在 +6,不是渐变** —— α=−8…+4 九档中的七档 `posN_med` 恒为 0.003。
+这是从 +6 开始出现的**阈值式转折**,不是低剂量区间的渐变。
 
 配对 per-question(n=300,α=0 → +8,Wilcoxon):
 
@@ -680,11 +672,10 @@ Holm family = 8 个非零 α。只有 **+6 (p_adj=.016)** 与 **+8 (p_adj=7.7e�
 | commit 前等式数 | 0 | 2 | +2 | 8.2e−35 |
 | commit 后等式数 | 1 | 0 | −0 | 3.7e−19 |
 
-**构念命名:`commitment ordering`(主构念),`effort reallocation`(其后果)。**
-刻意不用 "effort quantity" —— 总长度是**下降**的(−430),模型不是想得更多,
-而是把有效处理挪到提交之前、答完就停。避免与 §2 wanting/effort 文献线缠绕。
+主构念是 **commitment ordering**,后果是 **effort reallocation**:模型并非生成更多,
+而是把处理移到第一次提交之前,提交后更快停止。
 
-### 4.3 Utilization 分解
+### 4.3 修订闭环与 utilization
 
 +8 修好 78 题、弄坏 24 题。这 78 题在 α=0 时的状态:
 
@@ -693,33 +684,15 @@ Holm family = 8 个非零 α。只有 **+6 (p_adj=.016)** 与 **+8 (p_adj=7.7e�
   - 另 **39.7%(31/78)** gold 出现在文本里但**末端 marker 仍是错的** —— 有修订过程,**没有闭环**。
 - **35.9%(28/78)**:α=0 文本中根本没有 gold —— 先算再答这个顺序本身让计算得以完成。
 
-<!-- Why: gold-in-text is a permissive string match and does NOT establish that the model
-formed a correct solution; only the last-marker-correct subset does. Reporting 64.1% alone
-overstates utilization and was corrected on 2026-08-20.
-Evidence: 31/78 have gold in text but a WRONG final marker.
-Scope: every Qwen utilization claim. -->
-**保守写法(必须照此措辞):** 在 +8 修好的题中,约三分之二在 α=0 文本里已出现
-gold-compatible information,但只有约四分之一完成了明确的末端答案修正。
-**Qwen 展现出修订过程,却经常没有完成"推理—更新—重新提交"的闭环。**
-`gold_in_text` 只能说明正确数字出现在文本中,**不等于模型已形成正确解答**。
-
-整体 gold_in 只从 87.0% 动到 89.0%,而 first_acc 从 68.0% 到 86.0% —— 所以
-**α 不是赋予了修正能力,而是把计算移到第一次正式提交之前,使事后修正不再必要。**
-
-<!-- Why: strict marker-only last-answer accuracy (58->78) was reported once and is NOT the
-authoritative figure; the gap is entirely the 57 no-marker samples at alpha=0 falling to 9 at +8,
-i.e. a marker-rate change misread as an accuracy change.
-Evidence: analyze_first_last_acc.first_last_stats uses the fallback chain when marks is empty.
-Scope: every Qwen last-answer claim. -->
-**`last_acc` 必须用权威口径(含 fallback 链),不得用 strict marker-only。** 权威 `last_acc`
-73.33 → 80.33(**+7.00**);strict marker-only 读作 58 → 78(+20.00),差额 15.33pp 全部来自
-α=0 的 57 个无 marker 样本(+8 降到 9 个)。**那个 +20.00 是 marker 率变化,不是准确率变化,不得引用。**
+在 +8 修好的题中,约三分之二在 α=0 文本里已出现 gold-compatible information,
+但只有约四分之一完成了明确的末端答案修正。Qwen 有修订过程,却经常没有完成
+"推理—更新—重新提交"的闭环。`gold_in_text` 只是宽松字符串诊断,不等于已形成正确解答。
+整体结果更符合:**+α 把计算移到首次提交之前,减少了对事后修订闭环的依赖。**
 
 ### 4.4 CoT — 临时结果,完整剂量曲线待补
 
-**目前只有 −4/0/+4 三格,不足以判断"CoT 下 α 无效"。** No-CoT 的显著效应恰好只在 +6/+8 出现,
-而 ±4 在 No-CoT 里同样不显著(p_adj=.973)。所以现有三格只能说**在 ±4 范围内无效**。
-缺 −8/−6/−2/+2/+6/+8 六档;补齐前不得冻结任何 CoT 结论。
+**目前只有 −4/0/+4 三格,只能说明 ±4 范围内未检出剂量效应,不能写成"CoT 下 α 无效"。**
+完整九档待补跑。
 
 | α | first_acc | last_acc | gap | commit% | 改对 | 改坏 | 答案在前% |
 |---|---|---|---|---|---|---|---|
@@ -727,139 +700,42 @@ Scope: every Qwen last-answer claim. -->
 | 0 | 76.33 | 76.67 | −0.33 | 77.7 | 10 | 9 | 95.0 |
 | +4 | 78.33 | 81.00 | −2.67 | 76.7 | 13 | 5 | 87.3 |
 
-CoT 内部配对 McNemar vs CoT α=0:−4 p=.341、+4 p=.519,Holm 后均 .682。
-CoT vs No-CoT 同题配对:−4 **+10.33**(p=2.4e−03)、0 **+8.33**(p=9.7e−03)、+4 **+6.67**(p=4.2e−02)
-—— 与 Llama 的 CoT gain(+12.0 / +9.0 / +4.4)**幅度相当**,不可写成"Qwen 的 CoT 效应更小"。
+CoT 相对 No-CoT 的增益为 **+10.33 / +8.33 / +6.67pp**(−4/0/+4),与 Llama 幅度相当。
+但 CoT +4 仍有 87.3% 先答后推,说明 CoT 提高答案正确率,却没有复制 No-CoT +6/+8 的顺序转折。
 
-**关键对照:CoT 没有翻转生成顺序。** CoT 在 +4 时"答案在前"仍 87.3%,与其 α=0(95.0)差别不大。
-CoT 提高正确率但不动顺序;翻转顺序的是 +α 且要到 +6/+8。**两者是独立机制。**
-
-### 4.5 两项限制(写作时必须同时出现)
-
-1. **Contamination。** +8 有 60.3% 样本尾部带 `You are an AI assistant…` 等文档续写
-   (α=0 为 17.3%)。**已验证它不是涨点来源**:clean 子集 +8 仍 83.97% vs α=0 clean 70.40%。
-   但它提示裸字符串 prompt 可能激活了 Qwen 特有的文档续写先验,且性质与 Llama 的固著不同 ——
-   Llama 是**任务内**打转,Qwen 是**任务外**溢出。
-2. **Order-flip 子集是 post-treatment stratification。** 顺序翻转的 275 题 acc +20.00、
-   未翻转的 25 题 −4.00,增益完全集中在翻转子集。但该子集由 α=0/+8 的**处理后结果**定义,
-   故只能写 **"效应集中在发生顺序翻转的样本,支持 ordering-mediated explanation"**,
-   **不得写"证明顺序翻转是因果机制"**。
-
-### 4.6 跨模型结论(冻结措辞)
-
-**不复现 Llama 的原始 α 方向,但复现"commitment dynamics 可被 α 干预"。**
-Llama 的 +α 加剧抢答;Qwen 的 +α **消除**抢答(答案在前 94.3% → 4.0%)。方向相反。
-
-<!-- Why: the two models differ in mask, layer band (L=9 vs L=6) and activation scale, so the
-same nominal alpha is NOT the same effective dose; a sign-based cross-model claim would be
-comparing two different interventions.
-Evidence: Llama 11-20 L=9 vs Qwen 16-22 L=6; separate NMD masks.
-Scope: every cross-model alpha comparison. -->
-**"相同推动"目前只能指相同的名义 α,不能指相同的有效剂量。** 两模型 mask、层带
-(L=9 vs L=6)、激活尺度都不同。冻结措辞:**相同方向的 RSN 干预,在不同模型中产生相反的
-行为变化,提示其效应依赖模型原有的工作点与内部映射,而不是由 α 的符号单独决定。**
-真正可跨模型比较的不是 raw α,而是它把模型推到的 **commitment state**:
-提交位置、候选震荡、任务边界保持、提交后修订。
-但两个模型的 α=0 基线是**同一表型**(都在抢答:Qwen α=0 时 gold 已在文本 87% 而 first_acc 仅 68%,
-填进答案槽位的不是它算出的答案),且两端极值都出现**承诺形成失败**
-(Qwen −8 抢答率 91.7% 反低于 −4 的 96.3%,而候选震荡 max markers 达 134)。
-
-因此**不能**写"Qwen 基线偏左 / under-wanting"—— 负向端它表现的是脚本执行失准而非谨慎。
-Qwen 更像有**两个不同的失控出口**,中间夹着一个较优区间:
-
-| 区段 | 表现 |
-|---|---|
-| 低端(−8…−4) | 无法稳定锁定答案,候选反复震荡(max markers 达 134) |
-| 中段(−2…+4) | 僵硬执行"先填答案、再补推理"的训练脚本 |
-| 较高端(+6/+8) | 先处理、后提交,准确率提高 |
-| 更高端(未测) | 停止控制与任务边界失守的**潜在风险** |
-
-**`+10/+12` 值得跑,预测可证伪:** 准确率应在某处见顶后下降,同时 contamination /
-续写 / 其他边界失控继续上升。**但这是待证伪预测 —— 不得因 +8 已有 60.3% contamination
-就提前宣布右臂成立**(+8 的 contamination 已验证不是涨点来源,clean 子集仍 83.97%)。
-可支持的写法:**两个模型都显示 RSN 改变 commitment dynamics,但基线工作点、方向与表面出口是模型依赖的。**
-MMLU-E / betting 上两模型方向一致(`+α` 提高承诺),提示共同底层可能是 **commitment gain**,
-而表面症状由各自生成习惯决定 —— 窄输出通道(单 token)压住个体差异,自由生成则放大它。
-
-**`multi_marker` 非同质,必须配 `max_n_markers` 读。** −8/−4 的 max marker 数达 134,
-那是 Llama 式候选震荡(commitment formation failure),不是自我修正。
-
-**待补:** CoT 九档;Llama 冻结文本 detector(`analyze_loop_anxiety.py` 的 `ANXIETY_PATTERNS`)
-原样移植到 Qwen 做九档配对表 —— **必须原样跑,不得改正则**(改了就失去可比性),
-并标注"零命中可能是措辞迁移造成的假阴性";MATH 九档 No-CoT。
-
-**冻结 detector 必须配少量盲法人工标注。** 两者分工不同:冻结 detector 负责**可比性**,
-人工标注负责判断"未检出"究竟是真没有该表型,还是 Qwen 用了不同措辞。缺了后者,
-detector 的零命中无法与真实缺失区分,画像也就不能升级为跨模型表型比较。
-
-### 4.6b 冻结 detector 移植结果 (2026-08-20)
-
-`RoleAnswer/analyze_loop_anxiety_qwen.py` —— **移植,非重实现**。所有正则 / loop gate /
-bucket 规则由 `import analyze_loop_anxiety` 取得,**原样运行**,`set_task()` 从未调用
-(GSM8K 模式为模块默认)。已验证冻结模块导入前后 sha256 一致。配对单位 = **题号**
-(九档同 300 题),故跨 α 用 McNemar,不用池化 χ²。
-
-**Loop 模式(denom = `n_loop`):**
+### 4.5 冻结文本 detector
 
 | α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
 | n_loop | 35 | 33 | 31 | 38 | 26 | 26 | 24 | **9** | **4** |
-| anxiety | 20 | 11 | 16 | 16 | 13 | 13 | 14 | 3 | 2 |
-| self_doubt | 18 | 11 | 14 | 12 | 11 | 9 | 12 | 2 | 2 |
+| any_anxiety | 13 | 13 | 10 | 12 | 11 | 5 | 9 | 4 | 3 |
+| hash_at_start | 247 | 248 | 264 | 272 | 263 | 264 | 260 | **110** | **8** |
 
-<!-- Why: an earlier draft called n_loop "monotone collapse 35->4"; -2 rises (31->38), so the
-claim is false across the full nine and true only from alpha=0 rightward.
-Evidence: n_loop -4=31, -2=38; 0..+8 is monotone with a -62% step at +6.
-Scope: every Qwen loop-rate claim. -->
-**措辞(已修正):`n_loop` 并非全九档严格单调** —— −2 处上升(31→38)。正确写法是
-**从 α=0 到 +8 明显递减,并在 +6 附近陡降**(+4 的 24 → +6 的 9,−62%),
-与 §4.2 的 ordering transition 同一位置。
+`any_anxiety` 是冻结 detector 的历史字段名,这里只读作强迫性 over-checking,不解释为真实焦虑。
+从 α=0 到 +8,loop 与该 over-checking 读数整体下降,并在 +6 附近与 commitment-ordering 同步转折;
+这与 Llama 的 +α 加剧固著方向相反。负端 `sw>=2` 没有尖峰(−8=10,α=0=9),
+因此少数极端多-marker 序列不能写成普遍的负端震荡增加。
 
-**anxious_repeat(denom = 300):** any_anxiety 13/13/10/12/11/5/9/4/3 —— 正端同样下降,
-但基线本就低。
+冻结 detector 的 `n_made_mistake=0` 是**已确认的措辞假阴性**:Qwen 常用
+"the provided solution/answer seems incorrect" 外部化自身错误,而不是 Llama 式第一人称
+"I made a mistake"。因此该单列不可跨模型比较;盲法人工样本只用于审计措辞迁移,
+不用于估计表型发生率。
 
-**Oscillation(denom = 300):** `hash_at_start` = 247/248/264/272/263/264/260/**110**/**8**。
-这是 ordering transition 在冻结 detector 内的**独立确认**(detector 用自己的 2% 判据,
-非 §4.2 的 5% 判据)。而 `sw>=2` 在负端**没有**尖峰(−8 为 10,α=0 为 9)——
-**Qwen 的负端不复现 Llama 式候选震荡剧增**。
+### 4.6 结论与限制
 
-<!-- Why: n_made_mistake=0 across all nine cells reads as "Qwen never self-doubts", but a loose
-error-word probe fires 105/300 at alpha=0 -- the frozen regex is first-person and Qwen is
-third-person. Citing the zero as an absence is the exact error this section prevents.
-Evidence: frozen r"i made a (mistake|error)" = 0/300 in all nine cells; loose
-r"mistake|error|incorrect|wrong" = 105/300 at alpha=0, 14/300 at +8.
-Scope: n_made_mistake only; the self_doubt CLASS still fires via other cues. -->
-**⚠️ `n_made_mistake = 0`(九档全零)是已确认的措辞假阴性,不是表型缺失。**
-冻结正则找第一人称 `I made a mistake`;Qwen 用**第三人称、外部化**措辞,把自己刚写的
-答案当作别人提供的解答来审阅:
+1. **Qwen 没有复现 Llama 的原始剂量—准确率曲线。** Llama 的 +α 加剧抢答,
+   Qwen 的 +6/+8 则把答案在前率从 94.3% 降到 4.0%,并把 first_acc 从 68.0% 提至 86.0%。
+2. **跨模型复现的是 commitment dynamics 可被 RSN 干预,不是 raw α 的统一方向。**
+   两模型的 mask、层带与激活尺度不同,相同名义 α 不等于相同有效剂量。更合适的跨模型坐标是
+   提交位置、候选稳定性、任务边界与提交后修订组成的 **commitment state**。
+3. **结果支持 ordering-mediated explanation,但尚未证明中介机制。** 增益集中在顺序发生翻转的题,
+   但该分组是 post-treatment stratification。
+4. **+8 已出现任务外溢出。** contamination 为 60.3%,但 clean 子集仍从 70.40% 升至 83.97%,
+   因而污染不是涨点的充分解释,也不能据此提前宣布 Yerkes–Dodson 右臂成立。
 
-> "After reviewing the calculations, it appears **there was a mistake in the provided solution**."
-> "the provided answer is $1060, which **seems incorrect** based on the calculations."
-
-宽松探针在 α=0 命中 105/300、+8 命中 14/300。**注意 `self_doubt` 类整体仍会命中**
-(经 `however` / `the correct answer is` / `is incorrect`),故这是**单列**失效,非全盘失效。
-`n_made_mistake` 这一列跨模型不可比;其余列可比。
-
-**盲法样本:** `--audit_sample 20` 生成 180 行(9 档 × 20),α 换成不透明 `cell_id`、
-整行打乱,映射写入**单独的** `.KEY.csv`,标注完成后才 join。
-**每档 20 条只能做 detector audit(检查措辞漂移),不能估计表型真实发生率。**
-detector 结果与人工标注**分开报告,永不合并为一列**。
-
-**本节要点:**
-1. Qwen 的正 α **同时**降低 loop/anxiety **并**翻转 commitment ordering —— 与 Llama 方向相反
-   (Llama 的 +α 加剧固著)。
-2. 负端**没有**复现 Llama 式候选震荡尖峰。
-3. `n_made_mistake=0` 是确认的措辞假阴性;Qwen 倾向把自身错误外部化为 "provided solution/answer"。
-4. 盲法样本仅审计 detector,不估计真实发生率。
-
-### 4.7 总框架(冻结)
-
-> **RSN 不直接对应固定的"多巴胺剂量",而是对模型既有的承诺控制系统施加增益。
-> 模型因基线工作点和训练形成的输出策略不同,会从不同的失控状态进入较优区间,
-> 也可能在更高剂量下从另一侧失控。**
-
-这层框架取代"每个模型都表现同一套 dopamine 症状"的写法;它可证伪(见上面的 +10/+12 预测),
-且把可跨模型比较的量定位在 commitment state 而非 raw α。
+总体上,RSN 更像是对模型既有承诺控制系统施加增益。模型的基线工作点与训练形成的输出策略不同,
+因此可能从不同失控状态进入较优区间。`+10/+12` 的独立高剂量序列将检验准确率是否见顶回落;
+CoT 九档与 MATH 九档用于判断这一 commitment-ordering 结果能否跨提示和跨任务成立。
 
 ## References
 
@@ -878,4 +754,3 @@ detector 结果与人工标注**分开报告,永不合并为一列**。
 
 **心理学框架**
 - Yerkes, R. M., & Dodson, J. D. (1908). The relation of strength of stimulus to rapidity of habit-formation. *(倒 U 型 arousal–performance；§1.2 acc 峰在 α=−6、两端崩的 framing 来源)*
-
