@@ -629,6 +629,130 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 > - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature(either)` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
 > - **但 MATH 的 premature(either)绝对量本就低**(No-CoT 仅 13–29,GSM8K No-CoT 是 195–232):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
 
+## 4. Qwen2.5-7B-Instruct 跨模型复现 (2026-08-20)
+
+直接复现:同 300 题、同 driver、同模板、neutral / plain / greedy / `max_new_tokens=768` / bs=24。
+Qwen 专属参数:层带 **16–21**(写作 exclusive `16-22`,**L=6**;Llama 的 `11-20` 是 L=9,不可迁移)、
+mask `nmd_0.5_16_22_7B.npy`、`size=7B`(28 层)。注入落点实测 token **220** = `' '`(`Answer: ` 锚点),
+No-CoT / CoT 一致。ACC 由 `RoleAnswer/analyze_first_last_acc_qwen.py` 离线计算,它 **import**
+`analyze_first_last_acc` 的抽取器,故与 Llama 表出自同一份代码。
+
+### 4.1 No-CoT 九档主表 (n=300)
+
+| α | first_acc | last_acc | gap | commit% | 答案在前% | 先推理% | posN_med | Holm p_adj |
+|---|---|---|---|---|---|---|---|---|
+| −8 | 60.33 | 71.00 | −10.67 | 84.0 | 91.7 | 8.3 | 0.003 | .124 |
+| −6 | 64.00 | 68.67 | −4.67 | 83.7 | 92.0 | 8.0 | 0.003 | .973 |
+| −4 | 68.67 | 75.33 | −6.67 | 79.7 | 96.3 | 3.7 | 0.003 | .973 |
+| −2 | 71.00 | 79.00 | −8.00 | 79.7 | 95.7 | 4.3 | 0.003 | .973 |
+| **0** | **68.00** | 73.33 | −5.33 | 81.0 | 94.3 | 5.7 | 0.003 | — |
+| +2 | 70.33 | 75.00 | −4.67 | 81.0 | 92.7 | 7.3 | 0.003 | .973 |
+| +4 | 71.67 | 78.67 | −7.00 | 78.7 | 90.7 | 9.3 | 0.003 | .973 |
+| +6 | 78.00 | 76.33 | **+1.67** | 92.0 | 40.3 | 59.7 | 0.242 | **.016** |
+| +8 | **86.00** | 80.33 | **+5.67** | 97.0 | 4.0 | 96.0 | 0.754 | **7.7e−08** |
+
+**口径:`first_acc` 为主读数**(与 Llama 生产抽取一致:`utils.extract_gsm8k_answer` 取第一个 `####`);
+`last_acc` 为敏感性 / 自我修正读数,**不替代主读数**。统计 = 按题号配对 McNemar(精确),
+Holm family = 8 个非零 α。只有 **+6 (p_adj=.016)** 与 **+8 (p_adj=7.7e−08)** 显著;
+**−8 raw p=.021 未过 Holm (.124),只能写方向性,不得写显著**。
+
+**`commit%` 与 marker 存在率是两个数,不可混用。** `commit%`(81.0 @ α=0)= 可解析的
+`#### <数字>`(`all_hash()` 匹配,Llama 可比);裸 `####` 子串存在率是 **100.0**。
+差额来自 Qwen 写 `70\n####\n\n`(有 marker,后面没数字)。两个数都对。
+
+**这不是 Mistral 式抽取地板,故不转 CoT-only。** gold-in-text 87.0% vs first_acc 68.0%(19pp)
+且 **0/300 缺 marker**;Mistral 是 51% vs 19% 且 65–70% 从不发 `####`。
+`gold_in_text` 是**宽松诊断**(向上偏,匹配无关数字),唯一用途就是这个判别,永远不是准确率。
+
+### 4.2 `+6/+8` 的生成顺序相变 (threshold-like ordering transition)
+
+α ≤ +4 时 Qwen 有 90–96% 样本**先答后推**(`3\n####\n\n` 然后才写 "To solve this problem…");
+到 +8 该比例塌到 **4.0%**,96% 转为正常的先推理后 `#### N`。`posN_med` 从 0.003 跳到 0.754。
+**相变发生在 +6,不是渐变** —— α=−8…+4 九档中的七档 `posN_med` 恒为 0.003。
+
+配对 per-question(n=300,α=0 → +8,Wilcoxon):
+
+| 指标 | α=0 中位 | +8 中位 | 中位Δ | p |
+|---|---|---|---|---|
+| commit 前字符 | 3 | 324 | **+302** | 7.6e−50 |
+| commit 后字符 | 1116 | 120 | **−862** | 2.0e−33 |
+| 总长度 | 1130 | 700 | **−430** | 1.2e−14 |
+| commit 前等式数 | 0 | 2 | +2 | 8.2e−35 |
+| commit 后等式数 | 1 | 0 | −0 | 3.7e−19 |
+
+**构念命名:`commitment ordering`(主构念),`effort reallocation`(其后果)。**
+刻意不用 "effort quantity" —— 总长度是**下降**的(−430),模型不是想得更多,
+而是把有效处理挪到提交之前、答完就停。避免与 §2 wanting/effort 文献线缠绕。
+
+### 4.3 Utilization 分解
+
++8 修好 78 题、弄坏 24 题。这 78 题在 α=0 时的状态:
+
+- **64.1%(50/78)**:gold 字符串**已在 α=0 文本中** —— 算出来了但没提交对,纯 utilization。
+- **35.9%(28/78)**:α=0 文本中根本没有 gold —— 先算再答这个顺序本身让计算得以完成。
+
+即 **约 2/3 是利用率改善,约 1/3 是原先未算出**。整体 gold_in 只从 87.0% 动到 89.0%,
+而 first_acc 从 68.0% 到 86.0% —— RSN 主要改善的是**已有推理成果的提交**,不是凭空增加数学能力。
+
+<!-- Why: strict marker-only last-answer accuracy (58->78) was reported once and is NOT the
+authoritative figure; the gap is entirely the 57 no-marker samples at alpha=0 falling to 9 at +8,
+i.e. a marker-rate change misread as an accuracy change.
+Evidence: analyze_first_last_acc.first_last_stats uses the fallback chain when marks is empty.
+Scope: every Qwen last-answer claim. -->
+**`last_acc` 必须用权威口径(含 fallback 链),不得用 strict marker-only。** 权威 `last_acc`
+73.33 → 80.33(**+7.00**);strict marker-only 读作 58 → 78(+20.00),差额 15.33pp 全部来自
+α=0 的 57 个无 marker 样本(+8 降到 9 个)。**那个 +20.00 是 marker 率变化,不是准确率变化,不得引用。**
+
+### 4.4 CoT — 临时结果,完整剂量曲线待补
+
+**目前只有 −4/0/+4 三格,不足以判断"CoT 下 α 无效"。** No-CoT 的显著效应恰好只在 +6/+8 出现,
+而 ±4 在 No-CoT 里同样不显著(p_adj=.973)。所以现有三格只能说**在 ±4 范围内无效**。
+缺 −8/−6/−2/+2/+6/+8 六档;补齐前不得冻结任何 CoT 结论。
+
+| α | first_acc | last_acc | gap | commit% | 改对 | 改坏 | 答案在前% |
+|---|---|---|---|---|---|---|---|
+| −4 | 79.00 | 79.33 | −0.33 | 80.3 | 8 | 7 | 95.0 |
+| 0 | 76.33 | 76.67 | −0.33 | 77.7 | 10 | 9 | 95.0 |
+| +4 | 78.33 | 81.00 | −2.67 | 76.7 | 13 | 5 | 87.3 |
+
+CoT 内部配对 McNemar vs CoT α=0:−4 p=.341、+4 p=.519,Holm 后均 .682。
+CoT vs No-CoT 同题配对:−4 **+10.33**(p=2.4e−03)、0 **+8.33**(p=9.7e−03)、+4 **+6.67**(p=4.2e−02)
+—— 与 Llama 的 CoT gain(+12.0 / +9.0 / +4.4)**幅度相当**,不可写成"Qwen 的 CoT 效应更小"。
+
+**关键对照:CoT 没有翻转生成顺序。** CoT 在 +4 时"答案在前"仍 87.3%,与其 α=0(95.0)差别不大。
+CoT 提高正确率但不动顺序;翻转顺序的是 +α 且要到 +6/+8。**两者是独立机制。**
+
+### 4.5 两项限制(写作时必须同时出现)
+
+1. **Contamination。** +8 有 60.3% 样本尾部带 `You are an AI assistant…` 等文档续写
+   (α=0 为 17.3%)。**已验证它不是涨点来源**:clean 子集 +8 仍 83.97% vs α=0 clean 70.40%。
+   但它提示裸字符串 prompt 可能激活了 Qwen 特有的文档续写先验,且性质与 Llama 的固著不同 ——
+   Llama 是**任务内**打转,Qwen 是**任务外**溢出。
+2. **Order-flip 子集是 post-treatment stratification。** 顺序翻转的 275 题 acc +20.00、
+   未翻转的 25 题 −4.00,增益完全集中在翻转子集。但该子集由 α=0/+8 的**处理后结果**定义,
+   故只能写 **"效应集中在发生顺序翻转的样本,支持 ordering-mediated explanation"**,
+   **不得写"证明顺序翻转是因果机制"**。
+
+### 4.6 跨模型结论(冻结措辞)
+
+**不复现 Llama 的原始 α 方向,但复现"commitment dynamics 可被 α 干预"。**
+Llama 的 +α 加剧抢答;Qwen 的 +α **消除**抢答(答案在前 94.3% → 4.0%)。方向相反。
+但两个模型的 α=0 基线是**同一表型**(都在抢答:Qwen α=0 时 gold 已在文本 87% 而 first_acc 仅 68%,
+填进答案槽位的不是它算出的答案),且两端极值都出现**承诺形成失败**
+(Qwen −8 抢答率 91.7% 反低于 −4 的 96.3%,而候选震荡 max markers 达 134)。
+
+因此**不能**写"Qwen 基线偏左 / under-wanting"—— 负向端它表现的是脚本执行失准而非谨慎。
+可支持的写法:**两个模型都显示 RSN 改变 commitment dynamics,但基线工作点、方向与表面出口是模型依赖的。**
+MMLU-E / betting 上两模型方向一致(`+α` 提高承诺),提示共同底层可能是 **commitment gain**,
+而表面症状由各自生成习惯决定 —— 窄输出通道(单 token)压住个体差异,自由生成则放大它。
+
+**`multi_marker` 非同质,必须配 `max_n_markers` 读。** −8/−4 的 max marker 数达 134,
+那是 Llama 式候选震荡(commitment formation failure),不是自我修正。
+
+**待补:** CoT 九档;Llama 冻结文本 detector(`analyze_loop_anxiety.py` 的 `ANXIETY_PATTERNS`)
+原样移植到 Qwen 做九档配对表 —— **必须原样跑,不得改正则**(改了就失去可比性),
+并标注"零命中可能是措辞迁移造成的假阴性";MATH 九档 No-CoT。
+
 ## References
 
 **神经科学（次要旁证）：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.3 / §2.4 / §3.6 的机制**旁**锚。注意本项目主机制锚已改为 **VTA→NAcc wanting 过载 → 冲动 + 固著**，见 §0.2；下列 DA→anxiety 文献有通路特异性（VTA→IPN），列此仅表明 DA 亦有独立焦虑下游，但**非**本数据 +α 端的主要解释——我们观测到的是抢答 / 固著，而非回避 / freezing）
