@@ -792,6 +792,66 @@ MMLU-E / betting 上两模型方向一致(`+α` 提高承诺),提示共同底层
 人工标注负责判断"未检出"究竟是真没有该表型,还是 Qwen 用了不同措辞。缺了后者,
 detector 的零命中无法与真实缺失区分,画像也就不能升级为跨模型表型比较。
 
+### 4.6b 冻结 detector 移植结果 (2026-08-20)
+
+`RoleAnswer/analyze_loop_anxiety_qwen.py` —— **移植,非重实现**。所有正则 / loop gate /
+bucket 规则由 `import analyze_loop_anxiety` 取得,**原样运行**,`set_task()` 从未调用
+(GSM8K 模式为模块默认)。已验证冻结模块导入前后 sha256 一致。配对单位 = **题号**
+(九档同 300 题),故跨 α 用 McNemar,不用池化 χ²。
+
+**Loop 模式(denom = `n_loop`):**
+
+| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---|---|---|---|---|---|---|---|---|
+| n_loop | 35 | 33 | 31 | 38 | 26 | 26 | 24 | **9** | **4** |
+| anxiety | 20 | 11 | 16 | 16 | 13 | 13 | 14 | 3 | 2 |
+| self_doubt | 18 | 11 | 14 | 12 | 11 | 9 | 12 | 2 | 2 |
+
+<!-- Why: an earlier draft called n_loop "monotone collapse 35->4"; -2 rises (31->38), so the
+claim is false across the full nine and true only from alpha=0 rightward.
+Evidence: n_loop -4=31, -2=38; 0..+8 is monotone with a -62% step at +6.
+Scope: every Qwen loop-rate claim. -->
+**措辞(已修正):`n_loop` 并非全九档严格单调** —— −2 处上升(31→38)。正确写法是
+**从 α=0 到 +8 明显递减,并在 +6 附近陡降**(+4 的 24 → +6 的 9,−62%),
+与 §4.2 的 ordering transition 同一位置。
+
+**anxious_repeat(denom = 300):** any_anxiety 13/13/10/12/11/5/9/4/3 —— 正端同样下降,
+但基线本就低。
+
+**Oscillation(denom = 300):** `hash_at_start` = 247/248/264/272/263/264/260/**110**/**8**。
+这是 ordering transition 在冻结 detector 内的**独立确认**(detector 用自己的 2% 判据,
+非 §4.2 的 5% 判据)。而 `sw>=2` 在负端**没有**尖峰(−8 为 10,α=0 为 9)——
+**Qwen 的负端不复现 Llama 式候选震荡剧增**。
+
+<!-- Why: n_made_mistake=0 across all nine cells reads as "Qwen never self-doubts", but a loose
+error-word probe fires 105/300 at alpha=0 -- the frozen regex is first-person and Qwen is
+third-person. Citing the zero as an absence is the exact error this section prevents.
+Evidence: frozen r"i made a (mistake|error)" = 0/300 in all nine cells; loose
+r"mistake|error|incorrect|wrong" = 105/300 at alpha=0, 14/300 at +8.
+Scope: n_made_mistake only; the self_doubt CLASS still fires via other cues. -->
+**⚠️ `n_made_mistake = 0`(九档全零)是已确认的措辞假阴性,不是表型缺失。**
+冻结正则找第一人称 `I made a mistake`;Qwen 用**第三人称、外部化**措辞,把自己刚写的
+答案当作别人提供的解答来审阅:
+
+> "After reviewing the calculations, it appears **there was a mistake in the provided solution**."
+> "the provided answer is $1060, which **seems incorrect** based on the calculations."
+
+宽松探针在 α=0 命中 105/300、+8 命中 14/300。**注意 `self_doubt` 类整体仍会命中**
+(经 `however` / `the correct answer is` / `is incorrect`),故这是**单列**失效,非全盘失效。
+`n_made_mistake` 这一列跨模型不可比;其余列可比。
+
+**盲法样本:** `--audit_sample 20` 生成 180 行(9 档 × 20),α 换成不透明 `cell_id`、
+整行打乱,映射写入**单独的** `.KEY.csv`,标注完成后才 join。
+**每档 20 条只能做 detector audit(检查措辞漂移),不能估计表型真实发生率。**
+detector 结果与人工标注**分开报告,永不合并为一列**。
+
+**本节要点:**
+1. Qwen 的正 α **同时**降低 loop/anxiety **并**翻转 commitment ordering —— 与 Llama 方向相反
+   (Llama 的 +α 加剧固著)。
+2. 负端**没有**复现 Llama 式候选震荡尖峰。
+3. `n_made_mistake=0` 是确认的措辞假阴性;Qwen 倾向把自身错误外部化为 "provided solution/answer"。
+4. 盲法样本仅审计 detector,不估计真实发生率。
+
 ### 4.7 总框架(冻结)
 
 > **RSN 不直接对应固定的"多巴胺剂量",而是对模型既有的承诺控制系统施加增益。
