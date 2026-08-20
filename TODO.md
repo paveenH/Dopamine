@@ -1,7 +1,7 @@
 
 ## TO DO
 0. 测试一下qwen中间一点的mask ✖
-1. Qwen25-7B ICG实验结果整理 
+1. Qwen25-7B ICG实验结果整理 ✔ 
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
    HumanLLM
