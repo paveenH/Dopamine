@@ -411,41 +411,14 @@ PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（
 
 ### Iowa Gambling Task (IGT)
 
-**Metric design before result interpretation**：
+IGT 讓模型連續進行 100 次四牌組選擇：A/B 長期不利，C/D 長期有利。學習表現以 `p_adv=P(C+D)` 與 `net_score=P(C+D)−P(A+B)=2p_adv−1` 表示；兩者是同一讀數的不同尺度，**不計為兩份獨立證據**。完整 prompt lineage、指標定義、有效性閘門與分析口徑見 `CLAUDE.md` 的 IGT 條目。
 
-IGT 不是純 risk-preference task；它同時混合了 reward-guided learning、exploration / exploitation、punishment sensitivity 與 task-control。因此結果解讀必須先分層：先確認 prompt 版本是否真的產生 learning curve，再在有效版本內看 DA-relevant 的局部獎懲反應。
+#### Llama3-8B（v6b）：呈現 task-dependent working point
 
-| Layer | Metric | Definition | DA / α prediction | Why it matters |
-|---|---|---|---|---|
-| **Version validity** | `block-wise net` | 每 20 trials 一個 block，`P(C+D) - P(A+B)` | 有效版本應由早期低值逐步上升 | IGT 的標準 learning curve；先判斷 prompt 是否真的在學 |
-| **Version validity** | `learn_slope` | `net_block5 - net_block1` | 有效版本 > 0 | 壓縮版 learning curve，方便跨 α / prompt 比較 |
-| **Version validity** | `last50_net` | 後 50 trials 的 `P(C+D) - P(A+B)` | 有效 exploit 應 > 0 | 看後期是否進入穩定避開壞牌階段 |
-| **Version validity** | `last50_entropy` / `switch_rate` | 後期選牌熵 / 換牌率 | 有效 exploit 應下降 | 區分「學會 exploit」與「四牌輪選」 |
-| **Version validity** | `learning_text_rate` / `bare_chest_only_rate` | raw text 是否提到 history / learning；是否只輸出 `Chest:N` | 有效 prompt 應有 history-grounded deliberation | 防止 v5 式格式自動機被誤讀成行為結果 |
-| **Local punishment sensitivity** | `return_to_B_after_bigloss@K` | 選 B 且吃到 1250 巨罰後，接下來 K 輪內是否回到 B（K=3/5） | DA↑ / +α 若更衝動，應上升 | 比 `post_bigloss_switch_rate` 更有區分度；不被「模型本來就每輪換牌」飽和 |
-| **Local punishment sensitivity** | `post_bigloss_switch_rate` | B 巨罰後下一輪是否離開 B | DA↑ 預測下降，但可能飽和 | 只作輔助；若 `switch_rate` 本身很高，該指標會接近 1.0 而失去分辨力 |
-| **Local punishment sensitivity** | `big_penalty_exposure` | 每局踩到 1250 巨罰的次數 | DA↑ / reward-trap 若更強，應上升 | 衡量是否反覆暴露於罕見大懲罰 |
-| **Reward / punishment asymmetry** | `win_stay_rate` | 上一輪 `payoff > 0` 後，下一輪重複同一 chest 的比例 | DA↑ 應上升 | 對應正 RPE / reward learning；不需先學會全局好壞牌。⚠ 受 baseline switch_rate 污染——模型本就高 switch 時此率天然偏低 |
-| **Reward / punishment asymmetry** | `lose_shift_rate` | 上一輪 `payoff < 0` 後，下一輪換離該 chest 的比例 | DA↑ 應下降 | 對應負 RPE / punishment learning；Frank-style DA readout。⚠ 模型本就高 switch（IGT 實測 0.67–0.79）時會飽和接近 1.0，同 `post_bigloss_switch` 的病——勿單讀 |
-| **Reward / punishment asymmetry** | `switch_rate` (baseline) | 全程換牌率 | — | win_stay/lose_shift 的**必讀對照基線**；只有相對 baseline 偏移才算 RPE 信號 |
-| **Reward / punishment asymmetry** | `ws_ls_asymmetry` | `win_stay_rate - lose_shift_rate` | DA↑ 應上升 | **主讀數**：差值抵消「模型本來就愛換牌」的 baseline switch 偏置，比兩個絕對率可信；最直接的 reward-over-punishment learning imbalance 指標 |
-| **Reward / punishment asymmetry** | `lose_shift_after_bigloss` | 只在 1250 巨罰後計算 lose-shift | DA↑ 若懲罰不敏感，應下降 | 對最大懲罰仍不 shift 是最強 impulse / punishment-insensitivity signature |
-| **Immediate reward pull** | `high_reward_deck_pull` | `P(A+B) / P(C+D)` = `p_disadv/p_adv`，**是 net_score 的比值變形、非獨立指標** | DA↑ 若追逐即時獎賞，應上升 | 簡單檢查高即時 reward 是否拉動選擇；但 = net 的變形且會與 learning 混淆，勿當新證據重複 count |
-| **Immediate reward pull** | `B_pref_among_disadv` | 在 A/B 中選 B 的比例 | DA↑ 若偏好低頻大罰但高即時獎賞，可能上升 | B 是 IGT 的典型 trap deck；需配合 `return_to_B_after_bigloss` 解讀 |
-| **Task-control diagnostics** | `invalid_rate` / `parse_fail_rate` / `premature_stop_rate` | 格式失敗、解析失敗、未完成 100 trials | 極端 α 可能上升 | 排除 under-wanting / over-steer collapse 被誤讀成風險偏好 |
-
-**win/lose 判定**：以單輪 `payoff = reward − penalty` 的正負判定。因 reward 恆正（A/B=+100、C/D=+50），`payoff=0` 幾乎不存在，故 **lose 輪 ≡ `penalty > reward`（主要是踩到罰，尤其 1250 巨罰）**；win/lose 只在 valid→valid 相鄰輪計（中間有 invalid 打斷則跳過該對）。
-
-> ⚠️ **以下這段是 v4-only 時期的舊定位，已被 v6b 全量結果 SUPERSEDED（2026-06-25），保留作為推理過程記錄。** 當時只有 v4（forced-reasoning）資料，看到的是「弱而不穩的 α 效應」，故判為 channel mismatch / boundary condition。v6b（invitation-style，自然未強制狀態）跑完後，IGT 顯示的是**乾淨的 +2 倒 U 峰**，而 v4 的 n.s. 被重新理解為「外力補上 deliberation 後，engagement 這一層被摁住」——即 v4 解釋 v6b，而非否定它。**現行定位見下方 v6b Full Results 與 §3.4：IGT 是有效的 working-point 實驗，不是 boundary negative。** 下段仍有價值的部分是它對 tonic/phasic 雙時間尺度的區分——那個界限本身成立（inference-time 注入確實碰不到突觸可塑性，這也是 Reversal/PIT 被 skip 的理由），只是不該用來把 IGT 整體判為 boundary。
->
->**IGT = boundary condition, not a clean wanting assay.**（舊）Dopamine acts on two timescales: *tonic* DA sets incentive salience / "wanting" (Berridge) — the channel RSN α is hypothesized to modulate, with direct outlets in bet size, commitment timing, and delay tolerance — whereas *phasic* DA encodes the reward-prediction error (Schultz) that drives trial-by-trial feedback learning. IGT's core demand is the latter (phasic RPE + VMPFC value integration + memory over delayed punishments), so the weak, unstable α effects here are consistent with a **channel mismatch**: tonic wanting shifts immediate commitment and reward pursuit but does not implement the phasic teaching signal needed for long-horizon deck learning. This is a boundary on the dopamine hypothesis, not a failure of it — though it stays **provisional** until a phasic-style positive control shows the same IGT pipeline *can* be moved by an intervention targeting feedback learning.
-
-### IGT Full Results（Llama3-8B, v6b, −8→+8 × 20 runs/cell, 100 trials/run）
-
-每格為 20 runs 的 mean；KW = Kruskal–Wallis 跨 9 個 α 的 p；ρ = Spearman 對 α 的相關。
+每格為 20 runs 的 mean；KW 為跨 9 個 α 的 Kruskal–Wallis `p`，ρ 為 metric 與 α 的 Spearman correlation。表中保留完整指標面板，**不因未達顯著而刪除讀數**。
 
 | metric | α=−8 | α=−6 | α=−4 | α=−2 | α=0 | α=+2 | α=+4 | α=+6 | α=+8 | KW p | ρ |
-|---|---|---|---|---|---|---|---|---|---|---|---|
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `learn_slope` | 0.42 | <u>0.49</u> | 0.28 | 0.36 | 0.24 | **0.52** | 0.03 | 0.09 | 0.00 | 0.003 | −0.26 |
 | `last50_net` | 0.25 | **0.30** | 0.20 | 0.23 | 0.23 | <u>0.29</u> | 0.04 | −0.00 | −0.02 | 0.024 | −0.26 |
 | `net_score` | 0.18 | <u>0.19</u> | 0.14 | <u>0.19</u> | 0.15 | **0.22** | 0.02 | −0.01 | −0.03 | 0.002 | −0.30 |
@@ -463,25 +436,36 @@ IGT 不是純 risk-preference task；它同時混合了 reward-guided learning�
 | `learning_text_rate` | <u>0.69</u> | **0.76** | 0.66 | 0.59 | 0.41 | 0.65 | 0.27 | 0.19 | 0.00 | <0.001 | −0.55 |
 | `bare_chest_only_rate` | 0.00 | 0.00 | 0.00 | 0.15 | 0.45 | 0.15 | <u>0.55</u> | <u>0.55</u> | **0.85** | <0.001 | +0.59 |
 
-**Interpretation (v6b = invitation-style 主線；v4 = forced-reasoning 對照)**：
+1. **`α=+2` 是局部最佳工作點。** `net_score` 與 `learn_slope` 同時達峰；更強的 +α 則轉為高頻換牌、短持續與少回顧 history，學習表現快速下降。
+2. **兩端不是同一種失效。** +α 過強是「散」（switch↑、deliberation↓）；−α 則更傾向固守與顯式回顧 history，但探索不足、較早鎖定策略。
+3. **v4 forced-reasoning 是機制對照，不是主結果。** 外力補上 deliberation 後，value/risk 指標回到不穩定或 n.s.，但推理仍隨 +α 縮短；因此 v6b 的右臂退化更接近 engagement 與 exploration 失衡，而不是乾淨的價值計算改寫。
 
-方法學立場：**v6b（invitation-style, "think about which chest…"）是 IGT 的主結果；v4（forced-reasoning, "First reason … then give"）是外力強制推理的對照。** v6b 不是完全無提示的 raw choice，而是較接近自然決策的「邀請式思考」：模型可以展開 history-grounded deliberation，但不被要求交付一段固定 reasoning。v4 則外部提供了高 α 生成中自然減少的 deliberation span，因此用來定位 v6b 的 +α 退化來源，而不是用來否定 v6b 的行為結果。
+#### Qwen2.5-7B-Instruct（v6b）：推理通道複製，學習表現呈局部趨勢
 
-**v6b 主結果：`α=+2` 是正向 steering 的最佳工作點（local peak）。** `net_score`、`learn_slope` 在 +2 最高、`last50_net` 接近峰值——在 invitation-style 設定下，IGT 這種試錯任務受益於**適度 activation / 適度探索**。越過 +2（`+4/+6/+8`）即過載：`switch_rate`↑、`max_run_len`↓、`win_stay_rate`↓、`learning_text_rate`↓、`bare_chest_only_rate`↑，從有效探索退化為**無意義換牌 + 不回顧 history**。負 α 端不是躺平而是**冷靜固守**：`switch_rate` 低、`max_run_len` 長、`win_stay` 高、文本更常引用 history，代價是探索性低、更早鎖策略。這支持一個 **task-dependent working point**，而不是把 IGT 本身當成純 wanting assay。
+Qwen 的兩個 α=0 批次均通過預先設定的 baseline gate。合併後僅作描述的 40-run 基線為 `net_score=.147`、`p_adv=.573`；兩批按 seed 配對的差異未檢出系統性批次效應（Δnet=+.0996，paired Wilcoxon `p=.207`）。各 α 的正式效應仍與**本批次自己的 α=0**配對。
 
-把 α 的效應拆成三層，可以看清「+2 峰」由什麼構成，以及 v4 對照說明了什麼：
+負臂與正臂分開運行，因此保留各自的 `0ⁿ` / `0ᵖ`，不以合併基線取代原始 cell。下表同樣保留全量指標，不按顯著性篩除。
 
-| 層 | +α | −α | v4（外力強制推理）對照說明 |
-|---|---|---|---|
-| **exploration drive** | ↑ 想試新牌（`switch_rate`↑、`max_run_len`↓） | ↓ 固守同一牌（`max_run_len`↑） | 真 wanting 信號：若只是「懶得想」，最省力是固守同一張，而非主動換牌——頻繁換有成本，說明有 exploration drive 在推 |
-| **engagement / consideration** | ↓ 不願深思、不回顧 history（`delib_tok`↓、`learning_text_rate`↓） | ↑ 願花認知、顯式引用 history | 即使外力強制寫推理，+α 仍把推理寫得更短（`delib_tok` v4 ρ=−0.34, p<0.001）→ engagement↓ 是 α 的內在傾向，不是 prompt artifact |
-| **value computation / risk readout** | 無穩定單調提升 | 無穩定單調下降 | v4 中 `net_score` / `return_to_B` / `B_pref` 等 α 效應不穩定或 n.s.，說明 IGT 不是乾淨 risk-preference readout |
+| metric | −8 | −6 | −4 | −2 | 0ⁿ | 0ᵖ | +2 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `net_score` | .070 | .188 | .248 | .136 | .097 | .197 | .166 | .173 | .241 | −.011 |
+| `learn_slope` | .135 | .159 | .374 | .189 | .130 | .372 | .280 | .210 | .197 | .100 |
+| `net_block1→5` | −.05→.09 | .06→.22 | −.01→.36 | .06→.25 | −.03→.10 | .03→.40 | −.04→.25 | .02→.23 | .05→.25 | −.01→.85 |
+| `p_adv` | .535 | .594 | .624 | .568 | .548 | .598 | .583 | .587 | .621 | .494 |
+| `delib_tok` | 5.25 | 4.19 | 18.60 | 27.70 | 22.44 | 24.66 | 4.96 | 0.00 | 2.05 | 2.91 |
+| `zero_frac` | .168 | .775 | .347 | .115 | .282 | .277 | .850 | 1.000 | .954 | .903 |
+| `avg_raw_len` | 28 | 29 | 95 | 138 | 114 | 124 | 32 | 8 | 17 | 17 |
+| `switch_rate` | .745 | .615 | .270 | .204 | .304 | .331 | .650 | .722 | .596 | .270 |
+| `cycle_score` | .706 | .652 | .341 | .294 | .404 | .405 | .713 | .782 | .576 | .528 |
+| `invalid` | .016 | .001 | .001 | .001 | .000 | .001 | .000 | .000 | .003 | .876 |
 
-**關鍵洞察**：v6b（invitation-style）把 **exploration↑ 和 engagement↓ 疊在一起**，這正是 unforced decision setting 下 +α 過載的行為樣貌（`switch`↑、`win_stay`↓、`learning_text`→0 共線）；v4 用外力**摁住 engagement↓ 這一層**，剩下的純 exploration 不再顯著（`switch` v4 p=0.14、`net` p=0.56）。即：
+- **推理／生成長度呈倒 U，峰在 −2。** `delib_tok` 在負臂隨 α 上升（ρ=+.541），在正臂隨 α 下降（ρ=−.489；均 `p<1e−4`）；−2 為 27.70，而 +4 降至 0。`avg_raw_len` 呈相同形狀（峰值 138，+4 僅 8）。
+- **探索與重複結構同步退化。** `switch_rate`、`cycle_score` 在兩端上升、中段最低，顯示推理縮短時模型更接近機械切換；這是同一退化模式的行為側寫，不計為獨立證據。
+- **學習表現呈現局部改善，但沒有穩定的全程劑量曲線。** `net_score` 在 −4（.248）與 +6（.241）形成局部高點；最強配對格 −4 相對 neg-0 的 Δnet=+.151、raw `p=.031`，Holm 後 `p_adj=.250`。顯著性用來限制推論強度，而不是刪除這些趨勢。`learn_slope` 與 `net_block1→5` 亦完整列出；除不可讀的 +8 外，各 α 的 block5 均高於 block1。
+- **次級模式是優勢牌組內部的 D→C 移動。** +2/+4 的 `p_C` 上升、+2/+4/+6 的 `p_D` 下降；因 C、D 都是優勢牌組，總 `p_adv` 可近乎不變。此模式不等同於整體學習改善，但不能由聚合 `net_score` 看見。
+- **+8 必須排除。** `invalid=.876`，多數輸出丟失 `Chest` 前綴並進入 fallback；因此其 `net_block5=.850` / `last50_net=.840` 是格式失效產物，不得解讀。
 
-> +α 的可見行為 = exploration drive × engagement。
-
-> In IGT's invitation-style v6b setting, α shows a mixed inverted-U-like profile with an optimum around **+2**: mild positive α aids the trial-and-error exploration the task needs, while stronger +α overshoots into unstable switching and history-neglect. A forced-reasoning control (v4) localises this overshoot to an **engagement** drop rather than a clean change in value computation — externally supplying a deliberation span restores the value/risk readouts to n.s., while `delib_tok` remains shortened under +α. So α moves *how much the model is willing to deliberate*, and IGT's +2 peak is the working point where that willingness best matches the task's exploration demand.
+因此 Qwen 的定位是：**基線會做 IGT；α 對顯式 deliberation 與策略結構的影響清楚，學習表現亦有局部改善趨勢，但尚不足以確認穩定的跨劑量 learning effect。** 這是 engagement/推理通道的複製，不是 Llama `+2` working-point 峰的逐格重現。
 
 ## 3.4 Cross-Task Summary — One α-Wanting Axis, Task-Specific Working Points
 
