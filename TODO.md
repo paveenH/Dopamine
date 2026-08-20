@@ -1,21 +1,18 @@
 
 ## TO DO
+1. Qwen25-7B ICG实验结果整理
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
-HumanLLM
-Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
-https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
-Inkling-Small
+   HumanLLM
+   Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
+   https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
+   Inkling-Small
+7. 有什么是等待可以收益的task?
+8. Manifold
 
-有什么是等待可以收益的task?
-Manifold
+---
 
 ## TO DO — ACL ARR
-### 1. Consolidate Existing Evidence
-- [ ] 冻结 CGT-seq / IGT / GSM8K / Thinking Curve 的主指标与统计口径。
-- [ ] 区分文本效应、行为效应与结果效应，删除或降级不稳健、不可复现及事后选择的结果。
-- [ ] 从现有结果中确定 3–5 项跨任务主要假设，建立统一主张：confidence、commitment、effort/engagement。
-- [x] 完成 PV9–PV11 总结并关闭 Bandit/BAI 实验线。若论文保留 Bandit，以 PV9 作为主要边界实验；PV10–PV11 仅作机制补充或 Appendix，不再新增 prompt、seed 或跨模型复现。
 
 ### 2. Cross-Model Positive-Result Replication
 
