@@ -95,6 +95,15 @@ CONFIGS_COT="neg4-${LS}-${LE} 0-${LS}-${LE} 4-${LS}-${LE}"
 # --cot: that sweep is already running, and re-running it would regenerate
 # three finished cells. Must go on the SAME card as --cot (same curve).
 CONFIGS_COT6="neg6-${LS}-${LE} 6-${LS}-${LE}"
+# --cot-rest completes the CoT curve to the SAME nine alphas as No-CoT. It is
+# the union of --cot6 and the four cells neither --cot nor --cot6 covers, so a
+# run that already did --cot6 will simply regenerate -6/+6; use --cot-rest4 to
+# skip them. Rationale for completing it: No-CoT's only significant cells are
+# +6/+8, and +-4 is non-significant there too (p_adj=.973), so the current
+# -4/0/+4 CoT triple cannot distinguish "CoT suppresses the effect" from
+# "CoT was never tested in the range where the effect lives".
+CONFIGS_COT_REST="neg8-${LS}-${LE} neg6-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
+CONFIGS_COT_REST4="neg8-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} 8-${LS}-${LE}"
 
 # ==================== Paths ====================
 DATA="data1"
@@ -220,14 +229,35 @@ case "${MODE}" in
     rc=$?
     ;;
 
+  --cot-rest|--cot-rest4)
+    OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_COT}"
+    if [ "$1" == "--cot-rest4" ]; then
+      SEL="${CONFIGS_COT_REST4}"; LBL="--cot-rest4 (CoT -8/-2/+2/+8; assumes --cot6 already ran)"
+    else
+      SEL="${CONFIGS_COT_REST}"; LBL="--cot-rest (CoT -8/-6/-2/+2/+6/+8)"
+    fi
+    banner "${LBL}" "${OUT}/mdf_<alpha>" "${SEL}"
+    echo "MUST run on the SAME card as --cot: these join that curve, and bf16"
+    echo "greedy is not byte-reproducible across GPUs. The finished -4/0/+4"
+    echo "cells are not in this config list, so they are never overwritten."
+    if [ ! -d "${OUT}/mdf_0" ]; then
+      echo "[warn] ${OUT}/mdf_0 not present -- --cot has not finished yet."
+    fi
+    echo ""
+    run_sweep "${SEL}" "${ANS_COT}" "--cot"
+    rc=$?
+    ;;
+
   *)
-    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot|--cot6}"
+    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot|--cot6|--cot-rest|--cot-rest4}"
     echo ""
     echo "  --check     technical pre-flight only (model/mask/layers/paths/fires)"
     echo "  --baseline  alpha=0  -> No-CoT mdf_0   (the final cell, then READ it)"
     echo "  --nocot     the other 8 alphas -> completes the 9-point curve"
     echo "  --cot       CoT -4/0/+4 -> answer_mdf_gsm8k_cot"
     echo "  --cot6      CoT -6/+6 only -> extends that same curve (same card)"
+    echo "  --cot-rest  CoT -8/-6/-2/+2/+6/+8 -> completes the nine-alpha curve"
+    echo "  --cot-rest4 CoT -8/-2/+2/+8 -> same, when --cot6 already ran"
     echo ""
     echo "Pin CUDA_VISIBLE_DEVICES and keep it identical across all three runs:"
     echo "  CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_qwen25.sh --baseline"
