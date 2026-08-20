@@ -25,11 +25,7 @@
 - **Accuracy Gain (AAG):** mean (expert - non_expert)
 - **Max-Normalized Gain:** mean((expert - non_expert) / (1 - non_expert))
 
-| **Model** | **Accuracy Gain
-expert-non** | **Paired Win Ratio
-expert-non** | **Max-Normalized Gain
-expert-non** | $\Delta E$
-non-expert change | **RolePlaying Data** | **Human Data** | **Level** |
+| **Model** | **Accuracy Gain<br>expert−non** | **Paired Win Ratio<br>expert−non** | **Max-Normalized Gain<br>expert−non** | $\Delta E$<br>non-expert change | **RolePlaying Data** | **Human Data** | **Level** |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | **llama3_base_8B** | 0.228 | 0.965 | 0.282 |  | 0 | 0 | 3 |
 | **llama3_8B** | 0.244 | 0.982 | 0.393 |  | 0 | 1 | 1 |
@@ -59,12 +55,7 @@ non-expert change | **RolePlaying Data** | **Human Data** | **Level** |
 | **stablelm_12B** | 0.168 | 0.912 | 0.225 |  | 1 | 1 | 2 |
 | **stablelm_base_12B** | 0.017 | 0.667 | 0.017 |  | 0 | 0 | 4 |
 
-| **Model** | Performance
-Acc/ E (%) Non
-Acc/ E (%) Non + 4RSN
-—————————
-Acc/ E (%) Exp
-Acc/ E (%) Exp + 4RSN | Data | Post Training | Note |
+| **Model** | Performance<br>Acc / E (%) Non<br>Acc / E (%) Non + 4RSN<br>—————————<br>Acc / E (%) Exp<br>Acc / E (%) Exp + 4RSN | Data | Post Training | Note |
 | --- | --- | --- | --- | --- |
 | **Llama3-8B-base** | 20.67%	61.17%
 29.11%	42.59%
