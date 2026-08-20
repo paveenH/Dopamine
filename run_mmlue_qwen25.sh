@@ -53,12 +53,33 @@ if [ "$1" == "--new" ]; then
     LS=11; LE=18
     CONFIGS="0-${LS}-${LE} 4-${LS}-${LE} neg4-${LS}-${LE}"
     ANS_FILE="mmlue/qwen_nmd_11_18"
+elif [ "$1" == "--new_fast" ]; then
+    # FAST layer probe: +-4 only, reusing an EXISTING alpha=0 as the baseline.
+    #
+    # Legitimate ONLY because the reused alpha=0 is on the SAME machine (bf16 is
+    # not bit-reproducible across GPUs -- the IGT split measured two same-config
+    # alpha=0 cells differing by 0.100 on net_score, larger than most alpha
+    # effects). If the baseline came from another card, this branch is invalid;
+    # use --new instead.
+    #
+    # CAVEAT that survives the machine match: the reused baseline was taken with
+    # the [16,22) mask. At alpha=0 the diff matrix is all-zero either way, so the
+    # steering is identical -- but confirm the PROMPT/suite/roles/E-option match
+    # too, or the baseline differs for a reason that has nothing to do with the
+    # band. analyze_mmlue_bands.py compares each band to ITS OWN mdf_0, so point
+    # --new at a dir that actually contains one.
+    LS=11; LE=18
+    CONFIGS="4-${LS}-${LE} neg4-${LS}-${LE}"
+    ANS_FILE="mmlue/qwen_nmd_11_18"
 elif [ "$1" == "--old" ]; then
     LS=16; LE=22
     CONFIGS="0-${LS}-${LE} 4-${LS}-${LE} neg4-${LS}-${LE}"
     ANS_FILE="mmlue/qwen_nmd_16_22"
 else
-    echo "Usage: bash run_mmlue_qwen25.sh --new | --old"
+    echo "Usage: bash run_mmlue_qwen25.sh --new | --new_fast | --old"
+    echo "  --new_fast = +-4 only, reusing an existing SAME-MACHINE alpha=0."
+    echo "               Copy that mdf_0 into the --new dir before analysing,"
+    echo "               or the band has no baseline to be compared against."
     echo "  --new = [11,18) (build the mask first: bash run_nmd_qwen25.sh)"
     echo "  --old = [16,22) re-run under the same protocol, for comparison"
     echo "Run BOTH on the SAME GPU: bf16 is not bit-reproducible across cards,"
