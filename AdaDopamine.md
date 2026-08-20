@@ -467,21 +467,8 @@ Qwen 的兩個 α=0 批次均通過預先設定的 baseline gate。合併後僅�
 
 因此 Qwen 的定位是：**基線會做 IGT；α 對顯式 deliberation 與策略結構的影響清楚，學習表現亦有局部改善趨勢，但尚不足以確認穩定的跨劑量 learning effect。** 這是 engagement/推理通道的複製，不是 Llama `+2` working-point 峰的逐格重現。
 
-## 3.4 Cross-Task Summary — One α-Wanting Axis, Task-Specific Working Points
 
-把 IGT 與 GSM8K 並排，說明 RSN α 調的是 **working point**，而非單調的「能力」：兩者在自己主要設定下的最優 α 落在**相反的兩側**（IGT ≈ +2、GSM8K ≈ −6），方向恰好對應各任務對 wanting 的需求高低。目前證據分開的是**正/負兩側**（needs-engagement vs needs-restraint），而非同側內部的細緻梯度。
-
-> **Bandit 不参与 working-point peak comparison。** 早期「Bandit ≈ +2」来自已作废的 pre-fix 数据，不能引用。正式 PV9 在 Easy 与具有 headroom 的 NearTie 中均未检出 α 对 directed exploration 或 outcome 的可靠改善；其主要效应落在 policy stance、candidate sharpness 与 stance–behavior consistency（§3.2）。因此 Bandit 在本文中作为**作用边界证据**，而非第三个最佳 α 工作点；跨任务峰位比较仍限于 **IGT（+2）与 GSM8K（−6）**。
-
-| 任務 | 主導需求 | 最優 α | +α 行為 | −α 行為 | 失敗模式 |
-|---|---|---|---|---|---|
-| **Bandit** | reward pursuit / explore–exploit | **不定义峰位** | 政策表达更少使用 `EXPLORE`、分布较尖锐 | 政策表达更常使用 `EXPLORE` | directed exploration 与 outcome 未可靠改变；作为边界证据 |
-| **IGT** | exploration + history integration（兩種相反需求並存） | **≈ +2** | 輕度有助試錯探索；過強 → 無意義換牌、忘歷史、回 B trap | 較能 stick/exploit、顯式引用歷史，但探索性低、更早鎖策略 | 兩端皆崩：+端「散」/ −端高方差「垮」 |
-| **GSM8K** | arithmetic stability / commitment timing（瓶頸非探索，而是別搶答、別過度復查） | **≈ −6** | 搶答、early-####、答完放不下的 loop | 更冷靜、延遲 commit、更穩定 | +α over-wanting → 抢答 / −過度則動機不足 |
-
-> Different tasks expose different behavioral outlets of the same α-controlled wanting axis. In each task's primary setting, **IGT** peaks at a mild positive **α ≈ +2**, whereas **GSM8K** peaks at **α ≈ −6**. This shift supports a task-dependent motivational working point rather than a monotonic capability effect. **Bandit is not used to estimate a third working point**: PV9 instead shows that α can alter policy expression and commitment-related sharpness without reliably changing uncertainty-directed exploration or outcomes. A forced-reasoning control on IGT (v4) further localises its positive-α overshoot to an engagement drop rather than a clean change in value computation.
-
-## 3.5 Boundary Experiment — HaluEval
+## 3.4 Boundary Experiment — HaluEval
 
 **定位**：HaluEval 這裡不是測「模型自己是否產生 hallucination」，而是測 **verification / challenge engagement**：給定 knowledge、question、answer，模型是否願意指出 answer 含有 hallucinated / unsupported information。這更接近「離開默認接受（No）的行動閾值」，而非 factual generation 本身。
 
@@ -519,7 +506,23 @@ Answer:
 
 > HaluEval shows that positive α lowers the threshold for challenging an answer: the model becomes less willing to accept by default and more willing to say "Yes, this contains hallucinated information." Moderate positive α (+2/+4) improves hallucination recall with little false-positive cost, while excessive α (+8) turns into over-challenge and format instability. This is a verification-engagement effect, not evidence that +α makes the model itself hallucinate less or more.
 
-因此 HaluEval 應放在 **boundary / side-effect evidence**：它補充說明 α 調的是 action/commitment threshold。支持 **wanting↑ = engagement/commitment↑，但不等於 factual calibration↑**。
+因此 HaluEval 應放在 **boundary / side-effect evidence**：它補充說明 α 會移動 action/commitment threshold，與候選的 engagement/commitment gain 相容；但它不獨立驗證 wanting，更不等於 factual calibration 提升。
+
+## 3.5 Cross-Task Evidence Summary — α-Sensitive Behavioral Readouts and Boundary Conditions
+
+跨任務最一致的觀察不是一組可排序的「最佳 α」，而是 α 能改變模型的 **engagement、commitment timing、輸出銳度與策略表達**。這些改變有時會伴隨符合預期的行為或局部績效改善，但能否轉化為構念有效的 wanting、directed exploration 或 learning effect，明顯依賴任務、模型、prompt、基線分布與有效劑量窗。因此目前證據與一個候選的 motivational gain mechanism **相容**，但尚不足以證明單一 latent wanting axis，也不足以建立通用的 task-specific optimal α 規律。
+
+| 任務 | 較穩定的觀察 | 尚未建立／主要邊界 | 目前定位 |
+|---|---|---|---|
+| **Confidence Betting** | 有效劑量窗內，α 可大幅移動下注分布，而 accuracy 相對穩定 | 下注仍混合 confidence、自我報告尺度與 ceiling；極端劑量會常數化或格式崩潰 | incentive/commitment 表達的正向橋接證據，不等同純 wanting |
+| **CGT-Sequential** | Llama 的 accept timing 隨 α 移動，clean range 內 knowing control 相對穩定 | Qwen 只在窄劑量窗部分複製，且 label prior 會隨 +α 放大；跨模型完整劑量反應未建立 | 目前最直接的 commitment-timing 證據，但模型與接口依賴明顯 |
+| **Bandit（PV9）** | α 改變 policy stance、文字表達與 candidate sharpness | 未可靠改變 uncertainty-directed sampling、穩定探索或 outcome | 明確的作用邊界：表徵／承諾變化不保證資訊獲取 |
+| **IGT** | Llama 出現 +2 局部峰；Qwen 的 deliberation 與策略結構明顯隨 α 改變，學習表現有局部高點 | Qwen 未重現 Llama 峰位，學習改善未形成穩定跨劑量曲線；推理縮短也未必改變 net outcome | engagement/strategy 證據較強，learning working point 仍屬模型內、描述性結果 |
+| **HaluEval** | 中等 +α 降低 challenge threshold，提高指出錯誤的傾向 | 這是 verification engagement，不是 factual calibration，也不表示模型較少 hallucinate | action-threshold 的邊界／副作用證據 |
+| **GSM8K** | α 會移動推理跨度與 commitment timing，特定設定下曾出現負側局部峰 | 它不是 behavioral-economics wanting assay，且不能由其峰位反推其他任務應有的 α | reasoning-task 對照；支持 task dependence，不獨立驗證 wanting |
+
+> **Evidence boundary.** The cross-task pattern is most consistent with an α-sensitive engagement/commitment gain that changes how strongly and how early a model expresses a policy. Its downstream consequences are task- and interface-dependent: some cells show construct-valid behavioral movement, others show only textual or distributional change, and others fail validity or outcome gates. We therefore treat a unified wanting axis and task-specific optimal α values as hypotheses motivated by the data, not conclusions established by the present behavioral suite.
+
 
 # 4. Human Behaviour Simulation
 
@@ -546,7 +549,7 @@ Answer:
 
 Betting 測「願不願意押」、CGT-Seq 測「願不願意等」、Bandit/IGT 測「願不願意持續投入並整合回饋」。**CGT-Simultaneous 的 null 在這個結構裡是資訊而非失敗**：賠率透明時 confidence mediator 被鉗住，wanting 推力失去表達通道（見 §3.3），正好界定了 wanting→behavior 需要什麼樣的下游出口。
 
-**跨任務工作點**（詳見 §3.4）：IGT ≈ +2、GSM8K ≈ −6，構成**兩側對立**；現有證據分開的是正／負兩側，而非同側內部的細緻梯度。Bandit 不用于估计峰位：PV9 将其定位为 policy-expression effect 与 directed-exploration null 并存的作用边界（见 §3.2）。
+**跨任務證據邊界**（詳見 §3.4）：目前較一致的是 α 對 engagement、commitment timing 與策略表達的影響；各任務的局部峰位只作模型內描述，不再組合成統一 wanting axis 或通用 optimal-α 規律。Bandit/PV9 尤其顯示 policy-expression effect 可以與 directed-exploration／outcome 的 null 並存。
 
 **尚未覆蓋的範式**（誠實登記，非待辦）：Progressive Ratio（努力支出的經典 DA 範式，語言版設計見 TODO §4）、Pavlovian-Instrumental Transfer 與 Reversal Learning（均已記錄 why-skipped，見 `AdaDopamine_bp.md` §4.8/§4.10——核心理由是 phasic DA / RPE 需要突觸可塑性，inference-time 注入原理上碰不到）。
 
