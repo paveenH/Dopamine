@@ -68,7 +68,18 @@ OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}"
 case "$1" in
   --baseline) SEL="${CONFIG_BASELINE}";     LBL="--baseline (alpha=0 only)" ;;
   --nocot)    SEL="${CONFIGS_NOCOT_REST}";  LBL="--nocot (the eight non-zero alphas)" ;;
-  --full)     SEL="${CONFIGS_FULL}";        LBL="--full (all nine alphas)" ;;
+  --full)     SEL="${CONFIGS_FULL}";        LBL="--full (all nine alphas)"
+              # --full includes alpha=0. If --baseline already wrote mdf_0, the
+              # intended follow-up is --nocot (which excludes it); --full here
+              # would regenerate a finished cell for no gain. Refuse rather than
+              # silently redo hours of compute.
+              if [ -d "${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}/mdf_0" ]; then
+                echo "STOP: mdf_0 already exists -- --baseline has run."
+                echo "      Use --nocot (the eight non-zero alphas) on the SAME card."
+                echo "      Re-running --full would regenerate alpha=0."
+                echo "      dir: ${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}/mdf_0"
+                exit 2
+              fi ;;
   *)
     echo "Usage: bash run_math_qwen25.sh {--baseline|--nocot|--full}"
     echo ""
