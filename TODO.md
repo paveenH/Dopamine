@@ -3,7 +3,8 @@
 0. 测试一下qwen中间一点的mask ✖
 1. Qwen25-7B ICG实验结果整理 ✔ 
 2. 整理行为学的结果 ✔
-3. Qwen GSM8k实验
+3. Qwen GSM8k实验以及结果分析 ✔
+4. Qwen MATH [running ⏸]
 
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
