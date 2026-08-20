@@ -91,6 +91,10 @@ ANS_COT="answer_mdf_gsm8k_cot"
 CONFIG_BASELINE="0-${LS}-${LE}"
 CONFIGS_NOCOT_REST="neg8-${LS}-${LE} neg6-${LS}-${LE} neg4-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} 4-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
 CONFIGS_COT="neg4-${LS}-${LE} 0-${LS}-${LE} 4-${LS}-${LE}"
+# --cot6 extends the CoT curve to -6/+6. SEPARATE step, not merged into
+# --cot: that sweep is already running, and re-running it would regenerate
+# three finished cells. Must go on the SAME card as --cot (same curve).
+CONFIGS_COT6="neg6-${LS}-${LE} 6-${LS}-${LE}"
 
 # ==================== Paths ====================
 DATA="data1"
@@ -199,13 +203,31 @@ case "${MODE}" in
     rc=$?
     ;;
 
+  --cot6)
+    OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_COT}"
+    banner "--cot6 (CoT -6/+6; extends the -4/0/+4 curve)" \
+           "${OUT}/mdf_<alpha>" "${CONFIGS_COT6}"
+    echo "Run this on the SAME card as --cot: -6/+6 join that curve, and bf16"
+    echo "greedy is not byte-reproducible across GPUs. Only -6/+6 are written,"
+    echo "so the finished -4/0/+4 cells are untouched."
+    if [ ! -d "${OUT}/mdf_0" ]; then
+      echo "[warn] ${OUT}/mdf_0 not present -- --cot has not finished yet."
+      echo "       Continuing (this step writes only mdf_-6 / mdf_6), but the"
+      echo "       curve is incomplete until --cot lands."
+    fi
+    echo ""
+    run_sweep "${CONFIGS_COT6}" "${ANS_COT}" "--cot"
+    rc=$?
+    ;;
+
   *)
-    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot}"
+    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot|--cot6}"
     echo ""
     echo "  --check     technical pre-flight only (model/mask/layers/paths/fires)"
     echo "  --baseline  alpha=0  -> No-CoT mdf_0   (the final cell, then READ it)"
     echo "  --nocot     the other 8 alphas -> completes the 9-point curve"
     echo "  --cot       CoT -4/0/+4 -> answer_mdf_gsm8k_cot"
+    echo "  --cot6      CoT -6/+6 only -> extends that same curve (same card)"
     echo ""
     echo "Pin CUDA_VISIBLE_DEVICES and keep it identical across all three runs:"
     echo "  CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_qwen25.sh --baseline"
