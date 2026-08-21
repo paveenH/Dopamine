@@ -152,15 +152,75 @@ preflight () {
 # alternation. So a green pre-flight authorizes a SMOKE, not 300x11. This gate
 # makes that ordering structural rather than a thing to remember.
 SMOKE_DIR="${BASE_DIR}/${MODEL_NAME}/dopamine_signal/${SMOKE_TAG}"
-require_smoke () {
-  local n; n=$(ls -1 "${SMOKE_DIR}"/dopamine_signal_*.json 2>/dev/null | wc -l | tr -d ' ')
-  if [[ "${n}" -lt 2 ]]; then
-    echo "[x] no SMOKE artifacts in ${SMOKE_DIR} (found ${n}, need >=2)."
+
+# Counting files is the weakest possible check: a leftover artifact, a
+# half-written file from an interrupted run, or another experiment's output all
+# pass it. So the gate verifies the EXACT expected files and reads their
+# metadata. And since no automatic check can confirm a HUMAN read the generated
+# text, the last step is an explicit SMOKE_APPROVED=1.
+require_smoke () {   # $1 = "nocot" | "cot"
+  local fam="$1"
+  local tag; tag=$( [[ "${fam}" == cot ]] && echo cot || echo nocot )
+  echo "[*] verifying ${fam} smoke artifacts in ${SMOKE_DIR}"
+  "${PY}" - "${SMOKE_DIR}" "${tag}" "${SMOKE_N}" "${SMOKE_TAG}" "${LS}" "${LE}" \
+           "${MAX_NEW_TOKENS}" "${MODEL_SIZE}" "${EMA_ALPHA}" <<'PYEOF'
+import json, os, sys
+d, tag, n, rtag, ls, le, mnt, size, ema = sys.argv[1:10]
+n, ls, le, mnt = int(n), int(ls), int(le), int(mnt)
+fails = []
+for a, atag in ((0.0, ""), (6.0, "_a6")):
+    f = os.path.join(
+        d, f"dopamine_signal_gsm8k_{size}_{tag}{atag}_ema{ema}_L{ls}-{le}.json")
+    if not os.path.exists(f):
+        fails.append(f"missing: {os.path.basename(f)}"); continue
+    try:
+        with open(f, encoding="utf-8") as fh:
+            j = json.load(fh)
+    except Exception as e:                      # truncated / interrupted write
+        fails.append(f"unreadable (interrupted run?): {os.path.basename(f)}: {e}")
+        continue
+    m, data = j.get("meta", {}), j.get("data", [])
+    def chk(key, want):
+        got = m.get(key)
+        if got != want:
+            fails.append(f"{os.path.basename(f)}: meta[{key}]={got!r} != {want!r}")
+    chk("steer_alpha", a)
+    chk("cot", tag == "cot")
+    chk("run_tag", rtag)
+    chk("max_new_tokens", mnt)
+    chk("layer_start", ls)
+    chk("layer_end", le)
+    chk("n_samples", n)
+    if len(data) != n:
+        fails.append(f"{os.path.basename(f)}: {len(data)} samples, expected {n}")
+    if not any((s.get("generated") or "").strip() for s in data):
+        fails.append(f"{os.path.basename(f)}: every generation is empty")
+if fails:
+    print("[x] smoke verification FAILED:")
+    for x in fails:
+        print(f"    - {x}")
+    sys.exit(1)
+print(f"[ok] {tag} smoke artifacts verified (alpha 0 and +6, n={n})")
+PYEOF
+  if [[ $? -ne 0 ]]; then
     echo "    A green pre-flight only authorizes a smoke: the toy forward never"
-    echo "    ran generate_one(). Run:  bash $0 SMOKE   and read its output."
+    echo "    ran generate_one(). Run:  bash $0 SMOKE"
     exit 1
   fi
-  echo "[ok] smoke artifacts present (${n}) — formal collection authorized."
+
+  if [[ "${SMOKE_APPROVED:-0}" != "1" ]]; then
+    echo
+    echo "[x] smoke artifacts exist but have NOT been approved."
+    echo "    No automatic check can tell whether a human read the generated"
+    echo "    text. Inspect the ${fam} smoke JSONs and confirm:"
+    echo "      - text ends naturally (not every sample at ${MAX_NEW_TOKENS} tokens)"
+    echo "      - '####' present, commit position sane, accuracy plausible"
+    echo "      - signal array length == generated length"
+    echo "      - alpha=+6 text DIFFERS from alpha=0 (steering reached generation)"
+    echo "    Then re-launch with:  SMOKE_APPROVED=1 ..."
+    exit 1
+  fi
+  echo "[ok] ${fam} smoke verified and approved — formal collection authorized."
 }
 
 run_one () {   # $1 = alpha, $2 = "" | "--cot", $3 = n_samples, $4 = run_tag
@@ -204,10 +264,15 @@ case "${STEP}" in
     ;;
   SMOKE)
     banner; preflight
-    echo; echo "[*] SMOKE: ${SMOKE_N} samples, alpha=0 and alpha=+6 (both paths)"
+    echo; echo "[*] SMOKE: ${SMOKE_N} samples x {No-CoT, CoT} x alpha{0,+6}"
+    echo "    Both prompt families are smoked: the CoT prompt and its generated"
+    echo "    text are a different object and must not be authorized by a"
+    echo "    No-CoT smoke."
     echo "    -> ${SMOKE_DIR}"
-    run_one 0 "" "${SMOKE_N}" "${SMOKE_TAG}"
-    run_one 6 "" "${SMOKE_N}" "${SMOKE_TAG}"
+    run_one 0 ""      "${SMOKE_N}" "${SMOKE_TAG}"
+    run_one 6 ""      "${SMOKE_N}" "${SMOKE_TAG}"
+    run_one 0 "--cot" "${SMOKE_N}" "${SMOKE_TAG}"
+    run_one 6 "--cot" "${SMOKE_N}" "${SMOKE_TAG}"
     echo
     echo "[ok] smoke complete. READ THE OUTPUT before the formal run:"
     echo "  - generated text is well-formed and ends naturally (not all 768 tok)"
@@ -217,13 +282,13 @@ case "${STEP}" in
     echo "  - meta carries max_new_tokens=768 / run_tag / steer_alpha"
     ;;
   NOCOT)
-    banner; preflight; require_smoke
+    banner; preflight; require_smoke nocot
     echo; echo "[*] No-CoT dose curve: ${ALPHAS_NOCOT[*]}  (11 cells, one card)"
     for A in "${ALPHAS_NOCOT[@]}"; do run_one "${A}" ""; done
     echo; echo "[ok] No-CoT curve complete $(date '+%F %T')"
     ;;
   COT)
-    banner; preflight; require_smoke
+    banner; preflight; require_smoke cot
     echo; echo "[*] CoT cells: ${ALPHAS_COT[*]}  (self-contained, own alpha=0)"
     for A in "${ALPHAS_COT[@]}"; do run_one "${A}" "--cot"; done
     echo; echo "[ok] CoT cells complete $(date '+%F %T')"
