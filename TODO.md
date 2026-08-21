@@ -7,11 +7,6 @@
 4. Qwen MATH ✔
 5. Qwen High-Dose in GSM8K ✔ 
 5. MATH cot 真正需要补的只有 MATH，并应等待 MATH-CoT 后一次完成：✔ 
-   - commit 前后字符和等式；
-   - +8 难题回落是否来自提交前推理被压缩；
-   - \boxed{} 极端重复尾部；
-   - No-CoT 与 CoT 是否改变峰位或有效区间。
-   - 之前qwen做不了会不会是因为不够大力？看起来至少要+6？同理llama3?
 6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
 7. 需要证明 working point吗？
    选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
@@ -19,6 +14,7 @@
    - GSM-Hard：验证更困难算术是否需要不同工作点；
    - ProofWriter：观察非数学的规则推理和证明过程；
    - 带上下文的多跳问答：观察模型是否先整合证据再提交答案。
+   - 之前qwen做不了会不会是因为不够大力？看起来至少要+6？同理llama3?
 
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
