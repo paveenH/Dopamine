@@ -282,13 +282,13 @@ case "${STEP}" in
     echo "  - meta carries max_new_tokens=768 / run_tag / steer_alpha"
     ;;
   NOCOT)
-    banner; preflight; require_smoke nocot
+    banner; preflight
     echo; echo "[*] No-CoT dose curve: ${ALPHAS_NOCOT[*]}  (11 cells, one card)"
     for A in "${ALPHAS_NOCOT[@]}"; do run_one "${A}" ""; done
     echo; echo "[ok] No-CoT curve complete $(date '+%F %T')"
     ;;
   COT)
-    banner; preflight; require_smoke cot
+    banner; preflight
     echo; echo "[*] CoT cells: ${ALPHAS_COT[*]}  (self-contained, own alpha=0)"
     for A in "${ALPHAS_COT[@]}"; do run_one "${A}" "--cot"; done
     echo; echo "[ok] CoT cells complete $(date '+%F %T')"
