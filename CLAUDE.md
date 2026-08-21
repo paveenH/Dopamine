@@ -596,6 +596,8 @@ Mistral3 needs `transformers` from main + `mistral-common>=1.8.6` (already in `s
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
 
+Two things about running them that have each cost a wrong verdict: **(a) these scripts print their own `ok` lines and signal failure through the EXIT CODE**, so redirecting output to `/dev/null` and reading only the status is fine, but reading only the last printed line is not — check `$?`. **(b) `timeout` does NOT exist on this macOS box**; wrapping a check in it yields exit 127 for every script, which looks exactly like a mass test failure. Verified passing on 2026-08-21: `test_cgt_seq_v5.py`, `test_bandit_pv10.py`, `test_bandit_pv10c.py`, `test_bandit_pv11.py`, `test_pv10_stop_parity.py`, plus `bash -n` on the Qwen launchers.
+
 ```bash
 # CGT-Sequential (the ACTIVE line). v5 touches a driver whose v1-v4 results are
 # frozen, so the load-bearing check is not "does v5 work" but "did adding v5
