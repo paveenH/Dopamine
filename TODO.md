@@ -7,7 +7,7 @@
 4. Qwen MATH ✔
 5. Qwen High-Dose in GSM8K ✔ 
 6. MATH cot ✔ 
-7. 复现qwen的thinking curve
+7. 复现qwen的thinking curve signal部分，没有存HS ⏸
 8. manifold
 
 ---
