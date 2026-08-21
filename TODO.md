@@ -5,7 +5,12 @@
 2. 整理行为学的结果 ✔
 3. Qwen GSM8k实验以及结果分析 ✔
 4. Qwen MATH ✔
-5. Qwen High-Dose in GSM8K ✔ & MATH  
+5. Qwen High-Dose in GSM8K ✔ 
+5. MATH cot 真正需要补的只有 MATH，并应等待 MATH-CoT 后一次完成：
+   - commit 前后字符和等式；
+   - +8 难题回落是否来自提交前推理被压缩；
+   - \boxed{} 极端重复尾部；
+   - No-CoT 与 CoT 是否改变峰位或有效区间。
 6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
 7. 需要证明 working point吗？
    选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
