@@ -108,6 +108,8 @@ Scope: every colour-logit diagnostic claim. -->
 | CGT-seq Llama v4 | **FROZEN** — descriptive values final; stats口径 moved to paired 2026-08-19 |
 | Phase 2 closed-loop (Plans A–H3) | **SHELVED** — conclusions predate the template/offset fixes, must be re-run |
 | Phase 1 signal analysis (ex-"Phase 1b") | **COMPLETE** for §4.1–4.7; name "Phase 1b" is retired |
+| Qwen GSM8K / MATH / CoT replication | **COMPLETE** 2026-08-21 — see `AdaDopamine_gsm8k.md` §4 |
+| Qwen band-position probe `[11,18)` vs `[16,22)` | **PREPARED, NOT RUN** — launchers exist, zero artifacts; see the mask/pre-flight block |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -179,6 +181,11 @@ plausible numbers; both have cost a multi-hour sweep before. These are the cheap
 Evidence: the 2026-05-30 offset bug; check_igt_qwen.py / check_mask_qwen.py docstrings.
 Scope: any port of an existing paradigm to a new model or band. -->
 - **Cross-model PORT pre-flight: run the matching `check_*.py` BEFORE any sweep.** Four exist, all read-only and none needing a full sweep: `check_mask_qwen.py` (mask only, **no GPU and no model weights** — file/dtype, row count == the model's decoder-layer count, non-zero rows EXACTLY `decoder_layer_range(start,end)`, uniform `top_k` sparsity, plus `--compare` to answer "different band or the same neurons relabelled"), and the three paradigm ports `check_gsm8k_qwen.py` / `check_cgt_seq_qwen.py` / `check_igt_qwen.py` (tokenizer + chat template + double-BOS, the ACTUAL final prompt token at each injection site, mask/band alignment, observed `steering_fires` vs `L*B*t`, and the α=0 execution path). **The injection token is model-specific and must be READ OUT, never assumed** — e.g. IGT's anchor is deliberately EMPTY (an anchor there suppresses the reasoning span both the learning readout and prefill steering need — the CGT-simple4 failure), so injection lands on the assistant header's last token: Llama-3.1 `id 271 '\n\n'` vs Qwen2.5 `id 198 '\n'`. A wrong band or wrong site does not raise; it produces uninterpretable data hours later.
+<!-- Why: three launchers exist for this probe and NO doc recorded it; a later session
+would either re-derive the design or run the arms on different cards and lose the contrast.
+Evidence: run_nmd_qwen25.sh / run_mmlue_qwen25.sh headers; no *11_18* artifact exists.
+Scope: Qwen band position only. Delete this bullet if the probe is abandoned. -->
+- **Qwen band-position probe — PREPARED BUT NEVER RUN (as of 2026-08-21): three launchers, zero artifacts.** All Qwen work so far uses `[16,22)` (L=6), chosen as the onset of the layer-wise Expert/Non-Expert Pearson descent. `run_nmd_qwen25.sh` builds a SECOND, EARLIER mask `[11,18)` (L=7) so the band position is **tested rather than assumed**; it does NOT replace the existing mask. Order is fixed in the launcher headers: build the mask → `check_mask_qwen.py --layer_start 11 --layer_end 18 --compare 16 22` → `run_mmlue_qwen25.sh --new` → `--old`. **MMLU-E is the probe because its E option ("I am not sure") is a wanting readout INDEPENDENT of correctness** — E-ratio should move bidirectionally with α while accuracy holds, so a band that cannot move E-ratio without damaging accuracy is not worth spending IGT/GSM8K time on. Two design points that are easy to lose: **(a) the two bands OVERLAP at decoder layers 15–16**, so any difference is "earlier band vs later band", NOT "two independent neuron sets" — read the per-layer Jaccard from `--compare` before wording any conclusion; **(b) the `[16,22)` arm is RE-RUN rather than cited from stored numbers**, and both arms include α=0, so each band carries its own same-card baseline and an E-ratio shift cannot be a baseline or cross-GPU artifact. Keep both arms on ONE card. `run_igt_qwen25.sh` is the downstream consumer if a band wins.
 - **Sanity script**: `sanity_mask_indexing.py` confirms saved mask non-zero rows + their decoder-layer alignment on the server. **Run it before any change to layer-indexing code** — this prevents repeating the offset bug fixed on 2026-05-30.
 
 ## Capitulation / Pressure experiments
