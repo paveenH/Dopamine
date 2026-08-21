@@ -6,7 +6,7 @@
 3. Qwen GSM8k实验以及结果分析 ✔
 4. Qwen MATH ✔
 5. Qwen High-Dose in GSM8K ✔ 
-5. MATH cot 真正需要补的只有 MATH，并应等待 MATH-CoT 后一次完成：
+5. MATH cot 真正需要补的只有 MATH，并应等待 MATH-CoT 后一次完成：✔ 
    - commit 前后字符和等式；
    - +8 难题回落是否来自提交前推理被压缩；
    - \boxed{} 极端重复尾部；
