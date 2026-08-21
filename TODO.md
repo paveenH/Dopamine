@@ -11,9 +11,50 @@
 8. manifold
 
 ---
-下面这份 TODO 以 **Qwen2.5 的 `AdaptiveThinking` 信号级复现**为主线；已完成的 GSM8K/MATH 行为曲线不重跑，manifold 放到复现之后。
+1. **Thinking Curve：最高优先级**
+   直接回答核心问题：为什么 Qwen 需要正向、Llama 却可能需要负向调节。比较的应是早期候选、commitment、推理压缩、循环等行为状态，而不是 raw α。
 
-## TODO — Qwen2.5 AdaptiveThinking Replication
+2. **把 manifold 作为 Thinking Curve 的机制补充**
+   看 RSN steering 是沿着自然推理流形移动，还是把状态推离流形；以及它能否额外预测 commitment/正确率。先做小型 pilot，不单独扩成大工程。
+
+3. **增加一个 reasoning benchmark**
+   建议优先 GSM-Hard，用预先固定的 `0/+4/+6/+8`，检验已发现的 `+6` 转折能否迁移到更难算术。不要宣称“一个工作点永久通用”；当前更合理的是：**commitment 转折可能迁移，但最佳准确率点仍受任务难度影响。**
+
+4. **重分析 CGT/IGT**
+   这项成本低，可以用  
+   `evidence → recognition → utilization → commitment → outcome`  
+   重新定位 Qwen 到底卡在哪里。但它主要补充行为边界，不要试图强行“救活”任务结果。
+
+5. **第三个模型暂缓**
+   它会显著增加校准、解释和篇幅成本。除非论文初稿完成后发现审稿主张必须依赖第三模型，否则两模型的方向差异本身已经很有信息。
+
+另外，我认为有一项比第三模型更重要：在 Qwen 的代表性 `+6` 条件加入**等范数随机／正交方向控制**。它能说明 reasoning 改善来自 RSN 方向本身，而不只是任意 hidden-state 扰动。
+
+一句话路线：
+
+> **先解释 Llama–Qwen 的方向差异 → 用一个困难 reasoning benchmark 检验迁移 → 用 CGT/IGT 补行为边界 → 然后开始写论文；第三模型留作审稿风险储备。**
+
+---
+6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
+7. 需要证明 working point吗？
+   选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
+   - SVAMP / ASDiv：验证数学题内部迁移；
+   - GSM-Hard：验证更困难算术是否需要不同工作点；
+   - ProofWriter：观察非数学的规则推理和证明过程；
+   - 带上下文的多跳问答：观察模型是否先整合证据再提交答案。
+   - 之前qwen做不了会不会是因为不够大力？看起来至少要+6？同理llama3?
+
+5. Behaviour: 测一下和人类的行为学对齐关系
+6. Model:
+   HumanLLM
+   Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
+   https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
+   Inkling-Small
+7. 有什么是等待可以收益的task?
+8. Manifold
+
+---
+## TO DO — Qwen2.5 AdaptiveThinking Replication
 
 ### 0. 冻结研究问题
 
@@ -199,54 +240,6 @@
 
 本轮仅完成规划，没有修改文件或执行实验。
 
----
-
-1. **Thinking Curve：最高优先级**
-   直接回答核心问题：为什么 Qwen 需要正向、Llama 却可能需要负向调节。比较的应是早期候选、commitment、推理压缩、循环等行为状态，而不是 raw α。
-
-2. **把 manifold 作为 Thinking Curve 的机制补充**
-   看 RSN steering 是沿着自然推理流形移动，还是把状态推离流形；以及它能否额外预测 commitment/正确率。先做小型 pilot，不单独扩成大工程。
-
-3. **增加一个 reasoning benchmark**
-   建议优先 GSM-Hard，用预先固定的 `0/+4/+6/+8`，检验已发现的 `+6` 转折能否迁移到更难算术。不要宣称“一个工作点永久通用”；当前更合理的是：**commitment 转折可能迁移，但最佳准确率点仍受任务难度影响。**
-
-4. **重分析 CGT/IGT**
-   这项成本低，可以用  
-   `evidence → recognition → utilization → commitment → outcome`  
-   重新定位 Qwen 到底卡在哪里。但它主要补充行为边界，不要试图强行“救活”任务结果。
-
-5. **第三个模型暂缓**
-   它会显著增加校准、解释和篇幅成本。除非论文初稿完成后发现审稿主张必须依赖第三模型，否则两模型的方向差异本身已经很有信息。
-
-另外，我认为有一项比第三模型更重要：在 Qwen 的代表性 `+6` 条件加入**等范数随机／正交方向控制**。它能说明 reasoning 改善来自 RSN 方向本身，而不只是任意 hidden-state 扰动。
-
-一句话路线：
-
-> **先解释 Llama–Qwen 的方向差异 → 用一个困难 reasoning benchmark 检验迁移 → 用 CGT/IGT 补行为边界 → 然后开始写论文；第三模型留作审稿风险储备。**
-
----
-6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
-7. 需要证明 working point吗？
-   选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
-   - SVAMP / ASDiv：验证数学题内部迁移；
-   - GSM-Hard：验证更困难算术是否需要不同工作点；
-   - ProofWriter：观察非数学的规则推理和证明过程；
-   - 带上下文的多跳问答：观察模型是否先整合证据再提交答案。
-   - 之前qwen做不了会不会是因为不够大力？看起来至少要+6？同理llama3?
-
-5. Behaviour: 测一下和人类的行为学对齐关系
-6. Model:
-   HumanLLM
-   Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
-   https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
-   Inkling-Small
-7. 有什么是等待可以收益的task?
-8. Manifold
-
-守规矩、会分析、善于解释，但行动层面偏僵硬；外部推动合适时能变得果断，过强时又容易机械化或越界。
-反应快、凭直觉、愿意行动，但自我控制较弱；外部推动合适时能更坚定，过强时容易抢答、固著和反复纠缠，推动不足时又会犹豫、失去行动稳定性。
-Qwen：先控制、后行动，问题是过度规则化。
-Llama：先行动、后控制，问题是冲动与难以收住。
 ---
 
 ## TO DO — ACL ARR
