@@ -6,7 +6,7 @@
 3. Qwen GSM8k实验以及结果分析 ✔
 4. Qwen MATH ✔
 5. Qwen High-Dose in GSM8K & MATH  
-6. Reanalysize IGT&CGT based on the personality of qwen25 [Dopamine0819]
+6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
 
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
