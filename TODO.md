@@ -11,6 +11,7 @@
    - +8 难题回落是否来自提交前推理被压缩；
    - \boxed{} 极端重复尾部；
    - No-CoT 与 CoT 是否改变峰位或有效区间。
+   - 之前qwen做不了会不会是因为不够大力？看起来至少要+6？同理llama3?
 6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
 7. 需要证明 working point吗？
    选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
