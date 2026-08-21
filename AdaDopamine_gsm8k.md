@@ -634,13 +634,6 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 本节只保留结果与结论；运行配置、产物校验和分析器细节见 `CLAUDE.md`。完整剂量曲线均予保留：
 **显著性区分证据强弱，但不用于删除具有一致方向的描述性规律。**
 
-准确率一律由离线权威抽取器重算（`RoleAnswer/analyze_first_last_acc.py`，GSM8K 取首个
-`####`、MATH 取首个 `\boxed{}` 并接 fallback），运行时 inline `correct` 仅作运行健康检查。
-本节各表的复算脚本位于 `RoleAnswer/qwen_step2/`：`commit_columns.py`（承诺列）、
-`math_cot_curve.py` + `math_cot_stats.py`（MATH-CoT 九档与两个 Holm family）、
-`math_cot_rightarm.py`（Level 5 归因）、`math_strat_frozen.py`（事后分层）、
-`highdose_overload.py`（高剂量健康检查）、`earlycand_audit_RESULT.txt`（盲审记录）。
-
 ### 4.1 GSM8K No-CoT: Positive RSN Reorders Commitment and Saturates after `+8`
 
 **Table 4.1a. GSM8K No-CoT dose-response (n=300)**
