@@ -388,6 +388,8 @@ def main():
                     "n_samples": len(results),
                     "accuracy": round(correct_n / total * 100, 2),
                     "cot": args.cot,
+                    "max_new_tokens": args.max_new_tokens,
+                    "run_tag": args.run_tag,
                     "prompt_template": prompt_template,
                 },
                 "diff_stats": diff_stats,
@@ -430,6 +432,12 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=0.9)
     parser.add_argument("--base_dir", type=str, default=None)
     parser.add_argument(
+        "--run_tag", type=str, default="",
+        help="Optional subdirectory under SAVE_DIR isolating one collection "
+             "batch (e.g. qwen25_signal_v1). Empty (default) writes directly "
+             "to SAVE_DIR, byte-identical to every legacy caller.",
+    )
+    parser.add_argument(
         "--role",
         type=str,
         default="neutral",
@@ -448,5 +456,8 @@ if __name__ == "__main__":
     DATA_DIR = os.path.join(BASE, args.test_file)
     MASK_DIR = os.path.join(BASE, "mask", f"{args.hs}_{args.type}_logits")
     SAVE_DIR = os.path.join(BASE, args.model, "dopamine_signal")
+    if args.run_tag:
+        SAVE_DIR = os.path.join(SAVE_DIR, args.run_tag)
+    os.makedirs(SAVE_DIR, exist_ok=True)
 
     main()
