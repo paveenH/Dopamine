@@ -4,7 +4,9 @@
 1. Qwen25-7B ICG实验结果整理 ✔ 
 2. 整理行为学的结果 ✔
 3. Qwen GSM8k实验以及结果分析 ✔
-4. Qwen MATH [running ⏸]
+4. Qwen MATH ✔
+5. Qwen High-Dose in GSM8K & MATH  
+6. Reanalysize IGT&CGT based on the personality of qwen25 [Dopamine0819]
 
 5. Behaviour: 测一下和人类的行为学对齐关系
 6. Model:
