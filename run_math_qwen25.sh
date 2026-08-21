@@ -55,14 +55,25 @@ LS=16
 LE=22
 
 ANS_NOCOT="answer_math"
+# CoT writes to its OWN dir: the driver's output path does NOT encode --cot, so
+# without this the CoT cells would overwrite the frozen No-CoT ones. Same
+# isolation rule as run_gsm8k_qwen25.sh's ANS_COT.
+ANS_COT="answer_math_cot"
 
 CONFIG_BASELINE="0-${LS}-${LE}"
 # --nocot excludes alpha=0 so a completed --baseline is never regenerated.
 CONFIGS_NOCOT_REST="neg8-${LS}-${LE} neg6-${LS}-${LE} neg4-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} 4-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
 CONFIGS_FULL="neg8-${LS}-${LE} neg6-${LS}-${LE} neg4-${LS}-${LE} neg2-${LS}-${LE} ${CONFIG_BASELINE} 2-${LS}-${LE} 4-${LS}-${LE} 6-${LS}-${LE} 8-${LS}-${LE}"
+# --cot-full: the authoritative MATH CoT curve. Same nine alphas as No-CoT, one
+# card, one clean dir, sequential. alpha=0 is INCLUDED (unlike --nocot, which
+# excludes it because --baseline already wrote it) -- ANS_COT starts empty.
+# No +10/+12 here: MATH already shows a fall at +8 on the No-CoT curve, so the
+# right arm does not need a dose extension on this task.
+CONFIGS_COT_FULL="${CONFIGS_FULL}"
 
 WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
+ANS_SEL="${ANS_NOCOT}"   # overridden by --cot-full
 OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}"
 
 case "$1" in
@@ -80,12 +91,24 @@ case "$1" in
                 echo "      dir: ${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}/mdf_0"
                 exit 2
               fi ;;
+  --cot-full) SEL="${CONFIGS_COT_FULL}"; LBL="--cot-full (all nine alphas, CoT)"
+              COT_FLAG="--cot"
+              ANS_SEL="${ANS_COT}"
+              OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_COT}"
+              # Its own dir, so unlike --full there is no finished cell to
+              # clobber. Refuse only if a previous CoT run already populated it.
+              if [ -d "${OUT}/mdf_0" ]; then
+                echo "STOP: ${OUT}/mdf_0 already exists -- a CoT run has done alpha=0."
+                echo "      Re-running --cot-full would regenerate finished cells."
+                exit 2
+              fi ;;
   *)
-    echo "Usage: bash run_math_qwen25.sh {--baseline|--nocot|--full}"
+    echo "Usage: bash run_math_qwen25.sh {--baseline|--nocot|--full|--cot-full}"
     echo ""
     echo "  --baseline  alpha=0 -> ${OUT}/mdf_0, then READ the boxed position"
     echo "  --nocot     the other eight alphas (alpha=0 excluded, never re-run)"
     echo "  --full      all nine on one card, sequential"
+    echo "  --cot-full  all nine WITH CoT -> answer_math_cot/ (separate dir)"
     echo ""
     echo "Pin a card: CUDA_VISIBLE_DEVICES=<n> bash $0 --full"
     exit 1 ;;
@@ -118,19 +141,20 @@ python get_answer_regenerate_math.py \
     --configs    ${SEL} \
     --mask_type  "${MASK_TYPE}" \
     --test_file  "${MATH_FILE}" \
-    --ans_file   "${ANS_NOCOT}" \
+    --ans_file   "${ANS_SEL}" \
     --base_dir   "${BASE_DIR}" \
     --roles      "${ROLES_NEUTRAL}" \
     --n_samples      ${N_SAMPLES} \
     --max_new_tokens ${MAX_NEW_TOKENS} \
     --temperature    ${TEMPERATURE} \
-    --batch_size     ${BATCH_SIZE}
+    --batch_size     ${BATCH_SIZE} \
+    ${COT_FLAG:-}
 rc=$?
 
 if [ $rc -eq 0 ]; then
   echo ""
   echo "[Done] MATH ${MODEL_NAME} — $(date)"
-  echo "ACC offline (first-#### analogue = last \\boxed{}):"
+  echo "ACC offline (MAIN = FIRST \\boxed{}; last = sensitivity only):"
   echo "  python3.10 analyze_first_last_acc.py   # MATH branch, in RoleAnswer/"
   if [ "$1" == "--baseline" ]; then
     echo ""
