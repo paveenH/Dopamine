@@ -72,7 +72,10 @@ SMOKE_N=8            # real generate_one(), few samples, both alpha paths
 DATA="${DATA:-data1}"
 WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
-PY="${PY:-python3.10}"
+# Server convention: the conda env names its interpreter `python`. `python3.10`
+# is the LOCAL analysis-box convention and does NOT exist here -- it exits 127
+# before anything runs, which under nohup looks like a job that silently died.
+PY="${PY:-python}"
 
 MASK_PATH="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits/${MASK_TYPE}_${PERCENTAGE}_${LS}_${LE}_${MODEL_SIZE}.npy"
 OUT_DIR="${BASE_DIR}/${MODEL_NAME}/dopamine_signal/${RUN_TAG}"
@@ -104,6 +107,16 @@ require_single_card () {
 if [[ "${STEP}" != "CHECK" ]]; then require_single_card; fi  # SMOKE loads the model too
 
 cd "${WORK_DIR}" || { echo "[x] cannot cd ${WORK_DIR}"; exit 1; }
+
+if ! command -v "${PY}" >/dev/null 2>&1; then
+  echo "[x] interpreter '${PY}' not found. Activate the env, or pass PY=..."
+  exit 1
+fi
+if ! "${PY}" -c "import numpy, torch" >/dev/null 2>&1; then
+  echo "[x] '${PY}' cannot import numpy/torch — wrong environment."
+  echo "    which: $(command -v "${PY}")"
+  exit 1
+fi
 
 banner () {
   echo "============================================================"
