@@ -6,7 +6,225 @@
 3. Qwen GSM8k实验以及结果分析 ✔
 4. Qwen MATH ✔
 5. Qwen High-Dose in GSM8K ✔ 
-5. MATH cot 真正需要补的只有 MATH，并应等待 MATH-CoT 后一次完成：✔ 
+6. MATH cot ✔ 
+7. 复现qwen的thinking curve
+8. manifold
+
+---
+下面这份 TODO 以 **Qwen2.5 的 `AdaptiveThinking` 信号级复现**为主线；已完成的 GSM8K/MATH 行为曲线不重跑，manifold 放到复现之后。
+
+## TODO — Qwen2.5 AdaptiveThinking Replication
+
+### 0. 冻结研究问题
+
+- [ ] 主问题：Qwen 是否复现  
+  `α → task-entry gain → pre-commit state → decisiveness → commitment behavior`
+- [ ] 跨模型问题：Llama 与 Qwen 的相反 α 方向，是否进入相似的功能性 commitment state。
+- [ ] 明确这是一条分析链；除 `α → G_prefill` 外，不提前声称因果中介。
+- [ ] production accuracy 继续引用 [AdaDopamine_gsm8k.md](/Users/paveenhuang/Downloads/Dopamine/AdaDopamine_gsm8k.md:632)，signal run 的同批 accuracy 只用于 signal–behavior alignment。
+
+### 1. 固定 Qwen 协议
+
+- [ ] 主实验沿用当前 Qwen mask：`[16,22)`、6 层、`nmd_0.5_16_22_7B.npy`。
+- [ ] 不直接搬用 Llama 的 `[11,20)`、raw α 或信号标准化参数。
+- [ ] 为 Qwen 建立独立 signal launcher，不修改冻结的 Llama launcher。
+- [ ] 固定同一批 300 道 GSM8K、bare-string、greedy、bs=1、当前 EOT terminators。
+- [ ] 整条 dose curve 固定在同一张 GPU。
+- [ ] 使用新的 `RUN_TAG`，不覆盖现有 HDF5 或行为结果。
+- [ ] `[11,18)` earlier-band probe 暂列敏感性分析，不阻塞主复现。
+
+### 2. 技术诊断
+
+- [ ] 核对 tokenizer、prompt tail、terminators 和实际注入 token。
+- [ ] 核对 mask shape、非零层、`[16,22)` 与 decoder layers 的对应。
+- [ ] 确认 steering 使用 output-side hook，且记录的是 post-injection state。
+- [ ] 核对每次调用的 steering fires。
+- [ ] 核对 HDF5 保存 Qwen L16–21 加 final layer，共 7 个 stored layers。
+- [ ] 核对 α=0、非零 α 的执行路径与 metadata。
+- [ ] 用少量题检查生成文本、`####`、commit locator、正确率提取和信号长度。
+- [ ] 如发现技术不一致，先修复协议；不根据结果方向调整 prompt、mask 或剂量。
+
+### 3. 分层收集数据
+
+#### 3.1 完整剂量的轻量 signal curve
+
+- [ ] No-CoT：`α={−8,−6,−4,−2,0,+2,+4,+6,+8,+10,+12}`。
+- [ ] 每格记录：
+  - `G_prefill/Z_prefill`
+  - decode `Z_t`
+  - `s_t/p_t`
+  - generated text、commit marker、correctness
+  - entropy、top1、margin 或足够重建这些指标的 final-layer readout
+- [ ] 保留全部剂量，不因不显著或方向不符合预期而删除。
+
+#### 3.2 自然状态与交互条件
+
+- [ ] Neutral No-CoT α=0。
+- [ ] Neutral CoT α=0。
+- [ ] Expert α=0。
+- [ ] Non-Expert α=0。
+- [ ] `{No-CoT, CoT} × {0,+6}` 作为 Qwen 的主 2×2 条件。
+- [ ] 视主结果加入 CoT `+8`，观察 ordering saturation／压缩。
+- [ ] Primary-teacher 只作补充，不阻塞主分析。
+
+#### 3.3 原始 HDF5 子集
+
+优先保存以下代表条件的逐 token hidden states：
+
+- [ ] No-CoT：`−8、0、+6、+8`。
+- [ ] CoT：`0、+6`。
+- [ ] Expert / Non-Expert：α=0。
+- [ ] 完成 metadata、样本数、层索引和文件完整性检查。
+
+完整 dose curve 先用轻量 signal 路径；HDF5 用于离线重投影、方向控制和之后的 manifold pilot，避免一开始保存全部剂量造成过高成本。
+
+### 4. 复现 `AdaptiveThinking` 核心分析
+
+#### 4.1 Task-entry calibration
+
+- [ ] 拟合 `α → G_prefill/Z_prefill` 的 slope 与线性度。
+- [ ] 测量从 prefill 到 `decode[0]` 的 rebound。
+- [ ] 检查后续 decode trajectory 是否重新靠拢。
+- [ ] 将这一部分定位为 intervention calibration／manipulation check。
+
+#### 4.2 Correct vs Incorrect
+
+- [ ] 比较 commit timing。
+- [ ] 比较 commit 前 `s_t level` 与提交后 release。
+- [ ] 检查 correct/wrong 差异是否独立于 commit-time 错位。
+- [ ] 只作 outcome association，不写成 `s_t` 导致正确。
+
+#### 4.3 CoT vs No-CoT
+
+- [ ] 比较 task-entry gain。
+- [ ] 比较 pre-commit `s_t level`。
+- [ ] 比较 post-commit release。
+- [ ] 比较 centered `p_t RMS`，频率指标仅作 negative control。
+- [ ] 比较 entropy/top1/margin，区分 engagement 与 output decisiveness。
+- [ ] 检查 Qwen 的 CoT 是否改善候选质量，但不自行改变 early-answer ordering。
+
+#### 4.4 Persona
+
+- [ ] 比较 Expert–Non-Expert 的 task-entry gain。
+- [ ] 比较 commitment formation 与 release。
+- [ ] 检查 Persona 是整体平移还是 temporal redistribution。
+- [ ] 不把该结果当作 α steering 的因果证据。
+
+#### 4.5 α dose-response
+
+- [ ] 画出 α 对 `G_prefill`、pre-commit `s_t`、`p_t RMS`、confidence 与 commitment behavior 的完整曲线。
+- [ ] 检查 `+6` ordering transition、`+8` saturation，以及 `+10/+12` 是否只增加注入强度而不再改变 commitment state。
+- [ ] 分开描述 GSM8K 饱和与 MATH `+8` reasoning compression，避免建立通用右臂。
+
+#### 4.6 Slow-state validation
+
+- [ ] 固定 early window，避免用 `[0,commit)` 产生机械耦合。
+- [ ] 在 at-risk samples 上分别检验：
+  - `s_t level → commit timing`
+  - `s_t slope → commit timing`
+- [ ] 控制 α condition、question、长度与 early confidence。
+- [ ] 检查 Qwen 是否同样只有 level evidence，而没有 slope-vigor evidence。
+
+### 5. 跨模型 working-state 检验
+
+- [ ] 各模型使用自己的 neutral reference 做标准化。
+- [ ] `ΔG_prefill/α` 只用于校准，不要求两个模型的 raw `G_prefill` 相等。
+- [ ] 建立多维 working-state vector：
+  - pre-commit `s_t level`
+  - centered `p_t RMS`
+  - entropy/top1/margin
+  - early-candidate
+  - commit position
+  - post-commit revision/loop
+- [ ] 用训练题确定 Llama 的候选 working-state 区域。
+- [ ] 不参考 Qwen accuracy，先根据内部状态找出最接近该区域的 Qwen dose。
+- [ ] 在 held-out questions 检验该 dose 是否同时改善 commitment behavior 和 accuracy。
+- [ ] 比较两端的失败方式：抢答、候选震荡、post-commit loop、推理不足和过度压缩。
+
+可能出现三种结论：
+
+- [ ] 内部状态和行为都汇合：支持“相同调节机制、不同基线工作点”。
+- [ ] 只有行为汇合：表述为不同内部实现产生相似的 commitment correction。
+- [ ] 两者均不汇合：保留模型特异性，不强行建立统一 working state。
+
+### 6. Qwen 方向特异性
+
+- [ ] 选择代表条件：α=0 与 RSN `+6`。
+- [ ] 构造 layer、support、norm 匹配的 random／orthogonal directions。
+- [ ] 不只匹配 raw α；同时报告各方向实际产生的 `ΔG_prefill`。
+- [ ] 比较相同的预先冻结读数：
+  - pre-commit `s_t`
+  - post-commit `p_t`
+  - commitment ordering
+  - first accuracy
+  - invalid／contamination
+- [ ] 区分 offline re-projection specificity 与 causal steering specificity。
+- [ ] 若 random direction 产生相似结果，降低 RSN-specific 机制主张。
+
+### 7. Manifold pilot（复现后再开始）
+
+启动条件不是“结果必须成功”，而是核心 signal 数据与 HDF5 已完整、口径稳定。
+
+- [ ] 只用 α=0 training questions 学习每层自然轨迹结构。
+- [ ] PCA／participation ratio 为主，TLE 为 sensitivity。
+- [ ] 检验 `v_RSN` 的 local tangent alignment。
+- [ ] 比较各剂量的 reconstruction error、trajectory speed、curvature 与 commitment-centroid distance。
+- [ ] 检查 manifold features 在控制 `Z_t`、confidence、长度、position、marker 后是否仍有额外预测力。
+- [ ] UMAP/t-SNE 只用于展示，不作主要证据。
+- [ ] 若没有超过一维 `Z_t` 的解释力，将 manifold 定位为几何可视化，不扩成主线。
+
+### 8. 最终产出
+
+- [ ] 一张 Llama–Qwen effective-state 对齐图，横轴不使用 raw α。
+- [ ] 一张 task-entry → commitment trajectory 图。
+- [ ] 一张 working-state 与失败区域图。
+- [ ] 一张 RSN vs random/orthogonal causal control 图。
+- [ ] 完整保留所有 dose、null、失败结果和非显著指标。
+- [ ] 将结果写入 `AdaptiveThinking.md` 的 Qwen replication 新节。
+- [ ] 运行配置、路径、metadata 和分析器口径写入 `CLAUDE.md`。
+- [ ] Manifold 只有在提供额外解释力时，才进入正文机制主张。
+
+建议执行顺序：
+
+```text
+协议冻结与技术诊断
+→ 代表条件小规模检查
+→ Qwen 完整轻量 signal curve
+→ 代表条件 HDF5
+→ AdaptiveThinking 核心复现
+→ Llama–Qwen working-state 对齐
+→ Qwen causal direction control
+→ manifold pilot
+```
+
+本轮仅完成规划，没有修改文件或执行实验。
+
+---
+
+1. **Thinking Curve：最高优先级**
+   直接回答核心问题：为什么 Qwen 需要正向、Llama 却可能需要负向调节。比较的应是早期候选、commitment、推理压缩、循环等行为状态，而不是 raw α。
+
+2. **把 manifold 作为 Thinking Curve 的机制补充**
+   看 RSN steering 是沿着自然推理流形移动，还是把状态推离流形；以及它能否额外预测 commitment/正确率。先做小型 pilot，不单独扩成大工程。
+
+3. **增加一个 reasoning benchmark**
+   建议优先 GSM-Hard，用预先固定的 `0/+4/+6/+8`，检验已发现的 `+6` 转折能否迁移到更难算术。不要宣称“一个工作点永久通用”；当前更合理的是：**commitment 转折可能迁移，但最佳准确率点仍受任务难度影响。**
+
+4. **重分析 CGT/IGT**
+   这项成本低，可以用  
+   `evidence → recognition → utilization → commitment → outcome`  
+   重新定位 Qwen 到底卡在哪里。但它主要补充行为边界，不要试图强行“救活”任务结果。
+
+5. **第三个模型暂缓**
+   它会显著增加校准、解释和篇幅成本。除非论文初稿完成后发现审稿主张必须依赖第三模型，否则两模型的方向差异本身已经很有信息。
+
+另外，我认为有一项比第三模型更重要：在 Qwen 的代表性 `+6` 条件加入**等范数随机／正交方向控制**。它能说明 reasoning 改善来自 RSN 方向本身，而不只是任意 hidden-state 扰动。
+
+一句话路线：
+
+> **先解释 Llama–Qwen 的方向差异 → 用一个困难 reasoning benchmark 检验迁移 → 用 CGT/IGT 补行为边界 → 然后开始写论文；第三模型留作审稿风险储备。**
+
+---
 6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
 7. 需要证明 working point吗？
    选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
