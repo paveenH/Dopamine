@@ -44,14 +44,14 @@ set -uo pipefail
 
 STEP="${1:-}"
 case "${STEP}" in
-  CHECK|NOCOT|COT) ;;
-  "") echo "usage: bash $0 {CHECK|NOCOT|COT}"; exit 2 ;;
-  *)  echo "unknown step '${STEP}' (want CHECK|NOCOT|COT)"; exit 2 ;;
+  CHECK|SMOKE|NOCOT|COT) ;;
+  "") echo "usage: bash $0 {CHECK|SMOKE|NOCOT|COT}"; exit 2 ;;
+  *)  echo "unknown step '${STEP}' (want CHECK|SMOKE|NOCOT|COT)"; exit 2 ;;
 esac
 
 # ── model / protocol constants (must match run_gsm8k_qwen25.sh) ──
 MODEL_NAME="qwen2.5"
-MODEL_DIR="Qwen/Qwen2.5-7B-Instruct"
+MODEL_DIR="${MODEL_DIR:-Qwen/Qwen2.5-7B-Instruct}"
 MODEL_SIZE="7B"
 HS_PREFIX="qwen2.5"
 TYPE="non"
@@ -66,6 +66,8 @@ MAX_NEW_TOKENS=768          # pinned, NOT the tracker's 512 default
 EMA_ALPHA=0.95
 ROLE="neutral"
 RUN_TAG="qwen25_signal_v1"
+SMOKE_TAG="${RUN_TAG}_smoke"
+SMOKE_N=8            # real generate_one(), few samples, both alpha paths
 
 DATA="${DATA:-data1}"
 WORK_DIR="/${DATA}/paveen/Dopamine"
@@ -99,7 +101,7 @@ require_single_card () {
 
 # Guards that do not need the server filesystem run FIRST, so a mis-pinned card
 # reports the real problem instead of a confusing path error.
-if [[ "${STEP}" != "CHECK" ]]; then require_single_card; fi
+if [[ "${STEP}" != "CHECK" ]]; then require_single_card; fi  # SMOKE loads the model too
 
 cd "${WORK_DIR}" || { echo "[x] cannot cd ${WORK_DIR}"; exit 1; }
 
@@ -114,7 +116,13 @@ banner () {
 }
 
 preflight () {
-  echo "[*] read-only pre-flight (signal path)"
+  echo "[*] pre-flight (signal path) — read-only w.r.t. experiment artifacts"
+  case "${MODEL_DIR}" in
+    /*) : ;;   # local path: nothing is downloaded
+    *)  echo "    note: MODEL_DIR='${MODEL_DIR}' is a Hub id, so the tokenizer"
+        echo "          may populate the HF cache. Pass a local model directory"
+        echo "          via MODEL_DIR=... to avoid any writes." ;;
+  esac
   ${PY} check_signal_qwen.py \
     --model_dir "${MODEL_DIR}" \
     --mask "${MASK_PATH}" \
@@ -126,8 +134,24 @@ preflight () {
       echo "[x] pre-flight FAILED — not collecting."; exit 1; }
 }
 
-run_one () {   # $1 = alpha, $2 = "" | "--cot"
-  local A="$1" COT="$2"
+# The pre-flight's toy forward drives the hooks on identity layers -- it never
+# exercises generate_one(), i.e. real KV cache, real EOS, real prefill/decode
+# alternation. So a green pre-flight authorizes a SMOKE, not 300x11. This gate
+# makes that ordering structural rather than a thing to remember.
+SMOKE_DIR="${BASE_DIR}/${MODEL_NAME}/dopamine_signal/${SMOKE_TAG}"
+require_smoke () {
+  local n; n=$(ls -1 "${SMOKE_DIR}"/dopamine_signal_*.json 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "${n}" -lt 2 ]]; then
+    echo "[x] no SMOKE artifacts in ${SMOKE_DIR} (found ${n}, need >=2)."
+    echo "    A green pre-flight only authorizes a smoke: the toy forward never"
+    echo "    ran generate_one(). Run:  bash $0 SMOKE   and read its output."
+    exit 1
+  fi
+  echo "[ok] smoke artifacts present (${n}) — formal collection authorized."
+}
+
+run_one () {   # $1 = alpha, $2 = "" | "--cot", $3 = n_samples, $4 = run_tag
+  local A="$1" COT="$2" NS="${3:-${N_SAMPLES}}" RT="${4:-${RUN_TAG}}"
   local tag; tag="$( [[ -n "${COT}" ]] && echo cot || echo nocot )"
   echo
   echo "---- [${tag}] alpha=${A} ---- $(date '+%F %T')"
@@ -144,12 +168,12 @@ run_one () {   # $1 = alpha, $2 = "" | "--cot"
     --layer_end   "${LE}" \
     --ema_alpha   "${EMA_ALPHA}" \
     --test_file   "${GSM8K_FILE}" \
-    --n_samples   "${N_SAMPLES}" \
+    --n_samples   "${NS}" \
     --alpha       "${A}" \
     --role        "${ROLE}" \
     --max_new_tokens "${MAX_NEW_TOKENS}" \
     --base_dir    "${BASE_DIR}" \
-    --run_tag     "${RUN_TAG}" \
+    --run_tag     "${RT}" \
     ${COT}
   local rc=$?
   if [[ ${rc} -ne 0 ]]; then
@@ -165,14 +189,28 @@ case "${STEP}" in
     banner; preflight
     echo; echo "[ok] pre-flight passed. Collection not started (CHECK only)."
     ;;
-  NOCOT)
+  SMOKE)
     banner; preflight
+    echo; echo "[*] SMOKE: ${SMOKE_N} samples, alpha=0 and alpha=+6 (both paths)"
+    echo "    -> ${SMOKE_DIR}"
+    run_one 0 "" "${SMOKE_N}" "${SMOKE_TAG}"
+    run_one 6 "" "${SMOKE_N}" "${SMOKE_TAG}"
+    echo
+    echo "[ok] smoke complete. READ THE OUTPUT before the formal run:"
+    echo "  - generated text is well-formed and ends naturally (not all 768 tok)"
+    echo "  - '####' present, commit locator sane, accuracy plausible"
+    echo "  - signal arrays have length == generated length"
+    echo "  - alpha=+6 differs from alpha=0 (steering reached generation)"
+    echo "  - meta carries max_new_tokens=768 / run_tag / steer_alpha"
+    ;;
+  NOCOT)
+    banner; preflight; require_smoke
     echo; echo "[*] No-CoT dose curve: ${ALPHAS_NOCOT[*]}  (11 cells, one card)"
     for A in "${ALPHAS_NOCOT[@]}"; do run_one "${A}" ""; done
     echo; echo "[ok] No-CoT curve complete $(date '+%F %T')"
     ;;
   COT)
-    banner; preflight
+    banner; preflight; require_smoke
     echo; echo "[*] CoT cells: ${ALPHAS_COT[*]}  (self-contained, own alpha=0)"
     for A in "${ALPHAS_COT[@]}"; do run_one "${A}" "--cot"; done
     echo; echo "[ok] CoT cells complete $(date '+%F %T')"
