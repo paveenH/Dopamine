@@ -126,6 +126,42 @@ Evidence:
 ```
 > 真实 prompt 逐轮增长（T=100 时 184→323 tokens），anchor 每轮均为 token 220。
 
+### 1.4 pv1–pv5 遗留操作细节（后续协议仍依赖）
+
+`CLAUDE.md` 已把 pv1–pv5 的操作细节退休到此处，只保留以下四项——它们不是历史趣闻，
+而是 pv6 及之后的协议仍在继承的约束。pv1–pv5 的**结果**全部作废（见 Protocol Lineage 表
+的 Legacy/pv1–pv4 行），此处只记录**机制与接口**。
+
+1. **反平衡 seed 集 `0 3 4 9 37`** —— best arm 分别落在显示位置 2,4,5,3,1，且五个 best
+   name 互不相同。早期那个 2-seed pilot 恰好 name 与 position 双双相同，这是 n=2 的运气
+   问题，**不是 `shuffle_arms` 的缺陷** —— 不要去"修"那个 shuffle。seeds 0–29 上位置分布
+   为 `{1:3, 2:8, 3:9, 4:8, 5:2}`（随机近似平衡，非严格反平衡）。
+
+2. **`parse_choice_exact` 是刻意严格的**，其 `n_matched` 语义与 `parse_choice` 不同：在
+   严格解析下 `n_matched=1` 不再蕴含 valid，这正是重点——它区分出三种失败签名：
+   `(invalid, 0)` = 没有可辨识内容；`(invalid, 1)` = **说出了一个 arm 但裹在散文里**
+   （解释而非承诺）；`(invalid, >1)` = 复述了选单。
+
+3. **`fallback_rng` 是连续流**，seed 为 `1_000_000 + seed`，因此 invalid 数不同的 cell
+   在同一轮会抽到不同的 fallback arm。reward 抽取仍配对，但 ITT `opt_frac` 会吸收一点
+   fallback 运气。**此项未修复**；报告绝对 OptFrac 时应按 `best_position` 分层。
+
+4. **resume key 必须含 `iface` 段**。没有它，复用同一个 `ans_file` 而改变 interface flags
+   会静默返回旧行、跳过新配置。pv6 用自己的 `iface` 修了同一问题，CGT-seq 亦然。
+
+**pv5 的冻结判读（E-direct）：** 失败模式是**早期结果依赖的贪婪确认回路** —— 总不确定下
+显示位置 1 赢得初始 tie-break，而**第一个拿到 reward=1 的 arm 成为自我强化的在位者**
+（强到足以压过当前经验估计更高的竞争者，因此不是单纯的点估计贪婪）。warm-start 进一步
+定位了机制：在试验次数被拉平后，模型**确实**能正确读取并跟踪 empirical-best 集
+（adherence ≈0.93），所缺的是不确定性加成（不会主动重采低 n／高方差的 arm），而非
+证据整合失败。**E-CoT 的边际价值未确立**（既非负也非正）：它偶尔能带来系统性初始覆盖，
+但在 K=5 下对严格 `Choice:` anchor 的格式遵从不可靠（2–6% invalid），且每一个看似
+"CoT 破坏了原本正确 seed"的案例都至少部分被该 fallback 污染所混淆。已确认**不是** token
+预算问题（128→192 重跑产出逐字节相同）。
+
+**invalid 轮次不得离线修补**：不同的 fallback 抽取会改变其后每一轮的 TRIED/UNTRIED 状态
+与 reward 历史，因此无法重建反事实的干净轨迹。
+
 ## 2. Literature
 ### Mluti-Arm Bandit LLM
 | 论文 | Bandit 在论文中的角色 | 是否证明 LLM 自己会做 Bandit | 对本项目的直接价值 |
