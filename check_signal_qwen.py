@@ -16,8 +16,10 @@ Checks, all read-only, no sweep:
      decoder_layer_range(start,end), uniform top_k sparsity
   3. tracker hook wiring: hooked layers == mask non-zero rows, L == 6 for [16,22)
   4. alpha=0 registers NO injection (steer_dirs is None), alpha!=0 does
-  5. observed injection sites vs expected L * tail
-  6. the recorded state is POST-injection (injection happens before projection)
+  5. REAL-HOOK toy forward on CPU: alpha=0 is bit-identical, alpha!=0 hits
+     only the last prefill token, decode is never injected, exactly L layers
+  6. the recorded state is POST-injection, verified numerically against the
+     co-design identity delta = alpha * mean_l ||mask_l||^2
   7. output isolation: --run_tag actually creates a distinct SAVE_DIR
   8. max_new_tokens / prompt_template reach metadata
 
@@ -145,6 +147,150 @@ def check_tokenizer_and_site(model_dir, task, cot, role, max_new_tokens):
     print("  " + repr(prompt[-200:]))
 
 
+def check_toy_forward(m, ls, le):
+    """Drive the REAL DopamineTracker hooks with a real nn.Module stack on CPU.
+
+    WHY NOT A FAKE: a fake that models INTENT cannot test ARITHMETIC -- it will
+    happily agree with a wrong implementation. The repo has already been bitten
+    by exactly this (the site-counter bug passed a green FakeVC suite). So this
+    registers the actual hooks on real torch modules and reads the numbers back.
+
+    Verifies, by measurement rather than by reading source:
+      - alpha=0 leaves the hidden state bit-identical (pure observer)
+      - alpha!=0 modifies ONLY the prefill call, and only its LAST token
+      - decode steps are never injected
+      - exactly L layers are touched (L=6 for [16,22)), none outside the band
+      - the recorded projection is POST-injection, and its increment equals
+        alpha * ||mask_l||^2 (the co-design identity)
+    """
+    print("\n== 5/6. real-hook toy forward (CPU) ==")
+    try:
+        import torch
+        import torch.nn as nn
+    except Exception as e:
+        bad(f"torch unavailable, cannot run the toy forward: {e}")
+        return
+    from track_dopamine_signal import DopamineTracker
+
+    H = m.shape[1]
+    n_layers = m.shape[0]
+    hooked = list(utils.decoder_layer_range(ls, le))
+
+    class Layer(nn.Module):
+        """Returns a tuple like a real decoder layer, and records what it emitted
+        AFTER the forward hook has had its chance to mutate the tensor."""
+        def __init__(self, idx):
+            super().__init__()
+            self.idx = idx
+        def forward(self, x):
+            return (x,)
+
+    def build(seed):
+        torch.manual_seed(seed)
+        return [Layer(i) for i in range(n_layers)]
+
+    def run(alpha, seq_len, seed=0):
+        """One forward per layer, in order, threading the tensor through --
+        mirroring how a real stack propagates an in-place edit downstream."""
+        layers = build(seed)
+        t = DopamineTracker(rsn_mask=m, layer_start=ls, layer_end=le,
+                            ema_alpha=0.95, steer_alpha=alpha)
+        t.attach(layers)
+        torch.manual_seed(seed)
+        x = torch.randn(1, seq_len, H)
+        before = x.clone()
+        try:
+            for lyr in layers:
+                x = lyr(x)[0]
+        finally:
+            t.detach()
+        return t, before, x
+
+    # --- alpha = 0 : pure observer, tensor must be untouched ---
+    t0, before0, after0 = run(0.0, seq_len=7)
+    if torch.equal(before0, after0):
+        ok("alpha=0 leaves the hidden state BIT-IDENTICAL (pure observer)")
+    else:
+        bad("alpha=0 modified the hidden state -- not a pure observer")
+    if t0._prefill_proj is None:
+        bad("alpha=0 recorded no prefill projection (hook never completed)")
+    else:
+        ok(f"alpha=0 recorded a prefill projection ({t0._prefill_proj:.4f})")
+
+    # --- alpha != 0 : prefill only, last token only, exactly L layers ---
+    ALPHA = 6.0
+    t6, before6, after6 = run(ALPHA, seq_len=7)
+    delta = (after6 - before6)[0]              # (seq_len, H)
+    touched_tokens = sorted(torch.nonzero(delta.abs().sum(dim=1)).flatten().tolist())
+    if touched_tokens == [delta.shape[0] - 1]:
+        ok(f"alpha={ALPHA:g} modified ONLY the last prompt token (idx {touched_tokens[0]})")
+    else:
+        bad(f"alpha={ALPHA:g} touched token idx {touched_tokens}, expected only the last")
+
+    # the accumulated edit on the last token must equal alpha * sum(mask rows)
+    expect_vec = torch.as_tensor(
+        ALPHA * utils.mask_slice_for(m, ls, le).sum(axis=0), dtype=delta.dtype)
+    got_vec = delta[-1]
+    if torch.allclose(got_vec, expect_vec, atol=1e-3, rtol=1e-3):
+        ok(f"accumulated edit == alpha * sum(mask[{hooked[0]}..{hooked[-1]}]) "
+           f"-> exactly {len(hooked)} layers injected")
+    else:
+        bad(f"accumulated edit != alpha*sum(mask rows); "
+            f"max|diff|={float((got_vec-expect_vec).abs().max()):.4g} "
+            f"(wrong layer count or wrong rows)")
+
+    # no dimension outside the mask support may move
+    support = np.nonzero(np.abs(utils.mask_slice_for(m, ls, le)).sum(axis=0))[0]
+    off = np.setdiff1d(torch.nonzero(got_vec.abs()).flatten().numpy(), support)
+    if off.size == 0:
+        ok("no hidden dimension outside the mask support was modified")
+    else:
+        bad(f"{off.size} dimension(s) outside the mask support were modified")
+
+    # --- decode step (seq_len == 1) must never be injected ---
+    td, befored, afterd = run(ALPHA, seq_len=1)
+    if torch.equal(befored, afterd):
+        ok(f"alpha={ALPHA:g} does NOT inject on a decode step (seq_len=1)")
+    else:
+        bad(f"alpha={ALPHA:g} injected during decode -- steering is not prefill-only")
+
+    # --- the recorded projection is POST-injection: co-design identity ---
+    # NOTE ON THE TOY'S GEOMETRY: the identity delta == alpha*mean_l||mask_l||^2
+    # holds only if each layer OBSERVES its own injection alone. Threading one
+    # tensor through identity layers makes layer l also see layers <l's edits
+    # (a real stack's non-linearities do not accumulate this way), which inflates
+    # the delta by the cross-layer mask overlap. So this sub-check feeds every
+    # layer an INDEPENDENT clean input -- isolating exactly the quantity the
+    # identity is about. The propagation behaviour is already covered above by
+    # the accumulated-edit check.
+    def run_isolated(alpha, seed=0):
+        layers = build(seed)
+        t = DopamineTracker(rsn_mask=m, layer_start=ls, layer_end=le,
+                            ema_alpha=0.95, steer_alpha=alpha)
+        t.attach(layers)
+        torch.manual_seed(seed)
+        base = torch.randn(1, 7, H)
+        try:
+            for lyr in layers:
+                lyr(base.clone())          # each layer sees the SAME clean input
+        finally:
+            t.detach()
+        return t
+
+    sub = utils.mask_slice_for(m, ls, le).astype(np.float32)
+    norm_sq = float((sub * sub).sum(axis=1).mean())   # mean_l ||mask_l||^2
+    ti0 = run_isolated(0.0)
+    ti6 = run_isolated(ALPHA)
+    got = ti6._prefill_proj - ti0._prefill_proj
+    want = ALPHA * norm_sq
+    if abs(got - want) <= max(1e-3, 2e-3 * abs(want)):
+        ok(f"recorded prefill projection is POST-injection: "
+           f"delta={got:.4f} == alpha*mean||mask_l||^2={want:.4f}")
+    else:
+        bad(f"projection delta {got:.4f} != alpha*mean||mask_l||^2 {want:.4f} "
+            f"-- recorded state is NOT post-injection (or the basis differs)")
+
+
 def check_run_tag_isolation(base, model, run_tag):
     print("\n== 7. output isolation (--run_tag) ==")
     plain = os.path.join(base, model, "dopamine_signal")
@@ -171,7 +317,11 @@ def check_run_tag_isolation(base, model, run_tag):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model_dir", type=str, default=None,
-                    help="omit to skip the tokenizer/site section (offline use)")
+                    help="REQUIRED unless --skip_tokenizer is passed explicitly.")
+    ap.add_argument("--skip_tokenizer", action="store_true",
+                    help="Explicitly skip the tokenizer/injection-site section. "
+                         "Offline/local use ONLY -- the server pre-flight MUST "
+                         "read out the real final prompt token.")
     ap.add_argument("--mask", type=str, required=True)
     ap.add_argument("--layer_start", type=int, default=16)
     ap.add_argument("--layer_end", type=int, default=22)
@@ -193,14 +343,22 @@ def main():
 
     if a.model_dir:
         check_tokenizer_and_site(a.model_dir, a.task, a.cot, a.role, a.max_new_tokens)
+    elif a.skip_tokenizer:
+        print("\n== 1. tokenizer / injection site ==")
+        info("SKIPPED via explicit --skip_tokenizer (local use).")
+        info("The server pre-flight MUST run this section before collecting.")
+        print("\n  *** PARTIAL CHECK -- not sufficient to authorize collection ***")
     else:
         print("\n== 1. tokenizer / injection site ==")
-        info("SKIPPED (no --model_dir). Must be run on the server before collecting.")
+        bad("no --model_dir given. The injection token is model-specific and "
+            "must be READ OUT, never assumed. Pass --model_dir, or "
+            "--skip_tokenizer to acknowledge a partial local check.")
 
     m = check_mask(a.mask, a.layer_start, a.layer_end, a.n_decoder_layers)
     if m is not None:
         check_slice_alignment(m, a.layer_start, a.layer_end)
         check_alpha_paths(m, a.layer_start, a.layer_end)
+        check_toy_forward(m, a.layer_start, a.layer_end)
     check_run_tag_isolation(a.base_dir, a.model, a.run_tag)
 
     print("\n" + "=" * 70)
@@ -209,7 +367,11 @@ def main():
         for f in FAIL:
             print(f"  - {f}")
         sys.exit(1)
-    print("ALL CHECKS PASSED")
+    if a.skip_tokenizer and not a.model_dir:
+        print("PARTIAL CHECKS PASSED (tokenizer section skipped)")
+        print("NOT sufficient to start collection -- re-run with --model_dir.")
+    else:
+        print("ALL CHECKS PASSED")
     print("=" * 70)
 
 
