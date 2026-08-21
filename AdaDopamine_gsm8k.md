@@ -634,6 +634,13 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 本节只保留结果与结论；运行配置、产物校验和分析器细节见 `CLAUDE.md`。完整剂量曲线均予保留：
 **显著性区分证据强弱，但不用于删除具有一致方向的描述性规律。**
 
+准确率一律由离线权威抽取器重算（`RoleAnswer/analyze_first_last_acc.py`，GSM8K 取首个
+`####`、MATH 取首个 `\boxed{}` 并接 fallback），运行时 inline `correct` 仅作运行健康检查。
+本节各表的复算脚本位于 `RoleAnswer/qwen_step2/`：`commit_columns.py`（承诺列）、
+`math_cot_curve.py` + `math_cot_stats.py`（MATH-CoT 九档与两个 Holm family）、
+`math_cot_rightarm.py`（Level 5 归因）、`math_strat_frozen.py`（事后分层）、
+`highdose_overload.py`（高剂量健康检查）、`earlycand_audit_RESULT.txt`（盲审记录）。
+
 ### 4.1 GSM8K No-CoT: Positive RSN Reorders Commitment and Saturates after `+8`
 
 **Table 4.1a. GSM8K No-CoT dose-response (n=300)**
@@ -774,9 +781,17 @@ Level 5 为 −10.1pp，Level 1 不变。与此同时，提交前字符、总长
 | **CoT pre-commit characters** | 1345 | 1372 | 1330 | 1305 | 1344 | 1317 | 1315 | **1116** | **1002** |
 | CoT `\boxed{}` posN (negative control) | .965 | .966 | .964 | .966 | .969 | .970 | .973 | .968 | .964 |
 
-CoT 抬高了负向和低剂量端，但没有移动峰位：两条曲线都在 `+6` 达到最高点。CoT 各剂量相对
-自身 α=0 均未通过 Holm；CoT 对 No-CoT 的最大点估计增益在 `−4`（+7.00pp，p_adj=.0581）。
-这些趋势仍有描述意义，但证据不足以宣称 CoT 改变了最优剂量。
+CoT 抬高了负向和低剂量端，但没有移动峰位：两条曲线都在 `+6` 达到最高点。
+
+检验分为**两个独立的 Holm family，不合并**（对照对象与批次都不同）：**Family A**（CoT 各档
+vs CoT 自身 α=0，m=8）八个点全部 p_adj=1.000，最大点估计为 `+6` 的 +3.00pp；**Family B**
+（CoT vs No-CoT 逐档配对，m=9）无一存活，最大增益在 `−4`（+7.00pp，p=.0065，**p_adj=.0581**）。
+参照：No-CoT 家族中 `+6` vs α=0 为 +7.66pp，p_adj=.0087，是该族唯一存活点。这些趋势仍有
+描述意义，但证据不足以宣称 CoT 改变了最优剂量。
+
+**剂量效应被吃平的原因是可提升空间，而非机制消失：** CoT 的 α=0 已是 63.00，两条曲线的峰
+都在 66–68，No-CoT 从 60.67 出发尚有约 7.7pp 可挣，CoT 只剩约 3pp。**只能写“可提升空间被
+明显压缩”，不能写“接近模型能力上限”** —— 66–68% 是本剂量带内的峰值，没有实验去逼近后者。
 
 CoT 也没有消除开头裸候选。相反，在 `+2/+4/+6`，CoT 比 No-CoT 多保留 9–12pp 的早期候选，
 直到 `+8` 才共同降到 10.3%。因此 CoT 使 ordering transition 更抗 steering，同时保留了更多
@@ -830,9 +845,12 @@ MATH No-CoT 的极端重复随正向剂量下降，但 CoT 下没有同步消失
    适度正向；这与两者不同的基线承诺状态一致。
 3. **CoT 与 RSN 部分独立。** CoT 改善结构和修正质量，RSN 更直接移动首次承诺；CoT 可以在
    外显顺序不变时提高准确率。
-4. **最佳工作点与可用带随任务变化。** GSM8K 在 `+8…+12` 饱和，MATH 则在 `+6` 后对难题回落；
+4. **ordering 改善并非越彻底越好。** MATH `+8` 的 early-candidate 最低（`+6` 为 19.3%，`+8` 为 10.3%），
+   准确率却不如 `+6`；提交前字符同时从 1029 降到 828，难题（Level 5）回落 10.1pp。因此
+   RSN 的收益不是“尽可能消灭抢答”，而是在**延迟提交**与**保留足够计算**之间找工作点。
+5. **最佳工作点与可用带随任务变化。** GSM8K 在 `+8…+12` 饱和，MATH 则在 `+6` 后对难题回落；
    因此不能把倒 U 写成 Qwen 的普遍性质。
-5. **机制语言仍是计算类比。** 结果支持 RSN 调节 motivational/commitment gain 的工作假设，
+6. **机制语言仍是计算类比。** 结果支持 RSN 调节 motivational/commitment gain 的工作假设，
    但不证明模型具有生物多巴胺，也未由事后分层证明中介因果。
 
 ## References
