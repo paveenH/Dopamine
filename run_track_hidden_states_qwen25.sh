@@ -22,7 +22,9 @@ set -euo pipefail
 # cross-cited per-question with the lightweight batch. Each H5 stores
 # question_idx + generated + correct; report the AGREEMENT RATE against the
 # lightweight cell rather than assuming identity.
-#   -> check with: python3.10 RoleAnswer/check_hs_agreement.py (writes a rate)
+#   -> the agreement check is not yet written; compare question_idx +
+#      generated + correct against the matching dopamine_signal_*.json
+#      cell and REPORT THE RATE. Do not assume identity.
 #
 # SEVEN CELLS (was six; +12 added 2026-08-22):
 #   No-CoT  α = -8 / 0 / +6 / +8 / +12
@@ -66,6 +68,10 @@ BASE_DIR="${WORK_DIR}/components"
 # cells, and keeping one tag is what makes the pairing discoverable later.
 RUN_TAG="${RUN_TAG:-qwen25_signal_v1}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
+# Passed through to the tracker, which refuses to truncate an existing HDF5
+# without it (h5py opens mode="w"). An HS cell is hours of GPU time.
+OVERWRITE_ARG=""
+[ "${ALLOW_OVERWRITE}" = "1" ] && OVERWRITE_ARG="--allow_overwrite"
 
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 MASK_DIR="${BASE_DIR}/mask/${HS_PREFIX}_${TYPE}_logits"
@@ -159,6 +165,7 @@ run_one () {
     --data "${DATA}" \
     --role "${ROLE}" \
     --save_dir "${H5_DIR}" \
+    ${OVERWRITE_ARG} \
     ${cot_flag} \
     || { echo "[x] cell ${label} FAILED. A partially collected batch is not"; \
          echo "    representative data — fix and re-run this cell before continuing."; exit 1; }

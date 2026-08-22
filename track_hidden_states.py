@@ -361,6 +361,14 @@ def main():
     total = 0
     diff_stats: dict[str, dict] = {}
 
+    if os.path.exists(out_path) and not args.allow_overwrite:
+        raise SystemExit(
+            f"[x] refusing to overwrite existing HDF5:\n    {out_path}\n"
+            "    h5py mode='w' truncates unconditionally and this file is "
+            "hours of GPU time.\n    Pass --allow_overwrite to replace it "
+            "deliberately, or write to a new --save_dir / RUN_TAG."
+        )
+
     with h5py.File(out_path, "w") as fh:
         # File-level metadata
         meta = fh.create_group("meta")
@@ -419,7 +427,12 @@ def main():
             g.create_dataset("x_decode_proj",   data=rec["x_decode_proj"])
             g.create_dataset("ema_decode_proj", data=rec["ema_decode_proj"])
             g.attrs["correct"]      = int(correct)
-            g.attrs["generated"]    = generated[:4000]
+            # NOT truncated. The stored text is what the agreement check
+            # against the lightweight signal batch compares, and a silent cut
+            # would make a divergence look like a match. The longest Qwen
+            # signal generation is 3895 chars — only 105 under the old 4000
+            # cap, so the cap was about to start biting.
+            g.attrs["generated"]    = generated
             g.attrs["pred_answer"]  = str(pred)
             g.attrs["gold_answer"]  = str(sample.get("answer", ""))
             g.attrs["difficulty"]   = difficulty
@@ -490,6 +503,15 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="Override default HS output dir (default: {base_dir}/hidden_states/{task}/)",
+    )
+    parser.add_argument(
+        "--allow_overwrite",
+        action="store_true",
+        help="Permit truncating an existing HDF5 at the resolved output path. "
+             "Default REFUSES: h5py opens with mode='w', which truncates "
+             "unconditionally, and an HS cell is hours of GPU time. The "
+             "launchers echo an ALLOW_OVERWRITE variable that never reached "
+             "this script, so the guard it advertised did not exist.",
     )
     args = parser.parse_args()
 

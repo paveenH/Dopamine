@@ -57,6 +57,13 @@ BASE_DIR="${WORK_DIR}/components"
 # not overwritten (new tag = new dir).
 RUN_TAG="${RUN_TAG:-phase1b_eot}"
 ALLOW_OVERWRITE="${ALLOW_OVERWRITE:-0}"
+# Wire the variable through to the tracker. It previously guarded only the
+# DIRECTORY, and only at START_FROM=1 — so a single-run re-collect (e.g.
+# START_FROM=11) could still silently truncate that cell's HDF5, because
+# h5py opens with mode="w". track_hidden_states.py now refuses per-file
+# unless --allow_overwrite is passed.
+OVERWRITE_ARG=""
+[ "${ALLOW_OVERWRITE}" = "1" ] && OVERWRITE_ARG="--allow_overwrite"
 # Default 1 = re-collect ALL 12 runs on this machine with the terminator fix.
 # The generation path (vc.generate_one) inherits the fix via self.terminators
 # automatically — no code change to track_hidden_states.py.
@@ -137,6 +144,7 @@ BASE_ARGS="
   --temperature 0.0
   --base_dir ${BASE_DIR}
   --save_dir ${H5_DIR}
+  ${OVERWRITE_ARG}
 "
 
 # ── Run 1: expert ──
