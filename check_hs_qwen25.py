@@ -34,10 +34,16 @@ THREE CHECKS, in the order the user pre-registered:
      scalars the tracker computed on the fly. This is what says the stored HS
      really are the states the signal curves were read from.
 
-     TOLERANCE IS NOT COSMETIC: the HS are stored fp16 while the tracker
-     projected in fp32 before casting, so an EXACT match is not expected and
-     demanding one would fail a healthy file. The projection sums 3584 terms,
-     so we judge RELATIVE error against the projection's own scale.
+     THE PROJECTION IS A MEAN OVER LAYERS, NOT A SUM. utils.project_rsn_numpy
+     is `np.sum(hs * dirs, axis=-1).mean()`, which is what the tracker calls;
+     summing instead is off by exactly n_middle (6x here) and fails every
+     healthy file. This calls the shared helper rather than reimplementing it.
+
+     The tracker casts HS to fp16 BEFORE projecting (track_hidden_states.py:206
+     casts, 223/227 cast that fp16 back to fp32), so the stored states ARE the
+     projected states and agreement should be near-exact -- the residual is
+     fp32 summation order alone. Relative error is still the right judgement
+     because the projection's magnitude spans two orders across alpha.
 
   3. AGREEMENT vs the lightweight batch (needs the local signal JSON)
      Keyed on question_idx, NEVER on row order. Reports the rate for
@@ -99,6 +105,23 @@ def cell_key(h5_path: Path, ls: int, le: int) -> str:
     return parts[2] if len(parts) == 3 else body
 
 
+def signal_name_for(h5_path: Path, ls: int, le: int, ema_alpha: float) -> str:
+    """The lightweight JSON name extract_signal_json.py writes for this H5.
+
+    hs_gsm8k_7B_nocot_a12_L16-22.h5
+      -> dopamine_signal_gsm8k_7B_nocot_a12_ema0.95_L16-22.json
+
+    Derived from the H5 stem exactly as that script does, so the two stay in
+    step. Reconstructing it here rather than globbing is what keeps the two
+    alpha=0 cells from being silently skipped.
+    """
+    body = h5_path.stem[len("hs_"):]
+    suffix = f"_L{ls}-{le}"
+    if body.endswith(suffix):
+        body = body[: -len(suffix)]
+    return f"dopamine_signal_{body}_ema{ema_alpha}_L{ls}-{le}.json"
+
+
 def attr(meta, key, default=None):
     v = meta.attrs.get(key, default)
     if isinstance(v, bytes):
@@ -152,16 +175,39 @@ def check_integrity(h5_path: Path, ls: int, le: int):
         else:
             bad.append(f"unrecognised cell key {key!r} (not one of the seven)")
 
+        # The stored set is the middle band plus the model's FINAL layer, whose
+        # model-space index is num_layers-1 (27 for Qwen's 28), NOT layer_end-1.
+        # A file storing [15..21] would look plausible on a layer COUNT check
+        # while carrying no final layer at all, so compare the indices.
+        n_middle = m_le - m_ls
+        n_model  = int(attr(meta, "num_layers", -1))
+        exp_stored = list(range(m_ls - 1, m_ls - 1 + n_middle)) + [n_model - 1]
+        if n_model > 0 and stored.tolist() != exp_stored:
+            bad.append(f"stored_layer_indices={stored.tolist()} != {exp_stored}")
+        fin_stored = int(attr(meta, "final_layer_idx_stored", -1))
+        if fin_stored != n_middle:
+            bad.append(f"final_layer_idx_stored={fin_stored} != {n_middle}")
+
         grp = f["samples"]
         keys = sorted(grp.keys())
         if len(keys) != n_done:
             bad.append(f"{len(keys)} sample groups but n_samples_done={n_done}")
 
+        # question_idx must cover 0..n-1 exactly once, checked here rather than
+        # only in the agreement step -- otherwise a permuted or gapped cell looks
+        # clean whenever --signal_dir is omitted.
+        all_idx = sorted(int(grp[k].attrs.get("question_idx", -1)) for k in keys)
+        if all_idx != list(range(len(keys))):
+            missing = sorted(set(range(len(keys))) - set(all_idx))
+            dupes = len(all_idx) - len(set(all_idx))
+            bad.append(f"question_idx is not a full 0..{len(keys)-1} cover "
+                       f"({dupes} duplicate(s), {len(missing)} missing"
+                       + (f", first missing {missing[:3]}" if missing else "") + ")")
+
         max_gen = 0
         at_cap = []
         len_mismatch = 0
         empty_prefill = 0
-        n_middle = m_le - m_ls
         for k in keys:
             g = grp[k]
             gen = g.attrs.get("generated", "")
@@ -208,6 +254,10 @@ def check_projection(h5_path: Path, mask_path: str, ls: int, le: int,
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import utils
     mask_mid = utils.mask_slice_for(np.load(mask_path), ls, le).astype(np.float32)
+    # The projection is utils.project_rsn_numpy -- a per-layer dot product then
+    # a MEAN over layers, matching track_hidden_states._project_middle_last.
+    # Summing instead is off by exactly n_middle (6x here) and would fail every
+    # healthy file. Call the shared helper rather than reimplementing it.
     n_middle = le - ls
     if mask_mid.shape[0] != n_middle:
         return False, [f"mask slice has {mask_mid.shape[0]} rows, expected {n_middle}"], {}
@@ -227,16 +277,21 @@ def check_projection(h5_path: Path, mask_path: str, ls: int, le: int,
 
         for k in probe:
             g = grp[k]
-            # prefill: last prompt token, summed over middle layers
+            # prefill: LAST prompt token, middle layers only (matches the tracker,
+            # which projects layers_LH[:, -1, :] cast to fp32).
             pre_hs = g["prefill_hs"][-1][msl].astype(np.float32)   # (n_middle, H)
-            got_pre = float((pre_hs * mask_mid).sum())
+            got_pre = utils.project_rsn_numpy(pre_hs, mask_mid)
             exp_pre = float(g["x_prefill_proj"][()])
             scale = max(abs(exp_pre), 1.0)
             worst_pre = max(worst_pre, abs(got_pre - exp_pre) / scale)
 
+            # decode: same formula PER TOKEN. Vectorising the mean over layers is
+            # identical to calling the helper in a loop, but the loop keeps the
+            # single definition visible and T is small.
             dec_hs = g["decode_hs"][:, msl, :].astype(np.float32)  # (T, n_middle, H)
-            got_dec = (dec_hs * mask_mid[None]).sum(axis=(1, 2))
             exp_dec = g["x_decode_proj"][:].astype(np.float32)
+            got_dec = np.array([utils.project_rsn_numpy(dec_hs[t], mask_mid)
+                                for t in range(dec_hs.shape[0])], dtype=np.float32)
             sc = np.maximum(np.abs(exp_dec), 1.0)
             worst_dec = max(worst_dec, float(np.max(np.abs(got_dec - exp_dec) / sc)))
 
@@ -312,6 +367,7 @@ def _h5_question(h5_path: Path, key: str) -> str:
 
 
 def main():
+    global EXPECTED_N
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--h5_dir", default="/data1/paveen/Dopamine/components/"
@@ -323,15 +379,24 @@ def main():
     p.add_argument("--signal_dir", default=None,
                    help="Directory of the lightweight dopamine_signal_*.json cells. "
                         "Omit to skip the agreement check (step 2b).")
+    p.add_argument("--ema_alpha", type=float, default=EXPECTED_EMA,
+                   help="Only used to build the expected lightweight JSON filename "
+                        "(extract_signal_json.py puts it in the name).")
     p.add_argument("--n_probe", type=int, default=8,
                    help="Samples per cell for the projection check (0 = all; all is "
                         "minutes per cell because it reads the full decode_hs).")
     p.add_argument("--rtol", type=float, default=1e-2,
-                   help="Relative tolerance for the projection check. fp16 storage "
-                        "over a 3584-term sum; 1e-2 is loose enough not to fail a "
-                        "healthy file and tight enough to catch a wrong mask/band.")
+                   help="Relative tolerance for the projection check. The tracker "
+                        "casts HS to fp16 BEFORE projecting (it stores the same "
+                        "values it projected), so re-reading the H5 should agree "
+                        "to fp32 summation order -- expect « 1e-2. The tolerance "
+                        "is loose on purpose: it is a wrong-mask/wrong-band "
+                        "detector (those read 3.5 and 38), not a precision test.")
     p.add_argument("--skip_projection", action="store_true")
+    p.add_argument("--expect_n", type=int, default=EXPECTED_N,
+                   help=argparse.SUPPRESS)   # test fixtures only; never on real data
     args = p.parse_args()
+    EXPECTED_N = args.expect_n
 
     h5_dir = Path(args.h5_dir)
     files = sorted(h5_dir.glob("hs_*.h5"))
@@ -374,12 +439,17 @@ def main():
             failures += 0 if pok else 1
 
         if args.signal_dir:
-            cand = sorted(Path(args.signal_dir).glob(f"dopamine_signal_*_{key}_*.json"))
-            if len(cand) != 1:
-                print(f"  [2b] agreement : SKIP -- {len(cand)} lightweight cell(s) "
-                      f"match '*_{key}_*' in {args.signal_dir}")
+            # EXACT name, not a glob. '*_nocot_*' also matches nocot_a6/a8/a12 and
+            # '*_cot_*' also matches cot_a6, so a glob silently SKIPs exactly the
+            # two alpha=0 cells while the footer still claims agreement ran.
+            want = signal_name_for(h5, args.layer_start, args.layer_end, args.ema_alpha)
+            cand = Path(args.signal_dir) / want
+            if not cand.exists():
+                print(f"  [2b] agreement : ERROR -- expected lightweight cell not found:")
+                print(f"      {cand}")
+                failures += 1
             else:
-                a = check_agreement(h5, cand[0], args.layer_start, args.layer_end)
+                a = check_agreement(h5, cand, args.layer_start, args.layer_end)
                 if "error" in a:
                     print(f"  [2b] agreement : ERROR -- {a['error']}")
                     failures += 1
