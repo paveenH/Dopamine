@@ -38,7 +38,8 @@ set -euo pipefail
 # since the lightweight curves finished. The agreement rate is only meaningful
 # under an unchanged pipeline.
 #
-# Steps:  CHECK | NOCOT | COT | ALL
+# Steps:  CHECK | G1 | G2 | G3  (token-balanced, one card each)
+#         NOCOT | COT | ALL  (legacy groupings, kept)
 # ============================================================================
 
 MODEL_NAME="qwen2.5"
@@ -83,10 +84,25 @@ GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 # before anything runs, which under nohup looks like a job that silently died.
 PY="${PY:-python}"
 
+# --- steps -------------------------------------------------------------------
+# NOCOT/COT is the natural 2-way split but is badly unbalanced: 488k vs 208k
+# decode tokens (2.35x), so the CoT card would idle for hours.
+#
+# HS cells are INDEPENDENT, which is what makes a free regrouping legal here:
+# each cell's agreement check is against its OWN lightweight cell, and every
+# alpha contrast is read from the lightweight batch (already collected on one
+# card). No HS cell is ever paired per-question with another HS cell, so the
+# one-curve-one-GPU rule does not bind across cells -- only WITHIN a cell,
+# which is trivially satisfied since a cell never splits.
+#
+# G1/G2/G3 are a token-balanced 3-way split (282k/207k/207k, 1.36x):
+#   G1: cot+0, nocot+12, nocot+8
+#   G2: nocot+0, cot+6
+#   G3: nocot-8, nocot+6
 STEP="${1:-}"
 case "${STEP}" in
-  CHECK|NOCOT|COT|ALL) ;;
-  *) echo "usage: bash $0 {CHECK|NOCOT|COT|ALL}"; exit 2 ;;
+  CHECK|NOCOT|COT|ALL|G1|G2|G3) ;;
+  *) echo "usage: bash $0 {CHECK|G1|G2|G3|NOCOT|COT|ALL}"; exit 2 ;;
 esac
 
 # --- one curve, one card -----------------------------------------------------
@@ -133,7 +149,9 @@ echo "[ok] mask: ${NMD_MASK}"
 
 if [[ "${STEP}" == "CHECK" ]]; then
   echo
-  echo "Disk estimate: ~2-3 GB per cell x 7 cells = ~15-20 GB under ${H5_DIR}"
+  # Measured from the lightweight batch's decode-token counts:
+  # 34.9 GB decode_hs + ~2 GB prefill_hs uncompressed, x gzip-4 (~0.65-0.8).
+  echo "Disk estimate: ~24-30 GB total for 7 cells under ${H5_DIR}"
   df -h "${BASE_DIR}" 2>/dev/null | tail -1
   echo
   echo "[ok] CHECK passed. Launch with NOCOT / COT (pin one card each)."
@@ -182,6 +200,22 @@ if [[ "${STEP}" == "COT" || "${STEP}" == "ALL" ]]; then
   for a in 0 6; do
     run_one "${a}" "--cot" "cot_a${a}"
   done
+fi
+
+# --- token-balanced 3-way split (heaviest cell first in each group, so a
+# --- failure surfaces early rather than after two cheap cells) ---------------
+if [[ "${STEP}" == "G1" ]]; then
+  run_one 0  "--cot" "cot_a0"
+  run_one 12 ""      "nocot_a12"
+  run_one 8  ""      "nocot_a8"
+fi
+if [[ "${STEP}" == "G2" ]]; then
+  run_one 0  ""      "nocot_a0"
+  run_one 6  "--cot" "cot_a6"
+fi
+if [[ "${STEP}" == "G3" ]]; then
+  run_one -8 ""      "nocot_aneg8"
+  run_one 6  ""      "nocot_a6"
 fi
 
 echo
