@@ -29,10 +29,20 @@ set -euo pipefail
 # SEVEN CELLS (was six; +12 added 2026-08-22):
 #   No-CoT  α = -8 / 0 / +6 / +8 / +12
 #   CoT     α =  0 / +6
-# +12 is load-bearing: the headline finding is that entry gain stays linear
-# through +12 while the decode slow state stops rising after +8, so the
-# plateau region needs its own geometry. With only +8 the manifold work cannot
-# observe the plateau at all.
+# +12 is load-bearing: entry gain stays linear through +12 while the
+# commit-aligned decode response is heavily COMPRESSED at high dose. The
+# geometric SOURCE of that compression is exactly what these HS are for --
+# a one-dimensional projection cannot distinguish a genuine state ceiling
+# from a reallocation within the state space. With only +8 the high-dose
+# region cannot be observed at all.
+#
+# DO NOT read "saturation" into this header. An earlier commit-aligned pass
+# reported decode-state saturation; it was RETRACTED after four 口径 errors
+# were found (char-proportional commit mapping, prefill-seeded EMA whose
+# contamination grows with alpha, a raw-vs-standardized ratio, and p_t
+# miscalled an independent channel). The surviving claim is compression on
+# the delayed-commit subset, not a ceiling. See
+# RoleAnswer/qwen_signal/commit_aligned.py for the full record.
 #
 # ORDER MATTERS: run this WITHOUT changing code, model, GPU or environment
 # since the lightweight curves finished. The agreement rate is only meaningful
