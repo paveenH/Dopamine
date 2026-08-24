@@ -16,6 +16,13 @@
 # Llama-frozen (band 11-20, llama3 mask dir, RUN_TAG=phase1b_eot). Same reason
 # run_track_hidden_states_qwen25.sh is separate. Do not parameterise those.
 #
+# PRIMARY STATISTIC (fixed before the nulls are read): the scalar-compression
+# residual, i.e. 1 - R^2 of the least-squares fit v_high ~ k*v_low across the
+# six layers. On the RSN direction that reads k=0.309, residual 2.6%, so the
+# high-dose response is very nearly the low-dose profile uniformly shrunk. CV
+# and the layer x dose F ratio are DESCRIPTIVE companions -- F has no valid
+# p-value here (the six layers are re-projections of one hidden state).
+#
 # Three null families, mirroring the Llama section-4.6 control matrix:
 #   diff_random       support-selection null (random positions, real diff values)
 #   ortho_gauss_same  NMD's own positions, Gaussian weights _|_ role-diff
