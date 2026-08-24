@@ -376,9 +376,15 @@ def main():
                                           "qwen2.5_non_logits/nmd_0.5_16_22_7B.npy")
     p.add_argument("--layer_start", type=int, default=EXPECTED_START)
     p.add_argument("--layer_end",   type=int, default=EXPECTED_END)
-    p.add_argument("--signal_dir", default=None,
-                   help="Directory of the lightweight dopamine_signal_*.json cells. "
-                        "Omit to skip the agreement check (step 2b).")
+    p.add_argument("--signal_dir",
+                   default="/data1/paveen/Dopamine/components/signal",
+                   help="Directory of the lightweight dopamine_signal_*.json cells "
+                        "(upload the 7 matching cells from the local analysis box). "
+                        "Pass --no_agreement to skip step 2b instead.")
+    p.add_argument("--no_agreement", action="store_true",
+                   help="Skip the agreement check. Use while the lightweight cells "
+                        "have not been uploaded yet -- the rate is a recorded fact, "
+                        "not a precondition for the geometry analysis.")
     p.add_argument("--ema_alpha", type=float, default=EXPECTED_EMA,
                    help="Only used to build the expected lightweight JSON filename "
                         "(extract_signal_json.py puts it in the name).")
@@ -438,7 +444,7 @@ def main():
                 print(f"      [x] {b}")
             failures += 0 if pok else 1
 
-        if args.signal_dir:
+        if args.signal_dir and not args.no_agreement:
             # EXACT name, not a glob. '*_nocot_*' also matches nocot_a6/a8/a12 and
             # '*_cot_*' also matches cot_a6, so a glob silently SKIPs exactly the
             # two alpha=0 cells while the footer still claims agreement ran.
@@ -476,8 +482,9 @@ def main():
     if missing:
         print(f"\n[!] all present cells pass, but the set is INCOMPLETE.")
         raise SystemExit(1)
+    ran_agreement = bool(args.signal_dir) and not args.no_agreement
     print("\n[ok] all seven cells pass integrity + projection"
-          + (" + agreement" if args.signal_dir else " (agreement skipped)"))
+          + (" + agreement" if ran_agreement else " (agreement SKIPPED)"))
 
 
 if __name__ == "__main__":
