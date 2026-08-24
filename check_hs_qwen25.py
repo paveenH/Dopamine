@@ -22,9 +22,11 @@ THREE CHECKS, in the order the user pre-registered:
      len(decode_hs) == len(x_decode_proj) == len(ema_decode_proj),
      prefill_hs non-empty, `generated` untruncated.
 
-     "Untruncated" is checked as: no sample sits exactly at a round cap
-     (4000/2000/1000) AND the longest generation is reported so a future
-     reader can see the headroom. The old tracker capped attrs at 4000 chars
+     "Untruncated" is checked as: no sample sits exactly at a historical attr
+     cap AND the longest generation is reported so a future reader can see the
+     headroom. Judge a hit by DECODE STEPS and the tail: a real cap produces a
+     CLUSTER at one length, while a lone sample whose tail carries an EOS and
+     whose step count is far below max_new_tokens is a coincidence. The old tracker capped attrs at 4000 chars
      and the longest Qwen signal generation is 3895 -- 105 of headroom, i.e.
      the cap was about to bite. A hard equality test is the only thing that
      distinguishes "long" from "cut".
@@ -80,7 +82,12 @@ EXPECTED_START      = 16
 EXPECTED_END        = 22
 EXPECTED_MNT        = 768
 EXPECTED_EMA        = 0.95
-ROUND_CAPS          = (1000, 2000, 4000)   # historical attr caps
+# Historical `generated` attr caps worth probing for. 1000 was REMOVED after a
+# false positive: qwen25_signal_v1 nocot alpha=0 sample 0101 is exactly 1000
+# chars but ends '\boxed{8} ####<|endoftext|>' at decode step 281 of 768 --
+# a natural EOS, not a cut. No tracker in this repo ever capped at 1000, and a
+# real cap shows up as a CLUSTER at one value, never a single sample.
+ROUND_CAPS          = (2000, 4000)
 
 # Seven cells: h5 stem suffix -> (steer_alpha, cot)
 CELLS = {
