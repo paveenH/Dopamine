@@ -657,7 +657,7 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 **報告限制。** DiD 的 verdict 標籤（additive / redundant / …）僅為**量級比啟發式，非顯著性判定**，不可單獨當結論——應**結合 DiD 的效應量、實際量級與 Wilcoxon p 共同判斷**（見 Scope 限制 (i)：兩者須分開讀，任一單獨都不足以定案）。（腳本、`--part` 選項與輸出檔位置見 `CLAUDE.md`。）
 
-### 4.6 RSN Direction Specificity: support-selection and generic-direction null
+### 4.6 RSN Direction Specificity: support-selection 與 generic-direction null
 
 前面 §4.1–4.5 的所有 state 效應都是在 **NMD/RSN 方向**上投影得到的。一個必須回答的對照問題是：**這些效應是 NMD 方向特有的，還是任意一個稀疏方向都會出現同樣的 state 差異？**
 
