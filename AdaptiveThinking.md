@@ -127,7 +127,7 @@ $$s_t = s_{t-1} + (1-\beta)\,p_t$$
 
 本模型使用 `s_t` 的斜率来衡量模型在生成过程中朝答案推进的速度与 effort intensity，并将其作为 ramping/vigor hypothesis 的 operational measure。该假说预测：`s_t` 上升越快，模型的推进强度越高，因而可能表现为更短的 generation length 和更早的 commitment。分析中需要控制 output length 与 response format，避免把单纯的提前停止误判为 vigor。
 
-这里需要区分指标定义与任务结果：`s_t` slope 作为 ramping/vigor 的 operational measure 保持不变，但特定任务是否呈现预期的 slope–behavior relationship，需要通过实验检验。GSM8K 的结果见 §4.8：该任务没有检出符合预期方向的 slope–vigor evidence；相比之下，`s_t` level 与 commitment timing 呈现稳定关联。
+这里需要区分指标定义与任务结果：`s_t` slope 作为 ramping/vigor 的 operational measure 保持不变，但特定任务是否呈现预期的 slope–behavior relationship，需要通过实验检验。GSM8K 的结果见 §4.7：该任务没有检出符合预期方向的 slope–vigor evidence；相比之下，`s_t` level 与 commitment timing 呈现稳定关联。
 
 **H3 — Fast decode residuals encode phasic dynamics.**
 
@@ -508,7 +508,7 @@ Persona 呈現三階段變化：
 
 Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（例如 +4 `d_z=−0.18`），但該 readout 同時受起點水平影響，**只作 shape 輔助，不單獨承擔結論**。−8 是當前計算干預下的 **extreme-negative failure regime**，不等同「低 dopamine」。
 
-#### Result 3 — The Optimal Working Point Also Changes Fast Residuals and Output Decisiveness
+#### Result 3 — α Modulates Pre-Commit Residual Amplitude and Output Decisiveness
 
 **Fast residual（pre-commit `p_t std`）：**
 
@@ -519,7 +519,22 @@ Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（
 | −4 | 298 | +0.026 | +0.176 | ** |
 | −2…+8 | | ~0 | \|d_z\|<0.09 | ns |
 
-−6 的 pre-commit residual dispersion 明顯升高，−4 只有小效應，其餘 doses 接近 null——支持一致但**較窄**。`p_t` 是**同一 RSN projection 相對 EMA baseline 的快殘差**，不是獨立通道；本節只支持 amplitude/dispersion change，**不支持 biological phasic dopamine 或 event-specific response**（C1 附近的共同轉折也可能含 `####`/answer-marker effect）。主讀數限於 `abs_mean/std`，不用易受長度與 EMA lag 影響的極值。
+−6 的 pre-commit residual dispersion 明顯升高，−4 只有小效應，其餘 doses 接近 null——支持一致但**較窄**。
+
+**Pre-commit residual amplitude 的 between-α 檢驗。** 上表為 dispersion；另以逐題配對（同 300 題 index 對齊）比較同一段內 α=−6 / α=+6 相對 α=0 的 **centered RMS**（先去均值，故為段內變異幅度，不含 level shift）：
+
+| pre-commit centered RMS | Δ vs α=0 | 顯著性 |
+|---|---:|---|
+| α=−6 | **+0.046** | **`p<.001`**，paired **n=200** |
+| α=+6 | −0.006 | n.s. |
+
+**所有 frequency metrics（zcr / dominant frequency / centroid / spectral entropy）在兩個 α 方向皆為 null。**
+
+> **`p_t` 中與 α 相關的資訊主要體現於 pre-commit residual amplitude，而非穩定的頻率變化。**
+
+此段在提交前、不含 `####` 複讀，因此該幅度效應是**扣除 loop 後仍與 α 相關**的乾淨結果，與本節 slow-state dose 結論同向（−α 抬高 pre-commit engagement）。**三項限制：**（i）此 between-α 對比只覆蓋 **α=−6 / 0 / +6 三個代表 dose**，**不是完整 dose curve**，不可外推為所有劑量的連續效應；（ii）**α=−6 的 RMS 上升不是正負對稱效應**——+6 為 null，故只能寫成負向劑量的單側結果；（iii）post-commit 段的 α 差異**只作 post-marker diagnostic**（該窗口混合答案收尾、格式變化與重複生成），reason / tail 段的 between-α 因要求「兩 α 在同題皆有 tail」而僅 **n=10/14**，**不作任何機制結論**。
+
+`p_t` 是**同一 RSN projection 相對 EMA baseline 的快殘差**，不是獨立通道；本節只支持 amplitude/dispersion change，**不支持 biological phasic dopamine 或 RPE 解讀**（C1 附近的共同轉折也可能含 `####`/answer-marker effect）。主讀數限於 `abs_mean/std` 與 centered RMS，不用易受長度與 EMA lag 影響的極值。
 
 **Output-distribution confidence controls：**
 
@@ -529,9 +544,31 @@ Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（
 | top1 | +0.039 | **+0.643** | −0.012 | −0.248 | −6 達峰 |
 | margin | +0.048 | **+0.593** | −0.014 | −0.214 | −6 達峰 |
 
-−6 **同時**具有較高 slow state 與較強 output decisiveness，且 effect size 相當（`s_t d_z=0.58`、top1 `d_z=0.64`、entropy `d_z=−0.72`）；正 α 則 entropy 較高、top1/margin 較低。因此 **α 不是 selective wanting intervention**：它同時改變 RSN engagement 與 confidence-related output distribution。這與 §4.2 CoT 的 joint modulation 相似，不支持「α 只改 wanting、不動 confidence」的強版本；§4.3 Persona 的 task-entry separation 仍是目前較清楚的一例，但本研究尚未取得 wanting–confidence 的 causal dissociation。Post-commit confidence 受 answer-loop 與格式轉換污染，不作實質解讀。
+−6 **同時**具有較高 slow state、較高 pre-commit residual amplitude 與較強 output decisiveness，且 effect size 相當（`s_t d_z=0.58`、top1 `d_z=0.64`、entropy `d_z=−0.72`）；正 α 則 entropy 較高、top1/margin 較低。這三項共同構成 asymmetric working point 的內部組成。因此 **α 不是 selective wanting intervention**：它同時改變 RSN engagement 與 confidence-related output distribution。這與 §4.2 CoT 的 joint modulation 相似，不支持「α 只改 wanting、不動 confidence」的強版本；§4.3 Persona 的 task-entry separation 仍是目前較清楚的一例，但本研究尚未取得 wanting–confidence 的 causal dissociation。Post-commit confidence 受 answer-loop 與格式轉換污染，不作實質解讀。
 
-#### Result 4 — Internal State and Behavioral Performance Align at an Asymmetric Working Point
+#### Result 4 — Commitment Is Followed by Residual-Amplitude Release, while Frequency Effects Are Unstable
+
+Result 3 檢驗 α 主效應；本節改為 within-α 的**階段對比**，在 α=−6 / 0 / +6 上做兩套 paired comparison：commit-centered，以及 reasoning 段 vs **repeated-ngram tail proxy**。同樣先去均值再取指標。
+
+| post−pre | α=−6 | α=0 | α=+6 |
+|---|---:|---:|---:|
+| centered RMS | **−0.285**\*\*\* | **−0.186**\*\*\* | **−0.143**\*\*\* |
+| spectral entropy | **−0.094**\*\*\* | **−0.074**\*\*\* | **−0.056**\*\*\* |
+| zero-crossing rate | **−0.061**\*\*\* | **−0.038**\*\* | **−0.036**\*\* |
+| spectral centroid | −0.007 ns | **−0.019**\*\*\* | −0.013\* |
+
+（paired Wilcoxon：\* `p<.05`，\*\* `p<.01`，\*\*\* `p<.001`。）
+
+- **commit 後最穩定的變化是 centered RMS 下降**，三個 α 條件一致；stage-based 切分複現同一方向，tail 段 centered RMS 約 **−0.31 / −0.35 / −0.36**（皆顯著）。
+- commit-centered frequency metrics 也會變化，但**方向與窗口敏感**（stage 切分下 zcr 近 null，dominant frequency / centroid 反而小幅上升，spectral entropy 只弱下降），亦無 α-monotonic dose structure，**不能宣稱存在獨立的 frequency reorganization**。
+- 這些 frequency 變化與 `####` 比例（Pearson `r=−0.53/−0.58/−0.55`）及 repeated-12gram rate（`r=−0.40/−0.46/−0.43`）**高度共變**：commit-centered frequency/regularity readout 與 answer-format、重複內容**不可分離**。**相關係數不是控制後的因果分解**，不能據以估計「多少效應由格式造成」，也不能寫成格式或重複**導致**了 residual change。
+- stage-based subset 僅 **n=24–42**，且由 repetition detector 選樣，同時存在 **selection 與 range restriction**；即使其 repetition/hash 與 frequency-change 相關接近 0，也只能說明**頻率效應不穩定**，**不能稱作 confound-free negative test**。
+
+> 因此當前穩健結果是 **commit 後的 `p_t` residual amplitude release**，頻率指標僅保留為 negative control。
+
+**兩個 proxy 的邊界：** repeated-ngram tail 只是重複尾段的近似，**不是經驗證的 loop-onset detector**；第 2 個 answer marker 只是 repetition / revision proxy，**同樣不等同 loop onset**（§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，其 **C2 應讀作 second-answer-marker boundary**）。窗口長度、頻率指標計算、12-gram detector 與腳本參數見 `CLAUDE.md`。
+
+#### Result 5 — Internal State and Behavioral Performance Align at an Asymmetric Working Point
 
 | α | acc(184) | `G_prefill` | `early_s_t` |
 |---:|---:|---:|---:|
@@ -555,7 +592,7 @@ Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（
 
 $$\alpha \;\to\; \text{linear task-entry gain } (G_{prefill}) \;\to\; \text{nonlinear commitment-formation state } (s_t) \;\to\; \text{joint change in output decisiveness} \;\to\; \text{asymmetric behavioral working point}$$
 
-其中 `s_t` 是主要載體，`p_t` 的支持較窄。三個工作區：
+其中 `s_t` 是主要載體，`p_t` 的支持較窄——α 相關資訊集中在 **pre-commit residual amplitude**（且僅在負向的 α=−6 顯著），而非頻率組織；commit 之後的殘差變化則為 amplitude release，其頻率讀數與 answer format / repetition 不可分離。三個工作區：
 
 1. **Intermediate calibration range（−4 至 +2）：** α 對 commitment-formation state 作較平滑的校準。**這是描述 state 的變化平緩，不是說此區間表現較好**——區間內 accuracy 實為單調下降（74.3→68.3→60.0→55.3），且離散最佳點 −6 落在區間之外。
 2. **Extreme-negative collapse（−8）：** commitment-formation collapse；event-centered 結果僅為條件子樣本，須與 C1-analyzable rate 及文本中的 answer-candidate oscillation 共同解讀。
@@ -570,11 +607,11 @@ $$\alpha \;\to\; \text{linear task-entry gain } (G_{prefill}) \;\to\; \text{nonl
 | `fig44_dose_main.png` | C1-centered `s_t` / `p_t` / entropy 與 dose-level working point 主圖 |
 | `fig44_validity.png` | α 對 `G_prefill` / `Z_prefill` 的線性 manipulation check |
 | `fig44_slow.png` | pre/post-commit slow-state paired comparisons |
-| `fig44_fast.png` | fast-residual dispersion controls |
+| `fig44_fast.png` | fast-residual dispersion 與 pre/post-commit amplitude controls |
 | `fig44_confidence.png` | entropy / top1 / margin confidence controls |
 | `fig44_integrated.png` | inline accuracy、task-entry gain 與 early `s_t` 的 dose-level 對齊 |
 
-**報告限制。** 目前 slow/fast/confidence dose figures 顯示 absolute means，而統計採 paired α-vs-0 comparisons；confirmatory reporting 前需統一為 paired Δ/CI 並對 dose × metric 作多重比較校正。Trajectory panels 只顯示部分代表 doses，dose-response panel 則使用全部 9 檔。（腳本、`--part` 選項與輸出檔位置見 `CLAUDE.md`。）
+**報告限制。** 目前 slow/fast/confidence dose figures 顯示 absolute means，而統計採 paired α-vs-0 comparisons；confirmatory reporting 前需統一為 paired Δ/CI 並對 dose × metric 作多重比較校正。Trajectory panels 只顯示部分代表 doses，dose-response panel 則使用全部 9 檔。（腳本、`--part` 選項與輸出檔位置見 `CLAUDE.md`。）Result 3–4 的 amplitude/frequency 分析為獨立腳本產出，**只覆蓋 α=−6 / 0 / +6 三個代表 dose**，與其餘 9-dose readout 的取樣密度不同，不可並列為同一條 dose curve。
 
 ### 4.5 CoT × α=−4: Signal Interaction Analysis
 
@@ -780,22 +817,77 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 （分析腳本、null family 切換方式、mask 建構式與正交/norm-match assert、seed 與目錄結構、server launcher 見 `CLAUDE.md`。）
 
-### 4.7 Case Study: sample-level RSN trajectories and generated text
+### 4.7 Slow-State Behavioral Validation
+
+#### Scope and Analysis Framework
+
+§4.2–4.4 主要以 `s_t` 的**水平（level）**描述模型是否仍處於持續推理與未完成提交的狀態。本節檢驗 sample-level 的 `s_t` 是否關聯行為：在控制 α condition 後，**level** 與 **slope** 各自能否預測 commitment timing。這回答的是逐題的 state–behavior 關係，**不是 α 的 dose-response**（後者見 §4.4）。
+
+分析 pool 了 **11 個 conditions ×300 題**（No-CoT dose −8…+8 含 ±2，CoT α=0/−4）；`s_t` 與行為讀數取自**同一份 signal JSON**、index 對齊。三項設計邊界是本節成立的前提：
+
+1. **固定 early window `[0,20)`。** 以 `[0,c1)` 計算的 slope 與 c1 機械耦合，故主要 predictor 使用**不會看到 commit 的固定窗口**。
+2. **at-risk subset（`commit_step ≥ 20`）。** 有 23.4% 的樣本在 token 20 前已提交，該窗口會跨越 commit 而混入 post-commit release；因此 commit-timing 分析僅在尚未提交的樣本上進行，target 為 `commit_excess`。
+3. **α-condition fixed effects**，避免跨條件的 pooled association 被誤讀為 within-sample 關係；held-out 為 question-level 切分，且 **train scaler 凍結後套用於 test**。
+
+（完整統計規格、腳本與 `--part` 選項見 `CLAUDE.md`。）
+
+#### Result 1 — Slow-State Level Is Associated with Commitment Timing
+
+at-risk subset 上，`s_t` level 與提交時間穩定正相關：水平越高，模型通常維持推理越久、提交越晚。
+
+| Readout | 值 |
+|---|---|
+| level ↔ `commit_step`（Spearman） | ρ=**+0.379**，`p<1e−85` |
+| 回歸加入 level 後 `R²` | 0.235 → **0.259**（β=**+19.6**，`p=7e−7`） |
+| question-level held-out test `R²` | ≈**0.25** |
+
+這項關係在 descriptive、cluster-robust 回歸與 held-out questions 上皆可重現。但它是 **descriptive association**：本節**不能**推斷 `s_t` level 造成較晚提交，也**不能**推斷高 `s_t` 帶來較高正確率。
+
+#### Result 2 — Slow-State Slope Does Not Support the Predicted Vigor Relationship on GSM8K
+
+若 slope 代表 ramping / vigor，較陡的上升應對應更快提交。leak-free 窗口下未檢出此關係：
+
+| Readout | 值 |
+|---|---|
+| slope ↔ `commit_step` marginal（Spearman） | ρ=**−0.020**，n.s. |
+| corr(level, slope) | **r=−0.48** |
+| 控制 level 後的 slope 效應 | 顯著但為 **suppressor**，方向 **與 vigor 預測相反**（斜率越正 → 提交**越晚**） |
+
+也就是說，slope 的邊際關聯為 null，控制 level 後殘留的效應方向與預設相反，因此**不構成 vigor evidence**。premature commitment 的 slope 分析另有時間順序混淆——**749/754** 個 premature 樣本在 token 20 前已提交，測量窗口與 post-commit release 重疊——故僅保留為診斷，不作主要證據。
+
+#### Integrated Interpretation
+
+GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 的 readout；**未檢出**符合預設方向的 **slope-based vigor evidence**。
+
+依 §2.2 命名約定，這是 **task-level finding，不否定 ramping / vigor 的建模假說，也不改名或降級 `s_t` slope 的 operational definition**。GSM8K 缺乏逐步逼近獎勵的任務結構，slope 預測更適合在 effort、betting 或 agentic progression 等任務中繼續檢驗。當前已驗證的經驗內容是 **slow-state level 的行為意義**；vigor（slope）仍是 open 的 task-level 問題。
+
+#### Evidence Boundary
+
+1. level ↔ timing 為 **descriptive association**，非因果，且不等同「高 `s_t` → 正確」。
+2. slope 的 null 是**未檢出穩定效應**，不是「沒有效應」的證明。
+3. 控制 level 後的 slope 係數是 suppressor 殘差，**不可單獨引用為 vigor 的反向證據**。
+4. premature 分析 time-confounded，僅作診斷。
+5. 結果 pooled 自 11 個 α conditions，已加 fixed effects，但仍非 within-condition 的獨立複製。
+
+### 4.8 Case Study: Sample-Level RSN Trajectories and Generated Text
 
 #### Scope and Purpose
 
-本節逐題對照 9 個 `sample_traj3_` case（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284），每張圖同時疊加 neutral No-CoT 下 α=−6 / 0 / +6 的 `s_t`、`p_t` 軌跡與實際生成文本。
+本節逐題對照 9 個 `sample_traj3_` case（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284），每張圖同時疊加 neutral No-CoT 下 α=−6 / 0 / +6 的 `s_t`、`p_t` 軌跡與實際生成文本。目的是檢查聚合指標是否對應**可辨識的生成階段**，並暴露事件定位與輸出格式的混淆。
 
-證據分兩層，全節不得混寫：
+**本節只承擔定性展示功能，不含任何全樣本 Result。** 正式統計在別處：`s_t` 的 sample-level 行為驗證見 **§4.7**；`p_t` 的 amplitude / frequency 全樣本檢驗見 **§4.4 Result 3–4**。
 
-1. **Case-level observation（定性）**——9 個 case 用於檢查聚合指標是否對應**可辨識的生成階段**，並暴露事件定位與輸出格式的混淆。樣本**不是預註冊、不是隨機抽樣、不具代表性**，不提供 effect size、顯著性或因果證據。
-2. **Formal validation（定量）**——其後的**全樣本** amplitude/frequency 分析才是正式檢驗，比較 commit 前後，以及 reasoning stage vs **repeated-ngram tail proxy**。
+證據邊界：
 
-兩個 proxy 的邊界：**repeated-ngram tail 只是重複尾段的近似，不是經驗證的 loop-onset detector**；**第 2 個 answer marker 只是 repetition / revision proxy，同樣不等同 loop onset**（§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，不受 marker 合併影響，但其 **C2 應讀作 second-answer-marker boundary**）。
+- 這些樣本**不是預註冊、不是隨機抽樣、不具代表性**，**不提供** effect size、顯著性或因果證據。
+- **不能由個案軌跡證明高 `s_t` 導致正確。**
+- **不得僅憑視覺印象宣稱頻率重組**——case plot 只能**提出**問題。
+- 第 2 個 answer marker 只是 **second-answer-marker proxy，不是真實 loop onset**；repeated tail 亦僅與 stopping failure / loop-like generation 相容。
+- `p_t` 是 EMA residual，**不作 RPE 或 biological dopamine 解讀**。
 
-（分析腳本、窗口定義、五項頻率指標、marker 合併規則與執行方式見 `CLAUDE.md`。）
+（marker 合併規則、圖檔生成腳本見 `CLAUDE.md`。）
 
-#### Case-Level Observation 1 — `s_t` Tracks Ongoing Processing and Post-Commit Release
+#### Case Observation 1 — `s_t` Tracks Ongoing Processing and Post-Commit Release
 
 - 推理仍在展開、答案尚未形成或仍在修正時，`s_t` 往往**維持較高水平**。
 - 首次明確提交後，`s_t` 通常**下降**，表現為 state release。
@@ -804,77 +896,39 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 > 可寫的結論只有：**`s_t` level 與 ongoing / unresolved processing 及 post-commit release 相容。**
 
-這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構同向，但 case 圖只是**核對**該結構，不構成新的證據。不可寫成「高 `s_t` 導致正確」、「`s_t` 是 reasoning quality」，或「案例驗證了 slope-vigor hypothesis」。**§4.7 觀察的是 level；slope-vigor 由 §4.8 單獨檢驗**（結果為 GSM8K 未檢出 slope-vigor evidence），不能由 level 觀察推斷 slope 讀數成立或不成立。
+這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構同向，但 case 圖只是**核對**該結構，不構成新的證據。不可寫成「高 `s_t` 導致正確」或「`s_t` 是 reasoning quality」。**本節觀察的是 level，且僅為定性**；slope-vigor 的正式檢驗在 §4.7（GSM8K 未檢出），不能由 level 的案例觀察推斷 slope 讀數成立或不成立。
 
-#### Case-Level Observation 2 — `p_t` Is Sensitive to Generation Stage
+#### Case Observation 2 — `p_t` Illustrates Stage-Dependent Residual Dynamics
 
 - 開放式自然語言推理階段的 `p_t` 往往**幅度較大、變化較不規則**（Q80、Q92、Q140、Q189）。
 - 進入 `####`、數字或固定句式的**重複尾段**後，殘差幅度通常**下降**。
 
-案例圖只**提出** amplitude / frequency 問題，正式判定完全來自下面的全樣本分析——**不得僅憑視覺印象宣稱頻率重組**。
+這與 §4.4 Result 4 的全樣本結果方向一致（commit 後 centered RMS 下降），但**案例圖本身不能判定 amplitude 或 frequency 效應**——正式判定完全來自 §4.4 的 paired 全樣本分析，該處同時說明頻率指標與 answer format / repetition 不可分離。
 
-#### Result 1 — Residual Amplitude Declines After Commitment, but Frequency Effects Are Unstable
+#### Case Observation 3 — First-Answer Accuracy Does Not Guarantee Stable Completion
 
-在 neutral No-CoT 的 α=−6 / 0 / +6 上做兩套 paired comparison：commit-centered，以及 reasoning 段 vs repeated-ngram tail proxy。每段先去均值再取頻率指標，故此處的 RMS 是**段內變異幅度，不含 level shift**。
-
-| post−pre | α=−6 | α=0 | α=+6 |
-|---|---:|---:|---:|
-| centered RMS | **−0.285**\*\*\* | **−0.186**\*\*\* | **−0.143**\*\*\* |
-| spectral entropy | **−0.094**\*\*\* | **−0.074**\*\*\* | **−0.056**\*\*\* |
-| zero-crossing rate | **−0.061**\*\*\* | **−0.038**\*\* | **−0.036**\*\* |
-| spectral centroid | −0.007 ns | **−0.019**\*\*\* | −0.013\* |
-
-（paired Wilcoxon：\* `p<.05`，\*\* `p<.01`，\*\*\* `p<.001`。）
-
-- **commit 後 centered RMS 在三個 α 條件下都明顯下降。**
-- commit-centered frequency metrics 也會變化，但與 `####` 比例（Pearson `r=−0.53/−0.58/−0.55`）及 repeated-12gram rate（`r=−0.40/−0.46/−0.43`）**高度共變**。**這不是控制後的因果分解**，不能由相關係數估計「多少效應由格式造成」；它只顯示 commit-centered frequency/regularity readout 與 answer-format、重複內容**不可分離**。
-- stage-based comparison 中，**只有 amplitude decline 跨兩種切分穩定複現**：tail 段 centered RMS 約 **−0.31 / −0.35 / −0.36**（皆顯著）。
-- zero-crossing、centroid、dominant frequency、spectral entropy 的**方向並不穩定**（stage 切分下 zcr 近 null，dominant frequency / centroid 反而小幅上升，spectral entropy 只弱下降），亦無 α-monotonic dose structure。
-
-> 因此當前穩健結果是 **`p_t` residual amplitude collapse**，而不是獨立的 frequency reorganization。
-
-stage-based subset 僅 **n=24–42**，且由 repetition detector 選樣，同時存在 **selection 與 range restriction**；即使其 repetition/hash 與 frequency-change 相關接近 0，也只能說明**頻率效應不穩定**，**不能稱作 confound-free negative test**。
-
-#### Result 2 — α Information Appears in Pre-Commit Residual Amplitude, Not Frequency
-
-上述兩套皆為 within-α 對比。要分離 **α 主效應**，需逐題配對（同 300 題 index 對齊）比較同一段內 α=−6 / α=+6 相對 α=0 的差異。**pre-commit（提交前的開放推理段）是唯一有乾淨 α 信號之處**：
-
-| pre-commit centered RMS | Δ vs α=0 | 顯著性 |
-|---|---:|---|
-| α=−6 | **+0.046** | **`p<.001`**，paired **n=200** |
-| α=+6 | −0.006 | n.s. |
-
-**所有 frequency metrics（zcr / dominant frequency / centroid / spectral entropy）在兩個 α 方向皆為 null。**
-
-> **`p_t` 中與 α 相關的資訊主要體現於 pre-commit residual amplitude，而非穩定的頻率變化。**
-
-此段在提交前、不含 `####` 複讀，因此該幅度效應是**扣除 loop 後仍與 α 相關**的乾淨結果，與 §4.4 的 slow-state dose 結論同向（−α 抬高 pre-commit engagement）。post-commit 段的 α 差異**只作 post-marker diagnostic**——該窗口混合答案收尾、格式變化與重複生成。reason / tail 段的 between-α 因要求「兩 α 在同題皆有 tail」而僅 **n=10/14**，**不作任何機制結論**。
-
-#### Result 3 — First-Answer Accuracy and Stable Completion Are Distinct
-
-**Q251** 是關鍵案例：α=0 首次 `####` 給出正確答案 60，因此 first-answer protocol 判為 **correct**；但模型之後仍繼續除以 2 並產生其他候選答案。
+**Q251**：α=0 首次 `####` 給出正確答案 60，因此 first-answer protocol 判為 **correct**；但模型之後仍繼續除以 2 並產生其他候選答案。
 
 > **first-answer accuracy 與 termination quality / stable completion 是不同的行為維度。**
 
-這**不否定** GSM8K 以 first `####` 作 production accuracy 的口徑；它只說明該指標**不能替代** answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等停止品質指標。
+這**不否定** GSM8K 以 first `####` 作 production accuracy 的口徑；它只說明該指標**不能替代** answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等停止品質指標。作為單一案例，它**提出**而非**估計**這項區分。
 
 #### Integrated Interpretation
 
-1. **`s_t` level** 與持續處理及提交後的 state release 相容，但**不是** correctness 或 reasoning quality 的直接指標。
-2. **`p_t` 的可靠資訊**主要來自 signed transition 與 residual amplitude / dispersion；頻率指標在不同切分下不穩定，故**頻率只保留為 negative control，不作 RSN 主讀數**。
-3. **α=−6 提高乾淨 pre-commit 段的 residual amplitude**，但當前結果**不建立 biological phasic dopamine correspondence**。
+1. **`s_t` level** 與持續處理及提交後的 state release 相容，但**不是** correctness 或 reasoning quality 的直接指標（Q251）。
+2. **`p_t`** 在推理段與重複尾段呈現不同的視覺波動，方向與 §4.4 Result 4 的 amplitude 結果一致；頻率則不能由圖判讀。
+3. **first-answer accuracy 與 stable completion 是不同維度**，需以獨立的停止品質指標度量。
 
-`p_t` 的 **phasic-like operational definition 保留**（per §2.2 命名約定：task-level null 不改名、不降級）；GSM8K 支持的是 **amplitude / dispersion change**，**未檢出**穩定的 frequency organization。
+三項觀察都只作為聚合結果的**直觀核對**，其統計地位由 §4.4 與 §4.7 承擔。
 
 #### Evidence Boundary
 
 1. 9 個案例**不是代表性抽樣**（非預註冊、非隨機）。
 2. case plots **不提供** effect size、顯著性或因果證據。
 3. **高 `s_t` 不等於**正確或高品質推理（Q251）。
-4. frequency readouts 與 **answer format / repetition 混淆**，且相關係數不構成控制後的分解。
+4. 案例**不能**用於判定 frequency reorganization。
 5. **repeated-ngram tail 與 second marker 都不是真實 loop onset**。
 6. **`p_t` 是 EMA residual**，不是已識別的 biological phasic dopamine。
-7. **post-commit 與小樣本 tail comparison（n=10/14、n=24–42）僅作診斷**，不作機制結論。
 
 #### Figures
 
@@ -882,15 +936,7 @@ stage-based subset 僅 **n=24–42**，且由 repetition detector 選樣，同�
 |---|---|
 | `plots_gain/sample_traj3_q*.png`（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284） | 展示 α=−6/0/+6 下 `s_t`、`p_t` 與生成文本的樣本級對應；**僅作 qualitative sanity check** |
 
-正文只引用真正承載不同解釋邊界的案例：**Q140 / Q189**（sustained / unresolved processing）、**Q251**（高 `s_t` 的反例，兼 first-accuracy vs stable-completion）、**Q80 / Q92**（`p_t` 的 generation-stage 敏感度）。
-
-### 4.8 Slow-State Behavioral Validation
-
-§4.2–4.4 主要以 `s_t` 的**水平（level）**描述模型是否仍處於持續推理與未完成提交的狀態。本節進一步檢驗另一項預測：如果 `s_t` 的**斜率（slope）**代表 ramping / vigor，較陡的上升是否應對應更快的答案提交。分析使用固定 early window 與尚未提交的 at-risk 樣本，以避免斜率和提交位置產生機械耦合；完整方法與統計規格見 `CLAUDE.md`。
-
-結果清楚區分了 **state level** 與 **state slope**。`s_t` level 穩定關聯 commitment timing：水平越高，模型通常維持推理越久、提交越晚（ρ=**+0.379**），而且這項關係在回歸與 held-out questions 上均可重現。相反，slope 與提交時間的直接關係接近零（ρ=**−0.020**）；控制 level 後出現的 slope 效應方向反而是「斜率越正，提交越晚」，不符合「斜率越陡、推進越快」的 vigor 預測。premature commitment 的 slope 分析因多數樣本已在測量窗內提交，只保留為診斷，不作主要證據。
-
-因此，GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 的 readout，但**未檢出 slope-based vigor evidence**。這不否定 ramping / vigor 的建模假說；GSM8K 缺乏逐步逼近獎勵的任務結構，更適合在 effort、betting 或 agentic progression 等任務中繼續檢驗。換言之，當前已驗證的是 **slow-state level 的行為意義**，而 slope 是否能表徵 vigor 仍是 open question。
+正文只引用真正承載不同解釋邊界的案例：**Q140 / Q189**（sustained / unresolved processing）、**Q251**（高 `s_t` 的反例，兼 first-accuracy vs stable-completion）、**Q80 / Q92**（`p_t` 的 generation-stage 敏感度）。其餘案例（Q10、Q152、Q225、Q284）保留於 Figures，不逐題展開。
 
 ## 5. Qwen2.5 Cross-Model Analysis
 
@@ -1023,6 +1069,6 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 
 更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
 
-因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.7:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。就 `s_t` 而言，證據呈現清楚的**強／弱分佈**：**task-entry gain 強**（`G_prefill` 隨 α 近線性）、**slow-state level 與 release 強**（level 呈 asymmetric peaked response 追蹤 acc、穩定關聯 commitment timing，release 隨 commit 快速下降），**但 GSM8K 中 slope-based vigor evidence 未檢出**（§4.8：leak-free at-risk 下 slope↔timing 為 null，控制 level 後僅剩一個方向與 vigor 相反的 suppressor 殘差）。因此 **ramping/vigor 的建模定義保留**，但其斜率預測在本任務未兌現，留待 effort / betting / agentic progression 等能誘發漸進逼近結構的 task 檢驗——已驗證的 `s_t` 經驗內容是 **slow engagement / commitment-state readout（level）**，vigor（slope）為 open 的 task-level 問題。
+因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.4 Result 3–4:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。就 `s_t` 而言，證據呈現清楚的**強／弱分佈**：**task-entry gain 強**（`G_prefill` 隨 α 近線性）、**slow-state level 與 release 強**（level 呈 asymmetric peaked response 追蹤 acc、穩定關聯 commitment timing，release 隨 commit 快速下降），**但 GSM8K 中 slope-based vigor evidence 未檢出**（§4.7：leak-free at-risk 下 slope↔timing 為 null，控制 level 後僅剩一個方向與 vigor 相反的 suppressor 殘差）。因此 **ramping/vigor 的建模定義保留**，但其斜率預測在本任務未兌現，留待 effort / betting / agentic progression 等能誘發漸進逼近結構的 task 檢驗——已驗證的 `s_t` 經驗內容是 **slow engagement / commitment-state readout（level）**，vigor（slope）為 open 的 task-level 問題。
 
 方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡提供目前最強的 NMD direction-specificity evidence**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 中 NMD 皆相對各自 null 保持極端 pctile，null median 皆 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。**off-support generic-direction null 這格最吃重**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源，排除了「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種單成分解釋。限定：各 family N=10–11 為 exploratory ordering（三 family/30 cell 共享同一批 hidden states 與指標，非獨立重複，不作正式顯著性宣稱），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續優先跨模型、跨任務與含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
