@@ -9,7 +9,7 @@
 6. MATH cot ✔ 
 7. 复现qwen的thinking curve signal部分，没有存HS ✔
 8. qwen的thinking curve 存HS ✔
-
+9. qwen的具体分析 
 
 8. manifold
 
