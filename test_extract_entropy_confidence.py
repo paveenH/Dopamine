@@ -49,7 +49,8 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 
 def build(root: Path, *, meta_over=None, drop_qidx=False, dup_qidx=False,
           empty_decode=False, proj_len=None, n_done=None, eps=1e-6,
-          tie=False, drop_lm_head=False, ckpt_hidden=None, bad_layer_axis=False) -> Path:
+          tie=False, drop_lm_head=False, ckpt_hidden=None, bad_layer_axis=False,
+          gap_qidx=False) -> Path:
     """Write a synthetic checkpoint + one H5 cell; return the H5 dir."""
     root.mkdir(parents=True, exist_ok=True)
     ck = root / "ckpt"
@@ -99,7 +100,13 @@ def build(root: Path, *, meta_over=None, drop_qidx=False, dup_qidx=False,
                          "correct": 1, "difficulty": "easy", "generated": "g"}.items():
                 g.attrs[k] = v
             if not drop_qidx:
-                g.attrs["question_idx"] = 0 if dup_qidx else i
+                if dup_qidx:
+                    qi = 0
+                elif gap_qidx:
+                    qi = i if i < N_SAMPLES - 1 else i + 1   # [0,1,3]: a GAP, no duplicate
+                else:
+                    qi = i
+                g.attrs["question_idx"] = qi
     return root
 
 
@@ -151,6 +158,8 @@ def main() -> int:
             ("empty decode",             lambda: run(build(tmp/"m_empt", empty_decode=True)),                "empty decode"),
             ("proj length mismatch",     lambda: run(build(tmp/"m_proj", proj_len=99)),                      "x_decode_proj"),
             ("truncated cell",           lambda: run(build(tmp/"m_trunc", n_done=2)),                        "n_samples_done"),
+            ("missing n_samples_planned", lambda: run(build(tmp/"m_nplan", meta_over={"n_samples_planned": None})), "n_samples_planned"),
+            ("question_idx gap [0,1,3]", lambda: run(build(tmp/"m_gap", gap_qidx=True)),                      "not a cover"),
             ("missing n_samples_done",   lambda: run(build(tmp/"m_nod", meta_over={"n_samples_done": None})),"n_samples_done"),
             ("final-layer idx vs shape", lambda: run(build(tmp/"m_axis", bad_layer_axis=True)),              "outside the stored layer axis"),
             ("selective w/o pointer",    lambda: run(build(tmp/"m_ptr", meta_over={"final_layer_idx_stored": None})), "final_layer_idx_stored"),

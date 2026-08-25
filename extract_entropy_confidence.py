@@ -317,6 +317,14 @@ def extract_one_file(
                 f"{h5_path.name}: no 'n_samples_done' -- the collection run was "
                 f"interrupted before writing its completion marker."
             )
+        if n_planned is None:
+            # Was checked only `if n_planned is not None`, i.e. an absent field
+            # silently skipped the completeness comparison -- fail-OPEN on the
+            # very condition this block exists to detect.
+            raise SystemExit(
+                f"{h5_path.name}: no 'n_samples_planned'; cannot verify the cell "
+                f"is complete rather than truncated."
+            )
         if len(sample_keys) != int(n_done):
             raise SystemExit(
                 f"{h5_path.name}: {len(sample_keys)} sample groups but "
@@ -453,10 +461,20 @@ def extract_one_file(
     total = len(results)
     correct_n = sum(1 for r in results if r["correct"])
 
-    # question_idx must be a duplicate-free cover, or per-question pairing is unsafe.
+    # question_idx must be a duplicate-free COVER of 0..total-1. Checking only
+    # for duplicates let [0,1,3] through: a gap means the cell is missing a
+    # question while still reporting a plausible n, and any per-question pairing
+    # against another cell would then be silently misaligned.
     qidx = [r["question_idx"] for r in results]
     if len(set(qidx)) != len(qidx):
         raise SystemExit(f"{h5_path.name}: duplicate question_idx values.")
+    if sorted(qidx) != list(range(total)):
+        missing = sorted(set(range(total)) - set(qidx))
+        extra = sorted(set(qidx) - set(range(total)))
+        raise SystemExit(
+            f"{h5_path.name}: question_idx is not a cover of 0..{total - 1} "
+            f"(missing={missing[:10]}, unexpected={extra[:10]})."
+        )
 
     # ── issue 2: steer_alpha must travel WITH the data ──
     # extract_signal_json.py drops it, so α survives only in the filename and
