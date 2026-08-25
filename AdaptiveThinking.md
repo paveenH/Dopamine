@@ -148,11 +148,7 @@ RSN signal 是主軸；logit metrics 用於判斷 wanting 是否只是 confidenc
 
 ### 3.2 RSN Projection and Gain Coordinates
 
-對 token `t`、middle layer `l`，先計算原始投影：
-
-$$r_{t,l} = h_{t,l} \cdot m_l$$
-
-其中 `h_{t,l}` 是 decoder layer output hidden state，`m_l` 是同一 output space 中的 sparse NMD direction。每層先獨立投影，再進行跨層聚合。
+對 token `t`、middle layer `l`，先計算原始投影：$r_{t,l} = h_{t,l} \cdot m_l$，其中 $h_{t,l}$ 是 decoder layer output hidden state，$m_l$ 是同一 output space 中的 sparse NMD direction。每層先獨立投影，再進行跨層聚合。
 
 為了固定零點、保留 α 的干預單位並避免少數 layer 因尺度較大而主導聚合，使用 neutral、α=0、No-CoT 的 prefill distribution 作為 reference：
 
@@ -164,46 +160,32 @@ $$\sigma_l^{ref} = \operatorname{Std}\big[g_{prefill,l} \mid \text{neutral},\ \a
 
 $$z_{t,l} = \frac{g_{t,l}}{\sigma_l^{ref}}$$
 
-由此得到兩種跨層 readout：
-
-$$G_t = \operatorname*{mean}_{l}\, g_{t,l} \qquad\qquad Z_t = \operatorname*{mean}_{l}\, z_{t,l}$$
+由此得到兩種跨層 readout：$G_t = \operatorname*{mean}_{l}\, g_{t,l} \qquad\qquad Z_t = \operatorname*{mean}_{l}\, z_{t,l}$
 
 | Signal | Role |
 |---|---|
-| `G_t` | 保留 α-equivalent unit；用於 steering calibration、dose linearity 與 intervention sanity check |
-| `Z_t` | 各層先標準化後聚合；作為主要 observational trajectory，避免 layer-scale dominance |
+| $G_t$ | 保留 α-equivalent unit；用於 steering calibration、dose linearity 與 intervention sanity check |
+| $Z_t$ | 各層先標準化後聚合；作為主要 observational trajectory，避免 layer-scale dominance |
 
-Reference `μ_l^ref` 與 `σ_l^ref` 在所有 role、α、token 與 event 中固定，不隨條件重新估計，才能保留條件間與 generation 階段間的真實差異。
+Reference $μ_l^{ref}$ 與 $σ_l^{ref}$ 在所有 role、α、token 與 event 中固定，不隨條件重新估計，才能保留條件間與 generation 階段間的真實差異。
 
-**坐標分工**：涉及 α 單位的定量陳述（dose linearity、`boundary_jump` 回彈比例、steering calibration，即 H1）一律在 `G` 坐標；涉及 trajectory 形狀的分析（`s_t` slope、`p_t` residual，即 H2/H3）在 `Z` 坐標，以確保 layer-fair、不被個別大尺度 layer 主導。
-
-**Layer alignment**：mask row `l` 對齊 `decoder_layers[l]` 的 **output**。Signal observation 與 steering injection 必須使用同一 output space，避免一層 offset。
+**坐標分工**：涉及 α 單位的定量陳述（dose linearity、`boundary_jump` 回彈比例、steering calibration，即 H1）一律在 $G$ 坐標；涉及 trajectory 形狀的分析（$s_t$ slope、$p_t$ residual，即 H2/H3）在 $Z$ 坐標，以確保 layer-fair、不被個別大尺度 layer 主導。
 
 ### 3.3 Temporal Signal Decomposition
 
 #### 3.3.1 Task-Entry Tonic
 
-最後一個 prompt token 的 gain 定義為：
+最後一個 prompt token 的 gain 定義為：$T = G_{prefill}$，`T` 是 task-entry tonic 的主 readout，表示 generation boundary 上的初始 gain / commitment set point。`Z_prefill` 可作為 layer-fair 的 condition comparison；`G_prefill` 則保留 α 單位，作為主要 calibration signal。
 
-$$T = G_{prefill}$$
-
-`T` 是 task-entry tonic 的主 readout，表示 generation boundary 上的初始 gain / commitment set point。`Z_prefill` 可作為 layer-fair 的 condition comparison；`G_prefill` 則保留 α 單位，作為主要 calibration signal。
-
-prefill 到第一個 decode token 的回彈另記為：
-
-$$\text{boundary\_jump} = G_0 - G_{prefill}$$
-
-`boundary_jump` 用來描述 task-entry pulse 如何進入自然 decode dynamics；在 `G` 坐標計算，以與 H1 引用的 α-單位回彈比例（約 95%）保持一致。
+prefill 到第一個 decode token 的回彈另記為：$\text{boundary\_jump} = G_0 - G_{prefill}$，`boundary_jump` 用來描述 task-entry pulse 如何進入自然 decode dynamics；在 `G` 坐標計算，以與 H1 引用的 α-單位回彈比例（約 95%）保持一致。
 
 #### 3.3.2 Ramping / Vigor
 
 在 decode 內，對 `Z_t` 建立 slow component：
-
 $$s_0 = Z_0 \qquad\qquad s_t = \beta\, s_{t-1} + (1-\beta)\, Z_t$$
+`s_t` 只由 decode token 初始化與更新，不以 prefill 作 EMA seed。
 
-`s_t` 只由 decode token 初始化與更新，不以 prefill 作 EMA seed。主要 readout 是 `s_t` 的 trajectory slope，而不是其絕對高度：
-
-$$\text{vigor\_slope} = \operatorname{slope}(s_t)$$
+主要 readout 是 `s_t` 的 trajectory slope，而不是其絕對高度：$\text{vigor\_slope} = \operatorname{slope}(s_t)$
 
 後續可分別估計 early、middle、late slope；β 與 window 的精確設定留待 sensitivity analysis。
 
@@ -213,7 +195,7 @@ decode-time fast component 定義為相對上一時刻 slow baseline 的 residua
 
 $$p_t = Z_t - s_{t-1}, \qquad t \geq 1$$
 
-`p_t` 是一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t > 0` 表示瞬時高於 slow baseline 的 pulse，`p_t < 0` 表示瞬時 dip。現階段把它當作 **fast residual / candidate phasic-like component**（此 operational 命名保留），優先檢驗其 amplitude、variability 與時間結構；之後再分析它是否與特定 reasoning / commitment event 對齊（不預先指定 event anchor）。**event alignment 等驗證決定的是「當前 task 是否提供 phasic-like empirical evidence」，而非決定 `p_t` 是否獲得該名稱。**
+`p_t` 是一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t > 0` 表示瞬時高於 slow baseline 的 pulse，`p_t < 0` 表示瞬時 dip。現階段把它當作 **fast residual / candidate phasic-like component**，優先檢驗其 amplitude、variability 與時間結構；之後再分析它是否與特定 reasoning / commitment event 對齊。
 
 第一階段使用以下 summaries：
 
@@ -272,7 +254,7 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 
 ### 4.0 Acc
 
-**signal vs gsm8k original —— 跨機/batch 偏差存證**：
+**signal vs gsm8k original —— Bias Verification**：
 
 | cond | signal | original | Δ |
 |---|---:|---:|---:|
@@ -289,7 +271,7 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 | α0_cot | 67.7 | 69.0 | −1.3 |
 | α−4_cot | 82.7 | 85.0 | −2.3 |
 
-**口徑說明:** 本表及 §4 全節的 `signal`(server-184，bs=1 inline `correct`)只用於**同批 signal–behavior alignment**；**production accuracy 一律以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 的 server-182 offline first-`####` 口徑為準**。兩套數值不可混算(跨機 bf16 + bs 差異),但 dose 形狀一致、離散最佳點均在 α=−6。
+**口徑:** 本表及 §4 全節的 `signal` 只用於**同批 signal–behavior alignment**；**production accuracy 以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 為準**。兩套數值不可混算,但 **dose 形狀一致、離散最佳點均在 α=−6**——alignment 依靠的是形狀,不是絕對水平。（兩批的機器/batch-size 差異來源與診斷見 `CLAUDE.md`。）
 
 ### 4.1 Correct vs Incorrect Responses
 
