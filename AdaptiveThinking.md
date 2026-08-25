@@ -886,13 +886,17 @@ band 位置是 per-model 的 mask 事實（Qwen 取 layer-wise Expert/Non-Expert
 
 > 圖：`fig51_entry_gain.png`（左 §5.2 入口線性、中 accuracy 飽和、右 commit timing 與 pre-span 覆蓋率）
 
-### 5.3 Accuracy 與 commit timing 在 +8 之後趨平
+### 5.3 Accuracy 在 +8 後趨平，而 commitment 繼續延後
 
 | α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 | +10 | +12 |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | acc(300) | 62.00 | 65.33 | 68.00 | 68.00 | 67.67 | 68.33 | 73.67 | 77.67 | 86.00 | 88.00 | 87.67 |
-| commit c_med | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 47 | 110 | 134 | 163 |
+| commit c_med（絕對） | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 47 | 110 | 134 | 163 |
+| `posN_med`（歸一化） | .010 | .010 | .010 | .010 | .010 | .010 | .010 | .190 | .828 | .839 | .854 |
+| decode 長度 | 386.5 | 377.4 | 388.4 | 392.0 | 397.4 | 381.9 | 377.6 | 304.5 | 258.9 | 269.5 | 279.4 |
 | pre-span ≥20 佔比 | 8.3% | 6.0% | 4.3% | 4.3% | 5.7% | 6.0% | 9.3% | 58.0% | 96.0% | 97.0% | 96.7% |
+
+> **「趨平」只適用於 accuracy 與歸一化 commit 位置，不適用於絕對 commit step。** `posN_med` 在 +8 後停在 .828/.839/.854，而絕對 `c_med` 仍持續右移 110→134→163——因為生成長度同時從 258.9 拉長到 279.4。兩者不是矛盾而是不同量：**commitment 在生成中的相對位置飽和，但絕對延後仍在繼續**。任何「commit timing 趨平」的說法都必須指明用的是哪一個。
 
 兩點與 Llama 明顯不同。**其一，Qwen 沒有右臂**：accuracy 在 −8…+12 內單調上升後**飽和**（+8→+10→+12 兩兩 n.s.），而 Llama 的最佳點在 α=−6 且兩側下降。**其二，Qwen 在低 α 是「先答後推」**：c_med=3 表示答案幾乎在生成開頭就出現，因此 α≤+4 的 pre-commit window 對 92–96% 的樣本**未定義**。
 
@@ -955,7 +959,7 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 
 ### 5.7 目前解釋與 open item
 
-Qwen 已複製 §4 主線的五個環節：α 入口 manipulation check（§5.2）、行為曲線的獨立複製（§5.3）、commit-aligned slow-state 分析（§5.4）、逐層 response profile（§5.5）、random/orthogonal readout control（§5.6）。
+**Qwen 複用了 §4 的完整分析鏈，但「複用鏈條」與「複製結果」必須分開陳述。** 五個環節（§5.2 入口 manipulation check、§5.3 行為曲線、§5.4 commit-aligned slow state、§5.5 逐層 response profile、§5.6 random/orthogonal readout control）都以相同口徑跑通。其中**真正複製的是入口線性與 entry–decode 解耦**：`G_prefill ~ α` 在兩個模型上都近乎完美線性，且都在 decode 側轉為非線性。**行為曲線則沒有複製**——Llama 是倒 U（最佳點 α=−6、兩側下降），Qwen 是高劑量平台（單調上升後於 +8 飽和，band 內無右臂）。因此本節是**分析框架的跨模型可移植性 + 部分機制複製**，不是行為結果的複製。
 
 **當前最合適的一維層次結論：高劑量下 decode response 幅度明顯壓縮，逐層 loading 高度異質且含 L20 反號，但兩個劑量區間的 response profile 近乎共線（cos=0.987、k=0.309、97.4% energy），且此近共線性比一般方向更明顯——因此結果與「沿固定 RSN profile 的標量增益壓縮」相容，不支持層間同步的均勻 ceiling，亦未顯示幾何重分配。**
 
