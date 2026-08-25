@@ -13,6 +13,46 @@
 
 8. manifold
 
+## 简单解释
+
+现在结果更支持：
+
+> Qwen在高剂量下，主要沿着同一个RSN响应模式继续变化，但响应幅度被压缩了。
+
+RSN的两个剂量区间几乎可以用同一个逐层profile乘上缩放系数解释；random/orthogonal方向的响应则很弱、很不稳定。因此目前没有证据支持“轨迹发生方向重分配”，反而更接近**RSN轴上的标量增益压缩**。
+
+但null方向的信号幅度只有RSN的大约十分之一，接近噪声时，拟合残差本来就会变大。所以暂时只能说结果“倾向支持”，不能强称RSN比所有方向都更干净。
+
+另外，`ortho_off percentile=20%`意味着RSN低于该family的大多数draw，但不是全部draw；准确表述应是“低于三个family的中位数”。
+
+## 接下来建议
+
+在manifold前先做一个很便宜的SNR检查：
+
+- 按question做split-half或bootstrap；
+- 检查RSN和null response profile各自的重测稳定性；
+- 在相近response norm/SNR条件下再比较缩放残差。
+
+这能判断null高残差究竟来自方向结构，还是单纯因为信号太弱。
+
+然后开始manifold pilot：
+
+1. 只用α=0训练问题学习每层的自然流形。
+2. 在held-out问题上投影`0/+6/+8/+12`，各层分开。
+3. 优先检查：
+   - PCA谱与participation ratio；
+   - on-manifold reconstruction error；
+   - α引起的位移与局部切空间的对齐程度；
+   - prefill和commit-aligned decode轨迹是否转向；
+   - trajectory speed与curvature。
+4. `−8`和CoT作为第二层控制。
+
+判读很直接：
+
+- 高剂量仍在流形内、切向方向不变，只是移动幅度变小 → 加强标量压缩解释。
+- 高剂量normal displacement增加或切向方向改变 → 才是几何重分配的证据。
+
+这些分析仍可使用现有H5，不需要重新跑模型。
 ---
 1. **Thinking Curve：最高优先级**
    直接回答核心问题：为什么 Qwen 需要正向、Llama 却可能需要负向调节。比较的应是早期候选、commitment、推理压缩、循环等行为状态，而不是 raw α。
