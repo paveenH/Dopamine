@@ -884,6 +884,8 @@ band 位置是 per-model 的 mask 事實（Qwen 取 layer-wise Expert/Non-Expert
 
 > **slope 1.661 與 Llama 的 1.648 接近純屬巧合，不得引用為跨模型一致性。** 兩者的 slope 由各自 mask 的 ‖m_l‖² 與層數決定，是不同量綱下的數字。
 
+> 圖：`fig51_entry_gain.png`（左 §5.2 入口線性、中 accuracy 飽和、右 commit timing 與 pre-span 覆蓋率）
+
 ### 5.3 Accuracy 與 commit timing 在 +8 之後趨平
 
 | α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 | +10 | +12 |
@@ -913,6 +915,8 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 >
 > **這是 compression，不是 ceiling。** 一個「已到頂」的解釋要求 decode 側停止回應；此處 `+6→+8`、`+8→+10` 仍顯著，只是每單位 α 的回應變小。
 
+> 圖：`fig52_compression.png`（左 entry、中 decode、右 RAW response ratio）
+
 ### 5.5 高低劑量 response profile 近乎共線
 
 以 `[c−20, c)` 的逐層 pre-commit `s_t`，取每 +2α 的逐層回應向量：
@@ -928,6 +932,8 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 >
 > **逐層異質與 L20 反號本身不是重分配證據**：固定的負 loading 正是「單一潛在標量經固定異質 profile 投影」會產生的形態。因此本節結論為：**排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與沿固定 layer profile 的標量增益壓縮相容。**
 
+> 圖：`fig53_profile.png`（左逐層回應、中 k·v_low 疊合、右兩劑量步散點共線）
+
 ### 5.6 Random / orthogonal readout controls
 
 將**同一批** hidden states 重投影到三個 null family（各 10 draw，共 30）：
@@ -941,9 +947,11 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 
 **RSN 的殘差與 CV 都低於全部三個 family**：RSN 方向比一般稀疏方向**更像干淨的標量通道**。這是**反對**把 §5.5 讀成重分配的證據，不是支持。
 
-> **兩則不得跳過的限定。**（a）**§5.5 的「CV 0.92 偏高」在有了參照分布後不成立**——一般方向的 CV 是 2.4–3.9，RSN 屬低端，逐層異質性不構成特殊性證據。（b）**低 SNR caveat**：null 的回應幅度接近零（RSN `‖v₆₈‖`=0.907，null 逐層中位數 ≤0.09），對近噪聲擬合 k 天然留下大殘差，故 null 的高殘差**部分是低 SNR 產物**。因此措辭是 **argues against**，不是 excludes；`pctile 0.0%` 亦**不可**轉寫為「RSN 特殊」——percentile 只說明 RSN 在極端，而此處極端指向非預期方向。
+> **兩則不得跳過的限定。**（a）**§5.5 的「CV 0.92 偏高」在有了參照分布後不成立**——一般方向的 CV 是 2.4–3.9，RSN 屬低端，逐層異質性不構成特殊性證據。（b）**低 SNR caveat 只適用於三個 family 中的兩個**。逐 draw 回應幅度 `‖v₆₈‖` 中位數：RSN 0.907、`diff_random` 0.270、`ortho_gauss_same` **0.752**、`ortho_gauss_off` 0.349。對 `diff_random` 與 `ortho_off`（RSN 的 30–38%）caveat 成立——對近噪聲擬合 k 天然留下大殘差。但 **`ortho_gauss_same` 具備 RSN 83% 的回應幅度,殘差仍是 RSN 的約 4 倍（0.102 vs 0.026）**,且它是**配對最嚴格的 null**（NMD 自身 support、權重 ⊥ role-diff、norm-matched），因此無法用低 SNR 解釋掉,結論主要由它承載。措辭仍維持 **argues against** 而非 excludes（N=10、p 下限 0.182、三 family 非獨立）；`pctile 0.0%` 亦**不可**轉寫為「RSN 特殊」——percentile 只說明 RSN 在極端，而此處極端指向非預期方向。
 >
 > **邊界（binding）**：這批 hidden states 是在 RSN steering 下生成的，重投影因此界定的是 **readout**，不是 intervention。**steering direction 的因果特異性主張仍需另行注入 random/orthogonal 方向並重新採集。** 各 family N=10 → 雙邊 p 下限 0.182；三個 family 共享同一批 hidden states、cohort 與 reference，**非獨立重複**，「三者一致」不構成低機率論證。
+
+> 圖：`fig54_null.png`（左殘差、中 CV、右逐層回應與各 family 幅度）
 
 ### 5.7 目前解釋與 open item
 
@@ -953,7 +961,16 @@ Qwen 已複製 §4 主線的五個環節：α 入口 manipulation check（§5.2�
 
 **Open（下一小節）：manifold 分析。** 一維投影無法區分「軌跡等距移動但轉離 mask 方向」與「軌跡本身壓縮」；§5.6 的結果使**標量增益成為 manifold 分析要擊敗的假設**，而非待排除的形式選項。待補指標：PCA 譜 / participation ratio、重建誤差、trajectory speed 與 curvature、tangent alignment。另兩項 open：**−8 與 CoT 條件**尚未納入本節逐層分析；與 Llama 的對齊須以 **working state** 而非 raw α 進行。
 
-離線腳本（`RoleAnswer/qwen_signal/`，`python3.10`）：`commit_aligned.py`（§5.3–5.4）、`hs_layerwise.py`（§5.5）、`hs_null_specificity.py`（§5.6）；凍結記錄 `commit_aligned_v3_RESULT.txt`、`hs_layerwise_RESULT.txt`、`hs_null_specificity_RESULT.txt`。伺服器端 `check_hs_qwen25.py`（H5 驗收）、`run_null_remask_qwen25.sh`（null 重投影）。
+離線腳本（`RoleAnswer/qwen_signal/`，`python3.10`）：`commit_aligned.py`（§5.3–5.4）、`hs_layerwise.py`（§5.5）、`hs_null_specificity.py`（§5.6）、`plot_section5.py`（全部圖）；凍結記錄 `entry_gain_RESULT.txt`、`commit_aligned_v3_RESULT.txt`、`hs_layerwise_RESULT.txt`、`hs_null_specificity_RESULT.txt`。伺服器端 `check_hs_qwen25.py`（H5 驗收）、`run_null_remask_qwen25.sh`（null 重投影）。
+
+| 圖 | 內容 |
+|---|---|
+| `fig51_entry_gain.png` | §5.2 入口 gain 線性 + §5.3 accuracy 飽和 / commit timing |
+| `fig52_compression.png` | §5.4 entry vs decode 回應與 RAW response ratio |
+| `fig53_profile.png` | §5.5 逐層 profile + scalar-compression 擬合 |
+| `fig54_null.png` | §5.6 RSN vs 三個 null family |
+
+**圖檔位於 `qwen2.5/dopamine/plots_gain/`，與 Llama 的 `llama3/dopamine/plots_gain/` 分開存放**——兩模型數值不可比，共用目錄是跨模型混用的起點。每個 panel 都由產生凍結文字記錄的同一段程式重新推導，不從表格硬編數字。
 
 ## 6. Conclusion
 
