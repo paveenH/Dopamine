@@ -68,6 +68,19 @@ Markdown/HTML comments are still visible context to an agent — they are not st
 
 **Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/CLAUDE.md` contains the full theory map and phase plan; this file covers repo-local conventions and the per-experiment record.
 
+**How to use this file.** It is long because most of it is a per-experiment ledger of frozen results, retracted readings and 口径 traps — things that CANNOT be re-derived from the code and that have each already cost a wrong conclusion. Read the section for the experiment you are touching; do not read it end to end.
+
+| If you are… | Go to |
+|---|---|
+| running or changing an experiment | that experiment's section (Behavioral-economics suite, GSM8K conventions, Phase 1 signal) |
+| adding a benchmark | the standalone-pipeline pattern at the end of the Behavioral-economics suite |
+| touching layer indexing / masks / hooks | **Editing guidance** + Phase 1's steering hook-alignment bullet |
+| analysing stored results offline | **Offline analysis workspace** (`RoleAnswer/`, `python3.10`, not in git) |
+| verifying a change without a GPU | **Local checks** |
+| writing up a result | the frozen-wording rules in **Active status** and the relevant experiment section |
+
+**Two conventions that govern everything below.** (1) A rule with a `<!-- Why / Evidence / Scope -->` comment records a real failure — read it before editing that rule. (2) Frozen wording is frozen: where a phrasing is given in bold as required, use it verbatim rather than paraphrasing, because the paraphrase is usually the overstatement the rule exists to block.
+
 <!-- Why: four sections used to claim "current" simultaneously (Phase 2 closed-loop, Phase 1b, pv9, pv10), so a new session could not tell where work actually is and might reopen a closed line.
 Evidence: this section's own history; AdaBandit.md §5 (BAI CLOSED).
 Scope: update the date + one-liner whenever the active task changes; never add a second "current". -->
@@ -126,7 +139,7 @@ Scope: every colour-logit diagnostic claim. -->
 - `AdaptiveThinking.md` §3.1.6 / Phase 1b is the signal-proxy trajectory state-effect analysis (**complete**; "Phase 1b" is a retired name — see §Offline analysis workspace); `AdaThink.md` is an auxiliary trace analysis outside the main line.
 - `AdaBandit.md` — **the Bandit design + literature doc** (renamed 2026-08-11 from `BanditExperiment_LiteratureReview.md`). §1.3 `Prompt Design Constraints` / `PV9 Prompt Modifications` is the design source for the pv9 Stage-1 changes; §2 is the literature review (EVOLvE, greedy-agent papers, Krishnamurthy et al.).
 - `PV8_SCAFFOLD_DESIGN.md` — pv8 scaffold design notes.
-- `AGENTS.md` — Codex-facing twin of this file; keep the two in sync when editing repo conventions.
+- `AGENTS.md` — Codex-facing **delta file, NOT a mirror**. This file is canonical and wins on any disagreement; AGENTS.md carries only the Codex-specific execution guidance plus a short orientation (playbook, architecture, local checks, editing guidance). It deliberately does NOT restate the experiment ledger, frozen-protocol rules, or 口径 traps — those live here only. **So a large size difference between the two is expected and is not drift.** When a convention changes, edit THIS file; touch AGENTS.md only if the Codex-specific delta itself changed.
 - `~/CLAUDE.md` — running commands and data-directory map
 
 ## Architecture: how a run is wired together
