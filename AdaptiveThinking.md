@@ -791,7 +791,7 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 1. **Case-level observation（定性）**——9 個 case 用於檢查聚合指標是否對應**可辨識的生成階段**，並暴露事件定位與輸出格式的混淆。樣本**不是預註冊、不是隨機抽樣、不具代表性**，不提供 effect size、顯著性或因果證據。
 2. **Formal validation（定量）**——其後的**全樣本** amplitude/frequency 分析才是正式檢驗，比較 commit 前後，以及 reasoning stage vs **repeated-ngram tail proxy**。
 
-兩個 proxy 的邊界（後文不再重複）：**repeated-ngram tail 只是重複尾段的近似，不是經驗證的 loop-onset detector**；**第 2 個 answer marker 只是 repetition / revision proxy，同樣不等同 loop onset**（§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，不受 marker 合併影響，但其 **C2 應讀作 second-answer-marker boundary**）。
+兩個 proxy 的邊界：**repeated-ngram tail 只是重複尾段的近似，不是經驗證的 loop-onset detector**；**第 2 個 answer marker 只是 repetition / revision proxy，同樣不等同 loop onset**（§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，不受 marker 合併影響，但其 **C2 應讀作 second-answer-marker boundary**）。
 
 （分析腳本、窗口定義、五項頻率指標、marker 合併規則與執行方式見 `CLAUDE.md`。）
 
@@ -804,9 +804,7 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 > 可寫的結論只有：**`s_t` level 與 ongoing / unresolved processing 及 post-commit release 相容。**
 
-這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構同向，但 case 圖只是**核對**該結構，不構成新的證據。
-
-不可寫成「高 `s_t` 導致正確」、「`s_t` 是 reasoning quality」，或「案例驗證了 slope-vigor hypothesis」。**§4.7 觀察的是 level；slope-vigor 由 §4.8 單獨檢驗**（結果為 GSM8K 未檢出 slope-vigor evidence），不能由 level 觀察推斷 slope 讀數成立或不成立。
+這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構同向，但 case 圖只是**核對**該結構，不構成新的證據。不可寫成「高 `s_t` 導致正確」、「`s_t` 是 reasoning quality」，或「案例驗證了 slope-vigor hypothesis」。**§4.7 觀察的是 level；slope-vigor 由 §4.8 單獨檢驗**（結果為 GSM8K 未檢出 slope-vigor evidence），不能由 level 觀察推斷 slope 讀數成立或不成立。
 
 #### Case-Level Observation 2 — `p_t` Is Sensitive to Generation Stage
 
