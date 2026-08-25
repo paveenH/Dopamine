@@ -940,56 +940,162 @@ GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 
 
 ## 5. Qwen2.5 Cross-Model Analysis
 
-本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**所有結論限於一維投影層次；manifold 分析尚未完成**，於 §5.7 列為 open。
+本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**所有結論限於一維投影層次；manifold 分析尚未完成**，於 §5.8 列為 open。
 
 > **一句話結論：Qwen 的入口增益持續隨 α 線性增加，但進入 decode 後，回應沿一個相對固定的 RSN layer profile 被顯著壓縮；現有證據更支持「標量增益壓縮」，不支持「軌跡發生幾何重分配」。**
 
-（標題用 *Analysis* 而非 *Replication*：分析鏈完整移植且入口線性複製成功，但**行為曲線並未複製**——見 §5.7。）
+**閱讀順序即分析順序**：操控驗收（§5.2）→ 主鏈條（§5.3）→ slow state（§5.4）→ fast residual / confidence（§5.5）→ 高劑量壓縮與 null（§5.6）→ 跨模型狀態對齊（§5.7）→ manifold（§5.8）。正文重點放在**主鏈條、高劑量 compression 與 working-state 對齊的可行性判定**三處；其餘為支撐與控制。
 
-**跨模型比較的口徑限制（貫穿本節，不可放寬）。** Llama 與 Qwen 使用**不同的 mask、不同的 band（L=9 vs L=6）、不同的 activation scale**，因此相同數值的 α **不是相同強度的 intervention**。本節與 §4 的表格**分開呈現，不合併**；不得直接比較 raw α、raw projection 或 p 值。可比較的是**行為狀態的形狀**（commit position、response profile 的共線性、dose 曲線的飽和位置），不是絕對量。
+### 5.1 Scope and Cross-Model Comparison Rules
 
-### 5.1 協議差異
+**跨模型比較的口徑限制。** Llama 與 Qwen 使用**不同的 mask、不同的 band（L=9 vs L=6）、不同的 activation scale、不同的詞表**，因此相同數值的 α **不是相同強度的 intervention**。
 
 | 項目 | Llama3-8B（§4） | Qwen2.5-7B |
 |---|---|---|
 | band | `[11,20)`，L=9 | `[16,22)`，L=6 |
 | mask | `nmd_0.5_11_20_8B.npy` | `nmd_0.5_16_22_7B.npy` |
+| decoder layers | 32 | 28 |
 | max_new_tokens | 512 | 768 |
 | reference μ/σ | 該模型自身 α=0 No-CoT prefill | 同左（**模型內 reference**，不共用） |
 | α 覆蓋 | −8…+8（9 檔） | −8…+12（11 檔，No-CoT）+ CoT {0,+6} |
 
 band 位置是 per-model 的 mask 事實（Qwen 取 layer-wise Expert/Non-Expert Pearson 下降起點），不是可調參數。reference 固定在各自模型的 α=0 prefill，這是兩套 Z 座標不可互換的直接原因。
 
-### 5.2 Task-entry gain 保持線性
+**四條比較規則，本節逐條遵守：**
+
+1. **一切統計先在模型內標準化**（Z 座標、或相對各自 α=0 的 paired Δ）後才跨模型並列。
+2. **比較內部狀態，不比較 raw α。** 可比較的是**形狀**（dose 曲線的飽和位置、response profile 的共線性、commit position 的相對移動），不是絕對量。
+3. **entropy 若進入比較，一律使用 `entropy/log(V)`**（Llama V=128k、Qwen V≈151.7k，未歸一化的 nats 不可比）。此規則目前**尚無資料可套用**——Qwen 的 logit family 仍為 BLOCKED，見 §5.5。
+4. **cohort 定義必須連同數字陳述。** Qwen 的 pre-commit cohort 選擇在 manipulation 自身的結果上（見 §5.3），這一點在 Llama 不成立，是兩者最重要的不對稱。
+
+### 5.2 Manipulation Check and Effective Dose
 
 | α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 | +10 | +12 |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `G_prefill` | −13.14 | −9.82 | −6.53 | −3.26 | 0.00 | +3.27 | +6.57 | +9.88 | +13.25 | +16.74 | +20.26 |
 | `Z_prefill` | −32.44 | −24.23 | −16.11 | −8.03 | 0.00 | +8.05 | +16.19 | +24.35 | +32.68 | +41.33 | +50.06 |
+| `boundary_jump`（Z） | +32.40 | +24.17 | +16.07 | +8.05 | +0.11 | −7.87 | −15.91 | −23.49 | −31.63 | −40.36 | −49.07 |
+| `jump/Z_prefill` | −0.999 | −0.997 | −0.997 | −1.003 | — | −0.977 | −0.983 | −0.965 | −0.968 | −0.976 | −0.980 |
 
 `G_prefill ~ α` 線性 **R²=0.99987**（slope 1.661），`Z_prefill` **R²=0.99985**。與 §4.4 相同的 manipulation check 在 Qwen 上成立，且**線性一路維持到 +12**，即入口增益在行為與 commitment 都已飽和之後仍未彎折。
 
-> **slope 1.661 與 Llama 的 1.648 接近純屬巧合，不得引用為跨模型一致性。** 兩者的 slope 由各自 mask 的 ‖m_l‖² 與層數決定，是不同量綱下的數字。
+**每單位 α 的有效劑量：`ΔG_prefill/Δα = 1.661`**（Z 座標 4.100）。此值由該 mask 的 ‖m_l‖² 與 L=6 決定。
+
+> **slope 1.661 與 Llama 的 1.648 接近純屬巧合，不得引用為跨模型一致性。** 兩者的 slope 由各自 mask 的 ‖m_l‖² 與層數決定，是不同量綱下的數字；**只有 R²（manipulation 的線性程度）在種類上可比**。
+>
+> **‖m_l‖² 一律讀自 mask 檔，不得由資料回歸還原。** 注入落在每層 OUTPUT 而該 output 是下一層的 INPUT，故 co-design identity `Δμ_l = α·‖m_l‖²` **只在第一個被 steer 的層成立**：實測 L15 相符至 1e−4（per-sample std 0.009），L16–L20 則被傳播殘差逐層放大（L20 的 α-slope 73.9 vs mask 檔 41.7，std 1.540）。此差異**不是 mask 過期的證據**。
+
+`boundary_jump` 與 `Z_prefill` 反向且比值穩定在 **−0.965…−1.003**（CoT +6：−0.960），即**一次性 prefill 注入在 `decode[0]` 已近乎完全釋放**——與 Llama 相同的 initial-condition / boundary-gating 形態，且**在整個 −8…+12 範圍內不隨劑量退化**。這是 Qwen 側**確實複製**的兩項機制之一（另一項見 §5.5 的 commit-locked `p_t` dip）。
 
 > 圖：`fig51_entry_gain.png`（左 §5.2 入口線性、中 accuracy 飽和、右 commit timing 與 pre-span 覆蓋率）
 
-### 5.3 Accuracy 在 +8 後趨平，而 commitment 繼續延後
+### 5.3 Main Chain: `G_prefill` → pre-commit `s_t` → commitment timing → accuracy
 
 | α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 | +10 | +12 |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | acc(300) | 62.00 | 65.33 | 68.00 | 68.00 | 67.67 | 68.33 | 73.67 | 77.67 | 86.00 | 88.00 | 87.67 |
-| commit c_med（絕對） | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 47 | 110 | 134 | 163 |
+| commit `c_med`（絕對） | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 47 | 110 | 134 | 163 |
 | `posN_med`（歸一化） | .010 | .010 | .010 | .010 | .010 | .010 | .010 | .190 | .828 | .839 | .854 |
 | decode 長度 | 386.5 | 377.4 | 388.4 | 392.0 | 397.4 | 381.9 | 377.6 | 304.5 | 258.9 | 269.5 | 279.4 |
+| post-commit 步數 | 374.2 | 368.9 | 381.2 | 383.0 | 387.9 | 371.4 | 362.0 | 237.3 | 111.5 | 104.1 | 103.5 |
 | pre-span ≥20 佔比 | 8.3% | 6.0% | 4.3% | 4.3% | 5.7% | 6.0% | 9.3% | 58.0% | 96.0% | 97.0% | 96.7% |
+| `s_t` early / mid / late | .66/.81/.96 | .65/.83/.91 | .68/.84/.96 | .72/.86/1.08 | .74/.86/1.07 | .73/.83/1.04 | .76/.88/1.07 | .89/.89/1.17 | .90/.91/1.28 | .89/.93/1.33 | .89/.92/1.35 |
+| loop% | 13.7 | 10.7 | 11.7 | 14.3 | 13.0 | 8.7 | 10.3 | 5.3 | 2.7 | 2.7 | 3.3 |
+| eos_fail% | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+
+**鏈條在 Qwen 上是連通的，但轉折點集中在 +4→+8 這一段**：入口線性推進（§5.2）→ 長度歸一化的 `s_t` 三分段整體上抬（early .74→.90）→ commitment 從「開頭即答」移到生成後段（`posN` .010→.828）→ accuracy 由 67.67 升至 86.00。**loop% 同步由 13.0% 降到 2.7%**，即高劑量同時消除退化尾巴，因此 accuracy 的上升不是靠更長的重複輸出換來的。
 
 > **「趨平」只適用於 accuracy 與歸一化 commit 位置，不適用於絕對 commit step。** `posN_med` 在 +8 後停在 .828/.839/.854，而絕對 `c_med` 仍持續右移 110→134→163——因為生成長度同時從 258.9 拉長到 279.4。兩者不是矛盾而是不同量：**commitment 在生成中的相對位置飽和，但絕對延後仍在繼續**。任何「commit timing 趨平」的說法都必須指明用的是哪一個。
 
-兩點與 Llama 明顯不同。**其一，Qwen 沒有右臂**：accuracy 在 −8…+12 內單調上升後**飽和**（+8→+10→+12 兩兩 n.s.），而 Llama 的最佳點在 α=−6 且兩側下降。**其二，Qwen 在低 α 是「先答後推」**：c_med=3 表示答案幾乎在生成開頭就出現，因此 α≤+4 的 pre-commit window 對 92–96% 的樣本**未定義**。
+兩點與 Llama 明顯不同。**其一，Qwen 沒有右臂**：accuracy 在 −8…+12 內單調上升後**飽和**（+8→+10→+12 兩兩 n.s.），而 Llama 的最佳點在 α=−6 且兩側下降。**其二，Qwen 在低 α 是「先答後推」**：c_med=3 表示答案幾乎在生成開頭就出現，因此 α≤+4 的 pre-commit window 對 91–96% 的樣本**未定義**。
 
-> **這使 α≤+4 的 cell 成為 coverage row，不是可比對照。** 後續所有 pre-commit 分析的 cohort 都**選擇在 manipulation 的結果上**（pre-span ≥20），這是設計上無法迴避的限制，必須隨數字一起陳述。
+> **這使 α≤+4 的 cell 成為 coverage row，不是可比對照——這是本節最重要的結構限制，§5.4 與 §5.7 都受它支配。** 後續所有 pre-commit 分析的 cohort 都**選擇在 manipulation 的結果上**（pre-span ≥20），這是設計上無法迴避的限制，必須隨數字一起陳述。
 
-### 5.4 延遲提交子集上的 decode-response compression（非 ceiling）
+**+8 之後的行為平台與 decode-response compression 同步發生**（§5.6：RAW response ratio 在 +6→+8→+10→+12 單調降至 0.0016），但**兩者的同步只是時間上的一致，本研究未建立中介關係**——沒有做 mediation，也沒有能分離「壓縮導致飽和」與「兩者同為第三因素結果」的設計。
+
+**CoT（α ∈ {0,+6}，各 n=300）沿同一鏈條移動，且不改變上述形態：**
+
+| 條件 | acc | `Z_prefill` | `jump/Zpre` | `c_med` | `posN` | `s_pre`(n_risk) | loop% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| CoT α=0 | 77.00 | 0.00 | — | 3 | .0095 | 1.697 (12) | 12.3 |
+| CoT α=+6 | 87.67 | +24.00 | −0.960 | 163 | .857 | 1.672 (175) | 5.0 |
+
+CoT 把 α=0 的 accuracy 由 67.67 抬到 77.00，**但沒有改變「低 α 先答後推」**（`c_med` 仍為 3，coverage 5.0%）。CoT α=+6 已達到 No-CoT α=+8…+12 的 accuracy 平台（87.67）與 commit 位置（`posN` .857），即 **CoT 與 +α 在此任務上推動同一條鏈條，且 CoT 讓較低的 α 就達到平台**。兩個 cell 不足以構成 CoT 的 dose curve，不可外推。
+
+### 5.4 Slow-State Behavioral Validation
+
+複現 §4.7 的兩問：`s_t` 的 **level** 是否關聯 commitment timing，`s_t` 的 **slope** 是否兌現 vigor 預測。**預測窗一律是固定的 `[0,20)` early window**（§4.7 口徑），at-risk = `commit_step ≥ 20`，即窗口不跨越 commit。
+
+| α | n_risk | coverage | `vigor_slope` | 95% CI | `s_t` level |
+|---:|---:|---:|---:|---|---:|
+| −8 | 25 | 8.3% | — | *(coverage too low)* | — |
+| −6 | 18 | 6.0% | — | *(coverage too low)* | — |
+| −4 | 13 | 4.3% | — | *(coverage too low)* | — |
+| −2 | 13 | 4.3% | — | *(coverage too low)* | — |
+| 0 | 17 | 5.7% | — | *(coverage too low)* | — |
+| +2 | 18 | 6.0% | — | *(coverage too low)* | — |
+| +4 | 28 | 9.3% | — | *(coverage too low)* | — |
+| +6 | 174 | 58.0% | **−0.0211** | [−0.0269, −0.0162] | 1.163 |
+| +8 | 288 | 96.0% | −0.0063 | [−0.0102, −0.0023] | 1.063 |
+| +10 | 291 | 97.0% | +0.0008 | [−0.0028, +0.0043] | 1.052 |
+| +12 | 290 | 96.7% | +0.0018 | [−0.0017, +0.0052] | 1.082 |
+
+（CoT：α=0 coverage 5.0% 拒絕；α=+6 coverage 73.0%，slope **−0.0117** [−0.0165, −0.0066]，level 1.158。）
+
+> **兩張表的 `n_risk` 定義不同，數值不同是正確的，不是筆誤。** 本表（`vigor_slope`）只要求 `commit_step ≥ 20`（單邊，α=−8 得 25）；§5.3 的 `s_pre/s_post` 與 §5.5 的 `p_t` 則要求 commit **前後各**有 ≥20 步（雙邊，α=−8 得 19）。引用時須連同所屬表格。
+>
+> **被拒絕的一行本身就是結果，不是缺口。** Qwen 在 α≤+4 的中位 commit 是 decode step 3，那些 cell **沒有可供讀取斜率的 pre-commit 區段**。**不得靠加寬窗口把空格填滿**——那正好重新引入固定窗口所要防止的 leakage（Llama 有 23% 樣本在 token 20 前 commit，Qwen 在 α=0 是 94%，問題嚴重得多）。
+
+**可讀的四個 cell 給出的是隨劑量減弱的鬆弛，不是 vigor。** slope 由 +6 的 −0.0211 單調趨近 0，且 +10/+12 的 CI 包含 0。依 §2.2 的**建模與發現分離**原則：`vigor_slope` 作為 H2 ramping/vigor 假說的 operational 名稱**保留**，此處記為 **task-level finding——GSM8K 上的 Qwen 同樣未誘發 ramping/vigor 斜率信號**，與 §4.7 在 Llama 上的結論同向。
+
+**level 側則與 §4.7 一致地連通行為**：`s_t` level（表中最後一欄，以及 §5.3 的 early/mid/late）隨劑量上抬，並與 commit 位置右移同向。但 **Qwen 無法複現 §4.7 的 leak-free 迴歸**——那需要在**同一劑量內**有足夠 at-risk 樣本與非 at-risk 樣本形成對比，而 Qwen 的 coverage 在 α≤+4 是 4–9%、在 α≥+8 是 96%，**沒有任何一檔同時具備兩端**。因此本節只報告 level 與 timing 的**同向共變**，不宣稱 §4.7 式的關聯強度。
+
+### 5.5 Fast Residual and Output Decisiveness
+
+`p_t = Z_t − s_{t-1}`，是**同一條一維投影相對 EMA baseline 的殘差**。
+
+| α | `abs_mean` | `std` | `pre_abs` | **`at_c`（commit 當步，帶符號）** | `post_abs` | n_risk |
+|---:|---:|---:|---:|---:|---:|---:|
+| −8 | 1.0518 | 1.3074 | 0.9329 | **−1.0375** | 1.0243 | 19 |
+| −6 | 1.0494 | 1.3055 | 0.9106 | **−0.7589** | 1.1456 | 12 |
+| −4 | 1.0497 | 1.3077 | 0.8829 | **−0.6232** | 1.0715 | 9 |
+| −2 | 1.0599 | 1.3222 | 0.9753 | **−0.5499** | 1.0313 | 9 |
+| 0 | 1.0566 | 1.3129 | 0.9157 | **−0.5777** | 1.0508 | 12 |
+| +2 | 1.0540 | 1.3100 | 0.8886 | **−0.7355** | 1.1339 | 13 |
+| +4 | 1.0460 | 1.3089 | 0.9227 | **−0.8534** | 1.0294 | 21 |
+| +6 | 1.0077 | 1.2608 | 0.9006 | **−0.8124** | 0.9646 | 124 |
+| +8 | 0.9997 | 1.2520 | 0.9180 | **−1.1815** | 1.0369 | 212 |
+| +10 | 0.9986 | 1.2528 | 0.9303 | **−1.2080** | 1.0534 | 219 |
+| +12 | 1.0072 | 1.2642 | 0.9416 | **−1.3219** | 1.0668 | 227 |
+
+**主讀數是 amplitude 與 signed transition，兩者給出不同的答案，必須分開講。**
+
+- **Amplitude（`abs_mean`/`std`）在整個 −8…+12 幾乎不動**（1.00–1.06 / 1.25–1.32），即 Qwen 的 `p_t` 殘差幅度**不隨劑量變化**——與 Llama §4.4 Result 3（α=−6 的 pre-commit centered RMS 顯著上升）**不同向**。
+- **Signed transition 則清楚複製**：每一檔在 commit 當步都有一個**帶符號的負向 dip**，且**隨劑量單調加深**（α=0 的 −0.578 → +12 的 −1.322；CoT α=0 −2.340、+6 −1.927）。這是 §4.2 commit-locked event 在 Qwen 上的對應物，也是 §5.2 之外第二項確實複製的機制。
+
+> `p_t` 是**同一 1-D 投影的殘差**，不是獨立 fast channel，**不得引用為 `s_t` 的獨立佐證**。
+>
+> **Frequency metrics（zcr / dominant frequency / centroid / spectral entropy）在本節刻意未計算。** §4.4 Result 3–4 已將其定為**次要／負對照**（Llama 上兩個 α 方向皆 null），在 amplitude 於 Qwen 已呈 null 的情況下，補算頻率不會改變讀數。這是**設計選擇，不是缺漏**。
+
+**Confidence proxies（entropy / top1 / margin / info_gain）：BLOCKED，不是 null。**
+
+Qwen 樹下 `metrics_*.json` **不存在（0 個檔案）**。這些量來自 final-layer HS 經 final norm + `lm_head` 的真實 next-token 分佈，是與 RSN 投影**不同的基底**，必須另行由伺服器端萃取：
+
+```
+python extract_entropy_confidence.py \
+  --h5_dir  /data1/paveen/Dopamine/components/hidden_states/gsm8k/qwen25_signal_v1 \
+  --model_dir Qwen/Qwen2.5-7B-Instruct \
+  --out_dir /data1/paveen/Dopamine/components/qwen2.5/metrics_hs \
+  --layer_start 16 --layer_end 22
+```
+
+> **記為 BLOCKED 而非略過，以免讀者把「沒有」誤讀成「沒有效應」。** 解封後有兩項限制須連同數字陳述：（a）它只覆蓋 **7 個重採 H5 cell**，而 RSN family 有 11 檔，故 **logit family 的 dose 曲線較稀疏，兩者不可畫成等密度取樣**；（b）跨模型引用時 entropy 一律用 `entropy/log(V)`（§5.1 規則 3）。
+>
+> **這使 §4.4 Result 3 的核心結論在 Qwen 上無法檢驗。** Llama 的「α 不是 selective wanting intervention」（−6 同時抬高 `s_t`、residual amplitude 與 output decisiveness）需要 confidence 側資料；Qwen 目前**只有 RSN 側**，因此**不能宣稱 Qwen 支持或反對 wanting–confidence 的聯動**。
+
+### 5.6 High-Dose Compression and Direction Specificity
+
+#### 5.6.1 Decode-Response Compression on the Delayed-Commit Subset (Not a Ceiling)
 
 固定 cohort：在 +6/+8/+10/+12 **全部**四檔都具備 ≥20 步 pre-commit span 的題目，n=167。
 
@@ -1002,13 +1108,15 @@ band 位置是 per-model 的 mask 事實（Qwen 取 layer-wise Expert/Non-Expert
 
 paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147、`+10→+12` p=0.361。入口每 +2α 遞增 ~50 個 raw 單位而 decode 側只遞增 0.63 → 0.19 → 0.08，**RAW response ratio 單調下降 0.0131 / 0.0037 / 0.0016**。
 
-> **口徑三則。**（a）headline 用 **RAW**：Z ratio 為 0.0269/0.0037/0.0091，**非單調**，只作 sensitivity。（b）`s_t` 一律由 `x_decode` **decode-seeded** 重算，禁用 stored `ema_decode`（其 prefill 汙染隨 α 增長，正好落在 pre-commit window）。（c）commit 位置以 **tokenizer offset mapping** 定位，非字元比例。
+> **口徑三則。**（a）headline 用 **RAW**：Z ratio 為 0.0269/0.0037/0.0091，**非單調**，只作 sensitivity。（b）`s_t` 一律由 `x_decode` **decode-seeded** 重算，禁用 stored `ema_decode`（其 prefill 汙染隨 α 增長，正好落在 pre-commit window：|stored − decode-seeded| 在 t=20 時 α=0 為 0.17、α=+12 為 97.18）。（c）commit 位置以 **tokenizer offset mapping** 定位，非字元比例。
 >
 > **這是 compression，不是 ceiling。** 一個「已到頂」的解釋要求 decode 側停止回應；此處 `+6→+8`、`+8→+10` 仍顯著，只是每單位 α 的回應變小。
+>
+> **cohort 選擇在 manipulation 的結果上**（§5.3）：只有高 α 才普遍具備 ≥20 步 pre-commit span，故此表**不含可比的低劑量對照**，是高劑量區間內部的相對比較。
 
 > 圖：`fig52_compression.png`（左 entry、中 decode、右 RAW response ratio）
 
-### 5.5 高低劑量 response profile 近乎共線
+#### 5.6.2 High- and Low-Dose Response Profiles Are Near-Collinear
 
 以 `[c−20, c)` 的逐層 pre-commit `s_t`，取每 +2α 的逐層回應向量：
 
@@ -1021,11 +1129,13 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 
 > **單位必須寫明**：「殘差 2.6%」是能量（平方）比，不是幅度差。另外對最小二乘的 k，$\text{resid} = 1 - \cos^{2}$ **恆等**（實測差 1e−16），故 cos 與平方殘差是同一幾何事實，**只有 k 提供獨立資訊**（幅度壓縮）。
 >
-> **逐層異質與 L20 反號本身不是重分配證據**：固定的負 loading 正是「單一潛在標量經固定異質 profile 投影」會產生的形態。因此本節結論為：**排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與沿固定 layer profile 的標量增益壓縮相容。**
+> **逐層異質與 L20 反號本身不是重分配證據**：固定的負 loading 正是「單一潛在標量經固定異質 profile 投影」會產生的形態。因此本小節結論為：**排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與沿固定 layer profile 的標量增益壓縮相容。**
+>
+> **層×劑量的 F 值只作描述與排序，不得宣稱「交互作用顯著」。** 六個層是同一組 hidden state 的重複投影，高度相依、sphericity 不成立，古典 repeated-measures p 值在此無效。若此差異日後須承擔主張而非描述，正當路徑是 **question-level permutation test 或 cluster bootstrap（以 question 分群）**。
 
 > 圖：`fig53_profile.png`（左逐層回應、中 k·v_low 疊合、右兩劑量步散點共線）
 
-### 5.6 Random / orthogonal readout controls
+#### 5.6.3 Random / Orthogonal Readout Controls
 
 將**同一批** hidden states 重投影到三個 null family（各 10 draw，共 30）：
 
@@ -1035,31 +1145,84 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 | pctile / p | — | 0.0% / .182 | 0.0% / .182 | 20.0% / .545 |
 | CV(+6→+8) | **0.917** | 2.373 | 3.943 | 2.936 |
 | k | 0.309 | 0.250 | 0.358 | 0.240 |
+| `‖v₆₈‖` 中位數 | 0.907 | 0.270 | 0.752 | 0.349 |
 
-**RSN 的殘差與 CV 都低於全部三個 family**：RSN 方向比一般稀疏方向**更像干淨的標量通道**。這是**反對**把 §5.5 讀成重分配的證據，不是支持。
+**RSN 的殘差與 CV 都低於全部三個 family**：RSN 方向比一般稀疏方向**更像乾淨的標量通道**。這是**反對**把 §5.6.2 讀成重分配的證據，不是支持。
 
-> **兩則不得跳過的限定。**（a）**§5.5 的「CV 0.92 偏高」在有了參照分布後不成立**——一般方向的 CV 是 2.4–3.9，RSN 屬低端，逐層異質性不構成特殊性證據。（b）**低 SNR caveat 只適用於三個 family 中的兩個**。逐 draw 回應幅度 `‖v₆₈‖` 中位數：RSN 0.907、`diff_random` 0.270、`ortho_gauss_same` **0.752**、`ortho_gauss_off` 0.349。對 `diff_random` 與 `ortho_off`（RSN 的 30–38%）caveat 成立——對近噪聲擬合 k 天然留下大殘差。但 **`ortho_gauss_same` 具備 RSN 83% 的回應幅度,殘差仍是 RSN 的約 4 倍（0.102 vs 0.026）**,且它是**配對最嚴格的 null**（NMD 自身 support、權重 ⊥ role-diff、norm-matched），因此無法用低 SNR 解釋掉,結論主要由它承載。措辭仍維持 **argues against** 而非 excludes（N=10、p 下限 0.182、三 family 非獨立）；`pctile 0.0%` 亦**不可**轉寫為「RSN 特殊」——percentile 只說明 RSN 在極端，而此處極端指向非預期方向。
+> **兩則不得跳過的限定。**（a）**§5.6.2 的「CV 0.92 偏高」在有了參照分布後不成立**——一般方向的 CV 是 2.4–3.9，RSN 屬低端，逐層異質性不構成特殊性證據。（b）**低 SNR caveat 只適用於三個 family 中的兩個**。對 `diff_random` 與 `ortho_off`（RSN 幅度的 30–38%）caveat 成立——對近噪聲擬合 k 天然留下大殘差。但 **`ortho_gauss_same` 具備 RSN 83% 的回應幅度，殘差仍是 RSN 的約 4 倍（0.102 vs 0.026）**，且它是**配對最嚴格的 null**（NMD 自身 support、權重 ⊥ role-diff、norm-matched），因此無法用低 SNR 解釋掉，結論主要由它承載。措辭仍維持 **argues against** 而非 excludes（N=10、p 下限 0.182、三 family 非獨立）；`pctile 0.0%` 亦**不可**轉寫為「RSN 特殊」——percentile 只說明 RSN 在極端，而此處極端指向非預期方向。
 >
-> **邊界（binding）**：這批 hidden states 是在 RSN steering 下生成的，重投影因此界定的是 **readout**，不是 intervention。**steering direction 的因果特異性主張仍需另行注入 random/orthogonal 方向並重新採集。** 各 family N=10 → 雙邊 p 下限 0.182；三個 family 共享同一批 hidden states、cohort 與 reference，**非獨立重複**，「三者一致」不構成低機率論證。
+> **邊界（binding）**：這批 hidden states 是在 RSN steering 下生成的，重投影因此界定的是 **readout specificity**，不是 intervention 的因果特異性。**steering direction 的因果特異性主張仍需另行注入 random/orthogonal 方向並重新採集**，那是另一個實驗。各 family N=10 → 雙邊 p 下限 0.182；三個 family 共享同一批 hidden states、cohort 與 reference，**非獨立重複**，「三者一致」不構成低機率論證。
 
 > 圖：`fig54_null.png`（左殘差、中 CV、右逐層回應與各 family 幅度）
 
-### 5.7 目前解釋與 open item
+### 5.7 Cross-Model Working-State Alignment: Currently **Not Executable**, for Structural Reasons
 
-**Qwen 複用了 §4 的完整分析鏈，但「複用鏈條」與「複製結果」必須分開陳述。** 五個環節（§5.2 入口 manipulation check、§5.3 行為曲線、§5.4 commit-aligned slow state、§5.5 逐層 response profile、§5.6 random/orthogonal readout control）都以相同口徑跑通。其中**真正複製的是入口線性與 entry–decode 解耦**：`G_prefill ~ α` 在兩個模型上都近乎完美線性，且都在 decode 側轉為非線性。**行為曲線則沒有複製**——**Llama 呈 asymmetric peaked response**（尖銳最佳點 α=−6、−8 崩潰、正 α 端逐步下降後趨平），**Qwen 呈高劑量平台**（單調上升後於 +8 飽和，band 內無右臂）。因此本節是**分析框架的跨模型可移植性 + 部分機制複製**，不是行為結果的複製。
+本小節原本要問的是：**Qwen 的最佳正劑量與 Llama 的最佳負劑量，是否到達相近的 working state？** 若是，則可主張「相同的功能性工作狀態，不同的基線位置與到達方向」。
+
+**結論：此對齊目前無法執行。** 四項待比較量中，兩項在種類上不可比、一項缺資料、一項缺對照基線。這不是資料量不足，加樣本不會解決。
+
+| 待比較量 | Llama 最佳 α=−6 | Qwen 最佳 α=+8…+12 | 可否對齊 |
+|---|---|---|---|
+| `Z_prefill` | −19.74 | +32.68…+50.06 | **否**——符號相反且量綱不同（見下） |
+| pre-commit `s_t` | Δ vs α=0 = **+0.449**（`d_z`=0.584，paired n=291） | **level** 1.448（at-risk n=212） | **否**——一個是配對 Δ，一個是 level |
+| commitment timing / state | `posN` 隨 α 平緩變化，各劑量皆有 ~77% coverage | `posN` .010 → .828，coverage 5.7% → 96.0% | **部分**——只能比形狀，見下 |
+| output decisiveness | entropy/top1/margin 齊備（§4.4 Result 3） | **BLOCKED**（§5.5） | **否**——Qwen 無資料 |
+
+**三個具體障礙：**
+
+1. **`Z_prefill` 符號相反且不同量綱。** 兩者最佳點的 `Z_prefill` 為 −19.74 與 +32.68，**方向相反**。這正是「不同基線位置、不同到達方向」的假說所預期的，因此**符號相反本身不是障礙**——障礙在於兩個 Z 座標各自以**自身模型的 α=0 prefill** 標準化（§5.1），跨模型的 Z **不是同一把尺**，故「+32.68 與 −19.74 是否量級相當」這個問題本身沒有定義。要回答它需要一個模型無關的共同標度，本研究沒有。
+
+2. **`s_t` 的兩個數字是不同的量。** Llama 報的是**相對自身 α=0 的配對 Δ**（每一檔都有 ~77% coverage 的可比基線）；Qwen 報的是 **at-risk cohort 上的 level**。要把 Qwen 換成配對 Δ，需要 Qwen 在**同一 cohort** 上的 α=0 參考——但 Qwen α=0 的 at-risk 只有 **12/300 (5.7%)**，**該參考不存在**。這是 §5.3 那條結構限制的直接後果：Qwen 的 pre-commit cohort 選擇在 manipulation 自身的結果上，Llama 則否。
+
+3. **output decisiveness 完全缺席**（§5.5 BLOCKED）。而這一項恰是 Llama 側 working point 的三個組成之一。
+
+> **可以說的、與不可以說的。**
+>
+> ✅ **可以說**：兩個模型都呈現「入口線性 → decode 非線性」的**解耦形態**，且各自的最佳工作點都伴隨 **commitment 從早答移向後段**與 **loop/退化尾巴減少**。這是**形狀層次的一致**（§5.1 規則 2 允許）。
+>
+> ❌ **不可以說**：「Qwen 的 +8 與 Llama 的 −6 到達相同的 working state」。目前沒有任何一個量能同時在兩個模型上以同一口徑讀出並比較。
+>
+> ❌ **尤其不可以說**：「Qwen 需要 +α、Llama 需要 −α，故兩者基線位置不同」——這個敘述聽起來由資料支持，實際上**完全由 §5.1 規則 2 所禁止的 raw α 比較構成**。兩模型的 α 不是同一強度的 intervention，「Qwen 偏正、Llama 偏負」目前只是兩條各自模型內的曲線，不構成基線位置的陳述。
+
+**要讓此對齊可執行，最小的補齊項（按성本排序）：**
+
+1. **解封 Qwen 的 logit family**（§5.5 的 `extract_entropy_confidence.py`）。`entropy/log(V)` 是四項中**唯一天然模型無關**的量，補上後至少有一個軸可以真正跨模型並列。
+2. **在 Llama 上補一個與 Qwen 同口徑的 at-risk cohort 讀數**（或反之），使 `s_t` 兩側都是 level 或都是配對 Δ。
+3. 共同標度問題（障礙 1）**無廉價解**；在有共同標度之前，`Z_prefill` 一欄應留空而非勉強並列。
+
+### 5.8 Manifold Pilot and Integrated Interpretation
+
+**Qwen 複用了 §4 的完整分析鏈，但「複用鏈條」與「複製結果」必須分開陳述。** 六個環節（§5.2 入口 manipulation check、§5.3 主鏈條、§5.4 slow-state validation、§5.5 fast residual、§5.6 高劑量壓縮與 null、§5.7 對齊可行性）都以相同口徑跑通。
+
+**確實複製的三項（機制層次）：**
+- **入口線性**（`G_prefill ~ α`，R²=0.9999，維持到 +12）；
+- **entry–decode 解耦**（`jump/Z_prefill` 穩定在 −0.965…−1.003，一次性 prefill 注入在 `decode[0]` 近乎完全釋放）；
+- **commit-locked 的帶符號 `p_t` dip**，且隨劑量單調加深（−0.578 → −1.322）。
+
+**未複製的兩項：**
+- **行為曲線**——**Llama 呈 asymmetric peaked response**（尖銳最佳點 α=−6、−8 崩潰、正 α 端逐步下降後趨平），**Qwen 呈高劑量平台**（單調上升後於 +8 飽和，band 內無右臂）。
+- **`p_t` amplitude 的劑量效應**——Llama 在 α=−6 有乾淨的 pre-commit centered RMS 上升；Qwen 的 `abs_mean`/`std` 在整個 −8…+12 幾乎不動。
+
+**兩項在此任務上同向為 null：** `vigor_slope`（§5.4，兩模型皆未在 GSM8K 誘發 ramping 斜率信號）與 frequency organization（§5.5，Llama 已測皆 null，Qwen 依此設計未計算）。
 
 **當前最合適的一維層次結論：高劑量下 decode response 幅度明顯壓縮，逐層 loading 高度異質且含 L20 反號，但兩個劑量區間的 response profile 近乎共線（cos=0.987、k=0.309、97.4% energy），且此近共線性比一般方向更明顯——因此結果與「沿固定 RSN profile 的標量增益壓縮」相容，不支持層間同步的均勻 ceiling，亦未顯示幾何重分配。**
 
-**Open（下一小節）：manifold 分析。** 一維投影無法區分「軌跡等距移動但轉離 mask 方向」與「軌跡本身壓縮」；§5.6 的結果使**標量增益成為 manifold 分析要擊敗的假設**，而非待排除的形式選項。待補指標：PCA 譜 / participation ratio、重建誤差、trajectory speed 與 curvature、tangent alignment。另兩項 open：**−8 與 CoT 條件**尚未納入本節逐層分析；與 Llama 的對齊須以 **working state** 而非 raw α 進行。
+**Open 1（主 open）：manifold 分析。** 一維投影無法區分「軌跡等距移動但轉離 mask 方向」與「軌跡本身壓縮」；§5.6.3 的結果使**標量增益成為 manifold 分析要擊敗的假設**，而非待排除的形式選項。待補指標：PCA 譜 / participation ratio、natural-manifold 重建誤差、trajectory speed 與 curvature、tangent alignment、是否出現軌跡轉向或 off-manifold deviation。**執行前提**：資料已具備（7 個 H5 cell，已通過 `check_hs_qwen25.py` 驗收並凍結於 `ACCEPTANCE_20260824.txt`），故此為分析而非採集工作。
 
-離線腳本（`RoleAnswer/qwen_signal/`，`python3.10`）：`commit_aligned.py`（§5.3–5.4）、`hs_layerwise.py`（§5.5）、`hs_null_specificity.py`（§5.6）、`plot_section5.py`（全部圖）；凍結記錄 `entry_gain_RESULT.txt`、`commit_aligned_v3_RESULT.txt`、`hs_layerwise_RESULT.txt`、`hs_null_specificity_RESULT.txt`。伺服器端 `check_hs_qwen25.py`（H5 驗收）、`run_null_remask_qwen25.sh`（null 重投影）。
+**Open 2：logit family 解封**（§5.5）。這同時是 §5.7 對齊的第一順位補齊項，性價比最高。
+
+**Open 3：−8 與 CoT 條件**尚未納入 §5.6 的逐層分析（HS 已採集 No-CoT −8 與 CoT {0,+6}，可直接接上）。
+
+**Open 4：因果方向控制。** §5.6.3 只界定 readout specificity；steering direction 的因果特異性需另行注入 random/orthogonal 方向並重新採集。
+
+離線腳本（`RoleAnswer/qwen_signal/`，`python3.10`）：`suite34.py`（§5.2–5.5 主線）、`commit_aligned.py`（§5.3、§5.6.1）、`hs_layerwise.py`（§5.6.2）、`hs_null_specificity.py`（§5.6.3）、`plot_section5.py`（全部圖）；凍結記錄 `entry_gain_RESULT.txt`、`suite34_nocot_RESULT.txt`、`suite34_cot_RESULT.txt`、`commit_aligned_v3_RESULT.txt`、`hs_layerwise_RESULT.txt`、`hs_null_specificity_RESULT.txt`。伺服器端 `check_hs_qwen25.py`（H5 驗收）、`run_null_remask_qwen25.sh`（null 重投影）。
 
 | 圖 | 內容 |
 |---|---|
 | `fig51_entry_gain.png` | §5.2 入口 gain 線性 + §5.3 accuracy 飽和 / commit timing |
-| `fig52_compression.png` | §5.4 entry vs decode 回應與 RAW response ratio |
-| `fig53_profile.png` | §5.5 逐層 profile + scalar-compression 擬合 |
-| `fig54_null.png` | §5.6 RSN vs 三個 null family |
+| `fig52_compression.png` | §5.6.1 entry vs decode 回應與 RAW response ratio |
+| `fig53_profile.png` | §5.6.2 逐層 profile + scalar-compression 擬合 |
+| `fig54_null.png` | §5.6.3 RSN vs 三個 null family |
 
 **圖檔位於 `qwen2.5/dopamine/plots_gain/`，與 Llama 的 `llama3/dopamine/plots_gain/` 分開存放**——兩模型數值不可比，共用目錄是跨模型混用的起點。每個 panel 都由產生凍結文字記錄的同一段程式重新推導，不從表格硬編數字。
 
