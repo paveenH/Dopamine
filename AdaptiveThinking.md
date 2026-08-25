@@ -677,9 +677,11 @@ CoT process  ×  α=−4 task-entry intervention
 
 **方法（offline re-projection null）。** 因果雙向 steering 的有效性已在 RSN 母論文中驗證，本節只做離線重投影：把**同一批已存的 HDF5 hidden states** 對不同 mask 重投影：
 
-- **① support-selection null（`detection/nmd.py:get_diff_random_mask`）**：**隨機位置**，取值來自真實 role-diff。其 per-layer norm 天然約為 NMD 的 ¼（NMD 挑 top-|diff|），此 norm gap 是 NMD「取 top-k」操作的正確對照，**不做 norm-match**；與 ±1 的 `random` mask 不同。N=**11**（seed 1–10 + seed 42），p 地板 = 1/12 ≈ 0.083。
-- **② generic-direction null（`detection/nmd.py:get_ortho_gauss_mask`，`ortho_gauss_{same,off}`）**：逐層 float64 建構，$m_l = g - \dfrac{g \cdot d_{sub}}{\lVert d_{sub}\rVert^{2}} d_{sub}$（`d_sub` 取自 **dense role-diff** 而非稀疏 mask），使 `m_l ⊥ Δ_l`，再 norm-match 到 NMD 該層。建構期硬性 assert 逐層 `|cos(m_l,Δ_l)|<1e-5`、norm-match、恰好 top_k 個非零、support 關係正確——一次乾淨跑完即通過驗證。各 N=**10**（seed 1–10），p 地板 = 1/11 ≈ 0.091。
-- **每個 mask 用自己的 reference**：μ/σ 來自它自己的 neutral-No-CoT prefill，`‖m_l‖²` 來自它自己，使「raw projection 尺度較大」不能為 NMD 買到假優勢。（注意：在 decode 的 Z 座標下 `‖m‖²` 於標準化中相消，故 norm gap 不影響 decode 讀數；它只影響 `G_prefill`。）ortho null 已 norm-match，`G_prefill` 也可比。
+- **① `diff_random`（N=11，p 地板 ≈0.083）**：隨機位置、真實 role-diff 取值。其 norm 約為 NMD 的 ¼ 是「取 top-k」的正確對照，**刻意不 norm-match**。
+- **② `ortho_gauss_{same,off}`（各 N=10，p 地板 ≈0.091）**：權重與 dense role-diff 逐層精確正交並 norm-match 到 NMD 行。
+- **每個 mask 用自己的 reference**（μ/σ 與 `‖m_l‖²` 皆取自它自己），使「raw projection 尺度較大」不能為 NMD 買到假優勢。`‖m‖²` 在 decode 的 Z 座標中相消，故 norm gap 只影響 `G_prefill`。
+
+（建構式、float64 正交/norm-match assert、seed 與檔名規則見 `CLAUDE.md`；`detection/nmd.py` 為實作。）
 - 三個 family 皆屬 exploratory（N=10–11），只讀 **effect 與 ordering**，不作正式顯著性宣稱。
 
 **帶符號 temporal specificity。** 指標為**帶符號、commit-aligned** 的軌跡量（與 §4.1–4.5 同口徑）：commit-aligned、Z 單位，窗口 pre=`[−40,0)`、post=`[0,+10]`；每個 mask 用自己 reference，共用同一 K-gate（`K=max(30,⌈0.15·n⌉)`）。兩個 primary 讀數 `s_pre_mean`（commit 前 slow-state）與 `p_post_mean`（commit 後 fast-residual）：
@@ -744,7 +746,7 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 #### Formal amplitude/frequency validation
 
-**Formal `p_t` frequency test：幅度效應保留，未發現穩健的頻率組織。** `analyze_pt_frequency.py` 在 neutral No-CoT 的 α=−6/0/+6 上逐題計算兩套 paired comparison：(i) commit-centered `[−40,0)` vs `[0,+40)`（n=195–248/α）；(ii) reasoning `[0,C1)` vs 由 **strict repeated-ngram tail proxy**（全文最早重複 ≥3 次的 12-character n-gram 起點）定位的複讀尾段（n=24/42/41）——此 proxy 僅為重複性 tail 的近似,不等同經獨立驗證的 loop onset。每段先去均值，再報 centered RMS（residual variability）、zero-crossing rate、Welch dominant frequency、spectral centroid 與 normalized spectral entropy；因此此處的 RMS 是 fast residual 的段內變異幅度，不包含 level shift。
+**Formal `p_t` frequency test：幅度效應保留，未發現穩健的頻率組織。** 在 neutral No-CoT 的 α=−6/0/+6 上做兩套 paired comparison——commit-centered，以及 reasoning 段 vs 由 **repeated-ngram tail proxy** 定位的複讀尾段（該 proxy 只是重複性 tail 的近似,**不等同經獨立驗證的 loop onset**）。每段先去均值再取頻率指標，故此處的 RMS 是**段內變異幅度，不含 level shift**。（窗口、n、五項頻率指標的定義見 `CLAUDE.md` 與 `analyze_pt_frequency.py`。）
 
 | post−pre | α=−6 | α=0 | α=+6 |
 |---|---:|---:|---:|
@@ -763,7 +765,7 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 **First-answer accuracy 與 stable completion 分離。** 個案也顯示「首次答對」不等於「穩定完成」。例如 Q251 的 α=0 首次提交正確答案 60，因此 first-answer protocol 判為 correct，但之後仍繼續除以 2 並產生錯誤候選。這不否定 GSM8K 以 first `####` 作 production accuracy 的口徑；它說明 accuracy 與 termination quality / post-answer degeneration 是兩個不同的行為維度。後者應由 answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等獨立指標描述，不能由 first accuracy 代替。
 
-**Declaration marker 的技術邊界。** 單一句子如 `The final answer is: \boxed{75}####` 會同時命中 `final answer`、`\boxed{}` 與 `####`；若不合併，圖中的第二條線可能只是同一次提交的另一個 marker，而非第二次作答。`plot_sample_traj.py` 現已將相距 25 characters 內的 marker 合併，dotted line 表示 **second distinct answer declaration**。但即使是第二次獨立 declaration，也只能視為 repetition / revision proxy，不能自動等同真正的 loop onset。§4.2 聚合分析使用 literal 第 1 / 第 2 個 `####`，因此不受同一句多類 marker 重複命中的繪圖問題影響；不過其中 C2 仍應解讀為 **second-answer-marker boundary**，其後段是 post-second-marker tail，而不是經獨立演算法驗證的 loop onset。
+**Declaration marker 的技術邊界。** 一句話可能同時命中多種 answer marker，故單一 marker 的重現**不等於**第二次作答；即使是第二次獨立 declaration，也只是 **repetition / revision proxy**，不能等同 loop onset。§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，不受此影響，但其 **C2 應讀作 second-answer-marker boundary**，其後為 post-second-marker tail。（合併規則見 `CLAUDE.md`。）
 
 **Case-study conclusion：amplitude / frequency dissociation。** 這 9 題與全樣本 follow-up 共同把本節從「case study + frequency negative」升級為 **case-level validation + amplitude/frequency dissociation**:(i) `s_t` 的主結構與持續推理—提交後釋放相容;(ii) full-decode 會被 post-answer stopping failure 污染;(iii) `p_t` 的可靠訊息集中於 **signed change 與 residual amplitude / dispersion**——α=−6 在乾淨的 pre-commit 段提高 centered RMS,而 frequency metrics 不隨 α 穩定變化。Commit-centered 的頻譜變化對 answer-format / repetition 敏感,因此**頻率只保留為 negative control,不作 RSN 主讀數**;`p_t` 繼續作為 phasic-like fast-residual measure(operational 命名保留)——當前 task 支持 amplitude change,但未檢測到穩定的 frequency organization,亦未建立 biological phasic dopamine correspondence。這些結果也不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律,且不能把第二個 marker 或 repeated-ngram tail proxy 當作經獨立驗證的真實 loop onset。
 
