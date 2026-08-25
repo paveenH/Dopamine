@@ -462,18 +462,20 @@ Persona 呈現三階段變化：
 
 ### 4.4 α-Steering: Linear Task-Entry Gain and a Nonlinear Behavioral Working Point
 
-本節分析 Llama3-8B 在 GSM8K、neutral No-CoT 條件下的 9 個 α doses（−8 至 +8）。α 是施加在既定 NMD/RSN 方向上的 intervention；本節首先將其視為 **task-entry RSN gain manipulation**，再檢驗其是否形成與 wanting / commitment 相容的下游動力學。
+#### Scope and Shared Analysis Framework
 
-分析沿用 §4.2/§4.3 的 gain coordinates 與 commit locator：reference μ/σ 固定為 neutral α=0 No-CoT prefill；dose calibration 使用各 α 全量 300 題；slow/fast/confidence 則以每個 α 與 α=0 的 common-valid questions 進行 paired comparison，避免 −8 壓縮全 9 檔共同交集。Commit 定義為首個 `####`，缺失時使用 first answer-candidate fallback。
+本節分析 Llama3-8B 在 GSM8K、neutral No-CoT 條件下的 **9 個 α doses（−8 至 +8）**。α 是沿既定 NMD/RSN 方向施加的 **task-entry intervention**；本節先驗證它是否線性控制入口 gain，再檢驗其下游動力學與行為。
 
-本節 signal–behavior alignment 使用同批 server-184 inline `correct`；production accuracy 仍以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 的 server-182 offline first-`####` 口徑為準。兩套數值不可混算，但 dose 形狀一致，離散最佳點均在 α=−6。
+分析沿用 §4.2/§4.3 的 gain coordinates 與 commit locator：reference μ/σ 固定為 neutral α=0 No-CoT prefill；dose calibration 使用各 α 全量 300 題；slow/fast/confidence 則以**每個 α 與 α=0 的 common-valid questions 作 paired comparison**（不取全 9 檔共同交集，否則 −8 會壓縮所有 cell）。C1 定義為首個 `####`，缺失時使用 first answer-candidate fallback。
 
-#### Task-Entry Intervention Validity
+**兩項貫穿全節的限制，後續不再重複。**（i）signal–behavior alignment 使用同批 server-184 inline `correct`；production accuracy 以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 的 server-182 offline first-`####` 為準。兩套不可混算,但 dose shape 與離散最佳點一致。（ii）**−8 的 C1-analyzable subset 明顯減少**（paired n=229 vs 其餘 291–298），故所有 −8 的 event-centered 結果都是**條件子樣本**，須與 C1-analyzable rate 一起解讀。
 
-| α | n | acc(184) | G_prefill | Z_prefill | boundary_jump_G |
+#### Result 1 — α Linearly Controls Task-Entry RSN Gain
+
+| α | n | acc(184) | `G_prefill` | `Z_prefill` | `boundary_jump_G` |
 |---:|---:|---:|---:|---:|---:|
 | −8 | 300 | 40.7 | −13.8454 | −26.4543 | +13.0577 |
-| −6 | 300 | **79.7** | −10.2980 | −19.7427 | +10.5488 |
+| **−6** | 300 | **79.7** | −10.2980 | −19.7427 | +10.5488 |
 | −4 | 300 | 74.3 | −6.8022 | −13.1072 | +6.9866 |
 | −2 | 300 | 68.3 | −3.3519 | −6.4887 | +3.4912 |
 | 0 | 300 | 60.0 | 0.0000 | 0.0000 | +0.1675 |
@@ -482,17 +484,17 @@ Persona 呈現三階段變化：
 | +6 | 300 | 51.7 | +9.4779 | +18.7204 | −9.4322 |
 | +8 | 300 | 49.7 | +12.5354 | +24.8320 | −12.4419 |
 
-`G_prefill` 隨 α 近乎完美線性（slope=1.648、intercept=−0.296、`R²=0.9992`），`Z_prefill` 結果一致（`R²=0.9997`）。正負方向近似對稱，但負側幅度在高 dose 略大。這建立了清楚的 manipulation check：**α 線性控制 generation boundary 上的 RSN gain**。
+`G_prefill` 隨 α 近乎完美線性（slope=1.648、intercept=−0.296、`R²=0.9992`），`Z_prefill` 一致（`R²=0.9997`）；正負方向近似對稱，負側在高 dose 幅度略大。這是清楚的 manipulation check：**α 線性控制 generation boundary 上的 RSN gain**。
 
-`boundary_jump_G` 與 `G_prefill` 反向且量級接近，表示一次性 prefill 注入到 `decode[0]` 時大幅弛豫。這與 **initial-condition / boundary-gating** 假說一致：α 改變 generation 的起始條件，而不是以固定 additive offset 留在整條 decode trajectory。此結果定位了非線性轉換發生在 generation boundary 之後，但尚不能證明 boundary rebound 本身造成後續行為差異。
+`boundary_jump_G` 與 `G_prefill` **反向且量級接近**，表示一次性 prefill 注入在 `decode[0]` 已大幅回彈。這與 **initial-condition / boundary-gating** 一致——α 改變 generation 的起始條件，而不是在整條 decode trajectory 上留下固定 additive offset——並把非線性轉換定位在 boundary 之後。但這**不能證明回彈本身造成後續行為差異**。slope 由該 mask 的 `‖m_l‖²` 與層數決定，是特定計算設定下的量，**不可當作跨模型或生物層面的可比劑量**。
 
-#### Commitment-Formation RSN Dynamics
+#### Result 2 — Decode Dynamics Form a Nonlinear Working Point
 
-α 對 slow state 的主要影響集中在 pre-commit。下表為每個 α 相對 α=0 的 paired comparison：
+α 對 slow state 的影響集中在 pre-commit。下表為每個 α 相對 α=0 的 paired comparison：
 
 | α | paired n | mean `s_t` | Δ vs 0 | `d_z` | exploratory p |
 |---:|---:|---:|---:|---:|---|
-| −8 | 229 | −0.573 | −0.325 | −0.418 | *** (崩) |
+| −8 | 229 | −0.573 | −0.325 | −0.418 | *** (崩潰區) |
 | **−6** | 291 | +0.260 | **+0.449** | **+0.584** | *** |
 | −4 | 298 | −0.033 | +0.154 | +0.228 | *** |
 | −2 | 298 | −0.122 | +0.065 | +0.143 | ns |
@@ -502,26 +504,24 @@ Persona 呈現三階段變化：
 | +6 | 298 | −0.415 | −0.229 | −0.323 | *** |
 | +8 | 298 | −0.347 | −0.161 | −0.221 | *** |
 
-這不是平滑、對稱的標準 inverted-U，而是 **asymmetric peaked working-point response**：−6 形成明顯峰值，−4 至正 α 大致隨 α 增加而下降，−8 則進入另一種崩潰區。C1-centered trajectories 顯示此分離主要發生在答案形成期；越過 C1 後，各 α 共同下降並逐步收斂。Post-commit release 除 −8 外均接近 null，因此 α 並未普遍改寫全程 RSN 水位，而是選擇性地重組 commitment formation。
+**入口是線性的，pre-commit slow state 卻不是。** 形狀為 **asymmetric peaked working-point response**：−6 是明顯峰值，−4 至正 α 大致隨 α 遞減，−8 進入另一種崩潰區。C1-centered trajectories 顯示分離主要發生在 **commitment formation**；越過 C1 後各 dose 共同下降並逐步收斂，且 post-commit release 除 −8 外接近 null——α 並未普遍改寫全程 RSN 水位，而是選擇性重組答案形成期。
 
-Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（例如 +4 `d_z=−0.18`），但該 readout 同時受起點水平影響，只作 slow-state shape 的輔助證據。
+Pre-commit `end_minus_start` 顯示正 α 通常有較大的向下 relaxation（例如 +4 `d_z=−0.18`），但該 readout 同時受起點水平影響，**只作 shape 輔助，不單獨承擔結論**。−8 是當前計算干預下的 **extreme-negative failure regime**，不等同「低 dopamine」。
 
-#### Fast Residual Dynamics
+#### Result 3 — The Optimal Working Point Also Changes Fast Residuals and Output Decisiveness
 
-**pre p_t std**:
+**Fast residual（pre-commit `p_t std`）：**
 
-| α | n | Δ vs 0 | d_z | p |
+| α | n | Δ vs 0 | `d_z` | p |
 |---:|---:|---:|---:|---|
 | −8 | 229 | −0.010 | −0.059 | ns |
 | **−6** | 291 | **+0.066** | **+0.452** | *** |
 | −4 | 298 | +0.026 | +0.176 | ** |
 | −2…+8 | | ~0 | \|d_z\|<0.09 | ns |
 
-Fast residual 提供一致但較窄的輔助證據：−6 的 pre-commit `p_t std` 明顯升高，−4 只有小效應，其餘 doses 接近 null。最佳工作點因而同時伴隨較高 slow-state level 與較強 fast-residual dispersion。
+−6 的 pre-commit residual dispersion 明顯升高，−4 只有小效應，其餘 doses 接近 null——支持一致但**較窄**。`p_t` 是**同一 RSN projection 相對 EMA baseline 的快殘差**，不是獨立通道；本節只支持 amplitude/dispersion change，**不支持 biological phasic dopamine 或 event-specific response**（C1 附近的共同轉折也可能含 `####`/answer-marker effect）。主讀數限於 `abs_mean/std`，不用易受長度與 EMA lag 影響的極值。
 
-與 §4.2 相同，fast component 的主讀數限於 `abs_mean/std`，不使用易受長度與 EMA lag 影響的極值。`p_t` 保留 phasic-like operational definition；本節僅觀察到 amplitude/dispersion evidence，C1 附近的共同轉折也可能包含 `####`/answer-marker effect，尚未建立 biological dopamine 或 event-specific phasic correspondence。
-
-#### Output-Distribution Confidence Controls
+**Output-distribution confidence controls：**
 
 | Metric | α=−6 Δ vs 0 | `d_z` | α=+4 Δ vs 0 | `d_z` | Pattern |
 |---|---:|---:|---:|---:|---|
@@ -529,13 +529,11 @@ Fast residual 提供一致但較窄的輔助證據：−6 的 pre-commit `p_t st
 | top1 | +0.039 | **+0.643** | −0.012 | −0.248 | −6 達峰 |
 | margin | +0.048 | **+0.593** | −0.014 | −0.214 | −6 達峰 |
 
-α 的下游效應並非 selective wanting modulation。Pre-commit confidence 在 −6 同樣達到最佳工作點，且 effect size 與 slow RSN state 相當（−6：`s_t d_z=0.58`、top1 `d_z=0.64`、entropy `d_z=−0.72`）。正 α 則表現為 entropy 較高、top1/margin 較低。
+−6 **同時**具有較高 slow state 與較強 output decisiveness，且 effect size 相當（`s_t d_z=0.58`、top1 `d_z=0.64`、entropy `d_z=−0.72`）；正 α 則 entropy 較高、top1/margin 較低。因此 **α 不是 selective wanting intervention**：它同時改變 RSN engagement 與 confidence-related output distribution。這與 §4.2 CoT 的 joint modulation 相似，不支持「α 只改 wanting、不動 confidence」的強版本；§4.3 Persona 的 task-entry separation 仍是目前較清楚的一例，但本研究尚未取得 wanting–confidence 的 causal dissociation。Post-commit confidence 受 answer-loop 與格式轉換污染，不作實質解讀。
 
-因此 α 雖然直接施加在 RSN/NMD 方向上，進入 decode 後卻共同重組 **RSN engagement 與 output decisiveness**。這與 §4.2 CoT 的 joint wanting–confidence modulation 相似，不支持「α 只改 wanting、不動 confidence」的強版本。§4.3 Persona 的 task-entry RSN effect 遠大於同時點 confidence effect，仍是目前較清楚的 representational separation；但本研究尚未取得 wanting–confidence 的 causal dissociation。Post-commit confidence 受 answer-loop saturation 影響，仍不作實質解讀。
+#### Result 4 — Internal State and Behavioral Performance Align at an Asymmetric Working Point
 
-#### Signal–Behavior Alignment
-
-| α | acc(184) | G_prefill | early_s_t |
+| α | acc(184) | `G_prefill` | `early_s_t` |
 |---:|---:|---:|---:|
 | −8 | 40.7 | −13.85 | −0.405 |
 | **−6** | **79.7** | −10.30 | +0.055 |
@@ -547,31 +545,25 @@ Fast residual 提供一致但較窄的輔助證據：−6 的 pre-commit `p_t st
 | +6 | 51.7 | +9.48 | −0.550 |
 | +8 | 49.7 | +12.54 | −0.558 |
 
-Accuracy 的 quadratic fit 優於 linear fit（`R²=0.352` vs `0.147`），但擬合峰值約 α=−1.9，與離散最高點 −6 不一致，說明資料不適合被描述成平滑、對稱的標準 inverted-U。更準確的形狀是：**−6 尖銳最佳點、−8 低端崩潰、正 α 端逐步下降後趨平**。
+離散行為最佳點是 **α=−6**。Accuracy 的 quadratic fit 雖優於 linear（`R²=0.352` vs `0.147`），但擬合峰值約 α=−1.9，**與離散峰值 −6 不一致**，故不能描述成平滑、對稱的標準 inverted-U。正確形狀是：**−6 尖銳最佳點、−8 低端崩潰、正 α 端逐步下降後趨平**。
 
-在 9 個 dose-level aggregates 上，inline accuracy 與 `G_prefill` 的相關較弱（`r=−0.37`），與 `early_s_t` 的相關較高（`r=+0.74`）。因此行為表現更接近 decode 期間形成的 commitment state，而不是 task-entry gain 的絕對大小。不過 `r=0.74` 只有 9 個 aggregate points，只能稱為 dose-level covariation，不能作為 `s_t` 中介 accuracy 的證據。
+在 9 個 dose-level aggregates 上，inline accuracy 與 `early_s_t` 的相關（`r=+0.74`）高於與 `G_prefill`（`r=−0.37`）。行為表現因此更接近 **decode 期間形成的 commitment state**，而非入口 gain 的絕對大小。但只有 **9 個 aggregate points**，這僅是 dose-level covariation，**不能作為 `s_t` 中介 accuracy 的證據，也不可寫成因果**。
 
 #### Integrated Interpretation
 
-§4.4 最重要的結果是找到了**線性干預如何轉化為非線性內部與行為狀態**：
+§4.4 的核心結果是**線性干預如何轉化為非線性內部與行為狀態**：
 
-```text
-α
-→ linear task-entry RSN gain (G_prefill, R²=0.999)
-→ nonlinear commitment-formation state (pre-commit s_t)
-→ joint change in output decisiveness
-→ asymmetric behavioral working point
-```
+$$\alpha \;\to\; \text{linear task-entry gain } (G_{prefill}) \;\to\; \text{nonlinear commitment-formation state } (s_t) \;\to\; \text{joint change in output decisiveness} \;\to\; \text{asymmetric behavioral working point}$$
 
-三個工作區可暫時區分為：
+其中 `s_t` 是主要載體，`p_t` 的支持較窄。三個工作區：
 
-1. **Adaptive range（−4 至 +2）：** α 對 commitment-formation state 進行較平滑的校準。
-2. **Extreme negative（−8）：** 進入 commitment-formation collapse；event-centered 分析只保留仍可定位 C1 的條件子樣本，必須與 C1-analyzable rate 及文本中的 answer-candidate oscillation 共同解讀。
-3. **High positive（+6/+8）：** pre-commit slow state 與 confidence 均較差；其 premature-commitment 解讀來自獨立的 commit-position / behavioral metrics，不能只由本節 trajectory 推斷。
+1. **Adaptive / intermediate range（−4 至 +2）：** α 對 commitment-formation state 作較平滑的校準。
+2. **Extreme-negative collapse（−8）：** commitment-formation collapse；event-centered 結果僅為條件子樣本，須與 C1-analyzable rate 及文本中的 answer-candidate oscillation 共同解讀。
+3. **High-positive degradation / flattening（+6/+8）：** pre-commit slow state 與 confidence 均較差；其 **premature-commitment 解讀來自獨立的 commit-position / behavioral evidence，不能僅由本節 trajectory 推斷**。
 
-整體而言，α 是可靠的 **task-entry RSN gain intervention**，但其有效作用不是「gain 越高越好」，而是將模型推入不同的 commitment-formation working point。這與 task-dependent dopamine/wanting calibration 及 Yerkes–Dodson framing 相容，但目前建立的是 computational and behavioral analogy，而非生物多巴胺機制的直接證明。
+整體而言，α 是可靠的 **task-entry RSN gain intervention**，但有效作用**不是「gain 越高越好」**，而是把模型推入不同的 commitment-formation working point。這與 task-dependent dopamine/wanting calibration 及 Yerkes–Dodson framing 相容，但目前建立的是 **computational and behavioral analogy**，而非生物多巴胺機制的直接對應。
 
-#### Figures and Analysis Files
+#### Figures
 
 | Figure | Role |
 |---|---|
@@ -582,7 +574,7 @@ Accuracy 的 quadratic fit 優於 linear fit（`R²=0.352` vs `0.147`），但�
 | `fig44_confidence.png` | entropy / top1 / margin confidence controls |
 | `fig44_integrated.png` | inline accuracy、task-entry gain 與 early `s_t` 的 dose-level 對齊 |
 
-分析腳本：`analyze_alpha_dose.py`（`--part validity/slow/fast/confidence/integrated/mainfig`）；raw stdout：`fig44_results.txt`。目前 slow/fast/confidence dose figures 顯示 absolute means，統計採 paired α-vs-0 comparisons；confirmatory reporting 前需統一改為 paired Δ/CI，並對 dose × metric comparisons 做 FDR correction。`fig44_dose_main.png` 的 trajectory panels 只顯示部分代表 doses；圖註應標示「selected α cells shown; all 9 doses used in dose-response panels」。
+**報告限制。** 目前 slow/fast/confidence dose figures 顯示 absolute means，而統計採 paired α-vs-0 comparisons；confirmatory reporting 前需統一為 paired Δ/CI 並對 dose × metric 作多重比較校正。Trajectory panels 只顯示部分代表 doses，dose-response panel 則使用全部 9 檔。（腳本、`--part` 選項與輸出檔位置見 `CLAUDE.md`。）
 
 ### 4.5 CoT × α=−4: Signal Interaction Analysis
 
