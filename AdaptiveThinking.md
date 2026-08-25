@@ -782,17 +782,42 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 ### 4.7 Case Study: sample-level RSN trajectories and generated text
 
-為核對聚合曲線的功能解讀，本節逐題對照 9 個 `sample_traj3_` case（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284），每題疊加 neutral No-CoT 的 α=−6、0、+6 `s_t` / `p_t` 軌跡與實際生成文本。這是**定性 sanity check**，樣本不是預註冊或代表性抽樣，不提供新的 effect size、顯著性或因果證據；其用途是檢查聚合指標是否對應可辨識的生成階段，以及暴露事件定位與輸出格式的混淆。
+#### Scope and Purpose
 
-#### Case-level observations
+本節逐題對照 9 個 `sample_traj3_` case（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284），每張圖同時疊加 neutral No-CoT 下 α=−6 / 0 / +6 的 `s_t`、`p_t` 軌跡與實際生成文本。
 
-**Slow state `s_t`: sustained reasoning 與 state release。** 多個 case 中，模型仍在展開推理、修正候選答案或尚未正式提交時，`s_t` 維持較高或較持續；首次明確作答後則常快速下降。Q140 的 α=+6 在較長推理後答對，期間 `s_t` 長時間維持；相對地，較早提交並進入重複的條件更快下降。Q189 的 α=+6 長時間未形成正式提交，`s_t` / `p_t` 也持續活躍。這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構一致，但不表示高 `s_t` 必然帶來正確答案：Q251 顯示持續生成也可能沿錯誤路徑推進。case study 支持 **`s_t` level 與 ongoing / unresolved processing 相關**，而不是 correctness 或 reasoning quality 的直接讀數；但這是 level 觀察，**不直接檢驗以 slope 定義的 ramping/vigor hypothesis**（該假說由 §4.8 Slow-State Behavioral Validation 專門檢驗，結果為 GSM8K 未檢出 slope-vigor evidence）——不能由此 case-level level 觀察推斷 slope 的 vigor 讀數成立或不成立。
+證據分兩層，全節不得混寫：
 
-**Fast residual `p_t`: generation-mode sensitivity。** Q80、Q92、Q140、Q189 等 case 顯示，開放式自然語言推理時的 `p_t` 往往較高幅且不規則；進入 `####`、數字或固定句式反覆輸出後，則常轉為較低幅、較規則的振盪。這個視覺觀察促成下列全樣本 follow-up；結果顯示,能穩定區分 reasoning 與 post-answer/loop 階段的是 `p_t` 的 **centered RMS(residual amplitude)**,而非頻率指標——其主要穩定變化是 **residual amplitude collapse**,不是獨立的 frequency reorganization。
+1. **Case-level observation（定性）**——9 個 case 用於檢查聚合指標是否對應**可辨識的生成階段**，並暴露事件定位與輸出格式的混淆。樣本**不是預註冊、不是隨機抽樣、不具代表性**，不提供 effect size、顯著性或因果證據。
+2. **Formal validation（定量）**——其後的**全樣本** amplitude/frequency 分析才是正式檢驗，比較 commit 前後，以及 reasoning stage vs **repeated-ngram tail proxy**。
 
-#### Formal amplitude/frequency validation
+兩個 proxy 的邊界（後文不再重複）：**repeated-ngram tail 只是重複尾段的近似，不是經驗證的 loop-onset detector**；**第 2 個 answer marker 只是 repetition / revision proxy，同樣不等同 loop onset**（§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，不受 marker 合併影響，但其 **C2 應讀作 second-answer-marker boundary**）。
 
-**Formal `p_t` frequency test：幅度效應保留，未發現穩健的頻率組織。** 在 neutral No-CoT 的 α=−6/0/+6 上做兩套 paired comparison——commit-centered，以及 reasoning 段 vs 由 **repeated-ngram tail proxy** 定位的複讀尾段（該 proxy 只是重複性 tail 的近似,**不等同經獨立驗證的 loop onset**）。每段先去均值再取頻率指標，故此處的 RMS 是**段內變異幅度，不含 level shift**。（窗口、n、五項頻率指標的定義見 `CLAUDE.md` 與 `analyze_pt_frequency.py`。）
+（分析腳本、窗口定義、五項頻率指標、marker 合併規則與執行方式見 `CLAUDE.md`。）
+
+#### Case-Level Observation 1 — `s_t` Tracks Ongoing Processing and Post-Commit Release
+
+- 推理仍在展開、答案尚未形成或仍在修正時，`s_t` 往往**維持較高水平**。
+- 首次明確提交後，`s_t` 通常**下降**，表現為 state release。
+- **Q140**（α=+6 較長推理後答對，期間 `s_t` 長時間維持）與 **Q189**（α=+6 長時間未形成正式提交，`s_t` / `p_t` 持續活躍）是 sustained / unresolved processing 的代表案例。
+- **Q251 是必須保留的反例**：持續較高的 `s_t` 也可能沿**錯誤路徑**推進。
+
+> 可寫的結論只有：**`s_t` level 與 ongoing / unresolved processing 及 post-commit release 相容。**
+
+這與 §4.2–4.5 的 **pre-commit engagement → post-commit release** 聚合結構同向，但 case 圖只是**核對**該結構，不構成新的證據。
+
+不可寫成「高 `s_t` 導致正確」、「`s_t` 是 reasoning quality」，或「案例驗證了 slope-vigor hypothesis」。**§4.7 觀察的是 level；slope-vigor 由 §4.8 單獨檢驗**（結果為 GSM8K 未檢出 slope-vigor evidence），不能由 level 觀察推斷 slope 讀數成立或不成立。
+
+#### Case-Level Observation 2 — `p_t` Is Sensitive to Generation Stage
+
+- 開放式自然語言推理階段的 `p_t` 往往**幅度較大、變化較不規則**（Q80、Q92、Q140、Q189）。
+- 進入 `####`、數字或固定句式的**重複尾段**後，殘差幅度通常**下降**。
+
+案例圖只**提出** amplitude / frequency 問題，正式判定完全來自下面的全樣本分析——**不得僅憑視覺印象宣稱頻率重組**。
+
+#### Result 1 — Residual Amplitude Declines After Commitment, but Frequency Effects Are Unstable
+
+在 neutral No-CoT 的 α=−6 / 0 / +6 上做兩套 paired comparison：commit-centered，以及 reasoning 段 vs repeated-ngram tail proxy。每段先去均值再取頻率指標，故此處的 RMS 是**段內變異幅度，不含 level shift**。
 
 | post−pre | α=−6 | α=0 | α=+6 |
 |---|---:|---:|---:|
@@ -803,17 +828,63 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 （paired Wilcoxon：\* `p<.05`，\*\* `p<.01`，\*\*\* `p<.001`。）
 
-Commit-centered 結果表面上呈現「提交後振幅降低、頻譜更集中且 crossing 變少」，與 case 圖的規則振盪印象一致；但 spectral-entropy change 與 `####` 比例變化高度共變（Pearson `r=−0.53/−0.58/−0.55`），與 repeated-12gram rate 亦中度共變（`r=−0.40/−0.46/−0.43`）。這不是控制後的因果分解，不能單由相關係數估計「多少效應由格式造成」；不過它清楚顯示 commit-centered frequency/regularity readout 與 answer-format、重複內容不可分離。
+- **commit 後 centered RMS 在三個 α 條件下都明顯下降。**
+- commit-centered frequency metrics 也會變化，但與 `####` 比例（Pearson `r=−0.53/−0.58/−0.55`）及 repeated-12gram rate（`r=−0.40/−0.46/−0.43`）**高度共變**。**這不是控制後的因果分解**，不能由相關係數估計「多少效應由格式造成」；它只顯示 commit-centered frequency/regularity readout 與 answer-format、重複內容**不可分離**。
+- stage-based comparison 中，**只有 amplitude decline 跨兩種切分穩定複現**：tail 段 centered RMS 約 **−0.31 / −0.35 / −0.36**（皆顯著）。
+- zero-crossing、centroid、dominant frequency、spectral entropy 的**方向並不穩定**（stage 切分下 zcr 近 null，dominant frequency / centroid 反而小幅上升，spectral entropy 只弱下降），亦無 α-monotonic dose structure。
 
-stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同結果：tail 段的 centered RMS 在三個 α 仍大幅下降（約 −0.31/−0.35/−0.36，皆顯著），但 zero-crossing rate 全部接近 null，dominant frequency / centroid 反而小幅上升，spectral entropy 只弱下降。換言之，跨兩種切分唯一穩定的量是**幅度下降**；「更低頻／更規則」並未跨口徑成立，也沒有 α-monotonic dose structure。此 stage subset 的 repetition/hash 與 frequency-change 相關雖接近 0，但**不應據此宣稱頻率效應已扣除 repetition confound**：detector 本身按重複性選樣，n 僅 24–42，同時存在 selection 與 range restriction，只能說「頻率差在兩種切分下不穩定」，不是一個 confound-free 的 negative test。
+> 因此當前穩健結果是 **`p_t` residual amplitude collapse**，而不是獨立的 frequency reorganization。
 
-**Between-α：α 的資訊在 pre-commit residual amplitude,不在頻率。** 前述兩套皆為 within-α 的 pre→post/stage 對比;要分離 **α 主效應**,再逐題配對(同 300 題 index 對齊)比較同一段內 α=−6/α=+6 相對 α=0 的差異。**pre-commit(提交前的開放推理段)是唯一有干淨 α 信號之處**:α=−6 的 centered RMS 顯著高於 α=0（Δ`+0.046`，`p<.001`，paired n=200），α=+6 相對 α=0 接近 null（Δ`−0.006`，n.s.），而**所有 frequency metrics（zcr / dominant frequency / centroid / spectral entropy）在兩個方向皆為 null**。此段在提交前、不含 `####` 複讀,因此該幅度效應是**扣除 loop 後仍與 α 相關**的乾淨結果,與 §4.4 的 slow-state dose 結論同向（−α 抬高 pre-commit engagement）。post-commit 段 α=−6 的 RMS 更低、α=+6 更高,但此窗口混合答案收尾與複讀,只作 **post-marker diagnostic**,不作機制結論。reason / tail 段的 between-α 因要求「兩 α 在同題皆有 tail」而僅 n=10/14,不報告任何機制結論。這補上本節最重要的正結果:**`p_t` 攜帶的 α-related 訊息位於 pre-commit residual amplitude,而非頻率。**
+stage-based subset 僅 **n=24–42**，且由 repetition detector 選樣，同時存在 **selection 與 range restriction**；即使其 repetition/hash 與 frequency-change 相關接近 0，也只能說明**頻率效應不穩定**，**不能稱作 confound-free negative test**。
 
-**First-answer accuracy 與 stable completion 分離。** 個案也顯示「首次答對」不等於「穩定完成」。例如 Q251 的 α=0 首次提交正確答案 60，因此 first-answer protocol 判為 correct，但之後仍繼續除以 2 並產生錯誤候選。這不否定 GSM8K 以 first `####` 作 production accuracy 的口徑；它說明 accuracy 與 termination quality / post-answer degeneration 是兩個不同的行為維度。後者應由 answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等獨立指標描述，不能由 first accuracy 代替。
+#### Result 2 — α Information Appears in Pre-Commit Residual Amplitude, Not Frequency
 
-**Declaration marker 的技術邊界。** 一句話可能同時命中多種 answer marker，故單一 marker 的重現**不等於**第二次作答；即使是第二次獨立 declaration，也只是 **repetition / revision proxy**，不能等同 loop onset。§4.2 聚合分析用 literal 第 1 / 第 2 個 `####`，不受此影響，但其 **C2 應讀作 second-answer-marker boundary**，其後為 post-second-marker tail。（合併規則見 `CLAUDE.md`。）
+上述兩套皆為 within-α 對比。要分離 **α 主效應**，需逐題配對（同 300 題 index 對齊）比較同一段內 α=−6 / α=+6 相對 α=0 的差異。**pre-commit（提交前的開放推理段）是唯一有乾淨 α 信號之處**：
 
-**Case-study conclusion：amplitude / frequency dissociation。** 這 9 題與全樣本 follow-up 共同把本節從「case study + frequency negative」升級為 **case-level validation + amplitude/frequency dissociation**:(i) `s_t` 的主結構與持續推理—提交後釋放相容;(ii) full-decode 會被 post-answer stopping failure 污染;(iii) `p_t` 的可靠訊息集中於 **signed change 與 residual amplitude / dispersion**——α=−6 在乾淨的 pre-commit 段提高 centered RMS,而 frequency metrics 不隨 α 穩定變化。Commit-centered 的頻譜變化對 answer-format / repetition 敏感,因此**頻率只保留為 negative control,不作 RSN 主讀數**;`p_t` 繼續作為 phasic-like fast-residual measure(operational 命名保留)——當前 task 支持 amplitude change,但未檢測到穩定的 frequency organization,亦未建立 biological phasic dopamine correspondence。這些結果也不支持「`s_t` 越高越正確」、不建立 α 的單調個案規律,且不能把第二個 marker 或 repeated-ngram tail proxy 當作經獨立驗證的真實 loop onset。
+| pre-commit centered RMS | Δ vs α=0 | 顯著性 |
+|---|---:|---|
+| α=−6 | **+0.046** | **`p<.001`**，paired **n=200** |
+| α=+6 | −0.006 | n.s. |
+
+**所有 frequency metrics（zcr / dominant frequency / centroid / spectral entropy）在兩個 α 方向皆為 null。**
+
+> **`p_t` 中與 α 相關的資訊主要體現於 pre-commit residual amplitude，而非穩定的頻率變化。**
+
+此段在提交前、不含 `####` 複讀，因此該幅度效應是**扣除 loop 後仍與 α 相關**的乾淨結果，與 §4.4 的 slow-state dose 結論同向（−α 抬高 pre-commit engagement）。post-commit 段的 α 差異**只作 post-marker diagnostic**——該窗口混合答案收尾、格式變化與重複生成。reason / tail 段的 between-α 因要求「兩 α 在同題皆有 tail」而僅 **n=10/14**，**不作任何機制結論**。
+
+#### Result 3 — First-Answer Accuracy and Stable Completion Are Distinct
+
+**Q251** 是關鍵案例：α=0 首次 `####` 給出正確答案 60，因此 first-answer protocol 判為 **correct**；但模型之後仍繼續除以 2 並產生其他候選答案。
+
+> **first-answer accuracy 與 termination quality / stable completion 是不同的行為維度。**
+
+這**不否定** GSM8K 以 first `####` 作 production accuracy 的口徑；它只說明該指標**不能替代** answer switching、重複強度、自然 EOS、hit-cap 或 stable-final-answer 等停止品質指標。
+
+#### Integrated Interpretation
+
+1. **`s_t` level** 與持續處理及提交後的 state release 相容，但**不是** correctness 或 reasoning quality 的直接指標。
+2. **`p_t` 的可靠資訊**主要來自 signed transition 與 residual amplitude / dispersion；頻率指標在不同切分下不穩定，故**頻率只保留為 negative control，不作 RSN 主讀數**。
+3. **α=−6 提高乾淨 pre-commit 段的 residual amplitude**，但當前結果**不建立 biological phasic dopamine correspondence**。
+
+`p_t` 的 **phasic-like operational definition 保留**（per §2.2 命名約定：task-level null 不改名、不降級）；GSM8K 支持的是 **amplitude / dispersion change**，**未檢出**穩定的 frequency organization。
+
+#### Evidence Boundary
+
+1. 9 個案例**不是代表性抽樣**（非預註冊、非隨機）。
+2. case plots **不提供** effect size、顯著性或因果證據。
+3. **高 `s_t` 不等於**正確或高品質推理（Q251）。
+4. frequency readouts 與 **answer format / repetition 混淆**，且相關係數不構成控制後的分解。
+5. **repeated-ngram tail 與 second marker 都不是真實 loop onset**。
+6. **`p_t` 是 EMA residual**，不是已識別的 biological phasic dopamine。
+7. **post-commit 與小樣本 tail comparison（n=10/14、n=24–42）僅作診斷**，不作機制結論。
+
+#### Figures
+
+| Figure | Role |
+|---|---|
+| `plots_gain/sample_traj3_q*.png`（Q10、Q80、Q92、Q140、Q152、Q189、Q225、Q251、Q284） | 展示 α=−6/0/+6 下 `s_t`、`p_t` 與生成文本的樣本級對應；**僅作 qualitative sanity check** |
+
+正文只引用真正承載不同解釋邊界的案例：**Q140 / Q189**（sustained / unresolved processing）、**Q251**（高 `s_t` 的反例，兼 first-accuracy vs stable-completion）、**Q80 / Q92**（`p_t` 的 generation-stage 敏感度）。
 
 ### 4.8 Slow-State Behavioral Validation
 
