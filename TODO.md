@@ -11,7 +11,7 @@
 8. qwen的thinking curve 存HS ✔
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
-10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin。这样可以解除 §5.5/§5.7 的 BLOCKED，也是目前跨模型链条唯一明显缺口。
+10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin。这样可以解除 §5.5/§5.7 的 BLOCKED，也是目前跨模型链条唯一明显缺口。 ⏸
 
 ---
 
