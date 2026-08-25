@@ -10,23 +10,33 @@
 7. 复现qwen的thinking curve signal部分，没有存HS ✔
 8. qwen的thinking curve 存HS ✔
 9. 重新梳理一下AdaptiveThinking的文档 ✔
-9. qwen的具体分析 
+9. qwen的具体分析 ✔
+10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin。这样可以解除 §5.5/§5.7 的 BLOCKED，也是目前跨模型链条唯一明显缺口。
 
-**Confidence proxies（entropy / top1 / margin / info_gain）：BLOCKED，不是 null。**
+---
 
-Qwen 樹下 `metrics_*.json` **不存在（0 個檔案）**。這些量來自 final-layer HS 經 final norm + `lm_head` 的真實 next-token 分佈，是與 RSN 投影**不同的基底**，必須另行由伺服器端萃取：
+2. **完成 Thinking Curve 的跨模型总结**
+   不强行证明“相同 working state”，而是先冻结目前站得住的共同结构：
 
-```
-python extract_entropy_confidence.py \
-  --h5_dir  /data1/paveen/Dopamine/components/hidden_states/gsm8k/qwen25_signal_v1 \
-  --model_dir Qwen/Qwen2.5-7B-Instruct \
-  --out_dir /data1/paveen/Dopamine/components/qwen2.5/metrics_hs \
-  --layer_start 16 --layer_end 22
-```
+   `线性 entry gain → 非线性 decode/commitment → commit-locked transition → post-commit release`
 
-> **記為 BLOCKED 而非略過，以免讀者把「沒有」誤讀成「沒有效應」。** 解封後有兩項限制須連同數字陳述：（a）它只覆蓋 **7 個重採 H5 cell**，而 RSN family 有 11 檔，故 **logit family 的 dose 曲線較稀疏，兩者不可畫成等密度取樣**；（b）跨模型引用時 entropy 一律用 `entropy/log(V)`（§5.1 規則 3）。
->
-> **這使 §4.4 Result 3 的核心結論在 Qwen 上無法檢驗。** Llama 的「α 不是 selective wanting intervention」（−6 同時抬高 `s_t`、residual amplitude 與 output decisiveness）需要 confidence 側資料；Qwen 目前**只有 RSN 側**，因此**不能宣稱 Qwen 支持或反對 wanting–confidence 的聯動**。
+   同时明确两模型曲线不同：Llama 是非对称最佳工作点，Qwen 是上升后平台。
+
+3. **做小规模 manifold pilot**
+   直接使用已有 H5，不重跑模型。优先看：
+
+   - PCA / participation ratio
+   - α=0 流形重建误差
+   - RSN 与局部切空间的 alignment
+   - 高剂量轨迹是否偏离自然流形
+   - 几何指标能否在控制 `Z_t`、长度和 commit position 后增加预测力
+
+   如果没有增量信息，就把 manifold 留作可视化补充。
+
+4. **最后再决定是否做 causal direction control**
+   目前 random/orthogonal remask 只是 readout control。只有论文需要强调“RSN steering 本身具有因果特异性”时，才值得重新注入 random/orthogonal directions 跑模型。
+
+所以眼下最具体的下一步是：**先在服务器提取 Qwen 的 entropy/top1/margin，再完善 §5.5、§5.7 和跨模型结论；之后才进入 manifold。** 暂时不需要扩展第二次提交、频率指标或重跑完整 α 曲线。
 
 
 8. manifold
