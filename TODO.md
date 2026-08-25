@@ -11,7 +11,7 @@
 8. qwen的thinking curve 存HS ✔
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
-10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin。这样可以解除 §5.5/§5.7 的 BLOCKED，也是目前跨模型链条唯一明显缺口。 ⏸
+10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ⏸
 
 ---
 
@@ -33,37 +33,36 @@
 
    如果没有增量信息，就把 manifold 留作可视化补充。
 
+   8. manifold
+      在manifold前先做一个很便宜的SNR检查：
+
+      - 按question做split-half或bootstrap；
+      - 检查RSN和null response profile各自的重测稳定性；
+      - 在相近response norm/SNR条件下再比较缩放残差。
+
+      这能判断null高残差究竟来自方向结构，还是单纯因为信号太弱。
+
+      然后开始manifold pilot：
+
+      1. 只用α=0训练问题学习每层的自然流形。
+      2. 在held-out问题上投影`0/+6/+8/+12`，各层分开。
+      3. 优先检查：
+         - PCA谱与participation ratio；
+         - on-manifold reconstruction error；
+         - α引起的位移与局部切空间的对齐程度；
+         - prefill和commit-aligned decode轨迹是否转向；
+         - trajectory speed与curvature。
+      4. `−8`和CoT作为第二层控制。
+   
+         判读很直接：
+
+      - 高剂量仍在流形内、切向方向不变，只是移动幅度变小 → 加强标量压缩解释。
+      - 高剂量normal displacement增加或切向方向改变 → 才是几何重分配的证据。
+
 4. **最后再决定是否做 causal direction control**
    目前 random/orthogonal remask 只是 readout control。只有论文需要强调“RSN steering 本身具有因果特异性”时，才值得重新注入 random/orthogonal directions 跑模型。
 
 所以眼下最具体的下一步是：**先在服务器提取 Qwen 的 entropy/top1/margin，再完善 §5.5、§5.7 和跨模型结论；之后才进入 manifold。** 暂时不需要扩展第二次提交、频率指标或重跑完整 α 曲线。
-
-
-8. manifold
-在manifold前先做一个很便宜的SNR检查：
-
-- 按question做split-half或bootstrap；
-- 检查RSN和null response profile各自的重测稳定性；
-- 在相近response norm/SNR条件下再比较缩放残差。
-
-这能判断null高残差究竟来自方向结构，还是单纯因为信号太弱。
-
-然后开始manifold pilot：
-
-1. 只用α=0训练问题学习每层的自然流形。
-2. 在held-out问题上投影`0/+6/+8/+12`，各层分开。
-3. 优先检查：
-   - PCA谱与participation ratio；
-   - on-manifold reconstruction error；
-   - α引起的位移与局部切空间的对齐程度；
-   - prefill和commit-aligned decode轨迹是否转向；
-   - trajectory speed与curvature。
-4. `−8`和CoT作为第二层控制。
-
-判读很直接：
-
-- 高剂量仍在流形内、切向方向不变，只是移动幅度变小 → 加强标量压缩解释。
-- 高剂量normal displacement增加或切向方向改变 → 才是几何重分配的证据。
 
 这些分析仍可使用现有H5，不需要重新跑模型。
 ---
