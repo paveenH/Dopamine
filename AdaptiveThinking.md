@@ -35,100 +35,55 @@ AdaDopamine.md：行為學基礎驗證（wanting/knowing 解離、Bandit、Press
 
 ### 1.1 Adaptive Reasoning
 
-- **01.nips2025.Reasoning Models Better Express Their Confidence**
-  Reasoning models show better verbalized confidence calibration than non-reasoning counterparts, and calibration improves as CoT unfolds. The most relevant point for this project is that slow thinking seems to support uncertainty refinement, not just longer answer generation.
+- **Reasoning Models Better Express Their Confidence** (NeurIPS 2025)  
+  Reasoning models 的 verbalized confidence calibration 优于非推理模型，并会随 CoT 展开而改善。本文据此将 confidence、entropy 与 commitment dynamics 作为推理过程读数，而不只观察最终正确率。
 
-- **02.nips2025.Learning When to Think: Shaping Adaptive Reasoning in R1-Style Models via Multi-Stage RL**
-  AutoThink trains R1-style models to choose when to think and when to answer directly, using multi-stage RL to avoid collapse into always-think or always-no-think. This is the closest prior work to the "when-to-think" routing problem.
+- **Learning When to Think: Shaping Adaptive Reasoning in R1-Style Models via Multi-Stage RL** (NeurIPS 2025)  
+  AutoThink 训练模型根据任务状态决定是否展开推理，避免退化为 always-think 或 always-no-think。它代表显式 reasoning routing；本文则研究 RSN 是否提供一种连续的内部状态调节轴。
 
-- **03.nips2025.Think or Not? Exploring Thinking Efficiency in Large Reasoning Models via an Information-Theoretic Lens**
-  This paper frames long CoT as potentially inefficient: later reasoning steps often bring decreasing InfoGain and increasing semantic drift. Its entropy-based Adaptive Think method is a strong baseline for early stopping and token-cost reduction.
+- **Think or Not? Exploring Thinking Efficiency in Large Reasoning Models via an Information-Theoretic Lens** (NeurIPS 2025)  
+  长 CoT 后期可能出现 information gain 递减和 semantic drift。该工作支持使用 entropy、information gain 与 cumulative entropy reduction 检查继续推理是否仍带来有效更新。
 
-- **04.iclr2026.Overthinking Reduction with Decoupled Rewards and Curriculum Data Scheduling**
-  DECS separates necessary reasoning prefix tokens from redundant post-answer thinking, then penalizes only the redundant part. This supports the view that the target is not "short reasoning" in general, but removing unnecessary continuation after the answer is already recoverable.
+- **Overthinking Reduction with Decoupled Rewards and Curriculum Data Scheduling** (ICLR 2026)  
+  DECS 区分形成答案所需的推理与答案已经可恢复后的冗余延续。它与本文的 commitment position、post-commit continuation 和 stopping failure 分析直接相关。
 
-- **05.iclr2026.Efficient Reasoning with Balanced Thinking**
-  ReBalance uses step-level confidence and confidence variance to detect overthinking versus underthinking, then dynamically steers hidden states. This is especially relevant because it treats adaptive reasoning as a continuous control problem rather than a binary CoT switch.
+- **Efficient Reasoning with Balanced Thinking** (ICLR 2026)  
+  ReBalance 使用 step-level confidence 与 confidence variance 区分 underthinking 和 overthinking，并通过 hidden-state steering 调节推理。它说明 adaptive reasoning 可以被视为连续的内部状态控制问题，而不仅是二元 CoT 开关。
 
-- **06.iclr2026.Rethinking LLM Reasoning: From Explicit Trajectories to Latent Representations**
-  Latent Reasoning Tuning replaces explicit CoT tokens with latent reasoning vectors produced by an auxiliary reasoning network. The implication is that reasoning support need not always appear as visible CoT; some adaptive thinking may happen through latent representations.
+- **An Investigation of Neuron Activation as a Unified Lens to Explain Chain-of-Thought Eliciting Arithmetic Reasoning of LLMs** (ACL 2024)  
+  该工作发现 CoT prompting 会改变 arithmetic-related FFN neuron activation，为本文通过稀疏神经元方向研究 CoT、reasoning state 与行为变化提供直接的方法先例。
 
-- **07.aaai2026.Promoting Efficient Reasoning with Verifiable Stepwise Reward**
-  VSRM scores intermediate reasoning steps by whether they improve verifiable answer correctness from partial trajectories. This gives a process-level alternative to crude length penalties: reward useful steps, suppress ineffective steps.
-
-- **08.nips2025.When Thinking Fails: The Pitfalls of Reasoning for Instruction-Following in LLMs**
-  CoT can hurt instruction-following by shifting attention away from hard constraints such as format, length, keywords, and language restrictions. This is a cautionary result: reasoning should be selectively invoked, not treated as universally beneficial.
-
-- **09.acl2026.Is Chain-of-Thought Reasoning of LLMs a Mirage? A Data Distribution Lens**
-  This paper argues that CoT may often reflect learned in-distribution structured patterns rather than robust algorithmic reasoning. For our framing, it warns against equating CoT behavior with genuine reasoning capacity.
-
-- **10.2025.Deciphering Trajectory-Aided LLM Reasoning: An Optimization Perspective**
-  RaML interprets reasoning trajectories as test-time pseudo-optimization: each reasoning token changes the hidden state and answer distribution like an inner-loop update. This provides a useful theoretical lens for why CoT can help on hard tasks but also why shorter effective trajectories may exist.
-
-- **11.acl2024.An Investigation of Neuron Activation as a Unified Lens to Explain Chain-of-Thought Eliciting Arithmetic Reasoning of LLMs**
-  This work links CoT prompting to stronger activation of arithmetic-reasoning-related FFN neurons. It is relevant to RSN because it provides precedent for studying CoT effects through neuron-level activation patterns rather than only surface prompts.
-
-- **12.2026.Reasoning emerges from constrained inference manifolds in large language models**
-  This paper argues that LLM reasoning trajectories collapse into low-dimensional, information-preserving hidden-state manifolds. It is relevant because it supports the view that reasoning should be diagnosed from internal dynamics, not only from CoT text or final-answer accuracy. For this project, intrinsic dimension / information-volume style features may serve as additional router features for adaptive thinking, complementary to RSN projection, entropy, confidence variance, and early decode slope.
+- **Reasoning Emerges from Constrained Inference Manifolds in Large Language Models** (2026)  
+  该工作将推理描述为 hidden states 在低维、信息保持区域中的动态轨迹。它为后续检验 RSN 是自然推理流形上的功能轴，还是使轨迹偏离该流形的干预方向提供几何分析基础。
 
 ### 1.2 Dopamine Neuroscience
 
-- **Tonic dopamine and biases in value learning** (NC 2025)
-  高水平多巴胺增加 D1 受體敏感性，促進積極預期學習（樂觀）；低水平則增加對消極結果的敏感性（悲觀）。
+- **Dopamine Dynamics Are Dispensable for Movement but Promote Reward Responses** (Nature 2024)  
+  快速 dopamine dynamics 并非维持基本运动所必需，但会增强 reward-related responses。该结果支持区分持续的背景状态与事件相关的快速变化，而不把所有行为调节都归因于 phasic signal。
 
-- **Dopamine dynamics are dispensable for movement but promote reward responses** (Nature 2024)
-  快速多巴胺動態並非運動必需，基礎 tonic 水平足以維持運動；快速釋放對動機和獎勵反應至關重要。
+- **Dopamine Release Plateau and Outcome Signals in Dorsal Striatum** (Nature Communications 2024)  
+  持续努力过程中，dopamine activity 可由初始反应转为较稳定的 plateau。该结果启发本文区分 task-entry signal 与 decode 期间的 sustained slow state，但不意味着 LLM 应复制相同的生物波形。
 
-- **Dopamine release plateau and outcome signals in dorsal striatum** (NC 2024)
-  持續努力任務中，多巴胺從初始尖峰轉變為「調製高原反應」（Modulated Plateau Responses）。高原在表現最佳個體中最明顯，代表穩定多巴胺供應是維持高水準表現的核心機制。
-  - 對 RSN signal 的啟發：自然 flow-like waveform 應是 task-onset phasic peak + sustained tonic plateau + small feedback-linked micro-spikes，而不是高頻振盪或外力停止後的 cliff。
+- **Dopamine in Motivational Control: Rewarding, Aversive, and Alerting** (Neuron 2010)  
+  该综述区分 dopamine 的持续背景调节与快速事件响应，并强调其与 motivation、action readiness 和 salience 的关系。本文据此将 RSN 主要解释为 wanting / engagement / commitment-related signal，而不是 knowledge signal。
 
-- **Reward magnitude determines reinforcement learning efficiency** (Science 2026) — https://mp.weixin.qq.com/s/xMfCquiGTszFPC3TxZAIxg
-  奬勵大小本身會改變強化學習效率：少數幾次大奬勵比大量小奬勵更能加速小鼠在導航、費力運動技能與感覺運動決策任務中的學習。大奬勵誘發更強、更持久的伏隔核多巴胺反應，同時改善 session 內 learning rate、跨 session retention，以及任務投入狀態（減少 disengagement）。
-  - 對 RSN signal 的啟發：learning rate / engagement 不是固定參數，而會被 reward magnitude 與 dopamine duration 動態調節。這支持將 RSN 視為 adaptive gain / commitment-to-engagement signal，而不是單純的 correctness 或 knowledge signal。
-  - 限制：多巴胺刺激只能部分複製大奬勵效果，主要改善 session 內學習與 engagement，不能完整複製跨天保留；對本專案意味著 waveform steering 可能只能調節 willingness-to-act / engagement，不能替代 CoT 內容、verifier feedback 或真正可驗證的推理步驟。
+- **Prolonged Dopamine Signalling in Striatum Signals Proximity and Value of Distant Rewards** (Howe et al., Nature 2013)  
+  大鼠接近远距离奖励时，striatal dopamine 呈持续 ramping，并随目标距离和奖励价值变化。这是本文将 `s_t` slope operationalize 为 ramping/vigor 候选读数的主要神经科学依据。  
 
-- **Dopamine in Motivational Control: Rewarding, Aversive, and Alerting** (Neuron 2010)
-  多巴胺以兩種模式運作：Tonic（穩定背景水平，與努力程度正相關）和 Phasic（針對獎勵/驚喜的短暫尖峰）。心流中頻繁的微小 phasic 釋放疊加並維持 tonic 高原。
+- **Dopamine Ramps Are a Consequence of Reward Prediction Errors** (Gershman, Neural Computation 2014)  
+  该工作说明 dopamine ramp 可能由一系列局部 reward-prediction-error updates 累积形成，而不一定需要独立的持续 ramp generator。这为慢状态与快速 residual 之间的关系提供计算解释。  
 
-- **Individual differences in flow linked to dopamine D2-receptor availability** (NeuroImage 2013)
-  PET + `[11C]raclopride` 測量紋狀體 D2 受體可用性，發現 flow proneness 與 striatal D2 receptor availability 正相關（r=.41），主要由 dorsal striatum / putamen 驅動。限制：測量 trait-level 受體密度，非心流中的動態釋放。
+- **The Brain in Flow: A Systematic Review** (Cortex 2022)  
+  Flow 与前额叶、basal ganglia 和 reward-related circuitry 有关，但现有研究尚未直接测量人类 flow 状态下完整的 dopamine release dynamics。因此，本文的 tonic、ramping 和 phasic-like 解释只能作为功能类比，不能表述为生物同构。
 
-- **Individual differences in flow proneness are linked to a dopamine D2 receptor gene variant** (Consciousness and Cognition 2016)
-  DRD2 C957T polymorphism 與 flow proneness 相關，尤其在 mandatory activities（工作/學習）中更明顯。這是 D2 系統與 flow trait 關聯的補充證據，但仍是個體差異層級，不是 online dopamine waveform。
+### 1.3 Mechanistic Alignment: State vs Capacity
 
-- **Neural correlates of experimentally induced flow experiences** (NeuroImage 2014)
-  以自適應難度 mental arithmetic 在 fMRI 中誘發 flow。Flow condition 相比 boredom / overload 顯示 left putamen 與 left anterior IFG 活化增加，mPFC 與 amygdala 活化降低。Putamen 結果支持 flow 涉及 basal-ganglia/reward-related circuitry；但 fMRI 不能直接證明 dopamine release。
+- **State and Capacity in Neural Models of Cognition and Consciousness** (Trends 2026)  
+  该框架区分模型当前的运行状态与模型原则上具有的能力。State 包括 gain、attention、noise 与 decision threshold；capacity 则包括知识、表征深度和计算资源。本文据此将 RSN / α steering 定位为 **state-level gain calibration**：它调节 engagement、action readiness 与 commitment behavior，而不是直接增加模型的知识或 reasoning capacity。  
 
-- **Neural signatures of experimentally induced flow experiences identified in a typical fMRI block design** (SCAN 2016)
-  30 秒 block design 也能誘發 flow；flow condition 下 anterior insula、inferior frontal gyri、basal ganglia、midbrain 活化增加，mPFC/PCC/medial temporal lobe/amygdala 活化降低。這提供 flow 與 basal ganglia / midbrain reward system 相關的第二組實驗證據。
+### 1.4 Literature Boundary
 
-- **Go with the flow: A neuroscientific view on being fully engaged** (European Journal of Neuroscience 2021)
-  心流動機底層由多巴胺系統和 LC-NE 系統共同驅動。注意：tonic/phasic 討論主要集中在 NE，多巴胺波形為推論而非直測。
-  - 可用於框架表述：dopamine reward system 支撐 intrinsic motivation / engagement / wanting，LC-NE system 支撐 arousal / attention。Flow 應是 dopamine 與 NE 都在 optimal zone，而非單一物質越高越好。
-
-- **The brain in flow: A systematic review** (Cortex 2022)
-  系統性回顧 25 項研究（471 名受試者）。心流涉及前額葉和獎勵系統的共同活化，但跨研究神經動態不一致，無研究直接測量心流期間的多巴胺釋放。
-
-- **Prolonged dopamine signalling in striatum signals proximity and value of distant rewards** (Howe et al., Nature 2013) — https://www.nature.com/articles/nature12475
-  大鼠朝遠處獎勵移動時，紋狀體 DA 呈現**持續 ramping**，並隨與目標的**距離**及**獎勵大小** scale。這是 dopamine ramping（tonic/phasic 之外第三時間尺度）最直接的行為學量測，本專案 §2.2 ramping / vigor 的主要神經科學依據。
-
-- **Dopamine Ramps Are a Consequence of Reward Prediction Errors** (Gershman, Neural Computation 2014, MIT Press) — https://direct.mit.edu/neco/article/26/3/467/7956/
-  TD-learning 框架下推導 ramping：對 goal proximity 做**凸 / 二次變換**（Weber's-law 式空間壓縮）即近似線性 ramp。即 §2.2 假說 A——ramping = 密集微小正向 phasic 脈衝的長程積分。（作者 Gershman 在 Harvard。）相關的 value-decay 機制見 Current Biology 2022「Dopamine ramps with fuzzy value estimates」。局部環路假說（B：紋狀體軸突獨立於 VTA 胞體放電形成 ramp，Mohebi et al.）見 Frontiers 2014「Local control of striatal dopamine release」。
-
-**小結 / 限制**：目前 flow-dopamine 文獻支持「dopaminergic reward system 與 flow proneness / flow-like engagement 相關」，但尚未直接提供人類 flow 狀態下 dopamine release 的完整時序波形。因此本文中的 early peak → plateau → slow decay 是基於 dopamine reward-task dynamics 與 flow fMRI/review 的功能性類比，不應表述為已被直接量測的 biological dopamine waveform。
-
-### 1.3 Mechanistic Alignment / State vs Capacity
-
-- **State and capacity in neural models of cognition and consciousness** (Trends Open 2026) — https://www.sciencedirect.com/science/article/pii/S311734702600012X
-  這篇綜述提出 state × capacity 雙軸框架，用來區分神經網路模型到底只是行為/腦活動上像人，還是真的能提供機制解釋。State 指固定架構當下如何運行，例如 gain、noise、attention、decision threshold、normalization；capacity 指模型原則上能表徵什麼，例如 depth、recurrence、context length、multimodality、external memory。
-  - 對本專案的定位：RSN / α steering 應被表述為 **state-level gain control**，主要調節 willingness-to-act、decisiveness、engagement、commitment threshold，而不是 capacity-level upgrade。
-
-### 1.4 Other
-- RouteMoA: Dynamic Routing without Pre-Inference Boosts Efficient Mixture-of-Agents (ACL2026)
-- **Theory of Agent (ToA): Why "being correct" is not enough for Agents** (ICML 2026 Position Paper) — https://arxiv.org/abs/2506.00886
-  這篇把 Agent 行為統一建模為 **internal reasoning vs external action/tool use** 之間的 epistemic effort allocation。核心不是只問 Agent 能不能答對，而是問它是否能根據自身 knowledge boundary `Q_int`、任務不確定性與成本比 `β`，合理決定什麼時候自己想、什麼時候調用工具、什麼時候停止。
-  - 關鍵警示：如果 post-training 只獎勵 final correctness，Agent 會自然漂向過度外包（over-delegation / overacting），短期正確率高但內部能力不成長；因此 agentic RL/SFT 應加入 process-level cost / effort-aware reward，而不是只看 answer accuracy。
+以上文献分别提供 adaptive reasoning、内部状态分析与 dopamine multi-timescale dynamics 的理论背景，但不直接证明 RSN 等同于生物 dopamine system。本文中的 tonic、ramping/vigor 与 phasic-like 均为 operational definitions；对应现象是否在特定任务中得到支持，需要由 `G_prefill`、`s_t`、`vigor_slope`、`p_t` 及其行为关联分别检验。
 
 ## 2. Core Theoretical Framework
 
@@ -143,46 +98,47 @@ RSN（Role-Sensitive Neurons）被視為一個 **state-level gain control**：�
 | Component | Functional interpretation | Operational signal | Main prediction |
 |---|---|---|---|
 | **Task-entry tonic** | 進入任務時設定初始增益與 commitment threshold | `G_prefill` | α 改變起始狀態，並影響後續解題與提交策略 |
-| **Ramping / Vigor** | 解碼期間朝目標推進的速度與 effort intensity | `s_t = EMA(Z_t)` 的斜率 | 斜率越陡，推進與 commitment 越快 |
-| **Phasic** | decode 中相對慢基線的快速 pulse / dip | `p_t = Z_t - s_{t-1}` | 與慢變的 `s_t` 分離，呈現 token-level transient |
+| **Ramping / Vigor** | 解碼期間朝目標推進的速度與 effort intensity | $s_t = \mathrm{EMA}(Z_t)$ 的斜率 | 斜率越陡，推進與 commitment 越快 |
+| **Phasic** | decode 中相對慢基線的快速 pulse / dip | $p_t = Z_t - s_{t-1}$ | 與慢變的 `s_t` 分離，呈現 token-level transient |
 
-在此模型中，`G_prefill` 設定 generation 的初始條件，不作為 decode trajectory 的持續加數；decode 期間的慢/快分解由 EMA 定義（`s_t = β·s_{t-1} + (1-β)·Z_t`，`p_t = Z_t − s_{t-1}`），因此瞬時信號與慢基線的精確關係為：
+在此模型中，`G_prefill` 設定 generation 的初始條件，不作為 decode trajectory 的持續加數；decode 期間的慢/快分解由 EMA 定義（$s_t = \beta s_{t-1} + (1-\beta) Z_t$，$p_t = Z_t - s_{t-1}$），因此瞬時信號與慢基線的精確關係為：
 
-```text
-Z_t = s_{t-1} + p_t
-s_t = s_{t-1} + (1-β)·p_t
-```
+$$Z_t = s_{t-1} + p_t$$
 
+$$s_t = s_{t-1} + (1-\beta)\,p_t$$
 其中 `s_t` 是慢變的 ramping / vigor component、`p_t` 是相對**上一時刻**慢基線 `s_{t-1}` 的 phasic residual（注意 `Z_t` 分解到的是 `s_{t-1}` 而非 `s_t`；`s_t` 再以 `(1-β)` 比例吸收該 residual）。
 
-> **命名約定（建模層 vs 發現層分離，load-bearing）：** tonic、ramping/vigor 與 phasic-like 是**信號建模與 operational definition**，先驗成立、不隨個別實驗升降級。後續各 task 檢驗的是「該 task 是否呈現這些模型預測的變化」——**未檢測到預期效應表示當前 task 不支持該項經驗假說，既不否定數學構造，也不要求重新命名指標**。因此本文一律區分兩件事：(a) `G_prefill`/`s_t`(-slope)/`p_t` 作為 tonic / ramping-vigor / phasic-like 的 operational measure（保留），與 (b) 某個特定 task/readout 是否**檢出**了對應的經驗現象（task-level finding，可為 null）。全文的「negative / null」一律讀作後者，不讀作對 (a) 的降級。
 
 ### 2.3 Working Hypotheses
 
 **H1 — Prefill steering acts through initial-condition / boundary-gating.**
 
-α 只在最後一個 prompt token 注入一次，直接改變 `G_prefill`，但 decode 不再持續注入。現有三項觀察為：
+α 只在 prompt 的最后一个 token 注入一次，直接改变生成开始前的 `G_prefill`；进入 decode 后不再继续注入。目前观察到：
 
-1. `G_prefill` 隨 α 近線性移動；
-2. 到 `decode[0]` 時約 95% 回彈；
-3. 後續各 α 的 `G_decode` trajectory 基本重合。
+1. `G_prefill` 随 α 近似线性变化；
+2. 到生成第一个 token（`decode[0]`）时，约 95% 的直接注入效应已经回弹；
+3. 此后不同 α 条件下的 `G_decode` trajectories 大致重合。
 
-**Prefill-only 已顯著改變行為，而 `G_decode` 重合 → 支持 initial-condition / boundary-gating。** α 在 generation boundary 設定 task-level gain 與 commitment regime，後續效應經由 KV cache、早期 token 選擇與 autoregressive path dependence 保留。
+尽管注入效应没有持续停留在 `G_decode` 上，prefill-only steering 仍显著改变了模型的生成行为。这说明 α 可能主要在 generation boundary 改变模型的初始状态与 commitment regime；随后，这一差异通过 KV cache、早期 token 选择和自回归路径依赖延续到整段生成。
+
+因此，现有结果支持 **initial-condition / boundary-gating** 解释，而不是“α 在 decode 全程持续抬高 RSN signal”的解释。
 
 **H2 — Slow decode dynamics encode ramping / vigor.**
 
-在本模型中，`s_t` 的斜率 **operationalizes the ramping/vigor hypothesis**——把「模型朝答案推進的速度 / effort intensity」映到一個可檢驗量。該假說預測較陡的斜率對應較短 generation length、較早 commitment 與較高推進強度；分析時同時控制 output length 與 response format，以區分 vigor 與單純的提前停止。**斜率是 vigor 的 operational measure（保留）；某個 task 是否呈現此斜率—行為關聯，是待檢驗的 task-level 問題。GSM8K 的檢驗結果見 §4.8：該 task 未檢出符合方向的 slope-vigor evidence，而 `s_t` level 穩定關聯 commitment timing。**
+本模型使用 `s_t` 的斜率来衡量模型在生成过程中朝答案推进的速度与 effort intensity，并将其作为 ramping/vigor hypothesis 的 operational measure。该假说预测：`s_t` 上升越快，模型的推进强度越高，因而可能表现为更短的 generation length 和更早的 commitment。分析中需要控制 output length 与 response format，避免把单纯的提前停止误判为 vigor。
+
+这里需要区分指标定义与任务结果：`s_t` slope 作为 ramping/vigor 的 operational measure 保持不变，但特定任务是否呈现预期的 slope–behavior relationship，需要通过实验检验。GSM8K 的结果见 §4.8：该任务没有检出符合预期方向的 slope–vigor evidence；相比之下，`s_t` level 与 commitment timing 呈现稳定关联。
 
 **H3 — Fast decode residuals encode phasic dynamics.**
 
-`p_t` 是相對 slow baseline 的 **phasic-motivated operational measure**，用來分離 decode 中的 pulse / dip 與 `s_t` 的慢變趨勢——此 operational 定義保留。實驗檢驗的是**特定 task 中是否出現預期的 transient / event association**：第一步先驗證 `p_t` 是否具有穩定的快時間尺度結構；其後再探索它與中間推理步、答案形成、commitment 或其他 generation events 的關係，目前不預設特定 event anchor。未檢出對應 transient 屬 task-level null，不改變 `p_t` 的 phasic-like 命名。
+`p_t` 表示当前 decode signal 相对于 slow baseline 的快速残差，用于分离被 `s_t` 平滑掉的瞬时 pulse 与 dip。我们首先检验 `p_t` 是否具有稳定的快时间尺度结构，再分析这些变化是否与中间推理步骤、答案形成、commitment 或其他 generation events 对齐。
+
+目前不预设唯一的 event anchor，而是根据不同任务的生成结构检验可能的 transient–event association。若观察到稳定且可重复的事件对齐，则支持 `p_t` 捕捉了具有功能意义的 phasic dynamics；若未观察到，则说明该任务中尚未检出相应的快速事件结构。
 
 
 ## 3. Signal Definition
 
 ### 3.1 Signal Architecture
-
-信號分成三個層級：
 
 1. **RSN state signal**：middle-layer hidden states 在 NMD direction 上的活動，用來描述 task-entry gain 與 decode dynamics。
 2. **Output-distribution signal**：由 final-layer logits 計算 entropy、top1、margin 與 information change，用來描述 confidence / decisiveness。
@@ -194,27 +150,23 @@ RSN signal 是主軸；logit metrics 用於判斷 wanting 是否只是 confidenc
 
 對 token `t`、middle layer `l`，先計算原始投影：
 
-```text
-r_{t,l} = h_{t,l} · m_l
-```
+$$r_{t,l} = h_{t,l} \cdot m_l$$
 
 其中 `h_{t,l}` 是 decoder layer output hidden state，`m_l` 是同一 output space 中的 sparse NMD direction。每層先獨立投影，再進行跨層聚合。
 
 為了固定零點、保留 α 的干預單位並避免少數 layer 因尺度較大而主導聚合，使用 neutral、α=0、No-CoT 的 prefill distribution 作為 reference：
 
-```text
-μ_l^ref = E[r_{prefill,l} | neutral, α=0, No-CoT]
-g_{t,l} = (r_{t,l} - μ_l^ref) / ||m_l||²
-σ_l^ref = Std[g_{prefill,l} | neutral, α=0, No-CoT]
-z_{t,l} = g_{t,l} / σ_l^ref
-```
+$$\mu_l^{ref} = \mathbb{E}\big[r_{prefill,l} \mid \text{neutral},\ \alpha=0,\ \text{No-CoT}\big]$$
+
+$$g_{t,l} = \frac{r_{t,l} - \mu_l^{ref}}{\lVert m_l \rVert^{2}}$$
+
+$$\sigma_l^{ref} = \operatorname{Std}\big[g_{prefill,l} \mid \text{neutral},\ \alpha=0,\ \text{No-CoT}\big]$$
+
+$$z_{t,l} = \frac{g_{t,l}}{\sigma_l^{ref}}$$
 
 由此得到兩種跨層 readout：
 
-```text
-G_t = mean_l(g_{t,l})
-Z_t = mean_l(z_{t,l})
-```
+$$G_t = \operatorname*{mean}_{l}\, g_{t,l} \qquad\qquad Z_t = \operatorname*{mean}_{l}\, z_{t,l}$$
 
 | Signal | Role |
 |---|---|
@@ -233,17 +185,13 @@ Reference `μ_l^ref` 與 `σ_l^ref` 在所有 role、α、token 與 event 中固
 
 最後一個 prompt token 的 gain 定義為：
 
-```text
-T = G_prefill
-```
+$$T = G_{prefill}$$
 
 `T` 是 task-entry tonic 的主 readout，表示 generation boundary 上的初始 gain / commitment set point。`Z_prefill` 可作為 layer-fair 的 condition comparison；`G_prefill` 則保留 α 單位，作為主要 calibration signal。
 
 prefill 到第一個 decode token 的回彈另記為：
 
-```text
-boundary_jump = G_0 - G_prefill
-```
+$$\text{boundary\_jump} = G_0 - G_{prefill}$$
 
 `boundary_jump` 用來描述 task-entry pulse 如何進入自然 decode dynamics；在 `G` 坐標計算，以與 H1 引用的 α-單位回彈比例（約 95%）保持一致。
 
@@ -251,16 +199,11 @@ boundary_jump = G_0 - G_prefill
 
 在 decode 內，對 `Z_t` 建立 slow component：
 
-```text
-s_0 = Z_0
-s_t = β · s_{t-1} + (1 - β) · Z_t
-```
+$$s_0 = Z_0 \qquad\qquad s_t = \beta\, s_{t-1} + (1-\beta)\, Z_t$$
 
 `s_t` 只由 decode token 初始化與更新，不以 prefill 作 EMA seed。主要 readout 是 `s_t` 的 trajectory slope，而不是其絕對高度：
 
-```text
-vigor_slope = slope(s_t)
-```
+$$\text{vigor\_slope} = \operatorname{slope}(s_t)$$
 
 後續可分別估計 early、middle、late slope；β 與 window 的精確設定留待 sensitivity analysis。
 
@@ -268,18 +211,15 @@ vigor_slope = slope(s_t)
 
 decode-time fast component 定義為相對上一時刻 slow baseline 的 residual：
 
-```text
-p_t = Z_t - s_{t-1},  t ≥ 1
-```
+$$p_t = Z_t - s_{t-1}, \qquad t \geq 1$$
 
 `p_t` 是一個 **EMA high-pass 殘差**（當前 `Z_t` 減上一步慢 EMA），不是 event-locked phasic 信號。`p_t > 0` 表示瞬時高於 slow baseline 的 pulse，`p_t < 0` 表示瞬時 dip。現階段把它當作 **fast residual / candidate phasic-like component**（此 operational 命名保留），優先檢驗其 amplitude、variability 與時間結構；之後再分析它是否與特定 reasoning / commitment event 對齊（不預先指定 event anchor）。**event alignment 等驗證決定的是「當前 task 是否提供 phasic-like empirical evidence」，而非決定 `p_t` 是否獲得該名稱。**
 
 第一階段使用以下 summaries：
 
-- `phasic_pos_peak = max(p_t)`
-- `phasic_neg_peak = min(p_t)`
-- `phasic_abs_mean = mean(|p_t|)`
-- `phasic_std = std(p_t)`
+$$\text{phasic\_pos\_peak} = \max_t p_t \qquad\qquad \text{phasic\_neg\_peak} = \min_t p_t$$
+
+$$\text{phasic\_abs\_mean} = \operatorname{mean}\big(\lvert p_t \rvert\big) \qquad\qquad \text{phasic\_std} = \operatorname{std}(p_t)$$
 
 ### 3.4 Multi-Metric Signal Suite
 
@@ -289,16 +229,16 @@ p_t = Z_t - s_{t-1},  t ≥ 1
 |---|---|---|---|
 | **Task-entry state** | `G_prefill` | α-unit RSN gain at last prompt token | task-entry tonic / intervention strength |
 | **Task-entry state** | `Z_prefill` | layer-standardized gain at last prompt token | layer-fair boundary state |
-| **Boundary transition** | `boundary_jump` | `G_0 - G_prefill`（G 坐標） | prefill pulse 的回彈 / carry-over |
-| **Slow decode** | `s_t` | decode-only EMA of `Z_t`，seed `s_0 = Z_0` | post-launch slow generation dynamics |
+| **Boundary transition** | `boundary_jump` | $G_0 - G_{prefill}$（G 坐標） | prefill pulse 的回彈 / carry-over |
+| **Slow decode** | `s_t` | decode-only EMA of $Z_t$，seed $s_0 = Z_0$ | post-launch slow generation dynamics |
 | **Relaxation slope** | `vigor_slope` | slope of `s_t` | slow decode component 的斜率；欄名 `vigor_slope` 是 **H2 ramping/vigor 假說的 operational 名稱（保留）**，實測 decode 期間多呈鬆弛（下降），故功能上讀作 relaxation slope——命名指假說，數值方向指觀測 |
-| **Phasic** | `p_t` | `Z_t - s_{t-1}` | fast pulse / dip relative to slow baseline |
-| **Uncertainty** | `entropy_decode` | `-Σ_v q_t(v) log q_t(v)` | next-token uncertainty；越低通常越 decisive |
-| **Confidence** | `top1_decode` | `max_v q_t(v)` | maximum next-token probability |
-| **Confidence** | `margin_decode` | `top1 - top2` | local choice separation；與 top1 高度相關，作輔助 |
-| **Distributional change** | `info_gain_decode` | `H_{t-1} - H_t` | token-to-token uncertainty reduction，不直接等同 reasoning quality |
-| **Cumulative change** | `cumulative_entropy_reduction` | `H_0 - H_t` | 相對 generation 起點的累積 certainty change |
-| **Confidence stability** | `rolling_conf_variance` | `Std(top1[t-W:t])` | local confidence volatility |
+| **Phasic** | `p_t` | $Z_t - s_{t-1}$ | fast pulse / dip relative to slow baseline |
+| **Uncertainty** | `entropy_decode` | $-\sum_v q_t(v)\log q_t(v)$ | next-token uncertainty；越低通常越 decisive |
+| **Confidence** | `top1_decode` | $\max_v q_t(v)$ | maximum next-token probability |
+| **Confidence** | `margin_decode` | $\text{top1} - \text{top2}$ | local choice separation；與 top1 高度相關，作輔助 |
+| **Distributional change** | `info_gain_decode` | $H_{t-1} - H_t$ | token-to-token uncertainty reduction，不直接等同 reasoning quality |
+| **Cumulative change** | `cumulative_entropy_reduction` | $H_0 - H_t$ | 相對 generation 起點的累積 certainty change |
+| **Confidence stability** | `rolling_conf_variance` | $\operatorname{Std}\big(\text{top1}[t-W:t]\big)$ | local confidence volatility |
 | **Task performance** | `accuracy` | answer correctness | knowing / task success |
 | **Behavioral vigor** | `generation_length`, `commit_position` | output tokens；首次答案標記位置 | 推進與 commitment timing |
 | **Stopping control** | `loop_rate`, `post_commit_tokens`, `eos_failure` | output pattern diagnostics | stopping failure；不併入 vigor 或 phasic |
@@ -402,7 +342,7 @@ Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc g
 - **post-second-marker tail** = 第 2 個 `####` → generation end（與 stopping failure / loop 相容,但只作診斷,不等同真實 loop onset）
 - *full = 三段之和*（僅用於展示 loop contamination，不作機制結論）
 
-`s_t = EMA(Z_t)` 在整條 decode 上只計算一次（`s_0=Z_0`），`p_t=Z_t-s_{t-1}` 再由同一條軌跡取得；三階段不重新 seed。C1/C2-centered 圖只是放大兩個階段邊界，不構成另一套切分。**C2 是 second-answer-marker proxy**,其後段為 post-second-marker tail;C2-based 分析只涵蓋具有第二個 `####` 的 loop-prone subset，屬診斷性結果,不能把 C2 直接等同真實 loop onset。
+$s_t = \mathrm{EMA}(Z_t)$ 在整條 decode 上只計算一次（$s_0 = Z_0$），$p_t = Z_t - s_{t-1}$ 再由同一條軌跡取得；三階段不重新 seed。C1/C2-centered 圖只是放大兩個階段邊界，不構成另一套切分。**C2 是 second-answer-marker proxy**,其後段為 post-second-marker tail;C2-based 分析只涵蓋具有第二個 `####` 的 loop-prone subset，屬診斷性結果,不能把 C2 直接等同真實 loop onset。
 
 #### Integrated RSN Dynamics
 
@@ -662,9 +602,7 @@ Accuracy 的 quadratic fit 優於 linear fit（`R²=0.352` vs `0.147`），但�
 
 **Scope 與口徑。** 四組同 300 道 GSM8K、index-paired（已驗證 common=300）；reference μ/σ 固定 = neutral α=0 No-CoT prefill（同 §4.2–4.4）。因四組全 paired，交互效應（difference-in-differences）以 **per-question** 計算再 Wilcoxon 檢驗，而非僅比四個 cell 平均：
 
-```text
-DiD_q = (cot_-4 − cot_0) − (nocot_-4 − nocot_0)   [每題 q]
-```
+$$\mathrm{DiD}_q = \big(\text{cot}_{-4} - \text{cot}_0\big) - \big(\text{nocot}_{-4} - \text{nocot}_0\big) \qquad \text{[每題 } q\text{]}$$
 
 inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.7，與 §2.5.1 行為（182：60/73/69/85）同向、量級一致。分析腳本 `analyze_cot_alpha.py`，主圖 `fig45_slow_centered.png` / `fig45_fast_centered.png`（四 cell C1-centered 疊圖）。
 
@@ -686,7 +624,7 @@ Confidence output :  CoT 與 α=−4 大體呈 approximately additive
 | `Z_prefill` | 0.000 | −13.107 | 0.158 | −12.903 | −13.11 | −13.06 | +0.046 | *** but ≈0.4% of α |
 | `boundary_jump_G` | 0.167 | 6.987 | 0.094 | 6.988 | +6.82 | +6.89 | +0.074 | ns |
 
-α 效應幾乎不受 CoT 影響（G_prefill −6.80 vs −6.78），與 §4.4 co-design identity（`G_prefill(α) ≈ G_prefill(0) + α·‖mask‖²`，α 在 prefill 加一個與 CoT 無關的固定量）一致。**入口是 α 主導（|Δ|≈6.8）、CoT 次要（|Δ|≈0.07–0.16）。** G/Z 的 DiD 帶星號是 **statistical interaction**（n=300 + 極小配對方差可偵測到微小系統偏離），但其 **practical** 量級僅約 α 主效應的 0.4%——因此判為 **approximately additive**，不寫成 ns（effect 小 ≠ 不顯著），也不寫成「純 additive」。
+α 效應幾乎不受 CoT 影響（G_prefill −6.80 vs −6.78），與 §4.4 co-design identity（$G_{prefill}(\alpha) \approx G_{prefill}(0) + \alpha\lVert m\rVert^{2}$，α 在 prefill 加一個與 CoT 無關的固定量）一致。**入口是 α 主導（|Δ|≈6.8）、CoT 次要（|Δ|≈0.07–0.16）。** G/Z 的 DiD 帶星號是 **statistical interaction**（n=300 + 極小配對方差可偵測到微小系統偏離），但其 **practical** 量級僅約 α 主效應的 0.4%——因此判為 **approximately additive**，不寫成 ns（effect 小 ≠ 不顯著），也不寫成「純 additive」。
 
 #### Step 2 — Commitment-Centered Slow State：CoT 主導，early window α 效應減弱（attenuation trend）
 
@@ -758,7 +696,7 @@ CoT process  ×  α=−4 task-entry intervention
 **方法（offline re-projection null）。** 因果雙向 steering 的有效性已在 RSN 母論文中驗證，本節只做離線重投影：把**同一批已存的 HDF5 hidden states** 對不同 mask 重投影：
 
 - **① support-selection null（`detection/nmd.py:get_diff_random_mask`）**：**隨機位置**，取值來自真實 role-diff。其 per-layer norm 天然約為 NMD 的 ¼（NMD 挑 top-|diff|），此 norm gap 是 NMD「取 top-k」操作的正確對照，**不做 norm-match**；與 ±1 的 `random` mask 不同。N=**11**（seed 1–10 + seed 42），p 地板 = 1/12 ≈ 0.083。
-- **② generic-direction null（`detection/nmd.py:get_ortho_gauss_mask`，`ortho_gauss_{same,off}`）**：逐層 float64 建構，`m_l = g − (g·d_sub/‖d_sub‖²)·d_sub`（`d_sub` 取自 **dense role-diff** 而非稀疏 mask），使 `m_l ⊥ Δ_l`，再 norm-match 到 NMD 該層。建構期硬性 assert 逐層 `|cos(m_l,Δ_l)|<1e-5`、norm-match、恰好 top_k 個非零、support 關係正確——一次乾淨跑完即通過驗證。各 N=**10**（seed 1–10），p 地板 = 1/11 ≈ 0.091。
+- **② generic-direction null（`detection/nmd.py:get_ortho_gauss_mask`，`ortho_gauss_{same,off}`）**：逐層 float64 建構，$m_l = g - \dfrac{g \cdot d_{sub}}{\lVert d_{sub}\rVert^{2}} d_{sub}$（`d_sub` 取自 **dense role-diff** 而非稀疏 mask），使 `m_l ⊥ Δ_l`，再 norm-match 到 NMD 該層。建構期硬性 assert 逐層 `|cos(m_l,Δ_l)|<1e-5`、norm-match、恰好 top_k 個非零、support 關係正確——一次乾淨跑完即通過驗證。各 N=**10**（seed 1–10），p 地板 = 1/11 ≈ 0.091。
 - **每個 mask 用自己的 reference**：μ/σ 來自它自己的 neutral-No-CoT prefill，`‖m_l‖²` 來自它自己，使「raw projection 尺度較大」不能為 NMD 買到假優勢。（注意：在 decode 的 Z 座標下 `‖m‖²` 於標準化中相消，故 norm gap 不影響 decode 讀數；它只影響 `G_prefill`。）ortho null 已 norm-match，`G_prefill` 也可比。
 - 三個 family 皆屬 exploratory（N=10–11），只讀 **effect 與 ordering**，不作正式顯著性宣稱。
 
@@ -805,7 +743,7 @@ commit-centered 圖（`fig46_commit_specificity_{contrast}.png`）直觀呈現�
 
 **兩層結論（分開讀）。**
 
-1. **task-entry raw gain（`G_prefill`）**：NMD 遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這是 **co-design identity**（`x_prefill(α) ≈ x_prefill(0)+α·‖mask‖²`，NMD 因取 top-|diff| 而 norm 最大）+ mask 本身抽自該方向，屬 **manipulation check**，非獨立證據。
+1. **task-entry raw gain（`G_prefill`）**：NMD 遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這是 **co-design identity**（$x_{prefill}(\alpha) \approx x_{prefill}(0) + \alpha\lVert m\rVert^{2}$，NMD 因取 top-|diff| 而 norm 最大）+ mask 本身抽自該方向，屬 **manipulation check**，非獨立證據。
 2. **commitment-locked temporal organization（`s_t`/`p_t` 軌跡）**：**這是目前最強的 NMD direction-specificity evidence**——commit 前後帶符號的結構化走向（幅度/水平）穩定超出**三個** null family（support-selection ①、same/off generic-direction ②），且在注入與自然 state 上一致。off-support generic-direction null 也保持 NMD 極端（權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端），與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源——排除了「僅是 top-|diff| 支撐」與「僅是複用 role-diff 逐坐標權重」兩種單成分解釋；是否另有獨立於幅度的形狀差異仍待定。
 
 **限定。** (i) direction-specificity null **已補齊**：support-selection（①）+ same/off generic-direction（② orthogonal Gaussian）三個 family 一致 hold，已排除「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」。**尚未做**的僅剩 same-support sign-shuffle（檢驗「符號—位置對應」——註：NMD 支撐的 role-diff 符號**數量**近乎平衡（180 neuron 中 +86/−94，imbalance 0.044），但這只說明正負個數對稱，不代表該對應不重要，故列為次優先而非已知無判別力）；orthogonal null 已 norm-match 並徹底去除 role-diff 權重方向，sign-shuffle 屬更細的分解，非必要補強。(ii) **各 family N=10–11 draws 為 exploratory ordering，不作正式顯著性宣稱**（p 地板 0.083–0.091；且 draws 已參與指標選擇）。三個 family 與 30 cell 並非獨立重複——它們共享同一批 hidden states、conditions、baseline 與指標，故不可用「多 family 一致」推得低偶然機率。下一步優先**跨任務、跨模型與 causal-direction control**（見 (iii)），而非繼續擴增同類 seeds。(iii) 僅 Llama3-8B、僅 offline re-projection（不含 random-direction 因果 steering 對照）。(iv) leave-one-layer-out 已做且通過（10/10 no-flip，見上），僅滿足「**不由任一單層驅動**」；**尚未排除兩三個 layer 共同貢獻**（未做 leave-two/three-out），故不宣稱「不只由少數 layer 驅動」。per-layer 對照僅在 NMD 側檢驗軌跡穩健性，尚未與 null 做逐層對照。
@@ -934,9 +872,9 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 | +6→+8 | 0.5374 | 0.3713 | 0.1690 | 0.2367 | 0.5221 | **−0.1986** | 0.2730 | 0.92 |
 | +8→+12 | 0.1829 | 0.0899 | 0.0344 | 0.0528 | 0.1688 | **−0.0814** | 0.0746 | 1.19 |
 
-最小二乘 `v_high ≈ k·v_low`：**k = 0.309**（幅度每劑量步縮小 3.24×），最佳縮放解釋 **97.4% 的 response energy**，歸一化**平方**殘差 **2.6%**（殘差**範數**比例 16.1%），**cos = 0.987**。
+最小二乘 $v_{high} \approx k\,v_{low}$：**k = 0.309**（幅度每劑量步縮小 3.24×），最佳縮放解釋 **97.4% 的 response energy**，歸一化**平方**殘差 **2.6%**（殘差**範數**比例 16.1%），**cos = 0.987**。
 
-> **單位必須寫明**：「殘差 2.6%」是能量（平方）比，不是幅度差。另外對最小二乘的 k，`resid = 1 − cos²` **恆等**（實測差 1e−16），故 cos 與平方殘差是同一幾何事實，**只有 k 提供獨立資訊**（幅度壓縮）。
+> **單位必須寫明**：「殘差 2.6%」是能量（平方）比，不是幅度差。另外對最小二乘的 k，$\text{resid} = 1 - \cos^{2}$ **恆等**（實測差 1e−16），故 cos 與平方殘差是同一幾何事實，**只有 k 提供獨立資訊**（幅度壓縮）。
 >
 > **逐層異質與 L20 反號本身不是重分配證據**：固定的負 loading 正是「單一潛在標量經固定異質 profile 投影」會產生的形態。因此本節結論為：**排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與沿固定 layer profile 的標量增益壓縮相容。**
 
