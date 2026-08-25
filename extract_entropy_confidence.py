@@ -40,10 +40,11 @@ Notes:
   `final_layer_idx_stored`), so memory per sample is O(T × H), not O(T × L × H).
 
 Model-specific constants (2026-08-25):
-- `rms_norm_eps` is READ FROM config.json, never defaulted. Llama-3.1-8B uses
-  1e-5, Qwen2.5-7B-Instruct 1e-6. A wrong eps does not raise; it biases every
-  logit and therefore every entropy/top1/margin. Since entropy/log(V) is the
-  axis used to compare models, each must be normalized by its own constant.
+- `rms_norm_eps` is READ FROM config.json, never defaulted (Llama-3.1-8B 1e-5,
+  Qwen2.5-7B-Instruct 1e-6). This is a correctness convention, NOT a data-quality
+  fix: real final-layer states have RMS 1-100, so mean(x^2) >> eps and the two
+  values are numerically indistinguishable (measured entropy delta 1.4e-06,
+  identical to the correct-eps run). It changes no conclusion.
 - The metrics are computed on the FINAL layer, so `--layer_start/--layer_end`
   never enter the maths. They ARE verified against each H5's own meta and used
   in the output filename, so a name can no longer claim a band the data lacks.
@@ -81,11 +82,14 @@ def rms_norm(x: torch.Tensor, weight: torch.Tensor, eps: float) -> torch.Tensor:
 
     `eps` is REQUIRED and must come from the checkpoint's own config.json
     (`rms_norm_eps`) -- it is model-specific: Llama-3.1-8B uses 1e-5 while
-    Qwen2.5-7B-Instruct uses 1e-6. A wrong eps does not raise; it silently
-    biases every logit, and therefore every entropy/top1/margin, by a small
-    systematic amount. That matters because entropy/log(V) is the axis used
-    for cross-model comparison, so the two models must be normalized by their
-    own constants or the comparison folds in an artifact.
+    Qwen2.5-7B-Instruct uses 1e-6.
+
+    Passing each model its own constant is a correctness convention. It is NOT
+    a numerically significant correction: the RMSNorm scale is
+    1/sqrt(mean(x^2) + eps), and real final-layer states have RMS 1-100, so
+    mean(x^2) exceeds either eps by 5-9 orders of magnitude. Measured on a real
+    Qwen2 head, substituting Llama's 1e-5 moved entropy by 1.4e-06 -- the same
+    value the correct eps gives. Do not cite this as a data-quality fix.
     """
     # Cast to fp32 for stable computation; cast back to input dtype at the end.
     in_dtype = x.dtype
@@ -295,12 +299,50 @@ def extract_one_file(
         samples_grp = f["samples"]
         sample_keys = sorted(samples_grp.keys())
 
+        # ── issue 3: a TRUNCATED H5 still yields a loadable, plausible JSON ──
+        # These 7 Qwen cells were accepted by check_hs_qwen25.py, but this is a
+        # general extractor and must not depend on an external prior check.
+        n_done = meta_attrs.get("n_samples_done")
+        n_planned = meta_attrs.get("n_samples_planned")
+        if n_done is None:
+            raise SystemExit(
+                f"{h5_path.name}: no 'n_samples_done' -- the collection run was "
+                f"interrupted before writing its completion marker."
+            )
+        if len(sample_keys) != int(n_done):
+            raise SystemExit(
+                f"{h5_path.name}: {len(sample_keys)} sample groups but "
+                f"n_samples_done={int(n_done)}."
+            )
+        if n_planned is not None and int(n_done) != int(n_planned):
+            raise SystemExit(
+                f"{h5_path.name}: incomplete cell -- n_samples_done={int(n_done)} "
+                f"< n_samples_planned={int(n_planned)}."
+            )
+
         results = []
         for key in tqdm(sample_keys, desc=f"  {h5_path.name}"):
             g = samples_grp[key]
 
+            # ── issue 4: the pointer must index the ACTUAL stored array ──
+            # Comparing it only against metadata leaves a corrupt or negative
+            # index free to read a middle layer, which yields wrong-but-plausible
+            # logits instead of raising.
+            n_layers_pre = g["prefill_hs"].shape[1]
+            n_layers_dec = g["decode_hs"].shape[1]
+            if n_layers_pre != n_layers_dec:
+                raise SystemExit(
+                    f"{h5_path.name} sample {key}: prefill_hs has {n_layers_pre} "
+                    f"layers but decode_hs has {n_layers_dec}."
+                )
+            if not (0 <= last_layer_idx < n_layers_pre):
+                raise SystemExit(
+                    f"{h5_path.name} sample {key}: final-layer index {last_layer_idx} "
+                    f"outside the stored layer axis [0,{n_layers_pre})."
+                )
+
             # ── prefill last-token HS (final layer) ──
-            # prefill_hs shape: (P, num_layers, H)
+            # prefill_hs shape: (P, n_stored_layers, H)
             P = g["prefill_hs"].shape[0]
             prefill_last_hs = g["prefill_hs"][P - 1, last_layer_idx, :]   # (H,) fp16
             prefill_t = torch.from_numpy(prefill_last_hs.astype(np.float16)).to(device)
@@ -380,6 +422,11 @@ def extract_one_file(
                 "entropy_prefill": float(ent_pre[0]),
                 "top1_prefill":    float(top1_pre[0]),
                 "margin_prefill":  float(mar_pre[0]),
+                # entropy / log(V): normalises for VOCABULARY SIZE only. It does
+                # NOT make two models commensurable -- tokenizer granularity,
+                # vocabulary composition and distribution shape still differ.
+                "entropy_norm_prefill": float(ent_pre[0] / log_V),
+                "entropy_norm_decode":  (entropy_dec / log_V).astype(np.float32).tolist(),
                 # per-decode-step
                 "entropy_decode":   entropy_dec.tolist(),
                 "top1_decode":      top1_dec.tolist(),
@@ -411,6 +458,18 @@ def extract_one_file(
             f"{h5_path.name}: meta has no 'steer_alpha'. Without it the α of this "
             f"cell exists only in its filename."
         )
+    # `.get("steer_mode", "none")` was fail-OPEN: a steered cell missing the field
+    # would be recorded as unsteered -- the most damaging possible mislabel.
+    if "steer_mode" not in meta_attrs:
+        raise SystemExit(f"{h5_path.name}: meta has no 'steer_mode'.")
+    _alpha = float(meta_attrs["steer_alpha"])
+    _mode = str(meta_attrs["steer_mode"])
+    _expected = "none" if _alpha == 0.0 else "prefill_only"
+    if _mode != _expected:
+        raise SystemExit(
+            f"{h5_path.name}: steer_alpha={_alpha} implies steer_mode="
+            f"'{_expected}' but the H5 says '{_mode}'."
+        )
     out_meta = {
         "task":        meta_attrs.get("task", ""),
         "model":       meta_attrs.get("model", ""),
@@ -425,9 +484,13 @@ def extract_one_file(
         "character":   meta_attrs.get("character", "(none)"),
         "prompt_template": meta_attrs.get("prompt_template", ""),
         "metric_type": "entropy_confidence",
+        # vocab_size is REQUIRED to interpret entropy: entropy/log(V) cannot be
+        # recovered from the JSON without it.
+        "vocab_size":  int(vocab_size),
+        "log_vocab_size": float(log_V),
         # provenance
         "steer_alpha": float(meta_attrs["steer_alpha"]),
-        "steer_mode":  str(meta_attrs.get("steer_mode", "none")),
+        "steer_mode":  _mode,
         "rms_norm_eps": float(rms_eps),
         "final_layer_idx_stored": int(last_layer_idx),
         "source_h5": h5_path.name,
@@ -494,9 +557,11 @@ def main():
         help="Directory containing hs_*.h5",
     )
     parser.add_argument(
-        "--model_dir", type=str,
-        default="meta-llama/Llama-3.1-8B-Instruct",
-        help="HF model id or local path. Only norm + lm_head weights are loaded.",
+        "--model_dir", type=str, required=True,
+        help="LOCAL checkpoint directory (must contain config.json + safetensors). "
+             "A bare HF repo id is REFUSED: it would build the whole model on CPU "
+             "to read two tensors, and config.json must be readable for rms_norm_eps. "
+             "Resolve one with huggingface_hub.snapshot_download().",
     )
     parser.add_argument(
         "--out_dir", type=str,
