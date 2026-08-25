@@ -849,19 +849,11 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 ### 4.8 Slow-State Behavioral Validation
 
-§4.2–4.4 的 `s_t` 讀數皆基於 **level**（水平），但三成分表格把 `s_t` 命名為 **Ramping / Vigor** 並在 H2 預設「斜率＝推進速度」。本節專門檢驗這條 **slope-based** 預測。
+§4.2–4.4 主要以 `s_t` 的**水平（level）**描述模型是否仍處於持續推理與未完成提交的狀態。本節進一步檢驗另一項預測：如果 `s_t` 的**斜率（slope）**代表 ramping / vigor，較陡的上升是否應對應更快的答案提交。分析使用固定 early window 與尚未提交的 at-risk 樣本，以避免斜率和提交位置產生機械耦合；完整方法與統計規格見 `CLAUDE.md`。
 
-**1. 問題與口徑。** `s_t` slope 是 ramping/vigor 的**先驗 operationalization**（保留）；本實驗檢驗 GSM8K 是否呈現預期的 slope–progress relationship（陡斜率→更快提交），**這是 task-level 檢驗，不決定指標改名**。分析對象為 pooled 11 conditions（No-CoT dose −8…+8、CoT α=0/−4）× 300。
+結果清楚區分了 **state level** 與 **state slope**。`s_t` level 穩定關聯 commitment timing：水平越高，模型通常維持推理越久、提交越晚（ρ=**+0.379**），而且這項關係在回歸與 held-out questions 上均可重現。相反，slope 與提交時間的直接關係接近零（ρ=**−0.020**）；控制 level 後出現的 slope 效應方向反而是「斜率越正，提交越晚」，不符合「斜率越陡、推進越快」的 vigor 預測。premature commitment 的 slope 分析因多數樣本已在測量窗內提交，只保留為診斷，不作主要證據。
 
-**2. 防洩漏設計（load-bearing）。** slope 若取自 `[0, c1)` 會與 commit 位置機械耦合（更長的 pre-commit 窗同時壓低斜率、又本身即更晚 commit）。故：(i) 用**固定 early window `[0,20)`**；(ii) commit-timing 分析僅限 **at-risk subset（`commit_step≥20`）**——全樣本中約 23% 在 token 20 前已提交，對它們 `[0,20)` 跨過 commit、斜率混入 post-commit release；(iii) confidence 控制亦用固定 `[0,20)`；(iv) 加入 **α-condition fixed effects**；(v) question-level held-out 並**凍結 train 標準化**套用於 test。
-
-**3. 核心結果。**
-- **level → commit timing 穩定**：at-risk subset `s_t` level ↔ commit_step ρ=**+0.379**（p<1e-85）；item-level 回歸加入 level 使 R² 0.235→0.259（β=+19.6, p=7e-7），held-out test R²≈0.25——三處一致。
-- **slope → commit timing 為 null**：marginal ρ=**−0.020**（ns）。
-- **控制 level 後出現的 conditional slope 不支持 vigor**：level 與 slope 強共線（r=−0.48），加入 slope 後雖得顯著 β（p=.003），但這是 **suppressor 效應**，且方向為「較正 slope → **更晚** commit」，與預設 vigor 預測（陡→更快）**相反**。
-- **premature 分析 time-confounded，不作證據**：749/754 premature 樣本在測量窗 token 20 **之前**就提交，`[0,20)` slope 與 post-commit release 重疊，僅作診斷。
-
-**4. task-level 判決。** GSM8K commit-timing **未檢出符合預期方向的 ramping/vigor slope evidence**；`s_t` **level** 在本任務中穩定關聯 ongoing engagement / commitment timing（呼應 §4.2–4.4 一貫以 level 承載信號的用法，並為之補上單題層面的行為意義）。**ramping/vigor 的建模定義保留**，留待 effort / betting / agentic progression 等能誘發漸進逼近結構的 task 檢驗——GSM8K（grade-school 算術，無「越接近獎勵越快」結構）不構成否證。分析腳本 `analyze_slow_state_behavior.py`（offline，`python3.10`）。
+因此，GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 的 readout，但**未檢出 slope-based vigor evidence**。這不否定 ramping / vigor 的建模假說；GSM8K 缺乏逐步逼近獎勵的任務結構，更適合在 effort、betting 或 agentic progression 等任務中繼續檢驗。換言之，當前已驗證的是 **slow-state level 的行為意義**，而 slope 是否能表徵 vigor 仍是 open question。
 
 ## 5. Qwen2.5 Cross-Model Replication
 
