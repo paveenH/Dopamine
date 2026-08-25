@@ -753,7 +753,7 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 **1. Task-entry gain（manipulation check）。** `G_prefill` 在 NMD 上遠強於 null（α-dose `d_z` ±72–80 vs null ±3–7），但這主要來自 **co-design identity**（$x_{prefill}(\alpha) \approx x_{prefill}(0) + \alpha\lVert m\rVert^{2}$）、NMD 因取 top-\|diff\| 而 norm 最大，以及 mask 本身即抽自該方向。因此它是 **manipulation check，不是獨立的 direction-specificity evidence**。
 
-**2. Commitment-locked temporal organization（本節主結果）。** `s_pre_mean` 與 `p_post_mean` 在三類 null 中都保持極端；自然 CoT 與注入 α conditions 呈現相容結構；same-support、random-support 與 off-support controls 共同說明效應與 NMD support–weight 的特定匹配有關。**這是目前最強的 exploratory RSN readout-specificity evidence。**
+**2. Commitment-locked temporal organization。** `s_pre_mean` 與 `p_post_mean` 在三類 null 中都保持極端；自然 CoT 與注入 α conditions 呈現相容結構；same-support、random-support 與 off-support controls 共同說明效應與 NMD support–weight 的特定匹配有關。**這是目前最強的 exploratory RSN readout-specificity evidence。**
 
 > Across support-randomized and orthogonal generic-direction controls, the NMD/RSN projection consistently exhibits stronger signed commitment-locked temporal organization. The effect is primarily expressed through state level and amplitude and appears to depend on the specific matching between top-|diff| support and role-diff-aligned weights.
 
