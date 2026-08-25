@@ -12,6 +12,23 @@
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 
 
+**Confidence proxies（entropy / top1 / margin / info_gain）：BLOCKED，不是 null。**
+
+Qwen 樹下 `metrics_*.json` **不存在（0 個檔案）**。這些量來自 final-layer HS 經 final norm + `lm_head` 的真實 next-token 分佈，是與 RSN 投影**不同的基底**，必須另行由伺服器端萃取：
+
+```
+python extract_entropy_confidence.py \
+  --h5_dir  /data1/paveen/Dopamine/components/hidden_states/gsm8k/qwen25_signal_v1 \
+  --model_dir Qwen/Qwen2.5-7B-Instruct \
+  --out_dir /data1/paveen/Dopamine/components/qwen2.5/metrics_hs \
+  --layer_start 16 --layer_end 22
+```
+
+> **記為 BLOCKED 而非略過，以免讀者把「沒有」誤讀成「沒有效應」。** 解封後有兩項限制須連同數字陳述：（a）它只覆蓋 **7 個重採 H5 cell**，而 RSN family 有 11 檔，故 **logit family 的 dose 曲線較稀疏，兩者不可畫成等密度取樣**；（b）跨模型引用時 entropy 一律用 `entropy/log(V)`（§5.1 規則 3）。
+>
+> **這使 §4.4 Result 3 的核心結論在 Qwen 上無法檢驗。** Llama 的「α 不是 selective wanting intervention」（−6 同時抬高 `s_t`、residual amplitude 與 output decisiveness）需要 confidence 側資料；Qwen 目前**只有 RSN 側**，因此**不能宣稱 Qwen 支持或反對 wanting–confidence 的聯動**。
+
+
 8. manifold
 在manifold前先做一个很便宜的SNR检查：
 
