@@ -1279,10 +1279,118 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 
 ## 6. Conclusion
 
-本研究辨識出一組可調節 LLM reasoning state 的 **Role-Sensitive Neurons (RSNs)**。它們主要反映 task engagement、action readiness 與 commitment dynamics，而不是直接儲存知識或提升推理 capacity。觀察結果顯示，CoT、Persona 與 answer commitment 會以不同的時間模式調制 RSN state；其中 CoT 主要提高 pre-commit engagement，Persona 主要重組 task-entry、commitment formation 與 post-commit release 的時間分配。
+从目前的 Llama3 与 Qwen2.5 结果来看，ThinkingCurve 可以形成一条相当完整、但需要分层表述的结论链：
 
-更重要的是，沿既定 RSN/NMD 方向施加 α steering，可近乎線性地控制 task-entry gain，並進一步產生非線性的 commitment state、output decisiveness 與 behavioral working point。極端負向 steering 造成 commitment-formation collapse，過高正向 steering 則伴隨較差的 commitment state 與行為表現，而中等負向範圍形成較佳工作點。CoT 與 α=−4 的單劑量分析進一步顯示，α 主要控制 generation boundary，CoT 則主要重塑後續 decode dynamics，兩者具有不同的時間重心並可大致疊加。
+> `α / prompt manipulation → G_prefill → decode slow/fast dynamics → commitment → state release / stopping → accuracy`
 
-因此，目前最合適的結論是：**RSNs constitute a controllable latent gain mechanism that functions as a computational analogue of dopaminergic adaptive calibration in LLMs.** 這些 neurons 能以 task-dependent、dose-dependent 的方式調節模型的投入、推進、承諾與停止，呈現與 dopamine-related wanting、vigor 和 optimal-level calibration 相容的功能結構。但此結論屬於 **computational and behavioral analogy**：α 不等同生物多巴胺濃度，`G_prefill`、`s_t` 與 `p_t` 也尚不能直接等同 tonic、ramping 與 phasic dopamine。就 `p_t` 而言,tonic/ramping/phasic 的研究框架保留,但證據邊界須明確:其 **amplitude / dispersion 驗證得到支持**（§4.4 Result 3–4:α=−6 在乾淨 pre-commit 段提高 centered RMS，pre-commit residual dispersion 隨 α 變化）,而 **frequency organization 暫未得到支持**（頻率指標不隨 α 穩定變化,commit-centered 的頻譜變化對 answer-format / repetition 敏感）。因此 `p_t` 目前是 **candidate phasic-like signal**,而非已識別的 biological phasic dopamine。就 `s_t` 而言，證據呈現清楚的**強／弱分佈**：**task-entry gain 強**（`G_prefill` 隨 α 近線性）、**slow-state level 與 release 強**（level 呈 asymmetric peaked response 追蹤 acc、穩定關聯 commitment timing，release 隨 commit 快速下降），**但 GSM8K 中 slope-based vigor evidence 未檢出**（§4.7：leak-free at-risk 下 slope↔timing 為 null，控制 level 後僅剩一個方向與 vigor 相反的 suppressor 殘差）。因此 **ramping/vigor 的建模定義保留**，但其斜率預測在本任務未兌現，留待 effort / betting / agentic progression 等能誘發漸進逼近結構的 task 檢驗——已驗證的 `s_t` 經驗內容是 **slow engagement / commitment-state readout（level）**，vigor（slope）為 open 的 task-level 問題。
+其中 α 确实是干预，但链条中各变量之间尚未完成 mediation，因此不能把每个箭头都写成已证明的因果关系。
 
-方向特異性已由**三個 null family** 收緊（§4.6：support-selection `diff_random` N=11 + generic-direction `ortho_gauss_same`/`off` 各 N=10）。兩層結論：task-entry raw gain（`G_prefill`）遠強於 null 但屬 co-design / manipulation-check；而 **commitment-locked 的 `s_t` / `p_t` 時間軌跡提供目前最強的 NMD direction-specificity evidence**——其 commit 前後帶符號的結構化走向（幅度/水平）穩定超出全部三個 family（30 個 primary cell 中 NMD 皆相對各自 null 保持極端 pctile，null median 皆 ≈0），且在注入 α 與自然 state（CoT / Persona，其中 CoT 最獨立）上一致，故**不能僅由 α-steering 的 injection–projection identity 解釋**。**off-support generic-direction null 這格最吃重**：把權重去掉 role-diff、位置移出 NMD 後 NMD 仍獨佔極端——與 ① 對照後，證據指向 **top-|diff| 支撐與 role-diff-aligned 權重的特定組合**是特異性來源，排除了「僅 top-|diff| 支撐」與「僅複用 role-diff 逐坐標權重」兩種單成分解釋。限定：各 family N=10–11 為 exploratory ordering（三 family/30 cell 共享同一批 hidden states 與指標，非獨立重複，不作正式顯著性宣稱），僅 Llama3-8B、僅 offline re-projection，是否另有獨立於幅度的形狀差異仍待定。後續優先跨模型、跨任務與含 random-direction 因果 steering 的對照，確認這套機制的普遍性及其與其他 latent control directions 的區別。
+1. **RSN 是一个可控的 task-entry gain axis。**  
+   两个模型中，`G_prefill` 都随 α 近乎线性变化。Qwen 到 `+12` 仍保持 `R²≈0.9999`，说明后续平台或性能下降不是注入失效造成的。
+
+2. **一次性的 prefill steering 足以改变整条生成路径。**  
+   注入只发生在生成边界；到 `decode[0]` 时，入口偏移已回弹约 95–100%，但 commitment、accuracy、循环和停止行为仍明显改变。这支持 initial-condition / boundary-gating：α 改变起始状态，效应通过 KV cache、早期 token 选择和 autoregressive path dependence 延续。
+
+3. **线性输入会转化为非线性的内部状态与行为。**  
+   `G_prefill` 线性移动，但 `s_t`、commitment timing 和 accuracy 并不线性响应。因此 RSN steering 更像改变模型所在的 working regime，而不是简单地“gain 越高越好”。
+
+4. **Commitment 是一个明确的 generation-state transition。**  
+   首次 `####` 附近，`s_t`、`p_t` 和输出分布都会快速变化。Llama 与 Qwen 均出现 commit-locked 的负向 `p_t` dip，说明这一事件在两个模型中都对应快速状态转折。
+
+5. **`s_t` level 是目前最稳定的 slow-state 行为读数。**  
+   较高、较持续的 pre-commit `s_t` 通常与较晚 commitment、持续 processing/engagement 和 viable reasoning 同向变化。它比 task-entry gain 更接近实际的 commitment behavior。
+
+6. **Commit 后存在 slow-state release。**  
+   Llama 的 release 较明显；Qwen 在可分析的高剂量 cell 中也呈相同方向，但只有 Llama 的约 `0.6–0.8×`，并且下降后仍停留在较高水平。因此这是 **same-sign but attenuated replication**。
+
+7. **Thinking quality 与 stopping quality 是不同维度。**  
+   首次答案正确不代表后续生成稳定。模型可能先输出正确答案，随后继续改写、重复或产生其他答案。因此 first-answer accuracy 不能代替 loop、answer switching、自然 EOS 和 stable completion。
+
+**Llama3 only**
+
+8. **Llama 存在非对称的最佳工作点。**  
+   离散最佳剂量是 `α=−6`；`−8` 出现明显崩溃，正 α 端逐渐下降后趋平。这不是平滑、对称的标准 inverted-U，更准确的说法是 **asymmetric peaked working-point response**。
+
+9. **Llama 的表现更接近 decode state，而不是入口 gain 大小。**  
+   dose-level 上，accuracy 与 early `s_t` 的相关约为 `r=0.74`，高于与 `G_prefill` 的相关。可视为规律性证据，但只有 9 个 dose points，不能证明 `s_t` 中介 accuracy。
+
+10. **Correct responses 具有不同的 slow-state trajectory。**  
+    Correct 组在 commit 前通常维持更高、更持久的 `s_t`，commit 后释放更快。但这可能来自题目可解性、熟悉度或较早形成可行路径，不能写成“高 `s_t` 导致答对”。
+
+11. **CoT 主要提高 engagement 与 output decisiveness。**  
+    CoT 提高 task-entry gain，维持更高的 pre-commit `s_t`，降低 entropy、提高 top1/margin，并伴随更快的 post-commit release。
+
+12. **α 与 CoT 的作用时间不同。**  
+    α 主要控制 generation boundary；CoT 主要重塑后续 decode/commitment dynamics。两者在 task entry 和 output decisiveness 上大致可叠加，未观察到可靠的强交互。
+
+13. **Persona 会重新分配推理阶段，而不只是整体平移信号。**  
+    Expert persona 在 task entry 的 gain 更高，但 pre-commit 阶段排序可以反转，post-commit release 也不同。Persona 更像改变 engagement–commitment–release 的时间配置。
+
+14. **RSN temporal readout 具有方向特异性。**  
+    与 random-support、same-support orthogonal 和 off-support directions 相比，NMD/RSN 投影呈现更强的 commitment-locked signed organization。这支持 readout specificity，但不是 random-direction causal steering specificity。
+
+**Qwen Only**
+
+15. **Qwen 的主要变化是把“先答后推”改成“先推后答”。**  
+    `α≤+4` 时首次 `####` 通常在 step 3 左右；`+6→+8` 后 commitment 大幅右移，accuracy 从约 `68%` 提升至 `86%`，loop rate 从 `13.0%` 降至 `2.7%`。
+
+16. **Qwen 呈现上升后平台，而不是 Llama 式尖锐最佳点。**  
+    accuracy 在 `+8/+10/+12` 为 `86.00/88.00/87.67%`；相对 commit 位置也趋平，但绝对 commit step 仍由 `110→134→163` 延后。即相对位置饱和，绝对延迟继续增加。
+
+17. **Qwen 高剂量下出现 decode-response compression。**  
+    入口 gain 继续线性增长，但 decode `s_t` 对每单位 α 的响应显著减弱。它是 compression，不是完全停止响应的 ceiling。
+
+18. **这种 compression 更像固定 profile 的标量缩放。**  
+    两个剂量区间的逐层 response 几乎共线：`cos=0.987`、`k=0.309`，97.4% response energy 可由固定 profile 的整体缩小解释。目前没有看到明显的 layer-profile rotation。
+
+19. **RSN 比一般 null direction 更像干净的标量通道。**  
+    RSN 的 profile residual 与 CV 均低于三个 null family。这个结果反对把高剂量压缩解释为明显的方向重分配，但仍属于 offline readout evidence。
+
+20. **Qwen 复现 fast transition，但没有复现 residual-amplitude dose effect。**  
+    `abs_mean/std` 在 `−8…+12` 基本不变；但 commit 当步的负向 dip 从 `−0.578` 加深到 `−1.322`。因此 α 改变的是 commit 瞬间的 signed transition，而不是整体放大 fast residual。
+
+21. **Qwen 的 post-commit release 存在但较弱。**  
+    在相同 `±20 token` 窗口中，Qwen `+8/+10/+12` release 为 `−0.148/−0.171/−0.233`，方向与 Llama 一致，但下降后仍维持较高的 slow-state plateau。
+
+**Cross Model**
+
+22. **两个模型共享部分调节结构。**  
+    两者都呈现：
+
+    - α 线性控制 task-entry gain；
+    - entry offset 在 decode 初期迅速释放；
+    - 后续 commitment 与行为发生非线性变化；
+    - commit 当步出现 fast residual transition；
+    - commit 后出现 slow-state release。
+
+23. **共同机制更可能是“adaptive calibration”，而不是共同剂量曲线。**  
+    Llama 是尖锐的非对称工作点，Qwen 是上升后平台。这说明 RSN steering 的作用可能依赖模型基线、任务和生成策略，不存在当前数据支持的统一最佳 α。
+
+24. **不能直接比较 raw α。**  
+    Qwen 的 `+8` 与 Llama 的 `−6` 不是共同强度的干预。两模型使用不同 mask、层数与模型内 reference，因此不能根据最佳 α 的正负推断它们位于不同基线位置。
+
+25. **“相同 working state、不同到达方向”仍是假说。**  
+    当前只能确认形态层面的部分一致；`Z_prefill` 尺度不同、`s_t` cohort 不匹配，Qwen output decisiveness 又尚未提取，因此不能声称两者到达相同内部状态。
+
+**null**
+
+26. **`s_t` slope 没有支持 GSM8K 上的 vigor prediction。**  
+    Llama 的 marginal slope–timing 关系为 null；控制 level 后的残余方向与预期相反。Qwen 可分析 cell 中 slope 也逐渐趋近 0。因此当前有意义的是 `s_t level`，不是 ramping slope。
+
+27. **`p_t` frequency organization 没有稳定证据。**  
+    zcr、spectral centroid、dominant frequency 等容易受到 answer format、重复尾巴和窗口长度影响。当前较可靠的是 amplitude 与 signed transition，不是频率重组。
+
+28. **`p_t` 不能视为独立 fast channel。**  
+    它是同一条 RSN 投影相对 EMA baseline 的残差，因此不能拿 `s_t` 与 `p_t` 当作两条独立证据累加。
+
+29. **Commit 附近的 confidence change 可能包含格式效应。**  
+    `####` 本身会改变 token distribution，因此 entropy spike、top1 dip 和 margin change 不能全部解释为实质 confidence 改变。
+
+30. **Qwen 的 output decisiveness 仍是 BLOCKED。**  
+    entropy、top1、margin 尚未提取，不能写成没有效应，也不能判断 Qwen 是否复现 Llama 的 wanting–confidence 联动。
+
+31. **目前没有 manifold reorganization 的证据。**  
+    一维结果更符合固定 RSN profile 的标量压缩。轨迹转向、off-manifold deviation、intrinsic dimension 和 tangent alignment 仍需 manifold pilot 检验。
+
+32. **目前没有证明 causal direction specificity。**  
+    现有 random/orthogonal remask 是对同一批 hidden states 的重新投影，只证明 readout specificity。要证明只有 RSN steering 能产生行为变化，仍需真正注入 random/orthogonal directions。
