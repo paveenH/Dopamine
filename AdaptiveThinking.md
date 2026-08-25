@@ -713,9 +713,10 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 | | role-diff 權重 | ⊥ role-diff 權重 |
 |---|---|---|
 | **NMD support** | —（即 NMD 本身） | `ortho_gauss_same`：NMD remains extreme |
-| **NMD-disjoint support** | `diff_random`：NMD remains extreme | `ortho_gauss_off`：NMD remains extreme |
+| **random support** | `diff_random`：NMD remains extreme | — |
+| **strictly NMD-disjoint support** | — | `ortho_gauss_off`：NMD remains extreme |
 
-> 這是幫助解釋三個對照關係的 **control matrix，不是完整、嚴格的 factorial design**——`diff_random` 的 support 是隨機抽樣而非窮舉一格。
+> 這是幫助解釋三個對照關係的 **control matrix，不是完整、嚴格的 factorial design**——`diff_random` 的 support 是**隨機抽樣**、與 NMD 可能有少量重疊，並非嚴格 disjoint；只有 `ortho_gauss_off` 的 support 才與 NMD 完全不相交。表中的「—」是未取樣的格，不是空結果。
 
 - **`ortho_gauss_same`** 表明：僅使用 NMD support **不足以**複現 NMD 效應。
 - **`diff_random`** 表明：僅保留 role-diff coordinate weights、但放到隨機 support 上，也**不足以**複現。
@@ -730,7 +731,7 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 - 全部 **10 個 (contrast × signal) cell** 的 NMD signed 軌跡距離都**超過已採樣的全部 null draws**（pctile 90–100%）。
 - NMD 的 RMS 距離約為 null median 的 **3–7 倍**。
 - **RMS 同時包含 level、amplitude 與 shape**，不能單獨解讀為軌跡形狀不同。
-- `p_t` 的 NMD/null **shape correlation 約 0.39–0.55**，提示主要差異是「**同形不同幅**」。
+- `p_t` 的 NMD/null **shape correlation 約 0.39–0.55**：兩者存在**部分共同形狀**，但當前 RMS 差異主要體現的是 **level/amplitude**，**尚未建立獨立的 shape specificity**。
 - `s_t` 的 null centroid 近乎平坦（centroid std 極小），其 shape correlation **不穩定亦不可解釋**。
 
 > RSN 的特異性主要體現在 **commitment-locked signed level/amplitude**，而**尚未證明**存在獨立於幅度的 trajectory-shape specificity。
