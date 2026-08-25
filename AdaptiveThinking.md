@@ -1165,13 +1165,18 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 | +10 | 235.37 | 3.167 | 41.39 | 1.673 | 163 |
 | +12 | 288.01 | 3.250 | 50.12 | 1.752 | 187 |
 
-paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147、`+10→+12` p=0.361。入口每 +2α 遞增 ~50 個 raw 單位而 decode 側只遞增 0.63 → 0.19 → 0.08，**RAW response ratio 單調下降 0.0131 / 0.0037 / 0.0016**。
+| 劑量步 | Δ decode | RAW response ratio | paired p |
+|---|---:|---:|---:|
+| +6→+8 | 0.63 | **0.0131** | 0.00114 |
+| +8→+10 | 0.19 | **0.0037** | 0.0147 |
+| +10→+12 | 0.08 | **0.0016** | 0.361 |
 
-> **口徑三則。**（a）headline 用 **RAW**：Z ratio 為 0.0269/0.0037/0.0091，**非單調**，只作 sensitivity。（b）`s_t` 一律由 `x_decode` **decode-seeded** 重算，禁用 stored `ema_decode`（其 prefill 汙染隨 α 增長，正好落在 pre-commit window：|stored − decode-seeded| 在 t=20 時 α=0 為 0.17、α=+12 為 97.18）。（c）commit 位置以 **tokenizer offset mapping** 定位，非字元比例。
->
-> **這是 compression，不是 ceiling。** 一個「已到頂」的解釋要求 decode 側停止回應；此處 `+6→+8`、`+8→+10` 仍顯著，只是每單位 α 的回應變小。
->
-> **cohort 選擇在 manipulation 的結果上**（§5.3）：只有高 α 才普遍具備 ≥20 步 pre-commit span，故此表**不含可比的低劑量對照**，是高劑量區間內部的相對比較。
+入口每 +2α 遞增約 50 個 raw 單位，decode 側的每單位回應則單調下降。
+
+**結論。** 這是 **compression 而非 ceiling**：`+6→+8`、`+8→+10` 仍顯著，decode 側並未停止回應，只是每單位 α 的回應變小。
+
+- headline 用 **RAW** ratio；Z ratio（0.0269 / 0.0037 / 0.0091）非單調，僅作 sensitivity。
+- cohort 選擇在 manipulation 的結果上（§5.3），故本表**不含可比的低劑量對照**，是高劑量區間內部的相對比較。
 
 > 圖：`fig52_compression.png`（左 entry、中 decode、右 RAW response ratio）
 
@@ -1186,11 +1191,10 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 
 最小二乘 $v_{high} \approx k\,v_{low}$：**k = 0.309**（幅度每劑量步縮小 3.24×），最佳縮放解釋 **97.4% 的 response energy**，歸一化**平方**殘差 **2.6%**（殘差**範數**比例 16.1%），**cos = 0.987**。
 
-> **單位必須寫明**：「殘差 2.6%」是能量（平方）比，不是幅度差。另外對最小二乘的 k，$\text{resid} = 1 - \cos^{2}$ **恆等**（實測差 1e−16），故 cos 與平方殘差是同一幾何事實，**只有 k 提供獨立資訊**（幅度壓縮）。
->
-> **逐層異質與 L20 反號本身不是重分配證據**：固定的負 loading 正是「單一潛在標量經固定異質 profile 投影」會產生的形態。因此本小節結論為：**排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與沿固定 layer profile 的標量增益壓縮相容。**
->
-> **層×劑量的 F 值只作描述與排序，不得宣稱「交互作用顯著」。** 六個層是同一組 hidden state 的重複投影，高度相依、sphericity 不成立，古典 repeated-measures p 值在此無效。若此差異日後須承擔主張而非描述，正當路徑是 **question-level permutation test 或 cluster bootstrap（以 question 分群）**。
+**結論。** 排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與**沿固定 layer profile 的標量增益壓縮**相容。逐層異質與 L20 反號本身不是重分配證據——固定的負 loading 正是單一潛在標量經固定異質 profile 投影會產生的形態。
+
+- `resid = 1 − cos²` 對最小二乘 k 恆等，故三者中**只有 k 提供獨立資訊**（幅度壓縮）。
+- 層×劑量的 F 值只作描述與排序，**不得宣稱交互作用顯著**（六層為同一 hidden state 的重複投影，sphericity 不成立）。
 
 > 圖：`fig53_profile.png`（左逐層回應、中 k·v_low 疊合、右兩劑量步散點共線）
 
@@ -1206,48 +1210,32 @@ paired（同題、固定 cohort）：`+6→+8` p=0.00114、`+8→+10` p=0.0147�
 | k | 0.309 | 0.250 | 0.358 | 0.240 |
 | `‖v₆₈‖` 中位數 | 0.907 | 0.270 | 0.752 | 0.349 |
 
-**RSN 的殘差與 CV 都低於全部三個 family**：RSN 方向比一般稀疏方向**更像乾淨的標量通道**。這是**反對**把 §5.6.2 讀成重分配的證據，不是支持。
+**結論。** RSN 的殘差與 CV **都低於**全部三個 family：RSN 方向比一般稀疏方向**更像乾淨的標量通道**。這是**反對**把 §5.6.2 讀成重分配的證據，不是支持。措辭維持 **argues against** 而非 excludes（N=10、p 下限 0.182、三 family 非獨立重複）。
 
-> **兩則不得跳過的限定。**（a）**§5.6.2 的「CV 0.92 偏高」在有了參照分布後不成立**——一般方向的 CV 是 2.4–3.9，RSN 屬低端，逐層異質性不構成特殊性證據。（b）**低 SNR caveat 只適用於三個 family 中的兩個**。對 `diff_random` 與 `ortho_off`（RSN 幅度的 30–38%）caveat 成立——對近噪聲擬合 k 天然留下大殘差。但 **`ortho_gauss_same` 具備 RSN 83% 的回應幅度，殘差仍是 RSN 的約 4 倍（0.102 vs 0.026）**，且它是**配對最嚴格的 null**（NMD 自身 support、權重 ⊥ role-diff、norm-matched），因此無法用低 SNR 解釋掉，結論主要由它承載。措辭仍維持 **argues against** 而非 excludes（N=10、p 下限 0.182、三 family 非獨立）；`pctile 0.0%` 亦**不可**轉寫為「RSN 特殊」——percentile 只說明 RSN 在極端，而此處極端指向非預期方向。
->
-> **邊界（binding）**：這批 hidden states 是在 RSN steering 下生成的，重投影因此界定的是 **readout specificity**，不是 intervention 的因果特異性。**steering direction 的因果特異性主張仍需另行注入 random/orthogonal 方向並重新採集**，那是另一個實驗。各 family N=10 → 雙邊 p 下限 0.182；三個 family 共享同一批 hidden states、cohort 與 reference，**非獨立重複**，「三者一致」不構成低機率論證。
+- 結論主要由 `ortho_gauss_same` 承載：它具備 RSN 83% 的回應幅度、是配對最嚴格的 null（NMD 自身 support、權重 ⊥ role-diff、norm-matched），殘差仍是 RSN 的約 4 倍，無法以低 SNR 解釋。低 SNR caveat 只適用於 `diff_random` 與 `ortho_off`（RSN 幅度的 30–38%）。
+- §5.6.2 的「CV 0.92 偏高」在有了參照分布後**不成立**——一般方向為 2.4–3.9，RSN 屬低端。
+- **邊界（binding）**：這批 hidden states 生成於 RSN steering 之下，重投影界定的是 **readout specificity**，非 intervention 的因果特異性；後者需另行注入 random/orthogonal 方向並重新採集（Open 4）。
 
 > 圖：`fig54_null.png`（左殘差、中 CV、右逐層回應與各 family 幅度）
 
-### 5.7 Cross-Model Working-State Alignment: Currently **Not Executable**, for Structural Reasons
+### 5.7 Cross-Model Working-State Alignment: Partial Comparability and Current Limits
 
-本小節原本要問的是：**Qwen 的最佳正劑量與 Llama 的最佳負劑量，是否到達相近的 working state？** 若是，則可主張「相同的功能性工作狀態，不同的基線位置與到達方向」。
+本節檢驗 Qwen 的正向最佳劑量與 Llama 的負向最佳劑量是否到達相近的 functional working state。現有結果支持兩模型具有部分相似的調節形態，但尚不足以證明其內部狀態已經對齊。
 
-**結論：此對齊目前無法執行。** 四項待比較量中，兩項在種類上不可比、一項缺資料、一項缺對照基線。這不是資料量不足，加樣本不會解決。
+| 待比較量 | Llama 最佳點 `α=−6` | Qwen 高表現區 `α=+8…+12` | 當前判定 |
+|---|---:|---:|---|
+| `Z_prefill` | `−19.74` | `+32.68…+50.06` | 不可直接比較：兩者以各自模型的 α=0 reference 標準化 |
+| pre-commit `s_t` | Δ vs α=0 = `+0.449`（`d_z=0.584`，paired `n=291`） | level = `1.448`（at-risk `n=212`） | 不可直接比較：一側是配對變化量，另一側是選定 cohort 的絕對水平 |
+| commitment timing | 各劑量約 `77%` coverage，`posN` 隨 α 平緩變化 | `posN: .010→.828`，coverage `5.7%→96.0%` | 可比較變化形態，不可視為相同 commitment state |
+| output decisiveness | entropy、top1、margin 齊備 | 尚未提取 | `BLOCKED`，不是 null |
 
-| 待比較量 | Llama 最佳 α=−6 | Qwen 最佳 α=+8…+12 | 可否對齊 |
-|---|---|---|---|
-| `Z_prefill` | −19.74 | +32.68…+50.06 | **否**——符號相反且量綱不同（見下） |
-| pre-commit `s_t` | Δ vs α=0 = **+0.449**（`d_z`=0.584，paired n=291） | **level** 1.448（at-risk n=212） | **否**——一個是配對 Δ，一個是 level |
-| commitment timing / state | `posN` 隨 α 平緩變化，各劑量皆有 ~77% coverage | `posN` .010 → .828，coverage 5.7% → 96.0% | **部分**——只能比形狀，見下 |
-| output decisiveness | entropy/top1/margin 齊備（§4.4 Result 3） | **BLOCKED**（§5.5） | **否**——Qwen 無資料 |
+**可以確認的跨模型一致性**是：兩模型都呈現 task-entry gain 與後續 decode dynamics 的解耦，而且高表現區均伴隨 commitment timing、生成穩定性與退化尾巴的系統性變化。這支持兩模型可能共享某種 adaptive-calibration 結構。
 
-**三個具體障礙：**
+**目前不能確認的是**：Qwen `+8…+12` 與 Llama `−6` 是否到達同一個內部 working state。兩模型的 `Z_prefill` 使用不同 reference，pre-commit `s_t` 也來自不同統計量與 cohort；Qwen 在 α=0 時僅 `12/300` 個樣本具有可分析的 pre-commit window，因此無法建立與高劑量條件相匹配的自然基線。
 
-1. **`Z_prefill` 符號相反且不同量綱。** 兩者最佳點的 `Z_prefill` 為 −19.74 與 +32.68，**方向相反**。這正是「不同基線位置、不同到達方向」的假說所預期的，因此**符號相反本身不是障礙**——障礙在於兩個 Z 座標各自以**自身模型的 α=0 prefill** 標準化（§5.1），跨模型的 Z **不是同一把尺**，故「+32.68 與 −19.74 是否量級相當」這個問題本身沒有定義。要回答它需要一個模型無關的共同標度，本研究沒有。
+同樣地，不能僅根據「Qwen 最佳劑量為正、Llama 最佳劑量為負」推論兩模型位於不同的基線位置。名義 α 並非跨模型共享的 intervention scale，其符號與數值不能直接用作內部狀態座標。
 
-2. **`s_t` 的兩個數字是不同的量。** Llama 報的是**相對自身 α=0 的配對 Δ**（每一檔都有 ~77% coverage 的可比基線）；Qwen 報的是 **at-risk cohort 上的 level**。要把 Qwen 換成配對 Δ，需要 Qwen 在**同一 cohort** 上的 α=0 參考——但 Qwen α=0 的 at-risk 只有 **12/300 (5.7%)**，**該參考不存在**。這是 §5.3 那條結構限制的直接後果：Qwen 的 pre-commit cohort 選擇在 manipulation 自身的結果上，Llama 則否。
-
-3. **output decisiveness 完全缺席**（§5.5 BLOCKED）。而這一項恰是 Llama 側 working point 的三個組成之一。
-
-> **可以說的、與不可以說的。**
->
-> ✅ **可以說**：兩個模型都呈現「入口線性 → decode 非線性」的**解耦形態**，且各自的最佳工作點都伴隨 **commitment 從早答移向後段**與 **loop/退化尾巴減少**。這是**形狀層次的一致**（§5.1 規則 2 允許）。
->
-> ❌ **不可以說**：「Qwen 的 +8 與 Llama 的 −6 到達相同的 working state」。目前沒有任何一個量能同時在兩個模型上以同一口徑讀出並比較。
->
-> ❌ **尤其不可以說**：「Qwen 需要 +α、Llama 需要 −α，故兩者基線位置不同」——這個敘述聽起來由資料支持，實際上**完全由 §5.1 規則 2 所禁止的 raw α 比較構成**。兩模型的 α 不是同一強度的 intervention，「Qwen 偏正、Llama 偏負」目前只是兩條各自模型內的曲線，不構成基線位置的陳述。
-
-**要讓此對齊可執行，最小的補齊項（按성本排序）：**
-
-1. **解封 Qwen 的 logit family**（§5.5 的 `extract_entropy_confidence.py`）。`entropy/log(V)` 是四項中**唯一天然模型無關**的量，補上後至少有一個軸可以真正跨模型並列。
-2. **在 Llama 上補一個與 Qwen 同口徑的 at-risk cohort 讀數**（或反之），使 `s_t` 兩側都是 level 或都是配對 Δ。
-3. 共同標度問題（障礙 1）**無廉價解**；在有共同標度之前，`Z_prefill` 一欄應留空而非勉強並列。
+**結論。** 現有證據支持兩模型在**調節形態**上的部分一致，但「相同 working state、不同基線位置與到達方向」仍是待檢驗假說。後續可補充 normalized entropy、top1 與 margin 作為共同的 output-level proxies；其中 `entropy/log(V)` 可降低詞表大小造成的尺度差異，但仍不能完全消除 tokenizer 與詞表結構不同帶來的跨模型限制。具体提取流程与对齐实现记录见 `CLAUDE.md`。
 
 ### 5.8 Manifold Pilot and Integrated Interpretation
 
