@@ -290,41 +290,61 @@ Correctness 不是主要 intervention axis，而是**事後分組**（post-hoc g
 
 #### Commit-Aligned Dynamics
 
-將各 sample 對齊至自己的 commit step（`t=0`）後，可觀察到三個主要模式：
 
-1. **Pre-commit slow RSN state**：correct 組在 commit 前維持較高、較持久的 `s_t`；commit 後則下降得更快，約在 10–15 tokens 後低於 incorrect 組。前者表示組間差異不只是 commit timing 錯位，後者則提示 correct responses 在答案形成後具有更快的 state release / termination dynamics。此屬**描述性差異**，不宜單向解讀為「高 `s_t` 導致答對」——同樣相容的路徑是：模型對可解的題較早形成可行思路（perceived solvability / viable reasoning path）→ sustained engagement → 較晚 commit → 較高正確率，即 engagement 與 correctness 可能同受題目可解性驅動。
-2. **Commit-centered transition**：`Z_t`、`s_t`、`p_t` 與 entropy / top1 / margin 均在 commit 附近快速變化。這支持 commit marker 對應一個明顯的 generation-state transition；但 `####` 本身即改變 token distribution，故 entropy / top1 / margin 的變化可能部分來自**格式轉換**，不能全數歸因於 confidence 的實質改變。
-3. **Post-commit separation**：correct 組呈現較強的 `s_t` decline 與較完整的 confidence recovery；incorrect 組下降較慢、恢復較弱，可能反映不同的 termination dynamics（confidence recovery 無 CI，屬描述性觀察）。
+将每个 sample 按自身的 commit step 对齐（`t=0`）后，可以观察到三个主要模式：
 
-| Signal family | Main observation | Interpretation |
+1. **Pre-commit slow state**：correct 组在 commit 前维持更高、更持久的 `s_t`，说明组间差异不只是 commit timing 错位。但这是描述性关联，不能解释为高 `s_t` 导致正确；题目可解性也可能同时影响 engagement、commit timing 与正确率。
+
+2. **Commit-centered transition**：`Z_t`、`s_t`、`p_t` 及 entropy、top1、margin 均在 commit 附近快速变化，说明 commit 对应明显的 generation-state transition。不过，`####` 也会改变输出格式与 token distribution，因此 confidence proxies 的变化可能包含格式效应。
+
+3. **Post-commit separation**：commit 后，correct 组的 `s_t` 下降更快，并在约 10–15 tokens 后低于 incorrect 组；其 confidence recovery 也较明显。这可能反映 correct responses 具有更快的 state release / termination dynamics，但目前仍属于描述性结果。
+
+| Signal | Main observation | Interpretation |
 |---|---|---|
-| `s_t` / `Z_t` | correct 在 commit 前較高，commit 後下降較深 | slow RSN dynamics 與 response outcome 描述性相關 |
-| `p_t` | commit window 有明顯 pulse / dip，但兩組在 commit 前無穩定分離 | 通用 transition signal，非穩定 correctness predictor（不作 RPE 解讀） |
-| entropy / top1 / margin | commit 附近共同出現 uncertainty increase / confidence decrease | commit 是 output-distribution transition，部分來自 `####` 格式轉換 |
-| info gain | commit 附近波動，但組間結構不穩定 | 僅作 distributional-change diagnostic |
+| `s_t` / `Z_t` | Correct 组在 commit 前整体较高，commit 后下降更快、更深 | Slow RSN dynamics 与回答结果存在描述性关联，但不能据此推断因果关系 |
+| `p_t` | Commit 附近出现明显 pulse / dip，但 commit 前不能稳定区分 correct 与 incorrect | 主要反映 generation-state transition，不能稳定预测正确率，也不作 RPE 解读 |
+| Entropy / top1 / margin | Commit 附近共同表现出 uncertainty 上升、output decisiveness 降低 | Commit 对应明显的 output-distribution transition，但其中可能包含 `####` 引起的格式效应 |
+| Information gain | Commit 附近出现波动，但 correct 与 incorrect 的差异不稳定 | 仅作为 output distribution 发生变化的辅助诊断，不作为主要结果 |
 
-**Overall:** correct / incorrect responses 在 commit 前後的 **slow RSN dynamics** 上存在描述性差異——correct 組 pre-commit `s_t` 較高、較持久，post-commit release 較快；task-entry gain、單一 phasic amplitude 與 confidence metrics 均不是穩定的 correctness predictor。這些圖來自同一批資料的兩種對齊方式，應視為互補分析，而非獨立證據。
+**Overall.** Correct 与 incorrect responses 的主要差异出现在 commit 前后的 slow RSN dynamics。Correct 组在 commit 前维持更高、更持久的 `s_t`，并在 commit 后表现出更快的 state release。相比之下，task-entry gain、局部 `p_t` amplitude 及 confidence metrics 均不能稳定区分回答是否正确。
 
-> This pattern is **consistent with** adaptive engagement and termination dynamics, but may reflect perceived solvability or the availability of a coherent reasoning path rather than a direct causal effect of wanting on accuracy. 三種因果方向無法在此區分：(1) engagement↑ 促成答對；(2) 題目可解 → engagement↑；(3) 難度/熟悉度同時影響 engagement 與正確率。本節支持「RSN tracks engagement during viable reasoning」，但**不能單獨證明**「更高 dopamine → 更高正確率」——Dopamine 的主證據仍來自 α intervention、dose-response 與行為學實驗。
+这一结果说明，`s_t` trajectory 与 viable reasoning、ongoing engagement 和 termination dynamics 存在描述性关联，但不能据此判断因果方向。目前至少有三种可能：
 
-**Boundary:** commit-centered logit change 可能部分來自 `####` / answer-format transition；slow RSN difference 仍需 difficulty-matched analysis 驗證。
+1. 更高的 engagement 有助于模型答对；
+2. 模型先识别出可行的解题路径，因而维持更高 engagement；
+3. 题目难度或熟悉度同时影响 engagement 与正确率。
+
+因此，本节支持 **RSN slow state tracks engagement during viable reasoning**，但不能单独证明更高的 RSN state 会提高正确率。相关的因果证据仍需来自 α intervention、dose-response，以及 difficulty-matched analysis。
+
+还需要保留两项限制：
+
+- Commit 附近的 logit与 confidence 变化可能部分由 `####` 和 answer-format transition 引起；
+- 不同图是同一批数据的不同对齐视角，彼此互补，但不能视为相互独立的重复证据。
 
 ### 4.2 CoT vs No-CoT
 
 #### Scope and Analysis Framework
 
-只分析 **neutral、α=0、相同 300 道 GSM8K**。兩組除 CoT 增加 `Let's think step by step.` 外，其餘生成條件一致。統計統一採 paired mean difference、bootstrap 95% CI、Cohen's `d_z` 與 Wilcoxon signed-rank；軌跡圖的 bootstrap band 則使用各條件可用樣本作描述性展示。
+本节比较 **neutral、α=0、相同 300 道 GSM8K** 的 No-CoT 与 CoT 条件。两组仅相差 CoT 提示 `Let's think step by step.`，其余生成设置一致。统计采用 paired mean difference、bootstrap 95% CI、Cohen’s `d_z` 和 Wilcoxon signed-rank；轨迹图的 bootstrap band 仅作描述性展示。
 
-本節依序觀察三類訊號：task-entry gain（`G_prefill` / `Z_prefill`）、slow RSN state（`s_t`）與 fast residual（`p_t`）。`s_t` / `p_t` 建於中層 sparse NMD projection；entropy / top1 / margin 則來自最終輸出分布，只作獨立 confidence-proxy 對照。
+分析包括三类 RSN signals：
 
-由於 **97% 樣本撞 767 max-token cap**，且大量 commit 後文字退化為 `#### N ...` 重複，decode 以第 1、2 個 `####` 切成三個互斥階段：
+- task-entry gain：`G_prefill` / `Z_prefill`
+- slow state：`s_t`
+- fast residual：`p_t`
 
-- **pre-commit** = decode start → 第 1 個 `####`（**答案形成**，正文主分析）
-- **post-commit** = 第 1 個 `####` → 第 2 個 `####`（**提交後延續生成**；此處第 2 個 `####` 是 **second-answer-marker proxy**,非經獨立演算法驗證的 loop onset）
-- **post-second-marker tail** = 第 2 個 `####` → generation end（與 stopping failure / loop 相容,但只作診斷,不等同真實 loop onset）
-- *full = 三段之和*（僅用於展示 loop contamination，不作機制結論）
+其中，`s_t` 与 `p_t` 来自中层 sparse NMD projection；entropy、top1 和 margin 来自最终输出分布，仅作为 confidence-proxy 对照。
 
-$s_t = \mathrm{EMA}(Z_t)$ 在整條 decode 上只計算一次（$s_0 = Z_0$），$p_t = Z_t - s_{t-1}$ 再由同一條軌跡取得；三階段不重新 seed。C1/C2-centered 圖只是放大兩個階段邊界，不構成另一套切分。**C2 是 second-answer-marker proxy**,其後段為 post-second-marker tail;C2-based 分析只涵蓋具有第二個 `####` 的 loop-prone subset，屬診斷性結果,不能把 C2 直接等同真實 loop onset。
+由于 97% 的样本达到 767-token 上限，且 commit 后常出现 `#### N ...` 重复，decode 按前两个 `####` 划分为：
+
+- **pre-commit**：生成开始至第一个 `####`，表示答案形成阶段，也是正文主分析；
+- **post-commit**：第一个至第二个 `####`，表示提交后的延续生成；
+- **post-second-marker tail**：第二个 `####` 至生成结束，仅用于诊断 stopping failure 或 repetition；
+- **full decode**：仅用于展示 post-commit repetition 对整体轨迹的污染。
+
+第二个 `####`（C2）只是 **second-answer-marker proxy**，不能直接视为真实 loop onset；相关分析也只覆盖存在第二个 marker 的 loop-prone subset。
+
+`s_t = EMA(Z_t)` 在完整 decode trajectory 上连续计算一次，并由同一轨迹得到 `p_t = Z_t - s_{t-1}`；各阶段不会重新初始化。C1/C2-centered plots 只是放大阶段边界，不代表另一套信号定义或切分方式。
 
 #### Integrated RSN Dynamics
 
@@ -336,9 +356,11 @@ $s_t = \mathrm{EMA}(Z_t)$ 在整條 decode 上只計算一次（$s_0 = Z_0$）�
 | `Z_prefill` | 0.000 | 0.158 | **+0.158** | [0.138, 0.178] | **0.89** | 1.1e-32 |
 | `boundary_jump_G` | 0.167 | 0.094 | −0.073 | [−0.138, −0.006] | −0.13 | 2.4e-02 |
 
-No-CoT 的 `G_prefill=0` / `Z_prefill=0` 來自 reference 定義。CoT effect 在 α-unit 與 layer-standardized 坐標中均成立，且兩組 `G_decode[0]` 幾乎相同（約 0.17）；因此主要差異已在 boundary 出現，`boundary_jump_G` 只呈現弱小的補償性縮減。`G_prefill` 是最後一個 prompt token 的 task-entry **tonic-like readout**，不能單獨證明後續 decode state 完全由該點決定。
+No-CoT 的 `G_prefill=0` 和 `Z_prefill=0` 是由 reference definition 设定的基准值，并不表示模型没有 RSN activation。相对于这一基准，CoT 在 α-unit 和 layer-standardized 坐标中都表现出更高的 task-entry gain，说明两组的状态差异在 generation boundary 前已经形成。进入 decode 后，两组的 `G_decode[0]` 迅速接近（均约为 0.17），表明这一直接差异没有以固定 offset 的形式持续存在，`boundary_jump_G` 也只显示轻微的补偿性缩减。因此，`G_prefill` 更适合作为最后一个 prompt token 上的 **task-entry tonic-like readout**。它说明 CoT 改变了模型进入生成阶段时的状态，但不能单独证明后续 decode dynamics 完全由这一时点决定；完整 prompt、KV cache 和早期 token selection 仍可能持续影响生成轨迹。
 
-**Slow and fast RSN results by stage.** 下表把原本分散的 `s_t` 與 `p_t` 結果放在同一時間軸；fast-residual 主證據限於 `abs_mean` / `std`，極值因 length bias 與 EMA lag 不作主讀。
+**Slow and fast RSN results by stage.** 
+
+下表把原本分散的 `s_t` 與 `p_t` 結果放在同一時間軸；fast-residual 主證據限於 `abs_mean` / `std`，極值因 length bias 與 EMA lag 不作主讀。
 
 | Stage | Slow RSN `s_t` | Fast residual `p_t` | Functional reading |
 |---|---|---|---|
@@ -346,15 +368,23 @@ No-CoT 的 `G_prefill=0` / `Z_prefill=0` 來自 reference 定義。CoT effect �
 | **post-commit** (n=144) | `end−start` Δ=**−0.166**, `d_z`=−0.31 | `abs_mean` / `std` 小幅反轉（`d_z`=−0.19 / −0.18） | CoT 在首次提交後釋放較快，fast variability 差異同步減弱 |
 | **post-second-marker tail** (n=141) | mean Δ=+0.185, `d_z`=0.32；tail 短 **83.6 tokens**, `d_z`=−0.51 | `std` Δ=−0.083, `d_z`=−0.33 | 第二個 `####` marker 之後的尾段（與 stopping failure / loop 相容，但只作診斷，不等同經獨立驗證的 loop onset）；CoT tail 較短、churn 較低 |
 
-CoT 的主效應是 **level-dominant but not a pure shift**：task entry 已升高（`Z_prefill d_z`=0.89），pre-commit slow level 仍維持明顯差距（`d_z`=0.65），而 No-CoT 在答案形成期間 relax 得更多。strict-`####` subset（n=233）確認 pre-commit level effect 不依賴 fallback；absolute-token control 亦重現較弱的 CoT relaxation，因此不是單由長度歸一化製造。由於 CoT instruction 持續存在於 KV cache，這些觀察不能證明後續差異完全由 `G_prefill` 單點造成。
+CoT 对 RSN dynamics 的影响主要体现在以下几个方面：
 
-**Commit-centered boundaries.** C1 前 CoT `s_t` 維持高位，C1 後兩組共同快速下降，但 CoT 保留較高 offset；`p_t` 同時出現明顯負向 transition。C2-centered 圖重現近似結構，顯示第二個 `####` 也伴隨 marker-locked transition，但尚不能證明它是獨立的 loop-onset mechanism。C1/C2 都涉及 `####` / answer-format 改變，因此 fast transition 仍需 token-class-matched pseudo-event control。
+1. **CoT 提高 task-entry gain。**：CoT 在生成开始前已经显著提高 `Z_prefill`（`d_z=0.89`），说明它改变了模型进入回答阶段时的初始状态。不过，CoT instruction 持续存在于 KV cache，因此后续差异不能完全归因于 `G_prefill` 这一单点变化。
 
-**Full-decode diagnostic.** 若把整條 767-token decode 當作一段，slow slope 與 relaxation 會被 loop tail 反轉；full trajectory 因此只展示污染，不代表正常 reasoning 的 late stage。
+2. **CoT 在答案形成期间维持更高的 slow state。**：Commit 前，CoT 的 `s_t` 整体高于 No-CoT（`d_z=0.65`），而 No-CoT 在推理过程中下降得更多。因此，CoT 的主要效应是维持较高的 slow-state level，同时伴随一定的 trajectory-shape difference，并非简单地将整条曲线整体上移。Strict-`####` subset（n=233）和 absolute-token control 均重现这一趋势，说明结果不是 fallback 定位或长度归一化造成的。
 
-`p_t` 是 EMA high-pass residual，不是已識別的 biological phasic dopamine。其 pre-commit `abs_mean` / `std` 效應在 FDR 後穩定，但 post-commit 小效應不宜強調；`pos/neg_peak` 同時受 segment length 與 EMA lag 影響，不能作獨立證據，也不能由較深負尾推斷 downward skew。
+3. **Commit 后，两组都出现明显的 state release。**：在第一个 `####`（C1）附近，两组的 `s_t` 都快速下降，同时 `p_t` 出现负向 transition；CoT 在下降后仍保留较高的 slow-state offset。第二个 `####`（C2）附近也出现类似变化。
 
-Event alignment 現已顯示 C1/C2 附近存在 marker-locked residual transition，但它同時伴隨 entropy spike / top1 dip，且 C2 幾乎複製 C1，因此可能包含 answer-format transition。現階段最穩健的結論仍是 **stage-dependent fast RSN dynamics**。若要**聲稱在 GSM8K 中檢測到 commitment-related phasic-like response**，仍需 pseudo-event / token-class control、length-matched quantile、`β∈{0.90,0.95,0.98}` sensitivity、其他 baseline estimator，以及 NMD-mask vs random-mask specificity。GSM8K 沒有 reward feedback，因此此處不能作 RPE 解讀。
+4. **Fast residual 反映阶段转换，但尚不能解释为 commitment-specific phasic response。**：CoT 在 pre-commit 阶段稳定提高了 `p_t` 的 amplitude 和 variability，但 C1、C2 附近的 transition 都伴随 entropy spike、top1 dip 和 answer-format change。因此，目前最稳健的结论是：CoT 改变了 **stage-dependent fast RSN dynamics**，但尚不能确定这些变化专门对应 commitment，而不是 `####` 引起的格式转换。
+
+5. **Full-decode trajectory 不代表正常推理后期。**：由于大量样本在 commit 后进入重复生成，整条 767-token trajectory 会被 loop tail 污染，甚至反转原本的 slow-state slope。因此，full-decode 结果只用于展示 stopping failure，不能解释为正常 reasoning 的 late stage。
+
+**Overall.** CoT 的主要作用可以概括为：
+
+> **higher task-entry gain → sustained pre-commit slow state → post-commit state release**
+
+现有结果支持 CoT 调节 task engagement 与 commitment dynamics。`p_t` 仍只表示 EMA high-pass residual；在完成 token-class-matched pseudo-event、EMA sensitivity 和 random-mask controls 前，不能将其解释为 biological phasic dopamine。GSM8K 也没有 reward feedback，因此不作 RPE 解读。
 
 #### Output-Distribution Confidence Controls
 
