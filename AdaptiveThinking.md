@@ -557,7 +557,7 @@ $$\alpha \;\to\; \text{linear task-entry gain } (G_{prefill}) \;\to\; \text{nonl
 
 其中 `s_t` 是主要載體，`p_t` 的支持較窄。三個工作區：
 
-1. **Adaptive / intermediate range（−4 至 +2）：** α 對 commitment-formation state 作較平滑的校準。
+1. **Intermediate calibration range（−4 至 +2）：** α 對 commitment-formation state 作較平滑的校準。**這是描述 state 的變化平緩，不是說此區間表現較好**——區間內 accuracy 實為單調下降（74.3→68.3→60.0→55.3），且離散最佳點 −6 落在區間之外。
 2. **Extreme-negative collapse（−8）：** commitment-formation collapse；event-centered 結果僅為條件子樣本，須與 C1-analyzable rate 及文本中的 answer-candidate oscillation 共同解讀。
 3. **High-positive degradation / flattening（+6/+8）：** pre-commit slow state 與 confidence 均較差；其 **premature-commitment 解讀來自獨立的 commit-position / behavioral evidence，不能僅由本節 trajectory 推斷**。
 
