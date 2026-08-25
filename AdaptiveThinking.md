@@ -600,7 +600,7 @@ inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.
 
 **入口是 α 主導（|Δ|≈6.8）、CoT 次要（|Δ|≈0.07–0.16）**，且 α 效應幾乎不受 CoT 影響（`G_prefill` −6.80 vs −6.78）。這與 §4.4 的 co-design identity 一致（$G_{prefill}(\alpha) \approx G_{prefill}(0) + \alpha\lVert m\rVert^{2}$：α 在 prefill 加上一個與 CoT 無關的固定量）。G/Z 的 DiD 帶星號屬 statistical interaction，量級僅 0.4%，故判為 **approximately additive**。
 
-#### Result 2 — Decode: CoT Dominates, Reversing the Task-Entry Ordering
+#### Result 2 — Decode Dynamics Shift the Dominant Effect from α to CoT
 
 以 C1 為中心，三段窗口的 `s_t mean`：
 
@@ -610,7 +610,7 @@ inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.
 | `[-20,0]` commit (n=170) | −0.033 | 0.120 | 0.478 | 0.591 | +0.51*** | +0.153** | +0.113* | approx. additive |
 | `[0,+20]` release (n=170) | −0.321 | −0.207 | −0.041 | 0.083 | +0.28*** | +0.114*** | +0.124** | approx. additive |
 
-**decode 內 CoT 絕對主導**（`d_z` 0.55–0.86），α=−4 次要（`d_z` 0.11–0.30），量級差 3–5 倍——與 Result 1 的入口排序**正好相反**。這個主導權翻轉就是本節的核心發現，它建立在**顯著的主效應**上，而非任何 DiD 判定。
+**decode 內 CoT 絕對主導**（`d_z` 0.55–0.86），α=−4 次要（`d_z` 0.11–0.30），量級差 3–5 倍——**兩個 manipulation 的主次排序與 Result 1 的入口相反**（入口 α≫CoT，decode CoT≫α）。**這是主導權的翻轉，不是信號數值反號**：α 的效應在兩處同向為正（入口 −6.80 是 α=−4 的負向注入，decode 三窗皆 +0.11~+0.16），改變的只是誰的量級更大。這個翻轉就是本節的核心發現，它建立在**顯著的主效應**上，而非任何 DiD 判定。
 
 Early window 的 α 效應在 CoT 下由 `+0.159**` 降為 ns（`+0.040`），descriptive 上像是 CoT 已把 early `s_t` 拉到 0.47、α 無額外空間；但依限制（ii），這只記為 **attenuation trend**，redundancy/saturation 保留為候選解釋。commit / release 兩窗的 α 效應維持（approximately additive）。Release `s_t slope` 上 α 無穩定效應（No-CoT / CoT 皆 ns），CoT 則使 release 稍陡（`d_z≈−0.5***`）。
 
@@ -655,9 +655,9 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 | `fig45_slow_centered.png` | 四 cell C1-centered `s_t` 疊圖（主圖：CoT 抬高整條、α 次要調制） |
 | `fig45_fast_centered.png` | 四 cell C1-centered `p_t` 疊圖 |
 
-**報告限制。** DiD 的 verdict 標籤（additive / redundant / …）僅為**量級比啟發式，非顯著性判定**，不可單獨當結論——應讀 DiD 的 Wilcoxon p。（腳本、`--part` 選項與輸出檔位置見 `CLAUDE.md`。）
+**報告限制。** DiD 的 verdict 標籤（additive / redundant / …）僅為**量級比啟發式，非顯著性判定**，不可單獨當結論——應**結合 DiD 的效應量、實際量級與 Wilcoxon p 共同判斷**（見 Scope 限制 (i)：兩者須分開讀，任一單獨都不足以定案）。（腳本、`--part` 選項與輸出檔位置見 `CLAUDE.md`。）
 
-### 4.6 RSN Direction Specificity: support-selection 與 generic-direction null
+### 4.6 RSN Direction Specificity: support-selection and generic-direction null
 
 前面 §4.1–4.5 的所有 state 效應都是在 **NMD/RSN 方向**上投影得到的。一個必須回答的對照問題是：**這些效應是 NMD 方向特有的，還是任意一個稀疏方向都會出現同樣的 state 差異？**
 
