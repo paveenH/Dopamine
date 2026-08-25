@@ -9,6 +9,7 @@
 6. MATH cot ✔ 
 7. 复现qwen的thinking curve signal部分，没有存HS ✔
 8. qwen的thinking curve 存HS ✔
+9. 重新梳理一下AdaptiveThinking的文档
 9. qwen的具体分析 
 
 8. manifold
