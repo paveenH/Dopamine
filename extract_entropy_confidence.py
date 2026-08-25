@@ -30,6 +30,12 @@ Per-sample JSON schema:
   top1_decode     (T,)
   margin_decode   (T,)
   info_gain_decode (T,)   # H_{t-1} - H_t; element 0 = H_prefill - H_0
+  entropy_norm_prefill, entropy_norm_decode (T,)   # entropy / log(V)
+
+`vocab_size` / `log_vocab_size` live in meta because entropy/log(V) cannot be
+recovered from the JSON otherwise. That normalisation accounts for VOCABULARY
+SIZE ONLY -- it does not make two models commensurable, since tokenizer
+granularity, vocabulary composition and distribution shape still differ.
 
 Notes:
 - We only load `model.norm.weight` and `lm_head.weight` from a LOCAL HF
@@ -252,6 +258,8 @@ def extract_one_file(
     chunk_size: int = 256,
 ):
     """Process one HDF5 file, return signal-style dict."""
+    vocab_size = int(lm_head_w.shape[0])
+    log_V = float(np.log(vocab_size))
     with h5py.File(h5_path, "r") as f:
         meta_attrs = dict(f["meta"].attrs)
         if "num_layers" not in meta_attrs:
