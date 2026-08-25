@@ -855,9 +855,13 @@ stage-based comparison（reasoning vs repeated-ngram tail proxy）給出不同�
 
 因此，GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 的 readout，但**未檢出 slope-based vigor evidence**。這不否定 ramping / vigor 的建模假說；GSM8K 缺乏逐步逼近獎勵的任務結構，更適合在 effort、betting 或 agentic progression 等任務中繼續檢驗。換言之，當前已驗證的是 **slow-state level 的行為意義**，而 slope 是否能表徵 vigor 仍是 open question。
 
-## 5. Qwen2.5 Cross-Model Replication
+## 5. Qwen2.5 Cross-Model Analysis
 
-本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下對 §4 一維 state 分析的複製結果。**所有結論限於一維投影層次；manifold 分析尚未完成**，於 §5.7 列為 open。
+本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**所有結論限於一維投影層次；manifold 分析尚未完成**，於 §5.7 列為 open。
+
+> **一句話結論：Qwen 的入口增益持續隨 α 線性增加，但進入 decode 後，回應沿一個相對固定的 RSN layer profile 被顯著壓縮；現有證據更支持「標量增益壓縮」，不支持「軌跡發生幾何重分配」。**
+
+（標題用 *Analysis* 而非 *Replication*：分析鏈完整移植且入口線性複製成功，但**行為曲線並未複製**——見 §5.7。）
 
 **跨模型比較的口徑限制（貫穿本節，不可放寬）。** Llama 與 Qwen 使用**不同的 mask、不同的 band（L=9 vs L=6）、不同的 activation scale**，因此相同數值的 α **不是相同強度的 intervention**。本節與 §4 的表格**分開呈現，不合併**；不得直接比較 raw α、raw projection 或 p 值。可比較的是**行為狀態的形狀**（commit position、response profile 的共線性、dose 曲線的飽和位置），不是絕對量。
 
