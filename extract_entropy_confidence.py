@@ -151,7 +151,22 @@ def load_lm_head_and_norm(model_dir: str, device: torch.device):
     stated design of loading two tensors only. We also need config.json on
     disk for rms_norm_eps, so a local snapshot is required either way.
     """
+    # An empty string is Path("") -> "." which IS a dir, so it slips past the
+    # is_dir() guard and fails much later with a bare "config.json not found".
+    # Almost always an unset shell variable.
+    if not str(model_dir).strip():
+        raise SystemExit(
+            "--model_dir is EMPTY. An unset shell variable ($QWEN_DIR) is the "
+            "usual cause; resolve the snapshot first:\n"
+            "  export QWEN_DIR=$(python -c \"from huggingface_hub import "
+            "snapshot_download as d; print(d('Qwen/Qwen2.5-7B-Instruct'))\")"
+        )
     model_path = Path(model_dir)
+    if not (model_path / "config.json").is_file():
+        raise SystemExit(
+            f"--model_dir '{model_dir}' has no config.json, so it is not a "
+            f"checkpoint directory (resolved to: {model_path.resolve()})."
+        )
     if not model_path.is_dir():
         raise SystemExit(
             f"--model_dir must be a LOCAL checkpoint directory; got '{model_dir}'.\n"
