@@ -49,17 +49,19 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 
 def build(root: Path, *, meta_over=None, drop_qidx=False, dup_qidx=False,
           empty_decode=False, proj_len=None, n_done=None, eps=1e-6,
-          tie=False, drop_lm_head=False, hidden=H, bad_layer_axis=False) -> Path:
+          tie=False, drop_lm_head=False, ckpt_hidden=None, bad_layer_axis=False) -> Path:
     """Write a synthetic checkpoint + one H5 cell; return the H5 dir."""
     root.mkdir(parents=True, exist_ok=True)
     ck = root / "ckpt"
     ck.mkdir(exist_ok=True)
+    # ckpt_hidden differs from H (the H5's hidden size) only in the mismatch case
+    ckh = H if ckpt_hidden is None else ckpt_hidden
     json.dump({"rms_norm_eps": eps, "tie_word_embeddings": tie,
-               "num_hidden_layers": NUM_LAYERS, "hidden_size": hidden,
+               "num_hidden_layers": NUM_LAYERS, "hidden_size": ckh,
                "vocab_size": V}, open(ck / "config.json", "w"))
     rng = np.random.default_rng(0)
-    tensors = {"model.norm.weight": torch.ones(hidden)}
-    head = torch.tensor(rng.normal(0, .05, (V, hidden)), dtype=torch.float32)
+    tensors = {"model.norm.weight": torch.ones(ckh)}
+    head = torch.tensor(rng.normal(0, .05, (V, ckh)), dtype=torch.float32)
     if drop_lm_head:
         tensors["model.embed_tokens.weight"] = head
     else:
@@ -88,9 +90,9 @@ def build(root: Path, *, meta_over=None, drop_qidx=False, dup_qidx=False,
             g = samples.create_group(f"{i:04d}")
             T = 0 if (empty_decode and i == 0) else T_STEPS
             g.create_dataset("prefill_hs",
-                             data=rng.normal(0, 1, (4, n_layers_axis, hidden)).astype(np.float16))
+                             data=rng.normal(0, 1, (4, n_layers_axis, H)).astype(np.float16))
             g.create_dataset("decode_hs",
-                             data=rng.normal(0, 1, (T, n_layers_axis, hidden)).astype(np.float16))
+                             data=rng.normal(0, 1, (T, n_layers_axis, H)).astype(np.float16))
             g.create_dataset("x_decode_proj",
                              data=rng.normal(0, 1, (T if proj_len is None else proj_len,)).astype(np.float32))
             for k, v in {"question": "q", "gold_answer": "1", "pred_answer": "1",
@@ -152,7 +154,7 @@ def main() -> int:
             ("missing n_samples_done",   lambda: run(build(tmp/"m_nod", meta_over={"n_samples_done": None})),"n_samples_done"),
             ("final-layer idx vs shape", lambda: run(build(tmp/"m_axis", bad_layer_axis=True)),              "outside the stored layer axis"),
             ("selective w/o pointer",    lambda: run(build(tmp/"m_ptr", meta_over={"final_layer_idx_stored": None})), "final_layer_idx_stored"),
-            ("hidden-size mismatch",     lambda: run(build(tmp/"m_dim", hidden=8)),                          "hidden-size mismatch"),
+            ("hidden-size mismatch",     lambda: run(build(tmp/"m_dim", ckpt_hidden=8)),                          "hidden-size mismatch"),
             ("untied but no lm_head",    lambda: run(build(tmp/"m_tie", drop_lm_head=True)),                 "tie_word_embeddings=false"),
         ]
         for name, fn, needle in cases:
