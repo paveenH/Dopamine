@@ -541,6 +541,11 @@ def main():
     p.add_argument("--n_questions", type=int, default=300,
                    help="expected question count; the split must cover 0..n-1")
     p.add_argument("--allow_overwrite", action="store_true")
+    p.add_argument("--reuse_basis", metavar="DIR",
+                   help="Project onto an EXISTING basis instead of fitting one. "
+                        "Required when transferring a frozen model to a new "
+                        "condition (e.g. CoT): refitting would make it a new "
+                        "model rather than a confirmation.")
     args = p.parse_args()
 
     with open(args.split_manifest) as f:
@@ -583,7 +588,7 @@ def main():
     # re-run silently replace basis.npz while the coordinate files it no longer
     # matches sit beside it -- the worst failure mode here, because the result
     # still loads and still looks reasonable.
-    for extra in ("basis.npz", "basis_meta.json"):
+    for extra in ([] if args.reuse_basis else ("basis.npz", "basis_meta.json")):
         o = out_dir / extra
         if o.exists() and not args.allow_overwrite:
             print(f"[FAIL] {o} exists; pass --allow_overwrite deliberately")
@@ -636,58 +641,82 @@ def main():
 
     print(f"[fit] basis from {args.base_cell} TRAIN "
           f"({len(split_idx['train'])} questions), k_max={args.k_max}")
-    basis, stored, n_middle = fit_basis(base_h5, split_idx, args.layer_start,
-                                        args.layer_end, args.k_max, tok)
+    if args.reuse_basis:
+        bdir = Path(args.reuse_basis)
+        bz = np.load(bdir / "basis.npz")
+        bmeta = json.load(open(bdir / "basis_meta.json"))
+        for field, mine in (("split_manifest_version", man["version"]),
+                            ("layer_start", args.layer_start),
+                            ("layer_end", args.layer_end),
+                            ("k_max", args.k_max)):
+            if bmeta[field] != mine:
+                print(f"[FAIL] frozen basis has {field}={bmeta[field]!r}, "
+                      f"this run passes {mine!r}")
+                return 1
+        basis = {}
+        for key in bmeta["per_layer"]:
+            li, ph = key.split("|")
+            basis[(int(li), ph)] = {f: bz[f"{li}|{ph}|{f}"]
+                                    for f in ("mu", "components", "explained")}
+        stored, n_middle = bmeta["stored_layer_indices"], bmeta["n_middle"]
+        print(f"[fit] REUSING frozen basis from {bdir} ({len(basis)} bases, "
+              f"fit on {bmeta['base_cell']}) -- NOT refit")
+    else:
+        basis, stored, n_middle = fit_basis(base_h5, split_idx, args.layer_start,
+                                            args.layer_end, args.k_max, tok)
     print(f"[fit] stored_layer_indices={stored}  n_middle={n_middle}  "
           f"bases={len(basis)}")
 
-    np.savez_compressed(
-        out_dir / "basis.npz",
-        **{f"{li}|{ph}|{fld}": b[fld]
-           for (li, ph), b in basis.items()
-           for fld in ("mu", "components", "explained")},
-    )
-    with open(out_dir / "basis_meta.json", "w") as f:
-        json.dump({
-            "base_cell": args.base_cell,
-            "k_max": args.k_max,
-            "phases": list(PHASES),
-            "window": WINDOW,
-            "layer_start": args.layer_start,
-            "layer_end": args.layer_end,
-            "stored_layer_indices": stored,
-            "n_middle": n_middle,
-            "split_manifest_version": man["version"],
-            "split_salt": man["salt"],
-            "split_counts": man["counts"],
-            "question_text_sha256": man.get("question_text_sha256"),
-            "commit_locator": "first #### else first answer-candidate "
-                              "(Llama convention, NOT Qwen's ####-only)",
-            # Phases whose per-token coordinates are exported. decode_all is
-            # absent, so any consumer computing speed/curvature can tell from
-            # the meta alone which phases support it -- rather than inferring
-            # it from whether coord_t happens to be present.
-            "trajectory_phases": list(TRAJECTORY_PHASES),
-            "decode_all_reduced_to_mean": True,
-            "reduction_note": (
-                "decode_all stores each question's ROW MEAN before fitting "
-                "(unbounded row count: up to 768/question). That is what "
-                "per-question equal weighting already asserts for that phase, "
-                "but it means decode_all is fit on ~n_questions points, so its "
-                "spectrum must be read per phase: a flat spectrum there is the "
-                "reduction removing within-question variation, NOT an unstable "
-                "manifold."),
-            "per_layer": {f"{li}|{ph}": {
-                "n_questions": b["n_questions"],
-                "n_rows": b["n_rows"],
-                "reduced_to_mean": b["reduced_to_mean"],
-                "trajectory_exported": ph in TRAJECTORY_PHASES,
-                "k": int(b["components"].shape[0]),
-                "total_var": b["total_var"],
-                "explained": b["explained"].tolist(),
-                "spectrum": b["spectrum"].tolist(),
-            } for (li, ph), b in basis.items()},
-        }, f, indent=2)
+    if args.reuse_basis:
+        print("[fit] basis.npz / basis_meta.json NOT rewritten (frozen basis reused)")
+    else:
+        np.savez_compressed(
+            out_dir / "basis.npz",
+            **{f"{li}|{ph}|{fld}": b[fld]
+               for (li, ph), b in basis.items()
+               for fld in ("mu", "components", "explained")},
+        )
+        with open(out_dir / "basis_meta.json", "w") as f:
+            json.dump({
+                "base_cell": args.base_cell,
+                "k_max": args.k_max,
+                "phases": list(PHASES),
+                "window": WINDOW,
+                "layer_start": args.layer_start,
+                "layer_end": args.layer_end,
+                "stored_layer_indices": stored,
+                "n_middle": n_middle,
+                "split_manifest_version": man["version"],
+                "split_salt": man["salt"],
+                "split_counts": man["counts"],
+                "question_text_sha256": man.get("question_text_sha256"),
+                "commit_locator": "first #### else first answer-candidate "
+                                  "(Llama convention, NOT Qwen's ####-only)",
+                # Phases whose per-token coordinates are exported. decode_all is
+                # absent, so any consumer computing speed/curvature can tell from
+                # the meta alone which phases support it -- rather than inferring
+                # it from whether coord_t happens to be present.
+                "trajectory_phases": list(TRAJECTORY_PHASES),
+                "decode_all_reduced_to_mean": True,
+                "reduction_note": (
+                    "decode_all stores each question's ROW MEAN before fitting "
+                    "(unbounded row count: up to 768/question). That is what "
+                    "per-question equal weighting already asserts for that phase, "
+                    "but it means decode_all is fit on ~n_questions points, so its "
+                    "spectrum must be read per phase: a flat spectrum there is the "
+                    "reduction removing within-question variation, NOT an unstable "
+                    "manifold."),
+                "per_layer": {f"{li}|{ph}": {
+                    "n_questions": b["n_questions"],
+                    "n_rows": b["n_rows"],
+                    "reduced_to_mean": b["reduced_to_mean"],
+                    "trajectory_exported": ph in TRAJECTORY_PHASES,
+                    "k": int(b["components"].shape[0]),
+                    "total_var": b["total_var"],
+                    "explained": b["explained"].tolist(),
+                    "spectrum": b["spectrum"].tolist(),
+                } for (li, ph), b in basis.items()},
+            }, f, indent=2)
 
     for c in cells:
         h5 = h5_dir / cell_stem(args.task, args.size, c,
