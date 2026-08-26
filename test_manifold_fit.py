@@ -331,6 +331,35 @@ with tempfile.TemporaryDirectory() as td:
           "a question hitting the tracker's 2000-char clip reports TRUNCATED "
           "rather than a mismatch that would be an artifact")
 
+    print("\n[11] basis_meta records what the comments promise")
+    # The reduction and the trajectory-phase set were described in comments but
+    # not emitted, so a consumer had to infer them from whether coord_t
+    # happened to be present. Fields, not folklore.
+    import json as _json
+    meta_rows = {f"{li}|{ph}": {
+        "n_questions": b["n_questions"], "n_rows": b["n_rows"],
+        "reduced_to_mean": b["reduced_to_mean"],
+        "trajectory_exported": ph in mf.TRAJECTORY_PHASES,
+        "k": int(b["components"].shape[0]),
+    } for (li, ph), b in basis.items()}
+    check(all("n_rows" in v and "reduced_to_mean" in v for v in meta_rows.values()),
+          "every basis carries n_rows and reduced_to_mean")
+    check(meta_rows["0|decode_all"]["reduced_to_mean"] is True,
+          "decode_all is marked reduced_to_mean")
+    check(meta_rows["0|pre_commit"]["reduced_to_mean"] is False,
+          "pre_commit is NOT reduced (it keeps per-token rows)")
+    check(meta_rows["0|decode_all"]["n_rows"] == meta_rows["0|decode_all"]["n_questions"],
+          "reduced decode_all has exactly one row per question, which is what "
+          "makes its spectrum a per-question point cloud")
+    check(meta_rows["0|pre_commit"]["n_rows"] > meta_rows["0|pre_commit"]["n_questions"],
+          "pre_commit has more rows than questions (its Gram is ~3700x3700 at "
+          "full scale, so it is NOT the thin-phase speedup case)")
+    check(meta_rows["0|prefill"]["n_rows"] == meta_rows["0|prefill"]["n_questions"],
+          "prefill is one row per question by construction (last-prefill only)")
+    check(meta_rows["0|decode_all"]["trajectory_exported"] is False
+          and meta_rows["0|pre_commit"]["trajectory_exported"] is True,
+          "trajectory_exported agrees with which phases actually carry coord_t")
+
     print("\n[6] CLI fails closed")
     def run(extra):
         import subprocess
