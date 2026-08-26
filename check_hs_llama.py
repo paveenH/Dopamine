@@ -109,9 +109,22 @@ EXPECTED_MNT     = 768
 EXPECTED_EMA     = 0.95
 EXPECTED_NUM_LAYERS = 32    # Llama-3.1-8B
 
-# Historical `generated` attr caps worth probing for. 1000 is deliberately NOT
-# probed -- see the truncation note in the module docstring.
-ROUND_CAPS = (2000, 4000)
+# Historical `generated` attr caps worth probing for.
+#
+# 2000 was REMOVED after a verified false positive on this very batch: nocot
+# alpha=0 sample 0148 and nocot_a6 sample 0106 are each exactly 2000 chars,
+# but each is the ONLY such sample in its cell (a real cap makes a CLUSTER),
+# each ran the full 767 of 768 decode steps, and each tail is a degenerate
+# repetition loop ('.####.####.####...' / 'The final answer is $2.00. ####$2.00.'
+# repeated). The loop is WHY they are short -- 767 steps of a short repeated
+# fragment accumulates ~2000 chars where normal reasoning reaches 3600-3900 --
+# so the length is a consequence of the loop plus the max_new_tokens ceiling,
+# not of a character cut. Same reasoning that removed 1000 from the Qwen list.
+#
+# 1000 is likewise NOT probed (the Qwen false positive). 4000 is retained: the
+# old tracker really did cap this attr at 4000 chars, and these cells reach
+# 3895 -- 105 of headroom, i.e. the cap was about to bite.
+ROUND_CAPS = (4000,)
 
 # h5 stem suffix -> (steer_alpha, cot). The four PRIMARY pilot cells.
 PRIMARY_CELLS = {
@@ -477,6 +490,19 @@ def main():
         raise SystemExit(f"[x] no hs_*.h5 in {h5_dir}")
     files = [f for f in all_files
              if cell_key(f, args.layer_start, args.layer_end) in want_cells]
+
+    # A stem that matches no known cell is FILTERED OUT by the line above, not
+    # reported -- so a mis-renamed H5 would surface only as "requested cell
+    # missing", pointing at the wrong thing. Name it here. Not an error: the
+    # tree legitimately holds cells outside ALL_CELLS' remit only if someone
+    # adds one, and refusing to run would make this checker a gate on an
+    # unrelated file's existence.
+    unregistered = sorted({cell_key(f, args.layer_start, args.layer_end)
+                           for f in all_files} - set(ALL_CELLS))
+    if unregistered:
+        print(f"[!] {len(unregistered)} file(s) in this tree have an unregistered "
+              f"cell key (mis-named, or a new cell needing a CELLS entry): "
+              f"{unregistered}\n")
 
     print(f"H5 dir : {h5_dir}")
     print(f"mask   : {args.mask_path}")
