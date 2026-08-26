@@ -133,12 +133,24 @@ def phase_rows(n_decode: int, commit: int, phase: str):
 class Accum:
     """Per-question row collector for one (layer, phase), then an exact PCA.
 
-    WHY ROWS AND NOT A STREAMING COVARIANCE. With ~185 train questions the
-    covariance has rank <= 185, far below dim=4096, so a full 4096x4096 eigh
-    computes ~3900 directions that are exactly zero by construction (~7-8 s per
-    basis, 36 bases). The Gram route decomposes the n x n matrix instead and
+    WHY ROWS AND NOT A STREAMING COVARIANCE. A full 4096x4096 eigh spends most
+    of its time on directions that are zero by construction whenever the row
+    count is below dim. The Gram route decomposes the m x m matrix instead and
     recovers identical eigenvalues and orthonormal components -- verified to
-    1e-15 -- in ~0.01 s. It is the same decomposition, not an approximation.
+    1e-15. It is the same decomposition, not an approximation.
+
+    THE SPEEDUP IS PHASE-DEPENDENT, and the thin-phase figure does NOT
+    generalise. m is the TOTAL ROW count, not the question count:
+
+      prefill              m = 185  (1 row/question)      ~0.02 s   ~350x
+      decode_all reduced   m = 185  (1 row/question)      ~0.01 s   ~530x
+      pre/post_commit      m = 3700 (<=20 rows/question)  ~4.0 s    ~1.6x
+
+    So pre/post_commit are only marginally faster -- their Gram matrix is
+    ~3700x3700, comparable to dim=4096. Measured total fit is ~1.2 min across
+    36 bases (vs ~3.7 min for full eigh), which is small beside the I/O over
+    the 62 GB tree either way. The Gram route is kept because it is exact and
+    never slower, not because it is dramatically faster here.
 
     MEMORY. Rows are kept only for the bounded phases (prefill: 1 row/question,
     pre/post_commit: <=20). `decode_all` is unbounded (up to 768 rows) and would
@@ -575,8 +587,26 @@ def main():
             "question_text_sha256": man.get("question_text_sha256"),
             "commit_locator": "first #### else first answer-candidate "
                               "(Llama convention, NOT Qwen's ####-only)",
+            # Phases whose per-token coordinates are exported. decode_all is
+            # absent, so any consumer computing speed/curvature can tell from
+            # the meta alone which phases support it -- rather than inferring
+            # it from whether coord_t happens to be present.
+            "trajectory_phases": list(TRAJECTORY_PHASES),
+            "decode_all_reduced_to_mean": True,
+            "reduction_note": (
+                "decode_all stores each question's ROW MEAN before fitting "
+                "(unbounded row count: up to 768/question). That is what "
+                "per-question equal weighting already asserts for that phase, "
+                "but it means decode_all is fit on ~n_questions points, so its "
+                "spectrum must be read per phase: a flat spectrum there is the "
+                "reduction removing within-question variation, NOT an unstable "
+                "manifold."),
             "per_layer": {f"{li}|{ph}": {
                 "n_questions": b["n_questions"],
+                "n_rows": b["n_rows"],
+                "reduced_to_mean": b["reduced_to_mean"],
+                "trajectory_exported": ph in TRAJECTORY_PHASES,
+                "k": int(b["components"].shape[0]),
                 "total_var": b["total_var"],
                 "explained": b["explained"].tolist(),
             } for (li, ph), b in basis.items()},
