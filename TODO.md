@@ -17,10 +17,9 @@
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
-11. manifold pilot 
+11. manifold pilot ⏸
+
 ---
-
-
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
 3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
 4. **暂不把 Qwen CGT/IGT 拉到更高 α**：reasoning 的高工作点不能直接迁移到行为任务。Qwen CGT 在 `+2` 已出现 knowing/label-bias 问题，`+4/+6` 是格式或构念失效；继续到 `+8` 更可能放大崩溃，不能说明“以前拉得不够”。可以重分析现有数据，但不建议先重跑。
@@ -29,8 +28,6 @@
 5. **不重开高剂量 CGT/IGT**：它容易让论文重新散开，而且格式/knowing 已经先于剂量不足成为限制，可放在 boundary evidence。
 
 ---
-有。建议分三步做，先从现有数据能完成的部分开始。註解 1
-
 ### 1. 先比较共同的 boundary state
 
 不要先用 pre-commit `s_t`，因为 Qwen 低剂量几乎立即提交，cohort 不可比。优先使用所有样本都有的指标：
