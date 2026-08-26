@@ -121,17 +121,94 @@ PCA 设置：
 
 ---
 
+### 3b. 有限样本随机基线（已执行，结果见下）
+
+随机基线**必须逐 phase 匹配 `m`、`nq`、`dim` 和每题等权**，并走同一条 Gram
+路径。否则无法区分"低秩结构"与"`m ≪ dim` 时的采样必然"。
+
+累积解释方差，实测 vs 各向同性高斯（20 draws，中位数 [2.5, 97.5]）：
+
+| phase | m | k=5 | k=10 | k=20 |
+|---|---|---|---|---|
+| prefill | 185 | .257 vs .039 | .365 vs .076 | **.499 vs .148** [.1477,.1489] |
+| pre_commit | 2940 | .243 vs .006 | .344 vs .011 | **.446 vs .022** [.0222,.0223] |
+| post_commit | 3576 | .296 vs .005 | .397 vs .010 | **.484 vs .020** [.0200,.0201] |
+| decode_all | 185 | .641 vs .039 | .730 vs .076 | .812 vs .148 |
+
+Null 区间极窄（相对宽度 <1%），20 draws 已收敛。
+
+**措辞（冻结）**：这证明的是 **low-rank spectral concentration relative to a
+matched isotropic null**。
+
+- **不得**直接称为"低维 manifold" —— PCA 只能证线性低秩，不能证非线性流形。
+- **不得**把 `k=20` 当作内在维度；它是分析用的截断。
+- **倍数只在 phase 内比较**：`prefill` 的 3.4× 与 commit 窗口的 20× 不可横比，
+  因为 `prefill` 的 `m = nq = 185`，随机基线本身就能拿到 14.8%。
+- 谱是缓降拖尾、无肘部，所以不存在"天然正确"的 k —— 这正是 k 规则固定为 20
+  且报 sensitivity 的原因。
+
+---
+
+### 3c. commit cohort 的选择偏差（冻结）
+
+`pre/post_commit` 的可用样本随 α 变化，实测 commit coverage：
+
+| cell | α | coverage |
+|---|---|---|
+| `nocot` | 0 | 297/300 = .990 |
+| `nocot_aneg6` | −6 | 298/300 = .993 |
+| `nocot_aneg8` | −8 | 294/300 = .980 |
+| `nocot_a6` | +6 | **281/300 = .937** |
+
+三层口径，缺一不可：
+
+1. **coverage 本身先作为行为结果报告** —— +6 掉约 5pp 且方向符合已知的
+   +α 格式退化，这是结果，不是数据问题。
+2. **available cohort** 做阶段分布比较。
+3. **common-question intersection** 作配对 sensitivity。
+
+2 和 3 **都不能写成严格因果位移**。只有 `prefill` 支持严格同题位移。
+
+---
+
+### 3d. 主层与多重比较（冻结）
+
+- **Primary：decoder 18**（导出 slot `8`）。Sensitivity：decoder 10（slot `0`）。
+  其余层进 supplement。
+- 导出的 `per_layer` 键是**存储下标 0–8**，对应 decoder 10–18；`31` 是最终层，
+  不在 band 内、无 basis。
+- 主要剂量 contrasts 提前冻结：`−8 vs 0`、`−6 vs 0`、`+6 vs 0`。
+- Bootstrap 单位是 **question**，与全项目一致；multiplicity family 在每个
+  指标族内做 Holm，不跨族合并。
+
+---
+
 ### 4. 几何指标
 
 #### Primary
 
-1. **Normalized reconstruction error**
-   测量各剂量相对 α=0 自然流形的法向偏离，并以 α=0 held-out reconstruction error 或 hidden-state norm 标准化。
+1. **Normalized reconstruction error（NRE，定义已冻结）**
 
-2. **Local tangent alignment**
-   - `v_RSN` 投影到 α=0 局部 tangent space 的能量比例。
-   - last-prefill 可进行严格的同题配对位移分析。
-   - decode 已产生不同文本，只能做阶段对齐的分布比较，不能声称逐 token 因果位移。
+   Primary：`NRE(α) = mean(RE_α) / mean(RE_{α=0, held-out})`，分母按
+   layer × phase 各自计算，**在同一 cohort 上取均值之比**。
+
+   - hidden-state norm 标准化只作 sensitivity —— 它会把待测的 scalar-gain
+     效应一并除掉。
+   - **不使用逐题 ratio 再平均**：α=0 残差极小的题会让比值爆炸，均值被少数
+     样本支配。
+
+2. **PCA-subspace alignment**（原名 "Local tangent alignment"，已更名）
+
+   当前实现是 **phase 级的全局 PCA basis，不是 local tangent space**。除非
+   将来真的实现 α=0 的 kNN / local PCA，否则不得写作 local tangent。
+
+   - `prefill` 支持严格同题配对位移分析：`Δh = h(α) − h(0)`，分解为落在
+     α=0 前 k 个主方向内的切向能量与其余的法向能量。
+   - `pre/post_commit` 已产生不同文本，**只能做事件对齐的分布比较**，不能
+     写成逐状态因果位移。
+   - 报告切向占比时必须同时给 `k=5/10/20`：k=20 只覆盖 α=0 方差的约 50%，
+     所以"法向"里包含大量本属自然变异、只是未进前 20 维的方向。正确措辞是
+     **"位移主要不落在 α=0 前 k 个主方向张成的子空间内"**，而不是"离开流形"。
 
 3. **Commitment-centroid distance**
    在 training questions 上定义 α=0 successful/stable commitment centroid，检验 held-out conditions 到该区域的距离。
@@ -155,7 +232,10 @@ PCA 设置：
 - [ ] 检查 PCA subspace principal angles 或 projection-matrix similarity。
 - [ ] 检查 reconstruction error、tangent alignment 的剂量排序是否跨 bootstrap 稳定。
 - [ ] 检查结论是否对 PCA 维数和窗口长度稳健。
-- [ ] random subspace / shuffled-question 作为几何负控制。
+- [ ] **几何负控制（shuffled-question 已废弃 —— 对 pooled PCA 通常无意义）**：
+      (a) matched isotropic spectrum null（下节）；
+      (b) random orthonormal subspace，同 k；
+      (c) trajectory-order shuffle，**仅用于 speed/curvature 的 null**。
 - [ ] 不重新解释已经完成的 random/orthogonal remask；它是 readout control，不是 causal injection control。
 
 如果 α=0 manifold 本身不稳定，则停止，不进入剂量解释。
@@ -225,7 +305,9 @@ PCA 设置：
 
 只有 Llama pipeline 完全冻结后才运行 Qwen：
 
-- [ ] 不修改 PCA、窗口、指标或统计口径。
+- [ ] **冻结分析算法与选择规则**，而非机械复制 Llama 的 token 级定义。
+      Qwen 必须使用它自己的 commit locator（`####`-only）、自己的 layer band
+      `[16,22)` 和模型内标准化 —— 照搬 Llama 的 locator 会悄悄重定义事件本身。
 - [ ] Qwen 使用自己的 α=0 manifold 和模型内标准化。
 - [ ] 比较几何机制，不比较 raw α 或原始坐标值。
 - [ ] 检验 Qwen 高剂量平台属于 scalar compression、on-manifold retiming，还是不同轨迹机制。
