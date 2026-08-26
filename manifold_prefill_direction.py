@@ -147,3 +147,25 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def orthogonal_component_report(D, W, cells, rows, base_cell="nocot_aneg6",
+                                target="nocot_a6"):
+    """Where does the target's EXTRA direction live, inside or outside top-k?
+
+    The inside ratio and the cross-dose cosine are two SEPARATE observations
+    that happen to agree. They are the same fact only if the target's
+    orthogonal component (what is left after removing the shared axis) is
+    mostly OUTSIDE the alpha=0 top-k subspace. That has to be measured, not
+    assumed.
+    """
+    A, B = D[target][rows], D[base_cell][rows]
+    k_ls = (A * B).sum() / (B ** 2).sum()
+    R = A - k_ls * B                       # the target's extra direction
+    out = {"k_ls": float(k_ls),
+           "resid_energy_frac": float((R ** 2).sum() / (A ** 2).sum())}
+    for k in (5, 10, 20):
+        Wk = W[:k]
+        out[f"resid_inside_k{k}"] = float(((R @ Wk.T) ** 2).sum() / (R ** 2).sum())
+        out[f"shared_inside_k{k}"] = float(((B @ Wk.T) ** 2).sum() / (B ** 2).sum())
+    return out

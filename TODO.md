@@ -1,9 +1,5 @@
 ## Daily
-快速写下想法
-在客厅跳舞
-在窗前唱歌
 办理公证需要的下料
-MiniCPM5-2B
 
 ## TO DO
 0. 测试一下qwen中间一点的mask ✖
@@ -18,7 +14,7 @@ MiniCPM5-2B
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
-11. manifold pilot ⏸
+11. manifold pilot ⏸ 
 
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
@@ -145,6 +141,8 @@ MiniCPM5-2B
    Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
    https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
    Inkling-Small
+   MiniCPM5-2B
+
 7. 有什么是等待可以收益的task?
 8. Manifold
 
