@@ -127,6 +127,7 @@ Scope: every colour-logit diagnostic claim. -->
 | Qwen commit-aligned analysis | **NOT FROZEN** — a "decode-state saturation" reading was RETRACTED; see the 口径 rules in the Phase-1 section |
 | Qwen logit family (§5.5 output decisiveness) | **UNBLOCKED + FROZEN** 2026-08-26 — 7 cells, `logit_family.py` / `logit_family_RESULT.txt`. Reads `PARTIALLY AVAILABLE / SPARSELY SAMPLED`, never "available"; CoT is one readable cell and its transition is **not detected**, never "abolished" |
 | Qwen band-position probe `[11,18)` vs `[16,22)` | **PREPARED, NOT RUN** — launchers exist, zero artifacts; see the mask/pre-flight block |
+| Manifold pilot (Llama §1–§3) | **§1 ACCEPTED + §2 FROZEN**; §3 built and tested, NOT YET RUN on the server |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -750,6 +751,44 @@ bash setup_env.sh   # creates conda env "roleplaying" (py3.10) + bf16/CUDA stack
 
 Mistral3 needs `transformers` from main + `mistral-common>=1.8.6` (already in `setup_env.sh`).
 
+## Manifold pilot (Llama; §1–§3 done, §3 not yet run)
+
+> Asks whether steering is **scalar gain**, **on-manifold retiming**, or **off-manifold deviation**. Binding constraint set at the outset: **the manifold must add information beyond `s_t`/`Z_t` + commitment behaviour, or it is demoted to auxiliary visualization.** Execution order is frozen: H5 acceptance → Llama α=0 manifold → four-condition held-out pilot → incremental prediction → freeze method → Qwen reuse → decide whether causal direction injection is needed. Plan lives in `TODO.md`.
+
+**§1 ACCEPTED (2026-08-26).** `check_hs_llama.py` (+ `test_check_hs_llama.py`, 27 mutation-tested guards) accepted the four primary cells at **full probe (`--n_probe 0`, not sampled)**: No-CoT α = −8 / −6 / 0 / +6 under `phase1b_eot`, all n=300, `stored_layer_indices=[10..18, 31]`, band `[11,20)`.
+
+- **Projection reads exactly 0.00e+00 in all four cells** — the tracker casts HS to fp16 BEFORE projecting, so the stored states ARE the projected states. The `rtol=1e-2` tolerance is a **wrong-mask / wrong-band detector, not a precision test** (a wrong mask reads 3.5, corrupted HS 38).
+- **Agreement measured 1.000 on all three fields in all four cells.** Frozen wording: "**本批次实测 1.000**". Do NOT restate it as "same-protocol re-run == replay" — it is an OBSERVED property of this batch, not a protocol guarantee.
+- **acc 79.67 / 60.00 / 51.67 / 40.67 (α = −6 / 0 / +6 / −8) reproduces the −6 peak SAME-BATCH.** This is the 184 bs=1 batch, so per the 184-vs-182 rule it may **never** be mixed per-question with the 182 dose table.
+- **A verified round-cap FALSE POSITIVE removed `2000` from `ROUND_CAPS`.** Two cells each had exactly ONE 2000-char sample; both ran 767/768 decode steps and both tails were degenerate repetition loops. A real cap makes a **CLUSTER**; judge a flagged length by decode steps and the tail, never by the length alone. Same reasoning that removed 1000 on Qwen.
+
+**§2 FROZEN — the split lives in THIS repo, not in `RoleAnswer/`.** `manifold/split_manifest.{py,json}` + `test_split_manifest.py` (21 mutation tests). 60/20/20 **by QUESTION**, realised **185/55/60**, digest `64af9b38…`.
+
+<!-- Why: manifold_fit.py REFUSES to run without the manifest, so a required input of versioned server code cannot live in an unversioned tree; and hash() is process-salted, which would silently re-roll the split every run.
+Evidence: manifold/test_split_manifest.py sections [2] and [6]; split_manifest.py module docstring.
+Scope: the whole manifold line, both models. -->
+- **Assignment is `sha256(salt:question_idx)`, never `hash()` or an RNG shuffle.** `hash()` on str is **process-salted** in Python 3 — a different split every run, silently. The test carries that failure mode as an explicit control.
+- **Split by QUESTION, effective n = 300 questions, never tokens.** Tokens within a question are strongly correlated, so a token split leaks: "held-out" tokens sit in a trajectory the basis was fit on.
+- **Counts are 185/55/60, NOT 180/60/60, and must not be re-balanced.** Thresholds are on the hash value; sorting-and-slicing to exact counts would make each assignment depend on the whole set again, so extending n would re-shuffle existing questions. Verified: growing n 100→300 moves nobody.
+- **ONE split shared by every cell** (all α, CoT, roles). Per-cell splits would confound the dose effect with question difficulty — the failure that made PV10-A's cross-α accuracy uninterpretable.
+
+**§3 BUILT AND TESTED, NOT YET RUN.** `manifold_fit.py` (+ `test_manifold_fit.py`, 74 mutation tests) + `run_manifold_pilot.sh`. Server-side, CPU-only, READ-ONLY on the H5.
+
+- **Phases are option B, frozen:** `prefill` = **last-prefill state ONLY** (the one strictly α-matched position, so the only phase where a displacement claim is licensed); `pre_commit` = `[c−20, c)`; `post_commit` = `[c, c+20)`; `decode_all` = option-A sensitivity.
+- **A sample committing before token 20 is KEPT on its actual tokens, never dropped.** Dropping `c < 20` would systematically delete FAST commitment — the behaviour α moves (Llama α=0 already commits before token 20 in ~23% of samples, and that fraction is itself α-dependent). at-risk filtering belongs to speed/curvature analyses needing a fixed landmark, NEVER to the PCA training set. A no-commit sample is absent from the aligned phases, its coverage is **reported per cell**, and it still enters `decode_all`.
+- **Per-question equal weighting, and the basis is fit on α=0 TRAIN only.** Without it a 20-token trajectory outvotes a 3-token one 7:1 and the "natural manifold" becomes the natural manifold OF THE SLOW SAMPLES — which correlates with α. Every cell is centered by the **same α=0 `mu`**; centering a steered cell on its own mean subtracts the displacement under test.
+- **`decode_all` reduces each question to its ROW MEAN before fitting** (unbounded rows: up to 768/question). Consequence that must be read per phase: it is fit on ~n_questions points, so **a flat spectrum THERE is the reduction removing within-question variation, NOT an unstable manifold.** Recorded in `basis_meta.json` as `reduction_note`, not left to folklore.
+- **PCA uses the Gram route — exact, not truncated** (identical eigenvalues, orthonormality 2e-15). **The speedup is phase-dependent and the thin-phase figure does NOT generalise:** prefill / reduced decode_all are m=185 (~350–530×), but pre/post_commit are **m≈3700, Gram ≈3700×3700, only ~1.6×**. Measured total fit ≈1.2 min vs ≈3.7 min for full eigh — negligible beside the 62 GB of I/O either way. Kept because it is exact and never slower.
+- **Rank comes from ROWS and the numerical spectrum, NOT from question count.** An earlier `n_questions−1` cap was wrong and silently discarded real directions: 2 questions × 5 tokens support **4** directions; 2 × 1 token support 1.
+- **The commit locator is COPIED from `analyze_wrong_right_commit.py`, deliberately not improved.** Its `>=` boundary can land one token early, but every published Llama commit-aligned number uses that definition, so changing it here would silently redefine the event the phases are built on. The test pins **equivalence** (patterns, flags, and behaviour on cases spanning both branches), not correctness. It is **not** Qwen's `####`-only locator.
+- **Four fail-closed guards, each added after being found missing:** `--split_manifest` is REQUIRED (no default → no silent fit on all questions); the manifest is **structurally validated** (mutual exclusion, full 0..n−1 cover, counts, non-empty train) and its **question-text digest is RECOMPUTED FROM THE α=0 H5** by `question_idx` order — §2's digest is worthless unless a consumer enforces it; `--base_cell` is verified `steer_alpha == 0` from H5 metadata, not from the filename; and `basis.npz` / `basis_meta.json` are overwrite-guarded alongside the per-cell JSON (a stale basis beside fresh coordinates still loads and still looks reasonable — the worst failure mode here).
+- **Export carries per-token `coord_t` (bounded phases) and `re_by_k` (k=1..k_max).** A phase MEAN destroys token order, and speed / curvature / turning are defined on the ordered sequence; NRE at k=20 alone cannot be re-expanded offline, so validation could not otherwise choose k. `decode_all` exports summary stats only, so **option-A sensitivity is a LEVEL comparison, not a trajectory-shape one**.
+- **Cheap guards run BEFORE the tokenizer load.** Twice during construction the H5/manifest checks sat behind it, so a wrong `--model_dir` hid them behind an unrelated failure.
+- **NO GPU.** No forward pass anywhere: the H5 hold precomputed states and `AutoTokenizer` loads no weights. Do **not** set `CUDA_VISIBLE_DEVICES` — unlike signal/HS collection, nothing here generates model output, so cross-machine reproducibility does not apply and it can run beside GPU jobs.
+- **Startup must print all three lines; if any is missing, stop rather than let it run:** `[split] … (structure verified)`, `[split] question-text digest matches the H5 (300 questions)`, `[fit] basis from nocot TRAIN (185 questions), k_max=20`.
+
+**Known limitation to state explicitly at §5, not to discover there:** this batch has **no independent second α=0 cell**, so α=0 manifold stability can only be estimated by train/val subsampling / bootstrap, never by cross-validating two independent α=0 batches. That weakens the "the manifold is stable" premise, and its failure is a pre-registered **stop condition**.
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
@@ -757,6 +796,27 @@ There is no pytest suite and no linter config. The tests that exist are standalo
 Two things about running them that have each cost a wrong verdict: **(a) these scripts print their own `ok` lines and signal failure through the EXIT CODE**, so redirecting output to `/dev/null` and reading only the status is fine, but reading only the last printed line is not — check `$?`. **(b) `timeout` does NOT exist on this macOS box**; wrapping a check in it yields exit 127 for every script, which looks exactly like a mass test failure. Verified passing on 2026-08-21: `test_cgt_seq_v5.py`, `test_bandit_pv10.py`, `test_bandit_pv10c.py`, `test_bandit_pv11.py`, `test_pv10_stop_parity.py`, plus `bash -n` on the Qwen launchers.
 
 ```bash
+# Manifold pilot (sections 1-3). All CPU-only, no GPU, no server.
+# check_hs_llama.py itself runs on the SERVER (conda `python`); its test does not.
+python3.10 test_check_hs_llama.py          # 27 guards: metadata fail-closed,
+                                           # layer indices [10..18,31], the
+                                           # projection MEAN-not-sum identity,
+                                           # agreement-as-rate
+python3.10 manifold/split_manifest.py --check   # split reproduces from its
+                                           # generator; add --roleanswer <dir>
+                                           # to also verify the text digest
+                                           # (absent tree = skipped, not passed)
+python3.10 manifold/test_split_manifest.py # 21 guards incl. the process-salted
+                                           # hash() control and n-extension
+                                           # stability
+python3.10 test_manifold_fit.py            # 74 guards: phase windows, frozen
+                                           # commit-locator EQUIVALENCE,
+                                           # per-question weighting (with a
+                                           # row-weighted control), coord_t /
+                                           # re_by_k export, manifest + H5
+                                           # digest, overwrite, base-cell alpha
+bash -n run_manifold_pilot.sh
+
 # Qwen2.5 signal replication (the ACTIVE line). The tracker's hook path is NOT
 # covered by check_gsm8k_qwen.py -- see the Qwen-signal bullet above.
 # Qwen HS backfill (COLLECTED + ACCEPTED). CHECK is read-only: interpreter+deps,
