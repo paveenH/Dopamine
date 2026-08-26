@@ -1,3 +1,8 @@
+## Daily
+快速写下想法
+在客厅跳舞
+在窗前唱歌
+办理公证需要的下料
 
 ## TO DO
 0. 测试一下qwen中间一点的mask ✖
@@ -11,60 +16,97 @@
 8. qwen的thinking curve 存HS ✔
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
-10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ⏸
+10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
+11. manifold pilot 
+---
+
+
+1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
+3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
+4. **暂不把 Qwen CGT/IGT 拉到更高 α**：reasoning 的高工作点不能直接迁移到行为任务。Qwen CGT 在 `+2` 已出现 knowing/label-bias 问题，`+4/+6` 是格式或构念失效；继续到 `+8` 更可能放大崩溃，不能说明“以前拉得不够”。可以重分析现有数据，但不建议先重跑。
+3. **只增加一个外部 reasoning task**：优先 GSM-Hard，验证 commitment 转折能否迁移，而不是大规模铺 benchmark。
+4. **必要时补 causal random/orthogonal injection**：如果正文要强调 RSN 方向本身具有机制特异性，这比继续增加行为任务更能回应 ACL 审稿。
+5. **不重开高剂量 CGT/IGT**：它容易让论文重新散开，而且格式/knowing 已经先于剂量不足成为限制，可放在 boundary evidence。
+
+---
+有。建议分三步做，先从现有数据能完成的部分开始。註解 1
+
+### 1. 先比较共同的 boundary state
+
+不要先用 pre-commit `s_t`，因为 Qwen 低剂量几乎立即提交，cohort 不可比。优先使用所有样本都有的指标：
+
+- `Z_prefill`
+- `entropy/log(V)`
+- top1 probability
+- probability margin
+- `decode[0]` 的回弹幅度
+- early-candidate / 首个答案位置
+
+把每项转成各模型 α=0 基线下的标准分或百分位，再比较：
+
+- Llama：`α=0 → −6`
+- Qwen：`α=0 → +8`
+
+关键问题是：两者的最佳剂量是否把这些指标推向相似的“高果断但不过度提交”的区域。若只是准确率提高、内部指标并不汇合，就不支持共同 working state。
+
+### 2. 做严格的 held-out state matching
+
+更有说服力的检验是：
+
+1. 用训练题确定 Llama `α=−6` 的目标状态；
+2. 只根据内部指标，选择距离该状态最近的 Qwen 剂量，不能查看 Qwen accuracy；
+3. 在 held-out questions 上检验该剂量是否同时改善 accuracy、commit timing 和 loop；
+4. 用 bootstrap 检验“最佳状态距离”是否显著小于 α=0 和极端剂量。
+
+如果内部状态盲选出的剂量正好接近 Qwen `+8`，才能真正支持：
+
+> 两模型从不同方向到达相似的功能工作区。
+
+不过这一步最好以 output-distribution 指标为主；模型内标准化的 RSN 投影只能作为辅助，因为两条 RSN 轴并不天然是同一坐标。
+
+### 3. 再做 hidden-state / manifold 对齐
+
+如果要进一步解释“为什么方向相反”，可以使用已存 HS：
+
+- 用两模型 α=0、相同题目的 hidden states 学习 PCA；
+- 按相对层深逐层匹配，不直接拼接不同 layer band；
+- 用 CCA 或 orthogonal Procrustes，在训练题上建立跨模型空间映射；
+- 映射冻结后，在 held-out 题上比较各剂量到“successful commitment region”的距离；
+- 同时比较 on-manifold reconstruction error、trajectory speed、切向方向和 commit centroid distance。
+
+判别结果：
+
+- `Llama −6` 与 `Qwen +8` 映射后靠近：支持不同基线、共同工作区；
+- 最佳状态不靠近，但各自都改善行为：更可能是不同模型通过不同内部机制达到相似行为；
+- 极端剂量偏离自然流形：说明性能下降或平台可能与轨迹失配有关。
+
+我建议下一步先做第 1 步的 **boundary-state alignment**。它利用刚提取好的 output decisiveness，没有 pre-commit cohort 问题，成本最低；结果成立后再投入完整 manifold。
 
 ---
 
-2. **完成 Thinking Curve 的跨模型总结**
-   不强行证明“相同 working state”，而是先冻结目前站得住的共同结构：
+我建议下一步不要追求把两条曲线“整理成一致”，而是把“不一致”本身升级为研究问题：
 
-   `线性 entry gain → 非线性 decode/commitment → commit-locked transition → post-commit release`
+> RSN 是否提供共同的 adaptive-calibration 功能，但不同模型通过不同工作区实现它？
 
-   同时明确两模型曲线不同：Llama 是非对称最佳工作点，Qwen 是上升后平台。
+简单分三步：
 
-3. **做小规模 manifold pilot**
-   直接使用已有 H5，不重跑模型。优先看：
+1. **先排除剂量口径问题**
+   不再比较 raw `α`。改用各模型内部标准化的有效干预量，例如 `ΔG_prefill`，再比较 commit position、early candidate、top1/margin、loop 等共同读数。先判断“方向相反”是不是仅由 mask、层数和 activation scale 不同造成。
 
-   - PCA / participation ratio
-   - α=0 流形重建误差
-   - RSN 与局部切空间的 alignment
-   - 高剂量轨迹是否偏离自然流形
-   - 几何指标能否在控制 `Z_t`、长度和 commit position 后增加预测力
-
-   如果没有增量信息，就把 manifold 留作可视化补充。
-
-   8. manifold
-      在manifold前先做一个很便宜的SNR检查：
-
-      - 按question做split-half或bootstrap；
-      - 检查RSN和null response profile各自的重测稳定性；
-      - 在相近response norm/SNR条件下再比较缩放残差。
-
-      这能判断null高残差究竟来自方向结构，还是单纯因为信号太弱。
-
-      然后开始manifold pilot：
-
-      1. 只用α=0训练问题学习每层的自然流形。
-      2. 在held-out问题上投影`0/+6/+8/+12`，各层分开。
-      3. 优先检查：
-         - PCA谱与participation ratio；
-         - on-manifold reconstruction error；
-         - α引起的位移与局部切空间的对齐程度；
-         - prefill和commit-aligned decode轨迹是否转向；
-         - trajectory speed与curvature。
-      4. `−8`和CoT作为第二层控制。
+2. **做 blind working-state matching**
+   用 Llama `−6` 的内部与输出状态定义目标区，不看 Qwen accuracy，选择最接近的 Qwen 剂量；然后在 held-out questions 检验它是否也带来较好的 accuracy、commitment 和 stopping。
    
-         判读很直接：
+   - 若接近 Qwen `+8`：支持“不同方向到达相似功能工作区”。
+   - 若状态仍不接近：接受“两模型使用不同内部机制产生改善”。
 
-      - 高剂量仍在流形内、切向方向不变，只是移动幅度变小 → 加强标量压缩解释。
-      - 高剂量normal displacement增加或切向方向改变 → 才是几何重分配的证据。
+3. **再做小规模 manifold pilot**
+   直接用已有 H5，检查高剂量是沿自然流形移动、发生转向，还是单纯 scalar compression。只有几何指标能在一维 RSN 指标之外提供增量解释，才继续扩大。
 
-4. **最后再决定是否做 causal direction control**
-   目前 random/orthogonal remask 只是 readout control。只有论文需要强调“RSN steering 本身具有因果特异性”时，才值得重新注入 random/orthogonal directions 跑模型。
+我的优先顺序是：
 
-所以眼下最具体的下一步是：**先在服务器提取 Qwen 的 entropy/top1/margin，再完善 §5.5、§5.7 和跨模型结论；之后才进入 manifold。** 暂时不需要扩展第二次提交、频率指标或重跑完整 α 曲线。
+> **标准化剂量与 boundary-state comparison → held-out matching → manifold pilot。**
 
-这些分析仍可使用现有H5，不需要重新跑模型。
+暂时不建议加第三个模型，也不急着扩新 benchmark。先把“跨模型共同机制”究竟应表述为共同工作点，还是共同功能、不同实现，回答清楚。即使最后无法对齐，也不是复现失败，而是一个更有价值且更诚实的结论：**RSN 的 commitment-calibration 功能可迁移，但工作区具有模型依赖性。**
 ---
 1. **Thinking Curve：最高优先级**
    直接回答核心问题：为什么 Qwen 需要正向、Llama 却可能需要负向调节。比较的应是早期候选、commitment、推理压缩、循环等行为状态，而不是 raw α。
@@ -109,166 +151,6 @@
 8. Manifold
 
 ---
-## TO DO — Qwen2.5 AdaptiveThinking Replication
-
-### 0. 冻结研究问题
-
-- [ ] 主问题：Qwen 是否复现  
-  `α → task-entry gain → pre-commit state → decisiveness → commitment behavior`
-- [ ] 跨模型问题：Llama 与 Qwen 的相反 α 方向，是否进入相似的功能性 commitment state。
-- [ ] 明确这是一条分析链；除 `α → G_prefill` 外，不提前声称因果中介。
-- [ ] production accuracy 继续引用 [AdaDopamine_gsm8k.md](/Users/paveenhuang/Downloads/Dopamine/AdaDopamine_gsm8k.md:632)，signal run 的同批 accuracy 只用于 signal–behavior alignment。
-
-### 1. 固定 Qwen 协议
-
-- [ ] 主实验沿用当前 Qwen mask：`[16,22)`、6 层、`nmd_0.5_16_22_7B.npy`。
-- [ ] 不直接搬用 Llama 的 `[11,20)`、raw α 或信号标准化参数。
-- [ ] 为 Qwen 建立独立 signal launcher，不修改冻结的 Llama launcher。
-- [ ] 固定同一批 300 道 GSM8K、bare-string、greedy、bs=1、当前 EOT terminators。
-- [ ] 整条 dose curve 固定在同一张 GPU。
-- [ ] 使用新的 `RUN_TAG`，不覆盖现有 HDF5 或行为结果。
-- [ ] `[11,18)` earlier-band probe 暂列敏感性分析，不阻塞主复现。
-
-### 2. 技术诊断
-
-- [ ] 核对 tokenizer、prompt tail、terminators 和实际注入 token。
-- [ ] 核对 mask shape、非零层、`[16,22)` 与 decoder layers 的对应。
-- [ ] 确认 steering 使用 output-side hook，且记录的是 post-injection state。
-- [ ] 核对每次调用的 steering fires。
-- [ ] 核对 HDF5 保存 Qwen L16–21 加 final layer，共 7 个 stored layers。
-- [ ] 核对 α=0、非零 α 的执行路径与 metadata。
-- [ ] 用少量题检查生成文本、`####`、commit locator、正确率提取和信号长度。
-- [ ] 如发现技术不一致，先修复协议；不根据结果方向调整 prompt、mask 或剂量。
-
-### 3. 分层收集数据
-
-#### 3.1 完整剂量的轻量 signal curve
-
-- [ ] No-CoT：`α={−8,−6,−4,−2,0,+2,+4,+6,+8,+10,+12}`。
-- [ ] 每格记录：
-  - `G_prefill/Z_prefill`
-  - decode `Z_t`
-  - `s_t/p_t`
-  - generated text、commit marker、correctness
-  - entropy、top1、margin 或足够重建这些指标的 final-layer readout
-- [ ] 保留全部剂量，不因不显著或方向不符合预期而删除。
-
-#### 3.2 自然状态与交互条件
-
-- [ ] Neutral No-CoT α=0。
-- [ ] Neutral CoT α=0。
-- [ ] Expert α=0。
-- [ ] Non-Expert α=0。
-- [ ] `{No-CoT, CoT} × {0,+6}` 作为 Qwen 的主 2×2 条件。
-- [ ] 视主结果加入 CoT `+8`，观察 ordering saturation／压缩。
-- [ ] Primary-teacher 只作补充，不阻塞主分析。
-
-#### 3.3 原始 HDF5 子集
-
-优先保存以下代表条件的逐 token hidden states：
-
-- [ ] No-CoT：`−8、0、+6、+8`。
-- [ ] CoT：`0、+6`。
-- [ ] Expert / Non-Expert：α=0。
-- [ ] 完成 metadata、样本数、层索引和文件完整性检查。
-
-完整 dose curve 先用轻量 signal 路径；HDF5 用于离线重投影、方向控制和之后的 manifold pilot，避免一开始保存全部剂量造成过高成本。
-
-### 4. 复现 `AdaptiveThinking` 核心分析
-
-#### 4.1 Task-entry calibration
-
-- [ ] 拟合 `α → G_prefill/Z_prefill` 的 slope 与线性度。
-- [ ] 测量从 prefill 到 `decode[0]` 的 rebound。
-- [ ] 检查后续 decode trajectory 是否重新靠拢。
-- [ ] 将这一部分定位为 intervention calibration／manipulation check。
-
-#### 4.2 Correct vs Incorrect
-
-- [ ] 比较 commit timing。
-- [ ] 比较 commit 前 `s_t level` 与提交后 release。
-- [ ] 检查 correct/wrong 差异是否独立于 commit-time 错位。
-- [ ] 只作 outcome association，不写成 `s_t` 导致正确。
-
-#### 4.3 CoT vs No-CoT
-
-- [ ] 比较 task-entry gain。
-- [ ] 比较 pre-commit `s_t level`。
-- [ ] 比较 post-commit release。
-- [ ] 比较 centered `p_t RMS`，频率指标仅作 negative control。
-- [ ] 比较 entropy/top1/margin，区分 engagement 与 output decisiveness。
-- [ ] 检查 Qwen 的 CoT 是否改善候选质量，但不自行改变 early-answer ordering。
-
-#### 4.4 Persona
-
-- [ ] 比较 Expert–Non-Expert 的 task-entry gain。
-- [ ] 比较 commitment formation 与 release。
-- [ ] 检查 Persona 是整体平移还是 temporal redistribution。
-- [ ] 不把该结果当作 α steering 的因果证据。
-
-#### 4.5 α dose-response
-
-- [ ] 画出 α 对 `G_prefill`、pre-commit `s_t`、`p_t RMS`、confidence 与 commitment behavior 的完整曲线。
-- [ ] 检查 `+6` ordering transition、`+8` saturation，以及 `+10/+12` 是否只增加注入强度而不再改变 commitment state。
-- [ ] 分开描述 GSM8K 饱和与 MATH `+8` reasoning compression，避免建立通用右臂。
-
-#### 4.6 Slow-state validation
-
-- [ ] 固定 early window，避免用 `[0,commit)` 产生机械耦合。
-- [ ] 在 at-risk samples 上分别检验：
-  - `s_t level → commit timing`
-  - `s_t slope → commit timing`
-- [ ] 控制 α condition、question、长度与 early confidence。
-- [ ] 检查 Qwen 是否同样只有 level evidence，而没有 slope-vigor evidence。
-
-### 5. 跨模型 working-state 检验
-
-- [ ] 各模型使用自己的 neutral reference 做标准化。
-- [ ] `ΔG_prefill/α` 只用于校准，不要求两个模型的 raw `G_prefill` 相等。
-- [ ] 建立多维 working-state vector：
-  - pre-commit `s_t level`
-  - centered `p_t RMS`
-  - entropy/top1/margin
-  - early-candidate
-  - commit position
-  - post-commit revision/loop
-- [ ] 用训练题确定 Llama 的候选 working-state 区域。
-- [ ] 不参考 Qwen accuracy，先根据内部状态找出最接近该区域的 Qwen dose。
-- [ ] 在 held-out questions 检验该 dose 是否同时改善 commitment behavior 和 accuracy。
-- [ ] 比较两端的失败方式：抢答、候选震荡、post-commit loop、推理不足和过度压缩。
-
-可能出现三种结论：
-
-- [ ] 内部状态和行为都汇合：支持“相同调节机制、不同基线工作点”。
-- [ ] 只有行为汇合：表述为不同内部实现产生相似的 commitment correction。
-- [ ] 两者均不汇合：保留模型特异性，不强行建立统一 working state。
-
-### 6. Qwen 方向特异性
-
-- [ ] 选择代表条件：α=0 与 RSN `+6`。
-- [ ] 构造 layer、support、norm 匹配的 random／orthogonal directions。
-- [ ] 不只匹配 raw α；同时报告各方向实际产生的 `ΔG_prefill`。
-- [ ] 比较相同的预先冻结读数：
-  - pre-commit `s_t`
-  - post-commit `p_t`
-  - commitment ordering
-  - first accuracy
-  - invalid／contamination
-- [ ] 区分 offline re-projection specificity 与 causal steering specificity。
-- [ ] 若 random direction 产生相似结果，降低 RSN-specific 机制主张。
-
-### 7. Manifold pilot（复现后再开始）
-
-启动条件不是“结果必须成功”，而是核心 signal 数据与 HDF5 已完整、口径稳定。
-
-- [ ] 只用 α=0 training questions 学习每层自然轨迹结构。
-- [ ] PCA／participation ratio 为主，TLE 为 sensitivity。
-- [ ] 检验 `v_RSN` 的 local tangent alignment。
-- [ ] 比较各剂量的 reconstruction error、trajectory speed、curvature 与 commitment-centroid distance。
-- [ ] 检查 manifold features 在控制 `Z_t`、confidence、长度、position、marker 后是否仍有额外预测力。
-- [ ] UMAP/t-SNE 只用于展示，不作主要证据。
-- [ ] 若没有超过一维 `Z_t` 的解释力，将 manifold 定位为几何可视化，不扩成主线。
-
 ### 8. 最终产出
 
 - [ ] 一张 Llama–Qwen effective-state 对齐图，横轴不使用 raw α。
@@ -279,22 +161,12 @@
 - [ ] 将结果写入 `AdaptiveThinking.md` 的 Qwen replication 新节。
 - [ ] 运行配置、路径、metadata 和分析器口径写入 `CLAUDE.md`。
 - [ ] Manifold 只有在提供额外解释力时，才进入正文机制主张。
-
-建议执行顺序：
-
-```text
-协议冻结与技术诊断
-→ 代表条件小规模检查
-→ Qwen 完整轻量 signal curve
-→ 代表条件 HDF5
-→ AdaptiveThinking 核心复现
-→ Llama–Qwen working-state 对齐
-→ Qwen causal direction control
-→ manifold pilot
-```
-
-本轮仅完成规划，没有修改文件或执行实验。
-
+- **尚未完成**：
+  - Expert / Non-Expert Persona 分析；
+  - 完整 11 档 confidence 曲线；
+  - 真正的 **Llama–Qwen working-state alignment** 与 held-out 验证；
+  - random/orthogonal direction 的**实际因果注入**；目前只有离线重投影；
+  - 对应的跨模型 effective-state 图和 causal-control 图。
 ---
 
 ## TO DO — ACL ARR
@@ -337,19 +209,6 @@
 - [ ] 其他模型（Mistral、Muse-Glimmer、Inkling-Small）仅在 Qwen 结果明确后考虑。
 - [ ] 人脑、fMRI/EEG、commit prediction 与动态 controller 留待主论文证据闭合后。
 
-执行顺序：
-
-```text
-现有行为证据与主张冻结
-→ 选择一个稳定正结果任务
-→ Qwen 跨模型复现
-→ 同一代表任务的直接方向控制
-→ 主结果图、全文与复现材料
-→ Optional extensions
-```
-
-行文参考：*Hippocampo-neocortical interaction as compressive retrieval-augmented generation*（Nature Communications, 2026）。
-
 # Follow-up
 
 0. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
@@ -360,24 +219,6 @@
    - baselines: entropy threshold, MSP threshold, answer logit margin, question length, random routing, always CoT, always No-CoT
 
 1. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
-
-
-
-# Reference: candidate anxiety / mental-health benchmarks
-
-| Benchmark / Scale | # Items / Samples | What It Tests | Why It May Be Useful Here | Source |
-|---|---:|---|---|---|
-| **STAI-s LLM Anxiety Protocol** | 20 STAI-state items; paper repeats administrations across conditions | Anxiety-like **state self-report** in LLMs under baseline / trauma-induction / relaxation prompts | Best direct fit for testing whether α steering changes anxiety-like questionnaire scores | [npj Digital Medicine paper](https://www.nature.com/articles/s41746-025-01512-6) · [GitHub](https://github.com/akjagadish/gpt-trauma-induction) |
-| **STAI full** | 40 items: 20 state + 20 trait | State anxiety + trait anxiety | Could separate temporary α-induced state from stable persona-style trait responses | [STAI overview](https://www.ebsco.com/research-starters/health-and-medicine/state-trait-anxiety-inventory-stai) |
-| **GAD-7** | 7 items | Generalized anxiety symptom severity | Very lightweight anxiety probe; easy pilot, but short and human-symptom framed | [AHRQ GAD-7](https://integrationacademy.ahrq.gov/resources/7336) |
-| **DASS-42** | 42 items: Depression 14 / Anxiety 14 / Stress 14 | Depression, anxiety, and stress dimensions | Good next probe after STAI-s because it can test whether α+ specifically raises anxiety/stress rather than all negative affect | [DASS-42 overview](https://www.sralab.org/rehabilitation-measures/depression-anxiety-stress-scale) |
-| **PROMIS Anxiety Item Bank** | 29 anxiety items | Anxiety symptoms across a broader item bank | More anxiety-specific than DASS; useful if we want more than 20 anxiety items | [PROMIS Anxiety item bank reference](https://www.sciencedirect.com/science/article/pii/S0022399926000954) |
-| **PHQ-9** | 9 items | Depression symptom severity | Short depression contrast; useful as a negative-control affect dimension, but too short for main α curve | [PHQ-9 overview](https://www.apa.org/depression-guideline/patient-health-questionnaire.pdf) |
-| **SCL-90-R** | 90 items | Broad symptom checklist: depression, anxiety, phobic anxiety, obsessive-compulsive, etc. | Large multi-domain probe, but copyright/commercial-use concerns make it less convenient | [SCL-90-R overview](https://www.pearsonclinical.com/psychology/products/100000645/symptom-checklist-90-revised-scl-90-r.html) |
-| **MentalBench** | 24,750 synthetic clinical cases | DSM-grounded psychiatric diagnosis and differential diagnosis | Tests mental-health reasoning, including anxiety-disorder recognition; not a model-state anxiety probe | [Hugging Face dataset](https://huggingface.co/datasets/hysong/MentalBench) |
-| **SMHD** | Large Reddit user-level dataset; includes anxiety and depression diagnosis labels | Mental-health condition classification from user posts | Useful if we want anxiety/depression recognition from naturalistic text, not self-report state | [SMHD resource](https://ir.cs.georgetown.edu/resources/smhd.html) |
-| **IMHI / MentaLLaMA benchmark** | 100K+ instruction-style mental-health samples | Mental-health intent / risk / support / diagnosis-style tasks | Useful for testing whether α changes mental-health reasoning or safety behavior | [MentaLLaMA paper/project](https://arxiv.org/abs/2309.13567) |
-| **eRisk** | Yearly shared-task datasets; size varies by task/year | Early risk detection for depression, self-harm, anorexia, etc. | Good for longitudinal mental-health detection, but less directly tied to anxiety-like model state | [eRisk overview](https://erisk.irlab.org/) |
 
 # Brain
 
