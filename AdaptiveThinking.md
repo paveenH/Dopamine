@@ -965,7 +965,7 @@ band 位置是 per-model 的 mask 事實（Qwen 取 layer-wise Expert/Non-Expert
 
 1. **一切統計先在模型內標準化**（Z 座標、或相對各自 α=0 的 paired Δ）後才跨模型並列。
 2. **比較內部狀態，不比較 raw α。** 可比較的是**形狀**（dose 曲線的飽和位置、response profile 的共線性、commit position 的相對移動），不是絕對量。
-3. **entropy 若進入比較，一律使用 `entropy/log(V)`**（Llama V=128k、Qwen V≈151.7k，未歸一化的 nats 不可比）。此規則目前**尚無資料可套用**——Qwen 的 logit family 仍為 BLOCKED，見 §5.5。
+3. **entropy 若進入比較，一律使用 `entropy/log(V)`**（Llama V=128k、Qwen V=152,064，未歸一化的 nats 不可比），並採用與 Llama 相同的 commit locator 與 `±20` 窗口。Qwen 的 logit family 已於 §5.5 解封，故本規則現已可套用；但 `entropy/log(V)` 只是**詞表大小歸一化，並非 model-free axis**——tokenizer 粒度與詞表結構仍不同。
 4. **cohort 定義必須連同數字陳述。** Qwen 的 pre-commit cohort 選擇在 manipulation 自身的結果上（見 §5.3），這一點在 Llama 不成立，是兩者最重要的不對稱。
 
 ### 5.2 Manipulation Check and Effective Dose
@@ -1152,6 +1152,74 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 
 > `p_t` 是 RSN 投影相對 slow baseline 的快殘差，不構成獨立於 `s_t` 的第二條因果證據。頻率指標的分析決策與技術細節見 `CLAUDE.md`。
 
+以下 Result 2–3 為 **output decisiveness**（`entropy` / `top1` / `margin`），資料為 `metrics_hs/` 七個 cell（No-CoT `{−8, 0, +6, +8, +12}`、CoT `{0, +6}`，2026-08-26 解封）。commit locator 與窗口定義同 §5.3.1。實作與驗收細節見 `CLAUDE.md`。
+
+> **取樣密度限制（貫穿本節）。** logit family 僅 **7 個 cell**，RSN family 為 **11 個**，兩者**不得畫成同等取樣**。本節只報告單調趨勢，不判斷峰值或倒 U。
+
+#### Result 2 — Task-Entry Output Decisiveness Increases with α
+
+最後一個 prompt token 的輸出分布：
+
+| α | `entropy` | `entropy/log(V)` | `top1` | `margin` |
+|---:|---:|---:|---:|---:|
+| −8 | 2.099 | 0.1759 | 0.2402 | 0.0561 |
+| 0 | 1.031 | 0.0864 | 0.6385 | 0.4671 |
+| +6 | 0.969 | 0.0812 | 0.6816 | 0.5170 |
+| +8 | 0.572 | 0.0479 | 0.7979 | 0.6502 |
+| +12 | 0.315 | 0.0264 | 0.8924 | 0.7961 |
+
+| 擬合（n=5 cells） | slope | R² |
+|---|---:|---:|
+| `entropy` | −0.0846 | 0.935 |
+| `top1` | +0.0311 | 0.941 |
+| `margin` | +0.0348 | 0.953 |
+
+**Task entry 隨 α 單調變得更 decisive。** 與 §5.2 的 `G_prefill` 入口線性同向：α 在 task entry 即已同時改變 RSN state 與 output distribution。**僅為單調趨勢**——5 個 cell 無法判斷是否存在峰值。
+
+#### Result 3 — Commit Produces a Stage-Specific Confidence Transition
+
+對稱 `±20` 窗口，Δ = post − pre：
+
+| α | cov% | n | Δ`entropy` | `d_z` | Δ`top1` | `d_z` | Δ`margin` | `d_z` |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| +6 | 41.3 | 124 | **+0.2145** | +0.603 | **−0.0566** | −0.554 | **−0.0809** | −0.564 |
+| +8 | 70.7 | 212 | **+0.1502** | +0.473 | **−0.0360** | −0.376 | **−0.0503** | −0.360 |
+| +12 | 75.7 | 227 | **+0.1400** | +0.399 | **−0.0301** | −0.302 | **−0.0401** | −0.279 |
+
+（三個可讀 cell 全部 `p<0.01`。）
+
+`0` 與 `−8` 的 coverage 僅 **4.0%（n=12）** 與 **6.3%（n=19）**，是 **coverage 診斷列**，不承載機制解讀。
+
+commit **當步**本身則隨劑量進一步 sharpen（`pre` 窗口平均 entropy 減去當步 entropy）：
+
+| α | +6 | +8 | +12 |
+|---|---:|---:|---:|
+| at-commit sharpening | +0.044 | +0.058 | +0.092 |
+
+**α 使答案提交瞬間更 decisive，但提交後的分布反而變鬆。** 此結構與 Result 1 的 `p_t` commit-locked dip、§5.3.1 的 `s_t` post-commit release 是**同一事件的不同讀數**。
+
+三項限制隨數字同行：
+
+- **格式效應無法排除。** `####` 恰在對齊點改變輸出格式，故 post-commit 的 entropy 上升不可全部解讀為真實 confidence 下降。
+- **Cohort 選自 manipulation 自身結果。** `≥20` 步 pre-commit span 的涵蓋率由 α=0 的 4.0% 升至 +12 的 75.7%——可讀 cell **無配對的 α=0 對照**（同 §5.3.1）。
+- **固定 decode 分位僅為描述性。** α 將 commit 中位數由 decode step ≈3 推遲至 ≈187，固定分位在各 cell 取樣的是不同生成階段。
+
+#### Result 3b — CoT
+
+CoT `+6`（cov 58.3%、n=175）：
+
+| 指標 | Δ | p |
+|---|---:|---:|
+| `entropy` | +0.022 | 0.46 |
+| `top1` | −0.0002 | 0.59 |
+| `margin` | −0.0018 | 0.88 |
+
+**A commit-locked confidence transition was not detected in the CoT +6 readable cohort.** 不寫「CoT abolishes the transition」——可讀 CoT cell 僅此一個，且 cohort 由 commitment timing 篩選產生（CoT `α=0` coverage 僅 4.0%、n=12，無法構成對照）。
+
+#### §5.5 綜合結論
+
+> Qwen 的 α steering 不只改變 RSN state，也改變 output distribution，因此**同樣不是 selective wanting intervention**。但其影響具有明顯**階段性**：task entry 隨 α 變得更 decisive，commit 當步進一步 sharpen，commit 後 confidence proxies 則暫時下降。該結構與 Llama 部分同向，但尚不足以證明兩模型到達相同 working state（見 §5.7）。
+
 ### 5.6 High-Dose Compression and Direction Specificity
 
 #### 5.6.1 Decode-Response Compression on the Delayed-Commit Subset (Not a Ceiling)
@@ -1227,7 +1295,7 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 | `Z_prefill` | `−19.74` | `+32.68…+50.06` | 不可直接比較：兩者以各自模型的 α=0 reference 標準化 |
 | pre-commit `s_t` | Δ vs α=0 = `+0.449`（`d_z=0.584`，paired `n=291`） | level = `1.448`（at-risk `n=212`） | 不可直接比較：一側是配對變化量，另一側是選定 cohort 的絕對水平 |
 | commitment timing | 各劑量約 `77%` coverage，`posN` 隨 α 平緩變化 | `posN: .010→.828`，coverage `5.7%→96.0%` | 可比較變化形態，不可視為相同 commitment state |
-| output decisiveness | entropy、top1、margin 齊備 | 尚未提取 | `BLOCKED`，不是 null |
+| output decisiveness | 齊備（11 cell） | 已提取（7 cell，§5.5） | `PARTIALLY AVAILABLE / SPARSELY SAMPLED`：可比較 commit-locked transition 的**方向**，不可比較劑量曲線 |
 
 **可以確認的跨模型一致性**是：兩模型都呈現 task-entry gain 與後續 decode dynamics 的解耦，而且高表現區均伴隨 commitment timing、生成穩定性與退化尾巴的系統性變化。這支持兩模型可能共享某種 adaptive-calibration 結構。
 
@@ -1235,7 +1303,7 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 
 同樣地，不能僅根據「Qwen 最佳劑量為正、Llama 最佳劑量為負」推論兩模型位於不同的基線位置。名義 α 並非跨模型共享的 intervention scale，其符號與數值不能直接用作內部狀態座標。
 
-**結論。** 現有證據支持兩模型在**調節形態**上的部分一致，但「相同 working state、不同基線位置與到達方向」仍是待檢驗假說。後續可補充 normalized entropy、top1 與 margin 作為共同的 output-level proxies；其中 `entropy/log(V)` 可降低詞表大小造成的尺度差異，但仍不能完全消除 tokenizer 與詞表結構不同帶來的跨模型限制。具体提取流程与对齐实现记录见 `CLAUDE.md`。
+**結論。** 現有證據支持兩模型在**調節形態**上的部分一致，但「相同 working state、不同基線位置與到達方向」仍是待檢驗假說。output decisiveness 已由 `BLOCKED` 轉為 `PARTIALLY AVAILABLE / SPARSELY SAMPLED`——Qwen 呈現與 Llama 同向的 commit-locked transition，使第三項 output-level proxy 首次可用，但受限於取樣密度與 cohort 不對稱，**只支持方向層面的比較**。實作細節見 `CLAUDE.md`。
 
 ### 5.8 Manifold Pilot and Integrated Interpretation
 
@@ -1245,6 +1313,7 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 - **入口線性**（`G_prefill ~ α`，R²=0.9999，維持到 +12）；
 - **entry–decode 解耦**（`jump/Z_prefill` 穩定在 −0.965…−1.003，一次性 prefill 注入在 `decode[0]` 近乎完全釋放）；
 - **commit-locked 的帶符號 `p_t` dip**，且隨劑量單調加深（−0.578 → −1.322）。
+- **commit-locked 的 output-distribution transition**（§5.5 Result 3）——commit 後 `entropy` 上升、`top1`/`margin` 下降，方向與 Llama 一致。但其 **dose dependence 是階段特異且取樣稀疏的**：commit 後的 Δ 幅度隨劑量遞減（`d_z` −0.55 → −0.30），僅 7 cell，且格式效應無法排除。
 
 **同向但減弱的一項（第三類，見 §5.3.1）：**
 - **post-commit slow-state release**——在相同的 `±20` 窗口下方向一致但幅度較小（Qwen `+12` 為 `−0.233`，Llama α=0 No-CoT 為 `−0.279`，約 0.6–0.8 倍）。Qwen 由高位緩慢回落而非明顯解除狀態。**不可歸入上下任一類**：歸為複製會抹去 Qwen 停在高位的事實，歸為未複製則與資料矛盾。附帶 cohort caveat——Qwen 可讀 cell 僅 `+8/+10/+12`，其 pre-commit window 之所以存在正是因為 α 推遲了提交。
@@ -1259,7 +1328,7 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 
 **Open 1（主 open）：manifold 分析。** 一維投影無法區分「軌跡等距移動但轉離 mask 方向」與「軌跡本身壓縮」；§5.6.3 的結果使**標量增益成為 manifold 分析要擊敗的假設**，而非待排除的形式選項。待補指標：PCA 譜 / participation ratio、natural-manifold 重建誤差、trajectory speed 與 curvature、tangent alignment、是否出現軌跡轉向或 off-manifold deviation。**執行前提**：資料已具備（7 個 H5 cell，已通過 `check_hs_qwen25.py` 驗收並凍結於 `ACCEPTANCE_20260824.txt`），故此為分析而非採集工作。
 
-**Open 2：logit family 解封**（§5.5）。這同時是 §5.7 對齊的第一順位補齊項，性價比最高。
+**Open 2（已完成，2026-08-26）：logit family 解封。** 結果見 §5.5 Result 2–3。剩餘缺口是**取樣密度**（7 vs 11 cell）與**缺乏配對的 α=0 cohort**——兩者都無法靠再次抽取解決。
 
 **Open 3：−8 與 CoT 條件**尚未納入 §5.6 的逐層分析（HS 已採集 No-CoT −8 與 CoT {0,+6}，可直接接上）。
 
@@ -1273,7 +1342,7 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 | `fig52_compression.png` | §5.6.1 entry vs decode 回應與 RAW response ratio |
 | `fig53_profile.png` | §5.6.2 逐層 profile + scalar-compression 擬合 |
 | `fig54_null.png` | §5.6.3 RSN vs 三個 null family |
-| `fig5_qwen_commit_centered.png` | §5.3.1 commit-centered `s_t`/`p_t` + release vs 劑量（`plot_qwen_mainfig.py`；對應 Llama §4.2 主圖，confidence 面板 BLOCKED） |
+| `fig5_qwen_commit_centered.png` | §5.3.1 commit-centered `s_t`/`p_t` + release vs 劑量（`plot_qwen_mainfig.py`；對應 Llama §4.2 主圖）。confidence 面板**現已可繪**（見 §5.5 Result 3），但腳本尚未更新，仍印出 BLOCKED 理由並省略該面板 |
 
 **圖檔位於 `qwen2.5/dopamine/plots_gain/`，與 Llama 的 `llama3/dopamine/plots_gain/` 分開存放**——兩模型數值不可比，共用目錄是跨模型混用的起點。每個 panel 都由產生凍結文字記錄的同一段程式重新推導，不從表格硬編數字。
 
@@ -1370,7 +1439,7 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
     Qwen 的 `+8` 与 Llama 的 `−6` 不是共同强度的干预。两模型使用不同 mask、层数与模型内 reference，因此不能根据最佳 α 的正负推断它们位于不同基线位置。
 
 25. **“相同 working state、不同到达方向”仍是假说。**  
-    当前只能确认形态层面的部分一致；`Z_prefill` 尺度不同、`s_t` cohort 不匹配，Qwen output decisiveness 又尚未提取，因此不能声称两者到达相同内部状态。
+    当前只能确认形态层面的部分一致：`Z_prefill` 尺度不同，`s_t` cohort 不匹配。Qwen 的 output decisiveness 虽已提取且与 Llama 同向，但取样稀疏、cohort 选自 manipulation 自身结果，只支持方向层面的比较。
 
 **null**
 
@@ -1386,8 +1455,8 @@ Qwen 的 `p_t` 呈現兩個不同層面的結果：
 29. **Commit 附近的 confidence change 可能包含格式效应。**  
     `####` 本身会改变 token distribution，因此 entropy spike、top1 dip 和 margin change 不能全部解释为实质 confidence 改变。
 
-30. **Qwen 的 output decisiveness 仍是 BLOCKED。**  
-    entropy、top1、margin 尚未提取，不能写成没有效应，也不能判断 Qwen 是否复现 Llama 的 wanting–confidence 联动。
+30. **Qwen 的 output decisiveness 已解封，但阶段特异且取样稀疏。**  
+    α 在 Qwen 上**同样不是 selective wanting intervention**：task entry 随 α 单调更 decisive，commit 当步进一步 sharpen，commit 后 confidence proxies 暂时下降（§5.5 Result 2–3）。三项限制不可省略——只有 7 个 cell，不得与 11-cell 的 RSN family 画成同等取样；可读 cell 无配对的 α=0 对照；CoT 仅一个可读 cell，其中**未检出** transition，不写成 “CoT abolishes the transition”。
 
 31. **目前没有 manifold reorganization 的证据。**  
     一维结果更符合固定 RSN profile 的标量压缩。轨迹转向、off-manifold deviation、intrinsic dimension 和 tangent alignment 仍需 manifold pilot 检验。
