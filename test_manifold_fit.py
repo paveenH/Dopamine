@@ -57,11 +57,12 @@ DIM, N_MID = 8, 9        # band width 11..20 -> 9 middle layers
 
 
 def make_h5(path, n=12, T=60, commit_at=30, dim=DIM, n_mid=N_MID,
-            no_commit_idx=(), seed=0):
+            no_commit_idx=(), seed=0, steer_alpha=0.0):
     rng = np.random.default_rng(seed)
     with h5py.File(path, "w") as f:
         meta = f.create_group("meta")
         meta.attrs["stored_layer_indices"] = list(range(10, 10 + n_mid)) + [31]
+        meta.attrs["steer_alpha"] = float(steer_alpha)
         grp = f.create_group("samples")
         for i in range(n):
             g = grp.create_group(f"{i:04d}")
@@ -74,6 +75,7 @@ def make_h5(path, n=12, T=60, commit_at=30, dim=DIM, n_mid=N_MID,
             else:
                 text = "a" * commit_at + "####" + "b" * (T - commit_at - 4)
             g.attrs["generated"] = text
+            g.attrs["question"] = f"question number {i}"
             g.attrs["question_idx"] = i
             g.attrs["correct"] = bool(i % 2)
     return path
@@ -106,6 +108,39 @@ check(mf.commit_char("the answer is 42") > 0,
 check(mf.commit_char("no marker here") == -1, "returns -1 when neither exists")
 check(mf.char_to_step(TOK, "abcdef", -1) is None,
       "char_to_step(-1) is None, so 'no commit' propagates as None")
+
+print("\n[2b] commit locator is BYTE-EQUIVALENT to the frozen Llama one")
+# The locator is deliberately COPIED from analyze_wrong_right_commit.py, not
+# improved. Its `>=` boundary can land one token early in principle, but every
+# published Llama commit-aligned number uses that definition, so changing it
+# here would silently redefine the event the manifold phases are built on. The
+# test therefore pins EQUIVALENCE, not correctness.
+_FROZEN = os.path.expanduser(
+    "~/Documents/RSNResult/RoleAnswer/analyze_wrong_right_commit.py")
+if not os.path.exists(_FROZEN):
+    print("  skip (frozen reference not present locally)")
+else:
+    import re as _re
+    src = open(_FROZEN).read()
+    def _grab(name):
+        m = _re.search(rf"^{name} = (re\.compile\(.*?\))$", src, _re.M | _re.S)
+        return m.group(1) if m else None
+    ref_hash, ref_cand = _grab("HASH"), _grab("CAND")
+    check(ref_hash is not None and eval(ref_hash, {'re': _re}).pattern == mf.HASH.pattern,
+          "HASH pattern is identical to the frozen implementation")
+    check(ref_cand is not None and eval(ref_cand, {'re': _re}).pattern == mf.CAND.pattern
+          and eval(ref_cand, {'re': _re}).flags == mf.CAND.flags,
+          "CAND pattern AND flags are identical to the frozen implementation")
+    # Behavioural equivalence on cases that separate the two branches.
+    ns = {}
+    exec(compile(_re.search(r"def commit_char.*?return m\.start\(1\) if m else -1",
+                            src, _re.S).group(0), "<frozen>", "exec"),
+         {"HASH": mf.HASH, "CAND": mf.CAND}, ns)
+    cases = ["aaa####bbb", "the answer is 42", "no marker here",
+             "12 apples\n#### 7", "  5\nthe answer is: 9", ""]
+    check(all(ns["commit_char"](c) == mf.commit_char(c) for c in cases),
+          f"commit_char agrees with the frozen version on {len(cases)} cases "
+          f"spanning both branches and the no-match path")
 
 print("\n[3] per-question weighting -- long trajectories must not dominate")
 a = mf.Accum(DIM)
@@ -141,13 +176,26 @@ ortho = b["components"] @ b["components"].T
 check(np.allclose(ortho, np.eye(4), atol=1e-4), "components are orthonormal")
 check(mf.Accum(DIM).finish(4) is None,
       "a basis with <2 questions is None rather than a rank-0 fit")
+# Rank is set by ROWS and the numerical spectrum, NOT by question count: two
+# questions of 5 tokens each span up to 9 dimensions, so an "n_questions - 1"
+# cap would be wrong (and was -- it silently discarded real directions). What
+# must hold is that no basis exceeds the rank actually present in the data.
 rank = mf.Accum(DIM)
 rank.add(rng.normal(size=(5, DIM)))
 rank.add(rng.normal(size=(5, DIM)))
 rb = rank.finish(4)
-check(rb["components"].shape[0] == 1,
-      "k is rank-capped to n_questions-1 (2 questions support 1 component), "
-      "so a small phase cannot fabricate 4 directions from 2 samples")
+check(rb["components"].shape[0] == 4,
+      "2 questions x 5 tokens DO support 4 directions (rank comes from rows, "
+      "not from question count)")
+thin = mf.Accum(DIM)
+thin.add(rng.normal(size=(1, DIM)))
+thin.add(rng.normal(size=(1, DIM)))
+tb = thin.finish(4)
+check(tb["components"].shape[0] == 1,
+      "2 questions x 1 token support only 1 direction, so a thin phase cannot "
+      "fabricate 4 directions from 2 rows")
+check(np.allclose(tb["components"] @ tb["components"].T, np.eye(1), atol=1e-6),
+      "the rank-limited basis is still orthonormal")
 
 print("\n[5] end to end on a synthetic tree")
 with tempfile.TemporaryDirectory() as td:
@@ -157,7 +205,7 @@ with tempfile.TemporaryDirectory() as td:
     base = h5d / mf.cell_stem("gsm8k", "8B", "nocot", 11, 20)
     make_h5(base, n=12, no_commit_idx=(11,), seed=0)
     make_h5(h5d / mf.cell_stem("gsm8k", "8B", "nocot_a6", 11, 20),
-            n=12, commit_at=10, seed=1)
+            n=12, commit_at=10, seed=1, steer_alpha=6.0)
 
     split = {"train": list(range(8)), "val": [8, 9], "test": [10, 11]}
     man = td / "split.json"
@@ -201,13 +249,95 @@ with tempfile.TemporaryDirectory() as td:
           "reconstruction error never exceeds total centered energy "
           "(the NRE numerator is a residual, so this must hold)")
 
+
+    print("\n[7] BLOCKER 1 -- per-token coordinates survive the export")
+    ph_pre = by_q[0]["phases"]["pre_commit"]["0"]
+    check("coord_t" in ph_pre,
+          "pre_commit exports coord_t (a phase MEAN destroys token order, and "
+          "speed/curvature/turning are defined on the ordered sequence)")
+    check(len(ph_pre["coord_t"]) == ph_pre["n_rows"],
+          f"coord_t has one row per token ({ph_pre['n_rows']})")
+    check(all(len(r) == len(ph_pre["coord"]) for r in ph_pre["coord_t"]),
+          "each coord_t row has k entries")
+    recon_mean = np.mean(np.array(ph_pre["coord_t"]), axis=0)
+    check(np.allclose(recon_mean, ph_pre["coord"], atol=1e-3),
+          "coord is exactly the mean of coord_t (they are consistent, so the "
+          "summary never disagrees with the trajectory)")
+    check("coord_t" in by_q[0]["phases"]["post_commit"]["0"],
+          "post_commit also exports coord_t")
+    check("coord_t" not in by_q[0]["phases"]["decode_all"]["0"],
+          "decode_all does NOT (unbounded rows), so option-A is a LEVEL "
+          "sensitivity, not a trajectory-shape one")
+
+    print("\n[8] BLOCKER 2 -- k can be chosen on validation")
+    rk = ph_pre["re_by_k"]
+    check(len(rk) == len(ph_pre["coord"]),
+          f"re_by_k has one entry per k (1..{len(rk)})")
+    check(all(rk[i] >= rk[i + 1] - 1e-6 for i in range(len(rk) - 1)),
+          "re_by_k is non-increasing in k (more dimensions never reconstruct "
+          "worse)")
+    check(abs(rk[-1] - ph_pre["re"]) < 1e-6,
+          "re_by_k[-1] equals the reported re at k_max (same quantity)")
+    check(rk[0] <= ph_pre["energy"] + 1e-6,
+          "even k=1 residual is bounded by the total centered energy")
+
+    print("\n[9] BLOCKER 3 -- the manifest is VALIDATED, not merely read")
+    good_split = {"train": list(range(8)), "val": [8, 9], "test": [10, 11]}
+    check(mf.validate_manifest({"split": good_split, "counts":
+                                {"train": 8, "val": 2, "test": 2}}, 12) == [],
+          "a well-formed manifest passes")
+    muts = [
+        ("overlapping buckets",
+         {"train": list(range(9)), "val": [8, 9], "test": [10, 11]}),
+        ("a question in no bucket",
+         {"train": list(range(7)), "val": [8, 9], "test": [10, 11]}),
+        ("an index outside 0..n-1",
+         {"train": list(range(8)), "val": [8, 9], "test": [10, 99]}),
+        ("an empty train bucket",
+         {"train": [], "val": list(range(8)), "test": [8, 9, 10, 11]}),
+    ]
+    for name, sp in muts:
+        check(mf.validate_manifest({"split": sp}, 12) != [],
+              f"validate_manifest rejects: {name}")
+    check(mf.validate_manifest({"split": good_split, "counts":
+                                {"train": 99, "val": 2, "test": 2}}, 12) != [],
+          "validate_manifest rejects: counts disagreeing with the split")
+    check(mf.validate_manifest({"split": {"train": [1], "val": [2]}}, 3) != [],
+          "validate_manifest rejects: a missing bucket")
+
+    print("\n[10] BLOCKER 3 -- the H5 digest guard actually fires")
+    d1, n1 = mf.h5_question_digest(base)
+    check(d1 is not None and n1 == 12, "digest computed over the H5 questions")
+    other = h5d / "hs_gsm8k_8B_other_L11-20.h5"
+    make_h5(other, n=12, seed=5)
+    d2, _ = mf.h5_question_digest(other)
+    check(d1 == d2, "identical question text gives an identical digest "
+                    "(the digest tracks QUESTIONS, not hidden states)")
+    reordered = h5d / "hs_gsm8k_8B_reorder_L11-20.h5"
+    make_h5(reordered, n=12, seed=6)
+    with h5py.File(reordered, "a") as f:
+        g = f["samples"]
+        g["0000"].attrs["question"], g["0001"].attrs["question"] = (
+            g["0001"].attrs["question"], g["0000"].attrs["question"])
+    d3, _ = mf.h5_question_digest(reordered)
+    check(d3 != d1, "swapping two questions CHANGES the digest, so a manifest "
+                    "built on another ordering cannot be joined silently")
+    clipped = h5d / "hs_gsm8k_8B_clip_L11-20.h5"
+    make_h5(clipped, n=4, seed=7)
+    with h5py.File(clipped, "a") as f:
+        f["samples"]["0000"].attrs["question"] = "x" * 2500
+    dc, _ = mf.h5_question_digest(clipped)
+    check(dc == "TRUNCATED",
+          "a question hitting the tracker's 2000-char clip reports TRUNCATED "
+          "rather than a mismatch that would be an artifact")
+
     print("\n[6] CLI fails closed")
     def run(extra):
         import subprocess
         return subprocess.run(
             [sys.executable, os.path.join(HERE, "manifold_fit.py"),
              "--h5_dir", str(h5d), "--out_dir", str(outd),
-             "--model_dir", "/nonexistent"] + extra,
+             "--model_dir", "/nonexistent", "--n_questions", "12"] + extra,
             capture_output=True, text=True)
 
     r = run(["--cells", "nocot"])
@@ -223,6 +353,33 @@ with tempfile.TemporaryDirectory() as td:
     r = run(["--split_manifest", str(man), "--cells", "nocot"])
     check(r.returncode != 0 and "allow_overwrite" in r.stdout,
           "an existing output is not clobbered without --allow_overwrite")
+    (outd / "manifold_nocot.json").unlink()
+
+    # BLOCKER 4: the basis is an output too.
+    for extra in ("basis.npz", "basis_meta.json"):
+        (outd / extra).write_text("stale")
+        r = run(["--split_manifest", str(man), "--cells", "nocot"])
+        check(r.returncode != 0 and extra in r.stdout,
+              f"{extra} is guarded too (a stale basis beside fresh coordinates "
+              f"still loads and still looks reasonable)")
+        (outd / extra).unlink()
+
+    # BLOCKER 3 at the CLI: a structurally broken manifest must not run.
+    badman = td / "bad_split.json"
+    badman.write_text(json.dumps({"version": "x", "salt": "t",
+                                  "counts": {"train": 9, "val": 2, "test": 2},
+                                  "split": {"train": list(range(9)),
+                                            "val": [8, 9], "test": [10, 11]}}))
+    r = run(["--split_manifest", str(badman), "--cells", "nocot"])
+    check(r.returncode != 0 and "not usable" in r.stdout,
+          "a manifest with overlapping buckets is rejected at the CLI")
+
+    # --base_cell must really be alpha=0.
+    r = run(["--split_manifest", str(man), "--base_cell", "nocot_a6",
+             "--cells", "nocot_a6"])
+    check(r.returncode != 0 and ("steer_alpha" in r.stdout or "not 0" in r.stdout),
+          "a steered cell is refused as the basis (fitting the natural "
+          "manifold on a steered cell would hide the effect under test)")
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)
