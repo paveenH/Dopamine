@@ -60,10 +60,23 @@ WHAT IT DOES NOT DO
 """
 import argparse
 import json
+import time
 import os
 import re
 import sys
 from pathlib import Path
+
+# BLAS THREADING -- MUST be set before numpy imports, or it is a no-op.
+# Measured on the Leibniz server (OpenBLAS 0.3 / numpy 1.26.4, many cores):
+# one 3700x3700 float32 eigh takes 956.7s with default threading and 8.2s
+# pinned to one thread -- a 117x INVERSION, because eigh spins on lock
+# contention rather than parallelising. With 18 such matrices the fit phase
+# was ~4.8h; it is ~1 min pinned. This is an OpenBLAS behaviour on high-core
+# machines, NOT a property of the data, the method, or this machine's
+# hardware -- moving to a bigger box makes it worse, not better.
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_v, "1")
 
 import numpy as np
 import h5py
@@ -81,6 +94,8 @@ WINDOW = 20          # tokens per side of commit
 # exported as summary statistics only.
 TRAJECTORY_PHASES = ("prefill", "pre_commit", "post_commit")
 K_MAX_DEFAULT = 20   # the plan's primary cap
+DIAG_EXTRA = 10      # eigenvalues beyond k_max, solved for diagnosis only
+SLOW_QUESTION_SEC = 5.0   # per-question read/slice budget before it is logged
 
 # Llama commit locator: first '####', falling back to the first bare
 # answer-candidate. This is the SAME definition analyze_wrong_right_commit.py
@@ -128,6 +143,25 @@ def phase_rows(n_decode: int, commit: int, phase: str):
     else:
         raise ValueError(phase)
     return (lo, hi) if hi > lo else None
+
+
+def _top_eigh(M, k):
+    """Top-k eigenpairs of a symmetric matrix, descending.
+
+    Exact partial decomposition (scipy's subset_by_index), NOT a randomized or
+    iterative approximation: the returned subspace equals the corresponding
+    slice of the full eigh to machine precision. Falls back to a full eigh if
+    scipy is unavailable, so the result is identical either way -- only slower.
+    """
+    n = M.shape[0]
+    k = max(1, min(k, n))
+    try:
+        from scipy.linalg import eigh as _sla_eigh
+        g, V = _sla_eigh(M, subset_by_index=[n - k, n - 1])
+    except Exception:
+        g, V = np.linalg.eigh(M)
+        g, V = g[-k:], V[:, -k:]
+    return g[::-1].copy(), V[:, ::-1].copy()      # descending
 
 
 class Accum:
@@ -196,30 +230,43 @@ class Accum:
         m = A.shape[0]
 
         # Gram route when it is smaller, which is the normal case here.
+        # total_var is the FULL spectrum sum and must stay exact: it is the
+        # denominator of the explained ratio, i.e. the evidence for whether
+        # k<=20 suffices. A partial solver returns only the top eigenvalues,
+        # so recover it from the Frobenius norm instead -- trace(A A.T)/nq is
+        # identically the sum of all eigenvalues, at negligible cost.
+        total_var = float((A.astype(np.float64) ** 2).sum() / nq)
+
+        # Solve for k_diag directions, not the full spectrum: the top k_max go
+        # into the basis and the extra DIAG_EXTRA are diagnostic only, so the
+        # spectrum's tail past the cap is visible when choosing k. Measured
+        # server-side at m=3700 float32, pinned to one thread: full eigh 8.20s
+        # vs top-30 1.67s.
+        k_diag = min(k_max + DIAG_EXTRA, self.dim, m)
+
         if m <= self.dim:
             G = (A @ A.T) / nq
-            g, U = np.linalg.eigh((G + G.T) / 2)
-            order = np.argsort(g)[::-1]
-            g, U = g[order], U[:, order]
-            total_var = float(np.maximum(g, 0.0).sum())
-            keep = min(k_max, self.dim, int((g > 1e-10).sum()))
-            keep = max(keep, 1)
-            g, U = g[:keep], U[:, :keep]
-            W = (A.T @ U) / np.sqrt(np.maximum(g * nq, 1e-30))
-            comps, evals = W.T, g
+            G = (G + G.T) / 2
+            g, U = _top_eigh(G, k_diag)
+            keep = max(1, min(k_max, int((g > 1e-10).sum())))
+            g_keep, U = g[:keep], U[:, :keep]
+            W = (A.T @ U) / np.sqrt(np.maximum(g_keep * nq, 1e-30))
+            comps, evals, spectrum = W.T, g_keep, g
         else:
             C = (A.T @ A) / nq
-            evals_all, V = np.linalg.eigh((C + C.T) / 2)
-            order = np.argsort(evals_all)[::-1]
-            evals_all, V = evals_all[order], V[:, order]
-            total_var = float(np.maximum(evals_all, 0.0).sum())
-            keep = max(1, min(k_max, self.dim))
-            comps, evals = V[:, :keep].T, evals_all[:keep]
+            C = (C + C.T) / 2
+            g, V = _top_eigh(C, k_diag)
+            keep = max(1, min(k_max, int((g > 1e-10).sum())))
+            comps, evals, spectrum = V[:, :keep].T, g[:keep], g
 
         return {
             "mu": mu.astype(np.float32),
             "components": comps.astype(np.float32),          # (k, dim)
             "explained": np.maximum(evals, 0.0).astype(np.float64),
+            # k_max + DIAG_EXTRA eigenvalues. The tail past k_max is never used
+            # as a basis; it exists so the spectrum's decay is visible when
+            # choosing k, which a solver capped at exactly k_max would hide.
+            "spectrum": np.maximum(spectrum, 0.0).astype(np.float64),
             "total_var": total_var,
             "n_questions": nq,
             "n_rows": int(m),
@@ -331,6 +378,7 @@ def fit_basis(h5_path, split_idx, ls, le, k_max, tok, verbose=True):
         acc = {}
         n_seen = 0
         for qi, g in iter_samples(f, train):
+            t_q = time.time()
             text = g.attrs.get("generated", "")
             dec = g["decode_hs"]
             T = dec.shape[0]
@@ -356,15 +404,43 @@ def fit_basis(h5_path, split_idx, ls, le, k_max, tok, verbose=True):
                             continue
                         X = dec[rows[0]:rows[1], li, :].astype(np.float32)
                     acc[key].add(X)
+            dt_q = time.time() - t_q
+            if verbose and dt_q > SLOW_QUESTION_SEC:
+                # Only anomalies, not every question: a per-question line would
+                # bury the per-phase timings that matter.
+                print(f"    [slow] q{qi}: T={T} cstep={cstep} {dt_q:.1f}s",
+                      flush=True)
             if verbose and n_seen % 25 == 0:
                 print(f"    fit: {n_seen}/{len(train)} train questions",
                       flush=True)
 
+    if verbose:
+        print(f"    read complete: {n_seen}/{len(train)} train questions",
+              flush=True)
+
+    # Per-(layer, phase) timing. Without it all 36 decompositions share one
+    # silent interval, which is why a 117x BLAS threading regression could only
+    # be found by guessing -- the log could not distinguish "still reading the
+    # last questions" from "stuck in finish()".
     basis = {}
-    for (li, phase), a in acc.items():
+    t_all = time.time()
+    for (li, phase), a in sorted(acc.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        t0 = time.time()
         b = a.finish(k_max)
-        if b is not None:
-            basis[(li, phase)] = b
+        if b is None:
+            if verbose:
+                print(f"    fit L{li} {phase}: SKIPPED "
+                      f"(only {a.n_questions} question(s))", flush=True)
+            continue
+        basis[(li, phase)] = b
+        if verbose:
+            route = "gram" if b["n_rows"] <= b["mu"].shape[0] else "dense"
+            print(f"    fit L{li} {phase}: m={b['n_rows']} nq={b['n_questions']} "
+                  f"{route} k={b['components'].shape[0]} "
+                  f"{time.time() - t0:.2f}s", flush=True)
+    if verbose:
+        print(f"    fit: {len(basis)} bases in {time.time() - t_all:.1f}s",
+              flush=True)
     return basis, stored.tolist(), n_middle
 
 
@@ -609,6 +685,7 @@ def main():
                 "k": int(b["components"].shape[0]),
                 "total_var": b["total_var"],
                 "explained": b["explained"].tolist(),
+                "spectrum": b["spectrum"].tolist(),
             } for (li, ph), b in basis.items()},
         }, f, indent=2)
 
