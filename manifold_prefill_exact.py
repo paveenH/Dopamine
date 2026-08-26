@@ -33,12 +33,18 @@ import json
 import os
 import sys
 
+# Hard-set, NOT setdefault: an inherited wrong value is exactly the failure
+# mode here (the server's OpenBLAS inverts on high thread counts, 117x), and
+# setdefault would silently keep it.
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
            "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(_v, "1")
+    os.environ[_v] = "1"
 
 import numpy as np
 import h5py
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from manifold_fit import iter_samples  # noqa: E402
 
 KS = (5, 10, 20)
 SLOT = 8            # storage slot 8 == decoder layer 18 (primary)
@@ -48,23 +54,36 @@ def cell_stem(task, size, cell, ls, le):
     return f"hs_{task}_{size}_{cell}_L{ls}-{le}.h5"
 
 
-def read_prefill(path, slot):
-    """{question_idx: last-prefill state at `slot`} -- read-only, fp32."""
+def read_prefill(path, slot, expect):
+    """{question_idx: last-prefill state at `slot`} -- read-only, fp32.
+
+    Reuses section 3's iterator so the `samples/` group layout is handled
+    identically. Fails closed on a duplicate question_idx and on any deviation
+    from `expect`: checking only that the cells AGREE would pass a run where
+    every cell is missing the SAME question, which silently shrinks the
+    cohort while looking perfectly paired.
+    """
     out = {}
     with h5py.File(path, "r") as f:
-        keys = [k for k in f.keys() if k != "meta"]
-        for k in keys:
-            g = f[k]
-            qi = g.attrs.get("question_idx")
-            if qi is None:
-                continue
-            out[int(qi)] = g["prefill_hs"][-1][slot].astype(np.float32)
+        for qi, g in iter_samples(f):
+            if qi in out:
+                raise SystemExit(f"[FAIL] {os.path.basename(path)}: duplicate "
+                                 f"question_idx {qi}")
+            out[qi] = g["prefill_hs"][-1][slot].astype(np.float32)
+    got, want = set(out), set(expect)
+    if got != want:
+        raise SystemExit(
+            f"[FAIL] {os.path.basename(path)}: question set mismatch "
+            f"(missing {sorted(want - got)[:5]}, extra {sorted(got - want)[:5]})")
     return out
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--h5_dir", required=True)
+    p.add_argument("--split_manifest", required=True,
+                   help="REQUIRED. No default: 300-question totals pool the "
+                        "185 TRAIN questions the basis was fit on.")
     p.add_argument("--basis", required=True, help="basis.npz from section 3")
     p.add_argument("--base_cell", default="nocot")
     p.add_argument("--cells", default="nocot_aneg8,nocot_aneg6,nocot_a6")
@@ -90,49 +109,74 @@ def main():
               "||W_k d||^2 not an energy")
         return 1
 
+    man = json.load(open(a.split_manifest))
+    split = {k: sorted(man["split"][k]) for k in ("train", "val", "test")}
+    allq = sorted(set().union(*split.values()))
+    n_exp = len(allq)
+    if any(set(split[x]) & set(split[y])
+           for x, y in (("train", "val"), ("train", "test"), ("val", "test"))):
+        print("[FAIL] split buckets overlap")
+        return 1
+    print(f"[split] {man.get('version')} "
+          f"train={len(split['train'])} val={len(split['val'])} "
+          f"test={len(split['test'])} total={n_exp}")
+
     stem = lambda c: os.path.join(
         a.h5_dir, cell_stem(a.task, a.size, c, a.layer_start, a.layer_end))
-    base = read_prefill(stem(a.base_cell), a.slot)
+    base = read_prefill(stem(a.base_cell), a.slot, allq)
     print(f"[read] {a.base_cell}: {len(base)} questions")
+
+    # ROLE OF EACH SPLIT (frozen). The basis was fit on TRAIN, so a total over
+    # all 300 is contaminated by the questions that defined the subspace and is
+    # DESCRIPTIVE ONLY. TEST at k=20 is the single primary number.
+    ROLE = {"train": "QC only (basis was fit here)",
+            "val":   "k sensitivity",
+            "test":  "PRIMARY (k=20)",
+            "all":   "descriptive only (pools TRAIN)"}
 
     rng = np.random.default_rng(0)
     results = {}
     for c in a.cells.split(","):
-        cur = read_prefill(stem(c), a.slot)
-        qs = sorted(set(base) & set(cur))
-        if len(qs) != len(base) or len(qs) != len(cur):
-            print(f"[FAIL] {c}: pairing is not complete "
-                  f"({len(qs)} vs {len(base)}/{len(cur)})")
-            return 1
-
-        D = np.stack([cur[q].astype(np.float64) - base[q].astype(np.float64)
-                      for q in qs])                       # (n, dim)
-        tot = (D ** 2).sum(axis=1)                        # ||d||^2 per question
-        Z = D @ W.T                                       # (n, k_max)
-
-        row = {"n": len(qs), "mean_disp_norm": float(np.sqrt(tot).mean())}
-        print(f"\n{c}: n={len(qs)}  mean||d||={row['mean_disp_norm']:.3f}")
-        for k in KS:
-            tan = (Z[:, :k] ** 2).sum(axis=1)
-            pooled = float(tan.sum() / tot.sum())
-            bs = np.array([
-                (lambda i: tan[i].sum() / tot[i].sum())(
-                    rng.integers(0, len(qs), len(qs)))
-                for _ in range(a.n_boot)])
-            lo, hi = np.percentile(bs, [2.5, 97.5])
-            perq = float((tan / tot).mean())
-            row[f"k{k}"] = {"pooled": pooled, "ci": [float(lo), float(hi)],
-                            "per_question_mean": perq}
-            print(f"  k={k:>2}: inside {pooled*100:>5.1f}% "
-                  f"[{lo*100:.1f},{hi*100:.1f}]   outside {(1-pooled)*100:>5.1f}%"
-                  f"   (per-question mean {perq*100:.1f}%, secondary)")
+        cur = read_prefill(stem(c), a.slot, allq)
+        D_all = {q: cur[q].astype(np.float64) - base[q].astype(np.float64)
+                 for q in allq}
+        row = {}
+        print(f"\n=== {c} ===")
+        for name in ("train", "val", "test", "all"):
+            qs = allq if name == "all" else split[name]
+            D = np.stack([D_all[q] for q in qs])
+            tot = (D ** 2).sum(axis=1)
+            Z = D @ W.T
+            sub = {"n": len(qs), "role": ROLE[name],
+                   "mean_disp_norm": float(np.sqrt(tot).mean())}
+            print(f"  [{name}] n={len(qs)}  mean||d||="
+                  f"{sub['mean_disp_norm']:.3f}   {ROLE[name]}")
+            for k in KS:
+                tan = (Z[:, :k] ** 2).sum(axis=1)
+                pooled = float(tan.sum() / tot.sum())
+                bs = np.array([
+                    (lambda i: tan[i].sum() / tot[i].sum())(
+                        rng.integers(0, len(qs), len(qs)))
+                    for _ in range(a.n_boot)])
+                lo, hi = np.percentile(bs, [2.5, 97.5])
+                perq = float((tan / tot).mean())
+                sub[f"k{k}"] = {"pooled": pooled, "ci": [float(lo), float(hi)],
+                                "per_question_mean": perq}
+                star = " *" if (name == "test" and k == 20) else ""
+                print(f"    k={k:>2}: inside {pooled*100:>5.1f}% "
+                      f"[{lo*100:.1f},{hi*100:.1f}]   "
+                      f"outside {(1-pooled)*100:>5.1f}%"
+                      f"   (per-q {perq*100:.1f}%){star}")
+            row[name] = sub
         results[c] = row
 
     with open(a.out, "w") as f:
         json.dump({"slot": a.slot, "decoder_layer": a.layer_start - 1 + a.slot,
                    "base_cell": a.base_cell, "ks": list(KS),
-                   "primary": "pooled energy ratio", "cells": results}, f,
-                  indent=2)
+                   "primary": "TEST split, k=20, pooled energy ratio",
+                   "split_manifest_version": man.get("version"),
+                   "split_counts": {k: len(v) for k, v in split.items()},
+                   "cells": results}, f, indent=2)
     print(f"\n[ok] wrote {a.out}")
     print("     Wording: energy INSIDE / OUTSIDE the alpha=0 top-k PCA "
           "subspace. Not 'off-manifold'.")
