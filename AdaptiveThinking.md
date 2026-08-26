@@ -1421,45 +1421,56 @@ CoT `+6`（cov 58.3%、n=175）：
 21. **Qwen 的 post-commit release 存在但较弱。**  
     在相同 `±20 token` 窗口中，Qwen `+8/+10/+12` release 为 `−0.148/−0.171/−0.233`，方向与 Llama 一致，但下降后仍维持较高的 slow-state plateau。
 
+22. **Qwen 的 output decisiveness 呈现阶段依赖的 α 效应。**  
+    Task entry 随正 α 增大而更 decisive（entropy 下降、top1/margin 上升）；commit 当步进一步 sharpen，但 commit 后 entropy 上升、top1/margin 下降。该 transition 在高剂量下减弱。由于只有 5 个 No-CoT 剂量且有效 cohort 偏向高剂量，目前只能确认单调趋势与 commit-locked transition，不能判断完整非线性曲线。
+
+    CoT `+6` 未检出明显的 commit 前后 confidence transition，但这只是单个、结果筛选 cohort 中的观察，不能写成 CoT 消除了该机制。
+
 **Cross Model**
 
-22. **两个模型共享部分调节结构。**  
+23. **两个模型共享部分调节结构。**  
     两者都呈现：
 
     - α 线性控制 task-entry gain；
     - entry offset 在 decode 初期迅速释放；
     - 后续 commitment 与行为发生非线性变化；
     - commit 当步出现 fast residual transition；
-    - commit 后出现 slow-state release。
+    - commit 后出现 slow-state release；
+    - α steering 同时改变 RSN dynamics 与 output decisiveness——因此 **α 不是只影响 wanting/engagement 的 selective intervention**。
 
-23. **共同机制更可能是“adaptive calibration”，而不是共同剂量曲线。**  
+    但两模型的剂量曲线，以及 commit 前后的变化幅度，并不相同。
+
+24. **共同机制更可能是“adaptive calibration”，而不是共同剂量曲线。**  
     Llama 是尖锐的非对称工作点，Qwen 是上升后平台。这说明 RSN steering 的作用可能依赖模型基线、任务和生成策略，不存在当前数据支持的统一最佳 α。
 
-24. **不能直接比较 raw α。**  
+25. **不能直接比较 raw α。**  
     Qwen 的 `+8` 与 Llama 的 `−6` 不是共同强度的干预。两模型使用不同 mask、层数与模型内 reference，因此不能根据最佳 α 的正负推断它们位于不同基线位置。
 
-25. **“相同 working state、不同到达方向”仍是假说。**  
-    当前只能确认形态层面的部分一致：`Z_prefill` 尺度不同，`s_t` cohort 不匹配。Qwen 的 output decisiveness 虽已提取且与 Llama 同向，但取样稀疏、cohort 选自 manipulation 自身结果，只支持方向层面的比较。
+26. **“相同 working state、不同到达方向”仍是假说。**  
+    Qwen 的 output decisiveness 已完成提取，但仅覆盖 7 个 H5 cell。`entropy/log(V)` 提高了词表尺度上的可比性，却不能消除 tokenizer、reference 与 cohort 差异。因此，“相同 working state、不同到达方向”仍是假说。
 
 **null**
 
-26. **`s_t` slope 没有支持 GSM8K 上的 vigor prediction。**  
+27. **`s_t` slope 没有支持 GSM8K 上的 vigor prediction。**  
     Llama 的 marginal slope–timing 关系为 null；控制 level 后的残余方向与预期相反。Qwen 可分析 cell 中 slope 也逐渐趋近 0。因此当前有意义的是 `s_t level`，不是 ramping slope。
 
-27. **`p_t` frequency organization 没有稳定证据。**  
+28. **`p_t` frequency organization 没有稳定证据。**  
     zcr、spectral centroid、dominant frequency 等容易受到 answer format、重复尾巴和窗口长度影响。当前较可靠的是 amplitude 与 signed transition，不是频率重组。
 
-28. **`p_t` 不能视为独立 fast channel。**  
+29. **`p_t` 不能视为独立 fast channel。**  
     它是同一条 RSN 投影相对 EMA baseline 的残差，因此不能拿 `s_t` 与 `p_t` 当作两条独立证据累加。
 
-29. **Commit 附近的 confidence change 可能包含格式效应。**  
+30. **Commit 附近的 confidence change 可能包含格式效应。**  
     `####` 本身会改变 token distribution，因此 entropy spike、top1 dip 和 margin change 不能全部解释为实质 confidence 改变。
-
-30. **Qwen 的 output decisiveness 已解封，但阶段特异且取样稀疏。**  
-    α 在 Qwen 上**同样不是 selective wanting intervention**：task entry 随 α 单调更 decisive，commit 当步进一步 sharpen，commit 后 confidence proxies 暂时下降（§5.5 Result 2–3）。三项限制不可省略——只有 7 个 cell，不得与 11-cell 的 RSN family 画成同等取样；可读 cell 无配对的 α=0 对照；CoT 仅一个可读 cell，其中**未检出** transition，不写成 “CoT abolishes the transition”。
 
 31. **目前没有 manifold reorganization 的证据。**  
     一维结果更符合固定 RSN profile 的标量压缩。轨迹转向、off-manifold deviation、intrinsic dimension 和 tangent alignment 仍需 manifold pilot 检验。
 
 32. **目前没有证明 causal direction specificity。**  
     现有 random/orthogonal remask 是对同一批 hidden states 的重新投影，只证明 readout specificity。要证明只有 RSN steering 能产生行为变化，仍需真正注入 random/orthogonal directions。
+
+---
+
+**总体结论。**
+
+> Llama 与 Qwen 都支持 α 对 RSN dynamics 和 output decisiveness 的联合调节；共同点是 commitment 附近存在多信号状态转换，差异则体现在行为曲线、fast-residual amplitude 和 transition 强度。现有结果支持 adaptive calibration，但仍不足以证明两模型到达同一个 working state。
