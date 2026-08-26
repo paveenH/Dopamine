@@ -21,7 +21,7 @@ MODEL_DIR="${MODEL_DIR:-meta-llama/Llama-3.1-8B-Instruct}"
 
 H5_DIR="${BASE_DIR}/hidden_states/${TASK}/${RUN_TAG}"
 OUT_DIR="${OUT_DIR:-${BASE_DIR}/llama3/manifold/${RUN_TAG}}"
-SPLIT="${SPLIT:-split_manifest.json}"
+SPLIT="${SPLIT:-manifold/split_manifest.json}"
 
 # The four PRIMARY pilot cells. The basis is fit on nocot (alpha=0) TRAIN only;
 # the steered cells are projected onto it, never fitted.
@@ -33,10 +33,17 @@ echo "[env] PY=$(command -v "$PY" || echo MISSING)"
 
 [[ -f "$SPLIT" ]] || {
   echo "[FAIL] split manifest not found: $SPLIT"
-  echo "       Generate it locally with RoleAnswer/manifold/split_manifest.py"
-  echo "       and rsync it here. It is REQUIRED -- there is no default, so a"
-  echo "       run can never silently fit on all questions."
+  echo "       It is versioned in this repo at manifold/split_manifest.json --"
+  echo "       a plain 'git pull' should provide it. If it is genuinely absent,"
+  echo "       regenerate with: python manifold/split_manifest.py --write"
+  echo "       (--roleanswer only affects an optional identity digest.)"
   exit 1; }
+
+# Re-derive and diff before spending GPU-adjacent time: a manifest that does
+# not reproduce means the split is not the frozen one, and every downstream
+# NRE would be computed against a different held-out set.
+"$PY" manifold/split_manifest.py --check --roleanswer "${ROLEANSWER:-/nonexistent}" \
+  || { echo "[FAIL] split manifest does not reproduce; refusing to fit"; exit 1; }
 
 echo "[run] h5_dir=$H5_DIR"
 echo "[run] out_dir=$OUT_DIR"
