@@ -709,8 +709,13 @@ def main():
                 "split_salt": man["salt"],
                 "split_counts": man["counts"],
                 "question_text_sha256": man.get("question_text_sha256"),
-                "commit_locator": "first #### else first answer-candidate "
-                                  "(Llama convention, NOT Qwen's ####-only)",
+                # Must follow --commit_locator: a hardcoded string would
+                # label a Qwen basis with the Llama convention it did not use.
+                "commit_locator": (
+                    "first #### only (Qwen convention)"
+                    if args.commit_locator == "qwen" else
+                    "first #### else first answer-candidate "
+                    "(Llama convention, NOT Qwen's ####-only)"),
                 # Phases whose per-token coordinates are exported. decode_all is
                 # absent, so any consumer computing speed/curvature can tell from
                 # the meta alone which phases support it -- rather than inferring
