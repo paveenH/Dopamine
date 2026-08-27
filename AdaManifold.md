@@ -15,8 +15,6 @@
 
 **当前定位。** Llama 的主要分析已经完成，manifold 结果应定位为 **last-prefill explanatory geometry**：它为 `−6` 最优、`−8` overshoot 和正负剂量不对称提供了机制性线索，但不是独立的因果机制或行为预测主线。Llama–Qwen 是否共享同一套解释，仍需由预先登记的 Qwen last-prefill analysis 检验。
 
----
-
 ## 1. Research Questions
 
 关于 α 对 hidden state 做了什么，有三种互相竞争的解释：
@@ -28,8 +26,6 @@
 **Cross-model question。** Llama 呈 asymmetric peaked response（最优 α=−6，−8 崩溃），Qwen 呈 high-dose plateau。若两者接受的都是 gain-like steering，候选解释是 **Llama 沿自己的轴 overshoot，而 Qwen 的位移 saturate**——这样就能从几何而非仅从行为解释 peak-vs-plateau。
 
 **关于 prediction。** 我们进一步探索了 manifold features 能否在 `s_t`/`Z_t` 与 commitment-related variables 之外提供增量预测信息（§3.5、§3.6）。这项分析是一项辅助性的 *value check*，而不是判断几何解释是否成立的必要条件。个体题目的 correctness 主要受到题目难度影响，commit position 也具有较高噪声；此外，一维信号与高维几何描述回答的并不是同一个问题。因此，目前未检测到稳定的增量预测价值，并不否定下文的描述性几何结果。
-
----
 
 ## 2. Methods
 
@@ -110,8 +106,6 @@ Shuffled-question 不改变 pooled PCA 的总体分布，因此不作为有效 n
 - Top-k 子空间外的能量不能直接解释为 "off-manifold"；k=20 只覆盖 α=0 约 50% 的方差，因此正交补空间仍包含大量自然变异。
 - Null ratio 仅在相同 phase 内具有可比性。
 - 结果描述的是 **computational geometry of RSN steering**，不构成生物多巴胺证据或因果证据。
-
----
 
 ## 3. Results
 
@@ -278,7 +272,9 @@ R²、MAE 与 ρ 均朝预期方向变化，因此 **H1 的负端满足预设的
 
 ### 3.7 Minimal pre/post-commit decode analysis
 
-Decoder 18，k=20，TEST split，event-aligned distributions。
+**模型在 commit 前后20个 token 的生成轨迹，是否延续 last-prefill 发现的几何规律。**
+
+Decoder 18，k=20，TEST split，event-aligned distributions
 
 | phase | α | n | NRE | speed | centroid dist. |
 |---|---|---|---|---|---|
@@ -291,77 +287,129 @@ Decoder 18，k=20，TEST split，event-aligned distributions。
 | | 0 | 60 | 1.000 | 6.112 | 4.252 |
 | | +6 | 57 | 1.050 | 6.323 | 4.770 |
 
-预设的判断标准包括：(a) −6 与 −8 呈现一致的几何 profile，(b) +6 与负剂量稳定分离，以及 (c) 该模式同时出现在 pre-commit 与 post-commit。结果未满足上述三项标准：
+- `phase`
+  - `pre_commit`：`####` 出现前最多20个 token
+  - `post_commit`：从 `####` 开始后的最多20个 token
 
-- 在 `post_commit` 中，−8 明显高于 α=0 参照（NRE 1.409）而 −6 明显低于（0.836）；两个负剂量并未归为一组。
-- +6 的 NRE 为 1.044 / 1.050，接近 α=0；在 decode analysis 中偏离更明显的是 −8，而 last-prefill analysis 中差异最明显的是 +6。
-- `pre_commit` 的 NRE 在四个剂量上只跨 0.988–1.087，所以结构只出现在一个 phase 中。
+- `n`：TEST split 中实际具有该阶段数据的题数。`pre_commit` 的 n 较少，是因为部分题在第一个 decode token 就 commit，没有 commit 前窗口。
 
-此外，`pre_commit` 的样本数不平衡（−8: 28；−6: 55）。由于 α 会改变 commit timing，进入 pre-commit analysis 的样本集合本身也随剂量变化，因此这些比较可能受到 intervention-dependent selection 的影响。
+- `NRE`：相对于 α=0 的 PCA 重建误差。
+  - `1.0`：与 α=0 相当
+  - `>1`：更难被 α=0 PCA 子空间重建
+  - `<1`：比 α=0 更集中在该子空间附近  
+  它表示重建误差大小，不能直接理解为方向或“离开 manifold”。
 
-**Conclusion: last-prefill geometry did not stably extend to commit-aligned decode。** 这并不证伪 manifold；它界定了干净结构存在的范围。
+- `speed`：相邻 token 在 top-20 PCA 坐标中的平均移动距离。
+  - 较大：hidden state 每一步变化较快
+  - 较小：轨迹移动较慢
 
-这一结果与 last-prefill finding 的差异并不构成直接矛盾。Pre-commit coverage 随 α 改变，post-commit 位于 `####` 之后并受到答案格式影响，而 steering 在 last-prefill 注入后，各条件的生成轨迹已经开始分叉。此外，NRE 衡量的是 reconstruction-error magnitude；高于或低于 α=0 并不等价于位移方向相反。
+- `centroid dist.`：每道题该阶段的平均 PCA 坐标，到 α=0 TRAIN 同阶段中心的距离。
+  - 较大：整体状态离 α=0 的典型区域更远
+  - 只能在同一个 phase 内比较
 
----
+
+**Commit 前：几乎没有清晰差异。**
+
+- NRE 都接近 1：`0.988–1.087`
+- speed 也很接近：`6.79–7.10`
+- centroid distance 差异较小
+
+说明 steering 在 commit 前窗口没有形成稳定、清晰的剂量分组。
+
+**Commit 后：出现差异，但不是预期的正负分组。**
+
+- `−8`：NRE 最高 `1.409`，speed 最低 `5.319`
+- `−6`：NRE 最低 `0.836`，speed 最高 `6.903`
+- `+6`：NRE `1.050`，接近 α=0
+
+也就是说，last-prefill 时 `−8` 和 `−6` 几乎沿同一方向；但进入 post-commit 后，两者的轨迹表现反而明显不同。+6 也没有稳定成为最特殊的一组。
+
+> 因此结论是：**last-prefill 的“负端共享轴、正端方向重组”没有稳定延伸到 commit-aligned decode。** 同时 `pre_commit` 的 n 随 α 明显变化，存在选择偏差，所以这一部分更适合作为边界说明，而不是强机制结论。
+
+**Conclusion: last-prefill geometry did not stably extend to commit-aligned decode。** 
+
+
+下面这版可以直接替换现有的 `## 4. Interpretation`。我把重点改成“发现了什么—如何理解—适用范围”，减少规则式表述。
 
 ## 4. Interpretation
 
-### 4.1 Supported findings
+### 4.1 Natural hidden states exhibit structured variation
 
-1. **α=0 states carry low-rank spectral concentration relative to a matched isotropic null** —— commit 窗口中 k=20 处为 null 的 20–24×。
-2. **The negative arm is approximately a one-dimensional scalar family**，幅度沿共享轴由 −6 增长到 −8。
-3. **The positive arm is partially anti-aligned with a substantial orthogonal residual** —— 既非镜像，也不只是更小的位移。
-4. **Steering is piecewise, not one global scalar gain。**
-5. 因此，**α=−6 抵达 working region，而 α=−8 沿同一条轴 overshoot** —— 崩溃不必意味着到达一个完全不同的状态。这是本条线最有价值的单项解释性结果。
-6. **正负行为不对称有几何对应物**：这种不对称存在于 hidden-state geometry 本身，而不仅存在于 accuracy 数字里。
+α=0 的 hidden states 并不是在4096维空间中均匀变化。前20个 PCA directions 在 pre-commit 和 post-commit 阶段解释了约45%–48%的方差，而匹配样本规模和维度的随机基线只能解释约2%。这说明模型的自然推理状态具有明显的 **low-rank linear structure**。
 
-以上六条全部是 **last-prefill** 的陈述。
+这一结果表明 PCA 提取到的并非单纯由高维、小样本造成的随机结构。但它只证明方差集中在少数线性方向上，不能进一步推断存在一个确定的非线性 manifold，也不能把 `k=20` 解释为模型状态的内在维度。
 
-### 4.2 Relation to Dopamine and the Thinking Curve
+### 4.2 Steering produces piecewise rather than globally scalar geometry
 
-这些结果只能支持 **computational-level** 的多巴胺类比：
+最清晰的跨剂量结果出现在 **last-prefill、decoder 18**，即 steering 注入完成、模型尚未开始生成的位置。
 
-- 负端的共享方向表现得像一条稳定的 **gain-control axis**。
-- −6 → −8 是沿该轴从有效剂量进入过量区——结构上就是 Yerkes–Dodson optimum → overdose 的形状。
-- +6 的方向性重组提示：过度或反向调节可能进入一个 **不同的计算 regime**，而不只是一个更小或反向的 regime。
-- Cross-model 的候选解释是：**Llama 的有效位移持续增长并最终 overshoot，而 Qwen 的位移可能受到压缩或逐渐饱和**。预先登记的 Qwen analysis 将直接检验这一假设。
+在负剂量一侧，−6 与 −8 的状态位移几乎完全共线：
 
-**α 的正负不等于生物多巴胺的增加或减少。** Manifold 描述的是 RSN steering 的计算几何，不是一种神经递质。
+- cosine similarity 为 **0.989**；
+- scalar-fit residual 仅为 **2.1%**；
+- 300道题的位移方向全部同号；
+- `d_{−8} ≈ 1.379·d_{−6}`，与两者独立计算的位移幅度比基本一致。
 
-### 4.3 Unsupported claims and limitations
+因此，−8 并不是进入了一个全新的状态方向，而主要是沿着 −6 已经使用的方向继续移动。结合行为结果，α=−6 对应最高准确率，而 α=−8 出现性能崩溃，这与一种 **overshoot** 解释一致：−6 到达有效工作区域，−8 则沿同一条轴移动过远。
 
-当前证据不能支持以下主张：
++6 呈现不同的几何关系。它与负剂量位移部分反向对齐，cosine 约为 −0.66，但仍有约56%的能量无法由负端轴的反向缩放解释。因此，+6 既不是 −6 的简单镜像，也不是同一方向上幅度更小的状态，而是包含明显的额外方向成分。
 
-- 任何 **nonlinear manifold** 主张 —— PCA 只能确立 linear low-rank。
-- 把 `k = 20` 当作 **intrinsic dimension** —— 它是 analysis cap。
-- 把 top-k 子空间外的能量称为 **"Off-manifold"** —— k=20 只覆盖 α=0 约 50% 的方差，补空间大部分是普通变异。
-- 任何形式的 **causal** 主张。本研究是对已存 hidden states 的离线几何分析；因果检验需要实施新的 random/orthogonal injection 并重新采集数据。
-- 跨模型比较 **raw α、PC axes 或 hidden-state values** —— mask、层数（L=9 vs L=6）与激活尺度都不同，所以相等的 α 不是相等的干预。
-- **General behavioural predictive value** —— §3.5 未发现跨剂量一致的增量，§3.6 中满足方向性判据的模型仍具有负 R²。该结果仅说明当前 features 与 outcomes 下未检测到稳定增量，不用于裁决几何解释本身的价值。
+综合来看，RSN steering 不能用一条覆盖所有剂量的全局 scalar-gain axis 描述。更合适的解释是：
 
-结构性限制：
+> **负剂量内部近似构成一维缩放族，而正负剂量之间发生了方向重组。**
 
-- **本批次没有独立的第二个 α=0 cell**，因此 α=0 reference geometry 的稳定性只能通过 train/validation subsampling 或 bootstrap 估计，无法由两个独立 α=0 批次交叉验证。
-- **TEST 已用于探索性分析**，round 1 之后设计的检验均视为补充性结果。
-- Commit-aligned 队列 **由 manipulation 自身的结果筛选**（coverage 与 pre-commit 可用性都随 α 变动）。
-- **预测失败不抹掉描述性几何结果**；同样地，描述性几何也不授权任何预测或因果主张。
+这为 Llama 的非对称行为曲线提供了对应的几何解释：性能差异不仅来自位移大小，也与位移方向有关。
 
----
+### 4.3 The clean entry geometry does not persist unchanged during decoding
 
-## 5. Status and Next Step
+上述剂量结构主要成立于 last-prefill。进入生成阶段后，结果发生变化：
 
-**Llama analysis: COMPLETE。** 当前证据将其定位为 **last-prefill explanatory geometry**：它为非对称剂量响应提供几何解释，但尚未形成完整的因果机制或稳定的行为预测模型。
+- pre-commit 阶段各剂量的 NRE、trajectory speed 和 centroid distance 差异较小；
+- post-commit 阶段虽然出现几何差异，但 −6 与 −8 不再表现为同一组；
+- +6 也不再是与其他剂量分离最明显的条件。
 
-当前 Llama pilot 不进一步扩展至 TLE、UMAP/t-SNE、全层扫描或新的 correctness-prediction analyses。Minimal decode analysis 用于界定 last-prefill finding 的适用范围。
+因此，不能把 last-prefill 的“负端共享轴、正端方向重组”直接延伸到整条生成轨迹。
 
-**下一步为预先登记的 Qwen last-prefill analysis。** `PREREG_qwen_prefill.md` 将分析限定于 last-prefill，并使用 Qwen 自身的 α=0 basis、band `[16,22)` 与 commit locator。主要问题包括：正端剂量是否共享一个方向、位移幅度是否趋于饱和，以及位移相对于模型自身 PCA subspace 的 inside ratio。
+这不表示 decode hidden states 没有几何结构。α=0 在 commit 前后仍然表现出显著的低秩谱集中；缺失的是**跨剂量关系的稳定延续**。一个合理的解释是，steering 首先在输入边界形成清晰的状态位移，随后不同条件生成不同文本，并受到 commitment、答案格式、循环和自回归反馈的共同影响，使轨迹逐渐分叉和重组。
 
-Qwen 的结果将检验该几何解释能否扩展到跨模型差异。若 Llama 的位移沿共享轴增长并发生 overshoot，而 Qwen 的位移沿自身共享轴逐渐饱和，则这一对比可为 peak-versus-plateau 提供候选解释。若 Qwen 不呈现方向共享或幅度饱和，则当前结论仍限定为 Llama 的 last-prefill geometry。
+因此，manifold 结果与此前 `G/Z` 分析共同指向一个更一般的模式：
 
-其余剂量（No-CoT ±2/±4/+8）可用于 continuity analysis。由于这些条件使用相同题目和同一 basis，它们用于描述剂量曲线的连续性，而不构成独立验证集。
+> **Steering 在 entry boundary 产生清晰、可控的变化，但 decode dynamics 并不是该 entry effect 的简单线性传播。**
 
----
+### 4.4 Relation to Dopamine and the Thinking Curve
+
+这些结果为 Thinking Curve 提供了一个计算层面的解释。
+
+负剂量共享轴可以被理解为一条稳定的 **gain-control axis**。沿这条轴增加位移，模型先到达 α=−6 的有效工作区域，随后在 α=−8 发生 overshoot。这与“适度调节有益、过度调节有害”的曲线形态一致。
+
+但是，这只是计算几何上的类比。α 的正负不能直接等同于生物多巴胺的增加或减少，PCA 方向也不是生物神经回路。当前结果说明的是 RSN steering 如何重组模型状态，而不是模型内部存在真实的多巴胺机制。
+
+对于跨模型差异，一个值得继续检验的假设是：
+
+- Llama 的有效位移在负端持续增大，最终发生 overshoot；
+- Qwen 的正端位移可能逐渐压缩或饱和，因此行为表现形成 plateau。
+
+这一假设需要在 Qwen 自身的 α=0 PCA basis、layer band 和剂量范围内独立检验。不同模型之间不能直接比较 raw α、PCA axes 或 hidden-state 数值。
+
+### 4.5 Scope of the conclusion
+
+当前证据支持的核心结论是：
+
+> **Llama 的 RSN steering 在 last-prefill 形成了清晰的分段几何：负剂量主要沿共享轴缩放，−8 相对 −6 表现为沿轴 overshoot；+6 则包含显著的方向重组。该结构为非对称准确率曲线提供了解释性几何，但没有稳定延伸到 commit-aligned decoding。**
+
+这一结论的范围需要保持明确：
+
+- PCA 证明的是低秩线性结构，而不是完整的非线性 manifold。
+- Top-20 子空间外的能量不能直接称为 off-manifold，因为该子空间只覆盖约一半的 α=0 方差。
+- 精确的跨剂量方向结论目前以 last-prefill、decoder 18 为主。
+- 增量预测分析没有检测到稳定结果，但预测 correctness 或 commit position 并不是几何解释成立的必要条件。
+- 这些结果来自离线 hidden-state 分析，不构成 steering 方向具有因果特异性的直接证据。
+- Commit-aligned 样本覆盖率随 α 改变，因此 decode 比较同时受到生成轨迹分叉和样本选择的影响。
+
+因此，manifold pilot 最合适的定位是：
+
+> **它是对 Llama entry-state steering 的解释性几何分析，补充了 Thinking Curve 的行为结果；它不是独立的预测模型，也不是完整的因果机制。**
+
 
 ## Appendix. Artifact and provenance index
 
