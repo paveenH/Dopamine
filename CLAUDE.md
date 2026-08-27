@@ -127,7 +127,7 @@ Scope: every colour-logit diagnostic claim. -->
 | Qwen commit-aligned analysis | **NOT FROZEN** — a "decode-state saturation" reading was RETRACTED; see the 口径 rules in the Phase-1 section |
 | Qwen logit family (§5.5 output decisiveness) | **UNBLOCKED + FROZEN** 2026-08-26 — 7 cells, `logit_family.py` / `logit_family_RESULT.txt`. Reads `PARTIALLY AVAILABLE / SPARSELY SAMPLED`, never "available"; CoT is one readable cell and its transition is **not detected**, never "abolished" |
 | Qwen band-position probe `[11,18)` vs `[16,22)` | **PREPARED, NOT RUN** — launchers exist, zero artifacts; see the mask/pre-flight block |
-| Manifold pilot (Llama §1–§3) | **§1–§3 COMPLETE** — 36 bases fit, four cells exported; §4 not started. Spectra are low-rank vs a matched isotropic null |
+| Manifold pilot | **LLAMA COMPLETE + CLOSED** as last-prefill explanatory geometry (negative arm ≈ 1-D scalar family, positive arm reorganised). Incremental prediction NOT DETECTED; decode did not extend. Only remaining step: frozen Qwen last-prefill |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -751,9 +751,11 @@ bash setup_env.sh   # creates conda env "roleplaying" (py3.10) + bf16/CUDA stack
 
 Mistral3 needs `transformers` from main + `mistral-common>=1.8.6` (already in `setup_env.sh`).
 
-## Manifold pilot (Llama; §1–§3 COMPLETE, §4 not started)
+## Manifold pilot (Llama CLOSED; Qwen last-prefill is the only open step)
 
-> Asks whether steering is **scalar gain**, **on-manifold retiming**, or **off-manifold deviation**. Binding constraint set at the outset: **the manifold must add information beyond `s_t`/`Z_t` + commitment behaviour, or it is demoted to auxiliary visualization.** Execution order is frozen: H5 acceptance → Llama α=0 manifold → four-condition held-out pilot → incremental prediction → freeze method → Qwen reuse → decide whether causal direction injection is needed. Plan lives in `TODO.md`.
+> **`AdaManifold.md` is the results document — full tables, interpretation and claim boundaries live there and are NOT duplicated here.** This section is the implementation, provenance and runbook: what was run, what guards it, and which failures are already paid for.
+>
+> **Scientific verdict (one paragraph).** Llama last-prefill geometry shows the negative arm is **approximately a one-dimensional scalar family** (cos(−8,−6)=0.989, residual 2.1%, `k`=1.379 matching the independent magnitude ratio 1.394) and the positive arm is **partially anti-aligned with a substantial orthogonal residual** (cos≈−0.66, `cos²`≈44%). So steering is piecewise, not one global scalar gain, and **α=−6 reaches a working region while α=−8 overshoots along the same axis**. **No stable incremental behavioural predictive value was detected**, and **last-prefill geometry did not stably extend to commit-aligned decode**. The line is therefore CLOSED as last-prefill explanatory geometry. Llama is not being extended further — no TLE, no UMAP, no per-layer sweep, no extra doses, no more prediction work.
 
 **§1 ACCEPTED (2026-08-26).** `check_hs_llama.py` (+ `test_check_hs_llama.py`, 27 mutation-tested guards) accepted the four primary cells at **full probe (`--n_probe 0`, not sampled)**: No-CoT α = −8 / −6 / 0 / +6 under `phase1b_eot`, all n=300, `stored_layer_indices=[10..18, 31]`, band `[11,20)`.
 
@@ -787,27 +789,39 @@ Scope: the whole manifold line, both models. -->
 - **NO GPU.** No forward pass anywhere: the H5 hold precomputed states and `AutoTokenizer` loads no weights. Do **not** set `CUDA_VISIBLE_DEVICES` — unlike signal/HS collection, nothing here generates model output, so cross-machine reproducibility does not apply and it can run beside GPU jobs.
 - **Startup must print all three lines; if any is missing, stop rather than let it run:** `[split] … (structure verified)`, `[split] question-text digest matches the H5 (300 questions)`, `[fit] basis from nocot TRAIN (185 questions), k_max=20`.
 
-**§3 RESULTS (2026-08-26).** 36 bases in 65s; `stored_layer_indices=[10..18,31]`, `n_middle=9`. Fit-phase row counts: prefill/decode_all m=185, `pre_commit` m=2940 (nq=**150**), `post_commit` m=3576 (nq=183) — `pre_commit`'s nq is lower because a sample committing at decode step 0 has a post window but no pre window. Commit coverage per cell: α=0 .990, −6 .993, −8 .980, **+6 .937**. The +6 drop is ~5pp and α-dependent in the direction the repo already records for +α format degradation, so it is **reported as a behavioural result**, and any commit-aligned number at +6 rests on 16 fewer questions selected by the manipulation's own outcome.
+**§3 RESULTS — full tables in `AdaManifold.md` §3.** Runbook facts only: 36 bases in 65s; `stored_layer_indices=[10..18,31]`, `n_middle=9`; fit-phase rows prefill/`decode_all` m=185, `pre_commit` m=2940 (nq=**150**), `post_commit` m=3576 (nq=183) — `pre_commit`'s nq is lower because a sample committing at decode step 0 has a post window but no pre window.
 
 <!-- Why: 45% explained at k=20 in dim=4096 reads as "high-dimensional noise" until it is put beside a matched null, where the honest comparator is 2%, not 100%. Reading the absolute number alone once produced a wrong "the manifold premise is weakened" call in-session.
-Evidence: AdaManifold.md 3b; 20 isotropic draws matched on m/nq/dim and per-question weighting.
+Evidence: AdaManifold.md 3.2; 20 isotropic draws matched on m/nq/dim and per-question weighting.
 Scope: every manifold spectrum claim, both models. -->
-- **The spectra are low-rank RELATIVE TO A MATCHED ISOTROPIC NULL, and that null is mandatory.** Cumulative explained variance at k=20, real vs null median: prefill **.499 vs .148**, `pre_commit` **.446 vs .022**, `post_commit` **.484 vs .020**, `decode_all` .812 vs .148 (null 95% intervals are narrower than 1% relative, 20 draws). The null must match each phase's `m`, `nq`, `dim` AND the per-question weighting, through the same Gram path. **Frozen wording: `low-rank spectral concentration relative to a matched isotropic null`** — NOT "low-dimensional manifold" (PCA shows linear low-rank, not a nonlinear manifold), and `k=20` is an analysis cap, NEVER an intrinsic dimension. **Ratios compare only WITHIN a phase**: prefill's 3.4× and the commit windows' 20× are not commensurable, because prefill has `m = nq = 185` so the null alone already reaches 14.8%. The spectrum is a slow tail with no elbow, which is why k is FIXED at 20 with k=5/10/20 sensitivity rather than "chosen" — val NRE falls monotonically in k and cannot produce an extremum.
+- **A MATCHED isotropic null is mandatory beside every spectrum, and it must match `m`, `nq`, `dim` AND the per-question weighting, through the same Gram path.** Otherwise low-rank structure cannot be told from the sampling necessity of `m ≪ dim`. **Frozen wording: `low-rank spectral concentration relative to a matched isotropic null`** — NOT "low-dimensional manifold" (PCA shows linear low-rank only), and `k=20` is an analysis cap, **NEVER an intrinsic dimension**. **Ratios compare WITHIN a phase only**: prefill has `m = nq = 185` so its null alone already reaches 14.8%, which is why prefill's 3.4× and the commit windows' ~20× are not commensurable. The spectrum is a slow tail with no elbow, so k is FIXED at 20 with k=5/10/20 sensitivity rather than "chosen" — val NRE falls monotonically in k and cannot produce an extremum.
 
 <!-- Why: displacement MAGNITUDE is monotone in alpha while DIRECTION is not, so a single dose-ordered reading of one number silently merges two independent axes. A residual-ENERGY difference was used in-session as if it bounded the normal part; it bounds nothing (the cross term -2<n_a,n_0> is missing) and those figures were withdrawn.
-Evidence: AdaManifold.md 3e; manifold_prefill_exact.py, validated against a synthetic 25% split.
+Evidence: AdaManifold.md 3.3; manifold_prefill_exact.py, validated against a synthetic 25% split.
 Scope: every prefill displacement claim. -->
-- **PREFILL DISPLACEMENT (exact, ambient): magnitude and direction are SEPARATE axes.** `d = h(α) − h(0)` at decoder 18, 300 questions paired by `question_idx`, `f_k = ‖W_k d‖²/‖d‖²`, primary = energy-POOLED ratio on TEST at k=20. Magnitude is monotone (`mean‖d‖` 24.63 / 17.67 / 13.23 at −8/−6/+6) but direction is NOT: −8 and −6 sit at **21.4%** [20.9,21.8] and **21.2%** [20.8,21.7] — indistinguishable — while **+6 is 9.8%** [9.2,10.5], CI disjoint from both. So −6→−8 travels FURTHER ALONG THE SAME DIRECTION, whereas +6 is a DIFFERENT direction, not a smaller or mirrored one. k sensitivity says the same: −8/−6 both gain **+11.8pp** from k=5 to k=20, +6 only **+4.0pp** — extra dimensions do not recover +6's energy. Splits agree (train/val/test 21.8/21.1/21.4, 21.8/21.0/21.2, 10.7/9.5/9.8), so this is not overfitting to the basis's own train questions. **The random reference is mandatory beside these numbers**: an isotropic displacement puts `20/4096 = 0.488%` of its energy in any 20-D subspace, so +6 is **20×** random and −6/−8 are **43×** — all three doses ARE strongly aligned with the α=0 principal structure, differing by a factor of two. Without it, 9.8% misreads as "barely aligned". **Frozen wording: energy INSIDE / OUTSIDE the α=0 top-k PCA subspace — never "off-manifold"**, since k=20 spans only ~50% of α=0 variance and the complement is largely ordinary natural variation.
+- **PREFILL DISPLACEMENT is computed in AMBIENT space, and the exported scalars cannot substitute.** `energy − ‖coord‖²` is a residual ENERGY, so differencing two cells drops the cross term `−2⟨n_a,n_0⟩`: it is not an upper bound, not a lower bound, not a bound. A residual NORM difference would at least lower-bound the normal part, and is still not the wanted quantity. `d = h(α) − h(0)` at decoder 18, paired by `question_idx`, `f_k = ‖W_k d‖²/‖d‖²`, primary = **energy-POOLED** ratio (a per-question ratio would weight a near-zero displacement as heavily as a large one). **The random reference is mandatory beside the numbers**: an isotropic displacement puts `20/4096 = 0.488%` of its energy in any 20-D subspace, so the observed values are 20–43× random and all three doses ARE strongly aligned — without it 9.8% misreads as "barely aligned". **Frozen wording: energy INSIDE / OUTSIDE the α=0 top-k PCA subspace — never "off-manifold"**, since k=20 spans only ~50% of α=0 variance.
 
 <!-- Why: an equal INSIDE ratio was read in-session as "same direction" and a differing one as "scalar gain excluded"; neither follows. Two displacements can fill the same top-k subspace equally and point different ways, and refuting scalar gain needs the scalar model FITTED, not one of its corollaries.
-Evidence: AdaManifold.md 3f; manifold_prefill_direction.py, validated on synthetic pure-scalar and orthogonal cases.
+Evidence: AdaManifold.md 3.4; manifold_prefill_direction.py, validated on synthetic pure-scalar and orthogonal cases.
 Scope: every cross-dose direction claim. -->
-- **CROSS-DOSE DIRECTION: the negative arm is a one-dimensional scalar family; the positive arm is a DIRECTIONAL REORGANISATION, not a mirror.** Least-squares `d_a ≈ k·d_b` on TEST: **−8|−6 cos 0.989** [0.989,0.990], `k=1.379`, residual 2.1%, **300/300 questions same-signed** — and that `k` matches the independently computed magnitude ratio 24.63/17.67 = 1.394. Against +6: **cos ≈ −0.66** both ways, so the shared axis explains only `cos² ≈ 44%` of the energy and the **orthogonal residual is ~56%**; 100% same-signed means a consistent PARTIAL anti-alignment, not a mixture of sub-populations. So steering does NOT share one line across doses. **`resid ≡ 1 − cos²` exactly** (verified 1.1e-16), so `k` is the only independent number of the three and must be reported beside the residual. **The inside ratio and this cosine are two AGREEING observations, not the same fact** — showing they are one requires testing whether +6's orthogonal component sits outside top-k.
+- **DIRECTION conclusions come ONLY from the cosine / scalar fit, never from the inside ratio.** Least-squares `d_a ≈ k·d_b` with a per-question sign fraction (a pooled cosine can hide a mixture of aligned and anti-aligned questions). **`resid ≡ 1 − cos²` exactly at the LS `k`** (verified 1.1e-16), so **`k` is the only independent number of the three** and must be reported beside the residual. **The inside ratio and the cosine are two AGREEING observations, not the same fact** — showing they are one requires testing whether +6's orthogonal component sits outside top-k.
 
 <!-- Why: the plan's own gate ("beyond s_t/Z_t or it is demoted") is easy to answer with whichever metric happens to move; the frozen three-of-three rule and the exhausted-test provenance are what keep the verdict honest.
-Evidence: AdaManifold.md 3g; RoleAnswer/manifold/PREREG_incremental.md, PREREG_negative_arm_confirm.md.
+Evidence: AdaManifold.md 3.5-3.6; RoleAnswer/manifold/PREREG_incremental.md, PREREG_negative_arm_confirm.md.
 Scope: the manifold pilot's status in the paper. -->
-- **INCREMENTAL PREDICTION: NOT DETECTED — the manifold is explanatory geometry, NOT the mechanism line.** commit-position outcome with a **pre-generation-only** baseline (`Z_prefill`, prefill confidence — commitment behaviour is inadmissible there because it IS the outcome): both negative doses improve on all three of R²/MAE/ρ (−8 .003→.019, 73.1→72.3, .129→.192; −6 .074→.104, 74.1→72.5, .276→.359) while +6 worsens on all three. Under the frozen "all three doses must agree" rule that is **mixed**. On correctness (where commitment IS admissible) AUC goes .700/.386/.547 → .688/.497/.443 — **inconsistent across metrics and doses**; do NOT write "all three worsened", −6's AUC improves. **Three caveats travel with this**: the TEST split was used for round 1 and is exhausted (round 2 was designed after seeing it, so it is **post-hoc**, not confirmatory — using a test set once is not the error; re-tuning against it afterwards would be); n=60, so sampling error exceeds the differences; and the wording is **"no stable incremental predictive power detected"**, never "disproved". The negative-arm improvement is frozen as H1 in `PREREG_negative_arm_confirm.md`. **CoT and the other doses are a NEW conditional validation set, not the other half of this split** — only transferring the frozen hypothesis and model untouched makes them confirmatory. Paper wording: *prefill geometry cleanly reveals a negative-arm scalar family and a positive-arm directional reorganisation, but provided no stable incremental behavioural prediction under a frozen cross-dose criterion.*
+- **INCREMENTAL PREDICTION: NOT DETECTED.** Two outcomes with DIFFERENT admissible baselines, and mixing them is the trap: for **commit position** the baseline is **pre-generation only** (`Z_prefill`, prefill confidence) because commitment behaviour IS the outcome; for **correctness** commitment IS admissible, as a predictor. Frozen rule: a dose counts as improved only if BOTH members of its metric pair move the right way, and "stable" needs ALL THREE doses to agree. Commit position came out **mixed** (both negative doses improve on R²/MAE/ρ, +6 worsens on all three); correctness is **inconsistent across metrics and doses** — **do NOT write "all three worsened", −6's AUC improves .386→.497**. **Three caveats travel with every number**: TEST was spent on round 1 and is exhausted (round 2 was designed after seeing it, so it is **post-hoc** — using a test set once is not the error, re-tuning against it afterwards would be); n=60, so sampling error exceeds the differences; and the wording is **"no stable incremental predictive power detected"**, never "disproved".
+
+<!-- Why: passing a directional criterion on a model whose R2 is NEGATIVE is easy to over-read as "geometry predicts commitment"; it improved from worse-than-the-mean to less-bad.
+Evidence: AdaManifold.md 3.6; RoleAnswer/manifold/PREREG_negative_arm_confirm.md and its addendum.
+Scope: every CoT confirmation claim. -->
+- **CoT CONDITIONAL CONFIRMATION: H1's negative half PASSED its pre-set directional criterion, with weak absolute predictive power.** All three of R²/MAE/ρ moved the predicted way at CoT α=−4, but **R² stays NEGATIVE after adding geometry** and ρ stays small, so the frozen reading is **"a reproducible weak directional signal, not strong predictive evidence"**. Correctness on the same cell got clearly WORSE. **`manifold_fit.py --reuse_basis` is what makes this a confirmation rather than a new model** — CoT is projected onto the EXISTING No-CoT α=0 basis and never refit; the flag verifies split version / band / k_max agree and skips rewriting `basis.npz` + `basis_meta.json` (the meta write originally sat outside the branch and would have clobbered the frozen artifact while reporting success). Scope limits frozen BEFORE the run: CoT has only α=0/−4, so **only the negative half of H1 is testable** — the positive half must not be reported as confirmed nor quietly dropped; **α=−4 is not among the doses H1 was derived from** (−8/−6), so this is a generalisation to an unmeasured dose; and the numbers describe where CoT states sit relative to the **No-CoT** manifold.
+
+<!-- Why: "decode contradicts prefill" overstates it -- pre-commit coverage moves with alpha, post-commit sits after ####, and steering happens at last-prefill, so divergence there is expected rather than contradictory.
+Evidence: AdaManifold.md 3.7; RoleAnswer/manifold/PREREG_decode_minimal.md.
+Scope: the decode half of the manifold line, now closed. -->
+- **MINIMAL DECODE: the frozen three-part rule FAILED, and the line closed on it.** Rule (frozen before running): (a) −6 and −8 consistent with each other, (b) +6 stably separated, (c) visible in BOTH pre_commit and post_commit. None held. **Frozen wording: "last-prefill geometry did not stably extend to commit-aligned decode"** — NOT that the manifold was falsified, and **NOT "the doses point in opposite directions"** (NRE is a magnitude ratio, so a high and a low value are not opposite directions). Why divergence is EXPECTED rather than contradictory: pre-commit coverage moves with α, post-commit sits after `####` where states reflect answer format, and steering is injected at last-prefill — so texts fork immediately after. `pre_commit` n is also strongly imbalanced (−8: 28 vs −6: 55), a selection effect on top of everything else.
+
+**Qwen last-prefill is the ONLY open step, and it is pre-registered.** `RoleAnswer/manifold/PREREG_qwen_prefill.md` fixes the scope before any Qwen projection: last-prefill only, Qwen's OWN α=0 basis / band `[16,22)` (L=6, not Llama's 9) / `--commit_locator qwen`, three questions (does the positive arm share one direction; does displacement magnitude saturate; inside ratio against each model's own subspace), and failure conditions written in advance. **`--commit_locator` exists because Llama's locator (first `####` else first answer candidate) silently redefines the event on Qwen**, which answers first at low α so the fallback fires constantly; it is irrelevant to prefill (no commit is used) but a later Qwen decode run would have inherited it. Default stays `llama`, so every stored Llama result is unaffected. **Ruled out in advance**: comparing raw α across models (different masks, L=9 vs L=6, different activation scales — an equal α is not an equal intervention), comparing PC axes or hidden-state values, and reading either arm as a change in biological dopamine. Remaining No-CoT doses (±2/±4/+8) are **continuity checks only** — same questions, same basis — never an independent validation set.
 
 **Known limitation to state explicitly at §5, not to discover there:** this batch has **no independent second α=0 cell**, so α=0 manifold stability can only be estimated by train/val subsampling / bootstrap, never by cross-validating two independent α=0 batches. That weakens the "the manifold is stable" premise, and its failure is a pre-registered **stop condition**.
 
@@ -838,6 +852,42 @@ python3.10 test_manifold_fit.py            # 74 guards: phase windows, frozen
                                            # re_by_k export, manifest + H5
                                            # digest, overwrite, base-cell alpha
 bash -n run_manifold_pilot.sh
+
+# Section 3 exact-geometry scripts (server, read-only on the H5, CPU-only).
+# Both pin BLAS threads HARD (not setdefault -- an inherited wrong value is
+# exactly the failure mode) and fail closed on: a non-orthonormal basis
+# (||W_k d||^2 would not be an energy), incomplete question coverage vs the
+# manifest (checking only that CELLS AGREE would pass a run where every cell
+# is missing the SAME question), a duplicate question_idx, and an existing
+# output. --split_manifest is REQUIRED on the exact script: a 300-question
+# total pools the 185 TRAIN questions the basis was fit on, so it is circular;
+# roles are train = QC, val = k sensitivity, test = PRIMARY, all = descriptive.
+python manifold_prefill_exact.py --h5_dir <hs> --basis <dir>/basis.npz \
+    --split_manifest manifold/split_manifest.json --out prefill_exact.json
+python manifold_prefill_direction.py --h5_dir <hs> \
+    --split_manifest manifold/split_manifest.json --out prefill_direction.json
+
+# Transfer a frozen basis to a NEW condition (this is what makes the CoT run a
+# confirmation rather than a new model). Writes coordinates only; basis.npz and
+# basis_meta.json are NOT rewritten.
+python manifold_fit.py --h5_dir <hs> --out_dir <new_dir> \
+    --split_manifest manifold/split_manifest.json \
+    --base_cell nocot --cells cot,cot_aneg4 \
+    --reuse_basis <frozen_dir> --model_dir meta-llama/Llama-3.1-8B-Instruct
+
+# Qwen (pre-registered, NOT yet run): its own band, size and commit locator.
+# --model_dir is an HF repo id, not a filesystem path (tokenizer only, no
+# weights are downloaded for the fit).
+python manifold_fit.py --h5_dir components/hidden_states/gsm8k/qwen25_signal_v1 \
+    --out_dir components/qwen2.5/manifold/qwen25_signal_v1 \
+    --split_manifest manifold/split_manifest.json --base_cell nocot \
+    --size 7B --layer_start 16 --layer_end 22 --commit_locator qwen \
+    --model_dir Qwen/Qwen2.5-7B-Instruct
+
+# Offline analysis (RoleAnswer/manifold/, python3.10, no server):
+#   incremental.py / incremental2.py  section 3.5
+#   confirm_cot.py                    section 3.6
+#   decode_minimal.py                 section 3.7
 
 # Qwen2.5 signal replication (the ACTIVE line). The tracker's hook path is NOT
 # covered by check_gsm8k_qwen.py -- see the Qwen-signal bullet above.

@@ -1,157 +1,220 @@
-下面是一份可直接放进 `TODO.md` 的 Manifold Plan。原则是：先在 Llama 上冻结方法，再原样迁移到 Qwen；只使用已有 H5，不重新生成模型输出。
+# Manifold Geometry Analysis
 
-## Manifold Pilot Plan
+RSN steering の計算幾何 — what the hidden-state geometry says about how α acts.
+Methods and results only; implementation, provenance and runbook live in
+`CLAUDE.md` (§ *Manifold pilot*).
 
-### 执行状态（2026-08-26）
+---
 
-| 阶段 | 状态 |
+## 0. Executive Summary
+
+**Question.** Is RSN steering a scalar gain along one direction, a retiming
+within the natural manifold, or a departure from it — and can the same
+geometric account explain why Llama peaks at α=−6 while Qwen plateaus on the
+positive arm?
+
+**Core Llama finding (last-prefill, decoder 18).** Steering is *piecewise*, not
+one global scalar gain:
+
+- The **negative arm is approximately a one-dimensional scalar family**:
+  cos(−8, −6) = 0.989, scalar-fit residual 2.1%, 300/300 questions same-signed,
+  and the least-squares `k = 1.379` matches the independent magnitude ratio
+  24.63/17.67 = 1.394. So −8 is −6 travelled further along the same axis.
+- The **positive arm is partially anti-aligned with a substantial orthogonal
+  residual**: cos(−6, +6) = −0.662, so the shared axis carries `cos² ≈ 44%` of
+  the energy and ~56% is orthogonal. +6 is neither a mirror nor a smaller −6.
+
+This yields the most valuable interpretive result: **α=−6 reaches a working
+region and α=−8 overshoots along the same axis**, so collapse need not mean
+arriving at a wholly different state.
+
+**Evidence boundary.** All of this is at **last-prefill**, the injection site
+and the only strictly α-matched position. **No stable incremental behavioural
+predictive value was detected** (frozen three-dose criterion), and
+**last-prefill geometry did not stably extend to commit-aligned decode**.
+
+**Current standing.** Llama analysis is **complete**; the manifold is
+positioned as **last-prefill explanatory geometry**, not the mechanism line and
+not a predictive line.
+
+**Next step.** Exactly one: the frozen Qwen last-prefill analysis
+(`PREREG_qwen_prefill.md`). Whether the manifold enters the paper beyond a
+supplement is decided by its outcome.
+
+---
+
+## 1. Research Questions
+
+Three competing accounts of what α does to the hidden state:
+
+1. **Scalar gain** — steering changes magnitude along a fixed direction.
+2. **On-manifold retiming** — trajectories stay within the natural manifold but
+   change speed, phase occupancy or commitment timing.
+3. **Directional reorganisation / off-subspace deviation** — extreme doses turn
+   the trajectory, coinciding with degraded accuracy, loops or format failure.
+
+**Cross-model question.** Llama shows an asymmetric peaked response (optimum
+α=−6, collapse at −8) while Qwen shows a high-dose plateau. If both receive
+gain-like steering, the candidate account is that **Llama overshoots along its
+axis while Qwen's displacement saturates** — which would explain peak-vs-plateau
+from geometry rather than from behaviour alone.
+
+**On prediction.** The plan carried a binding constraint: the manifold must add
+information beyond `s_t`/`Z_t` + commitment behaviour, or it is demoted to
+auxiliary visualization. That check was run (§3.5, §3.6) and **not passed**.
+But incremental prediction was always a *value check*, never the purpose:
+distinguishing the three accounts above does not require predicting which
+question is answered correctly. **A prediction failure does not erase the
+descriptive geometry.**
+
+---
+
+## 2. Methods
+
+### 2.1 Data and conditions
+
+Llama-3.1-8B, GSM8K, 300 questions, No-CoT unless stated. Stored hidden states
+only — no model output was regenerated for this analysis.
+
+| condition | role |
 |---|---|
-| §1 H5 验收 | **已完成** — `check_hs_llama.py --n_probe 0` 全量探针，四个 cell 全过 |
-| §2 划分冻结 | **已冻结** — `manifold/split_manifest.json`，185/55/60，digest `64af9b38…` |
-| §3 拟合+投影 | **已完成** — 36 个 basis，四个 cell 已导出到本地 |
-| §4 起 | 未开始 |
+| α=0 | natural baseline; the basis is fit here |
+| α=−6 | best working point |
+| α=−8 | negative-arm collapse |
+| α=+6 | positive-arm damage representative |
+| CoT α=0 / −4 | conditional validation set (§3.6) |
 
-产物位于 `RoleAnswer/llama3/dopamine/manifold/`（`basis.npz`、`basis_meta.json`、
-四个 `manifold_*.json`），不进 git。服务器端产物在
-`components/llama3/manifold/phase1b_eot/`。
+Band `[11,20)` → decoder layers 10–18 (L=9). **Primary layer: decoder 18**
+(export slot `8`); sensitivity: decoder 10 (slot `0`); other layers supplement.
+Pairing is always by `question_idx`, never row order.
 
-**§3 的求解器实现细节**：BLAS 线程在 `import numpy` 前锁定为 1（服务器
-OpenBLAS 在多核下 `eigh` 自旋，实测 957s vs 8.2s，117 倍反向加速）；PCA 用
-`scipy.linalg.eigh(subset_by_index=...)` 精确求 top-30（前 20 作 basis，后 10
-仅诊断谱尾）；`total_var` 用 Frobenius 恒等式 `‖A‖_F²/nq` 精确补回，因为部分
-求解拿不到全谱和，而它是 explained ratio 的分母。等价性已验证：`total_var`
-相对误差 1.2e-16，前 20 特征值与全谱一致到 1.8e-15。
+### 2.2 Frozen question split
 
----
+60/20/20 **by question**, realised **185/55/60**, `manifold-split-v1`.
 
-### 0. 研究问题
+- **Train** — fits the α=0 PCA basis. Fitting only; no k selection.
+- **Validation** — `k = 5/10/20` robustness.
+- **Test** — final dose comparison and prediction checks.
 
-区分三个竞争解释：
+Rules: one split shared by every cell (per-cell splits would confound dose with
+question difficulty); split by question, never by token (tokens within a
+question are correlated, so a token split leaks); counts are **not** rebalanced
+to 180/60/60 (thresholds sit on hash values, and sorting-and-slicing would make
+each assignment depend on the whole set, breaking extension stability).
 
-1. **Scalar gain**：RSN steering 主要改变固定方向上的幅度。
-2. **On-manifold retiming**：轨迹仍在自然推理流形内，但速度、停留阶段或 commitment timing 改变。
-3. **Off-manifold deviation**：极端剂量使轨迹转向或偏离自然流形，并对应性能下降、循环或格式失效。
+**k rule (frozen).** Primary `k = 20`; `k = 5/10/20` reported as sensitivity,
+with agreement across all three required for a claim of robustness; the top-30
+spectrum is diagnostic tail only and never enters the basis. **k is not chosen
+from dose effects** — validation NRE falls monotonically in k and cannot
+produce an extremum, so "select k on val" is not a coherent procedure.
 
-Manifold 必须提供超过 `s_t/Z_t + commitment behavior` 的信息，否则只作为辅助可视化。
+### 2.3 Alpha=0 PCA reference geometry
 
----
+Fit on **α=0 TRAIN questions only** — never on val (which checks k), never on
+test (which carries the numbers), never on a steered cell (the thing under
+test). Four phases each get their **own independent basis** (9 layers × 4
+phases = 36), sharing nothing.
 
-### 1. 数据与条件
+Two settings that are load-bearing:
 
-#### Llama 主 pilot
+- **Per-question equal weighting** (rows scaled by `1/√n_i`). Without it a
+  20-token trajectory outvotes a 3-token one 7:1 and the basis becomes the
+  manifold *of the slow samples* — and length correlates with α.
+- **Every cell centred by the same α=0 `mu`.** Centring a steered cell on its
+  own mean would subtract the very displacement under test.
 
-- `α=0`：自然基线
-- `α=−6`：最佳工作点
-- `α=−8`：负端崩溃
-- `α=+6`：正端损害代表
+### 2.4 Token phases and pairing rules
 
-第二阶段再加入：
-
-- CoT `α=0/−4`
-- 其他已有剂量作完整曲线检查
-
-#### 数据检查
-
-- [ ] 核对每个 H5 的样本数、题号、层索引、α、CoT 与生成文本。
-- [ ] 检查 `prefill_hs`、`decode_hs` 和 projection 长度一致。
-- [ ] 用现有 RSN 投影代码复算少量样本，确认与已发布 `Z_t/s_t` 一致。
-- [ ] 所有 pairing 使用 `question_idx`，不依赖 H5 行顺序。
-
-可复用 [track_hidden_states.py](/Users/paveenhuang/Downloads/Dopamine/track_hidden_states.py)、[extract_signal_json.py](/Users/paveenhuang/Downloads/Dopamine/extract_signal_json.py) 的数据口径。
-
----
-
-### 2. 冻结数据划分
-
-按 question 固定划分：
-
-- Train：拟合 α=0 PCA basis。**只做拟合，不选 k。**
-- Validation：检查 `k=5/10/20` 的稳健性。
-- Test：最后才打开，只做最终剂量比较与预测检验。
-
-**k 规则（冻结）**：primary 固定 `k=20`；`k=5/10/20` 作 sensitivity，三者方向
-一致才算稳健；top-30 spectrum 仅用于诊断谱尾衰减，不进 basis。
-**不得依据剂量效应挑 k** —— val 上的 NRE 对 k 单调下降，不会产生极值点，
-"用 val 选 k" 这个说法本身不成立。
-
-实际划分：185/55/60（**不是** 180/60/60）。阈值加在 hash 值上，排序取整会让
-每个题的归属重新依赖全集，破坏扩展稳定性。
-
-要求：
-
-- [ ] 同一道题的所有 α condition 必须进入同一个 split。
-- [ ] 依据 question hash 固定 split，并保存 manifest。
-- [ ] 不根据 accuracy 或预期效应重新划分。
-
----
-
-### 3. 定义自然流形
-
-每层独立分析，不直接拼接不同层。
-
-只使用 `α=0` training questions。**四个 phase 各自独立拟合一个 PCA basis**
-（9 层 × 4 phase = 36 个），互不共享基：
-
-| phase | 范围 | 每题行数 | 角色 |
+| phase | span | rows/question | role |
 |---|---|---|---|
-| `prefill` | 最后一个 prefill token，仅此一个 | 1 | **唯一严格 α 对齐的位置**（同 prompt、同 token），因此是唯一支持位移 claim 的 phase |
-| `pre_commit` | `[c−20, c)`，至多 20 步 | ≤20 | 事件对齐分布比较 |
-| `post_commit` | `[c, c+20)`，至多 20 步 | ≤20 | 同上；commit 本身落在首行 |
-| `decode_all` | 整个 decode 段，题内均值 | 1 | level sensitivity（option A）；无 commit 样本唯一能进入的 phase |
+| `prefill` | last prefill token only | 1 | **the only strictly α-matched position** (same prompt, same token) — the only phase licensing a displacement claim |
+| `pre_commit` | `[c−20, c)` | ≤20 | event-aligned distribution comparison |
+| `post_commit` | `[c, c+20)` | ≤20 | same; commit itself is the first row |
+| `decode_all` | whole decode, per-question row mean | 1 | level sensitivity; the only phase a no-commit sample can enter |
 
-两条冻结规则：
+- **A sample committing before token 20 is kept, on its actual short window.**
+  Dropping `c < 20` would systematically delete fast commitment — precisely the
+  behaviour α moves (~23% of Llama α=0 samples commit before token 20, and that
+  fraction is itself α-dependent). Truncate the window, never the sample.
+- **No-commit samples are excluded only from aligned phases**, still entering
+  `decode_all`; coverage is reported per cell and is never a gate.
+- **Decode phases support event-aligned distribution comparison only.** α
+  changed the generated text, so tokens differ across cells: no per-token
+  pairing, no per-state displacement claim there.
 
-- **commit 早于 token 20 的样本保留，按其实际短窗口计算**，绝不丢弃。丢弃
-  `c<20` 会系统性删掉快速 commit —— 而那正是 α 所改变的行为（Llama α=0 已有
-  约 23% 样本在 token 20 前 commit，且该比例本身随 α 变化）。截断窗口，不截断
-  样本。
-- **无 commit 的样本只排除 aligned phases**，仍进入 `decode_all`；coverage
-  逐 cell 报告，不作门槛。
+### 2.5 Geometry metrics and matched nulls
 
-PCA 设置：
+**Normalized reconstruction error (NRE).**
+`NRE(α) = mean(RE_α) / mean(RE_{α=0, held-out})`, per layer × phase — a **ratio
+of cohort means**, never a mean of per-question ratios, which explodes on
+questions whose α=0 residual is tiny. Hidden-state-norm normalization is
+sensitivity only: it would divide out the scalar-gain effect under test.
 
-- [x] 每题等权（行按 `1/√n_i` 缩放），否则 20 token 的轨迹以 7:1 压过 3 token
-      的，basis 会变成"慢样本的流形" —— 而长度与 α 相关。
-- [x] 所有 cell 用**同一个** α=0 的 `mu` 中心化；用各自均值会减掉待测的位移。
-- [ ] TLE 仅作 intrinsic-dimension sensitivity。
-- [ ] UMAP/t-SNE 只展示，不用于统计结论。
+**PCA-subspace alignment.** (Renamed from "local tangent alignment": this is a
+*global per-phase* basis, so `local tangent` must not be used unless α=0
+kNN/local PCA is actually implemented.) For prefill, `d = h(α) − h(0)` decomposes
+into energy inside the α=0 top-k subspace and the remainder; primary is the
+**energy-pooled ratio** `Σ‖W_k d‖² / Σ‖d‖²`, not the mean of per-question
+ratios, which would weight a near-zero displacement as heavily as a large one.
 
-**`decode_all` 的谱须按 phase 判读**：它归约到每题 1 行后只在 ~185 个点上拟合，
-所以谱平不等于流形不稳，而是归约去掉了题内变异。
+**Cross-dose scalar fit.** Least squares `d_a ≈ k·d_b`, reporting cos, `k` and
+residual. `residual ≡ 1 − cos²` exactly at the least-squares `k` (verified to
+1.1e-16), so **`k` is the only independent number of the three** and is always
+reported beside the residual. A per-question sign fraction accompanies the
+pooled cosine, since a pooled value can hide a mixture of aligned and
+anti-aligned questions.
+
+**Commitment-centroid distance.** Distance to the α=0 TRAIN `post_commit`
+centroid, defined on train and evaluated on test.
+
+**Matched isotropic null.** Mandatory beside every spectrum: the null must match
+each phase's `m`, `nq`, `dim` **and** the per-question weighting, through the
+same Gram path. Otherwise low-rank structure cannot be distinguished from the
+sampling necessity of `m ≪ dim`. The random reference for displacement is
+`k/dim` — an isotropic displacement puts `20/4096 = 0.488%` of its energy in any
+20-D subspace.
+
+Retired null: **shuffled-question**, which is generally meaningless for pooled
+PCA. Valid geometric negative controls are the matched isotropic spectrum,
+a random orthonormal subspace at the same k, and trajectory-order shuffle (for
+speed/curvature only).
+
+### 2.6 Statistical rules and claim boundaries
+
+- Bootstrap/cluster unit is the **question**, throughout.
+- Dose contrasts frozen in advance: `−8 vs 0`, `−6 vs 0`, `+6 vs 0`.
+- Holm within a metric family; families are not pooled.
+- A dose counts as improved only if **both** members of its metric pair move
+  the right way; "stable" requires **all three doses** to agree in direction.
+  Anything less is reported as mixed / not detected, never as a positive.
+
+Frozen claim boundaries:
+
+- PCA shows **linear low-rank**, not a nonlinear manifold.
+- `k = 20` is an analysis cap, **never an intrinsic dimension**.
+- Energy **outside** the top-k subspace is **not** "off-manifold" — k=20 spans
+  only ~50% of α=0 variance, so the complement is largely ordinary variation.
+- Null ratios compare **within a phase only**.
+- Results describe the **computational geometry of RSN steering**; they are not
+  biological dopamine evidence, and **no causal claim** is made.
 
 ---
 
-### 3b. 有限样本随机基线（已执行，结果见下）
+## 3. Results
 
-随机基线**必须逐 phase 匹配 `m`、`nq`、`dim` 和每题等权**，并走同一条 Gram
-路径。否则无法区分"低秩结构"与"`m ≪ dim` 时的采样必然"。
+### 3.1 Data integrity, accuracy and coverage
 
-累积解释方差，实测 vs 各向同性高斯（20 draws，中位数 [2.5, 97.5]）：
+Four primary cells accepted at **full probe** (not sampled): n=300 each,
+`stored_layer_indices = [10..18, 31]`, band `[11,20)`.
 
-| phase | m | k=5 | k=10 | k=20 |
-|---|---|---|---|---|
-| prefill | 185 | .257 vs .039 | .365 vs .076 | **.499 vs .148** [.1477,.1489] |
-| pre_commit | 2940 | .243 vs .006 | .344 vs .011 | **.446 vs .022** [.0222,.0223] |
-| post_commit | 3576 | .296 vs .005 | .397 vs .010 | **.484 vs .020** [.0200,.0201] |
-| decode_all | 185 | .641 vs .039 | .730 vs .076 | .812 vs .148 |
+- Projection reproduction reads **exactly 0.00e+00** in all four cells.
+- Per-question agreement with the lightweight batch measured **1.000** on all
+  three fields in all four cells — an observed property of this batch.
+- Accuracy **79.67 / 60.00 / 51.67 / 40.67** (α = −6 / 0 / +6 / −8) reproduces
+  the −6 peak **same-batch**. This is the 184 bs=1 batch and may never be mixed
+  per-question with the 182 dose table.
 
-Null 区间极窄（相对宽度 <1%），20 draws 已收敛。
-
-**措辞（冻结）**：这证明的是 **low-rank spectral concentration relative to a
-matched isotropic null**。
-
-- **不得**直接称为"低维 manifold" —— PCA 只能证线性低秩，不能证非线性流形。
-- **不得**把 `k=20` 当作内在维度；它是分析用的截断。
-- **倍数只在 phase 内比较**：`prefill` 的 3.4× 与 commit 窗口的 20× 不可横比，
-  因为 `prefill` 的 `m = nq = 185`，随机基线本身就能拿到 14.8%。
-- 谱是缓降拖尾、无肘部，所以不存在"天然正确"的 k —— 这正是 k 规则固定为 20
-  且报 sensitivity 的原因。
-
----
-
-### 3c. commit cohort 的选择偏差（冻结）
-
-`pre/post_commit` 的可用样本随 α 变化，实测 commit coverage：
+**Commit coverage** (reported as a behavioural result, never a gate):
 
 | cell | α | coverage |
 |---|---|---|
@@ -159,37 +222,49 @@ matched isotropic null**。
 | `nocot_aneg6` | −6 | 298/300 = .993 |
 | `nocot_aneg8` | −8 | 294/300 = .980 |
 | `nocot_a6` | +6 | **281/300 = .937** |
+| `cot` | 0 | 297/300 = .990 |
+| `cot_aneg4` | −4 | 296/300 = .987 |
 
-三层口径，缺一不可：
+The +6 drop of ~5pp is α-dependent and matches the direction already recorded
+for +α format degradation. Consequence: any commit-aligned number at +6 rests
+on 16 fewer questions, selected by the manipulation's own outcome.
 
-1. **coverage 本身先作为行为结果报告** —— +6 掉约 5pp 且方向符合已知的
-   +α 格式退化，这是结果，不是数据问题。
-2. **available cohort** 做阶段分布比较。
-3. **common-question intersection** 作配对 sensitivity。
+Fit-phase row counts: prefill / `decode_all` m=185; `pre_commit` m=2940
+(nq=**150**); `post_commit` m=3576 (nq=183). `pre_commit`'s nq is lower because
+a sample committing at decode step 0 has a post window but no pre window.
 
-2 和 3 **都不能写成严格因果位移**。只有 `prefill` 支持严格同题位移。
+### 3.2 Alpha=0 spectral concentration
 
----
+Cumulative explained variance, observed vs matched isotropic null
+(20 draws, median [2.5, 97.5]):
 
-### 3d. 主层与多重比较（冻结）
+| phase | m | k=5 | k=10 | k=20 |
+|---|---|---|---|---|
+| prefill | 185 | .257 vs .039 | .365 vs .076 | **.499 vs .148** [.1477, .1489] |
+| pre_commit | 2940 | .243 vs .006 | .344 vs .011 | **.446 vs .022** [.0222, .0223] |
+| post_commit | 3576 | .296 vs .005 | .397 vs .010 | **.484 vs .020** [.0200, .0201] |
+| decode_all | 185 | .641 vs .039 | .730 vs .076 | .812 vs .148 |
 
-- **Primary：decoder 18**（导出 slot `8`）。Sensitivity：decoder 10（slot `0`）。
-  其余层进 supplement。
-- 导出的 `per_layer` 键是**存储下标 0–8**，对应 decoder 10–18；`31` 是最终层，
-  不在 band 内、无 basis。
-- 主要剂量 contrasts 提前冻结：`−8 vs 0`、`−6 vs 0`、`+6 vs 0`。
-- Bootstrap 单位是 **question**，与全项目一致；multiplicity family 在每个
-  指标族内做 Holm，不跨族合并。
+Null intervals are narrower than 1% relative; 20 draws have converged. All
+three k values agree in direction.
 
----
+**Frozen wording: low-rank spectral concentration relative to a matched
+isotropic null.** Ratios are within-phase only — prefill's 3.4× and the commit
+windows' ~20× are not commensurable, because prefill has `m = nq = 185` so the
+null alone already reaches 14.8%. The spectrum is a slow tail with no elbow,
+which is exactly why k is fixed at 20 with sensitivity reported.
 
-### 3e. Prefill 位移分解（已执行，精确环境空间）
+`decode_all` must be read per phase: reduced to one row per question, it is fit
+on ~185 points, so a flat spectrum there is the reduction removing within-question
+variation, **not** an unstable manifold.
 
-`manifold_prefill_exact.py`，decoder 18（slot 8），300 题按 `question_idx` 严格
-配对，同一个 α=0 train basis，`d = h(α) − h(0)`，`f_k = ‖W_k d‖²/‖d‖²`，
-primary 为能量池化比（非逐题比的均值）。
+### 3.3 Exact last-prefill PCA-subspace analysis
 
-**Primary（test split，k=20）:**
+Ambient-space decomposition, decoder 18, 300 questions paired strictly by
+`question_idx`, same α=0 train basis, `f_k = ‖W_k d‖²/‖d‖²`, primary =
+energy-pooled ratio.
+
+**Primary (TEST split, k=20):**
 
 | α | mean‖d‖ | inside [95% CI] | outside |
 |---|---|---|---|
@@ -197,231 +272,286 @@ primary 为能量池化比（非逐题比的均值）。
 | −6 | 17.67 | **21.2%** [20.8, 21.7] | 78.8% |
 | +6 | 13.23 | **9.8%** [9.2, 10.5] | 90.2% |
 
-**幅度与方向是两个独立的轴。** 幅度随剂量单调（24.63/17.67/13.23），但方向不是:
-−8 与 −6 的 inside 几乎相同且 CI 大幅重叠,而 **+6 只有一半,CI 完全不重叠**。
-负剂量从 −6 到 −8 是沿同一方向走得更远；+6 是另一个方向,不只是反向或更小。
+**k sensitivity (TEST):** −8 goes 9.6 → 17.0 → 21.4 and −6 goes 9.5 → 16.8 →
+21.2 (both **+11.8pp** from k=5 to k=20, near-identical per-dimension profiles),
+while +6 goes 5.8 → 8.1 → 9.8 (**+4.0pp**) — extra dimensions do not recover
++6's energy.
 
-**k sensitivity（test）** 支持同一读法：−8/−6 从 k=5 到 k=20 都涨 **+11.8pp**
-（9.6→17.0→21.4 / 9.5→16.8→21.2，逐维分布几乎重合），+6 只涨 **+4.0pp**
-（5.8→8.1→9.8）——给 +6 更多维度也捡不回能量。
+**Split agreement at k=20** (train / val / test): −8 21.8 / 21.1 / 21.4;
+−6 21.8 / 21.0 / 21.2; +6 10.7 / 9.5 / 9.8. Not overfitting to the basis's own
+train questions. Pooled and per-question means differ by <0.1pp, so no
+large-displacement question dominates.
 
-**三个 split 一致**（−8: 21.8/21.1/21.4，−6: 21.8/21.0/21.2，+6: 10.7/9.5/9.8），
-排除对 basis 训练集的过拟合。pooled 与逐题均值差 <0.1pp，无大位移题支配。
+**Random reference, reported alongside:** an isotropic displacement puts
+`20/4096 = 0.488%` of its energy in any 20-D subspace. So +6's 9.8% is **20×**
+random and −6/−8's 21.2% is **43×** — **all three doses are strongly aligned**
+with the α=0 principal structure, differing by a factor of two. Without this
+reference 9.8% misreads as "barely aligned".
 
-**随机参照必须同报**：各向同性位移落进任意 20 维子空间的期望能量占比是
-`20/4096 = 0.488%`。所以 +6 的 9.8% 是随机的 **20 倍**，−6/−8 的 21.2% 是
-**43 倍** —— **三个剂量都与 α=0 主结构显著对齐**，只是程度差一倍。缺了这个
-参照，9.8% 会被误读为"几乎不对齐"。
+Magnitude is monotone in |α| (24.63 / 17.67 / 13.23) while the inside ratio is
+not. **Direction conclusions do not follow from the inside ratio** — two
+displacements can fill the same top-k subspace equally and still point
+different ways. Direction is settled in §3.4.
 
-**措辞**：energy inside/outside the α=0 top-k PCA subspace。**不写 off-manifold**
-—— k=20 只张成 α=0 方差的约 50%，outside 必然含大量普通自然变异。
+### 3.4 Cross-dose direction and scalar fit
 
----
+Least-squares `d_a ≈ k·d_b`, TEST split:
 
-### 3f. 跨剂量方向检验（已执行，精确）
-
-`manifold_prefill_direction.py`。`d_a ≈ k·d_b` 的最小二乘拟合，TEST split：
-
-| pair | cos [95% CI] | k | resid | 同号 |
+| pair | cos [95% CI] | k | residual | same-signed |
 |---|---|---|---|---|
 | −8 \| −6 | **0.989** [0.989, 0.990] | 1.379 | 0.021 | 100.0% |
 | −8 \| +6 | −0.657 [−0.667, −0.647] | −1.222 | 0.569 | 0.0% |
 | −6 \| +6 | −0.662 [−0.674, −0.650] | −0.884 | 0.562 | 0.0% |
 
-四个 split 数值一致到小数点后三位。
+All four splits agree to three decimals.
 
-- **负端近似一维缩放**：cos 0.989、残差 2.1%、300/300 题同号，且 `k=1.379` 与
-  独立算出的幅度比 24.63/17.67 = 1.394 吻合。
-- **正端是方向重组，不是镜像**：cos ≈ −0.66，共同轴只解释 `cos² ≈ 44%` 的能量，
-  **正交残差约 56%**。100% 同号说明是一致的部分反向，不是混合亚群。
-- 所以 Llama 的 steering **不是全剂量共享一条直线**：负端近似一维缩放，跨越
-  α=0 到正端时发生方向重组。
+- **The negative arm is approximately a one-dimensional scalar family**:
+  cos 0.989, residual 2.1%, 300/300 same-signed, and `k = 1.379` matches the
+  independently computed magnitude ratio 24.63/17.67 = 1.394.
+- **The positive arm is partially anti-aligned with a substantial orthogonal
+  residual**: cos ≈ −0.66, shared axis `cos² ≈ 44%`, orthogonal ~56%. 100%
+  same-signed means a *consistent partial* anti-alignment, not a mixture of
+  sub-populations.
+- Therefore steering does **not** share one line across all doses.
 
-`resid ≡ 1 − cos²`（验证到 1.1e-16），所以 **`k` 是三者中唯一独立的数**，必须与
-残差同报。
+The inside ratio (§3.3) and this cosine are **two agreeing observations, not
+the same fact**. Establishing that they are one would require testing whether
++6's orthogonal component sits outside top-k.
 
-**注意**：inside ratio 与本节的 cosine 是**互相吻合的两项证据，不是同一件事**。
-要证明同源，需检验 +6 的正交分量是否主要落在 top-20 之外。
+### 3.5 Incremental prediction
 
----
+**Verdict: no stable incremental behavioural predictive value was detected.**
 
-### 3g. 增量预测（已执行）—— manifold 的定位
+Provenance: round 1 (correctness, Z-only baseline) spent the TEST split for its
+intended purpose and exhausted it. Round 2 was designed after seeing round 1
+and is therefore **post-hoc**, not confirmatory. Using a test set once is not
+the error; re-tuning against it afterwards would be.
 
-**判定：未检测到稳定增量，manifold 作为解释性几何证据，不升为机制主线。**
+**Commit position** — pre-generation-only baseline `[Z_prefill, prefill
+confidence]`; commitment behaviour is inadmissible because it *is* the outcome:
 
-两轮的性质必须分清：第一轮（correctness，仅 Z 基线）按用途消耗了 TEST；
-第二轮是在看过第一轮后重新设计的，因此是 **post-hoc**，不是确认分析。
-
-commit position（生成前基线 `[Z_prefill, prefill confidence]`；**commitment
-behaviour 不可入基线**，因为它就是 outcome）：
-
-| α | baseline R²/MAE/ρ | +geometry R²/MAE/ρ |
+| α | baseline R² / MAE / ρ | +geometry R² / MAE / ρ |
 |---|---|---|
 | −8 | .003 / 73.1 / .129 | .019 / 72.3 / .192 |
 | −6 | .074 / 74.1 / .276 | .104 / 72.5 / .359 |
 | +6 | .004 / 67.8 / .033 | −.004 / 68.3 / −.010 |
 
-两个负剂量三项一致改善，+6 三项一致变差 —— 按冻结规则「三剂量方向一致才算
-stable」，这是 **mixed**。
+Both negative doses improve on all three metrics; +6 worsens on all three.
+Under the frozen "all three doses must agree" rule this is **mixed**.
 
-correctness（此时 commitment 可入基线）：AUC .700/.386/.547 → .688/.497/.443。
-**指标与剂量间不一致，没有稳定增量**（−6 的 AUC 实际改善 .386→.497，但仍近
-随机）。
+**Correctness** — commitment *is* admissible here (predictor, not outcome):
+AUC .700 / .386 / .547 → .688 / .497 / .443; log-loss .6294 / .4990 / .6917 →
+.6429 / .4882 / .7247. **Results are inconsistent across metrics and doses** —
+−6's AUC improves (.386 → .497) while −8's and +6's fall, so this must not be
+written as "all three worsened".
 
-**限定条件（必须随附）**：TEST 已被使用并耗尽；n=60，抽样误差大于观测差异；
-措辞是"未检测到稳定增量"，**不是"已证伪"**。
+Round 1, for the record (correctness, Z-only baseline): AUC .485 / .479 / .570
+→ .503 / .617 / .458, one dose up and two down.
 
-负端 commit prediction 的一致改善已冻结为 H1，见
-`RoleAnswer/manifold/PREREG_negative_arm_confirm.md`。**CoT 与其余剂量是新的
-条件性验证集，不是原 test 的另一半** —— 只有原封不动迁移冻结的假设与模型，
-才能称为确认分析。
+Caveats that travel with every number: TEST is exhausted; n=60, so sampling
+error exceeds the observed differences; and the wording is **"not detected"**,
+never "disproved" — a near-chance baseline does not invalidate the test, since
+geometry could have improved on it independently and did not.
 
-**论文口径**：
+### 3.6 CoT negative-arm conditional confirmation
 
-> Llama 的 prefill geometry 清楚揭示了负端标量族与正端方向重组，但未在冻结的
-> 跨剂量标准下提供稳定的行为增量预测，因此作为机制解释性证据，而非独立预测主线。
+H1, frozen before any CoT projection: *adding prefill geometry improves
+commit-position prediction for negative α and does not for positive α.*
+Frozen model transferred untouched; CoT projected onto the **existing No-CoT
+α=0 basis** (refitting would make it a new model rather than a confirmation).
 
----
+**CoT α=−4, commit position:**
 
-### 4. 几何指标
+| | R² | MAE | ρ |
+|---|---|---|---|
+| baseline (Z, conf) | −0.101 | 56.5 | −0.091 |
+| +geometry | **−0.056** | **53.9** | **0.121** |
 
-#### Primary
+All three move in the predicted direction, so **H1's negative half passes its
+pre-set directional criterion**.
 
-1. **Normalized reconstruction error（NRE，定义已冻结）**
+**But the absolute predictive power is weak**: R² remains *negative* after
+adding geometry, meaning the model still does worse than the training mean; ρ
+remains small. The honest reading is **a reproducible weak directional signal,
+not strong predictive evidence** — it improved from worse-than-the-mean to
+less-bad.
 
-   Primary：`NRE(α) = mean(RE_α) / mean(RE_{α=0, held-out})`，分母按
-   layer × phase 各自计算，**在同一 cohort 上取均值之比**。
+Correctness on the same cell got clearly worse: AUC .531 → .462, log-loss
+.3298 → .4242.
 
-   - hidden-state norm 标准化只作 sensitivity —— 它会把待测的 scalar-gain
-     效应一并除掉。
-   - **不使用逐题 ratio 再平均**：α=0 残差极小的题会让比值爆炸，均值被少数
-     样本支配。
+Scope limits, frozen in advance: only the **negative half** of H1 is testable
+(CoT has no positive dose, and the positive half must not be reported as
+confirmed nor quietly dropped); **α=−4 is not among the doses H1 was derived
+from** (−8/−6), so this is a generalisation to an unmeasured dose; and the
+numbers describe where CoT states sit relative to the **No-CoT** natural
+manifold.
 
-2. **PCA-subspace alignment**（原名 "Local tangent alignment"，已更名）
+### 3.7 Minimal pre/post-commit decode analysis
 
-   当前实现是 **phase 级的全局 PCA basis，不是 local tangent space**。除非
-   将来真的实现 α=0 的 kNN / local PCA，否则不得写作 local tangent。
+Decoder 18, k=20, TEST split, event-aligned distributions only.
 
-   - `prefill` 支持严格同题配对位移分析：`Δh = h(α) − h(0)`，分解为落在
-     α=0 前 k 个主方向内的切向能量与其余的法向能量。
-   - `pre/post_commit` 已产生不同文本，**只能做事件对齐的分布比较**，不能
-     写成逐状态因果位移。
-   - 报告切向占比时必须同时给 `k=5/10/20`：k=20 只覆盖 α=0 方差的约 50%，
-     所以"法向"里包含大量本属自然变异、只是未进前 20 维的方向。正确措辞是
-     **"位移主要不落在 α=0 前 k 个主方向张成的子空间内"**，而不是"离开流形"。
+| phase | α | n | NRE | speed | centroid dist. |
+|---|---|---|---|---|---|
+| pre_commit | −8 | 28 | 1.087 | 6.791 | 2.708 |
+| | −6 | 55 | 0.988 | 6.846 | 2.464 |
+| | 0 | 47 | 1.000 | 7.096 | 2.617 |
+| | +6 | 45 | 1.044 | 6.801 | 2.801 |
+| post_commit | −8 | 60 | 1.409 | 5.319 | 4.883 |
+| | −6 | 59 | 0.836 | 6.903 | 4.392 |
+| | 0 | 60 | 1.000 | 6.112 | 4.252 |
+| | +6 | 57 | 1.050 | 6.323 | 4.770 |
 
-3. **Commitment-centroid distance**
-   在 training questions 上定义 α=0 successful/stable commitment centroid，检验 held-out conditions 到该区域的距离。
+Against the pre-set rule — (a) −6 and −8 consistent with each other, (b) +6
+stably separated, (c) visible in **both** phases — none of the three holds:
 
-#### Secondary
+- In `post_commit`, −8 sits well above the α=0 reference (NRE 1.409) and −6 well
+  below (0.836); the two negative doses do not group together.
+- +6 sits at 1.044 / 1.050, close to the α=0 reference, while −8 is the outlying
+  cell — the reverse of the prefill picture, where +6 was the distinct one.
+- `pre_commit` NRE spans only 0.988–1.087 across all four doses, so the
+  structure appears in one phase only.
 
-- participation ratio / PCA spectrum
-- trajectory speed
-- curvature / turning angle
-- pre-commit → commit → post-commit 的方向变化
-- projected path length
-- α=0 manifold coverage
+Additionally `pre_commit` n is strongly imbalanced (−8: 28 vs −6: 55), because α
+moves commit timing and hence the fraction of samples with a pre-commit window.
+That is a selection effect on top of everything else, so even descriptive
+comparison there is discounted.
 
-所有指标按层、阶段和 condition 报告，不先跨层平均掩盖异质性。
-
----
-
-### 5. 稳定性检查
-
-- [ ] 按 question 做 split-half/bootstrap。
-- [ ] 检查 PCA subspace principal angles 或 projection-matrix similarity。
-- [ ] 检查 reconstruction error、tangent alignment 的剂量排序是否跨 bootstrap 稳定。
-- [ ] 检查结论是否对 PCA 维数和窗口长度稳健。
-- [ ] **几何负控制（shuffled-question 已废弃 —— 对 pooled PCA 通常无意义）**：
-      (a) matched isotropic spectrum null（下节）；
-      (b) random orthonormal subspace，同 k；
-      (c) trajectory-order shuffle，**仅用于 speed/curvature 的 null**。
-- [ ] 不重新解释已经完成的 random/orthogonal remask；它是 readout control，不是 causal injection control。
-
-如果 α=0 manifold 本身不稳定，则停止，不进入剂量解释。
-
----
-
-### 6. 统计与增量解释
-
-所有推断以 question 为 bootstrap/cluster 单位。
-
-建立两组模型：
-
-#### A. Commitment readout
-
-预测：
-
-- commit step
-- early-candidate
-- post-commit continuation/loop
-
-基线：
-
-- `G_prefill/Z_t`
-- `s_t`
-- early confidence
-- condition fixed effects
-
-加入 manifold features，比较 held-out `ΔR²`、log loss或相关性。
-
-#### B. Correctness/stable completion
-
-基线：
-
-- `s_t/Z_t`
-- confidence
-- generation length
-- commit position
-- marker/format状态
-- condition fixed effects
-
-再加入 reconstruction error、tangent alignment、speed、curvature、centroid distance。
-
-这里只检验增量预测，不声称 manifold feature 导致正确。
+**Conclusion: last-prefill geometry did not stably extend to commit-aligned
+decode.** This does not falsify the manifold; it bounds where the clean
+structure lives.
 
 ---
 
-### 7. 预设判读
+## 4. Interpretation
 
-- **流形内、tangent 稳定、只有幅度变化**  
-  → 支持 scalar gain。
+### 4.1 Supported findings
 
-- **流形内，但 speed/phase occupancy/commitment-centroid distance 改变**  
-  → 支持 on-manifold retiming。
+1. **α=0 states carry low-rank spectral concentration relative to a matched
+   isotropic null** — 20–24× the null at k=20 in the commit windows.
+2. **The negative arm is approximately a one-dimensional scalar family**, with
+   magnitude growing from −6 to −8 along a shared axis.
+3. **The positive arm is partially anti-aligned with a substantial orthogonal
+   residual** — not a mirror, not merely a smaller displacement.
+4. **Steering is piecewise, not one global scalar gain.**
+5. Consequently, **α=−6 reaches a working region and α=−8 overshoots along the
+   same axis** — collapse need not mean arriving at a wholly different state.
+   This is the single most valuable interpretive result of the line.
+6. **Positive/negative behavioural asymmetry has a geometric counterpart**: the
+   asymmetry is present in the hidden-state geometry itself, not only in the
+   accuracy numbers.
 
-- **`−8/+6` 的 normal displacement 或 curvature 增加，并关联失败**  
-  → 支持 off-manifold over-steering。
+All six are **last-prefill** statements.
 
-- **`−6` 更接近 successful centroid，但没有明显法向偏移**  
-  → 支持最佳点是自然流形内的有效工作区。
+### 4.2 Relation to Dopamine and the Thinking Curve
 
-- **几何指标不能超过 `s_t + commitment` 基线**  
-  → manifold 降为可视化补充，不扩成论文主线。
+These results can support a **computational-level** dopamine analogy only:
+
+- The negative arm's shared direction behaves like a stable **gain-control
+  axis**.
+- −6 → −8 is movement along that axis from an effective dose into an excess
+  region — structurally the Yerkes–Dodson optimum → overdose shape.
+- +6's directional reorganisation suggests that over- or reverse-regulation can
+  enter a **different computational regime**, not merely a smaller or reversed
+  one.
+- The candidate cross-model account: **Llama's effective displacement keeps
+  growing and eventually overshoots; Qwen's may be compressed or saturating**,
+  which would explain a peak versus a plateau. This is precisely what the frozen
+  Qwen analysis tests.
+
+**The sign of α is not an increase or decrease of biological dopamine.** The
+manifold describes the computational geometry of RSN steering, not a
+neurotransmitter.
+
+### 4.3 Unsupported claims and limitations
+
+Not supported by anything here:
+
+- Any **nonlinear manifold** claim — PCA establishes linear low-rank only.
+- `k = 20` as an **intrinsic dimension** — it is an analysis cap.
+- **"Off-manifold"** for energy outside the top-k subspace — k=20 spans ~50% of
+  α=0 variance, so the complement is largely ordinary variation.
+- **Causal** claims of any kind. This is an offline re-projection of stored
+  states; a causal test needs random/orthogonal *injection* and re-collection.
+- Cross-model comparison of **raw α, PC axes or hidden-state values** — masks,
+  layer counts (L=9 vs L=6) and activation scales differ, so an equal α is not
+  an equal intervention.
+- **General behavioural predictive value** — §3.5 and §3.6 found none, and the
+  one passing criterion sits on a model whose R² is negative.
+
+Structural limitations:
+
+- **This batch has no independent second α=0 cell**, so α=0 manifold stability
+  can only be estimated by train/val subsampling or bootstrap, never by
+  cross-validating two independent α=0 batches. This weakens the "the manifold
+  is stable" premise and is a pre-registered stop condition.
+- **TEST is exhausted** — every post-round-1 number is supplementary.
+- Commit-aligned cohorts are **selected by the manipulation's own outcome**
+  (coverage and pre-commit availability both move with α).
+- **Prediction failure does not erase the descriptive geometry**, and equally,
+  the descriptive geometry does not license a predictive or causal claim.
 
 ---
 
-### 8. 跨模型阶段
+## 5. Status and Next Step
 
-只有 Llama pipeline 完全冻结后才运行 Qwen：
+**Llama analysis: COMPLETE.** Positioned as **last-prefill explanatory
+geometry** — a mechanistic-explanatory supplement, not the mechanism line and
+not a predictive line.
 
-- [ ] **冻结分析算法与选择规则**，而非机械复制 Llama 的 token 级定义。
-      Qwen 必须使用它自己的 commit locator（`####`-only）、自己的 layer band
-      `[16,22)` 和模型内标准化 —— 照搬 Llama 的 locator 会悄悄重定义事件本身。
-- [ ] Qwen 使用自己的 α=0 manifold 和模型内标准化。
-- [ ] 比较几何机制，不比较 raw α 或原始坐标值。
-- [ ] 检验 Qwen 高剂量平台属于 scalar compression、on-manifold retiming，还是不同轨迹机制。
-- [ ] 最后才讨论 Llama `−6` 与 Qwen `+8` 是否靠近相似的功能工作区。
+**Not being extended** (deliberate, not pending): TLE, UMAP/t-SNE, full
+per-layer sweeps, additional doses, and any further correctness-prediction
+work. The decode check was the last extension and it stopped the line.
 
-### 9. 停止条件
+**Only remaining step: the frozen Qwen last-prefill analysis.** Scope is fixed
+in `PREREG_qwen_prefill.md` — last-prefill only, Qwen's own α=0 basis, own band
+`[16,22)`, own commit locator, three questions (does the positive arm share one
+direction; does displacement magnitude saturate; inside ratio against each
+model's own subspace), with failure conditions written in advance.
 
-满足任一条件即不继续扩大：
+**Whether the manifold enters the paper beyond a supplement is decided by that
+outcome.** If Llama grows along one axis into overshoot while Qwen's magnitude
+flattens along one axis, the geometry offers a candidate account of
+peak-versus-plateau. If Qwen's positive arm does not share one direction, or its
+magnitude keeps growing at +12, or the two models simply look alike, that is
+reported as such and the line closes as a Llama-only supplement.
 
-- α=0 manifold 在 held-out/bootstraps 中不稳定。
-- 结果严重依赖 PCA 维数或窗口定义。
-- 几何指标不能提供超过一维信号与 commitment 指标的增量解释。
-- Llama 没有可重复的主效应，则不开展复杂跨模型空间对齐。
+Remaining doses (No-CoT ±2/±4/+8) are available but are **continuity checks
+only** — same questions, same basis — never an independent validation set.
 
-最终执行顺序：
+---
 
-> **H5验收 → Llama α=0 manifold → 四条件 held-out pilot → 增量预测 → 冻结方法 → Qwen复用 → 决定是否需要 causal direction injection。**
+## Appendix. Artifact and provenance index
+
+Implementation details, exact commands, guards, tests and failure provenance
+live in `CLAUDE.md` § *Manifold pilot*. This index lists what exists and where.
+
+**Scripts** (in the Dopamine repo)
+
+| file | role |
+|---|---|
+| `check_hs_llama.py` | §3.1 H5 acceptance (server, read-only) |
+| `manifold/split_manifest.py` + `.json` | §2.2 frozen split |
+| `manifold_fit.py` | §2.3–2.4 basis fit + projection |
+| `manifold_prefill_exact.py` | §3.3 ambient displacement decomposition |
+| `manifold_prefill_direction.py` | §3.4 cross-dose cosine and scalar fit |
+| `run_manifold_pilot.sh` | launcher |
+| `test_check_hs_llama.py`, `manifold/test_split_manifest.py`, `test_manifold_fit.py` | guard suites |
+
+**Offline analysis** (`RoleAnswer/manifold/`, not in git)
+
+`incremental.py` (§3.5 round 1) · `incremental2.py` (§3.5 round 2) ·
+`confirm_cot.py` (§3.6) · `decode_minimal.py` (§3.7)
+
+**Pre-registrations** (`RoleAnswer/manifold/`)
+
+`PREREG_incremental.md` · `PREREG_negative_arm_confirm.md` ·
+`PREREG_decode_minimal.md` · `PREREG_qwen_prefill.md`
+
+**Data artifacts**
+
+- Server: `components/llama3/manifold/phase1b_eot/` (basis + four No-CoT cells),
+  `components/llama3/manifold/phase1b_eot_cot/` (CoT cells, same basis reused)
+- Local: `RoleAnswer/llama3/dopamine/manifold/` — `basis.npz`,
+  `basis_meta.json`, `manifold_*.json`, `prefill_exact.json`,
+  `prefill_direction.json`
+- Source H5: `components/hidden_states/gsm8k/phase1b_eot/`
