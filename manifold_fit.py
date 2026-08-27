@@ -106,10 +106,15 @@ HASH = re.compile(r"####")
 CAND = re.compile(r"(?:answer\s+is[:\s]*|^\s*)([+-]?\d[\d,]*\.?\d*)", re.I | re.M)
 
 
+COMMIT_LOCATOR = "llama"
+
+
 def commit_char(text: str) -> int:
     m = HASH.search(text)
     if m:
         return m.start()
+    if COMMIT_LOCATOR == "qwen":
+        return -1           # ####-only: no answer-candidate fallback
     m = CAND.search(text)
     return m.start(1) if m else -1
 
@@ -535,6 +540,14 @@ def main():
     p.add_argument("--base_cell", default="nocot",
                    help="the alpha=0 cell the basis is fit on")
     p.add_argument("--cells", default="nocot,nocot_aneg6,nocot_aneg8,nocot_a6")
+    p.add_argument("--commit_locator", choices=("llama", "qwen"),
+                   default="llama",
+                   help="llama = first #### else first answer candidate; "
+                        "qwen = ####-only. Porting Llama's fallback to Qwen "
+                        "silently redefines the commit event (Qwen answers "
+                        "first at low alpha, so the fallback fires constantly). "
+                        "Irrelevant to the prefill phase, which uses no "
+                        "commit; REQUIRED to be correct for the aligned ones.")
     p.add_argument("--layer_start", type=int, default=EXPECTED_START)
     p.add_argument("--layer_end",   type=int, default=EXPECTED_END)
     p.add_argument("--k_max", type=int, default=K_MAX_DEFAULT)
@@ -635,6 +648,12 @@ def main():
         print("[!] manifest carries no question-text digest; NOT verified")
 
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    global COMMIT_LOCATOR
+    COMMIT_LOCATOR = args.commit_locator
+    if args.commit_locator != "llama":
+        print(f"[commit] locator = {args.commit_locator} "
+              f"(irrelevant to prefill; governs the aligned phases)")
 
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(args.model_dir)
