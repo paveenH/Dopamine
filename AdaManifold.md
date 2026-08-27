@@ -1,20 +1,19 @@
 # Manifold Geometry Analysis
 ## 0. Executive Summary
 
-**核心问题。** RSN steering 到底是沿单一方向的 scalar gain、是 natural manifold 内部的 retiming，还是偏离该 manifold？同一套几何解释能否说明为什么 Llama 峰值在 α=−6，而 Qwen 在正端呈 plateau？
+**核心问题。** RSN steering 究竟只是沿固定方向改变增益，还是会重组 hidden-state 的移动方向？这种几何差异能否进一步解释 Llama 的 `α=−6` 峰值，以及 Qwen 正端的高剂量平台？
 
-**Llama 核心发现（last-prefill, decoder 18）。** Steering 是 *piecewise* 的，不是一个全局的 scalar gain：
+**Llama 核心发现（last-prefill，decoder 18）。** RSN steering 呈现出一种 **piecewise geometry**，不能由单一的全局 scalar-gain 模型完整解释：
 
-- **The negative arm is approximately a one-dimensional scalar family**：cos(−8, −6) = 0.989，scalar-fit residual 2.1%，300/300 题同号，而 least-squares `k = 1.379` 与独立算出的幅度比 24.63/17.67 = 1.394 吻合。所以 −8 就是沿同一条轴走得更远的 −6。
-- **The positive arm is partially anti-aligned with a substantial orthogonal residual**：cos(−6, +6) = −0.662，共同轴只承载 `cos² ≈ 44%` 的能量，约 56% 是正交的。+6 既不是镜像，也不是更小的 −6。
+- **负剂量近似构成一维标量族。** `α=−8` 与 `α=−6` 的位移高度共线：`cos=0.989`，scalar-fit residual 仅为 `2.1%`，且 300/300 道题的方向符号一致。拟合得到的缩放系数 `k=1.379`，也与独立计算的位移幅度比 `24.63/17.67=1.394` 高度吻合。换言之，`−8` 基本上是沿着 `−6` 的方向继续放大，而不是进入完全不同的状态。
 
-由此得到本条线最有价值的解释性结果：**α=−6 抵达一个 working region，而 α=−8 是沿同一条轴 overshoot**——崩溃不必意味着到达了一个完全不同的状态。
+- **正剂量并非负剂量的简单镜像。** `α=+6` 与 `α=−6` 部分反向对齐（`cos=−0.662`），但二者并不共线：共享轴只能解释约 `cos²≈44%` 的位移能量，其余约 `56%` 位于正交方向。因此，`+6` 既不是较弱的 `−6`，也不是其完全反向版本，而包含明显的方向重组。
 
-**证据边界。** 以上全部成立于 **last-prefill**，即注入位置，也是唯一严格 α-matched 的位置。**No stable incremental behavioural predictive value was detected**（按冻结的三剂量判据），且 **last-prefill geometry did not stably extend to commit-aligned decode**。
+这一结果为 Llama 的非对称行为曲线提供了一个简洁的几何解释：**`α=−6` 到达较优的 working region，而 `α=−8` 沿同一方向继续推进并发生 overshoot。** 因此，性能崩溃不一定意味着模型进入了完全不同的状态，也可能是沿有效方向移动过度。
 
-**当前定位。** Llama 分析 **已完成**；manifold 被定位为 **last-prefill explanatory geometry**，不是机制主线，也不是预测线。
+**证据边界。** 上述结论仅成立于 **last-prefill、decoder 18**——即 steering 的注入位置，也是不同 α 之间唯一能够严格按题、按 token 配对的位置。目前尚未检测到稳定的增量行为预测价值，且该 last-prefill 几何模式没有稳定延伸到 commit-aligned decode。因此，这些结果不能被表述为完整的推理轨迹机制，也不能证明状态已经“离开 natural manifold”。
 
-**下一步。** 只有一件事：冻结的 Qwen last-prefill 分析（`PREREG_qwen_prefill.md`）。manifold 是否能以超出 supplement 的身份进论文，由它的结果决定。
+**当前定位。** Llama 的主要分析已经完成，manifold 结果应定位为 **last-prefill explanatory geometry**：它为 `−6` 最优、`−8` overshoot 和正负剂量不对称提供了机制性线索，但不是独立的因果机制或行为预测主线。Llama–Qwen 是否共享同一套解释，仍需由冻结的 Qwen last-prefill 分析检验。
 
 ---
 

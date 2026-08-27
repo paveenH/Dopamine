@@ -16,7 +16,20 @@
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
 11. manifold llama3 实验以及结果整理 ⏸ 
 12. Manifold Qwen25 实验以及结果整理
+---
+1）现在只用 `−8/−6/0/+6` 能证明两端不同，但无法知道方向变化是突然发生，还是随 α 连续旋转。建议做一个很小的 Llama continuity check：只分析 **last-prefill、decoder 18**，加入已有的 `−4/−2/+2/+4/+8`，不扩展到所有层或 decode。
+每个 α 画三条曲线：
+- 位移幅度：`‖hα−h0‖`
+- 相对负端主轴的 cosine / scalar coefficient
+- 偏离该轴的 residual：`1−cos²`
 
+再与 accuracy curve 并排展示。这样可以直接回答：
+- 负端是否始终沿同一轴增长；
+- `−6→−8` 是否确实是连续 overshoot；
+- 正端从哪个 α 开始发生方向重组；
+- 几何转折是否对应行为曲线的峰值和损害。
+这会显著增强当前结论，但应定位为**同批数据上的描述性剂量曲线**，不是新的独立验证。
+2）
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
 3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
