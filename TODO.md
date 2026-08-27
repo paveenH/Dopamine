@@ -14,7 +14,8 @@
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
-11. manifold pilot ⏸ 
+11. manifold llama3 实验以及结果整理 ⏸ 
+12. Manifold Qwen25 实验以及结果整理
 
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
