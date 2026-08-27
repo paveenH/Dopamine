@@ -14,22 +14,45 @@
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
-11. manifold llama3 实验以及结果整理 ⏸ 
+11. manifold llama3 实验以及结果整理 ✔
+11. manifold 补齐 Llama 全 α 曲线 ⏸
 12. Manifold Qwen25 实验以及结果整理
 ---
-1）现在只用 `−8/−6/0/+6` 能证明两端不同，但无法知道方向变化是突然发生，还是随 α 连续旋转。建议做一个很小的 Llama continuity check：只分析 **last-prefill、decoder 18**，加入已有的 `−4/−2/+2/+4/+8`，不扩展到所有层或 decode。
-每个 α 画三条曲线：
-- 位移幅度：`‖hα−h0‖`
-- 相对负端主轴的 cosine / scalar coefficient
-- 偏离该轴的 residual：`1−cos²`
+1. **补齐 Llama 全 α 曲线（最高优先级）**  
+   使用已有 `−8/−6/−4/−2/0/+2/+4/+6/+8` H5，在 decoder 18 计算：
 
-再与 accuracy curve 并排展示。这样可以直接回答：
-- 负端是否始终沿同一轴增长；
-- `−6→−8` 是否确实是连续 overshoot；
-- 正端从哪个 α 开始发生方向重组；
-- 几何转折是否对应行为曲线的峰值和损害。
-这会显著增强当前结论，但应定位为**同批数据上的描述性剂量曲线**，不是新的独立验证。
-2）
+   - 位移幅度 `‖dα‖`
+   - 相对负端轴的 cosine
+   - scalar coefficient `k`
+   - orthogonal residual
+   - PCA inside ratio
+   - 同时叠加 accuracy curve
+
+   这能确认“负端共享轴、正端方向重组”是连续变化，还是只由 `−8/−6/+6` 三个点造成的印象。
+
+2. **做一个简洁的跨层 sensitivity**  
+   在 decoder 10–18 检查主要结论是否逐层形成。L18 仍然作为 primary，不逐层挑最好结果。这样可以回答 reviewer 最自然的问题：为什么只报告 L18，以及方向重组从哪一层开始出现。
+
+3. **然后迁移到 Qwen last-prefill**  
+   用 Qwen 自己的 α=0 basis 和 layer band，检验：
+
+   - 正剂量是否保持共线；
+   - 位移幅度是否随高剂量饱和；
+   - orthogonal residual 是否保持较低；
+   - 几何曲线能否对应其 accuracy plateau。
+
+   真正有论文价值的问题是：
+
+   > Llama 的 peak 是否对应沿共享轴 overshoot，而 Qwen 的 plateau 是否对应位移饱和或压缩？
+
+4. **暂时停止这些方向**
+
+   - 不继续优化 correctness/commit-position prediction；
+   - 不扩展整条 decode trajectory；
+   - 不做 TLE、UMAP/t-SNE；
+   - 不重新采集模型输出。
+
+最具体的下一步就是：**先冻结 Llama 全 α、L18 last-prefill 的分析指标和绘图格式，然后直接用已有 H5 生成完整几何曲线。** 这是当前成本最低、最能把 manifold 与 Dopamine/Thinking Curve 联系起来的一步。
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
 3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
