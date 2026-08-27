@@ -140,7 +140,7 @@ Fit-phase 行数：prefill / `decode_all` m=185；`pre_commit` m=2940（nq=**150
 
 ### 3.2 Alpha=0 spectral concentration
 
-累计解释方差，实测 vs matched isotropic null（20 draws，median [2.5, 97.5]）：
+**Cumulative explained variance**
 
 | phase | m | k=5 | k=10 | k=20 |
 |---|---|---|---|---|
@@ -149,11 +149,20 @@ Fit-phase 行数：prefill / `decode_all` m=185；`pre_commit` m=2940（nq=**150
 | post_commit | 3576 | .296 vs .005 | .397 vs .010 | **.484 vs .020** [.0200, .0201] |
 | decode_all | 185 | .641 vs .039 | .730 vs .076 | .812 vs .148 |
 
-Null 区间的相对宽度小于 1%，20 draws 已收敛。三个 k 值方向一致。
 
-结果支持 **low-rank spectral concentration relative to a matched isotropic null**。不同 phase 的 null level 受到样本结构影响，因此倍数仅在各 phase 内解释：prefill 的 `m = nq = 185`，其 null 在 k=20 时已达到 14.8%，所以 prefill 的 3.4× 与 commit windows 的约 20× 不宜直接比较。谱呈缓慢衰减且没有明确 elbow，因此主分析固定 k=20，并通过 k=5/10/20 报告 sensitivity。
+- **实测**：真实 α=0 hidden states 的累计解释方差。
+- **matched isotropic null**：生成与真实数据具有相同 `m`、维度、题目数和加权方式，但各方向均匀随机的数据。
+- **20 draws**：独立生成并计算了 20 组随机数据。
+- **median [2.5, 97.5]**：报告这 20 次随机结果的中位数，以及 2.5%–97.5% 分位区间，作为近似 95% null 区间。
+- `m` 是该 phase 用来拟合 PCA 的**总行数（hidden-state vectors）**。
+  - `prefill: m=185`：185 个 train questions，每题取 last-prefill 的 1 个向量。
+  - `pre_commit: m=2940`：150 道有 pre-commit 窗口的题，每题最多取 20 个 token 向量。
+  - `post_commit: m=3576`：183 道题，每题最多取 20 个 token 向量。
+  - `decode_all: m=185`：每道 train question 的全部 decode states 先求均值，因此每题只留下 1 个向量。
+- 表中的 `.257/.365/...` 实际是**累计解释方差比例**，不是 NRE。这里标题建议改成：
 
-`decode_all` 被归约为每题一个均值向量，并在约 185 个点上拟合。因此，其谱形同时反映这种聚合方式，不应单独解释为 manifold stability 的证据。
+前20个主成分解释了 **44.6%** 的方差；随机数据通常只能解释约 **2.2%**，而且20次结果都集中在约 2.22%–2.23%。因此，这说明真实 hidden states 的方差明显集中在少数方向上，具有显著的 **low-rank linear structure**；但仅凭 PCA 还不能称为完整的非线性 manifold。
+
 
 ### 3.3 Exact last-prefill PCA-subspace analysis
 
@@ -167,25 +176,42 @@ Null 区间的相对宽度小于 1%，20 draws 已收敛。三个 k 值方向一
 | −6 | 17.67 | **21.2%** [20.8, 21.7] | 78.8% |
 | +6 | 13.23 | **9.8%** [9.2, 10.5] | 90.2% |
 
+1. 对每道题，在 decoder 18 取最后一个 prompt token 的 hidden state：
+   - 基线：`h(0)`
+   - steering 后：`h(α)`
+
+2. 计算同一道题的精确位移：`dα = h(α) − h(0)`
+
+3. 将这个位移分解为：
+
+   - **inside**：落在 α=0 top-k PCA 子空间内的能量
+   - **outside**：落在该子空间正交方向上的能量
+
+- `mean‖d‖`：steering 把状态推了多远
+- `inside ratio`：位移有多少沿 α=0 的主要变化方向
+- `outside ratio`：有多少不在这些 top-k 方向内
+- `k=5/10/20 sensitivity`：结论是否依赖 PCA 维数
+
 **k sensitivity (TEST)：** 当 k 从 5 增至 10 和 20 时，−8 的 inside ratio 为 9.6 → 17.0 → 21.4，−6 为 9.5 → 16.8 → 21.2；两者均增加 **11.8pp**，且 per-dimension profile 高度相似。+6 则为 5.8 → 8.1 → 9.8，仅增加 **4.0pp**，表明其位移能量较少分布在 α=0 的前 20 个主成分上。
 
 **Split agreement at k=20**（train / val / test）：−8 为 21.8 / 21.1 / 21.4，−6 为 21.8 / 21.0 / 21.2，+6 为 10.7 / 9.5 / 9.8。三个 split 的结果接近，说明观察到的差异并非仅由用于拟合 basis 的 training questions 驱动。Pooled ratio 与 per-question mean 相差 <0.1pp，也未显示少数大位移样本主导总体结果。
 
 **随机参照：** 各向同性位移在任意 20-D 子空间中的期望能量占比为 `20/4096 = 0.488%`。因此，+6 的 9.8% 约为随机参照的 **20×**，−6/−8 的约 21.2% 为 **43×**。三个剂量的位移能量均明显高于各向同性参照，但正剂量在 α=0 主方向上的集中程度约为负剂量的一半。
 
-位移幅度与 inside ratio 呈现不同的剂量关系：三个条件的 mean‖d‖ 为 24.63 / 17.67 / 13.23，而 inside ratio 并不按相同比例变化。由于两个位移即使具有相近的 inside ratio，也可能在同一子空间中指向不同方向，具体的方向关系由 §3.4 的 cross-dose scalar fit 评估。
+这一节说明：−8 和 −6 对 α=0 主结构的对齐程度非常接近，而 +6 的对齐程度明显更低。但这一节本身还不能证明 `−8` 和 `−6` 位移方向完全相同；这需要下一节的 cosine 与 scalar fit 才能确认。
 
 ### 3.4 Cross-dose direction and scalar fit
 
-最小二乘 `d_a ≈ k·d_b`，TEST split：
+最小二乘 `d_a ≈ k·d_b`，
+- `d_a = h(α_a) − h(0)`：剂量 `α_a` 造成的状态位移
+- `d_b = h(α_b) − h(0)`：剂量 `α_b` 造成的状态位移
+- `k`：寻找一个最合适的缩放倍数，使 `k·d_b` 尽可能接近 `d_a`
 
 | pair | cos [95% CI] | k | residual | same-signed |
 |---|---|---|---|---|
 | −8 \| −6 | **0.989** [0.989, 0.990] | 1.379 | 0.021 | 100.0% |
 | −8 \| +6 | −0.657 [−0.667, −0.647] | −1.222 | 0.569 | 0.0% |
 | −6 \| +6 | −0.662 [−0.674, −0.650] | −0.884 | 0.562 | 0.0% |
-
-四个 split 的结果小数点后三位一致。
 
 - **The negative arm is approximately a one-dimensional scalar family**：cos 0.989，residual 2.1%，300/300 同号，且 `k = 1.379` 与独立算出的幅度比 24.63/17.67 = 1.394 吻合。
 - **The positive arm is partially anti-aligned with a substantial orthogonal residual**：cos ≈ −0.66，共同轴 `cos² ≈ 44%`，正交约 56%。100% 同号意味着这是 *一致的部分*反向，而不是若干亚群的混合。
@@ -197,9 +223,25 @@ Inside ratio（§3.3）与 cosine 提供相互一致但概念不同的证据：�
 
 **Result: no stable incremental behavioural predictive value was detected。**
 
-Round 1 使用 TEST split 评估 correctness（Z-only baseline）。Round 2 的设计发生在观察 round 1 结果之后，因此属于 **post-hoc analysis**，不作为 confirmatory evidence。后续结果均在这一 provenance 下解释。
+#### Commit position
+- 预测目标：`commit position` 是模型生成过程中第一次出现答案提交标记 `####` 的 decode token 位置。例如第 80 个生成 token 出现 `####`，目标值就是约 80。它是一个连续数值，不是在预测具体哪个 token。
 
-**Commit position** — baseline 只含生成前特征 `[Z_prefill, prefill confidence]`；commitment behaviour 不可入选，因为它 *就是* outcome：
+- 预测模型：**Ridge linear regression（λ=1）**，每个 α 单独建模：
+  - 用 TRAIN questions 拟合
+  - 在 TEST questions 上评估
+  - 输入特征先按 TRAIN 的均值和标准差归一化
+
+- 输入：
+  - 基线模型：`commit_position ~ Z_prefill + prefill_confidence`
+  - 增强模型：`commit_position ~ Z_prefill + prefill_confidence + geometry_features`
+
+- geometry features：
+  - prefill 状态的幅度
+  - 落在 α=0 top-20 PCA 子空间内的比例
+  - 子空间外的残差比例
+  - `R²` 越高越好：解释了多少位置差异
+  - `MAE` 越低越好：平均预测位置相差多少 token
+  - `ρ` 越高越好：能否正确排列哪些题 commit 较早或较晚
 
 | α | baseline R² / MAE / ρ | +geometry R² / MAE / ρ |
 |---|---|---|
@@ -209,15 +251,19 @@ Round 1 使用 TEST split 评估 correctness（Z-only baseline）。Round 2 的�
 
 两个负剂量在 R²、MAE 与 ρ 上均改善，而 +6 在三项指标上均下降。根据预先设定的跨剂量一致性标准，该结果为 **mixed**。
 
-**Correctness** — 在该分析中，commitment-related variables 可作为 predictors。AUC 为 .700 / .386 / .547 → .688 / .497 / .443，log-loss 为 .6294 / .4990 / .6917 → .6429 / .4882 / .7247。结果在指标和剂量之间并不一致：−6 的 AUC 从 .386 提升至 .497，而 −8 与 +6 的 AUC 下降。
+#### Correctness
+
+预测的是题目是否答对，使用的是 **logistic regression**。它与这张 commit-position 表是两个独立任务。
+
+在该分析中，commitment-related variables 可作为 predictors。AUC 为 .700 / .386 / .547 → .688 / .497 / .443，log-loss 为 .6294 / .4990 / .6917 → .6429 / .4882 / .7247。结果在指标和剂量之间并不一致：−6 的 AUC 从 .386 提升至 .497，而 −8 与 +6 的 AUC 下降。
 
 Round 1 存档（correctness，Z-only baseline）：AUC .485 / .479 / .570 → .503 / .617 / .458，一升两降。
 
-这些结果有三项限制：TEST split 已用于多轮探索；每个条件的 test sample size 为 n=60，估计不确定性较大；此外，所检验的 outcome 未必是评估几何解释价值的最佳目标。因此，结论限定为 **未检测到稳定增量预测价值**，而不是几何信息已被证伪。
 
 ### 3.6 CoT negative-arm conditional confirmation
 
 H1 在 CoT projection 之前预先设定：*加入 prefill geometry 会改善负 α 的 commit-position prediction，而不会改善正 α。* CoT conditions 使用与原分析相同的模型设定，并投影到 **既有的 No-CoT α=0 basis**，以评估该几何表示在新条件下的迁移性。
+
 
 **CoT α=−4, commit position：**
 
@@ -228,15 +274,11 @@ H1 在 CoT projection 之前预先设定：*加入 prefill geometry 会改善负
 
 R²、MAE 与 ρ 均朝预期方向变化，因此 **H1 的负端满足预设的方向性判据**。
 
-**但绝对预测力仍然较弱**：加入几何后 R² 仍为负，表示模型的预测性能仍低于以 training mean 作为预测值；ρ 也接近零。因此，该结果应解释为 **a reproducible weak directional signal, not strong predictive evidence**。
-
-同一 cell 上的 correctness 明显变差：AUC .531 → .462，log-loss .3298 → .4242。
-
-该分析仅覆盖 H1 的 **负端**，因为 CoT 数据不包含正剂量。α=−4 也不属于最初形成 H1 的 −8/−6 剂量，因此这一结果同时检验了向未测剂量的外推。由于 CoT states 投影在 No-CoT α=0 basis 上，数值描述的是 CoT 状态相对于 **No-CoT reference geometry** 的位置。
+**但绝对预测力仍然较弱**：加入几何后 R² 仍为负，表示模型的预测性能仍低于以 training mean 作为预测值；ρ 也接近零。因此，该结果应解释为 **a reproducible weak directional signal, not strong predictive evidence**。同一 cell 上的 correctness 明显变差：AUC .531 → .462，log-loss .3298 → .4242。该分析仅覆盖 H1 的 **负端**，因为 CoT 数据不包含正剂量。α=−4 也不属于最初形成 H1 的 −8/−6 剂量，因此这一结果同时检验了向未测剂量的外推。由于 CoT states 投影在 No-CoT α=0 basis 上，数值描述的是 CoT 状态相对于 **No-CoT reference geometry** 的位置。
 
 ### 3.7 Minimal pre/post-commit decode analysis
 
-Decoder 18，k=20，TEST split，仅 event-aligned distributions。
+Decoder 18，k=20，TEST split，event-aligned distributions。
 
 | phase | α | n | NRE | speed | centroid dist. |
 |---|---|---|---|---|---|
