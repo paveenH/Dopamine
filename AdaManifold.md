@@ -1,11 +1,4 @@
 # Manifold Geometry Analysis
-
-RSN steering の計算幾何 — what the hidden-state geometry says about how α acts.
-Methods and results only; implementation, provenance and runbook live in
-`CLAUDE.md` (§ *Manifold pilot*).
-
----
-
 ## 0. Executive Summary
 
 **Question.** Is RSN steering a scalar gain along one direction, a retiming
