@@ -15,44 +15,39 @@
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
 11. manifold llama3 实验以及结果整理 ✔
-11. manifold 补齐 Llama 全 α 曲线 ⏸
+11. manifold 补齐 Llama 全 α 曲线 ✔
 12. Manifold Qwen25 实验以及结果整理
 ---
-1. **补齐 Llama 全 α 曲线（最高优先级）**  
-   使用已有 `−8/−6/−4/−2/0/+2/+4/+6/+8` H5，在 decoder 18 计算：
+1. **收尾 Llama 全 α 分析**
 
-   - 位移幅度 `‖dα‖`
-   - 相对负端轴的 cosine
-   - scalar coefficient `k`
-   - orthogonal residual
-   - PCA inside ratio
-   - 同时叠加 accuracy curve
+   - 核对正端 `+2/+4/+6/+8` 两两 cosine，确认是否真正共线。
+   - 绘制主图：accuracy、`‖dα‖`、相对 `d_-6` 的 cosine、`in_k20`。
+   - 更新 `AdaManifold.md` §3.3、§3.4 和 Interpretation；28 对 pairwise 结果放 supplement。
+   - 明确九点曲线属于 post-hoc descriptive evidence。
 
-   这能确认“负端共享轴、正端方向重组”是连续变化，还是只由 `−8/−6/+6` 三个点造成的印象。
+2. **迁移 Qwen last-prefill 分析**
 
-2. **做一个简洁的跨层 sensitivity**  
-   在 decoder 10–18 检查主要结论是否逐层形成。L18 仍然作为 primary，不逐层挑最好结果。这样可以回答 reviewer 最自然的问题：为什么只报告 L18，以及方向重组从哪一层开始出现。
+   - 使用 Qwen 自己的 α=0 数据、层范围和 PCA basis。
+   - 分析 `0/+6/+8/+12` 的位移幅度、方向、scalar residual 和 PCA inside ratio。
+   - 将几何曲线与 accuracy plateau 叠加。
+   - 只比较两模型的曲线形状，不比较原始 α、位移大小或 PCA 方向。
 
-3. **然后迁移到 Qwen last-prefill**  
-   用 Qwen 自己的 α=0 basis 和 layer band，检验：
+3. **判断 Qwen plateau 的几何来源**
 
-   - 正剂量是否保持共线；
-   - 位移幅度是否随高剂量饱和；
-   - orthogonal residual 是否保持较低；
-   - 几何曲线能否对应其 accuracy plateau。
+   - 位移幅度也饱和：支持几何饱和。
+   - 位移持续增长但 accuracy 饱和：支持下游非线性读出/压缩。
+   - 高剂量方向改变：支持几何重组。
 
-   真正有论文价值的问题是：
+4. **补做 Llama 跨层 sensitivity**
 
-   > Llama 的 peak 是否对应沿共享轴 overshoot，而 Qwen 的 plateau 是否对应位移饱和或压缩？
+   - 固定 decoder 18 为 primary。
+   - 在 decoder 10–18 检查负端共轴、正端部分反向是否逐层出现。
+   - 不挑最佳层、不做逐层显著性搜索，结果放 supplement。
 
-4. **暂时停止这些方向**
+5. **最后形成跨模型结论**
 
-   - 不继续优化 correctness/commit-position prediction；
-   - 不扩展整条 decode trajectory；
-   - 不做 TLE、UMAP/t-SNE；
-   - 不重新采集模型输出。
-
-最具体的下一步就是：**先冻结 Llama 全 α、L18 last-prefill 的分析指标和绘图格式，然后直接用已有 H5 生成完整几何曲线。** 这是当前成本最低、最能把 manifold 与 Dopamine/Thinking Curve 联系起来的一步。
+   回答核心问题：Llama 的 peaked response 与 Qwen 的 plateau，究竟来自不同的 entry-state 几何，还是相似的平滑几何经过不同的 decode/behavioural readout。
+   
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
 3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
