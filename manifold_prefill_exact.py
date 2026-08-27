@@ -100,6 +100,17 @@ def main():
         print(f"[FAIL] {a.out} exists; move it aside deliberately")
         return 1
 
+    # The band has (layer_end - layer_start) middle slots; the H5 additionally
+    # stores the model's FINAL layer after them. A slot at or past n_middle is
+    # the final layer, which reads legally and silently yields band-looking
+    # geometry from the wrong layer (Qwen: n_middle=6, so slot 6 is decoder 27).
+    n_middle = a.layer_end - a.layer_start
+    if not 0 <= a.slot < n_middle:
+        print(f"[FAIL] --slot {a.slot} is outside the middle band "
+              f"[0,{n_middle}) for L{a.layer_start}-{a.layer_end}; slot "
+              f"{n_middle} would be the stored FINAL layer, not a band layer")
+        return 1
+
     W = np.load(a.basis)[f"{a.slot}|prefill|components"].astype(np.float64)
     print(f"[basis] slot {a.slot} prefill components {W.shape}")
     orth = np.abs(W @ W.T - np.eye(W.shape[0])).max()
