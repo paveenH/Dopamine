@@ -18,12 +18,6 @@
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. Manifold Qwen25 实验以及结果整理
 ---
-1. **收尾 Llama 全 α 分析**
-
-   - 核对正端 `+2/+4/+6/+8` 两两 cosine，确认是否真正共线。
-   - 绘制主图：accuracy、`‖dα‖`、相对 `d_-6` 的 cosine、`in_k20`。
-   - 更新 `AdaManifold.md` §3.3、§3.4 和 Interpretation；28 对 pairwise 结果放 supplement。
-   - 明确九点曲线属于 post-hoc descriptive evidence。
 
 2. **迁移 Qwen last-prefill 分析**
 
@@ -47,7 +41,7 @@
 5. **最后形成跨模型结论**
 
    回答核心问题：Llama 的 peaked response 与 Qwen 的 plateau，究竟来自不同的 entry-state 几何，还是相似的平滑几何经过不同的 decode/behavioural readout。
-   
+
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
 3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
