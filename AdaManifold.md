@@ -413,35 +413,9 @@ Decoder 18，k=20，TEST split，event-aligned distributions
 
 ## Appendix. Artifact and provenance index
 
-实现细节、执行命令、validation guards、tests 与故障记录见 `CLAUDE.md` § *Manifold pilot*。以下仅列出分析所使用的主要代码与数据产物。
+分析所用的全部代码、数据产物路径、执行命令、validation guards、tests 与故障记录，统一收录在
+`CLAUDE.md` § *Manifold pilot*（scripts 与 guard suites 见其正文与 **Local checks** 一节；
+数据产物路径见 *Where the artifacts live*；offline 分析脚本与四份 pre-registration 位于
+`RoleAnswer/manifold/`，不在本 git repo 内）。
 
-**Scripts**（in the Dopamine repo）
-
-| file | role |
-|---|---|
-| `check_hs_llama.py` | §3.1 H5 acceptance (server, read-only) |
-| `manifold/split_manifest.py` + `.json` | §2.2 frozen split |
-| `manifold_fit.py` | §2.3–2.4 basis fit + projection |
-| `manifold_prefill_exact.py` | §3.3 ambient displacement decomposition |
-| `manifold_prefill_direction.py` | §3.4 cross-dose cosine and scalar fit |
-| `run_manifold_pilot.sh` | launcher |
-| `test_check_hs_llama.py`, `manifold/test_split_manifest.py`, `test_manifold_fit.py` | guard suites |
-
-**Offline analysis**（`RoleAnswer/manifold/`，不在 git 中）
-
-`incremental.py`（§3.5 round 1）· `incremental2.py`（§3.5 round 2）·
-`confirm_cot.py`（§3.6）· `decode_minimal.py`（§3.7）
-
-**Pre-registrations**（`RoleAnswer/manifold/`）
-
-`PREREG_incremental.md` · `PREREG_negative_arm_confirm.md` ·
-`PREREG_decode_minimal.md` · `PREREG_qwen_prefill.md`
-
-**Data artifacts**
-
-- Server: `components/llama3/manifold/phase1b_eot/`（basis + 四个 No-CoT cell），
-  `components/llama3/manifold/phase1b_eot_cot/`（CoT cells，复用同一 basis）
-- Local: `RoleAnswer/llama3/dopamine/manifold/` —— `basis.npz`、
-  `basis_meta.json`、`manifold_*.json`、`prefill_exact.json`、
-  `prefill_direction.json`
-- Source H5: `components/hidden_states/gsm8k/phase1b_eot/`
+本文件只承载研究叙事与结果；实现层面的单一事实来源是 `CLAUDE.md`，两处不一致时以其为准。
