@@ -1076,13 +1076,9 @@ $$
 
 斜體列 coverage < 50%，僅為 coverage diagnostic，不可用於機制判斷。
 
-**結論。** Qwen 最大可讀 release `−0.233` 為 Llama No-CoT `−0.279` 的約 0.6–0.8 倍，符號一致：
+**結論**
 
-> Qwen 同樣具有 commit-related fast transition（§5.5 帶符號 `p_t` dip，隨劑量由 `−0.578` 加深至 `−1.322`）與其後的 slow-state release，但 **slow release 相對減弱，表現為由高位緩慢回落，而非 Llama 那樣較明顯的狀態解除**。
-
-因此列為第三類結果 **same-sign but attenuated**（§5.8 ledger），不歸入「複製」或「未複製」。
-
-**Cohort caveat。** Qwen 三個可讀 cell 全部來自 `+8/+10/+12`，其 pre-commit window 之所以存在正是因為 α 推遲了提交——cohort 選擇在 manipulation 自身的結果上，Llama α=0 則未經此選擇。上表為「被選擇的高劑量 cohort」對「未被選擇的自然 cohort」，非嚴格等價比較；Qwen 無可讀 α=0 對照（n=12），加樣本無法補齊。
+> Qwen 与 Llama 在 commit 后都出现状态释放，但 Qwen 的释放更弱、更缓慢，属于 **方向一致但效应减弱（same-sign but attenuated）**，不能视为完全复制。由于 Qwen 只有高剂量条件具备足够的 pre-commit 数据，且缺少可用的 α=0 对照，该结果仅作为补充观察，不能进行严格的跨模型比较。
 
 > 圖：`qwen2.5/dopamine/plots_gain/fig5_qwen_commit_centered.png`（`qwen_signal/plot_qwen_mainfig.py`）。
 
@@ -1106,13 +1102,11 @@ $$
 
 （CoT：α=0 coverage 5.0% 拒絕；α=+6 coverage 73.0%，slope **−0.0117** [−0.0165, −0.0066]，level 1.158。）
 
-> **兩張表的 `n_risk` 定義不同，數值不同是正確的，不是筆誤。** 本表（`vigor_slope`）只要求 `commit_step ≥ 20`（單邊，α=−8 得 25）；§5.3 的 `s_pre/s_post` 與 §5.5 的 `p_t` 則要求 commit **前後各**有 ≥20 步（雙邊，α=−8 得 19）。引用時須連同所屬表格。
->
-> **被拒絕的一行本身就是結果，不是缺口。** Qwen 在 α≤+4 的中位 commit 是 decode step 3，那些 cell **沒有可供讀取斜率的 pre-commit 區段**。**不得靠加寬窗口把空格填滿**——那正好重新引入固定窗口所要防止的 leakage（Llama 有 23% 樣本在 token 20 前 commit，Qwen 在 α=0 是 94%，問題嚴重得多）。
+**结论** Qwen 在 GSM8K 上同样没有出现 ramping/vigor 信号。可分析的 `+6～+12` 条件呈现的是逐渐趋近于零的负斜率，即状态缓慢松弛，而非随推理推进持续增强。`α≤+4` 时模型通常在 decode step 3 就提交答案，因此不存在足够的 pre-commit 区段；这是“过早提交”的行为结果，而不是待补的数据缺口，也不能通过扩大窗口解决。
 
-**可讀的四個 cell 給出的是隨劑量減弱的鬆弛，不是 vigor。** slope 由 +6 的 −0.0211 單調趨近 0，且 +10/+12 的 CI 包含 0。依 §2.2 的**建模與發現分離**原則：`vigor_slope` 作為 H2 ramping/vigor 假說的 operational 名稱**保留**，此處記為 **task-level finding——GSM8K 上的 Qwen 同樣未誘發 ramping/vigor 斜率信號**，與 §4.7 在 Llama 上的結論同向。
+另一方面，`s_t` 的整体水平随剂量升高，并与 commit position 后移同向，说明较高 slow-state level 与较晚提交相伴。但不同剂量的可分析样本覆盖率高度分离，无法复现 Llama 的同剂量、leak-free 回归。因此这里只能报告 **slow-state level 与 commitment timing 的描述性共变**，不能比较关联强度或建立因果关系。
 
-**level 側則與 §4.7 一致地連通行為**：`s_t` level（表中最後一欄，以及 §5.3 的 early/mid/late）隨劑量上抬，並與 commit 位置右移同向。但 **Qwen 無法複現 §4.7 的 leak-free 迴歸**——那需要在**同一劑量內**有足夠 at-risk 樣本與非 at-risk 樣本形成對比，而 Qwen 的 coverage 在 α≤+4 是 4–9%、在 α≥+8 是 96%，**沒有任何一檔同時具備兩端**。因此本節只報告 level 與 timing 的**同向共變**，不宣稱 §4.7 式的關聯強度。
+> `n_risk` 必须按表解释：`vigor_slope` 只要求 commit 前 ≥20 步；`s_pre/s_post` 和 `p_t` 要求 commit 前后各 ≥20 步，因此数值不同是正确的。
 
 ### 5.5 Fast Residual and Output Decisiveness
 
@@ -1140,22 +1134,14 @@ $$
 - **`post_abs`**：commit 后窗口内 `|p_t|` 的平均值，表示提交答案后的 residual 振幅。
 - **`n_risk`**：commit 前后都有足够窗口、能够计算 `pre_abs` 和 `post_abs` 的样本数。
 
-Qwen 的 `p_t` 呈現兩個不同層面的結果：
+**结论**
 
-1. **整體 residual amplitude 未隨劑量改變。**  
-   在 `α=−8…+12` 間，`abs_mean` 維持於 `1.00–1.06`，`std` 維持於 `1.25–1.32`，未呈現穩定的 dose-response。這與 Llama 在最佳劑量 `α=−6` 出現的 pre-commit residual-amplitude 增強不同。
+> Qwen 的 α 干预不会整体放大生成过程中的快速波动，但会改变答案提交瞬间的状态转折。换言之，α 主要调节 **commit 时刻的快速切换**，而非全程提高 residual amplitude。该结果与 Llama 部分一致，但 `p_t` 是 slow state 的残差成分，只能作为同一机制链的补充读数，不能视为独立的因果证据。
 
-2. **Commit 當步存在穩定的負向 transition。**  
-   所有劑量在首次 `####` 處均出現帶符號的負向 `p_t` dip，並隨正向 α 整體加深：由 `α=0` 的 `−0.578` 增至 `α=+12` 的 `−1.322`。CoT 條件亦呈現相同方向的 transition（`α=0: −2.340`；`α=+6: −1.927`）。
+需要注意：
 
-**結論。** Qwen 未複製 Llama 的 residual-amplitude dose effect，但複製了 commit-locked fast transition。α 並未整體放大 `p_t` 的波動，而是主要改變答案提交瞬間的帶符號狀態轉折。
-
-> `p_t` 是 RSN 投影相對 slow baseline 的快殘差，不構成獨立於 `s_t` 的第二條因果證據。頻率指標的分析決策與技術細節見 `CLAUDE.md`。
-
-以下 Result 2–3 為 **output decisiveness**（`entropy` / `top1` / `margin`），資料為 `metrics_hs/` 七個 cell（No-CoT `{−8, 0, +6, +8, +12}`、CoT `{0, +6}`，2026-08-26 解封）。commit locator 與窗口定義同 §5.3.1。實作與驗收細節見 `CLAUDE.md`。
-
-> **取樣密度限制（貫穿本節）。** logit family 僅 **7 個 cell**，RSN family 為 **11 個**，兩者**不得畫成同等取樣**。本節只報告單調趨勢，不判斷峰值或倒 U。
-
+- `p_t` 是从 slow state 中分解出的快残差，不是独立的第二条因果证据。
+- output decisiveness 只有 7 个剂量条件，因此只能描述单调趋势，不能判断峰值或倒 U 曲线。
 #### Result 2 — Task-Entry Output Decisiveness Increases with α
 
 最後一個 prompt token 的輸出分布：
@@ -1218,7 +1204,17 @@ CoT `+6`（cov 58.3%、n=175）：
 
 #### §5.5 綜合結論
 
-> Qwen 的 α steering 不只改變 RSN state，也改變 output distribution，因此**同樣不是 selective wanting intervention**。但其影響具有明顯**階段性**：task entry 隨 α 變得更 decisive，commit 當步進一步 sharpen，commit 後 confidence proxies 則暫時下降。該結構與 Llama 部分同向，但尚不足以證明兩模型到達相同 working state（見 §5.7）。
+> 对 Qwen 做 α 干预，不仅改变了模型内部的 RSN 状态，也改变了模型输出 token 时的“确定程度”，而且这种变化随生成阶段不同。
+
+具体分三段：
+
+- **刚进入任务时**：α 越高，输出分布越集中，模型更快进入明确的生成状态。
+- **正式提交答案时**：这种集中进一步增强，模型更明确地选择答案。
+- **提交答案之后**：entropy 上升、top1 probability 和 margin 下降，说明答案一旦写出，模型的紧绷/确定状态开始释放。
+
+所以它不是一种只改变抽象“推理意愿”、而完全不触碰输出决策的干预；它也会改变实际的 token 分布，因此不能称为非常纯粹的 `selective wanting intervention`。
+
+结果是：commit 本身伴随阶段性的输出分布变化，但 **Llama 的过早 commit 并不是因为置信度特别高**。因此当前更准确的理解仍是“承诺时机发生失调”，而不是“模型过度自信”。
 
 ### 5.6 High-Dose Compression and Direction Specificity
 
@@ -1241,7 +1237,7 @@ CoT `+6`（cov 58.3%、n=175）：
 
 入口每 +2α 遞增約 50 個 raw 單位，decode 側的每單位回應則單調下降。
 
-**結論。** 這是 **compression 而非 ceiling**：`+6→+8`、`+8→+10` 仍顯著，decode 側並未停止回應，只是每單位 α 的回應變小。
+**結論** 這是 **compression 而非 ceiling**：`+6→+8`、`+8→+10` 仍顯著，decode 側並未停止回應，只是每單位 α 的回應變小。
 
 - headline 用 **RAW** ratio；Z ratio（0.0269 / 0.0037 / 0.0091）非單調，僅作 sensitivity。
 - cohort 選擇在 manipulation 的結果上（§5.3），故本表**不含可比的低劑量對照**，是高劑量區間內部的相對比較。
@@ -1250,21 +1246,35 @@ CoT `+6`（cov 58.3%、n=175）：
 
 #### 5.6.2 High- and Low-Dose Response Profiles Are Near-Collinear
 
-以 `[c−20, c)` 的逐層 pre-commit `s_t`，取每 +2α 的逐層回應向量：
+以 `[c−20, c)` 的逐層 pre-commit `s_t`，取每 +2α 的逐層回應向量
+（在固定的 167 道题上，α 增加后，该层在 commit 前 20 个 token 内的平均 slow-state s_t 改变量。）
 
 | step | L15 | L16 | L17 | L18 | L19 | L20 | mean | CV |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | +6→+8 | 0.5374 | 0.3713 | 0.1690 | 0.2367 | 0.5221 | **−0.1986** | 0.2730 | 0.92 |
 | +8→+12 | 0.1829 | 0.0899 | 0.0344 | 0.0528 | 0.1688 | **−0.0814** | 0.0746 | 1.19 |
 
-最小二乘 $v_{high} \approx k\,v_{low}$：**k = 0.309**（幅度每劑量步縮小 3.24×），最佳縮放解釋 **97.4% 的 response energy**，歸一化**平方**殘差 **2.6%**（殘差**範數**比例 16.1%），**cos = 0.987**。
+最小二乘 $v_{high} \approx k\,v_{low}$：**k = 0.309**（幅度每劑量步縮小 3.24×），最佳縮放解釋 **97.4% 的 response energy**，歸一化**平方**殘差 **2.6%**（殘差**範數**比例 16.1%），**cos = 0.987**
 
-**結論。** 排除層間同步的均勻 ceiling；未見明顯方向旋轉；仍與**沿固定 layer profile 的標量增益壓縮**相容。逐層異質與 L20 反號本身不是重分配證據——固定的負 loading 正是單一潛在標量經固定異質 profile 投影會產生的形態。
+这个表计算的是：**当 α 继续增加时，Qwen 各层的 pre-commit slow state `s_t` 分别改变了多少。**
 
-- `resid = 1 − cos²` 對最小二乘 k 恆等，故三者中**只有 k 提供獨立資訊**（幅度壓縮）。
-- 層×劑量的 F 值只作描述與排序，**不得宣稱交互作用顯著**（六層為同一 hidden state 的重複投影，sphericity 不成立）。
+- `+6→+8`：低剂量阶段每增加 `+2α`，L15–L20 各层的响应变化。
+- `+8→+12`：高剂量阶段的变化，并换算为每 `+2α` 的响应。
+- L15–L20 六个数字组成一个六维的 **layer-response profile**。
+- `mean`：六层响应的平均幅度。
+- `CV`：不同层之间响应是否均匀；越大表示层间差异越大。
 
-> 圖：`fig53_profile.png`（左逐層回應、中 k·v_low 疊合、右兩劑量步散點共線）
+然后比较两个 response profile：
+
+- `cos=0.987`：两组向量几乎同方向，说明高低剂量主要保持相同的逐层响应形状。
+- `k=0.309`：高剂量响应约为低剂量的 31%，即单位剂量带来的变化缩小了约 3.24 倍。
+- `97.4% response energy`：只需把低剂量 profile 整体缩小，就可以解释高剂量 profile 的绝大部分。
+- L20 在两行都为负，也说明这个反向 loading 是稳定结构，并非高剂量突然发生方向改变。
+
+**结论**
+
+> Qwen 在高剂量下仍保持相同的逐层 RSN response profile，但整体响应幅度明显减弱，符合**沿固定 layer profile 的标量增益压缩**。这不是所有层同时达到 ceiling，也没有证据显示响应方向发生旋转或层间几何重组。`k` 用于量化压缩幅度，其余指标仅作描述，不支持显著的层×剂量交互作用。
+> 圖：`fig53_profile.png`
 
 #### 5.6.3 Random / Orthogonal Readout Controls
 
@@ -1278,13 +1288,11 @@ CoT `+6`（cov 58.3%、n=175）：
 | k | 0.309 | 0.250 | 0.358 | 0.240 |
 | `‖v₆₈‖` 中位數 | 0.907 | 0.270 | 0.752 | 0.349 |
 
-**結論。** RSN 的殘差與 CV **都低於**全部三個 family：RSN 方向比一般稀疏方向**更像乾淨的標量通道**。這是**反對**把 §5.6.2 讀成重分配的證據，不是支持。措辭維持 **argues against** 而非 excludes（N=10、p 下限 0.182、三 family 非獨立重複）。
+**结论**
 
-- 結論主要由 `ortho_gauss_same` 承載：它具備 RSN 83% 的回應幅度、是配對最嚴格的 null（NMD 自身 support、權重 ⊥ role-diff、norm-matched），殘差仍是 RSN 的約 4 倍，無法以低 SNR 解釋。低 SNR caveat 只適用於 `diff_random` 與 `ortho_off`（RSN 幅度的 30–38%）。
-- §5.6.2 的「CV 0.92 偏高」在有了參照分布後**不成立**——一般方向為 2.4–3.9，RSN 屬低端。
-- **邊界（binding）**：這批 hidden states 生成於 RSN steering 之下，重投影界定的是 **readout specificity**，非 intervention 的因果特異性；後者需另行注入 random/orthogonal 方向並重新採集（Open 4）。
+> 与三类随机/正交方向相比，RSN 的 residual 和 CV 更低，说明其逐层响应更接近一个稳定、干净的标量通道，而非层间几何重分配。其中，证据主要来自幅度匹配最好的 `ortho_gauss_same` 对照。由于这些结果只是对 RSN steering 后的状态重新投影，因此仅支持 **readout specificity**，不能证明 RSN 干预方向具有因果特异性。受限于 null 数量，结论应写作 **argues against redistribution**，而非完全排除。
 
-> 圖：`fig54_null.png`（左殘差、中 CV、右逐層回應與各 family 幅度）
+> 圖：`fig54_null.png`
 
 ### 5.7 Cross-Model Working-State Alignment: Partial Comparability and Current Limits
 
