@@ -1307,7 +1307,7 @@ CoT `+6`（cov 58.3%、n=175）：
 
 #### 5.7.2 同向但減弱（第三類，見 §5.3.1）
 
-- **post-commit slow-state release**：相同 `±20` 窗口下方向一致但幅度較小（Qwen `+12` 為 `−0.233`，Llama α=0 No-CoT 為 `−0.279`，約 0.6–0.8 倍）。Qwen 由高位緩慢回落而非明顯解除狀態。**不可歸入複製或未複製任一類**：歸為複製會抹去 Qwen 停在高位的事實，歸為未複製則與資料矛盾。
+- **post-commit slow-state release**：相同 `±20` 窗口下方向一致但幅度較小（Qwen `+12` 為 `−0.233`，Llama α=0 No-CoT 為 `−0.279`，即 最大格約 **0.84 倍**（`−0.233` vs `−0.279`），較低兩格 0.53–0.61 倍）。Qwen 由高位緩慢回落而非明顯解除狀態。**不可歸入複製或未複製任一類**：歸為複製會抹去 Qwen 停在高位的事實，歸為未複製則與資料矛盾。
 
 #### 5.7.3 未複製的結果
 
@@ -1352,7 +1352,7 @@ CoT `+6`（cov 58.3%、n=175）：
 
 兩模型的全部 20 個 cell 均包含相同的 300 道題且順序一致，因此可按題目進行配對分析；配對關係已逐 cell 驗證。分析實作與資料驗收細節見 `CLAUDE.md`。
 
-#### 5.9.0 Commit State Is Categorical, Not Binary
+#### 5.8.0 Commit State Is Categorical, Not Binary
 
 Commit state 分为三类：
 
@@ -1362,11 +1362,11 @@ Commit state 分为三类：
 | `marker_unparsed` | 出现 `####`，但答案不可解析；其中 52 题为重复 commit loop | 66 |
 | `no_marker` | 全文未出现 `####` | 57 |
 
-`loop_commit` 表示反复提交，而非从未提交，因此不能归入 `no_marker`。此外，123 个不可解析样本经 fallback 后仍有 63 题答对。
+三类互斥且穷尽（177+66+57 = 300），依据是 marker 是否**出现**。`marker_unparsed` 中的 loop 子集表示反复提交，而非从未提交，因此不能归入 `no_marker`；其余 14 题带 1–3 个 marker。此外，123 个不可解析样本（66+57）经 fallback 后仍有 63 题答对。
 
 > **Commit state 衡量生成过程中的提交行为，不是 accuracy proxy；格式异常不等于答案错误。**
 
-#### 5.9.1 Within-Model Dose–Response Curves (Item-Paired, n=300 per Cell)
+#### 5.8.1 Within-Model Dose–Response Curves (Item-Paired, n=300 per Cell)
 
 每格對各自 α=0 逐題配對，附 bootstrap 95% CI。**raw α 不跨模型比較。**
 
@@ -1386,8 +1386,12 @@ Commit state 分为三类：
 | **+8** | **86.00** | **5.0** | 0.657 | 0.7 | 1.3 |
 | +12 | 87.67 | 4.0 | 0.697 | 1.3 | 1.0 |
 
-- `early-cand%`：生成早期就出现答案候选的样本比例，反映是否“过早形成答案”。
-- `posN`：首次 commit（首次出现 `####`）的位置除以总生成长度。越接近 0，表示越早提交；越接近 1，表示越晚提交。
+**两个主要读数的操作型定义（frozen 2026-08-21，两任务共用一套，不调参）：**
+
+- `early-cand%`：**首个非空行**同时满足 (1) strip 后 ≤ **60 字符**、(2) 含至少一个数字 token、(3) 不是编号推理开头（`1. To find …`）、(4) 不是纯标题行（`Step 1:`／`Solution:`）——即模型在任何推导之前就写下一个答案形状的裸数字。长度上限 40/60/80 的敏感度并列报告，结论不依赖该选择。
+- `posN`：**首个可解析的** `#### <数字>` 的字符起点除以生成总字符数，仅在该样本存在可解析 marker 时有定义（即 `committed` 一类）。越接近 0 越早提交。以字符而非 token 计；token 口径需 tokenizer，缺失时列直接省略而非估算。
+
+> **注意：`early-cand%` 本身是干预的结果，按它分层属 post-treatment stratification，只能作为 consistent-with 证据，不构成 mediation。**
 - `loop%`：出现重复 `####` 等退化式反复提交的比例。
 - `nomk%`：全文完全没有出现 `####` marker 的比例。
 
@@ -1398,7 +1402,7 @@ Commit state 分为三类：
 
 > **Llama 的 peak 与 Qwen 的 plateau，都与各自的 commitment timing 曲线相对应。** raw α 只用于模型内部比较，不能直接跨模型对齐。
 
-#### 5.9.2 Comparing Transfer Curves in Standardized Entry Coordinates
+#### 5.8.2 Comparing Transfer Curves in Standardized Entry Coordinates
 
 为避免直接比较不可通约的 raw α，我们将入口变化转换为模型内标准化坐标：
 
@@ -1413,7 +1417,7 @@ $$
 
 > **两个模型都表现出 entry gain，但 entry gain 如何转化为 commitment timing 与最终准确率，由模型特异的下游转换机制决定。**
 
-#### 5.9.3 Does Commitment Explain Behavior Beyond Entry Gain?
+#### 5.8.3 Does Commitment Explain Behavior Beyond Entry Gain?
 
 在剂量曲线层级，commitment timing 比 entry gain 更能解释 Llama 的准确率变化：
 
@@ -1452,7 +1456,7 @@ Llama 的 entry gain 几乎无法解释其 peak–collapse 曲线，而 early ca
 
 > **Commitment timing 能够解释 entry gain 未覆盖的行为差异，尤其是 Llama 的高剂量崩溃；这一结果是稳定的解释性关联，但不是因果 mediation。**
 
-#### 5.9.4 Stopping and Loops: The −8 Collapse Reflects Premature Lock-In, Not Shorter Reasoning
+#### 5.8.4 Stopping and Loops: The −8 Collapse Reflects Premature Lock-In, Not Shorter Reasoning
 
 | Llama α | Characters | `n_markers` mean / p90 | Post-commit proportion |
 |---:|---:|---:|---:|
@@ -1473,7 +1477,7 @@ Qwen 呈现相反趋势：高剂量下重复 marker 和 post-commit 内容持续
 
 > **Llama 的高剂量崩溃对应过早锁定，Qwen 的高剂量平台则对应 commitment dynamics 饱和。**
 
-#### 5.9.5 Confidence Does Not Explain Premature Commitment
+#### 5.8.5 Confidence Does Not Explain Premature Commitment
 
 Llama 的前 20 个 decode steps 显示：
 
@@ -1484,7 +1488,7 @@ Llama 的前 20 个 decode steps 显示：
 
 Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论目前仅适用于 Llama。数据配对、计算方法与代码细节见 `CLAUDE.md`。
 
-#### 5.9.6 Conclusion and Evidence Boundaries
+#### 5.8.6 Conclusion and Evidence Boundaries
 
 > **结果支持模型特异的 commitment transfer function：entry gain 并不直接决定推理表现。Llama 的极端负剂量触发过早且不稳定的 commitment，造成峰后崩溃；Qwen 的高正剂量则使 commitment dynamics 饱和，形成性能平台。**
 
@@ -1526,7 +1530,7 @@ Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论
    较高、较持续的 pre-commit `s_t` 通常与较晚 commitment、持续 processing/engagement 和 viable reasoning 同向变化。它比 task-entry gain 更接近实际的 commitment behavior。
 
 6. **Commit 后存在 slow-state release。**  
-   Llama 的 release 较明显；Qwen 在可分析的高剂量 cell 中也呈相同方向，但只有 Llama 的约 `0.6–0.8×`，并且下降后仍停留在较高水平。因此这是 **same-sign but attenuated replication**。
+   Llama 的 release 较明显；Qwen 在可分析的高剂量 cell 中也呈相同方向，但幅度较小——最大格 `+12` 为 Llama 的约 `0.84×`（`−0.233/−0.279`），较低两格 `+8/+10` 为 `0.53×/0.61×`——并且下降后仍停留在较高水平。因此这是 **same-sign but attenuated replication**。
 
 7. **Thinking quality 与 stopping quality 是不同维度。**  
    首次答案正确不代表后续生成稳定。模型可能先输出正确答案，随后继续改写、重复或产生其他答案。因此 first-answer accuracy 不能代替 loop、answer switching、自然 EOS 和 stable completion。
