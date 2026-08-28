@@ -346,7 +346,9 @@ Decoder 18，k=20，TEST split，event-aligned distributions
 
 ### 3.8 Qwen last-prefill cross-model check
 
-按 `PREREG_qwen_prefill.md`(结果产生前冻结)执行,仅限 last-prefill。Qwen 使用**自己的** α=0 basis、band `[16,22)`、`--commit_locator qwen`,storage slot 5 = **decoder 20**(band 最后一层);与 Llama 共享的只有算法与 300 题 split manifest。可用 cell 受限于 HS backfill 的七格,No-CoT 为 `−8 / 0 / +6 / +8 / +12`,因此剂量集合与 Llama 的九点不同,这是数据可得性,不是选择。参考方向在看结果前固定为 `d_+8`(行为 plateau 起点)。
+这一分析检验 Qwen 的行为 plateau 是否来自 last-prefill 状态位移的饱和或方向改变。分析位置为 decoder 20（steering band 的最后一层）,并使用 Qwen 自己的 α=0 PCA basis。可用的 No-CoT 条件为 `−8 / 0 / +6 / +8 / +12`。完整运行配置、pre-registration 与验收细节见 `CLAUDE.md` 的 *Manifold pilot* 章节。
+
+#### Complete results
 
 **Displacement magnitude and inside ratio (TEST, k=20):**
 
@@ -370,15 +372,23 @@ Decoder 18，k=20，TEST split，event-aligned distributions
 
 Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all 差异 ≤0.4pp。
 
-**Q1 — 正臂是否共享一条方向?是。** 三对相邻 cos 为 0.965–0.983,全部 100% 同号,且 `k_ls` 与独立算出的幅度比偏差仅 0.012–0.017(0.726 vs 0.738、0.654 vs 0.667、0.475 vs 0.492)。**Qwen 的正臂也是一条近似一维的 scalar family。**
+#### Main findings
 
-**Q2 — 位移幅度是否饱和?否,继续近似线性增长。** `‖d‖/|α|` 在四个 cell 上为 14.85 / 15.09 / 15.11 / 14.94,基本恒定,+12 处没有任何 flatten 迹象。这**证伪了** prereg 的压缩预测:按其 failure condition,`magnitude keeps growing at +12 → compression account NOT supported`。与此同时 Qwen 的行为曲线在 +8/+10/+12 上已平台化(86.00 / 88.33 / 88.67,高剂量两两 n.s.,`AdaDopamine_gsm8k.md` §4)。**几何持续近似线性增长,而行为已平台化。**
+**1. Qwen 的正剂量共享一条近似一维的方向。** +6、+8 和 +12 之间的 cosine 为 **0.965–0.983**,所有题目均为同号位移,scalar coefficient 也与独立计算的幅度比一致。因此,提高正剂量主要是在同一条轴上走得更远,而不是不断切换方向。
 
-**Q3 — inside ratio。** 各向同性参照按各自 hidden size 计算:Qwen `20/3584 = 0.558%`,Llama `20/4096 = 0.488%`。Qwen 正臂 4.70–5.62% 约为其随机参照的 **8.4–10.1×**,Llama 正臂 9.8% 为 **20×**、负臂 21.2% 为 **43×**。两模型的位移均显著高于随机参照,但**绝对水平不可直接互比**——basis、band(L=6 vs L=9)、mask 与激活尺度都不同。
+**2. 位移没有饱和,而是随 α 继续线性增长。** +6、+8 和 +12 的 `‖d‖/|α|` 分别为 **14.85、15.09 和 15.11**,几乎完全恒定；+12 处没有出现幅度压缩。与此同时,Qwen 的 accuracy 在 +8/+10/+12 已经进入平台（86.00 / 88.33 / 88.67,高剂量两两差异不显著）。也就是说：**内部位移仍在增加,但行为改善已经停止。** 这排除了“行为 plateau 是因为 entry-state displacement 已经饱和”这一解释。
 
-**跨臂夹角。** Qwen 的 cos(正臂, −8)恒定为 −0.754…−0.802(≈141°),与 Llama 的 ≈131° 同为**与剂量无关的固定夹角**。
+**3. 位移与自然状态的主要 PCA 方向存在稳定对齐。** Qwen 正臂有 **4.70%–5.62%** 的位移能量落在 α=0 top-20 PCA subspace 内,约为各向同性随机参照 `20/3584 = 0.558%` 的 **8.4–10.1×**。因此这不是随机方向；但它低于 Llama 相对自身基线的倍数。由于两个模型使用不同 basis、band、mask 和 hidden size,这些绝对比例不能直接作为模型强弱比较。
 
-**范围限制:Qwen 负臂只有 `−8` 一个点,单点无法判断方向一致性。** 因此可以说的是:**Llama 的正负两臂与 Qwen 的正臂均呈单轴线性结构;Qwen 负臂尚不可判断。** 不得写成"四个臂都已证明为单轴"。
+**4. 正臂与现有的 −8 条件并非简单镜像。** 三个正剂量与 −8 的 cosine 为 −0.754 至 −0.802,对应约 141° 的稳定夹角。不过,Qwen 负臂只有 −8 一个剂量,因此只能描述正臂与这个负剂量的关系,不能判断 Qwen 负臂本身是否也是单轴结构。
+
+#### Conclusion
+
+> **Qwen 的正剂量在 last-prefill 上沿同一条轴线性扩张,没有出现方向转折或幅度饱和；但其 accuracy 已经平台化。**
+
+因此,Qwen 的高剂量 plateau 不是由 entry-state saturation 造成的。结合 Llama 的结果,Llama 两臂与 Qwen 正臂在 last-prefill 都表现出平滑、近似单轴且随剂量增长的位移,行为却分别呈现 peak 与 plateau。**Last-prefill geometry 无法解释这种行为差异,差异更可能产生于后续的 commitment 与 decode dynamics。**
+
+当前能够支持的范围是：Llama 的正负两臂与 Qwen 的正臂均呈单轴线性结构；Qwen 负臂因只有一个剂量点,尚不能判断。
 
 
 ### 3.9 Cross-layer sensitivity
