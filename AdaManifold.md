@@ -344,7 +344,42 @@ Decoder 18，k=20，TEST split，event-aligned distributions
 **Conclusion: last-prefill geometry did not stably extend to commit-aligned decode。** 
 
 
-下面这版可以直接替换现有的 `## 4. Interpretation`。我把重点改成“发现了什么—如何理解—适用范围”，减少规则式表述。
+### 3.8 Qwen last-prefill cross-model check
+
+按 `PREREG_qwen_prefill.md`(结果产生前冻结)执行,仅限 last-prefill。Qwen 使用**自己的** α=0 basis、band `[16,22)`、`--commit_locator qwen`,storage slot 5 = **decoder 20**(band 最后一层);与 Llama 共享的只有算法与 300 题 split manifest。可用 cell 受限于 HS backfill 的七格,No-CoT 为 `−8 / 0 / +6 / +8 / +12`,因此剂量集合与 Llama 的九点不同,这是数据可得性,不是选择。参考方向在看结果前固定为 `d_+8`(行为 plateau 起点)。
+
+**Displacement magnitude and inside ratio (TEST, k=20):**
+
+| α | mean‖d‖ | ‖d‖/\|α\| | inside [95% CI] | outside |
+|---|---|---|---|---|
+| −8 | 119.50 | 14.94 | **6.59%** [6.15, 7.03] | 93.41% |
+| +6 | 89.11 | 14.85 | **4.70%** [4.37, 5.06] | 95.30% |
+| +8 | 120.68 | 15.09 | **5.62%** [5.27, 5.96] | 94.38% |
+| +12 | 181.33 | 15.11 | **4.83%** [4.57, 5.09] | 95.17% |
+
+**Cross-dose direction and scalar fit (ALL, n=300):**
+
+| pair | cos [95% CI] | k | residual | same-signed |
+|---|---|---|---|---|
+| +6 \| +8 | **0.983** [0.982, 0.984] | 0.726 | 0.033 | 100.0% |
+| +8 \| +12 | **0.980** [0.980, 0.981] | 0.654 | 0.039 | 100.0% |
+| +6 \| +12 | **0.965** [0.964, 0.966] | 0.475 | 0.068 | 100.0% |
+| +6 \| −8 | −0.782 [−0.787, −0.776] | −0.584 | 0.389 | 0.0% |
+| +8 \| −8 | −0.754 [−0.759, −0.749] | −0.763 | 0.431 | 0.0% |
+| +12 \| −8 | −0.802 [−0.805, −0.798] | −1.217 | 0.357 | 0.0% |
+
+Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all 差异 ≤0.4pp。
+
+**Q1 — 正臂是否共享一条方向?是。** 三对相邻 cos 为 0.965–0.983,全部 100% 同号,且 `k_ls` 与独立算出的幅度比偏差仅 0.012–0.017(0.726 vs 0.738、0.654 vs 0.667、0.475 vs 0.492)。**Qwen 的正臂也是一条近似一维的 scalar family。**
+
+**Q2 — 位移幅度是否饱和?否,继续近似线性增长。** `‖d‖/|α|` 在四个 cell 上为 14.85 / 15.09 / 15.11 / 14.94,基本恒定,+12 处没有任何 flatten 迹象。这**证伪了** prereg 的压缩预测:按其 failure condition,`magnitude keeps growing at +12 → compression account NOT supported`。与此同时 Qwen 的行为曲线在 +8/+10/+12 上已平台化(86.00 / 88.33 / 88.67,高剂量两两 n.s.,`AdaDopamine_gsm8k.md` §4)。**几何持续近似线性增长,而行为已平台化。**
+
+**Q3 — inside ratio。** 各向同性参照按各自 hidden size 计算:Qwen `20/3584 = 0.558%`,Llama `20/4096 = 0.488%`。Qwen 正臂 4.70–5.62% 约为其随机参照的 **8.4–10.1×**,Llama 正臂 9.8% 为 **20×**、负臂 21.2% 为 **43×**。两模型的位移均显著高于随机参照,但**绝对水平不可直接互比**——basis、band(L=6 vs L=9)、mask 与激活尺度都不同。
+
+**跨臂夹角。** Qwen 的 cos(正臂, −8)恒定为 −0.754…−0.802(≈141°),与 Llama 的 ≈131° 同为**与剂量无关的固定夹角**。
+
+**范围限制(必须随结论同行):Qwen 负臂只有 `−8` 一个点,单点无法判断方向一致性。** 因此可以说的是:**Llama 的正负两臂与 Qwen 的正臂均呈单轴线性结构;Qwen 负臂尚不可判断。** 不得写成"四个臂都已证明为单轴"。
+
 
 ## 4. Interpretation
 
@@ -407,18 +442,23 @@ Decoder 18，k=20，TEST split，event-aligned distributions
 
 但是，这只是计算几何上的类比。α 的正负不能直接等同于生物多巴胺的增加或减少，PCA 方向也不是生物神经回路。当前结果说明的是 RSN steering 如何重组模型状态，而不是模型内部存在真实的多巴胺机制。
 
-对于跨模型差异，一个值得继续检验的假设是：
+对于跨模型差异，此前的假设是 Qwen 的正端位移会逐渐压缩或饱和，从而形成行为 plateau。**该假设已在 §3.8 被证伪。** Qwen 的正臂同样是一条近似一维的轴，`‖d‖/|α|` 在 +6/+8/+12 上恒定为 14.85–15.11，没有饱和；而其 accuracy 在同一区间已经平台化。
 
-- Llama 的有效位移在负端持续增大，最终发生 overshoot；
-- Qwen 的正端位移可能逐渐压缩或饱和，因此行为表现形成 plateau。
+因此 manifold 的跨模型结论是**排除性的**：
 
-这一假设需要在 Qwen 自身的 α=0 PCA basis、layer band 和剂量范围内独立检验。不同模型之间不能直接比较 raw α、PCA axes 或 hidden-state 数值。
+- **行为 plateau 不是 entry-state saturation。** 入口位移仍随剂量线性增长，所以平台更可能产生于 decode / commitment 阶段的非线性读出或压缩。
+- **last-prefill 几何不足以解释 Llama 与 Qwen 的行为差异。** 两个模型在注入点都得到平滑、共线、按剂量线性缩放的位移，行为却分别呈现峰值与平台。差异不在于"输入状态走了形状不同的路径"。
+- 由此得到的框架表述是：**entry gain 相似，dose–response function 不同。** RSN steering 可以理解为一个平滑的增益输入；最终行为不是它的线性读出，而由各模型特有的 commitment 时序与 decode 动力学转译。这与 §3.7 的结果方向一致——last-prefill 的清晰结构没有稳定延伸到 commit-aligned decode。
+
+跨模型比较的仍是**几何曲线与行为曲线之间的关系**；raw α、位移绝对大小与 PCA 方向在模型之间不可直接比较（不同 mask、L=6 vs L=9、不同激活尺度）。
 
 ### 4.5 Scope of the conclusion
 
 当前证据支持的核心结论是：
 
-> **Llama 的 RSN steering 在 last-prefill 形成了清晰的分段几何：负剂量主要沿共享轴缩放，−8 相对 −6 表现为沿轴 overshoot；+6 则包含显著的方向重组。该结构为非对称准确率曲线提供了解释性几何，但没有稳定延伸到 commit-aligned decoding。**
+> **Llama 的 RSN steering 在 last-prefill 形成了清晰的分段几何：正负剂量各自沿一条近似一维的轴随剂量扩张，两轴之间保持约 131° 的固定夹角。该结构为非对称准确率曲线提供了解释性几何，但没有稳定延伸到 commit-aligned decoding。**
+>
+> **跨模型来看，Qwen 的正臂同样是单轴线性缩放且不饱和，而其行为已平台化。因此 last-prefill 几何排除了 entry-state saturation 作为行为差异的解释，并把差异定位到下游的 commitment / decode 动力学。**
 
 这一结论的范围需要保持明确：
 
@@ -428,6 +468,7 @@ Decoder 18，k=20，TEST split，event-aligned distributions
 - 增量预测分析没有检测到稳定结果，但预测 correctness 或 commit position 并不是几何解释成立的必要条件。
 - 这些结果来自离线 hidden-state 分析，不构成 steering 方向具有因果特异性的直接证据。
 - Commit-aligned 样本覆盖率随 α 改变，因此 decode 比较同时受到生成轨迹分叉和样本选择的影响。
+- Qwen 的可用 HS 只有七格，No-CoT 负端仅 `−8` 一个剂量，因此「Qwen 负臂是否为单轴」无法判断。可以说的是：Llama 正负两臂与 Qwen 正臂均呈单轴线性结构；Qwen 负臂尚不可判断。
 
 因此，manifold pilot 最合适的定位是：
 
