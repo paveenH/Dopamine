@@ -940,11 +940,11 @@ GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 
 
 ## 5. Qwen2.5 Cross-Model Analysis
 
-本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**所有結論限於一維投影層次；manifold 分析尚未完成**，於 §5.8 列為 open。
+本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**本節結論限於一維投影層次**；manifold 分析已於 2026-08-28 完成並關閉（見 `AdaManifold.md`），跨模型行為差異的定位見 §5.9。
 
 > **一句話結論：Qwen 的入口增益持續隨 α 線性增加，但進入 decode 後，回應沿一個相對固定的 RSN layer profile 被顯著壓縮；現有證據更支持「標量增益壓縮」，不支持「軌跡發生幾何重分配」。**
 
-**閱讀順序即分析順序**：操控驗收（§5.2）→ 主鏈條（§5.3）→ slow state（§5.4）→ fast residual / confidence（§5.5）→ 高劑量壓縮與 null（§5.6）→ 跨模型狀態對齊（§5.7）→ manifold（§5.8）。正文重點放在**主鏈條、高劑量 compression 與 working-state 對齊的可行性判定**三處；其餘為支撐與控制。
+**閱讀順序即分析順序**：操控驗收（§5.2）→ 主鏈條（§5.3）→ slow state（§5.4）→ fast residual / confidence（§5.5）→ 高劑量壓縮與 null（§5.6）→ 跨模型狀態對齊（§5.7）→ 綜合與 open items（§5.8）→ commitment transfer（§5.9）。正文重點放在**主鏈條、高劑量 compression 與 working-state 對齊的可行性判定**三處；其餘為支撐與控制。
 
 ### 5.1 Scope and Cross-Model Comparison Rules
 
@@ -1305,7 +1305,7 @@ CoT `+6`（cov 58.3%、n=175）：
 
 **結論。** 現有證據支持兩模型在**調節形態**上的部分一致，但「相同 working state、不同基線位置與到達方向」仍是待檢驗假說。output decisiveness 已由 `BLOCKED` 轉為 `PARTIALLY AVAILABLE / SPARSELY SAMPLED`——Qwen 呈現與 Llama 同向的 commit-locked transition，使第三項 output-level proxy 首次可用，但受限於取樣密度與 cohort 不對稱，**只支持方向層面的比較**。實作細節見 `CLAUDE.md`。
 
-### 5.8 Manifold Pilot and Integrated Interpretation
+### 5.8 Integrated Interpretation and Open Items
 
 **Qwen 複用了 §4 的完整分析鏈，但「複用鏈條」與「複製結果」必須分開陳述。** 六個環節（§5.2 入口 manipulation check、§5.3 主鏈條、§5.4 slow-state validation、§5.5 fast residual、§5.6 高劑量壓縮與 null、§5.7 對齊可行性）都以相同口徑跑通。
 
@@ -1326,15 +1326,15 @@ CoT `+6`（cov 58.3%、n=175）：
 
 **當前最合適的一維層次結論：高劑量下 decode response 幅度明顯壓縮，逐層 loading 高度異質且含 L20 反號，但兩個劑量區間的 response profile 近乎共線（cos=0.987、k=0.309、97.4% energy），且此近共線性比一般方向更明顯——因此結果與「沿固定 RSN profile 的標量增益壓縮」相容，不支持層間同步的均勻 ceiling，亦未顯示幾何重分配。**
 
-**Open 1（主 open）：manifold 分析。** 一維投影無法區分「軌跡等距移動但轉離 mask 方向」與「軌跡本身壓縮」；§5.6.3 的結果使**標量增益成為 manifold 分析要擊敗的假設**，而非待排除的形式選項。待補指標：PCA 譜 / participation ratio、natural-manifold 重建誤差、trajectory speed 與 curvature、tangent alignment、是否出現軌跡轉向或 off-manifold deviation。**執行前提**：資料已具備（7 個 H5 cell，已通過 `check_hs_qwen25.py` 驗收並凍結於 `ACCEPTANCE_20260824.txt`），故此為分析而非採集工作。
+**Open 1（已關閉 2026-08-28）：manifold 分析。** 完整結果與解釋見 `AdaManifold.md`（不在此重複）。結論：對稱注入經逐層傳播形成 piecewise-scalar entry geometry，但該幾何**不能**解釋 Llama peak 與 Qwen plateau，因此差異定位到下游 commitment / decode dynamics —— 這個問題的答案見 **§5.9**。
 
 **Open 2（已完成，2026-08-26）：logit family 解封。** 結果見 §5.5 Result 2–3。剩餘缺口是**取樣密度**（7 vs 11 cell）與**缺乏配對的 α=0 cohort**——兩者都無法靠再次抽取解決。
 
-**Open 3：−8 與 CoT 條件**尚未納入 §5.6 的逐層分析（HS 已採集 No-CoT −8 與 CoT {0,+6}，可直接接上）。
+**Open 3（範圍已收窄）：−8 與 CoT 尚未納入 §5.6 的逐層口徑。** `AdaManifold.md` §3.9 的 cross-layer sensitivity 已在**位移幅度與方向余弦**的尺度上覆蓋全部 15 個 layer slot（含 Qwen `−8` 與 CoT 格），但那不是 §5.6 的 **scalar-compression residual / null specificity** 口徑——後者仍只跑過正臂高劑量。
 
 **Open 4：因果方向控制。** §5.6.3 只界定 readout specificity；steering direction 的因果特異性需另行注入 random/orthogonal 方向並重新採集。
 
-離線腳本（`RoleAnswer/qwen_signal/`，`python3.10`）：`suite34.py`（§5.2–5.5 主線）、`commit_aligned.py`（§5.3、§5.6.1）、`hs_layerwise.py`（§5.6.2）、`hs_null_specificity.py`（§5.6.3）、`plot_section5.py`（全部圖）、`plot_qwen_mainfig.py`（§5.3.1 commit-centered 主圖）；凍結記錄 `entry_gain_RESULT.txt`、`suite34_nocot_RESULT.txt`、`suite34_cot_RESULT.txt`、`commit_aligned_v3_RESULT.txt`、`hs_layerwise_RESULT.txt`、`hs_null_specificity_RESULT.txt`。伺服器端 `check_hs_qwen25.py`（H5 驗收）、`run_null_remask_qwen25.sh`（null 重投影）。
+離線腳本、凍結記錄與伺服器端工具的清單見 `CLAUDE.md`（實作層面的單一事實來源，本文件不重複）。
 
 | 圖 | 內容 |
 |---|---|
@@ -1554,8 +1554,8 @@ Llama 的 `metrics_*` 與 signal 同批、逐題可配（斷言 question 一致�
 30. **Commit 附近的 confidence change 可能包含格式效应。**  
     `####` 本身会改变 token distribution，因此 entropy spike、top1 dip 和 margin change 不能全部解释为实质 confidence 改变。
 
-31. **目前没有 manifold reorganization 的证据。**  
-    一维结果更符合固定 RSN profile 的标量压缩。轨迹转向、off-manifold deviation、intrinsic dimension 和 tangent alignment 仍需 manifold pilot 检验。
+31. **目前没有 manifold reorganization 的证据（manifold pilot 已完成，2026-08-28）。**  
+    一维结果更符合固定 RSN profile 的标量压缩，manifold 分析未推翻这一点：两模型的 entry displacement 都是线性单轴的（`AdaManifold.md`）。注意 `k=20` 是**分析上限，不是 intrinsic dimension**——PCA 只能显示线性低秩，且 top-20 仅覆盖约一半 α=0 方差，所以「内在维度」在本项目中从未被测量，不应作为待检项保留。
 
 32. **目前没有证明 causal direction specificity。**  
     现有 random/orthogonal remask 是对同一批 hidden states 的重新投影，只证明 readout specificity。要证明只有 RSN steering 能产生行为变化，仍需真正注入 random/orthogonal directions。
