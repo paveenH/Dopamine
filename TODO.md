@@ -100,144 +100,62 @@
 其中论文结构和主图不必等实验全部结束，可以与 Thinking Curve 同步推进。
 
 ---
-### 1. 先比较共同的 boundary state
+1. **收尾并关闭 Manifold**
+   - 完成 `k=5/10/20` inside-ratio sensitivity。
+   - 完成 Llama–Qwen 几何总结图。
+   - 冻结结论：entry geometry 平滑且近似 piecewise scalar，但不能单独解释 Llama peak 与 Qwen plateau。
+   - 不再扩展 prediction、UMAP/TLE 或复杂 decode manifold。
 
-不要先用 pre-commit `s_t`，因为 Qwen 低剂量几乎立即提交，cohort 不可比。优先使用所有样本都有的指标：
+2. **完成跨模型 Thinking Curve 与 boundary-state comparison**
+   - 不比较 raw `α`，全部转换为模型内部标准化指标。
+   - 比较：
+     - Llama：`0 → −6 → −8`
+     - Qwen：`0 → +6 → +8/+12`
+   - 统一分析 `Z_prefill`、`decode[0]` 回弹、early candidate、commit position、`s_t/Z_t`、confidence、entropy、margin、长度、loop 和 post-commit release。
+   - 判断两模型是到达相似 working state，还是仅表现出相似功能但内部状态不同。
 
-- `Z_prefill`
-- `entropy/log(V)`
-- top1 probability
-- probability margin
-- `decode[0]` 的回弹幅度
-- early-candidate / 首个答案位置
+3. **做 blind held-out working-state matching**
+   - 用训练题定义 Llama `−6` 的目标状态。
+   - 不查看 Qwen accuracy，仅根据内部与输出指标选择最接近的 Qwen 剂量。
+   - 在 held-out questions 检验 accuracy、commitment 和 stopping。
+   - 若无法对齐，就接受“共同 commitment-calibration 功能、不同模型实现”的结论。
+   - CCA/Procrustes 只在这一步出现明确对齐信号后再考虑。
 
-把每项转成各模型 α=0 基线下的标准分或百分位，再比较：
+4. **增加一个外部 reasoning benchmark**
+   - 首选 GSM-Hard。
+   - 固定少量预先确定的剂量，不重新搜索最优 α。
+   - Llama 检验负向 working region 是否迁移；Qwen 棧验 `+6～+8` commitment 转折是否迁移。
+   - 重点报告 accuracy、early candidate、commit timing、长度、loop 和格式稳定性。
+   - 目标是证明 reasoning-task transfer 和实际应用潜力；只有结果明确时才考虑 SVAMP/ASDiv。
 
-- Llama：`α=0 → −6`
-- Qwen：`α=0 → +8`
+5. **补 causal direction control**
+   - 构造 norm、sparsity 和注入层匹配的 random directions。
+   - 构造 orthogonal-to-RSN directions。
+   - 实际注入代表性条件，比较 accuracy、commitment 与 Thinking Curve。
+   - 回答效果是否具有 RSN 方向特异性，而不只是任意 hidden-state 扰动。
 
-关键问题是：两者的最佳剂量是否把这些指标推向相似的“高果断但不过度提交”的区域。若只是准确率提高、内部指标并不汇合，就不支持共同 working state。
+6. **整理 Behaviour evidence**
+   - Betting：稳定正向证据。
+   - CGT/IGT：重新按 `evidence → recognition → utilization → commitment → outcome` 梳理。
+   - Bandit：作为 recognition–action dissociation 和能力边界证据。
+   - 不重跑 Qwen 高剂量 CGT/IGT，也不继续增加大量行为任务。
+   - 如需跨模型确认，只选择一个已有稳定效应的行为任务。
 
-### 2. 做严格的 held-out state matching
+7. **同步推进论文与主图**
+   - 主线固定为：  
+     `RSN discovery → GSM8K calibration → reasoning transfer → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
+   - 同步完成 Thinking Curve 主图、GSM-Hard 迁移图、causal control 图、Behaviour 汇总表及 limitations。
+   - 不必等所有实验结束才开始写作。
 
-更有说服力的检验是：
+8. **暂缓扩张**
+   - 暂不加入第三个模型。
+   - 暂不大规模增加 reasoning benchmarks。
+   - 暂不重开复杂 manifold。
+   - 第三个模型仅作为论文初稿完成后的审稿风险储备。
 
-1. 用训练题确定 Llama `α=−6` 的目标状态；
-2. 只根据内部指标，选择距离该状态最近的 Qwen 剂量，不能查看 Qwen accuracy；
-3. 在 held-out questions 上检验该剂量是否同时改善 accuracy、commit timing 和 loop；
-4. 用 bootstrap 检验“最佳状态距离”是否显著小于 α=0 和极端剂量。
+总体顺序：
 
-如果内部状态盲选出的剂量正好接近 Qwen `+8`，才能真正支持：
-
-> 两模型从不同方向到达相似的功能工作区。
-
-不过这一步最好以 output-distribution 指标为主；模型内标准化的 RSN 投影只能作为辅助，因为两条 RSN 轴并不天然是同一坐标。
-
-### 3. 再做 hidden-state / manifold 对齐
-
-如果要进一步解释“为什么方向相反”，可以使用已存 HS：
-
-- 用两模型 α=0、相同题目的 hidden states 学习 PCA；
-- 按相对层深逐层匹配，不直接拼接不同 layer band；
-- 用 CCA 或 orthogonal Procrustes，在训练题上建立跨模型空间映射；
-- 映射冻结后，在 held-out 题上比较各剂量到“successful commitment region”的距离；
-- 同时比较 on-manifold reconstruction error、trajectory speed、切向方向和 commit centroid distance。
-
-判别结果：
-
-- `Llama −6` 与 `Qwen +8` 映射后靠近：支持不同基线、共同工作区；
-- 最佳状态不靠近，但各自都改善行为：更可能是不同模型通过不同内部机制达到相似行为；
-- 极端剂量偏离自然流形：说明性能下降或平台可能与轨迹失配有关。
-
-我建议下一步先做第 1 步的 **boundary-state alignment**。它利用刚提取好的 output decisiveness，没有 pre-commit cohort 问题，成本最低；结果成立后再投入完整 manifold。
-
----
-
-我建议下一步不要追求把两条曲线“整理成一致”，而是把“不一致”本身升级为研究问题：
-
-> RSN 是否提供共同的 adaptive-calibration 功能，但不同模型通过不同工作区实现它？
-
-简单分三步：
-
-1. **先排除剂量口径问题**
-   不再比较 raw `α`。改用各模型内部标准化的有效干预量，例如 `ΔG_prefill`，再比较 commit position、early candidate、top1/margin、loop 等共同读数。先判断“方向相反”是不是仅由 mask、层数和 activation scale 不同造成。
-
-2. **做 blind working-state matching**
-   用 Llama `−6` 的内部与输出状态定义目标区，不看 Qwen accuracy，选择最接近的 Qwen 剂量；然后在 held-out questions 检验它是否也带来较好的 accuracy、commitment 和 stopping。
-   
-   - 若接近 Qwen `+8`：支持“不同方向到达相似功能工作区”。
-   - 若状态仍不接近：接受“两模型使用不同内部机制产生改善”。
-
-3. **再做小规模 manifold pilot**
-   直接用已有 H5，检查高剂量是沿自然流形移动、发生转向，还是单纯 scalar compression。只有几何指标能在一维 RSN 指标之外提供增量解释，才继续扩大。
-
-我的优先顺序是：
-
-> **标准化剂量与 boundary-state comparison → held-out matching → manifold pilot。**
-
-暂时不建议加第三个模型，也不急着扩新 benchmark。先把“跨模型共同机制”究竟应表述为共同工作点，还是共同功能、不同实现，回答清楚。即使最后无法对齐，也不是复现失败，而是一个更有价值且更诚实的结论：**RSN 的 commitment-calibration 功能可迁移，但工作区具有模型依赖性。**
----
-1. **Thinking Curve：最高优先级**
-   直接回答核心问题：为什么 Qwen 需要正向、Llama 却可能需要负向调节。比较的应是早期候选、commitment、推理压缩、循环等行为状态，而不是 raw α。
-
-2. **把 manifold 作为 Thinking Curve 的机制补充**
-   看 RSN steering 是沿着自然推理流形移动，还是把状态推离流形；以及它能否额外预测 commitment/正确率。先做小型 pilot，不单独扩成大工程。
-
-3. **增加一个 reasoning benchmark**
-   建议优先 GSM-Hard，用预先固定的 `0/+4/+6/+8`，检验已发现的 `+6` 转折能否迁移到更难算术。不要宣称“一个工作点永久通用”；当前更合理的是：**commitment 转折可能迁移，但最佳准确率点仍受任务难度影响。**
-
-4. **重分析 CGT/IGT**
-   这项成本低，可以用  
-   `evidence → recognition → utilization → commitment → outcome`  
-   重新定位 Qwen 到底卡在哪里。但它主要补充行为边界，不要试图强行“救活”任务结果。
-
-5. **第三个模型暂缓**
-   它会显著增加校准、解释和篇幅成本。除非论文初稿完成后发现审稿主张必须依赖第三模型，否则两模型的方向差异本身已经很有信息。
-
-另外，我认为有一项比第三模型更重要：在 Qwen 的代表性 `+6` 条件加入**等范数随机／正交方向控制**。它能说明 reasoning 改善来自 RSN 方向本身，而不只是任意 hidden-state 扰动。
-
-一句话路线：
-
-> **先解释 Llama–Qwen 的方向差异 → 用一个困难 reasoning benchmark 检验迁移 → 用 CGT/IGT 补行为边界 → 然后开始写论文；第三模型留作审稿风险储备。**
-
----
-6. Reanalysize IGT&CGT based on the personality of qwen25 [@Dopamine0819]
-7. 需要证明 working point吗？
-   选择题并非完全不能用，但必须要求模型先自由推理、最后再给选项；这样又会引入 CoT prompt 的脚手架效应。所以接下来应优先选择自然开放生成、答案可自动核验的任务：
-   - SVAMP / ASDiv：验证数学题内部迁移；
-   - GSM-Hard：验证更困难算术是否需要不同工作点；
-   - ProofWriter：观察非数学的规则推理和证明过程；
-   - 带上下文的多跳问答：观察模型是否先整合证据再提交答案。
-   - 之前qwen做不了会不会是因为不够大力？看起来至少要+6？同理llama3?
-
-5. Behaviour: 测一下和人类的行为学对齐关系
-6. Model:
-   HumanLLM
-   Meta 新模型 GGUF 量化版（含 17GB 版、视觉 projector、DFlash drafter，llama.cpp 直接用）
-   https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
-   Inkling-Small
-   MiniCPM5-2B
-
-7. 有什么是等待可以收益的task?
-8. Manifold
-
----
-### 8. 最终产出
-
-- [ ] 一张 Llama–Qwen effective-state 对齐图，横轴不使用 raw α。
-- [ ] 一张 task-entry → commitment trajectory 图。
-- [ ] 一张 working-state 与失败区域图。
-- [ ] 一张 RSN vs random/orthogonal causal control 图。
-- [ ] 完整保留所有 dose、null、失败结果和非显著指标。
-- [ ] 将结果写入 `AdaptiveThinking.md` 的 Qwen replication 新节。
-- [ ] 运行配置、路径、metadata 和分析器口径写入 `CLAUDE.md`。
-- [ ] Manifold 只有在提供额外解释力时，才进入正文机制主张。
-- **尚未完成**：
-  - Expert / Non-Expert Persona 分析；
-  - 完整 11 档 confidence 曲线；
-  - 真正的 **Llama–Qwen working-state alignment** 与 held-out 验证；
-  - random/orthogonal direction 的**实际因果注入**；目前只有离线重投影；
-  - 对应的跨模型 effective-state 图和 causal-control 图。
+> **Manifold 收尾 → Thinking Curve/状态对齐 → held-out matching → GSM-Hard → causal control → Behaviour 整理 → 论文定稿**
 ---
 
 ## TO DO — ACL ARR
