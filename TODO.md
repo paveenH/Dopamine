@@ -19,8 +19,166 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
+15. commitment regime 在 GSM8K 上预测未见题目的正确性；
 15. commitment regime -> MATH
 14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
+
+
+---
+下一步最合理的做法是：把 GSM8K 训练出的正确性预测器作为冻结的 **commitment score**，直接应用到无标签 MATH 输出上，并据此预测 steering 方向和工作点。这样 P2A 与 P2B 是同一条分析链，而不是两套独立实验。
+
+下面这段可以直接交给 Claude：
+
+---
+
+## P2 Instruction: Commitment-Based Prediction and Cross-Task Workpoint Selection
+
+### 目标
+
+检验 P1 中冻结的 commitment features 能否：
+
+1. 在 GSM8K 上预测未见题目的正确性；
+2. 在不使用 MATH accuracy 的情况下，预测 MATH 应采用的 steering 方向和工作点。
+
+本轮只使用已有输出，不运行新的模型推理。P1 已关闭，不修改其数据、指标定义或结论。
+
+### Phase 0：冻结分析协议
+
+先在文档中写明并冻结以下内容，再运行分析：
+
+- 数据划分；
+- primary features；
+- baseline models；
+- 缺失值处理；
+- 评价指标；
+- MATH 工作点选择规则；
+- 成功与失败条件。
+
+记录协议版本与 git hash。所有后续偏离必须明确标为 exploratory。
+
+### Phase 1：数据与 feature audit
+
+复用现有 frozen extractor，禁止重新实现答案解析或 `has_early_candidate`。
+
+逐 cell 验证：
+
+- 300 道题及顺序一致；
+- offline correctness 总数复现已发表的 `first_acc`；
+- 每个 categorical feature 互斥且完备；
+- `committed + marker_unparsed + no_marker = 300`；
+- `loop` 必须是 `marker_unparsed` 的子集；
+- 所有比例明确记录分母；
+- feature 提取不得读取 ground-truth answer 或 correctness。
+
+`posN` 只在 parseable committed 样本中定义。不得进行 complete-case deletion；应同时加入：
+
+- `posN`；
+- `posN_observed`；
+- commit-state one-hot。
+
+若 MATH 的 prompt、final-answer marker 或 early-candidate 定义与 GSM8K 不兼容，不得静默修改规则。先报告差异，并只根据输出格式、不能根据 accuracy 决定适配方案。
+
+### Phase 2：P2A — GSM8K Out-of-Sample Prediction
+
+按 question 进行 grouped cross-validation：
+
+- 同一道题的全部剂量必须位于同一 fold；
+- Llama 与 Qwen 对应题目使用相同 fold；
+- 优先复用 Manifold 的 question split manifest，但须确认它与 accuracy 无关；
+- 标准化参数只能由 training fold 估计；
+- 不允许使用 question fixed effects。
+
+分别为 Llama 和 Qwen 建模，primary models 为：
+
+1. `entry-only`：模型内标准化 entry gain `z`；
+2. `commitment-only`：
+   - early candidate；
+   - commit-state one-hot；
+   - loop；
+   - `posN` 与 `posN_observed`；
+3. `combined`：`z + commitment features`。
+
+生成长度、`n_markers` 和 confidence 只作为 supplementary analysis；confidence 不进入跨模型 primary model。
+
+使用简单、可解释的 logistic regression。若需要调参，必须使用 nested grouped CV。
+
+Primary metrics：
+
+- AUROC；
+- Brier score；
+- log loss；
+- calibration slope/intercept。
+
+所有置信区间和模型差异按 question cluster bootstrap。重点报告 `combined` 相对 `entry-only` 是否改善，而不是只报告单个模型的绝对表现。
+
+### Phase 3：冻结 Commitment Predictor
+
+P2A 完成后，分别冻结 Llama 和 Qwen 的：
+
+- feature schema；
+- preprocessing；
+- 模型参数；
+- missing-value 规则；
+- 输出分数定义；
+- tie-breaking rule。
+
+不得让两个模型共用 raw α 或绝对阈值。
+
+冻结的分数定义为每个样本的 predicted probability of correctness。某个剂量的 commitment score 为该 cell 所有题目的平均预测正确率。
+
+### Phase 4：P2B — MATH Retrospective Locked Transfer
+
+在读取 MATH correctness 之前：
+
+1. 使用冻结 extractor 提取 MATH features；
+2. 应用对应模型的冻结 predictor；
+3. 计算每个 α 的平均 predicted correctness；
+4. 保存并冻结以下预测：
+   - 应从 `α=0` 往正向还是负向 steering；
+   - predicted best α；
+   - predicted near-optimal region；
+   - overshoot 或 plateau 的起点。
+
+预测文件保存后，才允许使用 frozen MATH correctness extractor 进行评价。
+
+评价指标：
+
+- steering 方向是否正确；
+- predicted score 与真实 accuracy curve 的 Spearman correlation；
+- 选中 α 的 performance regret：
+  \[
+  \max_\alpha Acc(\alpha)-Acc(\hat{\alpha})
+  \]
+- 选中剂量是否属于与最佳剂量统计上不可区分的近最优集合。
+
+由于研究者已经知道 MATH accuracy，本阶段必须始终写作：
+
+> **retrospective locked transfer test**
+
+不得描述为 blind、preregistered 或完全 held-out validation。
+
+### 结果判定
+
+- 如果 P2A 成立、P2B 不成立：commitment features 可监测错误，但不能跨任务选择工作点。
+- 如果 P2B 能预测正确方向但不能精确选点：支持 label-free steering direction selection。
+- 如果 P2B 同时选中近最优区间且 regret 较低：支持 retrospective cross-task workpoint selection。
+- 只有未来 untouched dataset 的 blind validation 成立，才能主张可迁移的推理控制原则。
+
+### 验收与输出
+
+必须产出：
+
+- 冻结的 P2 protocol；
+- question split manifest；
+- feature exhaustiveness audit；
+- P2A held-out metrics table；
+- calibration figure；
+- 冻结 predictor 与参数；
+- MATH accuracy 解封前保存的预测文件；
+- predicted score 与实际 accuracy 的对照图；
+- 所有 negative results 和失败条件。
+
+代码与验收细节写入 `CLAUDE.md`；`AdaptiveThinking.md` 只写方法口径、主要结果、证据等级和结论边界。不要根据结果修改 P1。
 
 ---
 ### P2. Commitment Regime Transfer and Workpoint Selection
