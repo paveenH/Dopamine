@@ -18,17 +18,9 @@
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
-14. 对比
+14. cross-model thinking curve
+14. 用commit时候的状态来判断对错？
 ---
-## 重新编列后的 TODO
-
-### P0. 收尾 Manifold
-
-- [ ] 完成 inside-ratio sensitivity：比较 `k=5/10/20`、不同层及相对随机基线 enrichment。
-- [ ] 完成 Llama–Qwen 几何总结图。
-- [ ] 冻结结论：两个模型的 entry geometry 都平滑、近似 piecewise scalar，但不能解释 peak 与 plateau。
-- [ ] 关闭 manifold 扩展：不再做 prediction、UMAP/TLE 或复杂 decode manifold。
-
 ### P1. 完成跨模型 Thinking Curve（最高优先级）
 
 比较功能状态，而非 raw α：
@@ -189,6 +181,144 @@
 - [ ] 汇总模型、seed、prompt、steering 与统计规格。
 - [ ] 完成 Limitations、Responsible NLP 与可复现性清单。
 - [ ] 撰写 ACL ARR 长文初稿。
+
+
+---
+
+> **RSN/Thinking Curve 能否成为可预测、可迁移、可用于选择推理状态的指标。**
+
+这会让工作从“有趣的机制现象”提升成“有实际用途的 reasoning calibration framework”。
+
+## 一、预测模型对错：值得做，但要重新定义目标
+
+现有结果其实还不能说 Thinking Curve 可以预测单题对错：
+
+- correct 组通常有更高、更持续的 pre-commit `s_t`；
+- 但 `G_prefill`、`p_t`、entropy/top1/margin 都没有稳定区分 correct/incorrect；
+- Manifold feature 也没有提供稳定的增量预测价值。
+
+这说明单独拿一个 `s_t` 或 PCA 指标做分类可能不够。[AdaptiveThinking.md](/Users/paveenhuang/Downloads/Dopamine/AdaptiveThinking.md:276) [AdaManifold.md](/Users/paveenhuang/Downloads/Dopamine/AdaManifold.md:231)
+
+但我仍然认为值得继续，因为之前检验的是“单个信号是否直接预测 correctness”，还没有真正检验：
+
+> **完整的 reasoning-state panel 是否能在答案提交前，增量预测这道题最终会不会做对。**
+
+建议定义两个预测时间点：
+
+1. **Early prediction**：生成前 20/50 tokens 后预测最终正确性。
+2. **Pre-commit prediction**：模型即将首次提交答案前预测正确性。
+
+特征可以包括：
+
+- `s_t` level、变化量和稳定度；
+- `p_t` amplitude；
+- entropy、top1、margin；
+- early-candidate 是否出现；
+- 当前 reasoning length；
+- commitment proximity；
+- answer switching / instability proxy。
+
+关键基线必须包括：
+
+- 只用题目难度；
+- 只用 entropy/top1/margin；
+- 只用生成长度；
+- 上述基线 + RSN/Thinking Curve features。
+
+真正有价值的结果不是单纯 AUROC 高，而是：
+
+> **加入 RSN dynamics 后，在 held-out questions 上比普通 confidence、difficulty 和 length 基线预测得更好。**
+
+更强的验证是：
+
+> 在 GSM8K 训练预测器，冻结后直接测试 MATH。
+
+如果能跨任务保持预测力，Thinking Curve 才真正具有“reasoning monitor”的价值。
+
+## 二、统一工作点：应该改成“统一功能工作区间”
+
+我不建议假设 GSM8K 和 MATH 存在完全相同的 raw α 最优点，因为现有数据已经显示：
+
+- Llama GSM8K：`−6` 是尖锐峰值；
+- Llama MATH：目前只充分支持 `−4 > 0 > +4`，还没有完整覆盖 `−6`；
+- Qwen GSM8K：`+8～+12` 平台；
+- Qwen MATH：`+6` 左右最好，`+8` 在困难题上回落。
+
+所以“统一 α”大概率不成立。但可能存在：
+
+> **跨任务共享的 functional working-state region。**
+
+例如这个区间可能表现为：
+
+- 不在开头立刻给候选答案；
+- 保留足够的 pre-commit computation；
+- output distribution 已经足够明确；
+- 但没有进入过度延迟、重复、改答案或计算压缩；
+- commit 后能够正常 release 和停止。
+
+也就是说，统一的不是剂量，而是：
+
+> **commitment readiness 与 remaining computation 之间的平衡状态。**
+
+## 三、最有价值的实验：用 GSM8K 的状态目标预测 MATH 的最佳剂量
+
+我建议下一步直接做一个“跨任务工作点迁移”实验。
+
+### 阶段 A：先用现有输出做零成本 pilot
+
+在 GSM8K 上定义一个不使用 accuracy 的 functional-state score，例如组合：
+
+- normalized commitment position；
+- pre-commit reasoning span；
+- early-candidate rate；
+- answer switching；
+- loop/stopping；
+- output decisiveness。
+
+然后冻结这个定义，直接应用到现有 MATH 各 α cell：
+
+- 检查 GSM8K 的优良状态区间，在 MATH 上是否也对应较高 accuracy；
+- 检查过早 commit 和过度 processing 是否在两个任务上都对应失败区。
+
+这一步主要用现有文本结果，可以先判断假说有没有希望。
+
+### 阶段 B：再补 MATH hidden states
+
+如果文本层 pilot 支持，就只收集关键剂量的 MATH hidden states，不做完整大 sweep：
+
+- Llama：`−8 / −6 / −4 / 0 / +4`
+- Qwen：`0 / +4 / +6 / +8 / +12`
+
+然后完成真正的迁移检验：
+
+1. 在 GSM8K 上冻结 state representation 和目标区间；
+2. 不看 MATH accuracy，只根据 MATH calibration subset 的内部状态选择最接近目标区间的 α；
+3. 在独立 MATH test subset 上揭示 accuracy；
+4. 比较 state-selected α、固定 α=0，以及直接照搬 GSM8K 最佳 raw α。
+
+如果 state-selected α 能迁移，而 raw α 不能，这会是非常强的结果：
+
+> **RSN 的价值不是提供一个通用剂量，而是提供一个可以跨任务识别和校准的 reasoning working state。**
+
+## 最终可以形成的新故事
+
+现在的故事是：
+
+> RSN steering 改变 commitment dynamics，并产生模型与任务依赖的 performance curve。
+
+下一阶段可以升级成：
+
+> **Thinking Curve 提供一个在线 reasoning-state readout；该状态能够预测推理成功与失败，并允许我们不依赖目标任务标签、通过功能状态匹配将 GSM8K 上发现的工作区间迁移到 MATH。**
+
+我会把优先级排成：
+
+1. 现有 GSM8K/MATH 输出上的跨任务 functional-state pilot；
+2. GSM8K 内部的 held-out correctness prediction；
+3. GSM8K→MATH frozen predictor transfer；
+4. 只有前三项出现稳定信号，才补 MATH hidden-state cells。
+
+这条路线比继续证明干预有效更有“价值”，而且能够明确回答两个更大的问题：**能否提前知道模型会不会做错，以及能否把一个任务上的最佳推理状态迁移到另一个任务。**
+
 
 # Brain
 
