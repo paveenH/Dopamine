@@ -1346,6 +1346,97 @@ CoT `+6`（cov 58.3%、n=175）：
 
 **圖檔位於 `qwen2.5/dopamine/plots_gain/`，與 Llama 的 `llama3/dopamine/plots_gain/` 分開存放**——兩模型數值不可比，共用目錄是跨模型混用的起點。每個 panel 都由產生凍結文字記錄的同一段程式重新推導，不從表格硬編數字。
 
+### 5.9 Commitment Transfer Function: 相似入口增益如何形成 peak 與 plateau
+
+§5.8 的 manifold 分析排除了 entry geometry 作為行為差異的解釋。本節在**兩模型全劑量、同批、逐題可配**的層級上定位下游環節。分析腳本 `RoleAnswer/thinking_curve/`（`extract_metrics.py` / `curves.py`，offline，`python3.10`），冻结的 extractor（`all_hash` / `norm_gsm8k` / `fallback_gsm8k` / `has_early_candidate`）**一律 import 而非重寫**。
+
+**配對基礎（已驗證，非假定）：** 兩模型全部 20 個 cell 持有**同樣 300 題、同樣順序**，signal JSON 無 `question_idx`，故配對按 order，載入時逐 cell 斷言；順序不符即 fail-closed。
+
+#### 5.9.0 commit-state 是三值，不是布林（口径修正）
+
+首版把「無可解析 `#### <數字>`」記作 `no_commit`，在 Llama **每個 α 都讀到 ~41%**——這個平坦值合併了兩種相反行為：
+
+| state | 含義 | Llama α=0 |
+|---|---|---|
+| `committed` | 存在可解析 `#### <數字>` | 177 |
+| `loop_commit` | `####` 重複 ≥4 次但無可解析數字，退化尾部寫成 `#### . 36#### . 36…` | **52** |
+| `no_marker` | 全文無 `####` | 57 |
+
+**`loop_commit` 是反覆 commit，不是從未 commit；把它算作 no_commit 意思正好相反。** 另需注意 production 對這些樣本套用 fallback chain，Llama α=0 的 123 個不可解析樣本中仍有 **63 判對**——因此 **commit-state 是生成過程的行為讀數，永遠不是 accuracy proxy**，表面格式失效也不等於答錯。
+
+#### 5.9.1 模型內劑量曲線（逐題配對，n=300/cell）
+
+每格對各自 α=0 逐題配對，附 bootstrap 95% CI。**raw α 不跨模型比較。**
+
+| Llama α | acc | early-cand% | posN | `loop%` | `nomk%` |
+|---|---:|---:|---:|---:|---:|
+| −8 | 40.67 | **77.0** | **0.043** | 18.0 | 22.7 |
+| **−6** | **79.67** | **19.3** | **0.298** | 32.0 | 9.3 |
+| −4 | 74.33 | 30.3 | 0.247 | 27.3 | 15.3 |
+| 0 | 60.00 | 47.7 | 0.219 | 17.3 | 23.7 |
+| +8 | 49.67 | 69.3 | 0.193 | 18.7 | 27.0 |
+
+| Qwen α | acc | early-cand% | posN | `loop%` | `nomk%` |
+|---|---:|---:|---:|---:|---:|
+| −8 | 62.00 | 95.0 | 0.487 | 4.3 | 13.0 |
+| 0 | 67.67 | 96.3 | 0.553 | 5.0 | 15.3 |
+| +6 | 77.67 | 47.7 | 0.587 | 1.3 | 7.7 |
+| **+8** | **86.00** | **5.0** | 0.657 | 0.7 | 1.3 |
+| +12 | 87.67 | 4.0 | 0.697 | 1.3 | 1.0 |
+
+**Llama 的 early-candidate 在兩側都上升**（−8 77.0%、+8 69.3%，α=0 僅 47.7%），**−6 是全曲線最低點（19.3%）**；Qwen 的負臂紋絲不動（95–97%），只在高正劑量崩塌 96%→5%。
+
+#### 5.9.2 在標準化入口座標上比較轉換曲線
+
+橫軸換成**模型內標準化**的 `z = (x̄_prefill(α) − x̄_prefill(0)) / SD_{α=0}`。**這是各自標準化的 entry coordinate，不表示兩模型接受了等量干預**——mask、L=9 vs L=6、activation scale 皆不同。
+
+在相近的 `|z|` 上兩模型行為截然不同：Llama `z=−26.7`（α=−6）抢答率 19.3%、accuracy 79.67；Qwen `z=−37.0`（α=−6）抢答率 95.3%、accuracy 65.33。**共享的是功能鏈 `entry gain → commitment transformation → accuracy` 的前半段，下游轉換函數不同。**
+
+#### 5.9.3 commitment 是否在 entry gain 之外解釋行為
+
+| 解釋 accuracy 劑量曲線的 R² | Llama (9 cells) | Qwen (11 cells) |
+|---|---:|---:|
+| entry gain `z` 單獨 | **0.136** | 0.898 |
+| early-candidate 單獨 | **0.945** | 0.923 |
+| `z` + early | 0.964 | 0.981 |
+
+**Llama 這一格是關鍵：entry gain 幾乎無法解釋其曲線，commitment 可以。** 但 **n=9/11，這是曲線層級的描述性證據，不構成 mediation 或因果分解。**
+
+**逐題層級的獨立驗證（這才是穩健性的來源）：** 20 個 cell **無一例外**，抢答樣本正確率低 6–36pp。進一步以**題目固定效應 + 劑量固定效應**的線性機率模型（雙向去均值，SE 按題目 cluster）控制難度後，關聯幾乎不衰減：
+
+| | β(early → P(error)) | cluster-robust SE | t | n |
+|---|---:|---:|---:|---|
+| Llama | **+0.297** | 0.028 | +10.8 | 2700 obs / 300 題 / 9 劑量 |
+| Qwen | **+0.200** | 0.036 | +5.5 | 3300 obs / 300 題 / 11 劑量 |
+
+原始差距 Llama +30.3pp、Qwen +19.6pp，控制後為 +29.7pp / +20.0pp——**難度混淆不能解釋這個關聯**。
+
+#### 5.9.4 stopping / loop：−8 是過早鎖定後的退化，不是長度變化
+
+| Llama α | chars | `n_markers` mean/p90 | post-commit 佔比 |
+|---|---:|---:|---:|
+| −8 | 2300 | 6.9 / **2** | **0.957** |
+| −6 | 2092 | 21.2 / 119 | 0.702 |
+| 0 | 2186 | 23.6 / 127 | 0.781 |
+
+生成長度幾乎不變（2092→2300），但 **−8 有 95.7% 的生成發生在 commit 之後**——模型幾乎在開頭就鎖定答案，其餘全是鎖定後的文字。Qwen 相反：高劑量 `n_markers` 降到 1.6–2.1、post-commit 佔比降到 0.303、`loop%` 降到 1.3%，**機制變量在 +8 已飽和**（early-cand 5.0%、commit 98.0%），所以 +10/+12 無處可動。
+
+#### 5.9.5 confidence 補充讀數：過早 commit **不是**高置信錯誤（negative result）
+
+Llama 的 `metrics_*` 與 signal 同批、逐題可配（斷言 question 一致）。以前 20 個 decode step 的 `top1` 為讀數：抢答樣本的置信度**並不更高**（各 α 差值 −0.058…+0.019）；在抢答樣本內部，**答錯者的置信度也不高於答對者**（差值 −0.085…−0.001，方向與「過度自信」相反）。
+
+**所以「過早 commit」不應被描述為 over-confidence。** 它是承諾**時序**失調，而非信心校準失效。Qwen 側無法對稱檢驗：其 `metrics_hs` 只有 7 格且屬另一批次，依 §5.5 規定必須讀作 `PARTIALLY AVAILABLE / SPARSELY SAMPLED`。
+
+#### 5.9.6 判定
+
+> **支持模型特異的 commitment transfer function：連續的入口增益並不直接決定推理表現；Llama 的極端負劑量觸發過早且不穩定的 commitment，形成峰後崩潰，而 Qwen 的高正劑量使 commitment dynamics 飽和，形成性能平台。**
+
+這比「存在最佳 α」更有價值，因為它給出一個可繼續用於跨任務遷移與正確性預測的功能變量：**模型是否在合適的推理階段形成 commitment。**
+
+**措辭邊界（三條，全部必須隨數字出現）：** (a) `z` 是**模型內標準化座標**，寫「在各自標準化 entry coordinate 上比較轉換曲線」，不可寫成兩模型接受了等量干預；(b) R² 是曲線描述，n=9/11，**不是 mediation**；(c) 逐題關聯已控制題目與劑量固定效應，但仍是**觀察性關聯**，非因果。
+
+**主圖：** `RoleAnswer/thinking_curve/fig_p1_commitment.png`（A 標準化入口座標上的行為；B early-candidate；C posN；D commitment–behaviour 對應，r=−0.97 / −0.96）。post-commit release 屬補充材料，因 Qwen 的 commit-aligned 隊列由操縱結果選出（α=0 覆蓋率 4.0%，n=12），無匹配參照。
+
 ## 6. Conclusion
 
 从目前的 Llama3 与 Qwen2.5 结果来看，ThinkingCurve 可以形成一条相当完整、但需要分层表述的结论链：
