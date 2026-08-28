@@ -1518,37 +1518,35 @@ P2 使用 GSM8K 已有输出训练基于文本的 commitment predictor，并按�
 
 具体协议版本、commit-state 编码、marker 适配、fold manifest、抽取器、填充与标准化方法、bootstrap 和 SHA256 provenance 统一记录于 `CLAUDE.md`。
 
-### 5.9.2 P2A 结果(GSM8K held-out)
+### 5.9.2 P2A: Held-Out Correctness Prediction on GSM8K
 
-| 模型 | commitment-only AUROC | entry-only | commitment − entry | combined − commitment |
+**Table 5.9.2. Out-of-Sample Prediction Performance on GSM8K**
+
+| Model | Commitment-only AUROC | Entry-only AUROC | Commitment − Entry | Combined − Commitment |
 |---|---|---|---|---|
 | Llama | **.687** [.656, .719] | .548 [.526, .571] | **+.139** [+.104, +.172] | −.001 [−.004, +.002] |
 | Qwen | **.749** [.710, .787] | .628 [.601, .654] | **+.121** [+.084, +.156] | +.002 [−.002, +.007] |
 
-Calibration slope .95 / .98(图 `fig_p2a_calibration.png`)。两模型均通过预注册 gate
-(commitment-only AUROC 95% CI 下界 > 0.5)。
+两模型均通过预注册 gate，且在 GSM8K 内部校准良好（calibration slope：Llama .95，Qwen .98；`fig_p2a_calibration.png`）。
 
-> **结论:commitment timing 能预测未见 GSM8K 题目的正确性,且显著优于 entry gain;
-> 加入 entry gain 未检出额外预测增益。**
+> **结论：commitment timing 能预测未见 GSM8K 题目的对错，而且明显优于 entry gain；在此基础上加入 entry gain，没有带来可检测的额外提升。**
 
-措辞边界:"未检出增量",不是"证明 entry gain 无用"。这是**预测证据,不是因果证据**。
+这是预测证据，不是因果证据；“未检出额外提升”也不等于证明 entry gain 无用。完整统计口径与实现细节见 `CLAUDE.md`。
 
-### 5.9.3 P2B 结果(MATH retrospective locked transfer)
+### 5.9.3 P2B: Retrospective Locked Transfer to MATH
 
-预测文件冻结于 `4e52b079…`,之后才读取 accuracy。
+**Table 5.9.3. Cross-Task Direction and Workpoint Selection on MATH**
 
-| 模型 | 方向 | Spearman ρ | 选中 α | 真实最优 | regret | 近最优集 |
-|---|---|---|---|---|---|---|
-| Qwen(9 α,完整) | positive **正确** | **+0.962** (n=9) | **+6** | +6 | **0.000** | 命中 [+4,+6] |
-| Llama(3 α,仅局部方向) | negative **正确** | +1.000 (n=3) | −4 | −4 | 0.000 | 命中 [−4,0] |
+| Model | Predicted Direction | Direction Match | Spearman ρ | Selected α | Observed Best α | Regret | Near-Optimal Set |
+|---|---|---|---|---|---|---|---|
+| Qwen (9 α; full curve) | Positive | **Correct** | **+.962** (n=9) | **+6** | +6 | **.000** | Hit [+4, +6] |
+| Llama (3 α; local only) | Negative | **Correct** | +1.000 (n=3) | −4 | −4 | .000 | Hit [−4, 0] |
 
-Qwen 另正确预测 plateau/overshoot 起点 **+8**(真实回落点)。
+Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落。其预测分数为 `.83–.88`，实际 accuracy 为 `.54–.68`：绝对数值明显高估，但剂量排序与曲线变化基本一致（`fig_p2b_transfer.png`）。
 
-> **绝对校准不迁移,剂量排序与工作点选择迁移。**
+> **结论：commitment predictor 无法直接估计 MATH 的准确率，但能够判断 steering 方向并选择合适的工作点。**
 
-图 `fig_p2b_transfer.png`:面板 A 原始值(Qwen 预测 .83–.88 vs 真实 .54–.68,系统性高估
-约 0.25——MATH 更难,而概率尺度学自 GSM8K);面板 B 相对 α=0 的变化(方向、+6 峰、+8 回落
-清晰可见)。**预测值未按 MATH accuracy 重新缩放或校准。**
+这是 retrospective locked transfer，并非真正的盲测；完整冻结顺序、校准边界与图表口径见 `CLAUDE.md`。
 
 ### 5.9.4 证据等级与边界
 
