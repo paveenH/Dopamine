@@ -18,7 +18,8 @@
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
-14. cross-model thinking curve + 再次整理thinking.md -> commit position ✔
+14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
+15. commitment regime -> MATH
 14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
 
 ---
