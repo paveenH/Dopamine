@@ -34,6 +34,37 @@
 3. 检验能否不查看目标任务 accuracy，仅凭 commitment regime 选择合适工作点。
 如果第三步成立，论文贡献就会从“解释剂量曲线”提升为“提供可迁移的推理状态监测与工作点选择原则”。
 
+对。如果当前目标只是验证“这套 commitment 指标有没有跨任务价值”，不必先做复杂的单题正确性预测。
+
+最直接的 P2 可以是：
+
+1. 在 GSM8K 上冻结 commitment health rule，例如：
+
+   - early-candidate 不应过高；
+   - commit 不能过早；
+   - `loop`、`no_marker` 不能上升；
+   - 同时避免过度延迟或无法 commit。
+
+2. 在不使用 MATH accuracy 的情况下，查看 MATH 各 α 的这些指标，预测：
+
+   - 应从 `α=0` 往正向还是负向 steering；
+   - 哪一侧开始出现 commitment 改善；
+   - 哪一侧出现 overshoot 或饱和。
+
+3. 最后对照已经存在的 MATH accuracy 曲线，检查预测方向是否正确。
+
+需要区分两种主张：
+
+- 如果使用 MATH 的少量 `±α` probe 或完整 α 输出，可以主张：  
+  **无需 accuracy label，commitment features 可以选择 steering 方向。**
+- 如果只看 MATH 的 `α=0`，目前这些 features 只能诊断 commitment 状态，尚不能推断往哪个方向 steering；因为方向需要知道状态对正负干预的响应。
+
+因此，最小且合理的验证是：
+
+> **使用 MATH 的无标签 α 曲线或少量正负 probe，由 GSM8K 冻结的规则预测正确 steering 方向，再与 MATH accuracy 曲线核对。**
+
+单题正确性预测可以降为补充分析。由于 MATH accuracy 已经被看过，这仍应称为 **retrospective locked transfer test**，但足以检验当前 features 是否具有实际的选方向价值。
+
 P2A：Out-of-Sample Correctness Prediction
 用 GSM8K 做按题目分组的交叉验证：
 - baseline：entry gain、剂量或生成长度；
