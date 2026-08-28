@@ -30,17 +30,31 @@
 
 统一分析：
 
-- [ ] entry gain
-- [ ] early-answer / candidate timing
-- [ ] commit position
-- [ ] commit-aligned `s_t/Z_t`
-- [ ] confidence、entropy、margin
-- [ ] reasoning length、loop
-- [ ] post-commit release
+- [x] entry gain
+- [x] early-answer / candidate timing
+- [x] commit position
+- [ ] commit-aligned `s_t/Z_t` — *supplementary / non-blocking*：Qwen 的 commit-aligned 队列由操纵结果选出（α=0 覆盖率 4.0%，n=12），无匹配参照，不能承载对称跨模型陈述
+- [x] confidence、entropy、margin — **negative result**：过早 commit 不是高置信错误（Llama 同批逐题；Qwen 侧 7 格另一批次，`PARTIALLY AVAILABLE / SPARSELY SAMPLED`）
+- [x] reasoning length、loop
+- [ ] post-commit release — *supplementary / non-blocking*：同 commit-aligned 的队列选择问题
 
 目标结论：
 
 > 两个模型的 entry gain 都近似线性，但下游 commitment/decode 转换函数不同，因此产生 Llama peak 与 Qwen plateau。
+
+**P1 主体完成（2026-08-28）。冻结结论：**
+
+> **P1 completed: commitment timing explains the cross-model behavioral divergence at both curve and within-dose item levels; evidence is explanatory association, not causal mediation.**
+
+证据等级：curve-level R²（n=9/11，描述性）+ item-level 关联（20/20 cell，控制题目与剂量固定效应后 β=+0.297/+0.200，t=10.8/5.5）。**非 mediation、非因果分解。** 详见 `AdaptiveThinking.md §5.9`；分析在 `RoleAnswer/thinking_curve/`。
+
+confidence 的 negative result 单独保留：它排除了「过度自信」这个竞争解释，使主张更精准——**问题是何时承诺，而不是承诺时有多自信。**
+
+验证这套 commitment regime 能否：
+- 在 GSM8K 上预测题目对错；
+- 跨到 MATH 后仍成立；
+- 帮助选择工作点，而不直接查看目标数据集 accuracy。
+如果跨任务也成立，论文就会从“解释两条剂量曲线”升级为“发现一种可迁移的推理控制原则”。
 
 ### P2. 补 causal direction control
 
