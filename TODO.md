@@ -19,70 +19,69 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commit position ✔
-
 14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
+
 ---
-验证这套 commitment regime 能否：
-- 在 GSM8K 上预测题目对错；
-- 跨到 MATH 后仍成立；
-- 帮助选择工作点，而不直接查看目标数据集 accuracy。
-如果跨任务也成立，论文就会从“解释两条剂量曲线”升级为“发现一种可迁移的推理控制原则”。
+### P2. Commitment Regime Transfer and Workpoint Selection
 
-下一步应另开 P2，检验 commitment regime 的实际价值：
-1. 用 GSM8K 现有输出测试能否预测单题对错。
-2. 冻结指标和判定规则，再迁移到 MATH。
-3. 检验能否不查看目标任务 accuracy，仅凭 commitment regime 选择合适工作点。
-如果第三步成立，论文贡献就会从“解释剂量曲线”提升为“提供可迁移的推理状态监测与工作点选择原则”。
+P2 的目标是检验：P1 找到的 commitment regime 是否不仅能解释剂量曲线，还能预测错误并跨任务选择 steering 工作点。
 
-对。如果当前目标只是验证“这套 commitment 指标有没有跨任务价值”，不必先做复杂的单题正确性预测。
+#### P2A. Out-of-Sample Correctness Prediction
 
-最直接的 P2 可以是：
+在 GSM8K 上测试 commitment features 能否预测未见题目的对错。
 
-1. 在 GSM8K 上冻结 commitment health rule，例如：
+- 按题目分组交叉验证，同一道题的所有剂量必须位于同一 fold。
+- Baseline：entry gain、生成长度等基础指标。
+- Commitment model：加入 early candidate、commit position、loop 和 no-marker。
+- 比较 AUROC、Brier score 与 calibration。
 
-   - early-candidate 不应过高；
-   - commit 不能过早；
-   - `loop`、`no_marker` 不能上升；
-   - 同时避免过度延迟或无法 commit。
+目标结论：
 
-2. 在不使用 MATH accuracy 的情况下，查看 MATH 各 α 的这些指标，预测：
+> Commitment features 能否在 entry gain 之外，提高对未见题目错误风险的预测能力。
 
-   - 应从 `α=0` 往正向还是负向 steering；
-   - 哪一侧开始出现 commitment 改善；
-   - 哪一侧出现 overshoot 或饱和。
+这一部分验证的是“错误监测价值”，不是跨任务选点的必要前提。
 
-3. 最后对照已经存在的 MATH accuracy 曲线，检查预测方向是否正确。
+#### P2B. Cross-Task Workpoint Selection（主体）
 
-需要区分两种主张：
+首先在 GSM8K 上冻结“健康 commitment regime”的定义，例如：
 
-- 如果使用 MATH 的少量 `±α` probe 或完整 α 输出，可以主张：  
-  **无需 accuracy label，commitment features 可以选择 steering 方向。**
-- 如果只看 MATH 的 `α=0`，目前这些 features 只能诊断 commitment 状态，尚不能推断往哪个方向 steering；因为方向需要知道状态对正负干预的响应。
+- early-candidate 不应过高；
+- commit 不应过早；
+- loop 和 no-marker 不应增加；
+- 同时避免过度延迟或无法 commit。
 
-因此，最小且合理的验证是：
+随后在不使用 MATH accuracy 的情况下，根据 MATH 的无标签 α 曲线或少量正负 probe：
 
-> **使用 MATH 的无标签 α 曲线或少量正负 probe，由 GSM8K 冻结的规则预测正确 steering 方向，再与 MATH accuracy 曲线核对。**
+1. 预测应从 `α=0` 向正向还是负向 steering；
+2. 判断 commitment 从何处开始改善；
+3. 识别 overshoot、异常或饱和区间；
+4. 选择预测工作点，再与已有 accuracy 曲线核对。
 
-单题正确性预测可以降为补充分析。由于 MATH accuracy 已经被看过，这仍应称为 **retrospective locked transfer test**，但足以检验当前 features 是否具有实际的选方向价值。
+如果只观察 `α=0`，现有指标只能诊断 commitment 状态，不能确定 steering 方向；方向判断至少需要正负两侧的无标签 probe。
 
-P2A：Out-of-Sample Correctness Prediction
-用 GSM8K 做按题目分组的交叉验证：
-- baseline：entry gain、剂量或生成长度；
-- commitment model：加入 early candidate、commit position、loop、no-marker；
-- 比较 AUROC、Brier score 和 calibration。
-目标是证明 commitment 指标不仅存在关联，还能提高未见题目的错误预测能力。
-P2B：Cross-Task Workpoint Selection
-1. 在 GSM8K 上冻结“健康 commitment regime”的定义和选点规则。
-2. 不使用 MATH accuracy，只根据各剂量的 commitment 指标选择工作点。
-3. 再揭示 accuracy，评估所选剂量距离真实最优点的差距。
-成功标准不建议限定为“必须精确选中 +6”，而应预先定义为：
-- 选中最佳剂量，或
-- 落入统计上不可区分的近最优区间，并具有较低 performance regret。
-还要按模型分别冻结规则，因为当前结论本身就是 model-specific transfer function，不能强行让 Llama 和 Qwen 共用绝对阈值。
-因此：
-先完成六项机械校正并正式关闭 P1；然后单独建立 P2。MATH 作为跨任务 pilot，真正未查看结果的数据集作为最终验证。
+#### 成功标准
 
-如果 P2B 成立，论文才可以主张“commitment regime 可用于跨任务工作点选择”；如果只有 P2A 成立，则更保守地表述为“可迁移的推理错误监测信号”。
+不要求精确命中单一最佳 α。满足以下任一条件即可视为有效：
+
+- 选中实际最佳剂量；
+- 选中与最佳剂量统计上不可区分的近最优区间；
+- 相对 `α=0` 明确选择正确方向，并具有较低 performance regret。
+
+规则应按模型分别冻结，不能让 Llama 与 Qwen 共用 raw α 或绝对阈值。
+
+#### 证据边界
+
+由于 MATH accuracy 已经被查看过，P2B 只能称为：
+
+> **Retrospective locked transfer test**
+
+它可以检验冻结规则能否在 MATH 上一次性迁移，但不属于真正的盲测。若要主张“可迁移的推理控制原则”，仍需在一个从未查看 accuracy 的 reasoning dataset 上完成 preregistered validation。
+
+最终解释为：
+
+- **仅 P2A 成立**：commitment regime 是推理错误监测信号。
+- **P2B 也成立**：支持其用于跨任务 steering 方向与工作点选择，但属于回顾性证据。
+- **未来盲测成立**：才能进一步主张可迁移的推理状态监测与控制原则。
 
 ### P2. 补 causal direction control
 
