@@ -856,6 +856,44 @@ Offline in `RoleAnswer/p2/` (**not in this git repo** — a server `git pull` wi
 fetch it), `python3.10`, no server, no GPU. The protocol copy IS in this repo at
 `docs/PREREG_P2.md`.
 
+### Frozen prediction and evaluation specification
+
+- **Data coverage.** P2 uses stored outputs only; no new inference was run. GSM8K uses
+  the lightweight No-CoT signal JSONs (Llama 9 alpha cells; Qwen 11 alpha cells), all of
+  which carry `x_prefill`. MATH uses the existing No-CoT outputs (Qwen 9 cells spanning
+  `−8…+8`; Llama only `−4/0/+4`) and does not carry `x_prefill`. Every CoT cell is
+  excluded. Consequently Qwen supports direction, full-curve workpoint and regret
+  evaluation, whereas Llama supports local direction only.
+
+- **Primary transferable feature set.** The commitment-only predictor is text-based:
+  `early_candidate`, three commit-state dummy columns, `posN`, and `posN_observed`.
+  Commit state is encoded as the four mutually exclusive categories `committed /
+  marker_unparsed_nonloop / loop / no_marker`, with `committed` as the reference level.
+  Frozen extractors (`all_hash`, `all_boxed`, `norm_gsm8k`, `fallback_gsm8k`, and
+  `has_early_candidate`) are imported rather than reimplemented. `x_prefill`/entry gain
+  is available only for the GSM8K entry-only and combined supplementary comparisons;
+  it is not part of the transferable MATH predictor.
+
+- **MATH output-format adapter.** GSM8K `####` and MATH `\\boxed{}` implement the same
+  operational semantics: final-answer marker, first parseable commit position, and
+  repeated submission. MATH reuses the frozen balanced-brace `all_boxed` extractor; an
+  empty `\\boxed{}` is an unparseable marker, not a parseable commit. This adapter was
+  frozen before MATH accuracy was read and was not adjusted in response to the result.
+
+- **Question-grouped cross-validation.** P2 uses a deterministic five-fold manifest
+  derived from the question hash (realised fold sizes `56/68/70/55/51`). Every dose of
+  one question stays in the same fold, and the manifest is shared across both models.
+  All dose rows enter training, but **raw alpha is never a predictor**. Missing `posN`
+  is filled with the observed training-fold median, while `posN_observed` preserves its
+  missingness information; imputation and standardisation are fitted on the training
+  fold only. The inference unit is the question, and all confidence intervals and model
+  contrasts use question-cluster bootstrap.
+
+- **Accuracy convention.** Offline `first_acc` is the only MAIN MATH outcome and
+  `last_acc` is sensitivity only. Any scoring code must reuse the frozen offline
+  extractor and reproduce the published cell total before analysis. Inline `correct`
+  remains run-health/provenance metadata and is never substituted for the MAIN outcome.
+
 <!-- Why: the protocol lives outside git, so the repo hash does not pin its content;
 a reader citing "frozen at 75d738c" would be citing nothing.
 Evidence: docs/PREREG_P2.md commit 37713c8; p2/p2_freeze_manifest.json.
