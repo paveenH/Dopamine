@@ -48,7 +48,7 @@
 
 **两个 supplementary 项为何不再是待办：** 它们受同一个限制——Qwen 低剂量几乎一开始就输出答案（α=0 commit 中位位置约第 3 token），所以 commit 前窗口只在**干预推迟了提交之后**才存在。比较 α=0 与 +8 的 commit-aligned `s_t`，实际是拿「α=0 下罕见的自然晚提交题目」对「+8 下被推迟提交的大多数题目」——**干预本身决定了谁能进入分析（post-treatment selection）**。增加样本只会得到更多罕见的 α=0 晚提交样本，不会构成与高剂量总体可比的参照群体。**分析已完成；无法成立的是那个对称比较本身，不应为勾框继续投入实验。**
 
-证据等级：curve-level R²（n=9/11，描述性）+ item-level 关联（20/20 cell，控制题目与剂量固定效应后 β=+0.297/+0.200，t=10.8/5.5）。**非 mediation、非因果分解。** 详见 `AdaptiveThinking.md §5.9`；分析在 `RoleAnswer/thinking_curve/`。
+证据等级：curve-level R²（n=9/11，描述性）+ item-level 关联（20/20 cell，控制题目与剂量固定效应后 β=+0.297/+0.200，t=10.8/5.5）。**非 mediation、非因果分解。** 详见 `AdaptiveThinking.md §5.8`；分析在 `RoleAnswer/thinking_curve/`。
 
 confidence 的 negative result 单独保留：它排除了「过度自信」这个竞争解释，使主张更精准——**问题是何时承诺，而不是承诺时有多自信。**
 
