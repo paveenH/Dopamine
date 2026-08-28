@@ -20,49 +20,84 @@
 13. manifold sentiity ✔
 14. 对比
 ---
+## 重新编列后的 TODO
 
-2. **最高优先级：完成跨模型 Thinking Curve**
-   不比较 raw α，而比较功能状态：
+### P0. 收尾 Manifold
 
-   - Llama：`0 → 最佳 −6 → overshoot −8`
-   - Qwen：`0 → 改善 +6 → plateau +8/+12`
+- [ ] 完成 inside-ratio sensitivity：比较 `k=5/10/20`、不同层及相对随机基线 enrichment。
+- [ ] 完成 Llama–Qwen 几何总结图。
+- [ ] 冻结结论：两个模型的 entry geometry 都平滑、近似 piecewise scalar，但不能解释 peak 与 plateau。
+- [ ] 关闭 manifold 扩展：不再做 prediction、UMAP/TLE 或复杂 decode manifold。
 
-   统一比较 entry gain、early answer、commit position、`s_t/Z_t`、confidence、长度/loop 和 post-commit release。目标是说明：
+### P1. 完成跨模型 Thinking Curve（最高优先级）
 
-   > 两个模型入口增益都近似线性，但下游 commitment/decode 转换函数不同，因此产生 peak 与 plateau。
+比较功能状态，而非 raw α：
 
-3. **整理 Behaviour evidence**
-   选择 Betting、CGT/IGT 等最稳定结果作为“跨任务效度”，Bandit作为边界证据。不要再无止境增加 reasoning/behaviour tasks。若需要新增实验，只做一个预先选定的 Qwen 正向行为任务确认。
+- Llama：`0 → 最佳 −6 → overshoot −8`
+- Qwen：`0 → 改善 +6 → plateau +8/+12`
 
-4. **补真正的 causal direction control**
-   如果论文要强调“RSN 方向具有因果特异性”，需要实际注入 norm/sparsity-matched random 或 orthogonal directions；现有 remask 只能证明 readout specificity。
+统一分析：
 
-5. **同步开始论文结构与主图**
-   主叙事固定为：
+- [ ] entry gain
+- [ ] early-answer / candidate timing
+- [ ] commit position
+- [ ] commit-aligned `s_t/Z_t`
+- [ ] confidence、entropy、margin
+- [ ] reasoning length、loop
+- [ ] post-commit release
 
-   `RSN discovery → GSM8K calibration → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
+目标结论：
 
-2. **完成跨模型总结图**
-   每个模型分别归一化，放在一起展示：
+> 两个模型的 entry gain 都近似线性，但下游 commitment/decode 转换函数不同，因此产生 Llama peak 与 Qwen plateau。
 
-   - accuracy–dose 曲线；
-   - displacement magnitude–dose；
-   - within-arm cosine；
-   - geometry 与 behaviour 的解耦。
+### P2. 补 causal direction control
 
-   不直接比较两模型的 raw α 或 hidden-state norm。
+- [ ] 构造与 RSN 匹配 norm、sparsity 和注入层的 random directions。
+- [ ] 构造 orthogonal-to-RSN directions。
+- [ ] 实际注入模型，比较 accuracy、commitment 与 Thinking Curve。
 
-4. **转向真正的核心：下游动力学**
-   接下来比较 Llama 与 Qwen 的 commit-aligned `Z_t/s_t`、confidence、entropy、margin 和 commitment timing，回答：
+这一步回答的是“效果是否来自 RSN 方向本身”；现有 remask 只能支持 readout specificity。
 
-   > 相似的线性 entry gain，为什么在 decode 阶段被转译为 peak 或 plateau？
----
-1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
-3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
-4. **暂不把 Qwen CGT/IGT 拉到更高 α**：reasoning 的高工作点不能直接迁移到行为任务。Qwen CGT 在 `+2` 已出现 knowing/label-bias 问题，`+4/+6` 是格式或构念失效；继续到 `+8` 更可能放大崩溃，不能说明“以前拉得不够”。可以重分析现有数据，但不建议先重跑。
-3. **只增加一个外部 reasoning task**：优先 GSM-Hard，验证 commitment 转折能否迁移，而不是大规模铺 benchmark。
-4. **必要时补 causal random/orthogonal injection**：如果正文要强调 RSN 方向本身具有机制特异性，这比继续增加行为任务更能回应 ACL 审稿。
-5. **不重开高剂量 CGT/IGT**：它容易让论文重新散开，而且格式/knowing 已经先于剂量不足成为限制，可放在 boundary evidence。
+### P3. 整理 Behaviour evidence
+
+- [ ] Betting：作为稳定正向证据。
+- [ ] CGT/IGT：保留有效结果与 construct boundary。
+- [ ] Bandit：作为 recognition–action dissociation 的边界证据。
+- [ ] 不重跑 Qwen 高剂量 CGT/IGT。
+- [ ] 如需跨模型行为确认，只选择一个预先确定、已有稳定效应的任务。
+
+目标是整理证据层级，不再增加大量行为任务。
+
+### P4. 增加一个外部 reasoning task
+
+- [ ] 首选 GSM-Hard。
+- [ ] Llama 检验负向 working region 是否迁移。
+- [ ] Qwen 检验 `+6～+8` commitment 转折是否迁移。
+- [ ] 固定少量、事先确定的剂量，不重新搜索最佳 α。
+- [ ] 只有 GSM-Hard 给出明确价值时，才考虑 SVAMP/ASDiv。
+
+措辞使用“迁移性检验”，不预设两个模型必须一致。
+
+### P5. 同步推进论文
+
+主线固定为：
+
+`RSN discovery → GSM8K calibration → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
+
+同步完成：
+
+- [ ] 论文 section skeleton
+- [ ] 跨模型 Thinking Curve 主图
+- [ ] causal control 图
+- [ ] behaviour evidence 汇总表
+- [ ] limitations 与 evidence boundary
+- [ ] reproducibility / protocol appendix
+
+总体优先顺序：
+
+> **Manifold 收尾 → Thinking Curve → causal control → Behaviour 整理 → GSM-Hard → 论文整合**
+
+其中论文结构和主图不必等实验全部结束，可以与 Thinking Curve 同步推进。
 
 ---
 ### 1. 先比较共同的 boundary state
