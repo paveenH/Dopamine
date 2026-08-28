@@ -1508,26 +1508,15 @@ Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论
 
 主图呈现 entry gain、early candidate、commit position 与 accuracy 的对应关系。Post-commit release 因 Qwen 对照队列存在选择偏差，仅作为补充结果；实现与验收细节见 `CLAUDE.md`。
 
-## 5.9 P2 Commitment-Based Prediction and Cross-Task Workpoint Selection
+## 5.9 Commitment-Based Prediction and Cross-Task Workpoint Selection
 
-**协议 `p2-v1.1`,建模前冻结(git `37713c8`,`docs/PREREG_P2.md`)。所有 feature、fold、
-predictor 与预测文件均在读取 MATH accuracy 之前冻结并记录 SHA256。**
+### 5.9.1 Prediction and Evaluation Protocol
 
-### 5.9.1 方法口径
+P2 使用 GSM8K 已有输出训练基于文本的 commitment predictor，并按题目进行五折交叉验证；同一道题的所有剂量始终位于同一折，以避免数据泄漏。模型输入包括 early-candidate、commit state、标准化 commit position（`posN`）及其可观测性，raw α 不作为特征。
 
-- **数据**:仅使用已有输出,无新推理。GSM8K 用 lightweight signal JSON(Llama 9 α,
-  Qwen 11 α,均 No-CoT);MATH 用 Qwen 9 α、Llama 3 α(`−4/0/+4`)。CoT 全部排除。
-- **Primary features(text-only,可跨任务迁移)**:`early_candidate`、commit-state
-  三个 dummy、`posN`、`posN_observed`。冻结抽取器一律 import,不重新实现。
-- **Commit-state 在 predictor 中为四值编码**(`committed / marker_unparsed_nonloop /
-  loop / no_marker`),仅为消除结构共线;**P1 的三值描述不变**,且四值可精确回加为 P1 计数
-  (Llama α=0 → 177/66/57,loop 子标记 52)。
-- **MATH marker 适配**:`####` 与 `\boxed{}` 实现同一语义(final-answer marker、首次可解析
-  commit 位置、重复提交),复用冻结的 `all_boxed`;空 `\boxed{}` 不计为可解析 marker。适配器在
-  读 accuracy 前冻结,不因结果调整。
-- **CV**:按 question hash 的确定性 5-fold;一题的全部剂量同 fold;填充与标准化只由训练折估计;
-  **raw α 不作为特征**。推断单位为 question,全部 CI 与模型差用 question cluster bootstrap。
-- **Accuracy 口径**:`first_acc` 为唯一 MAIN,`last_acc` 仅 sensitivity。
+冻结后的 GSM8K predictor 直接应用于 MATH，不使用 MATH accuracy 进行训练、调参或校准。Qwen 使用完整的 9 点剂量曲线，Llama 因仅有 `−4/0/+4`，只检验局部 steering 方向。主要 accuracy 口径为 `first_acc`。
+
+具体协议版本、commit-state 编码、marker 适配、fold manifest、抽取器、填充与标准化方法、bootstrap 和 SHA256 provenance 统一记录于 `CLAUDE.md`。
 
 ### 5.9.2 P2A 结果(GSM8K held-out)
 
