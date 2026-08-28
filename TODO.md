@@ -16,31 +16,33 @@
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
 11. manifold llama3 实验以及结果整理 ✔
 11. manifold 补齐 Llama 全 α 曲线 ✔
-12. Manifold Qwen25 实验以及结果整理
+12. manifold Qwen25 实验以及结果整理 ✔
+13.manifold sentiity 
+
 ---
 
-2. **迁移 Qwen last-prefill 分析**
+1. **补一个最小跨层 sensitivity**
+   用现有 H5 检查 Llama decoder 10–18、Qwen decoder 15–20，确认“臂内共线、幅度线性”不是只发生在最后 steered layer。固定最后层为 primary，不挑最佳层。
 
-   - 使用 Qwen 自己的 α=0 数据、层范围和 PCA basis。
-   - 分析 `0/+6/+8/+12` 的位移幅度、方向、scalar residual 和 PCA inside ratio。
-   - 将几何曲线与 accuracy plateau 叠加。
-   - 只比较两模型的曲线形状，不比较原始 α、位移大小或 PCA 方向。
+2. **完成跨模型总结图**
+   每个模型分别归一化，放在一起展示：
 
-3. **判断 Qwen plateau 的几何来源**
+   - accuracy–dose 曲线；
+   - displacement magnitude–dose；
+   - within-arm cosine；
+   - geometry 与 behaviour 的解耦。
 
-   - 位移幅度也饱和：支持几何饱和。
-   - 位移持续增长但 accuracy 饱和：支持下游非线性读出/压缩。
-   - 高剂量方向改变：支持几何重组。
+   不直接比较两模型的 raw α 或 hidden-state norm。
 
-4. **补做 Llama 跨层 sensitivity**
+3. **关闭 manifold 主线**
+   结论冻结为：last-prefill entry geometry 平滑且近似 piecewise scalar，但不足以解释 Llama peak 与 Qwen plateau。停止扩展 prediction、UMAP/TLE 和复杂 decode manifold。
 
-   - 固定 decoder 18 为 primary。
-   - 在 decoder 10–18 检查负端共轴、正端部分反向是否逐层出现。
-   - 不挑最佳层、不做逐层显著性搜索，结果放 supplement。
+4. **转向真正的核心：下游动力学**
+   接下来比较 Llama 与 Qwen 的 commit-aligned `Z_t/s_t`、confidence、entropy、margin 和 commitment timing，回答：
 
-5. **最后形成跨模型结论**
+   > 相似的线性 entry gain，为什么在 decode 阶段被转译为 peak 或 plateau？
 
-   回答核心问题：Llama 的 peaked response 与 Qwen 的 plateau，究竟来自不同的 entry-state 几何，还是相似的平滑几何经过不同的 decode/behavioural readout。
+所以眼下最具体的一步是：**做跨层 sensitivity → 画跨模型总结图 → 正式转入 Thinking Curve/downstream readout。**
 
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
