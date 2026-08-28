@@ -34,6 +34,25 @@
 3. 检验能否不查看目标任务 accuracy，仅凭 commitment regime 选择合适工作点。
 如果第三步成立，论文贡献就会从“解释剂量曲线”提升为“提供可迁移的推理状态监测与工作点选择原则”。
 
+P2A：Out-of-Sample Correctness Prediction
+用 GSM8K 做按题目分组的交叉验证：
+- baseline：entry gain、剂量或生成长度；
+- commitment model：加入 early candidate、commit position、loop、no-marker；
+- 比较 AUROC、Brier score 和 calibration。
+目标是证明 commitment 指标不仅存在关联，还能提高未见题目的错误预测能力。
+P2B：Cross-Task Workpoint Selection
+1. 在 GSM8K 上冻结“健康 commitment regime”的定义和选点规则。
+2. 不使用 MATH accuracy，只根据各剂量的 commitment 指标选择工作点。
+3. 再揭示 accuracy，评估所选剂量距离真实最优点的差距。
+成功标准不建议限定为“必须精确选中 +6”，而应预先定义为：
+- 选中最佳剂量，或
+- 落入统计上不可区分的近最优区间，并具有较低 performance regret。
+还要按模型分别冻结规则，因为当前结论本身就是 model-specific transfer function，不能强行让 Llama 和 Qwen 共用绝对阈值。
+因此：
+先完成六项机械校正并正式关闭 P1；然后单独建立 P2。MATH 作为跨任务 pilot，真正未查看结果的数据集作为最终验证。
+
+如果 P2B 成立，论文才可以主张“commitment regime 可用于跨任务工作点选择”；如果只有 P2A 成立，则更保守地表述为“可迁移的推理错误监测信号”。
+
 ### P2. 补 causal direction control
 
 - [ ] 构造与 RSN 匹配 norm、sparsity 和注入层的 random directions。
