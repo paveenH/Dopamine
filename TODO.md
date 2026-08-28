@@ -17,12 +17,37 @@
 11. manifold llama3 实验以及结果整理 ✔
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
-13.manifold sentiity 
-
+13.manifold sentiity ✔
 ---
 
-1. **补一个最小跨层 sensitivity**
-   用现有 H5 检查 Llama decoder 10–18、Qwen decoder 15–20，确认“臂内共线、幅度线性”不是只发生在最后 steered layer。固定最后层为 primary，不挑最佳层。
+接下来应该停止扩展 Manifold，回到整篇论文的证据链：
+
+1. **完成 Manifold 收尾**
+   写入跨层结果，做一张 Llama/Qwen 跨层 cosine 图，然后关闭这条支线。核心结论是：对称注入经过层间传播后逐渐分化。
+
+2. **最高优先级：完成跨模型 Thinking Curve**
+   不比较 raw α，而比较功能状态：
+
+   - Llama：`0 → 最佳 −6 → overshoot −8`
+   - Qwen：`0 → 改善 +6 → plateau +8/+12`
+
+   统一比较 entry gain、early answer、commit position、`s_t/Z_t`、confidence、长度/loop 和 post-commit release。目标是说明：
+
+   > 两个模型入口增益都近似线性，但下游 commitment/decode 转换函数不同，因此产生 peak 与 plateau。
+
+3. **整理 Behaviour evidence**
+   选择 Betting、CGT/IGT 等最稳定结果作为“跨任务效度”，Bandit作为边界证据。不要再无止境增加 reasoning/behaviour tasks。若需要新增实验，只做一个预先选定的 Qwen 正向行为任务确认。
+
+4. **补真正的 causal direction control**
+   如果论文要强调“RSN 方向具有因果特异性”，需要实际注入 norm/sparsity-matched random 或 orthogonal directions；现有 remask 只能证明 readout specificity。
+
+5. **同步开始论文结构与主图**
+   主叙事固定为：
+
+   `RSN discovery → GSM8K calibration → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
+
+所以眼下最具体的下一步是：**先把跨模型 Thinking Curve 做成一张统一状态图和一张核心结果表**。这才是目前最可能形成 ACL ARR 核心贡献的部分。
+
 
 2. **完成跨模型总结图**
    每个模型分别归一化，放在一起展示：
