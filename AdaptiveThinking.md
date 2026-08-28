@@ -1473,21 +1473,34 @@ Qwen 呈现相反趋势：高剂量下重复 marker 和 post-commit 内容持续
 
 > **Llama 的高剂量崩溃对应过早锁定，Qwen 的高剂量平台则对应 commitment dynamics 饱和。**
 
-#### 5.9.5 confidence 補充讀數：過早 commit **不是**高置信錯誤（negative result）
+#### 5.9.5 Confidence Does Not Explain Premature Commitment
 
-Llama 的 `metrics_*` 與 signal 同批、逐題可配（斷言 question 一致）。以前 20 個 decode step 的 `top1` 為讀數：抢答樣本的置信度**並不更高**（各 α 差值 −0.058…+0.019）；在抢答樣本內部，**答錯者的置信度也不高於答對者**（差值 −0.085…−0.001，方向與「過度自信」相反）。
+Llama 的前 20 个 decode steps 显示：
 
-**所以「過早 commit」不應被描述為 over-confidence。** 它是承諾**時序**失調，而非信心校準失效。Qwen 側無法對稱檢驗：其 `metrics_hs` 只有 7 格且屬另一批次，依 §5.5 規定必須讀作 `PARTIALLY AVAILABLE / SPARSELY SAMPLED`。
+- 抢答样本的 `top1` confidence 并未更高（差值 `−0.058～+0.019`）。
+- 在抢答样本中，答错者的 confidence 也不高于答对者（差值 `−0.085～−0.001`）。
 
-#### 5.9.6 判定
+> **Premature commitment 不是 over-confidence，而是 commitment timing 失调，并非置信度校准失败。**
 
-> **支持模型特異的 commitment transfer function：連續的入口增益並不直接決定推理表現；Llama 的極端負劑量觸發過早且不穩定的 commitment，形成峰後崩潰，而 Qwen 的高正劑量使 commitment dynamics 飽和，形成性能平台。**
+Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论目前仅适用于 Llama。数据配对、计算方法与代码细节见 `CLAUDE.md`。
 
-這比「存在最佳 α」更有價值，因為它給出一個可繼續用於跨任務遷移與正確性預測的功能變量：**模型是否在合適的推理階段形成 commitment。**
+#### 5.9.6 Conclusion and Evidence Boundaries
 
-**措辭邊界（三條，全部必須隨數字出現）：** (a) `z` 是**模型內標準化座標**，寫「在各自標準化 entry coordinate 上比較轉換曲線」，不可寫成兩模型接受了等量干預；(b) R² 是曲線描述，n=9/11，**不是 mediation**；(c) 逐題關聯已控制題目與劑量固定效應，但仍是**觀察性關聯**，非因果。
+> **结果支持模型特异的 commitment transfer function：entry gain 并不直接决定推理表现。Llama 的极端负剂量触发过早且不稳定的 commitment，造成峰后崩溃；Qwen 的高正剂量则使 commitment dynamics 饱和，形成性能平台。**
 
-**主圖：** `RoleAnswer/thinking_curve/fig_p1_commitment.png`（A 標準化入口座標上的行為；B early-candidate；C posN；D commitment–behaviour 對應，r=−0.97 / −0.96）。post-commit release 屬補充材料，因 Qwen 的 commit-aligned 隊列由操縱結果選出（α=0 覆蓋率 4.0%，n=12），無匹配參照。
+相比寻找“最佳 α”，更有价值的功能变量是：
+
+> **模型是否在合适的推理阶段形成 commitment。**
+
+该变量可进一步检验能否预测答案正确性，以及能否跨任务迁移。
+
+解释边界如下：
+
+- `z` 仅为模型内标准化入口坐标，不代表两模型接受了等量干预。
+- 曲线 R² 只有 9/11 个剂量点，是描述性拟合，不是 mediation。
+- 逐题关系控制了题目与剂量效应，但仍是观察性关联，不构成因果证据。
+
+主图呈现 entry gain、early candidate、commit position 与 accuracy 的对应关系。Post-commit release 因 Qwen 对照队列存在选择偏差，仅作为补充结果；实现与验收细节见 `CLAUDE.md`。
 
 ## 6. Conclusion
 
