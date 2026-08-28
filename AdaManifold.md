@@ -13,7 +13,7 @@
 
 **证据边界。** 上述结论仅成立于 **last-prefill、decoder 18**——即 steering 的注入位置，也是不同 α 之间唯一能够严格按题、按 token 配对的位置。目前尚未检测到稳定的增量行为预测价值，且该 last-prefill 几何模式没有稳定延伸到 commit-aligned decode。因此，这些结果不能被表述为完整的推理轨迹机制，也不能证明状态已经“离开 natural manifold”。
 
-**当前定位。** Llama 的主要分析已经完成，manifold 结果应定位为 **last-prefill explanatory geometry**：它为 `−6` 最优、`−8` overshoot 和正负剂量不对称提供了机制性线索，但不是独立的因果机制或行为预测主线。Llama–Qwen 是否共享同一套解释，仍需由预先登记的 Qwen last-prefill analysis 检验。
+**当前定位（2026-08-28 关闭）。** manifold 结果应定位为 **last-prefill explanatory geometry**：它为 `−6` 最优、`−8` overshoot 和正负剂量不对称提供了机制性线索，但不是独立的因果机制或行为预测主线。预先登记的 Qwen last-prefill 检验**已完成**（§3.8）：两模型的 entry displacement 都平滑、线性、单轴，因此该几何**不能**解释 Llama peak 与 Qwen plateau，差异定位到下游 commitment / decode dynamics——后续结果见 `AdaptiveThinking.md` §5.9。跨层 sensitivity（§3.9）进一步显示，正负两臂在注入点重合、随深度单调分离，故末层的分段几何是**层间传播的涌现结构**，而非注入本身的性质。
 
 ## 1. Research Questions
 
