@@ -1,13 +1,29 @@
 {
   "version": "p2-freeze-v1",
   "frozen": "2026-08-28",
-  "note": "SHA256 of every P2 artifact as of the pre-modelling freeze. PREREG_P2.md's entry is its hash BEFORE section 14 was appended; the authoritative post-append hash is recorded in the copy committed to the Dopamine git repo at docs/PREREG_P2.md.",
+  "note": "SHA256 of every P2 artifact as of the pre-modelling freeze. PREREG_P2.md's entry is its hash BEFORE section 14 was appended; the authoritative post-append hash is recorded in the copy committed to the Dopamine git repo at docs/PREREG_P2.md. PREREG_P2.md's entry is now its post-section-15 hash.",
   "sha256": {
-    "PREREG_P2.md": "26e98c19559791aaa0466759207d88fd7149b8df8b467e92de0e4c7b85aeb881",
+    "PREREG_P2.md": "929004f1d6ee57aca4b4f4173108bbbfb036eb658dc83ce31263af686d206dcf",
     "p2_fold_manifest.json": "13e141101c20e37ddfbfad09bad7bb37292774857c096811d0f4422561314f75",
     "build_p2_folds.py": "89b0d5e25f61d97e335c63614d531707f7e82fc7484a079db623d4edd1f3e2a2",
     "p2_features.py": "210d4eb5936b6b2800d5b0a10b072fd8f55c7ade5a8783a3be0ab9fdcf2d6aa8",
     "run_p2_audit.py": "49b8385ea92ca8d0c9f720376a9eec83d55e2c9d37d555989a4b57941f110cb6",
-    "p2_feature_audit.json": "224bff52d9053825dcfe4f38f671899ae4726cae4049002f0fa581912ef9fb30"
-  }
+    "p2_feature_audit.json": "224bff52d9053825dcfe4f38f671899ae4726cae4049002f0fa581912ef9fb30",
+    "p2a_results.json": "81a7a69d218fcb580a4eccc2bac81b87a829c953e91d3c8f8da67c4eef752092",
+    "p2_predictor_llama.json": "b9ee07e4719514e51eff16629efce7b5e897894e9e0e0a3996a0f9a3a667b558",
+    "p2_predictor_qwen.json": "9aad950a7494d3bf07a5c681a614a371c78b2b93659f566d838ccd4ccb024603",
+    "run_p2a.py": "f197f4b4ce30a227673505ac13d34677da1b74fedce625b50b13b09325f237bf",
+    "freeze_p2_predictor.py": "026c4f094233c41a3b1b0f05a2a03e8ce372c84da6ea4ebdb9a06668c5c47b23",
+    "p2b_predictions.json": "4e52b079cfcc6b317c63c25135102c2f1dfd1606e0e1d7423dee3a5fa9af6dc2",
+    "run_p2b_predict.py": "14287a22dbd095b9917b9baf53603531a84f05857eb71d3a4a1fa4e24cd9ddcb",
+    "p2b_evaluation.json": "0e11cb0d5679d12a10d5233777fb3be1ecaa6f3fcb23fa0991cd643314d3dce3",
+    "run_p2b_eval.py": "86342308005092000ef0cce4f6502bd970368ffd651a3ca71f50be21d0848ee8",
+    "fig_p2a_calibration.png": "7f1352534f98d25a2cf38704f5fcc884618620584d88778c19e073bea9668bae",
+    "fig_p2b_transfer.png": "f380461e47621728d9d4c71cf8e725cb8b0f976f792489e409fadf0e0bf19561",
+    "plot_p2.py": "87efb9b657082f3924296f80ce8cb17ea2f3d5b54de4ca1608a2b413c4ffaa03"
+  },
+  "p2a_completed": "2026-08-28; both gates PASS; MATH accuracy not read",
+  "p2b_predictions_frozen": "2026-08-28, BEFORE any MATH accuracy was read",
+  "p2b_evaluated": "2026-08-28, after predictions were frozen",
+  "p2_closed": "2026-08-28"
 }

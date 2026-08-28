@@ -19,9 +19,69 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
-15. commitment regime 在 GSM8K 上预测未见题目的正确性；
-15. commitment regime -> MATH ✔ (P2 已关闭，见下方 P2 STATUS)
-14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？ ✔ 两者都成立，见 P2 STATUS
+15. 通过 commitment regime 来预测steering方向，但是现在还是需要全部的alpha
+15. commitment regime -> MATH
+14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
+
+---
+
+## P2 STATUS — COMPLETED AND CLOSED (2026-08-28)
+
+> **P2 completed: commitment timing predicts held-out GSM8K correctness and supports
+> retrospective cross-task workpoint selection on MATH; absolute cross-task calibration
+> does not transfer.**
+
+结果见 `AdaptiveThinking.md` §5.9；provenance / hash / 复现命令见 `CLAUDE.md`；
+协议冻结于 git `37713c8` → `docs/PREREG_P2.md`。下方 "P2 Instruction" 为原始指令，保留存档。
+
+- [x] P2 Phase 0 preregistration（`p2-v1.1`，建模前冻结）
+- [x] question split manifest（确定性 5-fold，已 `--check` 复现）
+- [x] feature exhaustiveness + label-firewall audit（复现 P1 177/66/57，loop 52）
+- [x] P2A GSM8K grouped OOF prediction
+- [x] Llama / Qwen 独立 gate — 均 PASS（.6561 / .7098，口径 CI 下界 > 0.5）
+- [x] 冻结 predictor 与预处理参数
+- [x] MATH 预测文件在解封 accuracy 前冻结（`4e52b079…`）
+- [x] P2B retrospective locked transfer 评价
+- [x] GSM8K OOF calibration figure（`fig_p2a_calibration.png` `7f135253…`）
+- [x] MATH predicted-vs-actual figure（`fig_p2b_transfer.png` `f380461e…`）
+- [x] 写入 `AdaptiveThinking.md` §5.9
+- [x] 写入 `CLAUDE.md`（provenance + figure hash + 复现命令）
+
+**主要结果**
+
+| | commitment-only AUROC | vs entry-only | P2B 方向 | 选中 α | regret |
+|---|---|---|---|---|---|
+| Llama | .687 [.656,.719] | +.139 [+.104,+.172] | negative 正确 | −4 = 真实最优 | 0.000 |
+| Qwen | .749 [.710,.787] | +.121 [+.084,+.156] | positive 正确 | +6 = 真实最优 | 0.000 |
+
+Qwen 另正确预测 plateau/overshoot 起点 +8；combined − commitment 两模型 CI 均含 0
+（entry gain 未检出额外增益）。
+
+**三条必须同行的边界**
+
+1. retrospective locked transfer test，**不是** blind / preregistered / fully held-out。
+2. Llama 仅局部方向（3 剂量），其 ρ=1.000 是三点必然，不可与 Qwen ρ=.962 并列。
+3. 迁移通道实为 `early_candidate + posN + posN_observed + cs_no_marker`
+   （另两特征在 MATH 上近乎无方差，建模前已记录）。
+
+**不再挂在 P2 之下**：真正 untouched dataset 的盲测已独立为 **P3**（见下），
+否则 P2 永远无法关闭。
+
+---
+
+## P3. Blind Cross-Task Validation（新增，承接 P2）
+
+在一个**从未查看过 accuracy** 的 reasoning dataset 上，对已冻结的 commitment predictor
+做真正的盲测。这是把 P2 的 retrospective 证据升级为"可迁移推理控制原则"的唯一途径。
+
+- [ ] 选定数据集并**先冻结**选择理由（GSM-Hard 为首选，与 P4 共用）。
+- [ ] 沿用已冻结的 predictor / features / marker adapter，不重新拟合、不重新校准。
+- [ ] 固定少量事先确定的剂量，不重新搜索最佳 α。
+- [ ] 预测方向与工作点并冻结预测文件，之后才计算 accuracy。
+- [ ] 评价方向、排序、regret 与近最优命中。
+
+前置条件：该数据集的 accuracy 在冻结预测之前**不得被任何人查看** —— 这正是 P2 无法满足的
+条件，也是 P3 必须独立存在的理由。
 
 ---
 

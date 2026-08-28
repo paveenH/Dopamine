@@ -1508,6 +1508,78 @@ Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论
 
 主图呈现 entry gain、early candidate、commit position 与 accuracy 的对应关系。Post-commit release 因 Qwen 对照队列存在选择偏差，仅作为补充结果；实现与验收细节见 `CLAUDE.md`。
 
+## 5.9 P2 Commitment-Based Prediction and Cross-Task Workpoint Selection
+
+**协议 `p2-v1.1`,建模前冻结(git `37713c8`,`docs/PREREG_P2.md`)。所有 feature、fold、
+predictor 与预测文件均在读取 MATH accuracy 之前冻结并记录 SHA256。**
+
+### 5.9.1 方法口径
+
+- **数据**:仅使用已有输出,无新推理。GSM8K 用 lightweight signal JSON(Llama 9 α,
+  Qwen 11 α,均 No-CoT);MATH 用 Qwen 9 α、Llama 3 α(`−4/0/+4`)。CoT 全部排除。
+- **Primary features(text-only,可跨任务迁移)**:`early_candidate`、commit-state
+  三个 dummy、`posN`、`posN_observed`。冻结抽取器一律 import,不重新实现。
+- **Commit-state 在 predictor 中为四值编码**(`committed / marker_unparsed_nonloop /
+  loop / no_marker`),仅为消除结构共线;**P1 的三值描述不变**,且四值可精确回加为 P1 计数
+  (Llama α=0 → 177/66/57,loop 子标记 52)。
+- **MATH marker 适配**:`####` 与 `\boxed{}` 实现同一语义(final-answer marker、首次可解析
+  commit 位置、重复提交),复用冻结的 `all_boxed`;空 `\boxed{}` 不计为可解析 marker。适配器在
+  读 accuracy 前冻结,不因结果调整。
+- **CV**:按 question hash 的确定性 5-fold;一题的全部剂量同 fold;填充与标准化只由训练折估计;
+  **raw α 不作为特征**。推断单位为 question,全部 CI 与模型差用 question cluster bootstrap。
+- **Accuracy 口径**:`first_acc` 为唯一 MAIN,`last_acc` 仅 sensitivity。
+
+### 5.9.2 P2A 结果(GSM8K held-out)
+
+| 模型 | commitment-only AUROC | entry-only | commitment − entry | combined − commitment |
+|---|---|---|---|---|
+| Llama | **.687** [.656, .719] | .548 [.526, .571] | **+.139** [+.104, +.172] | −.001 [−.004, +.002] |
+| Qwen | **.749** [.710, .787] | .628 [.601, .654] | **+.121** [+.084, +.156] | +.002 [−.002, +.007] |
+
+Calibration slope .95 / .98(图 `fig_p2a_calibration.png`)。两模型均通过预注册 gate
+(commitment-only AUROC 95% CI 下界 > 0.5)。
+
+> **结论:commitment timing 能预测未见 GSM8K 题目的正确性,且显著优于 entry gain;
+> 加入 entry gain 未检出额外预测增益。**
+
+措辞边界:"未检出增量",不是"证明 entry gain 无用"。这是**预测证据,不是因果证据**。
+
+### 5.9.3 P2B 结果(MATH retrospective locked transfer)
+
+预测文件冻结于 `4e52b079…`,之后才读取 accuracy。
+
+| 模型 | 方向 | Spearman ρ | 选中 α | 真实最优 | regret | 近最优集 |
+|---|---|---|---|---|---|---|
+| Qwen(9 α,完整) | positive **正确** | **+0.962** (n=9) | **+6** | +6 | **0.000** | 命中 [+4,+6] |
+| Llama(3 α,仅局部方向) | negative **正确** | +1.000 (n=3) | −4 | −4 | 0.000 | 命中 [−4,0] |
+
+Qwen 另正确预测 plateau/overshoot 起点 **+8**(真实回落点)。
+
+> **绝对校准不迁移,剂量排序与工作点选择迁移。**
+
+图 `fig_p2b_transfer.png`:面板 A 原始值(Qwen 预测 .83–.88 vs 真实 .54–.68,系统性高估
+约 0.25——MATH 更难,而概率尺度学自 GSM8K);面板 B 相对 α=0 的变化(方向、+6 峰、+8 回落
+清晰可见)。**预测值未按 MATH accuracy 重新缩放或校准。**
+
+### 5.9.4 证据等级与边界
+
+1. **这是 retrospective locked transfer test**,不是 blind、不是 preregistered against
+   unseen data、不是 fully held-out——MATH accuracy 此前已被研究者看过。要主张"可迁移的
+   推理控制原则",仍需在从未查看 accuracy 的数据集上完成盲测(见 P3)。
+2. **Llama 仅支持局部方向。** 三点无法检验 peak / overshoot / plateau / 全曲线 regret。
+   其 ρ=+1.000 是三点的必然产物,**不可与 Qwen 的 ρ=+0.962 并列引用**。
+3. **迁移通道窄于六个特征(建模前已记录)。** `cs_loop` 与 `cs_marker_unparsed_nonloop`
+   在 MATH 上近乎无方差(Llama 0/0 of 900,Qwen 0/1 of 2700)——`\boxed{}` 不产生 `####`
+   的退化重复尾。实际承载信号的是 `early_candidate + posN + posN_observed + cs_no_marker`。
+   因此 P2B 检验的是**答案形成与提交时序的迁移**,不是 GSM8K 特有退化循环的迁移。
+4. **离线 `first_acc` 在每一 MATH cell 均比 inline 低 1–2 题**,即已记录未修补的两个抽取器
+   gap;偏差均匀,无法改变任何排序。按口径只记录不修补。
+5. 逐 α AUROC 稳健性检查(Llama .59–.71,Qwen .50–.80;α=0 单格 .677/.748)**非预注册**,
+   标为 exploratory,用于排除"predictor 只在分辨剂量"的假象,不影响 gate 判定。
+
+> **P2 总结论:commitment timing 可预测 held-out GSM8K 正确性,并支持对 MATH 的
+> retrospective cross-task workpoint selection;绝对跨任务校准不迁移。**
+
 ## 6. Conclusion
 
 从目前的 Llama3 与 Qwen2.5 结果来看，ThinkingCurve 可以形成一条相当完整、但需要分层表述的结论链：
