@@ -18,45 +18,21 @@
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
-14. cross-model thinking curve + 再次整理thinking.md
-14. 用commit时候的状态来判断对错？
+14. cross-model thinking curve + 再次整理thinking.md -> commit position ✔
+
+14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
 ---
-### P1. 完成跨模型 Thinking Curve（最高优先级）
-
-比较功能状态，而非 raw α：
-
-- Llama：`0 → 最佳 −6 → overshoot −8`
-- Qwen：`0 → 改善 +6 → plateau +8/+12`
-
-统一分析：
-
-- [x] entry gain
-- [x] early-answer / candidate timing
-- [x] commit position
-- [x] commit-aligned `s_t/Z_t` — **analyzed; supplementary only because Qwen coverage is intervention-selected**（α=0 仅 12/300 有 ≥20 个 commit 前 token，+8/+10/+12 则有 212–227 个）
-- [x] confidence、entropy、margin — **negative result**：过早 commit 不是高置信错误（Llama 同批逐题；Qwen 侧 7 格另一批次，`PARTIALLY AVAILABLE / SPARSELY SAMPLED`）
-- [x] reasoning length、loop
-- [x] post-commit release — **analyzed; same-sign but attenuated, not eligible for symmetric cross-model inference**（Qwen 最大 −0.233 vs Llama α=0 No-CoT −0.279，约 0.6–0.8 倍）
-
-目标结论：
-
-> 两个模型的 entry gain 都近似线性，但下游 commitment/decode 转换函数不同，因此产生 Llama peak 与 Qwen plateau。
-
-**P1 主体完成（2026-08-28）。冻结结论：**
-
-> **P1 completed: commitment timing explains the cross-model behavioral divergence at both curve and within-dose item levels; evidence is explanatory association, not causal mediation.**
-
-**两个 supplementary 项为何不再是待办：** 它们受同一个限制——Qwen 低剂量几乎一开始就输出答案（α=0 commit 中位位置约第 3 token），所以 commit 前窗口只在**干预推迟了提交之后**才存在。比较 α=0 与 +8 的 commit-aligned `s_t`，实际是拿「α=0 下罕见的自然晚提交题目」对「+8 下被推迟提交的大多数题目」——**干预本身决定了谁能进入分析（post-treatment selection）**。增加样本只会得到更多罕见的 α=0 晚提交样本，不会构成与高剂量总体可比的参照群体。**分析已完成；无法成立的是那个对称比较本身，不应为勾框继续投入实验。**
-
-证据等级：curve-level R²（n=9/11，描述性）+ item-level 关联（20/20 cell，控制题目与剂量固定效应后 β=+0.297/+0.200，t=10.8/5.5）。**非 mediation、非因果分解。** 详见 `AdaptiveThinking.md §5.8`；分析在 `RoleAnswer/thinking_curve/`。
-
-confidence 的 negative result 单独保留：它排除了「过度自信」这个竞争解释，使主张更精准——**问题是何时承诺，而不是承诺时有多自信。**
-
 验证这套 commitment regime 能否：
 - 在 GSM8K 上预测题目对错；
 - 跨到 MATH 后仍成立；
 - 帮助选择工作点，而不直接查看目标数据集 accuracy。
 如果跨任务也成立，论文就会从“解释两条剂量曲线”升级为“发现一种可迁移的推理控制原则”。
+
+下一步应另开 P2，检验 commitment regime 的实际价值：
+1. 用 GSM8K 现有输出测试能否预测单题对错。
+2. 冻结指标和判定规则，再迁移到 MATH。
+3. 检验能否不查看目标任务 accuracy，仅凭 commitment regime 选择合适工作点。
+如果第三步成立，论文贡献就会从“解释剂量曲线”提升为“提供可迁移的推理状态监测与工作点选择原则”。
 
 ### P2. 补 causal direction control
 
