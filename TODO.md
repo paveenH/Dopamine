@@ -17,13 +17,9 @@
 11. manifold llama3 实验以及结果整理 ✔
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
-13.manifold sentiity ✔
+13. manifold sentiity ✔
+14. 对比
 ---
-
-接下来应该停止扩展 Manifold，回到整篇论文的证据链：
-
-1. **完成 Manifold 收尾**
-   写入跨层结果，做一张 Llama/Qwen 跨层 cosine 图，然后关闭这条支线。核心结论是：对称注入经过层间传播后逐渐分化。
 
 2. **最高优先级：完成跨模型 Thinking Curve**
    不比较 raw α，而比较功能状态：
@@ -46,9 +42,6 @@
 
    `RSN discovery → GSM8K calibration → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
 
-所以眼下最具体的下一步是：**先把跨模型 Thinking Curve 做成一张统一状态图和一张核心结果表**。这才是目前最可能形成 ACL ARR 核心贡献的部分。
-
-
 2. **完成跨模型总结图**
    每个模型分别归一化，放在一起展示：
 
@@ -59,16 +52,10 @@
 
    不直接比较两模型的 raw α 或 hidden-state norm。
 
-3. **关闭 manifold 主线**
-   结论冻结为：last-prefill entry geometry 平滑且近似 piecewise scalar，但不足以解释 Llama peak 与 Qwen plateau。停止扩展 prediction、UMAP/TLE 和复杂 decode manifold。
-
 4. **转向真正的核心：下游动力学**
    接下来比较 Llama 与 Qwen 的 commit-aligned `Z_t/s_t`、confidence、entropy、margin 和 commitment timing，回答：
 
    > 相似的线性 entry gain，为什么在 decode 阶段被转译为 peak 或 plateau？
-
-所以眼下最具体的一步是：**做跨层 sensitivity → 画跨模型总结图 → 正式转入 Thinking Curve/downstream readout。**
-
 ---
 1. **增加 reasoning task**：先做 GSM-Hard，再考虑 SVAMP/ASDiv。目标是检验 Qwen 的 `+6～+8` commitment 转折，以及 Llama 的负向工作区能否迁移；措辞是“检验迁移性”，不是预设一致性。
 3. **不一致问题**：作为统领前两项的科学问题，不需要再单独堆一轮 α 曲线。
