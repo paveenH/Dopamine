@@ -104,6 +104,27 @@ confidence 的 negative result 单独保留：它排除了「过度自信」这�
 > **Manifold 收尾 → Thinking Curve → causal control → Behaviour 整理 → GSM-Hard → 论文整合**
 
 其中论文结构和主图不必等实验全部结束，可以与 Thinking Curve 同步推进。
+---
+### 从 AdaptiveThinking.md §5.8 Open items 迁出（2026-08-28）
+
+- [ ] **§5.6 逐层口径扩展到 −8 与 CoT**（原 Open 3，范围已收窄）
+      AdaManifold.md §3.9 的 cross-layer 已在「位移幅度 + 方向余弦」尺度覆盖全部 15 个
+      layer slot（含 Qwen −8 与 CoT），但 §5.6 的 **scalar-compression residual /
+      null specificity** 是另一套口径，仍只跑过正臂高剂量。HS 已采集，属分析工作。
+
+- [ ] **因果方向控制：真正注入 random / orthogonal directions**（原 Open 4 → 即 P2）
+      §5.6.3 的 null 是 remask（对同一批 hidden states 重投影），只能支持
+      readout specificity。要主张 steering direction 有因果特异性，必须实际注入并
+      重新采集。与 P2 第 53–55 行、ACL ARR 清单第 3 项是同一件事，勿重复列。
+
+- [ ] **Llama 五格 H5 provenance 验收**（非阻塞）
+      九点剂量曲线依赖的 nocot_aneg4/aneg2/a2/a4/a8 从未过 check_hs_llama.py。
+      只读，全量 probe 十几到几十分钟。不做则 supplement 措辞须写
+      「四格经全量验收；其余五格未单独验收，但 stored accuracy 与离线重算完全一致」。
+
+- [ ] **commit-aligned s_t/Z_t 与 post-commit release 的跨模型对称比较**（supplementary，
+      结构性受限，非工作量缺口）
+      Qwen 可读队列由操纵结果选出（α=0 覆盖率 4.0%，n=12），加样本也造不出匹配参照。
 
 ---
 1. **收尾并关闭 Manifold**
