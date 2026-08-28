@@ -23,60 +23,15 @@
 15. commitment regime -> MATH
 14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
 
-
----
-下一步最合理的做法是：把 GSM8K 训练出的正确性预测器作为冻结的 **commitment score**，直接应用到无标签 MATH 输出上，并据此预测 steering 方向和工作点。这样 P2A 与 P2B 是同一条分析链，而不是两套独立实验。
-
-下面这段可以直接交给 Claude：
-
 ---
 
 ## P2 Instruction: Commitment-Based Prediction and Cross-Task Workpoint Selection
-
 ### 目标
 
 检验 P1 中冻结的 commitment features 能否：
 
 1. 在 GSM8K 上预测未见题目的正确性；
 2. 在不使用 MATH accuracy 的情况下，预测 MATH 应采用的 steering 方向和工作点。
-
-本轮只使用已有输出，不运行新的模型推理。P1 已关闭，不修改其数据、指标定义或结论。
-
-### Phase 0：冻结分析协议
-
-先在文档中写明并冻结以下内容，再运行分析：
-
-- 数据划分；
-- primary features；
-- baseline models；
-- 缺失值处理；
-- 评价指标；
-- MATH 工作点选择规则；
-- 成功与失败条件。
-
-记录协议版本与 git hash。所有后续偏离必须明确标为 exploratory。
-
-### Phase 1：数据与 feature audit
-
-复用现有 frozen extractor，禁止重新实现答案解析或 `has_early_candidate`。
-
-逐 cell 验证：
-
-- 300 道题及顺序一致；
-- offline correctness 总数复现已发表的 `first_acc`；
-- 每个 categorical feature 互斥且完备；
-- `committed + marker_unparsed + no_marker = 300`；
-- `loop` 必须是 `marker_unparsed` 的子集；
-- 所有比例明确记录分母；
-- feature 提取不得读取 ground-truth answer 或 correctness。
-
-`posN` 只在 parseable committed 样本中定义。不得进行 complete-case deletion；应同时加入：
-
-- `posN`；
-- `posN_observed`；
-- commit-state one-hot。
-
-若 MATH 的 prompt、final-answer marker 或 early-candidate 定义与 GSM8K 不兼容，不得静默修改规则。先报告差异，并只根据输出格式、不能根据 accuracy 决定适配方案。
 
 ### Phase 2：P2A — GSM8K Out-of-Sample Prediction
 
