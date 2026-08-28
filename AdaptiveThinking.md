@@ -940,11 +940,11 @@ GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 
 
 ## 5. Qwen2.5 Cross-Model Analysis
 
-本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**本節結論限於一維投影層次**；manifold 分析已於 2026-08-28 完成並關閉（見 `AdaManifold.md`），跨模型行為差異的定位見 §5.9。
+本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**本節結論限於一維投影層次**；manifold 分析已於 2026-08-28 完成並關閉（見 `AdaManifold.md`），跨模型行為差異的定位見 §5.8。
 
 > **一句話結論：Qwen 的入口增益持續隨 α 線性增加，但進入 decode 後，回應沿一個相對固定的 RSN layer profile 被顯著壓縮；現有證據更支持「標量增益壓縮」，不支持「軌跡發生幾何重分配」。**
 
-**閱讀順序即分析順序**：操控驗收（§5.2）→ 主鏈條（§5.3）→ slow state（§5.4）→ fast residual / confidence（§5.5）→ 高劑量壓縮與 null（§5.6）→ 跨模型狀態對齊（§5.7）→ 綜合與 open items（§5.8）→ commitment transfer（§5.9）。正文重點放在**主鏈條、高劑量 compression 與 working-state 對齊的可行性判定**三處；其餘為支撐與控制。
+**閱讀順序即分析順序**：操控驗收（§5.2）→ 主鏈條（§5.3）→ slow state（§5.4）→ fast residual / confidence（§5.5）→ 高劑量壓縮與 null（§5.6）→ 跨模型綜合與證據邊界（§5.7）→ commitment transfer（§5.8）。正文重點放在**主鏈條、高劑量 compression 與 working-state 對齊的可行性判定**三處；其餘為支撐與控制。
 
 ### 5.1 Scope and Cross-Model Comparison Rules
 
@@ -1294,9 +1294,31 @@ CoT `+6`（cov 58.3%、n=175）：
 
 > 圖：`fig54_null.png`
 
-### 5.7 Cross-Model Working-State Alignment: Partial Comparability and Current Limits
+### 5.7 Cross-Model Synthesis and Evidence Boundaries
 
-本節檢驗 Qwen 的正向最佳劑量與 Llama 的負向最佳劑量是否到達相近的 functional working state。現有結果支持兩模型具有部分相似的調節形態，但尚不足以證明其內部狀態已經對齊。
+本節整合 §5.2–§5.6 的跨模型結果，回答同一個問題：**兩模型哪些結果一致、哪些不同，以及目前能比較到什麼程度。** 分析鏈條的「複用」與結果的「複製」必須分開陳述——六個環節都以相同口徑跑通，但這只說明方法可移植。
+
+#### 5.7.1 複製的結果（機制層次）
+
+- **入口線性**：`G_prefill ~ α`，R²=0.9999，維持到 +12。
+- **entry–decode 解耦**：`jump/Z_prefill` 穩定在 −0.965…−1.003，一次性 prefill 注入在 `decode[0]` 近乎完全釋放。
+- **commit-locked 的帶符號 `p_t` dip**，隨劑量單調加深（−0.578 → −1.322）。
+- **commit-locked 的 output-distribution transition**（§5.5 Result 3）：commit 後 `entropy` 上升、`top1`/`margin` 下降，方向與 Llama 一致。但其 **dose dependence 是階段特異且取樣稀疏的**——commit 後的 Δ 幅度隨劑量遞減（`d_z` −0.55 → −0.30），僅 7 cell，格式效應無法排除。
+
+#### 5.7.2 同向但減弱（第三類，見 §5.3.1）
+
+- **post-commit slow-state release**：相同 `±20` 窗口下方向一致但幅度較小（Qwen `+12` 為 `−0.233`，Llama α=0 No-CoT 為 `−0.279`，約 0.6–0.8 倍）。Qwen 由高位緩慢回落而非明顯解除狀態。**不可歸入複製或未複製任一類**：歸為複製會抹去 Qwen 停在高位的事實，歸為未複製則與資料矛盾。
+
+#### 5.7.3 未複製的結果
+
+- **行為曲線**：**Llama 呈 asymmetric peaked response**（尖銳最佳點 α=−6、−8 崩潰、正 α 端逐步下降後趨平），**Qwen 呈高劑量平台**（單調上升後於 +8 飽和，band 內無右臂）。
+- **`p_t` amplitude 的劑量效應**：Llama 在 α=−6 有乾淨的 pre-commit centered RMS 上升；Qwen 的 `abs_mean`/`std` 在整個 −8…+12 幾乎不動。
+
+**兩項在此任務上同向為 null**：`vigor_slope`（§5.4，兩模型皆未在 GSM8K 誘發 ramping 斜率信號）與 frequency organization（§5.5，Llama 已測皆 null，Qwen 依此設計未計算）。
+
+#### 5.7.4 比較邊界
+
+**working state 對齊目前不可執行。** 下表逐量說明為何：
 
 | 待比較量 | Llama 最佳點 `α=−6` | Qwen 高表現區 `α=+8…+12` | 當前判定 |
 |---|---:|---:|---|
@@ -1305,74 +1327,46 @@ CoT `+6`（cov 58.3%、n=175）：
 | commitment timing | 各劑量約 `77%` coverage，`posN` 隨 α 平緩變化 | `posN: .010→.828`，coverage `5.7%→96.0%` | 可比較變化形態，不可視為相同 commitment state |
 | output decisiveness | 齊備（11 cell） | 已提取（7 cell，§5.5） | `PARTIALLY AVAILABLE / SPARSELY SAMPLED`：可比較 commit-locked transition 的**方向**，不可比較劑量曲線 |
 
-**可以確認的跨模型一致性**是：兩模型都呈現 task-entry gain 與後續 decode dynamics 的解耦，而且高表現區均伴隨 commitment timing、生成穩定性與退化尾巴的系統性變化。這支持兩模型可能共享某種 adaptive-calibration 結構。
+四條邊界，任何跨模型陳述都必須同時聲明：
 
-**目前不能確認的是**：Qwen `+8…+12` 與 Llama `−6` 是否到達同一個內部 working state。兩模型的 `Z_prefill` 使用不同 reference，pre-commit `s_t` 也來自不同統計量與 cohort；Qwen 在 α=0 時僅 `12/300` 個樣本具有可分析的 pre-commit window，因此無法建立與高劑量條件相匹配的自然基線。
+1. **raw α 與狀態絕對值不可比**——mask、L=9 vs L=6、activation scale 皆不同，等量 α 不是等量干預。
+2. **Qwen 的 commit-aligned cohort 存在選擇偏差**——其 pre-commit window 之所以存在，正是因為 α 推遲了提交（α=0 僅 12/300 有 ≥20 個 commit 前 token，`+8/+10/+12` 則有 212–227 個）。這是 **post-treatment selection**，增加樣本無法解決。
+3. **只能說共享部分調節結構，不能說到達相同 working state**——可確認的一致性是：兩模型都呈現 task-entry gain 與 decode dynamics 的解耦，且高表現區均伴隨 commitment timing、生成穩定性與退化尾巴的系統性變化。
+4. **random/orthogonal remask 只是 readout control，不是因果注入**——§5.6.3 僅界定 readout specificity；steering direction 的因果特異性需另行注入並重新採集（→ P2）。
 
-同樣地，不能僅根據「Qwen 最佳劑量為正、Llama 最佳劑量為負」推論兩模型位於不同的基線位置。名義 α 並非跨模型共享的 intervention scale，其符號與數值不能直接用作內部狀態座標。
+> Qwen 在高剂量时，RSN 的作用开始“变弱”，但作用方式没有改变。
 
-**結論。** 現有證據支持兩模型在**調節形態**上的部分一致，但「相同 working state、不同基線位置與到達方向」仍是待檢驗假說。output decisiveness 已由 `BLOCKED` 轉為 `PARTIALLY AVAILABLE / SPARSELY SAMPLED`——Qwen 呈現與 Llama 同向的 commit-locked transition，使第三項 output-level proxy 首次可用，但受限於取樣密度與 cohort 不對稱，**只支持方向層面的比較**。實作細節見 `CLAUDE.md`。
+具体来说：
 
-### 5.8 Integrated Interpretation and Open Items
+- 不同层的响应强弱本来就不一样，L20 甚至方向相反，因此不是所有层一起碰到上限。
+- 低剂量和高剂量的六层响应模式几乎保持相同，只是高剂量时整体缩小到约 **31%**（`k=0.309`）。
+- 所以更像是把同一个 RSN 响应模式整体“调小音量”，而不是高剂量引发了新的层间结构或作用方向。
 
-**Qwen 複用了 §4 的完整分析鏈，但「複用鏈條」與「複製結果」必須分開陳述。** 六個環節（§5.2 入口 manipulation check、§5.3 主鏈條、§5.4 slow-state validation、§5.5 fast residual、§5.6 高劑量壓縮與 null、§5.7 對齊可行性）都以相同口徑跑通。
+一句话结论：
 
-**確實複製的三項（機制層次）：**
-- **入口線性**（`G_prefill ~ α`，R²=0.9999，維持到 +12）；
-- **entry–decode 解耦**（`jump/Z_prefill` 穩定在 −0.965…−1.003，一次性 prefill 注入在 `decode[0]` 近乎完全釋放）；
-- **commit-locked 的帶符號 `p_t` dip**，且隨劑量單調加深（−0.578 → −1.322）。
-- **commit-locked 的 output-distribution transition**（§5.5 Result 3）——commit 後 `entropy` 上升、`top1`/`margin` 下降，方向與 Llama 一致。但其 **dose dependence 是階段特異且取樣稀疏的**：commit 後的 Δ 幅度隨劑量遞減（`d_z` −0.55 → −0.30），僅 7 cell，且格式效應無法排除。
+> **Qwen 的高剂量平台更可能来自原有 RSN 通道的增益压缩，而不是神经表示发生了重新组织。**
 
-**同向但減弱的一項（第三類，見 §5.3.1）：**
-- **post-commit slow-state release**——在相同的 `±20` 窗口下方向一致但幅度較小（Qwen `+12` 為 `−0.233`，Llama α=0 No-CoT 為 `−0.279`，約 0.6–0.8 倍）。Qwen 由高位緩慢回落而非明顯解除狀態。**不可歸入上下任一類**：歸為複製會抹去 Qwen 停在高位的事實，歸為未複製則與資料矛盾。附帶 cohort caveat——Qwen 可讀 cell 僅 `+8/+10/+12`，其 pre-commit window 之所以存在正是因為 α 推遲了提交。
+### 5.8 Commitment Transfer Function: How Similar Entry Gains Produce a Peak and a Plateau
 
-**未複製的兩項：**
-- **行為曲線**——**Llama 呈 asymmetric peaked response**（尖銳最佳點 α=−6、−8 崩潰、正 α 端逐步下降後趨平），**Qwen 呈高劑量平台**（單調上升後於 +8 飽和，band 內無右臂）。
-- **`p_t` amplitude 的劑量效應**——Llama 在 α=−6 有乾淨的 pre-commit centered RMS 上升；Qwen 的 `abs_mean`/`std` 在整個 −8…+12 幾乎不動。
+前述 manifold 分析顯示，entry geometry 不足以解釋兩模型的行為差異。本節利用兩模型完整劑量曲線與逐題配對資料，進一步定位下游的 commitment 環節。
 
-**兩項在此任務上同向為 null：** `vigor_slope`（§5.4，兩模型皆未在 GSM8K 誘發 ramping 斜率信號）與 frequency organization（§5.5，Llama 已測皆 null，Qwen 依此設計未計算）。
+兩模型的全部 20 個 cell 均包含相同的 300 道題且順序一致，因此可按題目進行配對分析；配對關係已逐 cell 驗證。分析實作與資料驗收細節見 `CLAUDE.md`。
 
-**當前最合適的一維層次結論：高劑量下 decode response 幅度明顯壓縮，逐層 loading 高度異質且含 L20 反號，但兩個劑量區間的 response profile 近乎共線（cos=0.987、k=0.309、97.4% energy），且此近共線性比一般方向更明顯——因此結果與「沿固定 RSN profile 的標量增益壓縮」相容，不支持層間同步的均勻 ceiling，亦未顯示幾何重分配。**
+#### 5.9.0 Commit State Is Categorical, Not Binary
 
-**Open 1（已關閉 2026-08-28）：manifold 分析。** 完整結果與解釋見 `AdaManifold.md`（不在此重複）。結論：對稱注入經逐層傳播形成 piecewise-scalar entry geometry，但該幾何**不能**解釋 Llama peak 與 Qwen plateau，因此差異定位到下游 commitment / decode dynamics —— 這個問題的答案見 **§5.9**。
+Commit state 分为三类：
 
-**Open 2（已完成，2026-08-26）：logit family 解封。** 結果見 §5.5 Result 2–3。剩餘缺口是**取樣密度**（7 vs 11 cell）與**缺乏配對的 α=0 cohort**——兩者都無法靠再次抽取解決。
+| State | 定义 | Llama α=0 |
+|---|---|---:|
+| `committed` | 存在可解析的 `#### <数字>` | 177 |
+| `marker_unparsed` | 出现 `####`，但答案不可解析；其中 52 题为重复 commit loop | 66 |
+| `no_marker` | 全文未出现 `####` | 57 |
 
-**Open 3（範圍已收窄）：−8 與 CoT 尚未納入 §5.6 的逐層口徑。** `AdaManifold.md` §3.9 的 cross-layer sensitivity 已在**位移幅度與方向余弦**的尺度上覆蓋全部 15 個 layer slot（含 Qwen `−8` 與 CoT 格），但那不是 §5.6 的 **scalar-compression residual / null specificity** 口徑——後者仍只跑過正臂高劑量。
+`loop_commit` 表示反复提交，而非从未提交，因此不能归入 `no_marker`。此外，123 个不可解析样本经 fallback 后仍有 63 题答对。
 
-**Open 4：因果方向控制。** §5.6.3 只界定 readout specificity；steering direction 的因果特異性需另行注入 random/orthogonal 方向並重新採集。
+> **Commit state 衡量生成过程中的提交行为，不是 accuracy proxy；格式异常不等于答案错误。**
 
-離線腳本、凍結記錄與伺服器端工具的清單見 `CLAUDE.md`（實作層面的單一事實來源，本文件不重複）。
-
-| 圖 | 內容 |
-|---|---|
-| `fig51_entry_gain.png` | §5.2 入口 gain 線性 + §5.3 accuracy 飽和 / commit timing |
-| `fig52_compression.png` | §5.6.1 entry vs decode 回應與 RAW response ratio |
-| `fig53_profile.png` | §5.6.2 逐層 profile + scalar-compression 擬合 |
-| `fig54_null.png` | §5.6.3 RSN vs 三個 null family |
-| `fig5_qwen_commit_centered.png` | §5.3.1 commit-centered `s_t`/`p_t` + release vs 劑量（`plot_qwen_mainfig.py`；對應 Llama §4.2 主圖）。confidence 面板**現已可繪**（見 §5.5 Result 3），但腳本尚未更新，仍印出 BLOCKED 理由並省略該面板 |
-
-**圖檔位於 `qwen2.5/dopamine/plots_gain/`，與 Llama 的 `llama3/dopamine/plots_gain/` 分開存放**——兩模型數值不可比，共用目錄是跨模型混用的起點。每個 panel 都由產生凍結文字記錄的同一段程式重新推導，不從表格硬編數字。
-
-### 5.9 Commitment Transfer Function: 相似入口增益如何形成 peak 與 plateau
-
-§5.8 的 manifold 分析排除了 entry geometry 作為行為差異的解釋。本節在**兩模型全劑量、同批、逐題可配**的層級上定位下游環節。分析腳本 `RoleAnswer/thinking_curve/`（`extract_metrics.py` / `curves.py`，offline，`python3.10`），冻结的 extractor（`all_hash` / `norm_gsm8k` / `fallback_gsm8k` / `has_early_candidate`）**一律 import 而非重寫**。
-
-**配對基礎（已驗證，非假定）：** 兩模型全部 20 個 cell 持有**同樣 300 題、同樣順序**，signal JSON 無 `question_idx`，故配對按 order，載入時逐 cell 斷言；順序不符即 fail-closed。
-
-#### 5.9.0 commit-state 是三值，不是布林（口径修正）
-
-首版把「無可解析 `#### <數字>`」記作 `no_commit`，在 Llama **每個 α 都讀到 ~41%**——這個平坦值合併了兩種相反行為：
-
-| state | 含義 | Llama α=0 |
-|---|---|---|
-| `committed` | 存在可解析 `#### <數字>` | 177 |
-| `loop_commit` | `####` 重複 ≥4 次但無可解析數字，退化尾部寫成 `#### . 36#### . 36…` | **52** |
-| `no_marker` | 全文無 `####` | 57 |
-
-**`loop_commit` 是反覆 commit，不是從未 commit；把它算作 no_commit 意思正好相反。** 另需注意 production 對這些樣本套用 fallback chain，Llama α=0 的 123 個不可解析樣本中仍有 **63 判對**——因此 **commit-state 是生成過程的行為讀數，永遠不是 accuracy proxy**，表面格式失效也不等於答錯。
-
-#### 5.9.1 模型內劑量曲線（逐題配對，n=300/cell）
+#### 5.9.1 Within-Model Dose–Response Curves (Item-Paired, n=300 per Cell)
 
 每格對各自 α=0 逐題配對，附 bootstrap 95% CI。**raw α 不跨模型比較。**
 
@@ -1392,42 +1386,92 @@ CoT `+6`（cov 58.3%、n=175）：
 | **+8** | **86.00** | **5.0** | 0.657 | 0.7 | 1.3 |
 | +12 | 87.67 | 4.0 | 0.697 | 1.3 | 1.0 |
 
-**Llama 的 early-candidate 在兩側都上升**（−8 77.0%、+8 69.3%，α=0 僅 47.7%），**−6 是全曲線最低點（19.3%）**；Qwen 的負臂紋絲不動（95–97%），只在高正劑量崩塌 96%→5%。
+- `early-cand%`：生成早期就出现答案候选的样本比例，反映是否“过早形成答案”。
+- `posN`：首次 commit（首次出现 `####`）的位置除以总生成长度。越接近 0，表示越早提交；越接近 1，表示越晚提交。
+- `loop%`：出现重复 `####` 等退化式反复提交的比例。
+- `nomk%`：全文完全没有出现 `####` marker 的比例。
 
-#### 5.9.2 在標準化入口座標上比較轉換曲線
+> 在各模型内部，剂量不仅改变准确率，也系统性改变答案形成与提交的时序。
 
-橫軸換成**模型內標準化**的 `z = (x̄_prefill(α) − x̄_prefill(0)) / SD_{α=0}`。**這是各自標準化的 entry coordinate，不表示兩模型接受了等量干預**——mask、L=9 vs L=6、activation scale 皆不同。
+- **Llama**：`−6` 时过早回答最少、准确率最佳；到 `−8` 时答案候选和 commit 大幅提前，并伴随异常提交，准确率随之崩溃。
+- **Qwen**：正向剂量逐渐推迟答案形成和提交；到 `+8` 后相关指标趋于饱和，因此准确率表现为平台，而非继续上升。
 
-在相近的 `|z|` 上兩模型行為截然不同：Llama `z=−26.7`（α=−6）抢答率 19.3%、accuracy 79.67；Qwen `z=−37.0`（α=−6）抢答率 95.3%、accuracy 65.33。**共享的是功能鏈 `entry gain → commitment transformation → accuracy` 的前半段，下游轉換函數不同。**
+> **Llama 的 peak 与 Qwen 的 plateau，都与各自的 commitment timing 曲线相对应。** raw α 只用于模型内部比较，不能直接跨模型对齐。
 
-#### 5.9.3 commitment 是否在 entry gain 之外解釋行為
+#### 5.9.2 Comparing Transfer Curves in Standardized Entry Coordinates
 
-| 解釋 accuracy 劑量曲線的 R² | Llama (9 cells) | Qwen (11 cells) |
+为避免直接比较不可通约的 raw α，我们将入口变化转换为模型内标准化坐标：
+
+$$
+z=\frac{\bar{x}_{\text{prefill}}(\alpha)-\bar{x}_{\text{prefill}}(0)}
+{\mathrm{SD}_{\alpha=0}}
+$$
+
+该坐标只表示干预在**各模型内部**造成的相对入口变化，不代表两模型接受了等量干预。
+
+即使处于相似的强负向 entry displacement，两模型的行为仍明显不同：Llama 在 `α=−6` 时抢答率仅 19.3%、准确率为 79.67%；Qwen 在相同 raw α 下抢答率为 95.3%、准确率为 65.33%。
+
+> **两个模型都表现出 entry gain，但 entry gain 如何转化为 commitment timing 与最终准确率，由模型特异的下游转换机制决定。**
+
+#### 5.9.3 Does Commitment Explain Behavior Beyond Entry Gain?
+
+在剂量曲线层级，commitment timing 比 entry gain 更能解释 Llama 的准确率变化：
+
+| Accuracy curve predictor | Llama (9 cells) | Qwen (11 cells) |
 |---|---:|---:|
-| entry gain `z` 單獨 | **0.136** | 0.898 |
-| early-candidate 單獨 | **0.945** | 0.923 |
-| `z` + early | 0.964 | 0.981 |
+| Entry gain `z` | 0.136 | 0.898 |
+| Early candidate | **0.945** | 0.923 |
+| `z` + early candidate | **0.964** | **0.981** |
 
-**Llama 這一格是關鍵：entry gain 幾乎無法解釋其曲線，commitment 可以。** 但 **n=9/11，這是曲線層級的描述性證據，不構成 mediation 或因果分解。**
+表格里的数值是 **R²**，计算单位是“剂量 cell”，不是单道题。具体做法是：把每个剂量下的总体 accuracy 作为因变量，分别拟合：
 
-**逐題層級的獨立驗證（這才是穩健性的來源）：** 20 個 cell **無一例外**，抢答樣本正確率低 6–36pp。進一步以**題目固定效應 + 劑量固定效應**的線性機率模型（雙向去均值，SE 按題目 cluster）控制難度後，關聯幾乎不衰減：
+- `accuracy ~ entry gain z`
+- `accuracy ~ early-candidate rate`
+- `accuracy ~ z + early-candidate rate`
 
-| | β(early → P(error)) | cluster-robust SE | t | n |
-|---|---:|---:|---:|---|
-| Llama | **+0.297** | 0.028 | +10.8 | 2700 obs / 300 題 / 9 劑量 |
-| Qwen | **+0.200** | 0.036 | +5.5 | 3300 obs / 300 題 / 11 劑量 |
+Llama 的 entry gain 几乎无法解释其 peak–collapse 曲线，而 early candidate 可以；Qwen 的两个指标则都随剂量单调变化。由于只有 9/11 个 cell，这些 R² 仅为描述性证据，不构成因果中介分析。
 
-原始差距 Llama +30.3pp、Qwen +19.6pp，控制後為 +29.7pp / +20.0pp——**難度混淆不能解釋這個關聯**。
+逐题分析提供了更稳健的证据：在全部 20 个 cell 中，抢答样本的正确率均低 6–36 个百分点。控制题目难度与剂量后，抢答仍显著增加错误概率：
 
-#### 5.9.4 stopping / loop：−8 是過早鎖定後的退化，不是長度變化
-
-| Llama α | chars | `n_markers` mean/p90 | post-commit 佔比 |
+| Model | Early → P(error) | SE | t |
 |---|---:|---:|---:|
+| Llama | **+29.7 pp** | 2.8 pp | 10.8 |
+| Qwen | **+20.0 pp** | 3.6 pp | 5.5 |
+
+**逐题层级的回归分析**，研究“提前出现答案候选”是否更容易答错。
+- `Early → P(error)`：控制**题目难度**和**剂量差异**后，抢答样本的错误率平均增加多少。
+  - Llama：增加 **29.7 个百分点**
+  - Qwen：增加 **20.0 个百分点**
+- `SE`：该估计值的标准误，按题目聚类计算。数值越小，估计越稳定。
+- `t`：估计值除以标准误。
+  - Llama：`29.7 / 2.8 ≈ 10.8`
+  - Qwen：`20.0 / 3.6 ≈ 5.5`
+  - 两者都表明关联非常明确。
+
+> 在同一道题、排除整体剂量差异后，过早形成答案的样本仍更容易出错：Llama 约高 **30 pp**，Qwen 约高 **20 pp**。
+
+> **Commitment timing 能够解释 entry gain 未覆盖的行为差异，尤其是 Llama 的高剂量崩溃；这一结果是稳定的解释性关联，但不是因果 mediation。**
+
+#### 5.9.4 Stopping and Loops: The −8 Collapse Reflects Premature Lock-In, Not Shorter Reasoning
+
+| Llama α | Characters | `n_markers` mean / p90 | Post-commit proportion |
+|---:|---:|---:|---:|
 | −8 | 2300 | 6.9 / **2** | **0.957** |
 | −6 | 2092 | 21.2 / 119 | 0.702 |
 | 0 | 2186 | 23.6 / 127 | 0.781 |
 
-生成長度幾乎不變（2092→2300），但 **−8 有 95.7% 的生成發生在 commit 之後**——模型幾乎在開頭就鎖定答案，其餘全是鎖定後的文字。Qwen 相反：高劑量 `n_markers` 降到 1.6–2.1、post-commit 佔比降到 0.303、`loop%` 降到 1.3%，**機制變量在 +8 已飽和**（early-cand 5.0%、commit 98.0%），所以 +10/+12 無處可動。
+- `n_markers mean / p90`：每个输出中 `####` 标记出现次数的统计。
+  - `mean`：300 道题的平均出现次数。
+  - `p90`：第 90 百分位数，即约 90% 的样本不超过这个次数。
+  - 次数很高通常表示模型反复输出 `####`，可能出现循环或重复提交。
+- `Post-commit proportion`：首次出现 `####` 之后的文本长度，占完整生成文本的比例。$\text{post-commit proportion}=\frac{\text{length after first commit}}
+  {\text{total length}}$ 例如 `0.957` 表示 **95.7% 的输出发生在首次 commit 之后**，说明模型非常早就提交答案，之后仍继续生成大量内容。
+
+Llama 在 `−8` 时并未明显缩短输出，但首次 commit 后的内容占比升至 **95.7%**。这说明模型几乎一开始便锁定答案，之后继续生成大量文字；性能崩溃来自**过早锁定后的退化生成**，而不是推理长度不足。
+
+Qwen 呈现相反趋势：高剂量下重复 marker 和 post-commit 内容持续减少，而 early-candidate 与 commit rate 在 `+8` 左右趋于稳定。
+
+> **Llama 的高剂量崩溃对应过早锁定，Qwen 的高剂量平台则对应 commitment dynamics 饱和。**
 
 #### 5.9.5 confidence 補充讀數：過早 commit **不是**高置信錯誤（negative result）
 
