@@ -19,7 +19,7 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
-15. commitment regime 作为预测标的
+15. commitment regime 作为预测标的（直接预测调整的方向）
 
 ---
 
