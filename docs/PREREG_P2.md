@@ -462,3 +462,51 @@ Artifact hashes at freeze:
 | `p2_feature_audit.json` | `224bff52d9053825` |
 
 No P2A model had been fitted and no MATH accuracy had been read at this point.
+
+---
+
+## 15. P2B execution clarifications (recorded before MATH predictions were computed)
+
+Recorded **before** the frozen predictors were applied to MATH and before any
+MATH accuracy was read. Clarifications of existing sections; no definition is
+changed.
+
+### 15.1 The primary readout is ORDERING, not calibration
+
+Absolute predicted probabilities may lose calibration under dataset shift: the
+predictors were fitted on GSM8K, and MATH differs in base rate, marker
+convention and generation length. Therefore the P2B primary readouts are
+**dose ordering, steering direction and dose selection** — NOT whether the
+predicted probability equals the true accuracy.
+
+A calibration gap on MATH is therefore **expected and is not itself a failure**.
+Reporting the predicted curve as if it estimated MATH accuracy would be a
+misreading of what was frozen.
+
+### 15.2 Nothing is refitted or recalibrated
+
+- The frozen `commitment-only` predictors are applied as-is: no refitting, no
+  recalibration, no per-task intercept adjustment.
+- `posN` is imputed with the **frozen GSM8K median** (Llama 0.1478, Qwen 0.7652).
+  Using a MATH-derived median would let the transfer target's own distribution
+  enter the predictor.
+- All six frozen features are retained, **including the two that are
+  near-degenerate on MATH** (§13.2). Dropping them after seeing the distribution
+  is exactly the post-hoc freedom this protocol prevents.
+- Predictor, features and marker adapter are **not adjusted regardless of
+  outcome**, success or failure.
+
+### 15.3 The within-α AUROC check is exploratory
+
+The per-dose AUROC breakdown run after P2A (Llama 0.59–0.71, Qwen 0.50–0.80;
+α=0 alone 0.677 / 0.748) was **not preregistered**. It is reported as an
+**exploratory robustness check** against the artifact that the predictor merely
+separates doses. It does not alter the P2A gate, which was decided on the
+preregistered criterion alone.
+
+### 15.4 Evidence level of the P2A result
+
+P2A establishes that commitment timing **predicts** correctness on unseen GSM8K
+questions and outperforms entry gain, with no detectable added value from entry
+gain. This is **predictive evidence, not causal evidence** — the causal question
+belongs to the direction-injection control, which is a separate experiment.
