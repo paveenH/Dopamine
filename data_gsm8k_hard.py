@@ -37,10 +37,26 @@ import hashlib
 import json
 import os
 import sys
+from decimal import Decimal, InvalidOperation
 
 SALT = "rsn-p3-sample-v1"          # frozen in protocol 2.3
 N_SAMPLE = 300
 LIMIT_2_53 = 2 ** 53
+
+
+def exceeds_2_53(gold) -> bool:
+    """EXACT magnitude test. Deliberately never calls float().
+
+    Auditing a float64 precision failure BY CALLING float() is self-defeating:
+    float('9007199254740993') == 2**53, so the very first value that matters is
+    silently reported as within range. Verified: the float form misses 2^53+1
+    in every surface form (bare, negative, '.0' suffix, scientific notation).
+    Decimal parses the literal exactly.
+    """
+    try:
+        return abs(Decimal(str(gold).strip().replace(",", ""))) > LIMIT_2_53
+    except (InvalidOperation, ValueError):
+        return False          # non-numeric: not a large-integer hazard
 
 
 def digest(q: str) -> str:
@@ -62,8 +78,11 @@ def select(questions):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hf_name", default="reasoning-machines/gsm-hard")
-    ap.add_argument("--revision", default=None,
-                    help="pin the dataset revision; recorded in both outputs")
+    ap.add_argument("--revision", required=True,
+                    help=("REQUIRED. Pin the dataset revision to a commit SHA. "
+                          "Without it `datasets` silently follows main, so a "
+                          "later upstream edit would change what 'the P3 sample' "
+                          "means with no trace. Confirm HEAD before use."))
     ap.add_argument("--split", default="train")
     ap.add_argument("--out_dir", default="benchmark")
     ap.add_argument("--prefix", default="gsm8k_hard_p3")
@@ -86,6 +105,16 @@ def main():
 
     qdigest = hashlib.sha256("\n".join(chosen).encode("utf-8")).hexdigest()
 
+    # ---- gold audit in memory (fix 3); the sealed file is written below.
+    gold = [{"sample_id": i, "gold": by_q[q]} for i, q in enumerate(chosen)]
+    # Fix 3: the audit runs HERE, in memory, while gold is legitimately in
+    # scope. Only the COUNT and an audit digest reach metadata, so the sealed
+    # file never has to be reopened for a second audit -- reopening it is the
+    # one irreversible mistake in P3.
+    big = [str(g["gold"]) for g in gold if exceeds_2_53(g["gold"])]
+    n_big = len(big)
+    audit_digest = hashlib.sha256(
+        "|".join(sorted(big)).encode("utf-8")).hexdigest() if big else "none"
     # ---- questions file: NO gold, NO correctness. Generation reads only this.
     qs = [{"task": "gsm8k_hard", "sample_id": i, "question": q}
           for i, q in enumerate(chosen)]
@@ -95,23 +124,18 @@ def main():
                         "salt": SALT, "n": N_SAMPLE, "n_unique": n_uniq,
                         "n_source_rows": len(rows),
                         "questions_sha256": qdigest,
+                        "n_gold_exceeding_2_53": n_big,
+                        "bigint_audit_digest": audit_digest,
                         "contains_labels": False},
                "data": qs}, open(qpath, "w", encoding="utf-8"),
               ensure_ascii=False, indent=2)
 
     # ---- sealed gold file: the evaluator's input, and nothing else reads it.
-    gold = [{"sample_id": i, "gold": by_q[q]} for i, q in enumerate(chosen)]
-    n_big = 0
-    for g in gold:
-        try:
-            if abs(int(float(str(g["gold"]).replace(",", "")))) > LIMIT_2_53:
-                n_big += 1
-        except (ValueError, OverflowError):
-            pass
     gpath = os.path.join(a.out_dir, f"{a.prefix}_gold.SEALED.json")
     json.dump({"meta": {"protocol": "p3-v1", "questions_sha256": qdigest,
                         "revision": a.revision,
                         "n_gold_exceeding_2_53": n_big,
+                        "bigint_audit_digest": audit_digest,
                         "WARNING": ("SEALED. Do not open before p3_predictions.json "
                                     "is frozen. Reading this early destroys the "
                                     "blind property permanently.")},

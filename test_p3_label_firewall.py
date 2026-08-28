@@ -100,6 +100,48 @@ with tempfile.TemporaryDirectory() as td:
     except SystemExit:
         check("REJECTS: missing contains_labels declaration", True)
 
+# ---- 4b. MUTATION TEST: the 2^53 audit must be EXACT, not float-based
+print("\n[4b] 2^53 gold audit is exact (never routes through float)")
+from data_gsm8k_hard import exceeds_2_53
+L = 2 ** 53
+# Boundary cases. The float form int(float(x)) reports False for EVERY row
+# marked "must detect" below -- float('9007199254740993') == 2**53 exactly --
+# so a float-based audit misses the first value that matters.
+for label, val, want in [
+    ("2^53 exactly (not over)",        str(L),            False),
+    ("2^53+1",                         str(L + 1),        True),
+    ("-(2^53+1)",                      str(-(L + 1)),     True),
+    ("2^53+1 with .0 suffix",          f"{L + 1}.0",      True),
+    ("2^53+1 scientific notation",     "9.007199254740993e15", True),
+    ("2^53+1 with thousands commas",   f"{L + 1:,}",      True),
+    ("small int",                      "8000",            False),
+    ("float value",                    "1234.5",          False),
+    ("non-numeric",                    "n/a",             False),
+]:
+    check(f"{label} -> {want}", exceeds_2_53(val) is want)
+
+# and prove the naive float version really does miss them (regression guard)
+def _naive(g):
+    try:
+        return abs(int(float(str(g).replace(",", "")))) > L
+    except (ValueError, OverflowError):
+        return False
+check("float-based audit WOULD have missed 2^53+1 (why this test exists)",
+      _naive(str(L + 1)) is False and exceeds_2_53(str(L + 1)) is True)
+
+# ---- 4c. --revision is mandatory
+print("\n[4c] dataset revision is genuinely pinned")
+ld_src = open("data_gsm8k_hard.py", encoding="utf-8").read()
+check("--revision is required=True", 'ap.add_argument("--revision", required=True' in ld_src)
+check("no silent default to main", 'ap.add_argument("--revision", default=None' not in ld_src)
+check("audit uses Decimal, not float", "Decimal(" in ld_src and "int(float(" not in ld_src)
+check("audit result is published to metadata",
+      '"n_gold_exceeding_2_53"' in ld_src and '"bigint_audit_digest"' in ld_src)
+audit_src = open("/Users/paveenhuang/Documents/RSNResult/RoleAnswer/p3/p3_bigint_audit.py",
+                 encoding="utf-8").read()
+check("bigint audit script cannot re-open sealed gold",
+      "--data" not in audit_src and "--questions" in audit_src)
+
 # ---- 5. launchers: per-model params, single-GPU guard, no accuracy
 print("\n[5] launchers")
 for m, band, doses in (("llama3", ("11", "20"), "neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20"),
