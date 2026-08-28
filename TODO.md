@@ -18,7 +18,7 @@
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
-14. cross-model thinking curve
+14. cross-model thinking curve + 再次整理thinking.md
 14. 用commit时候的状态来判断对错？
 ---
 ### P1. 完成跨模型 Thinking Curve（最高优先级）
