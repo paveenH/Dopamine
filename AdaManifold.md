@@ -513,116 +513,93 @@ Qwen 的 inside ratio 在不同剂量下变化很小。这与 §3.8 的单轴结
 
 ### 4.1 Natural hidden states exhibit structured variation
 
-α=0 的 hidden states 并不是在4096维空间中均匀变化。前20个 PCA directions 在 pre-commit 和 post-commit 阶段解释了约45%–48%的方差，而匹配样本规模和维度的随机基线只能解释约2%。这说明模型的自然推理状态具有明显的 **low-rank linear structure**。
+α=0 hidden states 具有明显的低秩线性结构。前 20 个 PCA directions 在 commit 前后解释约 **45%–48%** 的方差，而匹配条件下的随机基线约为 **2%**。
 
-这一结果表明 PCA 提取到的并非单纯由高维、小样本造成的随机结构。但它只证明方差集中在少数线性方向上，不能进一步推断存在一个确定的非线性 manifold，也不能把 `k=20` 解释为模型状态的内在维度。
+这说明自然状态的变化集中在少数主要方向上，但不能据此断言存在完整的非线性 manifold，也不能把 `k=20` 当作模型的内在维度。
 
 ### 4.2 Steering produces piecewise rather than globally scalar geometry
 
-最清晰的跨剂量结果出现在 **last-prefill、decoder 18**，即 steering 注入完成、模型尚未开始生成的位置。
+Llama 在 last-prefill、decoder 18 呈现清楚的分段结构：
 
-在负剂量一侧，−6 与 −8 的状态位移几乎完全共线：
+- **负臂内部近似单轴。** `−6` 与 `−8` 的 cosine 为 **0.989**，scalar-fit residual 为 **2.1%**；`−8` 主要是沿 `−6` 的方向继续走远。
+- **正臂内部也近似单轴。** 相邻剂量 cosine 为 **0.990–0.997**，说明增加剂量主要改变幅度，而非不断改变方向。
+- **正负两臂不是简单镜像。** 跨臂 cosine 约为 **−0.66**，对应约 **131°** 的夹角和约 **56%** 的正交残差。
 
-- cosine similarity 为 **0.989**；
-- scalar-fit residual 仅为 **2.1%**；
-- 300道题的位移方向全部同号；
-- `d_{−8} ≈ 1.379·d_{−6}`，与两者独立计算的位移幅度比基本一致。
-
-因此，−8 并不是进入了一个全新的状态方向，而主要是沿着 −6 已经使用的方向继续移动。结合行为结果，α=−6 对应最高准确率，而 α=−8 出现性能崩溃，这与一种 **overshoot** 解释一致：−6 到达有效工作区域，−8 则沿同一条轴移动过远。
-
-+6 呈现不同的几何关系。它与负剂量位移部分反向对齐，cosine 约为 −0.66，但仍有约56%的能量无法由负端轴的反向缩放解释。因此，+6 既不是 −6 的简单镜像，也不是同一方向上幅度更小的状态，而是包含明显的额外方向成分。
-
-补齐 ±2/±4/+8 后（§3.3、§3.4），这一图景变得更明确：**正臂内部同样近似单轴，且比负臂更共线**（相邻 cos 0.990/0.994/0.997，全部 100% 同号），而跨臂 cosine 在四个正剂量上恒定约 −0.66。因此额外的方向成分并不是随剂量出现的重组，而是两臂之间与剂量无关的固定夹角。
-
-综合来看，RSN steering 不能用一条覆盖所有剂量的全局 scalar-gain axis 描述。更合适的解释是：
+因此：
 
 > **Llama 的 last-prefill response 是 piecewise scalar，而不是 global scalar。负、正剂量分别沿两条近似一维轴随剂量扩张；两条轴之间保持约 131° 的固定夹角。**
 
-需要区分三个层次：
+这个结构随层深逐渐形成：在第一个 steered layer，正负剂量近似沿同一方向推拉；经过后续层传播后，两条路线才逐渐分开。末层的分段几何因此是模型内部传播的结果，而不是 steering mask 本身的性质。
 
-- **臂内**：近似 scalar family，方向基本稳定，剂量主要改变幅度（两臂 ‖d‖ 对 |α| 均线性，R² = 0.998 / 0.9999，且均未见饱和）。
-- **跨臂**：不是同一轴的正反镜像，cos ≈ −0.66，存在约 56% 的正交残差。
-- **行为对应**：−6 → −8 的几何仍然平滑线性，cos 0.989、residual 2.1%、幅度落在线性外推上，而 accuracy 从 79.67 骤降至 40.67。因此行为峰值**不是**由 entry geometry 的方向转折造成的；更符合的解释是沿负端轴 overshoot 之后被下游非线性放大。
-
-这为 Llama 的非对称行为曲线提供了对应的几何解释：几何在两臂内都是平滑的，行为的非对称性因此需要在 entry geometry 之外寻找来源。
+行为上，`−6` 的 accuracy 为 **79.67%**，`−8` 则降至 **40.67%**，但两者仍沿几乎相同的轴。因此，Llama 的峰值不是 entry direction 突然改变造成的，更符合沿负端轴 **overshoot** 后被下游非线性放大的解释。
 
 ### 4.3 The clean entry geometry does not persist unchanged during decoding
 
-上述剂量结构主要成立于 last-prefill。进入生成阶段后，结果发生变化：
+清晰的分段结构主要出现在 last-prefill。进入生成后：
 
-- pre-commit 阶段各剂量的 NRE、trajectory speed 和 centroid distance 差异较小；
-- post-commit 阶段虽然出现几何差异，但 −6 与 −8 不再表现为同一组；
-- +6 也不再是与其他剂量分离最明显的条件。
+- commit 前各剂量的 NRE、trajectory speed 和 centroid distance 差异很小；
+- commit 后虽然出现差异，但 `−6` 与 `−8` 不再保持相同分组；
+- `+6` 也没有稳定成为最特殊的条件。
 
-因此，不能把 last-prefill 的“负端共享轴、正端方向重组”直接延伸到整条生成轨迹。
+这不表示 decode states 没有结构，而是说明 **last-prefill 的跨剂量关系没有原样延续**。生成文本、commitment、答案格式、循环和自回归反馈会让轨迹逐渐分叉。
 
-这不表示 decode hidden states 没有几何结构。α=0 在 commit 前后仍然表现出显著的低秩谱集中；缺失的是**跨剂量关系的稳定延续**。一个合理的解释是，steering 首先在输入边界形成清晰的状态位移，随后不同条件生成不同文本，并受到 commitment、答案格式、循环和自回归反馈的共同影响，使轨迹逐渐分叉和重组。
-
-因此，manifold 结果与此前 `G/Z` 分析共同指向一个更一般的模式：
-
-> **Steering 在 entry boundary 产生清晰、可控的变化，但 decode dynamics 并不是该 entry effect 的简单线性传播。**
+> **Steering 在 entry boundary 形成清晰、可控的初始位移；decode dynamics 则是对这个初始条件的非线性展开。**
 
 ### 4.4 Relation to Dopamine and the Thinking Curve
 
-这些结果为 Thinking Curve 提供了一个计算层面的解释。
+Manifold 为 Thinking Curve 提供的是一个边界条件：**entry gain 很简单，行为转换并不简单。**
 
-负剂量共享轴可以被理解为一条稳定的 **gain-control axis**。沿这条轴增加位移，模型先到达 α=−6 的有效工作区域，随后在 α=−8 发生 overshoot。这与“适度调节有益、过度调节有害”的曲线形态一致。
+- Llama 的 `−6 → −8` 沿同一条轴继续增长，行为却由最佳点转为崩溃。
+- Qwen 的 `+6 → +8 → +12` 位移持续线性增长，accuracy 却进入平台。
+- 两模型的正负路线都会随层深逐渐分化，但这种共同的跨层结构仍对应不同的行为曲线。
 
-但是，这只是计算几何上的类比。α 的正负不能直接等同于生物多巴胺的增加或减少，PCA 方向也不是生物神经回路。当前结果说明的是 RSN steering 如何重组模型状态，而不是模型内部存在真实的多巴胺机制。
+因此，Qwen plateau 不是 entry-state saturation，Llama peak 也不是 entry direction 转折。更合适的跨模型框架是：
 
-对于跨模型差异，此前的假设是 Qwen 的正端位移会逐渐压缩或饱和，从而形成行为 plateau。**该假设已在 §3.8 被证伪。** Qwen 的正臂同样是一条近似一维的轴，`‖d‖/|α|` 在 +6/+8/+12 上恒定为 14.85–15.11，没有饱和；而其 accuracy 在同一区间已经平台化。
+> **Entry gain is smooth and near-linear, whereas the downstream dose–response function is model-dependent.**
 
-因此 manifold 的跨模型结论是**排除性的**：
+这把主要问题定位到 commitment timing、early-token selection 和 decode dynamics。Layer-matched 条件下，Llama 与自身主要 PCA 方向的对齐强于 Qwen（§3.10），但该差异同样不能区分 peak 与 plateau。
 
-- **行为 plateau 不是 entry-state saturation。** 入口位移仍随剂量线性增长，所以平台更可能产生于 decode / commitment 阶段的非线性读出或压缩。
-- **last-prefill 几何不足以解释 Llama 与 Qwen 的行为差异。** 两个模型在注入点都得到平滑、共线、按剂量线性缩放的位移，行为却分别呈现峰值与平台。差异不在于"输入状态走了形状不同的路径"。
-- 由此得到的框架表述是：**entry gain 相似，dose–response function 不同。** RSN steering 可以理解为一个平滑的增益输入；最终行为不是它的线性读出，而由各模型特有的 commitment 时序与 decode 动力学转译。这与 §3.7 的结果方向一致——last-prefill 的清晰结构没有稳定延伸到 commit-aligned decode。
-
-§3.9 的跨层结果进一步定位了这个"相似的 entry gain"从何而来:**正负不对称并非 steering 输入本身具有不同方向,而是对称注入经过模型层间传播后逐渐分化形成的。** 在第一个 steered layer,两臂严格反平行(Qwen `|cos| = 0.99996`,解析必然);到 band 末端才分离到 −0.66(Llama)/ −0.75(Qwen)。因此 §3.4/§3.8 的"两条轴、固定夹角"是**末层的涌现结构**,不是干预的输入性质;而两个模型走的是同一条跨层分化规律,行为却分别是峰值与平台——这再次把差异推向下游。
-
-跨模型比较的仍是**几何曲线与行为曲线之间的关系**；raw α、位移绝对大小与 PCA 方向在模型之间不可直接比较（不同 mask、L=6 vs L=9、不同激活尺度）。
-
-此外，两模型的 entry displacement 与各自 α=0 top-PCA 方向的对齐强度不同（layer-matched 下 Llama 更强，§3.10），但两者的位移同样是线性且单轴的，因此这一差异同样无法区分 peak 与 plateau。
+这里的 dopamine 只是一种功能类比：适度 gain 可能有益，过度 gain 可能造成 overshoot。α 的正负不能直接对应生物 dopamine 的增减，PCA 方向也不是生物神经回路。
 
 #### 跨模型总结图
 
-**主图：** `RoleAnswer/llama3/dopamine/manifold/fig_crossmodel_summary.png`，四个面板全部由已有产物绘制，无新增实验。
+主图 `RoleAnswer/llama3/dopamine/manifold/fig_crossmodel_summary.png` 汇总四项结果：
 
-- **A.** 相对各自 α=0 的 accuracy change。Llama 在 −6 形成尖峰（+19.7pp）后于 −8 崩塌（−19.3pp）；Qwen 单调上升并在 +8…+12 平台化（+17.7 → +20.7pp）。
-- **B.** 归一化位移幅度，**按 |α| 作图且两臂分开**——`‖d‖` 是 |α| 的线性函数，若对带符号的 α 作图会呈 V 形而被误读为非单调。Llama 除以 `‖d₋₆‖`，Qwen 除以 `‖d₊₈‖`。
-- **C.** 臂内相邻剂量的 `|cos|`，八对全部 ≥0.95。
-- **D.** geometry–behaviour decoupling：横轴几何、纵轴行为。**点不连线**，因为按几何幅度排序后行为并非单调。
+- **A：** Llama accuracy 形成 peak，Qwen 形成 plateau；
+- **B：** 两模型各剂量臂的 entry displacement 都近似线性增长；
+- **C：** 同一臂内相邻剂量方向高度一致（全部 `|cos| ≥ 0.95`）；
+- **D：** 几何幅度与行为结果明显解耦。
 
-**判读的关键一格在 D：** Llama 的 −6 与 −8 归一化幅度分别为 1.00 与 1.39，两者 cosine 0.989（近乎同一条轴），行为却是 +19.7pp 与 −19.3pp。同样地，Qwen 的 +8 与 +12 幅度差 50%，行为只差 2.3pp。因此：
+最直接的例子是 Llama `−6` 与 `−8`：两者沿几乎同一方向，归一化幅度为 **1.00 / 1.39**，accuracy change 却为 **+19.7 / −19.3pp**。Qwen `+8 → +12` 的位移增加约 50%，accuracy 只增加 2.3pp。因此：
 
 > **两个模型的 entry displacement 都平滑且近似线性，但 Llama 的行为形成 peak、Qwen 的行为形成 plateau。位移的方向与幅度都不足以预测这一差异。**
 
-两模型各用自己的 α=0 basis 与 band，α 是名义值而非共同剂量；inside-ratio 的 k 敏感性分析（§3.10）放在 supplement，不进入主图。
+图中每个模型都使用自己的 α=0 basis、layer band 和归一化参考；raw α 与位移绝对大小不作跨模型比较。
 
 ### 4.5 Scope of the conclusion
 
-当前证据支持的核心结论是：
+当前结果支持一条简洁的计算链：
 
-> **Llama 的 RSN steering 在 last-prefill 形成了清晰的分段几何：正负剂量各自沿一条近似一维的轴随剂量扩张，两轴之间保持约 131° 的固定夹角。该结构为非对称准确率曲线提供了解释性几何，但没有稳定延伸到 commit-aligned decoding。**
->
-> **跨模型来看，Qwen 的正臂同样是单轴线性缩放且不饱和，而其行为已平台化。因此 last-prefill 几何排除了 entry-state saturation 作为行为差异的解释，并把差异定位到下游的 commitment / decode 动力学。**
->
-> **跨层来看，两臂在注入点重合、随深度单调分离，因此末层的分段几何是层间传播的产物而非注入的性质。整条链是：对称注入 → 层间非线性分化 → 末层 piecewise-scalar geometry；但该几何仍不足以解释 Llama 的峰值与 Qwen 的平台。**
+> **对称 steering 注入 → 随层深产生正负路线分化 → last-prefill 形成 piecewise-scalar geometry；Llama peak 与 Qwen plateau 未由这段 entry geometry 解释，差异需要在下游 commitment/decode dynamics 中寻找。**
 
-这一结论的范围需要保持明确：
+其中能够确定的是：
 
-- PCA 证明的是低秩线性结构，而不是完整的非线性 manifold。
-- Top-20 子空间外的能量不能直接称为 off-manifold，因为该子空间只覆盖约一半的 α=0 方差。
-- 精确的跨剂量方向结论目前以 last-prefill、decoder 18 为主。
-- 增量预测分析没有检测到稳定结果，但预测 correctness 或 commit position 并不是几何解释成立的必要条件。
-- 这些结果来自离线 hidden-state 分析，不构成 steering 方向具有因果特异性的直接证据。
-- Commit-aligned 样本覆盖率随 α 改变，因此 decode 比较同时受到生成轨迹分叉和样本选择的影响。
-- 在 layer-matched 比较下，Qwen 的 entry displacement 与其自身 α=0 top-PCA 方向的对齐弱于 Llama（enrichment 相差 2.4–4.8 倍，k=5/10/20 一致，§3.10）。但两模型的位移都是线性单轴的，该对齐差异既不解释 peak 与 plateau，也不构成 off-manifold 证据，故不再追查。
-- Qwen 的可用 HS 只有七格，No-CoT 负端仅 `−8` 一个剂量，因此「Qwen 负臂是否为单轴」无法判断。可以说的是：Llama 正负两臂与 Qwen 正臂均呈单轴线性结构；Qwen 负臂尚不可判断。
+- Llama 正、负两臂与 Qwen 正臂均呈近似单轴、线性增长；
+- Qwen plateau 不是 entry-state saturation；
+- Llama `−8` collapse 更符合沿 `−6` 轴 overshoot，而不是进入新方向；
+- last-prefill 的清晰几何没有稳定延伸到 commit-aligned decode。
 
-因此，manifold pilot 最合适的定位是：
+证据边界如下：
 
-> **它是对 Llama entry-state steering 的解释性几何分析，补充了 Thinking Curve 的行为结果；它不是独立的预测模型，也不是完整的因果机制。**
+- PCA 只证明低秩线性结构；top-k 之外不能直接称为 off-manifold；
+- Qwen 负臂只有 `−8` 一个剂量，是否单轴无法判断；
+- decode 比较受到轨迹分叉和 commit-window coverage 差异影响；
+- 离线 hidden-state 分析不能替代 random/orthogonal direction 的真实因果注入；
+- layer-matched inside-ratio 差异是描述性结果，不能解释 peak 与 plateau。
+
+因此，manifold pilot 的最终定位是：
+
+> **Last-prefill explanatory geometry：它约束了可能的机制解释，并把跨模型差异定位到下游动力学；它不是独立预测模型，也不是完整的因果机制。**
 
 
 ## Supplement
