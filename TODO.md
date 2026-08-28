@@ -190,119 +190,63 @@
 - [ ] 完成 Limitations、Responsible NLP 与可复现性清单。
 - [ ] 撰写 ACL ARR 长文初稿。
 
-### 5. Optional Extensions（不阻塞首轮投稿）
-
-- [ ] Base–Instruct：选择同架构 checkpoints，分别 self-localize RSN，比较 projection、direction overlap、behavioral working point 与 `Checkpoint × α` interaction。
-- [ ] 只讨论 post-training 是否建立或增强该控制轴，不将 Base 解释为“低多巴胺”。
-- [ ] HumanLLM / 人类行为相似性分析。
-- [ ] 其他模型（Mistral、Muse-Glimmer、Inkling-Small）仅在 Qwen 结果明确后考虑。
-- [ ] 人脑、fMRI/EEG、commit prediction 与动态 controller 留待主论文证据闭合后。
-
-# Follow-up
-
-0. Adaptive CoT router：只用 prefill 或 very early decode features 預測要不要 think。
-   - RSN features: x_prefill, RSN projection mean / variance, middle-layer RSN activation, role-sensitive direction projection, first 5-10 decode token RSN slope
-   - uncertainty features: MSP, entropy, constrained entropy, logit margin, E-option logit / abstention probability
-   - frequency/dynamic features（參考 ICLR2026 Balanced Thinking）: step-level confidence variance, local fluctuation，用來區分 overthinking / underthinking
-   - info-theoretic features（參考 NIPS2025 Think or Not）: InfoBias, InfoGain，先作 diagnostic / baseline，不急著當主控制器
-   - baselines: entropy threshold, MSP threshold, answer logit margin, question length, random routing, always CoT, always No-CoT
-
-1. 推理過程中 Dopamine curve 與 Thinking curve 的關係：在 reasoning model 的 `<think>` trace 裡對齊 backtrack / first-commit / hedging / verification marker。
-
 # Brain
 
-## B1. 理論框架
+我觉得有价值，但建议拆成“现在做”与“后续做”。
 
-**RSA（Representational Similarity Analysis）核心邏輯：**
-1. 給模型和人腦看同樣刺激
-2. 分別產生 N×N 相似矩陣（RDM）
-3. 比較兩個 RDM 的 Spearman 相關
+1. **现在做：Steingroever 健康常模对齐**
 
-**我們的預測**：RSN Δh 方向上的 RDM 應與 **ventral striatum / vmPFC** 相關，而與語言區（Broca / Wernicke）不相關。這直接說明 RSN 操縱的是 reward 表徵，不是語言表徵。
+这条成本低，而且公开数据确实包含 617 名参与者的逐 trial 选择、收益与损失。不过数据混合了 95/100/150 trials 和三种 payoff scheme，因此必须只选与我们 IGT 协议完全匹配的子集。[Steingroever et al. 数据说明](https://openpsychologydata.metajnl.com/articles/jopd.ak)
 
-## B2. 兩條執行路徑
+建议检验：
 
-### 路徑 A：公開 fMRI 數據 + RSA（1–2 個月）
+- `net_block1–5` 学习曲线；
+- net score 分布；
+- deck preference；
+- Wasserstein distance / RMSE；
+- 按原始 study 做 held-out，而不是把所有参与者混在一起挑最佳 α。
 
-**推薦數據集：**
+它能支持的结论是：
 
-| 數據集 | 來源 | 優點 | 適用性 |
-|---|---|---|---|
-| **NARPS Mixed Gambles（ds001734）** | OpenNeuro | 108人，vmPFC+striatum，已預處理，BIDS | 最直接：gambling 行為 ↔ 我們 Betting 的 RDM 比對 |
-| **Tom et al. Mixed-Gambles（ds000005）** | OpenNeuro | Poldrack lab 2007 Science，OFC+striatum 乾淨 | Reviewer 熟悉，說服力強 |
-| **MID Task（多個數據集）** monetary incentive delay | OpenNeuro 搜尋 | Wanting 最直接的 fMRI 範式（reward anticipation） | 對應 Betting 的 incentive salience | 
+> 某个 RSN 条件产生的 IGT 行为最接近健康人常模。
 
-**執行步驟：**
-1. 提取我們的 LLM 在不同 α 條件下，layers 11–20 的 hidden states → 構建 RDM
-2. 從公開數據集提取 ventral striatum ROI 的 trial-level 激活向量 → 構建腦區 RDM
-3. 計算兩個 RDM 的 Spearman 相關（需設計共享的刺激結構）
-4. 對照組：同一套分析在語言區（IFG / STG）的相關應接近零
+但不能写成：
 
-**關鍵挑戰**：LLM 刺激（MCQ 題目）和 fMRI 刺激（賭注任務）的對齊——需要設計一批「LLM 和人腦都能做」的共享刺激集。
+> α=0 等于正常 dopamine 水平。
 
-### 路徑 B：行為層次對齊（1–2 週，不需要 fMRI）
+行为相似不能识别神经递质水平。因此建议称为 **human behavioural calibration**，而不是 dopamine-axis calibration。
 
-找已發表的人類行為數據（帕金森 vs 健康人 vs DA-agonist 組的 Cambridge Gamble / Iowa Gambling Task），與我們的 α 劑量比對：
+2. **已有药理学方向对照：保留即可**
 
-| 組別 | 人腦 DA 狀態 | 預測對應 α |
-|---|---|---|
-| 帕金森未服藥 | 低 tonic DA | α<0 |
-| 健康控制 | 正常 DA | α≈0 |
-| DA 激動劑 / L-Dopa ON | 高 DA | α>0 |
+现在的定性文献结论已经够用了：
 
-#### 文獻偵察結論（2026-07-23，已查）
+- α+ 与较早承诺、较高下注或 reward seeking 的方向相似；
+- α− 与较保守行为的方向相似。
 
-**① 方向學高度一致（可寫，定性）。** 人類 DA 藥理學在 gambling task 上的方向與我們的 α 預測完全對齊：
-- α+ (高DA) → 更衝動 / 早承諾 / delay aversion↑：Multiple Modes 2013（高 levodopa 劑量 → delay aversion↑）；Cools 2003（L-Dopa ON → 理性決策但衝動下注）；Riba/Pizzagalli 2008（pramipexole → boost 後保守傾向消失，更 reward-seeking）。**直接對上我們 CGT-Sequential 的 α+ → accept_step↓ / DAI 展寬。**
-- α− (低DA / 未服藥帕金森) → risk-averse / 保守；DA 治療才轉向 risk-taking。
+把它作为 Discussion 中的 correspondence table，不必继续寻找无法获得的三组相关系数。措辞停在：
 
-**② 嚴格「三組行為向量相關係數」做不了。** 查過的三篇關鍵文獻都沒有可對齊的 trial-level 或乾淨組均值表：Riba 2008 只報聚合百分比（placebo 47% vs pramipexole 49%，n.s.，核心效應在 boost 試次，無 mean bet/SD）；Multiple Modes 2013 只有 patients-vs-controls 總體、無 ON/OFF 分組、無 CGT 子量表 mean/SD；Cools 2003 結論為文字性。→ 缺三組可比數值向量，原設想的相關表無法計算。
+> RSN manipulation exhibits behavioural correspondence with reported dopaminergic pharmacology effects.
 
-**③ 落地形態改為「藥理學方向定性對齊」**：一段 correspondence-to-human-DA-pharmacology 敘述 + 一張定性對照表（未服藥帕金森↔α−；agonist/L-Dopa↔α+；我們的 α 在 CGT-seq / IGT 上再現人類 DA 方向）。夠撐 EMNLP/NeurIPS discussion 一節，但為定性方向複現，非定量 RSA。措辭停在行為層，勿跳神經層。嚴格定量須寫信向作者（Cools / Djamshidian 組）要 raw data（合作級，非 1–2 週自辦）。
+不要上升为神经机制同源。
 
-#### ★ 可做的定量版本：用 Steingroever 617人常模校準 α 軸零點
+3. **fMRI RSA：有潜力，但暂不作为当前投稿必做项**
 
-反過來用「只有健康人常模」這個限制：掃 α∈{−8…+8}，看哪個 α 的 IGT 行為**分布**與 617 名健康人最接近。
-- 若最佳對齊 α≈0 → **數據驗證**出 α=0 baseline = 人類正常 DA 水平（比「假設 α=0=健康人」強），順勢錨定 α−=帕金森方向、α+=agonist 方向，間接補上缺的兩組。
-- 對齊在分布層做：主讀數 = 逐 block 學習曲線（net_block1–5，形狀 RMSE/相關）或 net_score 整體分布（KS / Wasserstein）。指標口徑與 `analyze_igt.py` 一致（net_score / net_block / deck preference = IGT 標準指標，與 Steingroever 可比）。
-- **關鍵前提（待確認）**：須挑 Steingroever 中用**經典 Bechara 100-trial payoff scheme** 的子集（我們的 IGT 是這個），否則學習曲線不可比；並確認其提供 trial-level 選牌序列（才能算 block 曲線）。
-- 零 GPU（IGT 各 α 數據已有）、零合作門檻（公開可下載）。措辭：「α axis 的行為零點與人類健康常模一致」，勿 over-claim 到神經層。
+NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BIDS 数据和公开预处理结果，技术上适合开展共享刺激分析。[NARPS 数据说明](https://pmc.ncbi.nlm.nih.gov/articles/PMC6602933/)
 
-**可用公開數據 / 文獻**：
-- [617人 Iowa Gambling Task 數據（Steingroever et al.）](https://openpsychologydata.metajnl.com/articles/jopd.ak)（純行為，完全公開；健康常模，用於零點校準）
-- Riba, Krämer, Heldmann, Richter, Münte (2008) *Dopamine Agonist Increases Risk Taking but Blunts Reward-Related Brain Activity*, PLOS ONE — [PMC2423613](https://pmc.ncbi.nlm.nih.gov/articles/PMC2423613/)
-- *Multiple Modes of Impulsivity in Parkinson's Disease* (2013), PLOS ONE — [10.1371/journal.pone.0085747](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0085747)
-- Cools, Barker, Sahakian, Robbins (2003) — L-Dopa ON/OFF CGT（理性決策但衝動下注）
-- 帕金森 CGT/IGT 文獻（Djamshidian et al. 2010/2011；DBS ON/OFF delay aversion, PMC3439437）— 多為論文表格均值，非 raw data
+但原计划需要两处修正：
 
+- 必须把 NARPS 中完全相同的 gain/loss gamble 输入 LLM，才能构建可比较的 RDM；现有 MCQ/Betting 刺激不能直接与 fMRI trial 做 RSA。
+- 即使 vmPFC/striatum RSA 显著，也只能说明 **representational correspondence**，不能“直接证明 RSN 操纵 reward representation”。
+- Broca/Wernicke 不显著也不能证明“不是语言表征”；ROI 功效、刺激语言量和噪声都会造成 null。
+- 还需要控制 gain、loss、accept/reject、RT 等 nuisance RDM，否则相关性可能只是两个系统都编码金额。
 
-# PLAN
+因此这会变成一个独立而完整的 brain–LLM 项目，不太可能只是附加分析。
 
-### Phase 1（2 週內，低成本或 zero-cost）
+我的建议优先级是：
 
-| # | 實驗 | 成本 | 目的 |
-|---|---|---|---|
-| 1 | Bandit 逐輪收斂曲線（現有數據） | 0 | 可視化證據 |
-| 2 | Known-correct subset analysis（現有 log） | 0 | 純 wanting 證據 |
-| 3 | 行為層次腦對齊（路徑 B，文獻比對） | 0 | 最快的腦連結 |
-| 4 | Cambridge Gamble Task 設計 + 跑 Llama3 | ~1 GPU day | 排除 Betting 的信心 confound |
-| 5 | Betting alpha sweep α∈{−8..+8} | ~1 GPU day | 畫出完整倒 U |
+1. 完成 Thinking Curve、GSM-Hard 和 causal direction control。
+2. 并行做 Steingroever 健康常模的小型定量对齐。
+3. 将药理学方向一致性放进 Discussion。
+4. NARPS RSA 放入 future work；如果前面的行为对齐很漂亮，再考虑扩成后续论文。
 
-### Phase 2（1 個月內，核心 claim）
-
-| # | 實驗 | 成本 | 目的 |
-|---|---|---|---|
-| 6 | **Tülu-3 SFT vs DPO on Betting** | ~2 GPU days | RLHF punchline |
-| 7 | **Llama3-Base self-localized mask** | ~3 GPU days | 排除 mask 適配問題 |
-| 8 | Random/PCA/Prompt baselines | ~1 GPU day | Reviewer 必問 |
-| 9 | 公開 fMRI RSA 初版（NARPS ds001734） | 1–2 週 | 腦對應量化 |
-
-### Phase 3（如有空間）
-
-| # | 實驗 | 目的 |
-|---|---|---|
-| 10 | Qwen3 + Mistral Betting 跨模型 | 廣度 |
-| 11 | Loss-aversion framing on Betting | Prospect theory 連結 |
-| 12 | 共享刺激集設計 + neural encoding | 登頂級期刊的路 |
-| 13 | **Pressure × Confidence Dissociation** | 區分 DA-like commitment vs confidence |
-| 14 | **Task Difficulty × RSN Activation（現有數據）** | DA effort/uncertainty 對應 |
+所以这条线不应该删除。**最值得现在做的是健康人 IGT 行为对齐；fMRI RSA 很有价值，但不应成为当前 ACL ARR 的阻塞项。**
