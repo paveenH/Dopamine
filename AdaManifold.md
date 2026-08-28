@@ -461,9 +461,15 @@ Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all
 
 ### 3.10 Inside-ratio sensitivity across k and layers (cross-model)
 
-§3.3 与 §3.8 的 inside ratio 都固定在 k=20。这里检查该跨模型差异在 **k=5/10/20** 与全部 15 个 layer slot 上是否稳健，并同时报告**相对随机基线的 enrichment** `inside / (k/H)`。加入 enrichment 是必要的：H 在两模型不同（Llama 4096、Qwen 3584），随机各向同性位移在 top-k 子空间中的期望能量分别是 `20/4096 = 0.488%` 与 `20/3584 = 0.558%`，所以裸 inside ratio 本身不可跨模型比较。本节不引入任何新数据，全部由已冻结的 `exact_*` 产物重算。
+前面的分析使用 `k=20` 和 steering band 的最后一层。这里进一步检查结论是否依赖 PCA 维数或特定层，比较 **k=5/10/20** 以及 Llama 和 Qwen 的全部 15 个 steered-layer slots。
 
-同时报告第三个归一化 **natural-variance alignment** `inside / α=0 explained variance`，即位移落在 top-k 中的比例相对该子空间**本身**所占自然方差的比例。这一项独立于 H，也独立于子空间大小。两模型的 α=0 explained variance 都随层高度稳定（k=20：Llama 49.9–54.6%，Qwen 56.3–58.6%），且 **Qwen 的更高**——因此这个归一化不是在帮 Llama：它把 Qwen 的分母调大，差距方向不变。
+我们报告三种互补口径：
+
+- **inside%**：位移能量落在 α=0 top-k PCA 子空间内的比例；
+- **enrichment** `inside/(k/H)`：相对于同维度随机方向的倍数，用于校正两个模型不同的 hidden size；
+- **natural-variance alignment** `inside/EV`：相对于该 top-k 子空间在 α=0 状态中所解释方差的比例。
+
+两模型的 α=0 top-20 explained variance 都较稳定：Llama 为 **49.9–54.6%**，Qwen 为 **56.3–58.6%**。完整计算和验收细节见 `CLAUDE.md` 的 *Manifold pilot* 章节。
 
 **Primary layer（Llama dec 18 / Qwen dec 20），TEST split。每格三个数：inside% / enrichment `inside/(k/H)` / alignment `inside/EV`：**
 
@@ -477,7 +483,11 @@ Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all
 | Qwen | +8 | 120.68 | 2.2% / 15.8× / 0.070 | 4.2% / 15.1× / 0.095 | 5.6% / 10.1× / 0.096 |
 | Qwen | +12 | 181.33 | 1.7% / 12.4× / 0.054 | 3.7% / 13.2× / 0.082 | 4.8% / 8.7× / 0.082 |
 
-**三项排序在 k=5/10/20 上完全一致，无一处翻转：**（i）Llama 负臂 > Llama 正臂；（ii）在 layer-matched 比较下 Llama > Qwen；（iii）Qwen 各剂量之间几乎无差别。第三点本身是一个观察结果：Llama 的 inside ratio 随 α 单调变化（负臂 21.4/21.2%，正臂 9.8%），而 Qwen 的四个剂量落在 4.7–6.6% 的窄带内，与剂量基本无关——这与 §3.8 的结论一致，即 Qwen 正臂是单一轴上的纯线性缩放，缩放不改变方向与 α=0 子空间的夹角。
+#### Primary-layer result
+
+三个 k 得到相同排序：**Llama 负臂 > Llama 正臂 > Qwen**。在 k=20 时，Llama 负臂约有 21% 的位移能量落在 top-20 子空间内，Llama `+6` 为 9.8%，Qwen 则集中在 4.7–6.6%。
+
+Qwen 的 inside ratio 在不同剂量下变化很小。这与 §3.8 的单轴结果一致：提高剂量主要让状态沿同一方向移动得更远，并未明显改变该方向与 α=0 PCA 子空间的关系。
 
 **跨层稳健性（dose-matched，取各模型层内最大值）：**
 
@@ -487,11 +497,17 @@ Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all
 | 10 | 81.3× / 16.8× （4.8×） | 63.0× / 16.1× （3.9×） |
 | 20 | 54.1× / 18.3× （3.0×） | 43.9× / 18.3× （2.4×） |
 
-在每一种 layer-matched 形式下（primary 对 primary、各自最佳层对最佳层），Llama 的 enrichment 都是 Qwen 的 **2.4–4.8 倍**，且方向在三个 k 上一致。第三个归一化给出同样的结论：alignment 的 layer-matched 比值为 **2.4–5.0 倍**（primary 3.8×/2.5×，max-over-layer 3.0×/2.4×，k=20 的 −8/+6）。**三个归一化互相独立地给出同一方向**，因此这是一个**稳定的描述性差异**，可以写入结论。
+#### Cross-layer result
 
-**必须同时声明的边界。** 若把两模型的全部 layer×dose 值当作两个未配对的集合，取值范围是**重叠**的，三个归一化皆然（k=20 enrichment：Llama 6.1–55.9×，Qwen 4.7–18.3×；k=20 alignment：Llama 0.055–0.538，Qwen 0.047–0.175）——Llama 的低层数值低于 Qwen 的高层。所以正确措辞是「**在 layer-matched 比较下 Llama 的 entry displacement 与 top-PCA natural directions 对齐更强**」，**不能**写成「Llama 处处高于 Qwen」。
+跨层结果与 primary layer 一致。在 layer-matched 比较中，Llama 的 enrichment 是 Qwen 的 **2.4–4.8 倍**；使用 `inside/EV` 后，差距仍为 **2.4–5.0 倍**。因此，这个差异不依赖某一个 k，也不是最后一层单独造成的。
 
-**这项差异不解释行为差异，也不构成 off-manifold 证据。** 两模型的 entry displacement 都是线性的、单轴的（§3.8、§3.9），差别只在于该轴与各自 α=0 top-k 子空间的夹角。k=20 只覆盖 α=0 方差的约一半，其补空间中包含的仍是普通的自然变异方向，因此低 inside ratio 只意味着 Qwen 的 steering 轴更偏离该模型自身最主要的自然变异方向，**不意味着它离开了 manifold**。为什么 Qwen 的对齐更弱，本节不作追查：它既无法区分 peak 与 plateau，也不构成可检验的机制假设。
+不过，两模型未经层匹配的范围仍有重叠：k=20 enrichment 为 Llama **6.1–55.9×**、Qwen **4.7–18.3×**；alignment 为 Llama **0.055–0.538**、Qwen **0.047–0.175**。Llama 的低层可以低于 Qwen 的高层，所以不能概括为“Llama 在所有位置都更高”。
+
+#### Conclusion
+
+> **在相同相对层位置的比较下，Llama 的 entry displacement 比 Qwen 更贴近各自 α=0 状态的主要 PCA 方向。**
+
+这是一项稳定的描述性差异，但不是 off-manifold 证据。Top-20 PCA 只覆盖约一半自然方差，落在其外的成分仍可能属于正常状态变化。更重要的是，两模型的 entry displacement 都保持平滑、线性和近似单轴，而行为分别形成 peak 与 plateau。因此，inside-ratio 差异不能解释行为曲线，后续分析仍应转向 commitment 与 decode dynamics。
 
 ## 4. Interpretation
 
