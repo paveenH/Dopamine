@@ -1,0 +1,12 @@
+{
+  "version": "p3-freeze-v1",
+  "frozen": "2026-08-28",
+  "repo_git_hash": "2ef25fe6a8ca1ced130f3291993e6926146c857c",
+  "status": "NO MODEL RUN. GSM-Hard NOT downloaded. No GSM-Hard accuracy computed or viewed by anyone.",
+  "note": "PREREG_P3.md hash is BEFORE this manifest was referenced back into it; the authoritative pin is the git commit of docs/PREREG_P3.md.",
+  "sha256": {
+    "PREREG_P3.md": "a1f918bc68904ab3ce1bc54484050beff1ee90062d2bc5b817a5c7322a99a909",
+    "build_p3_sample.py": "d8ed25d922d64518a67604997db291cf42972c649a6f75bafdb046012c6ab372",
+    "p3_bigint_audit.py": "7f24952d9d040514eb7ad28d8392a4f137b35252ef3d104f3e24dcd9a4d3650a"
+  }
+}
