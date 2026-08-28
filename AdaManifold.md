@@ -383,7 +383,9 @@ Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all
 
 ### 3.9 Cross-layer sensitivity
 
-全部 15 个 layer slot,未按结果删层。ALL n=300 为描述性曲线,TEST 已在 §3.5 用尽。
+前面的主要分析集中在 steering band 的最后一层。为了确认结论不是由单层选择造成的,这里进一步检查 Llama decoder 10–18 和 Qwen decoder 15–20 的全部 15 个 layer slot。每层都使用该层自己的 α=0 PCA basis；最后一层仍是预先指定的 primary layer。ALL n=300 用于描述跨层趋势,TEST 只用于核对趋势是否稳定。完整实现与验收细节见 `CLAUDE.md` 的 *Manifold pilot* 章节。
+
+#### Complete per-layer results
 
 **Llama — mean‖d‖ (TEST) 与臂内线性拟合 `‖d‖ = β·|α|`:**
 
@@ -424,33 +426,28 @@ Split 一致性良好:cos 的 test 与 all 差异 ≤0.004,`in_k20` 的 test/all
 | 19 | 81.85 | 61.93 | 85.48 | 128.16 | 10.32 | 10.68 | 10.68 | 0.988 | 0.987 | −0.774 | 0.0009 |
 | **20** | 119.50 | 89.11 | 120.68 | 181.33 | 14.85 | 15.08 | 15.11 | 0.983 | 0.980 | −0.754 | 0.0011 |
 
-Qwen decoder 15 的 `cos` 打印为 1.000/−1.000,全精度为 0.999962 / −0.999961,且 `k_ls` 精确等于剂量比;这是第一个 steered layer 的解析必然,同时构成一次正确性验证。逐层 `in_k5/k10/k20` 存于 `xlayer/exact_*.json`,主结果仍为 primary 层的 k=20(§3.3/§3.8)。
+#### Main findings
 
+**1. 位移随深度放大,但每一层仍保持线性剂量关系。** Llama 各层的 `‖d‖ = β·|α|` 拟合均接近完全线性（R² = **0.985–1.000**）；Qwen 在同一层内的 `‖d‖/|α|` 也基本恒定。与此同时,位移幅度沿模型深度持续增大：Llama 的 α=−8 从 1.18 增至 24.63（约 **21×**）,Qwen 的 α=+12 从 21.04 增至 181.33（约 **8.6×**）。换句话说,剂量作用没有在中间层突然改变或饱和,而是在传播过程中逐层放大。
 
-按 `PREREG_cross_layer.md`(结果产生前冻结)执行。仅 last-prefill,15 个 layer slot:Llama decoder 10–18(primary 18)、Qwen decoder 15–20(primary 20)。每层使用**该层自己的** α=0 PCA basis,不重新 fit、不跨层共用。这是 descriptive sensitivity,**不重新检验** §3.3/§3.4/§3.8 的冻结结论。
-
-**回归检查:** primary 层重算结果与已冻结产物**逐位一致**(Llama slot 8 与 Qwen slot 5,`mean‖d‖` / `in_k20` / 全部 pairwise cos 的最大差值均为 **0**),确认循环参数正确。
-
-**Magnitude — 线性在每一层都成立。** 臂内拟合 `‖d‖ = β·|α|` 的 R² 在 Llama 九层为 **0.985–1.000**,Qwen 六层的 `‖d‖/|α|` 在每层内跨剂量恒定(如 decoder 15 为 1.75/1.75/1.75,decoder 20 为 14.85/15.08/15.11)。同时幅度随深度单调放大:Llama α=−8 从 1.18(dec 10)增至 24.63(dec 18,**21×**),Qwen α=+12 从 21.04 增至 181.33(**8.6×**)。这与注入落在每层 output、并作为下一层 input 逐层传播一致。
-
-**Direction — 两臂在注入点重合,随深度单调分离。**
+**2. 正负方向起初几乎完全相反,随后逐层分开。**
 
 | | 第一个 steered layer | primary layer |
 |---|---|---|
 | Llama 跨臂 cos(−6 vs +8) | −0.977(dec 10) | **−0.675**(dec 18) |
 | Qwen 跨臂 cos(+8 vs −8) | −0.99996(dec 15) | **−0.754**(dec 20) |
 
-Qwen 第一个 steered layer 是**解析共线**:`|cos| = 0.99996`,且 `k_ls` 精确等于剂量比(−1.0000 / −1.3333 / 0.6669),偏差量级为 fp16 存储噪声。这是必然结果——在第一个 steered layer,位移就是 `α·mask` 本身——因此它同时构成一次**正确性验证**。
+在第一个 steered layer,正负 α 只是沿同一个 steering direction 向相反方向移动,因此 Qwen 的跨臂 cosine 几乎等于 −1。随着信息经过后续层,跨臂 cosine 单调升高至 Llama 的 −0.675 和 Qwen 的 −0.754,说明两条路线逐渐不再互为镜像。这个趋势在 train、validation 和 test 中一致；Llama 第一层在极小位移下的轻微偏差属于数值精度影响,不改变整体趋势。
 
-Llama 第一层的 `|cos|` 略低(±8 为 0.9995/0.9768),且**随位移单调升高**:`‖d‖` 为 0.31/0.60/0.89/1.18 时 `|cos|` 依次为 0.888/0.953/0.970/0.977。按 prereg 的 SNR 规则,这是小位移下的 fp16 量化,**不得读作注入点存在真实方向差异**。
+**3. 同一侧的不同剂量始终沿着近似同一方向。** Llama 正、负两臂的层内 cosine 分别保持在约 0.98 和 0.97 以上,Qwen 正臂保持在 0.98 以上,并且各层均为 100% 同号。因此,随深度改变的主要是**正臂与负臂之间的关系**,而不是每条臂内部的单轴结构。
 
-**臂内单轴性在每一层都成立。** Llama 臂内 cos ≥0.97(负臂)/≥0.98(正臂),Qwen 正臂 ≥0.98,各层均 100% 同号。
+#### Conclusion
 
-**SNR 判读(prereg §"THE SNR RULE"):** 跨臂分离满足全部三条前置条件——位移已明显且线性(R²≥0.985)、cos 跨 split 稳定(`max|all−test|` ≤0.005 Llama / ≤0.0016 Qwen)、cos 随深度**单调**变化。因此落在规则第 3 条,可读作方向随层系统演化,而非低信噪比伪影。
+> **RSN 注入起初只是同一方向上的“推”和“拉”。经过模型后续层的传播后,正负路线逐渐分开,最终形成 band 末端看到的两条轴。**
 
-**结论(descriptive):** §3.4 的「两条轴、固定约 131°」与 §3.8 的跨臂 141° 是 **band 末端的涌现结构,而不是 steering 的输入性质**。注入本身在两个方向上是对称的(同一 mask、相反符号);正负不对称是对称注入经模型层间传播后**逐层分化**形成的。两个模型呈现同一跨层规律,尽管其行为曲线分别为峰值与平台。
+因此,§3.4 和 §3.8 中的固定跨臂夹角不是 steering input 本身的性质,而是层间传播形成的涌现结构。Llama 与 Qwen 都呈现这一规律,说明跨层分化具有跨模型一致性；但两者最终分别表现为 accuracy peak 和 plateau,所以该几何结构仍不足以解释行为曲线的差异。
 
-**图:** `RoleAnswer/llama3/dopamine/manifold/fig_xlayer_crossarm.png`(主图,两模型跨臂 cosine vs layer)。位移幅度、臂内 cosine、inside ratio 的逐层表见 Supplement S4;全部 15 个 slot 完整报告,未按结果删层,primary 层未因中间层数值"更好"而改选。
+主图见 `fig_xlayer_crossarm.png`。上面的表格保留全部 15 个 layer slot；逐层 PCA inside-ratio 数据保存在完整结果产物中,primary layer 的 k=20 结果仍见 §3.3 和 §3.8。
 
 ## 4. Interpretation
 
