@@ -847,6 +847,110 @@ flat ~41% at every Llama alpha, merging degenerate loops (repeated commits) with
 no-marker cases -- an inversion of meaning, not a rounding issue.
 Evidence: AdaptiveThinking.md 5.9.0; thinking_curve/extract_metrics.py docstring.
 Scope: every commitment readout on GSM8K, both models. -->
+## P2 commitment prediction + cross-task workpoint transfer (COMPLETE + FROZEN 2026-08-28)
+
+> **`AdaptiveThinking.md` §5.9 is the results document** — 口径, tables, evidence level
+> and boundaries live there. This section is provenance, hashes and reproduction.
+
+Offline in `RoleAnswer/p2/` (**not in this git repo** — a server `git pull` will not
+fetch it), `python3.10`, no server, no GPU. The protocol copy IS in this repo at
+`docs/PREREG_P2.md`.
+
+<!-- Why: the protocol lives outside git, so the repo hash does not pin its content;
+a reader citing "frozen at 75d738c" would be citing nothing.
+Evidence: docs/PREREG_P2.md commit 37713c8; p2/p2_freeze_manifest.json.
+Scope: every P2 provenance claim. -->
+- **The protocol is pinned by a GIT COMMIT, not by the repo hash at freeze time.**
+  `PREREG_P2.md` lives in `RoleAnswer/`, so `75d738c` (the repo hash recorded inside the
+  document) does NOT pin its content. Two remedies were applied before any modelling:
+  `p2/p2_freeze_manifest.json` records every artifact's SHA256, and a verbatim copy was
+  committed to `docs/PREREG_P2.md` (commit `37713c8`, protocol sha256 `8fddcf12…`).
+  Cite the commit.
+
+- **Order of operations is the result.** Protocol frozen → audit → P2A fitted → gates →
+  predictors frozen → **`p2b_predictions.json` frozen (`4e52b079…`)** → only THEN MATH
+  accuracy read. `run_p2b_predict.py` loads MATH with `want_label=False` and asserts no
+  label reached a row; `run_p2b_eval.py` **refuses to start** unless the prediction file
+  already exists. Reading accuracy first would destroy the locked character of the test,
+  and no later re-freeze can repair it.
+
+- **The label firewall is structural, not a convention.** `build_features` receives a
+  STRING, never the sample dict, so `gold_answer / gold_solution / correct / pred_answer /
+  level / type` are **unreachable** rather than merely unused; a source-level assert also
+  rejects any mention of them in the function body. `level` is forbidden as a feature
+  because it is a MATH-only difficulty label with no GSM8K counterpart — using it would
+  make the predictor untransferable.
+
+- **The four-value commit-state is PREDICTOR ENCODING ONLY and does not revise P1.**
+  P1's three values stay `committed / marker_unparsed / no_marker`; the predictor splits
+  the middle into `marker_unparsed_nonloop + loop` purely because `is_loop` is a strict
+  subset of `marker_unparsed`, so a three-way one-hot plus a `loop` column is structurally
+  collinear. The audit asserts the split re-sums to P1 exactly (Llama GSM8K α=0 →
+  177/66/57, loop 52) — that reproduction is the acceptance check for any edit here.
+
+<!-- Why: two of the six frozen features are near-dead on MATH, so a reader crediting the
+transfer to "commitment features" broadly would overstate which channel carried it.
+Evidence: PREREG_P2.md §13.2, recorded BEFORE any model was fitted.
+Scope: every P2B citation. -->
+- **The transfer channel is NARROWER than the six features, and this was recorded before
+  fitting.** `\boxed{}` does not produce the degenerate repeated tail `####` does, so
+  `cs_loop` and `cs_marker_unparsed_nonloop` are near-zero-variance on MATH (Llama 0/0 of
+  900, Qwen 0/1 of 2700) and their coefficients are inert there. The signal that actually
+  transfers is `early_candidate + posN + posN_observed + cs_no_marker`. Word P2B as
+  **answer-formation and submission-timing transfer**, never as GSM8K's degenerate-loop
+  behaviour transferring. The features were NOT dropped after seeing this — altering the
+  set post-hoc is the freedom the protocol exists to prevent.
+
+- **`posN` medians differ ~5× across models (Llama .1478, Qwen .7652)** — consistent with
+  P1's Llama-commits-early vs Qwen-answers-first, and the concrete reason the two models
+  share no absolute threshold and are frozen as separate artifacts.
+
+- **The gate is `AUROC 95% CI lower bound > 0.5`, NOT "CI does not contain 0.5".** A CI
+  lying entirely below 0.5 satisfies the latter and must fail. Amended as `p2-v1.1` before
+  any model was fitted. Models are gated INDEPENDENTLY: one failing does not block the
+  other. Both passed (Llama .6561, Qwen .7098).
+
+- **P2B's primary readout is ORDERING, not calibration.** The predictors are fitted on
+  GSM8K, and MATH differs in base rate, marker convention and length, so absolute
+  probabilities drift (Qwen predicts .83–.88 against a true .54–.68). **A calibration gap
+  on MATH is expected and is not a failure**; reporting the predicted curve as an estimate
+  of MATH accuracy misreads what was frozen. Predictions are never rescaled or recalibrated
+  against MATH accuracy — `plot_p2.py` panel A shows the raw gap deliberately.
+
+- **Offline `first_acc` reads 1–2 items BELOW inline in EVERY MATH cell** — the two known
+  unpatched extractor gaps (leading-zero `idx 253`; empty first `\boxed{}`). Uniform across
+  cells, so it cannot move an ordering. Recorded, never patched in P2 (patching needs its
+  own re-freeze, per the MATH extractor rules above).
+
+- **The per-α AUROC breakdown is EXPLORATORY** (Llama .59–.71, Qwen .50–.80; α=0 alone
+  .677/.748). Not preregistered; run to exclude the artifact that the predictor merely
+  separates doses. It does not enter the gate.
+
+- **Llama P2B is LOCAL DIRECTION ONLY** (3 doses `−4/0/+4`). Its `ρ=+1.000` is a necessity
+  of three points and **must not be cited beside Qwen's `ρ=+0.962`**. The limitation is
+  stored as a field in `p2b_predictions.json`, not left to prose.
+
+- Artifacts + SHA256 in `p2/p2_freeze_manifest.json`: `PREREG_P2.md` `929004f1…`,
+  `p2b_predictions.json` `4e52b079…`, `p2b_evaluation.json` `0e11cb0d…`,
+  `p2_predictor_llama.json` `b9ee07e4…`, `p2_predictor_qwen.json` `9aad950a…`,
+  `fig_p2a_calibration.png` `7f135253…`, `fig_p2b_transfer.png` `f380461e…`.
+
+```bash
+# Reproduce, in order. From RoleAnswer/, python3.10, no GPU.
+python3.10 p2/build_p2_folds.py --check   # fold manifest reproduces exactly
+python3.10 p2/run_p2_audit.py             # label firewall + exhaustive partition,
+                                          # reproduces P1's 177/66/57 + loop 52
+python3.10 p2/run_p2a.py                  # 5-fold OOF, cluster bootstrap, gates
+python3.10 p2/freeze_p2_predictor.py      # refit on all GSM8K, freeze artifacts
+python3.10 p2/run_p2b_predict.py          # MATH predictions; REFUSES to overwrite
+python3.10 p2/run_p2b_eval.py             # unlocks accuracy; REFUSES without predictions
+python3.10 p2/plot_p2.py                  # both required figures
+```
+
+Both `run_p2b_predict.py` and `build_p2_folds.py` refuse to overwrite an existing frozen
+file: re-running the pipeline end-to-end requires deliberately deleting them, which is the
+point — a silent regeneration would let a later fit masquerade as the locked prediction.
+
 **§5 Qwen offline script index (moved out of `AdaptiveThinking.md` §5.8, 2026-08-28 — this file is the single source of truth for implementation).** `RoleAnswer/qwen_signal/`, `python3.10`: `suite34.py` (§5.2–5.5 main line), `commit_aligned.py` (§5.3, §5.6.1), `hs_layerwise.py` (§5.6.2), `hs_null_specificity.py` (§5.6.3), `logit_family.py` (§5.5 Result 2–3), **`plot_section5.py` (all §5 figures)**, `plot_qwen_mainfig.py` (§5.3.1 commit-centered main figure). Frozen records beside them: `entry_gain_RESULT.txt`, `suite34_nocot_RESULT.txt`, **`suite34_cot_RESULT.txt`**, **`commit_aligned_v3_RESULT.txt`**, `hs_layerwise_RESULT.txt`, `hs_null_specificity_RESULT.txt`, `logit_family_RESULT.txt`. Server-side: `check_hs_qwen25.py` (H5 acceptance), `run_null_remask_qwen25.sh` (null remask). Figures live in `qwen2.5/dopamine/plots_gain/`, deliberately SEPARATE from `llama3/dopamine/plots_gain/` — the two models' values are not comparable and a shared directory is where cross-model mixing starts.
 
 **P1 cross-model Thinking Curve is RUN (2026-08-28): the behavioural difference is located in COMMITMENT TRANSFER, not entry gain.** Written up as `AdaptiveThinking.md` **§5.8** (renumbered from §5.9 when §5.7/§5.8 were merged into `5.7 Cross-Model Synthesis and Evidence Boundaries`). Offline in `RoleAnswer/thinking_curve/` (`extract_metrics.py`, `curves.py`, `fig_p1_commitment.png`), `python3.10`, no server — frozen extractors (`all_hash` / `norm_gsm8k` / `fallback_gsm8k` / `has_early_candidate`) are IMPORTED, never reimplemented. **Pairing is BY ORDER and that is verified, not assumed**: all 20 cells of both models hold the same 300 questions in the same order (so the comparison is item-matched across models too), asserted per cell at load with a fail-closed check.
