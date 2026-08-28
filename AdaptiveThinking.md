@@ -1533,7 +1533,7 @@ P2 使用 GSM8K 已有输出训练基于文本的 commitment predictor，并按�
 
 这是预测证据，不是因果证据；“未检出额外提升”也不等于证明 entry gain 无用。完整统计口径与实现细节见 `CLAUDE.md`。
 
-### 5.9.3 P2B: Retrospective Locked Transfer to MATH
+### 5.9.3 Retrospective Locked Transfer to MATH
 
 **Table 5.9.3. Cross-Task Direction and Workpoint Selection on MATH**
 
@@ -1548,24 +1548,15 @@ Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落�
 
 这是 retrospective locked transfer，并非真正的盲测；完整冻结顺序、校准边界与图表口径见 `CLAUDE.md`。
 
-### 5.9.4 证据等级与边界
+### 5.9.4 Evidence Scope and Conclusion
 
-1. **这是 retrospective locked transfer test**,不是 blind、不是 preregistered against
-   unseen data、不是 fully held-out——MATH accuracy 此前已被研究者看过。要主张"可迁移的
-   推理控制原则",仍需在从未查看 accuracy 的数据集上完成盲测(见 P3)。
-2. **Llama 仅支持局部方向。** 三点无法检验 peak / overshoot / plateau / 全曲线 regret。
-   其 ρ=+1.000 是三点的必然产物,**不可与 Qwen 的 ρ=+0.962 并列引用**。
-3. **迁移通道窄于六个特征(建模前已记录)。** `cs_loop` 与 `cs_marker_unparsed_nonloop`
-   在 MATH 上近乎无方差(Llama 0/0 of 900,Qwen 0/1 of 2700)——`\boxed{}` 不产生 `####`
-   的退化重复尾。实际承载信号的是 `early_candidate + posN + posN_observed + cs_no_marker`。
-   因此 P2B 检验的是**答案形成与提交时序的迁移**,不是 GSM8K 特有退化循环的迁移。
-4. **离线 `first_acc` 在每一 MATH cell 均比 inline 低 1–2 题**,即已记录未修补的两个抽取器
-   gap;偏差均匀,无法改变任何排序。按口径只记录不修补。
-5. 逐 α AUROC 稳健性检查(Llama .59–.71,Qwen .50–.80;α=0 单格 .677/.748)**非预注册**,
-   标为 exploratory,用于排除"predictor 只在分辨剂量"的假象,不影响 gate 判定。
+- 这是一次**规则冻结后的回顾性跨任务验证**，不是真正的盲测；仍需在从未查看准确率的数据集上进行预注册验证。
+- Qwen 支持完整曲线与工作点判断；Llama 只有三个剂量点，仅支持局部方向判断。
+- 跨任务迁移的主要是答案形成与提交时序，而不是 GSM8K 特有的 loop 行为；预测排序可以迁移，绝对概率校准不能迁移。
 
-> **P2 总结论:commitment timing 可预测 held-out GSM8K 正确性,并支持对 MATH 的
-> retrospective cross-task workpoint selection;绝对跨任务校准不迁移。**
+> **P2 总结：commitment timing 能预测未见 GSM8K 题目的对错，也能在 MATH 上选择 steering 方向和工作点，但尚不能视为真正的跨任务盲测。**
+
+完整特征分布、抽取器差异、稳健性检查与统计边界见 `CLAUDE.md`。
 
 ## 6. Conclusion
 
