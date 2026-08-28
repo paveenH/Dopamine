@@ -894,6 +894,50 @@ fetch it), `python3.10`, no server, no GPU. The protocol copy IS in this repo at
   extractor and reproduce the published cell total before analysis. Inline `correct`
   remains run-health/provenance metadata and is never substituted for the MAIN outcome.
 
+### P2A frozen result details
+
+- **Held-out performance.** Question-grouped five-fold OOF AUROC is `.687
+  [.656, .719]` for Llama and `.749 [.710, .787]` for Qwen with the
+  commitment-only predictor. Entry-only AUROC is `.548 [.526, .571]` and `.628
+  [.601, .654]`, respectively. The paired question-cluster bootstrap difference
+  `commitment − entry` is `+.139 [+.104, +.172]` for Llama and `+.121
+  [+.084, +.156]` for Qwen.
+
+- **Incremental entry-gain comparison.** The paired `combined − commitment`
+  difference is `−.001 [−.004, +.002]` for Llama and `+.002 [−.002, +.007]`
+  for Qwen. Both intervals include zero. Frozen wording is **"no detectable
+  incremental predictive gain"**, never "entry gain is useless" or "entry gain has
+  no information".
+
+- **Gate and calibration.** The preregistered gate is commitment-only AUROC 95% CI
+  lower bound `> .5`; both models pass (Llama `.6561`, Qwen `.7098`). GSM8K OOF
+  calibration slopes are `.95` and `.98`, respectively, and are shown in
+  `fig_p2a_calibration.png`. These results establish out-of-sample prediction on the
+  training task, not causal mediation or intervention specificity.
+
+### P2B frozen result details
+
+- **Qwen full-curve transfer.** Across 9 MATH doses, the frozen predictor selects the
+  positive direction and `alpha=+6`; observed `first_acc` also peaks at `+6`. Spearman
+  `rho=+.962` (`n=9`), regret is `.000`, and the selection falls in the near-optimal set
+  `[+4,+6]`. The predicted rollover at `+8` is also the observed accuracy decline.
+
+- **Llama local-direction transfer.** Only three MATH cells exist (`−4/0/+4`), so the
+  frozen evaluation is local direction only. It selects the negative direction and
+  `alpha=−4`; observed `first_acc` is locally best at `−4`, regret is `.000`, and the
+  selection falls in `[−4,0]`. The resulting `rho=+1.000` at `n=3` is mechanically weak
+  evidence and must not be presented beside Qwen's nine-point correlation as an
+  equivalent full-curve result.
+
+- **Freeze and figure interpretation.** `p2b_predictions.json` was frozen at SHA256
+  `4e52b079…` before MATH accuracy was read. In `fig_p2b_transfer.png`, panel A retains
+  the uncalibrated raw gap (Qwen predicted score `.83–.88` versus observed accuracy
+  `.54–.68`, roughly `.25` high), while panel B plots change relative to `alpha=0` and
+  shows the matched positive direction, `+6` peak, and `+8` decline. No prediction was
+  rescaled or recalibrated using MATH labels. The supported claim is retrospective
+  locked workpoint selection, not blind validation and not transferable absolute
+  accuracy calibration.
+
 <!-- Why: the protocol lives outside git, so the repo hash does not pin its content;
 a reader citing "frozen at 75d738c" would be citing nothing.
 Evidence: docs/PREREG_P2.md commit 37713c8; p2/p2_freeze_manifest.json.
