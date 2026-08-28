@@ -20,8 +20,8 @@
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
 15. commitment regime 在 GSM8K 上预测未见题目的正确性；
-15. commitment regime -> MATH
-14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
+15. commitment regime -> MATH ✔ (P2 已关闭，见下方 P2 STATUS)
+14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？ ✔ 两者都成立，见 P2 STATUS
 
 ---
 
