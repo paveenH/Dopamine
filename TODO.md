@@ -19,10 +19,7 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
-15. 通过 commitment regime 来预测steering方向，但是现在还是需要全部的alpha
-15. commitment regime -> MATH
-14. 用commit时候的状态来判断对错？还是通过commit位置来判断正向还是负向？
-
+15. commitment regime 作为预测标的
 ---
 
 ## P2 STATUS — COMPLETED AND CLOSED (2026-08-28)
