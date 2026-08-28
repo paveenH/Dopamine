@@ -33,10 +33,10 @@
 - [x] entry gain
 - [x] early-answer / candidate timing
 - [x] commit position
-- [ ] commit-aligned `s_t/Z_t` — *supplementary / non-blocking*：Qwen 的 commit-aligned 队列由操纵结果选出（α=0 覆盖率 4.0%，n=12），无匹配参照，不能承载对称跨模型陈述
+- [x] commit-aligned `s_t/Z_t` — **analyzed; supplementary only because Qwen coverage is intervention-selected**（α=0 仅 12/300 有 ≥20 个 commit 前 token，+8/+10/+12 则有 212–227 个）
 - [x] confidence、entropy、margin — **negative result**：过早 commit 不是高置信错误（Llama 同批逐题；Qwen 侧 7 格另一批次，`PARTIALLY AVAILABLE / SPARSELY SAMPLED`）
 - [x] reasoning length、loop
-- [ ] post-commit release — *supplementary / non-blocking*：同 commit-aligned 的队列选择问题
+- [x] post-commit release — **analyzed; same-sign but attenuated, not eligible for symmetric cross-model inference**（Qwen 最大 −0.233 vs Llama α=0 No-CoT −0.279，约 0.6–0.8 倍）
 
 目标结论：
 
@@ -45,6 +45,8 @@
 **P1 主体完成（2026-08-28）。冻结结论：**
 
 > **P1 completed: commitment timing explains the cross-model behavioral divergence at both curve and within-dose item levels; evidence is explanatory association, not causal mediation.**
+
+**两个 supplementary 项为何不再是待办：** 它们受同一个限制——Qwen 低剂量几乎一开始就输出答案（α=0 commit 中位位置约第 3 token），所以 commit 前窗口只在**干预推迟了提交之后**才存在。比较 α=0 与 +8 的 commit-aligned `s_t`，实际是拿「α=0 下罕见的自然晚提交题目」对「+8 下被推迟提交的大多数题目」——**干预本身决定了谁能进入分析（post-treatment selection）**。增加样本只会得到更多罕见的 α=0 晚提交样本，不会构成与高剂量总体可比的参照群体。**分析已完成；无法成立的是那个对称比较本身，不应为勾框继续投入实验。**
 
 证据等级：curve-level R²（n=9/11，描述性）+ item-level 关联（20/20 cell，控制题目与剂量固定效应后 β=+0.297/+0.200，t=10.8/5.5）。**非 mediation、非因果分解。** 详见 `AdaptiveThinking.md §5.9`；分析在 `RoleAnswer/thinking_curve/`。
 
