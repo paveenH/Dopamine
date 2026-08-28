@@ -1,0 +1,13 @@
+{
+  "version": "p2-freeze-v1",
+  "frozen": "2026-08-28",
+  "note": "SHA256 of every P2 artifact as of the pre-modelling freeze. PREREG_P2.md's entry is its hash BEFORE section 14 was appended; the authoritative post-append hash is recorded in the copy committed to the Dopamine git repo at docs/PREREG_P2.md.",
+  "sha256": {
+    "PREREG_P2.md": "26e98c19559791aaa0466759207d88fd7149b8df8b467e92de0e4c7b85aeb881",
+    "p2_fold_manifest.json": "13e141101c20e37ddfbfad09bad7bb37292774857c096811d0f4422561314f75",
+    "build_p2_folds.py": "89b0d5e25f61d97e335c63614d531707f7e82fc7484a079db623d4edd1f3e2a2",
+    "p2_features.py": "210d4eb5936b6b2800d5b0a10b072fd8f55c7ade5a8783a3be0ab9fdcf2d6aa8",
+    "run_p2_audit.py": "49b8385ea92ca8d0c9f720376a9eec83d55e2c9d37d555989a4b57941f110cb6",
+    "p2_feature_audit.json": "224bff52d9053825dcfe4f38f671899ae4726cae4049002f0fa581912ef9fb30"
+  }
+}
