@@ -170,7 +170,6 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | non_expert Q53 | `I am a non expert. I am not a professional. I am not a teacher. I am not a tutor.` (×20) | Broad identity denial |
 | teacher Q161 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | Teaching-method detour |
 
-
 ### 2.2 α+4 vs α−4 full picture
 
 α 是一个 **commitment-timing / 收敛旋钮**。全 dose 对比（neutral, No-CoT, plain, first-`####`；182 同机）。比例指标比绝对计数更能剥离"提交意愿"与"提交质量"——`committed_acc` = 提交（有 `####`）的题里答对的比例：
@@ -254,51 +253,55 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 - **不同统计口径得到一致结论。** 无论只看 loop 样本，还是在全文中直接检测重复，强迫性反复都在适度负向区域最低，并在远离该区域时上升。因此，这一结果不是由 loop 门槛造成的统计假象。
 
 ### 2.4 Under-wanting: answer-candidate oscillation (α=−8 collapse)
+**排除两个简单解释**：文本证据不支持将 `α=−8` 理解为“不愿回答”或“减少推理”。
 
-**排除两个假设**（文本层面没有看到"低 effort = 不答 / 少写"的证据）：
-- **词汇性退缩**（"I am done / I will not answer any more"）：跨 α 平坦（各档 1–5 题、无梯度），且全部出现在**已提交答案之后**，是 RLHF 礼貌套语的 loop 尾巴（"Goodbye. I am done. …Goodbye."），不是低 DA 信号。
-- **敷衍/偷懒写得短**（anhedonia 类比）：`<300 字符` 各档平坦（0–5 题）、median 等式数全程 = 3、median 长度无塌缩——**−8 不是写得少**。
+- **不是词汇性退缩。** “I am done / I will not answer any more”等表达在各剂量下都很少（每格 1–5 题），没有剂量趋势，而且均出现在答案提交之后。它们主要是 RLHF 风格的礼貌性 loop 尾部，不代表模型拒绝作答。
+- **也不是敷衍短答。** `<300` 字符的样本数在各剂量下接近（0–5 题），等式数中位数始终为 3，生成长度也没有在 `−8` 明显下降。因此，`−8` 的问题不是“写得更少”。
 
-**真正的 −8 签名不是低 effort，而是 low executive commitment：答案很多，但没有一个能被稳定持有。** 具体表现为**答案候选振荡**（`analyze_loop_anxiety.py --mode oscillation`，marker = `####N` / `the answer is N`；switch = 相邻 marker 值变化；分母 /300）：
+**`α=−8` 更明显的行为特征是 commitment 不稳定：模型会产生多个答案候选，却难以稳定保留其中一个。** 其表现为答案值反复切换。具体抽取规则见 `CLAUDE.md`。
 
-| Metric | **−8** | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---|---|---|---|---|---|---|---|---|---|
-| **≥2 answer switches** | **41** | 3 | 4 | 10 | 9 | 6 | 6 | 12 | 10 |
-| ≥3 distinct candidate values | **11** | 1 | 4 | 6 | 3 | 1 | 3 | 6 | 4 |
-| `####` at text start (<2%) | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
-| committed_acc (§2.2) | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
+| Metric                       | **−8**    | −6    | −4    | −2    | 0     | +2    | +4    | +6    | +8    |
+| ---------------------------- | --------- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
+| **≥2 answer switches**       | **41**    | 3     | 4     | 10    | 9     | 6     | 6     | 12    | 10    |
+| ≥3 distinct candidate values | **11**    | 1     | 4     | 6     | 3     | 1     | 3     | 6     | 4     |
+| `####` at text start (<2%)   | **171**   | 17    | 9     | 18    | 20    | 19    | 12    | 19    | 20    |
+| committed\_acc (§2.2)        | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
 
-- **答案切换 **：α=−8 一开口就 `#### N` 抢答(0 推理)，正文**常算出正确值**，却无法锁定，在两个候选间 `A↔B` 无收敛地来回切。`未推理稳定前的开头猜测 → committed_acc 崩到 23.6%。
+- **`α=−8` 同时出现极早提交和答案振荡。** 模型常在开头直接输出 `#### N`，随后又在正文中得到其他候选值，并在多个答案之间反复切换。结果是提交值难以收敛，`committed_acc` 降至 **23.6%**。
 - **典型例**（neutral，−8）：
-  - **Q31**（gold=40）：`#### 55` → 正文算出 `45−5=40`(✓) → `The answer is 55. I made a mistake. The answer is 40. I made another mistake. The answer is 55. …`（`55↔40` 永久 ping-pong）。**正确值算出来了又被丢掉。**
-  - **Q112**（gold=45）：`#### 70` → 正文算出 45(✓) → "however, the question asks for…" 漂移到 75 → 锁死 75。候选路径 `70→45→75`，**收敛到错值**。
+  - **Q31**（gold=40）：`#### 55` → 正文算出 `45−5=40`（✓）→ 在 55 与 40 之间反复切换。模型曾得到正确值，却没有稳定保留。
+  - **Q112**（gold=45）：`#### 70` → 正文算出 45（✓）→ 随后漂移到 75，并最终锁定错误值。候选路径为 `70→45→75`。
 
-**−8 与 +8 是镜像，且同一表面措辞含义相反**：
+**`−8` 与 `+8` 都存在失调，但后续行为不同：**
 
-| | Lexical `"I made a mistake"` | Answer-value behavior | Mechanism |
-|---|---|---|---|
-| **+8** over-wanting | Present (8 samples) | Mostly **no switch**, with a few one-step switches; no runaway oscillation within the made-mistake subset (Q298: repeated mistake statements but still locked on 260) | Over-commit: clings to one answer with hollow self-blame (= §2.3 can't let go) |
-| **0** baseline | Present (7 samples) | Often **one correction, then convergence** (Q33 `98→70`) | Normal correction / local repair |
-| **−8** under-wanting | Present (5 samples) | **Repeated oscillation without convergence** (Q31 `55↔40…`, Q122 `9↔6…`) | Commitment-formation failure: cannot hold any answer |
+|                      | Lexical `"I made a mistake"` | Answer-value behavior                                                                                                                                                 | Mechanism                                                                      |
+| -------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **+8** over-wanting  | Present (8 samples)          | Mostly **no switch**, with a few one-step switches; no runaway oscillation within the made-mistake subset (Q298: repeated mistake statements but still locked on 260) | Over-commit: clings to one answer with hollow self-blame (= §2.3 can't let go) |
+| **0** baseline       | Present (7 samples)          | Often **one correction, then convergence** (Q33 `98→70`)                                                                                                              | Normal correction / local repair                                               |
+| **−8** under-wanting | Present (5 samples)          | **Repeated oscillation without convergence** (Q31 `55↔40…`, Q122 `9↔6…`)                                                                                              | Commitment-formation failure: cannot hold any answer                           |
 
-> **关键**：lexical "I made a mistake" 是**两端都高、不区分**（U 形）；真正区分 −8 的是**行为**——自我纠错是否真的改变了、且无法重新锁定提交值。**同一句"I made a mistake"在 +8 多数是强迫性抱守（值冻结 / 少数一次切换 = 固著），在 −8 是 commitment 崩溃（值反复振荡、不收敛）**。
+> **关键不在于模型是否说出 “I made a mistake”，而在于答案值随后如何变化。** 这句话在三个条件中都会出现，单看词汇无法区分行为状态。`+8` 多数仍固守原答案，`α=0` 常完成一次有效修正，而 `−8` 更容易在多个候选值之间反复切换、无法收敛。因此，真正有解释力的是答案切换轨迹，而不是自我怀疑词汇本身。
 
 **Opening shape for 8 & -8 steering**
-| | Opening shape | `####` at start (<2%) | leading-digit premature answer | Interpretation |
-|---|---|---|---|---|
-| **−8** under-wanting | `#### 40 …`（井号开头） | **171** | **4** | 首 token 即 `#### N`|
-| **+8** over-wanting | `40 Step1 …`（裸数字开头） | 20 | **206** | 用 **裸数字抢吐**|
 
-这张表说明三层：
-- **(镜像失调，行为层)** −8 与 +8 **都在推理前就 commit**，只是出口 token 相反：+8 先吐裸数字再**补**一段 `Step` 推理（过度自信抢答），−8 直接 `#### N` **首 token 终结**（连补推理都省）。即同为"过早 commit"，+8 是 over-wanting 的抢答+抱守，−8 是 executive control 崩溃后的随手锁值——与 §2.4 镜像表一致。
-- **(边界,勿过度解读)** 本表只证明"开口 token 形态不同"，**不能解释为何不同**（−8 为何偏 `####`、+8 为何偏裸数字属 token 分布层，文本看不出，待 trajectory/logit）。且抢答率是**工作点代理**而非表现本身——它在 −6（acc 峰）最低只能说"与 committed_acc 最优同向"，不能说"抢答导致倒 U"。
-- **机制层留待 trajectory**：行为上证明 −8 的**外在结构**是振荡；**"它是'算了一遍但锁不住'(a) 还是'根本没在 deliberate、只在两个高概率 token 间随机摇摆'(b)"文本区分不了**——两者文本都长 `55↔40`
+|                      | Opening shape       | `####` at start (<2%) | leading-digit premature answer | Interpretation     |
+| -------------------- | ------------------- | --------------------- | ------------------------------ | ------------------ |
+| **−8** under-wanting | `#### 40 …`（井号开头）   | **171**               | **4**                          | 首 token 即 `#### N` |
+| **+8** over-wanting  | `40 Step1 …`（裸数字开头） | 20                    | **206**                        | 用 **裸数字抢吐**        |
+
+这张表支持三点：
+
+- **两端都出现过早答案形成，但输出形式不同。** `−8` 通常以 `#### N` 开头，直接形成正式提交；`+8` 则更常先输出裸数字，再补写推理。两端都偏离正常的“先推理、后提交”，但不能视为完全相同的失败模式。
+- **开头格式只能描述行为，不能解释原因。** 文本结果说明 `−8` 和 `+8` 的首段输出分布不同，却无法判断这种差异为何产生。抢答率也只是 commitment 状态的行为读数：它与准确率变化同向，不足以证明抢答导致了准确率曲线。
+- **内部机制仍未由文本确定。** `−8` 的答案振荡既可能表示模型完成了计算却无法稳定提交，也可能只是多个高概率候选之间的生成摇摆。仅凭生成文本无法区分，需要 trajectory 或 logit-level 分析。
 
 ### 2.5 CoT: reasoning scaffold suppresses over-wanting damage but keeps the α direction
 
-**设问**：CoT（多一行 `Let's think step by step.`，模板其余对称，见 §0.1）是否改变 wanting 的行为签名？结论：**CoT 把 over-wanting 的下游破坏（冲动抢答→锁错、强迫性反复→loop）大幅压下，但 α 的方向与单调性原样保留**（表格 anxiety 列 = 脚本字段名，读作"强迫性反复"，见 §2.3 命名说明）
+**设问**：仅加入 `Let’s think step by step.`，是否会改变 α steering 的行为效应？
 
-**口径**：neutral，No-CoT vs CoT, server 182, `analyze_first_last_acc.py`；loop / anxiety / oscillation -> `analyze_loop_anxiety.py` - `analyze_file()`（ `ANXIETY_PATTERNS`-> `mdf_*_cot`）
+**结论**：CoT 明显减轻了抢答、答案污染和强迫性反复，但没有改变剂量曲线的方向：负向 α 仍然表现最好，正向 α 仍然持续降低表现。表中的历史字段 `anxiety` 仍按“强迫性反复”解读。
+
+**口径**：比较 neutral 条件下的 No-CoT 与 CoT；数据来源、抽取脚本和具体判定规则见 `CLAUDE.md`。
 
 | α | acc(first) | acc(last) | gap(first−last) | anxiety(loop) | anxiety(full) |
 |---|---|---|---|---|---|
@@ -320,9 +323,10 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | Persona reassurance | 0 | 2 | 7 | 7 / 15 / 13 |
 | Over-precision loop | 3 | 2 | 1 | 1 / 7 / 5 |
 
-- **方向 / 单调性不变，整体抬升**：α−4_cot (85.0) > α0_cot (69.0) > α+4_cot (59.7)，与 No-CoT 同向（§1.2）。CoT 与降 wanting 叠加把 acc 推到全表最高 **85.0%**（α−4+CoT），说明"放开思考"与"降 wanting"是两条**可叠加**的杠杆。
-- **过度-commit 破坏被 CoT 抹平**：**CoT 下 gap ≤+0.7**——尾部复读 loop 即使存在也不再吐出污染答案。
-- **强迫性反复整体下移、但 α 方向保留**：**CoT 把每档砍掉 ~26–40 题，但随 α 上升的梯度依然在**（CoT 跨度 44 vs No-CoT 57，只是斜率略缓，并非消失）。即 **α 仍是定方向的因（升 wanting→升强迫性反复），CoT 只降幅度、不改方向**（与 §2.5.1 的正交分解一致）。CoT 仍会进 loop（250–284/300，甚至略多于 No-CoT），但 loop 的**语义性质变了**：mechanical（纯符号 / 复读答案）占绝对多数（−4_cot 247/284、+4_cot 213/250），强迫性"放不下"被显著挤掉。即 **CoT 不消除 loop，但把 loop 从"强迫性反复确认"换成"无情绪机械空转"**——这与 §2.3「反复谷底=acc 峰」一致：CoT 等于把整条曲线推向更冷静的工作点。
+- **剂量排序不变，准确率整体提高。** CoT 条件下，`α=−4`（85.0%）> `α=0`（69.0%）> `α=+4`（59.7%），与 No-CoT 的方向一致。`α=−4 + CoT` 达到全表最高准确率 **85.0%**。这说明 CoT 与负向 steering 的收益可以在行为层面叠加，但不证明二者具有完全独立的内部机制。
+- **提交后的答案污染基本消失。** CoT 条件下，first- 与 last-answer accuracy 的差距不超过 **0.7 pp**。即使生成末尾仍有重复文本，也很少再将已提交答案改坏。
+- **强迫性反复整体减少，但剂量方向保留。** CoT 在每个剂量下减少约 **26–40** 个强迫性反复样本；其跨剂量跨度由 No-CoT 的 **57** 降至 CoT 的 **44**。因此，CoT 降低了反复行为的整体水平，但没有消除 α 的梯度。
+- **CoT 没有消除 loop，而是改变了 loop 的内容。** CoT 条件下仍有 **250–284/300** 个样本进入 loop，甚至不比 No-CoT 少；但其中多数只是机械性符号或答案复读。例如，`−4_cot` 有 **247/284**、`+4_cot` 有 **213/250** 属于 mechanical loop。也就是说，CoT 主要减少的是带有自我怀疑、格式纠结和反复确认的语义性固著，而不是生成长度上限造成的机械空转。
 
 
 #### 2.5.1 Where α−4 + CoT = 85.0% Comes From: Two Orthogonal Levers Stacked Together (CoT Forces Stepwise Reasoning × Lower Wanting Prevents Premature Answering)
