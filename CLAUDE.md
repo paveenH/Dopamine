@@ -79,12 +79,19 @@ Markdown/HTML comments are still visible context to an agent — they are not st
 | verifying a change without a GPU | **Local checks** |
 | writing up a result | the frozen-wording rules in **Active status** and the relevant experiment section |
 
+<!-- Why: the two result docs read DISJOINT data trees, and the one exception runs the
+other way; a reader who assumes "AdaDopamine == benchmark folders" will look for P2A's
+training data in llama3/gsm8k/, which lacks x_prefill entirely.
+Evidence: audited 2026-08-30 across all backing scripts; AdaDopamine_gsm8k.md Table 5.1a.
+Scope: any new analysis script -- declare which tree it reads before writing it. -->
+**Which document reads which data tree (audited 2026-08-30).** `AdaptiveThinking.md` reads **only** `{llama3,qwen2.5}/dopamine/` — verified across all 11 backing scripts, none touches a benchmark folder. Within it three DISTINCT batches share a schema and must never be joined per-question: `signal/` (lightweight, projections + text), `signal_hs/` (offline re-projection from H5), `metrics_hs/` (logit family from the final layer). `AdaDopamine_gsm8k.md` reads the per-benchmark trees (`llama3/gsm8k/`, `llama3/math/math_eot/`, `qwen2.5/{gsm8k,math,math_cot}/`, `*/gsm_hard/`) — **with ONE exception running the other way: §5.2's P2A trains on `llama3/dopamine/signal/`**, because the entry-only and combined control arms need `x_prefill`, which the benchmark tree does not carry. That is the only crossing point, and it is why §5.1 carries the 184-vs-182 batch declaration.
+
 **Two conventions that govern everything below.** (1) A rule with a `<!-- Why / Evidence / Scope -->` comment records a real failure — read it before editing that rule. (2) Frozen wording is frozen: where a phrasing is given in bold as required, use it verbatim rather than paraphrasing, because the paraphrase is usually the overstatement the rule exists to block.
 
 <!-- Why: four sections used to claim "current" simultaneously (Phase 2 closed-loop, Phase 1b, pv9, pv10), so a new session could not tell where work actually is and might reopen a closed line.
 Evidence: this section's own history; AdaBandit.md §5 (BAI CLOSED).
 Scope: update the date + one-liner whenever the active task changes; never add a second "current". -->
-### Active status (2026-08-19)
+### Active status (2026-08-30)
 
 **CGT-Sequential cross-model replication on Qwen2.5-7B-Instruct — COMPLETE, frozen 2026-08-19 as a PARTIAL replication limited by a narrow usable dose window.** v5 (N=20, layers 16–21) is the citable result; v4 stays frozen as interface/capability-boundary evidence. **Do not write "complete cross-model replication"** — Llama v4's clean range is −4…+6 across nine cells, Qwen v5's is −2…+2, and desc +2 did not pass the gate, so asc and desc do not even carry the same number of usable cells.
 
