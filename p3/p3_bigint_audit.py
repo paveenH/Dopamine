@@ -115,7 +115,7 @@ def main():
         sys.exit("FAIL: norm_exact changes a stored scoring verdict; do NOT use it")
     print("    no stored verdict changes   OK")
 
-    # [2] REMOVED. The GSM-Hard gold audit runs inside data_gsm8k_hard.py, in
+    # [2] REMOVED. The GSM-Hard gold audit runs inside data_gsm_hard.py, in
     # memory, and publishes only `n_gold_exceeding_2_53` + `bigint_audit_digest`
     # into BOTH output files' metadata. Re-auditing from a file would mean
     # opening the sealed gold, which is the one irreversible mistake in P3.
@@ -127,7 +127,7 @@ def main():
         print("    -> use the ORIGINAL extractor unchanged" if not n_big else
               "    -> norm_exact is REQUIRED for this validation (protocol 2.4)")
     else:
-        print("[2] pass --questions <gsm8k_hard_p3_questions.json> to read the "
+        print("[2] pass --questions <gsm_hard_p3_questions.json> to read the "
               "audit count from metadata (never open the sealed gold file)")
 
 

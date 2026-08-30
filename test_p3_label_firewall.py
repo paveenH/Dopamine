@@ -36,7 +36,7 @@ print("=" * 66)
 
 # ---- 1. the generation entrypoint has NO correctness code path
 print("\n[1] generation entrypoint is label-free")
-src = open("get_answer_gsm8k_hard_blind.py", encoding="utf-8").read()
+src = open("get_answer_gsm_hard_blind.py", encoding="utf-8").read()
 tree = ast.parse(src)
 imported = {n.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
             for n in node.names}
@@ -59,7 +59,7 @@ check("...and prints accuracy", "accuracy_percentage" in old)
 
 # ---- 3. loader splits gold into a sealed file
 print("\n[3] loader separates gold from questions")
-ld = open("data_gsm8k_hard.py", encoding="utf-8").read()
+ld = open("data_gsm_hard.py", encoding="utf-8").read()
 check("writes a *_questions.json", "_questions.json" in ld)
 check("writes a SEALED gold file", "_gold.SEALED.json" in ld)
 check("questions file declares contains_labels=False", '"contains_labels": False' in ld)
@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory() as td:
 
 # ---- 4b. MUTATION TEST: the 2^53 audit must be EXACT, not float-based
 print("\n[4b] 2^53 gold audit is exact (never routes through float)")
-from data_gsm8k_hard import exceeds_2_53
+from data_gsm_hard import exceeds_2_53
 L = 2 ** 53
 # Boundary cases. The float form int(float(x)) reports False for EVERY row
 # marked "must detect" below -- float('9007199254740993') == 2**53 exactly --
@@ -149,7 +149,7 @@ check("float-based audit WOULD have missed 2^53+1 (why this test exists)",
 
 # ---- 4b1. float64 gold in the unsafe range is a HARD STOP
 print("\n[4b1] float64 gold reaching 2^53 is refused, not silently audited")
-_lsrc = open("data_gsm8k_hard.py", encoding="utf-8").read()
+_lsrc = open("data_gsm_hard.py", encoding="utf-8").read()
 _lt = ast.parse(_lsrc)
 _p2 = [n for n in _lt.body
        if (isinstance(n, ast.Assign) and any(
@@ -209,10 +209,10 @@ except SystemExit:
 
 # ---- 4c. --revision is mandatory
 print("\n[4c] dataset revision is genuinely pinned")
-ld_src = open("data_gsm8k_hard.py", encoding="utf-8").read()
+ld_src = open("data_gsm_hard.py", encoding="utf-8").read()
 check("--revision is required=True", 'ap.add_argument("--revision", required=True' in ld_src)
 check("no silent default to main", 'ap.add_argument("--revision", default=None' not in ld_src)
-from data_gsm8k_hard import _commit_sha
+from data_gsm_hard import _commit_sha
 import argparse as _ap
 for bad in ("main", "latest", "HEAD", "bbf48283", "a" * 39, "g" * 40):
     try:
@@ -235,7 +235,7 @@ check("audit digest is not derived from raw gold",
 
 # ---- 4d. sample selection (item 6: promoted into the committed suite)
 print("\n[4d] sample selection is deterministic and order-independent")
-from data_gsm8k_hard import select
+from data_gsm_hard import select
 qs = [f"synthetic question {i}?" for i in range(500)] + ["synthetic question 7?"]
 chosen, n_uniq = select(qs)
 check("dedup on exact text", n_uniq == 500)
@@ -255,20 +255,20 @@ except SystemExit:
 print("\n[5] launchers")
 for m, band, doses in (("llama3", ("11", "20"), "neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20"),
                        ("qwen25", ("16", "22"), "neg4-16-22 0-16-22 4-16-22 6-16-22 8-16-22")):
-    f = f"run_gsm8k_hard_{m}.sh"
+    f = f"run_gsm_hard_{m}.sh"
     t = open(f, encoding="utf-8").read()
     check(f"{m}: band {band[0]}-{band[1]}", f"LS={band[0]}" in t and f"LE={band[1]}" in t)
     check(f"{m}: frozen dose set", doses in t)
     check(f"{m}: refuses unset/multi GPU", "CUDA_VISIBLE_DEVICES" in t and "exit 1" in t)
     check(f"{m}: drives the blind entrypoint",
-          "get_answer_gsm8k_hard_blind.py" in t)
+          "get_answer_gsm_hard_blind.py" in t)
     check(f"{m}: never drives the accuracy runner",
           "get_answer_regenerate_gsm8k.py" not in t)
     r = subprocess.run(["bash", "-n", f], capture_output=True)
     check(f"{m}: shell syntax", r.returncode == 0)
 
 # Qwen must keep a negative probe, else "predicted positive" cannot be wrong
-q = open("run_gsm8k_hard_qwen25.sh", encoding="utf-8").read()
+q = open("run_gsm_hard_qwen25.sh", encoding="utf-8").read()
 check("qwen retains a negative probe (protocol 2.2)", "neg4-16-22" in q)
 
 print("\n" + "=" * 66)

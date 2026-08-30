@@ -52,7 +52,7 @@ def parse_args():
     p.add_argument("--size", required=True)
     p.add_argument("--model_dir", required=True)
     p.add_argument("--questions", required=True,
-                   help="the LABEL-FREE questions JSON from data_gsm8k_hard.py")
+                   help="the LABEL-FREE questions JSON from data_gsm_hard.py")
     p.add_argument("--mask_path", required=True)
     p.add_argument("--configs", required=True,
                    help="e.g. 'neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20'")
@@ -95,7 +95,7 @@ def main():
     for alpha, ls, le in utils.parse_configs(args.configs):
         tag = f"mdf_{alpha}".replace("-", "neg")
         out = os.path.join(args.out_dir, tag,
-                           f"gsm8k_hard_{args.size}_{ls}_{le}.json")
+                           f"gsm_hard_{args.size}_{ls}_{le}.json")
         if os.path.exists(out):
             print(f"skip existing {out}")
             continue
@@ -119,7 +119,7 @@ def main():
         fires = vc.steering_fire_count()
         rows = [{"sample_id": s["sample_id"], "question": s["question"],
                  "generated": g} for s, g in zip(samples, gen)]
-        json.dump({"meta": {"protocol": "p3-v1", "task": "gsm8k_hard",
+        json.dump({"meta": {"protocol": "p3-v1", "task": "gsm_hard",
                             "model": args.model, "size": args.size,
                             "alpha": alpha, "layer_start": ls, "layer_end": le,
                             "mask_path": args.mask_path, "mask_sha256": mask_sha,

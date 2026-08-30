@@ -1,0 +1,48 @@
+{
+  "version": "p3-amendment-03",
+  "amended": "2026-08-28",
+  "status": "NO DOWNLOAD. NO MODEL RUN. NO GSM-Hard ACCURACY COMPUTED OR VIEWED.",
+  "builds_on": [
+    "p3_amendment_01.json",
+    "p3_amendment_02.json"
+  ],
+  "protocol_text_changed": false,
+  "reason": "Naming only: gsm8k_hard -> gsm_hard, to match the official dataset name (reasoning-machines/gsm-hard, from the PAL paper). Renamed BEFORE download, so no generated artifact, question manifest or sealed gold file is invalidated -- none exists yet. Renaming after generation would have invalidated every stored path and hash.",
+  "renames": {
+    "data_gsm8k_hard.py": "data_gsm_hard.py",
+    "get_answer_gsm8k_hard_blind.py": "get_answer_gsm_hard_blind.py",
+    "run_gsm8k_hard_llama3.sh": "run_gsm_hard_llama3.sh",
+    "run_gsm8k_hard_qwen25.sh": "run_gsm_hard_qwen25.sh"
+  },
+  "identifiers_also_renamed": {
+    "task field": "gsm8k_hard -> gsm_hard",
+    "file prefix": "gsm8k_hard_p3 -> gsm_hard_p3",
+    "output dir": "components/<model>/gsm8k_hard_p3 -> .../gsm_hard_p3"
+  },
+  "note_on_prior_manifests": "amendment_01 and amendment_02 are NOT overwritten. Their sha256 entries reference the pre-rename filenames and remain correct as of their own commits; this manifest supersedes the file list.",
+  "commits": {
+    "1c0b865": "protocol freeze (p3-v1), before download",
+    "26bffce": "P3 code: loader, label-free runner, launchers, tests",
+    "42583fd": "fix three pre-download defects (revision, float audit, audit input)",
+    "8bff68a": "pre-download amendment: four further defects (this manifest)",
+    "c059607": "amendment-01 manifest",
+    "HEAD": "amendment-03: rename to gsm_hard (this manifest)",
+    "4381f31": "amendment-02: float64 hard stop",
+    "b3796f4": "amendment-02 manifest"
+  },
+  "planned_download_command": "python data_gsm_hard.py --revision 960448f73503112d4226baeb8eb41d3fb5ae2506",
+  "sha256": {
+    "data_gsm_hard.py": "172e6fbbdf84c5f3292d00480c19a6c1898f47679c2f501d6efb624fe6e4e1df",
+    "get_answer_gsm_hard_blind.py": "403dc2c8c4afc6e1eb302ad24cf7cfd0a053d0866a4b247a37007138584bc695",
+    "run_gsm_hard_llama3.sh": "a4262cd6a8a212738d9b0b510b5e8f614ed19becd0a3fb72f9e488187f67e4e9",
+    "run_gsm_hard_qwen25.sh": "59ef5498825e35041df27a93ccb6ba0be6287d85c99758543b8b0b6a56b6e029",
+    "test_p3_label_firewall.py": "0e0b12232a73dbc8ff8b42b9ae332c201e06e80380139f555e1e08d86abb7fe5",
+    "p3/p3_bigint_audit.py": "15155e039ab117cdc6f6d3b13785ef7d5850937ab529a9bfc4423615a9160003",
+    "docs/PREREG_P3.md": "a1f918bc68904ab3ce1bc54484050beff1ee90062d2bc5b817a5c7322a99a909"
+  },
+  "verification": {
+    "test_suite": "test_p3_label_firewall.py -- 78/78 after rename",
+    "interpreters": "passes under python3.10 AND bare python3",
+    "no_stale_refs": "grep gsm8k_hard over *.py/*.sh returns nothing"
+  }
+}

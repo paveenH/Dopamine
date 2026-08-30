@@ -127,7 +127,7 @@ def main():
                           "still follows upstream. Confirm HEAD before use."))
     ap.add_argument("--split", default="train")
     ap.add_argument("--out_dir", default="benchmark")
-    ap.add_argument("--prefix", default="gsm8k_hard_p3")
+    ap.add_argument("--prefix", default="gsm_hard_p3")
     a = ap.parse_args()
 
     from datasets import load_dataset
@@ -171,7 +171,7 @@ def main():
     audit_digest = hashlib.sha256(
         f"{AUDIT_VERSION}|{a.revision}|{qdigest}|{n_big}".encode("utf-8")).hexdigest()
     # ---- questions file: NO gold, NO correctness. Generation reads only this.
-    qs = [{"task": "gsm8k_hard", "sample_id": i, "question": q}
+    qs = [{"task": "gsm_hard", "sample_id": i, "question": q}
           for i, q in enumerate(chosen)]
     qpath = os.path.join(a.out_dir, f"{a.prefix}_questions.json")
     json.dump({"meta": {"protocol": "p3-v1", "hf_name": a.hf_name,
