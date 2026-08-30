@@ -20,181 +20,31 @@
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
 15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
-15. GSM-Hard COT + alpha Vs. COT ✔ -> 两模型方向均符合锁定预测且过 Holm；CoT×steering 交互未检出
+15. GSM-Hard COT + alpha Vs. COT 
 15. commitment regime 作为预测标的（直接预测调整的方向）
 ---
+## P4. Fixed-Workpoint Transfer Across Reasoning Tasks
 
-## P2 Instruction: Commitment-Based Prediction and Cross-Task Workpoint Selection
-### 目标
+检验 GSM8K 确立的固定工作点能否在不重新搜索 α 的情况下迁移到其他 reasoning tasks。
 
-检验 P1 中冻结的 commitment features 能否：
+### MATH
 
-1. 在 GSM8K 上预测未见题目的正确性；
-2. 在不使用 MATH accuracy 的情况下，预测 MATH 应采用的 steering 方向和工作点。
+- [ ] 使用现有结果计算 Qwen `α=+8 vs α=0` 的 paired accuracy difference、bootstrap CI 与 McNemar test。
+- [ ] 补跑 Llama MATH `α=−6`，与已有 `α=0` 配对比较。
+- [ ] 明确区分 fixed-workpoint transfer 与 commitment-based workpoint selection。
 
-### Phase 2：P2A — GSM8K Out-of-Sample Prediction
+### LogiQA
 
-按 question 进行 grouped cross-validation：
+- [ ] 在查看结果前冻结 300 道题、prompt、生成参数与评价规则。
+- [ ] Llama 只运行 `α∈{0,−6}`。
+- [ ] Qwen 只运行 `α∈{0,+8}`。
+- [ ] 报告 paired accuracy difference、bootstrap CI 与 McNemar test。
+- [ ] commitment analysis 仅作 supplementary；选择题格式不得直接套用 GSM8K predictor。
 
-- 同一道题的全部剂量必须位于同一 fold；
-- Llama 与 Qwen 对应题目使用相同 fold；
-- 优先复用 Manifold 的 question split manifest，但须确认它与 accuracy 无关；
-- 标准化参数只能由 training fold 估计；
-- 不允许使用 question fixed effects。
+### Target Conclusion
 
-分别为 Llama 和 Qwen 建模，primary models 为：
-
-1. `entry-only`：模型内标准化 entry gain `z`；
-2. `commitment-only`：
-   - early candidate；
-   - commit-state one-hot；
-   - loop；
-   - `posN` 与 `posN_observed`；
-3. `combined`：`z + commitment features`。
-
-生成长度、`n_markers` 和 confidence 只作为 supplementary analysis；confidence 不进入跨模型 primary model。
-
-使用简单、可解释的 logistic regression。若需要调参，必须使用 nested grouped CV。
-
-Primary metrics：
-
-- AUROC；
-- Brier score；
-- log loss；
-- calibration slope/intercept。
-
-所有置信区间和模型差异按 question cluster bootstrap。重点报告 `combined` 相对 `entry-only` 是否改善，而不是只报告单个模型的绝对表现。
-
-### Phase 3：冻结 Commitment Predictor
-
-P2A 完成后，分别冻结 Llama 和 Qwen 的：
-
-- feature schema；
-- preprocessing；
-- 模型参数；
-- missing-value 规则；
-- 输出分数定义；
-- tie-breaking rule。
-
-不得让两个模型共用 raw α 或绝对阈值。
-
-冻结的分数定义为每个样本的 predicted probability of correctness。某个剂量的 commitment score 为该 cell 所有题目的平均预测正确率。
-
-### Phase 4：P2B — MATH Retrospective Locked Transfer
-
-在读取 MATH correctness 之前：
-
-1. 使用冻结 extractor 提取 MATH features；
-2. 应用对应模型的冻结 predictor；
-3. 计算每个 α 的平均 predicted correctness；
-4. 保存并冻结以下预测：
-   - 应从 `α=0` 往正向还是负向 steering；
-   - predicted best α；
-   - predicted near-optimal region；
-   - overshoot 或 plateau 的起点。
-
-预测文件保存后，才允许使用 frozen MATH correctness extractor 进行评价。
-
-评价指标：
-
-- steering 方向是否正确；
-- predicted score 与真实 accuracy curve 的 Spearman correlation；
-- 选中 α 的 performance regret：
-  \[
-  \max_\alpha Acc(\alpha)-Acc(\hat{\alpha})
-  \]
-- 选中剂量是否属于与最佳剂量统计上不可区分的近最优集合。
-
-由于研究者已经知道 MATH accuracy，本阶段必须始终写作：
-
-> **retrospective locked transfer test**
-
-不得描述为 blind、preregistered 或完全 held-out validation。
-
-### 结果判定
-
-- 如果 P2A 成立、P2B 不成立：commitment features 可监测错误，但不能跨任务选择工作点。
-- 如果 P2B 能预测正确方向但不能精确选点：支持 label-free steering direction selection。
-- 如果 P2B 同时选中近最优区间且 regret 较低：支持 retrospective cross-task workpoint selection。
-- 只有未来 untouched dataset 的 blind validation 成立，才能主张可迁移的推理控制原则。
-
-### 验收与输出
-
-必须产出：
-
-- 冻结的 P2 protocol；
-- question split manifest；
-- feature exhaustiveness audit；
-- P2A held-out metrics table；
-- calibration figure；
-- 冻结 predictor 与参数；
-- MATH accuracy 解封前保存的预测文件；
-- predicted score 与实际 accuracy 的对照图；
-- 所有 negative results 和失败条件。
-
-代码与验收细节写入 `CLAUDE.md`；`AdaptiveThinking.md` 只写方法口径、主要结果、证据等级和结论边界。不要根据结果修改 P1。
-
+> GSM8K 确立的模型特异工作点，无需在目标任务上重新搜索，即可迁移并改善不同类型的 reasoning tasks。
 ---
-### P2. Commitment Regime Transfer and Workpoint Selection
-
-P2 的目标是检验：P1 找到的 commitment regime 是否不仅能解释剂量曲线，还能预测错误并跨任务选择 steering 工作点。
-
-#### P2A. Out-of-Sample Correctness Prediction
-
-在 GSM8K 上测试 commitment features 能否预测未见题目的对错。
-
-- 按题目分组交叉验证，同一道题的所有剂量必须位于同一 fold。
-- Baseline：entry gain、生成长度等基础指标。
-- Commitment model：加入 early candidate、commit position、loop 和 no-marker。
-- 比较 AUROC、Brier score 与 calibration。
-
-目标结论：
-
-> Commitment features 能否在 entry gain 之外，提高对未见题目错误风险的预测能力。
-
-这一部分验证的是“错误监测价值”，不是跨任务选点的必要前提。
-
-#### P2B. Cross-Task Workpoint Selection（主体）
-
-首先在 GSM8K 上冻结“健康 commitment regime”的定义，例如：
-
-- early-candidate 不应过高；
-- commit 不应过早；
-- loop 和 no-marker 不应增加；
-- 同时避免过度延迟或无法 commit。
-
-随后在不使用 MATH accuracy 的情况下，根据 MATH 的无标签 α 曲线或少量正负 probe：
-
-1. 预测应从 `α=0` 向正向还是负向 steering；
-2. 判断 commitment 从何处开始改善；
-3. 识别 overshoot、异常或饱和区间；
-4. 选择预测工作点，再与已有 accuracy 曲线核对。
-
-如果只观察 `α=0`，现有指标只能诊断 commitment 状态，不能确定 steering 方向；方向判断至少需要正负两侧的无标签 probe。
-
-#### 成功标准
-
-不要求精确命中单一最佳 α。满足以下任一条件即可视为有效：
-
-- 选中实际最佳剂量；
-- 选中与最佳剂量统计上不可区分的近最优区间；
-- 相对 `α=0` 明确选择正确方向，并具有较低 performance regret。
-
-规则应按模型分别冻结，不能让 Llama 与 Qwen 共用 raw α 或绝对阈值。
-
-#### 证据边界
-
-由于 MATH accuracy 已经被查看过，P2B 只能称为：
-
-> **Retrospective locked transfer test**
-
-它可以检验冻结规则能否在 MATH 上一次性迁移，但不属于真正的盲测。若要主张“可迁移的推理控制原则”，仍需在一个从未查看 accuracy 的 reasoning dataset 上完成 preregistered validation。
-
-最终解释为：
-
-- **仅 P2A 成立**：commitment regime 是推理错误监测信号。
-- **P2B 也成立**：支持其用于跨任务 steering 方向与工作点选择，但属于回顾性证据。
-- **未来盲测成立**：才能进一步主张可迁移的推理状态监测与控制原则。
 
 ### P2. 补 causal direction control
 
