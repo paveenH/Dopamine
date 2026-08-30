@@ -17,33 +17,9 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
-15. GSM-Hard ⏸
-
+15. GSM-Hard ✔
+15. GSM-Hard COT + alpha Vs. COT 
 15. commitment regime 作为预测标的（直接预测调整的方向）
-
----
-
-P3. Blind Cross-Task Validation（新增，承接 P2）
-在一个从未查看过 accuracy 的 reasoning dataset 上，对已冻结的 commitment predictor
-做真正的盲测。这是把 P2 的 retrospective 证据升级为"可迁移推理控制原则"的唯一途径。
-- 选定数据集并先冻结选择理由（GSM-Hard 为首选，与 P4 共用）。
-- 沿用已冻结的 predictor / features / marker adapter，不重新拟合、不重新校准。
-- 固定少量事先确定的剂量，不重新搜索最佳 α。
-- 预测方向与工作点并冻结预测文件，之后才计算 accuracy。
-- 评价方向、排序、regret 与近最优命中。
-前置条件：该数据集的 accuracy 在冻结预测之前不得被任何人查看 —— 这正是 P2 无法满足的
-条件，也是 P3 必须独立存在的理由。
-
-## P3. Blind Near-Domain Transfer Validation
-
-在从未查看 accuracy 的 GSM-Hard 上，前瞻性检验已冻结的 commitment predictor 能否迁移。
-
-- [ ] 沿用冻结的 predictor、features 与抽取规则，不重新拟合或校准。
-- [ ] 在预先确定的少量剂量上，冻结 commitment-based 排序与工作点预测。
-- [ ] 额外冻结 GSM8K 工作点的直接迁移预测，检验其相对 α=0 是否改善。
-- [ ] 冻结预测文件后才解封 accuracy。
-- [ ] 评价方向、排序、regret、近最优命中，以及固定工作点相对 α=0 的收益。
-
 ---
 
 ## P2 Instruction: Commitment-Based Prediction and Cross-Task Workpoint Selection

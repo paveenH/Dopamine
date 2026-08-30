@@ -1558,6 +1558,44 @@ Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落�
 
 完整特征分布、抽取器差异、稳健性检查与统计边界见 `CLAUDE.md`。
 
+## 5.10 Prospective Blind Transfer on GSM-Hard
+
+§5.9.4 提出的缺口——「仍需在从未查看准确率的数据集上进行预注册验证」——在此兑现。协议、剂量、工作点与成功标准全部在生成之前冻结；GSM-Hard 的 gold 在预测冻结之前从未被任何人读取。
+
+**Table 5.10a — Blind Dose Ranking and Workpoint Selection**
+
+| Model | α | −8 | −6 | −4 | 0 | +4 | +6 | +8 | Direction | Selected | Observed best | Observed near-optimal | Regret | ρ |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Llama3-8B | first_acc | .1100 | **.2433** | .2400 | .1800 | .1700 | — | — | negative ✓ | −6 | −6 | {−6, −4} | 0.00 pp | +1.000 |
+| Qwen2.5-7B | first_acc | — | — | .3433 | .3400 | .3467 | .4033 | **.5033** | positive ✓ | +8 | +8 | {+8} | 0.00 pp | +0.600 |
+
+两条剂量曲线均可读（paired McNemar + Holm，min p = 2.29e−07 / 1.35e−07，n=300）。
+
+**Table 5.10b — Direct Transfer of GSM8K Workpoints**
+
+| Model | GSM8K workpoint | acc(α) | acc(0) | Δ | discordant | McNemar p |
+|---|---|---|---|---|---|---|
+| Llama3-8B | α = −6 | .2433 | .1800 | **+6.33 pp** | 32 / 13 | .0066 |
+| Qwen2.5-7B | α = +8 | .5033 | .3400 | **+16.33 pp** | 63 / 14 | 1.41e−08 |
+
+工作点取自冻结的 GSM8K 记录，未使用任何 GSM-Hard 预测分数。
+
+**结论。**
+
+> On prospectively sealed GSM-Hard data, the GSM8K-frozen commitment predictor recovered the correct steering direction for both models and selected an empirically near-optimal workpoint with zero observed regret. Directly transferred GSM8K workpoints improved accuracy by 6.33 pp for Llama and 16.33 pp for Qwen. Absolute probability calibration did not transfer.
+
+> 盲测结果表明，commitment timing 携带可跨任务迁移的工作点位置信息：它正确判断了两个模型的 steering 方向，并选中实测近优工作点。但该证据目前限于 GSM8K→GSM-Hard 的近域迁移，不能解释因果机制，也尚未实现仅根据 α=0 选择方向。
+
+**边界（每一条都必须随结果同行）。**
+
+- **两张表不是两条独立证据。** 它们共用同一批 per-question correctness，且 Llama 的 `α=−6 vs α=0` 对比同时出现在两处。Table 5.10b 的价值在于它检验的是不同命题（既定工作点能否直接搬用），而非提供独立重复。
+- **Llama 并未区分 −6 与 −4。** 预测分数差约 0.00006，实测近优集同样是 {−6, −4}。正确表述是「选中实测近优集中的工作点，empirical regret 为 0」，不能写成「准确识别 −6」。只有 Qwen 的选点是锐利的（预测领先 0.137，实测近优集为单元素）。
+- **Qwen 的 ρ = +0.600 而非完美排序**：predictor 将 −4 排在 0 之上，实测顺序相反（.3433 vs .3400，相差一道题）。倒置落在噪声范围内，但须如实报 +0.600。
+- **绝对分数系统性高估**（预测 .55–.86 对实测 .11–.50），与 GSM-Hard 的任务难度变化一致。解封前已声明主读数为排序而非校准，未对任何预测做缩放。
+- 本结果显示 commitment 特征携带可迁移的工作点位置信息，**不显示**中介或因果机制，也不表示 predictor 能估计新任务的绝对准确率。
+
+冻结顺序、文件 hash、evaluator 测试与完整统计见 `CLAUDE.md`。
+
 ## 6. Conclusion
 
 从目前的 Llama3 与 Qwen2.5 结果来看，ThinkingCurve 可以形成一条相当完整、但需要分层表述的结论链：

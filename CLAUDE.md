@@ -129,7 +129,7 @@ Scope: every colour-logit diagnostic claim. -->
 | Qwen band-position probe `[11,18)` vs `[16,22)` | **PREPARED, NOT RUN** — launchers exist, zero artifacts; see the mask/pre-flight block |
 | Manifold pilot | **COMPLETE + CLOSED 2026-08-28.** Full chain: **symmetric injection → layer-wise divergence → last-layer piecewise-scalar geometry**, which still does NOT explain Llama's peak vs Qwen's plateau. Each arm is a 1-D scalar family; the two arms coincide at the first steered layer and separate monotonically with depth, so the fixed cross-arm angle is EMERGENT, not an input property. Qwen's positive arm does not saturate while its behaviour plateaus → entry-state saturation EXCLUDED, difference located downstream. Incremental prediction NOT DETECTED; decode did not extend. **Do not extend** — next line is commit-aligned Z_t/s_t + commitment dynamics |
 | P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
-| P3 blind validation (GSM-Hard) | **PROTOCOL FROZEN, GENERATION PENDING** — eligibility audited, data downloaded, gold SEALED. Do not read gold before predictions are frozen |
+| P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1060,7 +1060,7 @@ point — a silent regeneration would let a later fit masquerade as the locked p
 
 **Known limitation to state explicitly at §5, not to discover there:** this batch has **no independent second α=0 cell**, so α=0 manifold stability can only be estimated by train/val subsampling / bootstrap, never by cross-validating two independent α=0 batches. That weakens the "the manifold is stable" premise, and its failure is a pre-registered **stop condition**.
 
-## P3 blind cross-task validation on GSM-Hard (PROTOCOL FROZEN; GENERATION PENDING)
+## P3 blind cross-task validation on GSM-Hard (COMPLETE + UNSEALED 2026-08-30)
 
 > **`docs/PREREG_P3.md` is the protocol** (frozen `p3-v1`, tag `p3-prereg-v1`,
 > commit `1c0b865`). This section is provenance and the run order. Amendments are
@@ -1160,6 +1160,95 @@ CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_qwen25.sh --preflight > p3_pre_qw
 # nohup log looks empty.
 ```
 
+### RESULT (gold unsealed 2026-08-30, `p3-result-unsealed`)
+
+> **`AdaptiveThinking.md` §5.10 is the results document.** This block is provenance,
+> hashes, and the 口径 traps.
+
+<!-- Why: the five-point table and the fixed-workpoint table share one set of
+per-question correctness, and llama's a=-6 vs a=0 contrast literally appears in
+both -- reporting them as two independent confirmations doubles one result.
+Evidence: docs/p3_result_20260830.json; p3/p3_evaluation.json.
+Scope: every P3 citation. -->
+- **The two readouts are NOT independent evidence.** Both are computed from the same
+  per-question `first_acc`, and Llama's `α=−6 vs α=0` contrast appears in each. The
+  fixed-workpoint table earns its place by testing a DIFFERENT proposition (can an
+  already-established workpoint be transferred unchanged), not by replicating the first.
+
+- **Five-point ordering.** Llama `.1100/.2433/.2400/.1800/.1700` (α = −8/−6/−4/0/+4);
+  Qwen `.3433/.3400/.3467/.4033/.5033` (α = −4/0/+4/+6/+8). Both curves readable
+  (paired McNemar over all 10 dose pairs, Holm within model; min p 2.29e−07 / 1.35e−07).
+  Direction correct on both. Selected = observed best on both, **regret 0.00 pp**.
+  ρ = +1.000 / +0.600.
+
+- **Fixed-workpoint transfer** (`p3-amend-05`, α read from the frozen GSM8K record and
+  NOT from any GSM-Hard predicted score): Llama α=−6 `.2433` vs `.1800` = **+6.33 pp**,
+  discordant 32/13, exact McNemar p=.0066; Qwen α=+8 `.5033` vs `.3400` = **+16.33 pp**,
+  63/14, p=1.41e−08. One test per model, never pooled with the five-point family.
+
+<!-- Why: "llama identified -6" is the natural but wrong summary -- the predicted
+scores differ by 6e-05 and the OBSERVED near-optimal set is also {-6,-4}, so nothing
+in the data distinguishes them.
+Evidence: p3_amendment_05.json correction_1_llama_margin.
+Scope: every llama P3 selection claim. -->
+- **Llama did NOT distinguish −6 from −4 — write "selected a workpoint inside the
+  observed near-optimal set {−6,−4}, empirical regret 0".** Predicted scores differ by
+  `5.94e−05` (−6 IS strictly greater, so the tie-break branch never fired — an earlier
+  note saying "chosen by tie-break" is retracted), and the observed near-optimal set is
+  likewise `{−6,−4}` (.2433 vs .2400). Only **Qwen's** selection is sharp: predicted
+  margin `0.137`, observed near-optimal singleton `{+8}`.
+
+- **Qwen's ρ is +0.600, not perfect, and must not be rounded up.** The predictor put
+  −4 above 0 while the observed order is reversed (.3433 vs .3400 — one question). The
+  inversion is inside noise; the number is still +0.600.
+
+- **Calibration did NOT transfer, and this is not a failure.** Predicted `.55–.86`
+  against observed `.11–.50` — an absolute over-estimate consistent with GSM-Hard's
+  change in task difficulty. Ordering was declared the primary readout before unsealing;
+  **no prediction was rescaled or recalibrated.**
+
+- **`predicted_direction_from_alpha0` is the sign of the argmax over ALL FIVE doses**
+  expressed relative to α=0 — a property of the five-point ordering, NOT a prediction
+  made from the α=0 cell alone. Selecting direction from α=0 alone is the open gap, and
+  is a separate protocol.
+
+- **Order of operations, each step tagged or hashed.** protocol `p3-prereg-v1` (`1c0b865`)
+  → download + sealed gold (`2^53` audit **0/300**, so the original extractor was used and
+  `norm_exact` stayed OFF) → ten cells with no accuracy code path → **predictions frozen**
+  `9ad21ee`, sha256 `8f0c514ae4776441` → **evaluator frozen** `p3-evaluator-frozen`
+  (`850ef29`) → gold unsealed ONCE (`p3-result-unsealed`, `ed55753`). The evaluator that
+  ran was verified **byte-identical** to the tagged one before the result was accepted.
+
+- **Artifacts.** gold `a464d591abe659dc`, predictions `8f0c514ae4776441`, evaluation
+  `0e3511c74ba89115`, evaluator `2ca6de427d2a8ceb`, unseal log `0ba5510226ef30e8`,
+  questions `48cc763545d2ee23`, GSM-Hard revision `960448f73503112d4226baeb8eb41d3fb5ae2506`.
+  Full record: `docs/p3_result_20260830.json`; the ten generation SHA256 are in
+  `docs/p3_amendment_05.json`.
+
+- **`run_p3_predict.py` copies `apply_frozen`/`near_optimal` VERBATIM from
+  `p2/run_p2b_predict.py` and re-verifies them character-for-character at every run.**
+  That P2 script cannot be imported (its module body refuses to run once
+  `p2b_predictions.json` exists), and a first attempt that sliced the functions out of the
+  source text at runtime silently extracted the WRONG region — `inspect.getsource` showed
+  the module docstring instead. Mutation-tested: perturbing the sigmoid makes the guard
+  fail closed.
+
+- **`run_p3_eval.py` fails closed** on a missing `p3_predictions.json` (the ordering
+  guard), a cell whose `questions_sha256` differs from gold, a missing/extra/duplicate
+  `sample_id`, a missing cell file, or an existing output. Alignment is **by `sample_id`,
+  never by row position** (asserted by reversing a cell's row order). `first_acc` is MAIN
+  via the frozen offline extractor; `last_acc` is sensitivity only.
+
+- **`test_p3_eval.py`: 35/35 on synthetic fixtures, no real gold.** Statistics are checked
+  against hand-computed values (`McNemar(10,0) = 2/1024`), every guard is mutation-tested,
+  and — the load-bearing one — a deliberately WRONG prediction fixture confirms the
+  evaluator reports `direction_correct=False`, large regret and negative ρ rather than
+  passing a bad result silently.
+
+- **POST-UNSEAL RULE: the main analysis 口径 is CLOSED.** The predictor, features, marker
+  adapter, workpoints and success criteria may not be changed in light of this result.
+  Any further analysis is **exploratory** and must be labelled so.
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
@@ -1182,6 +1271,12 @@ python3 test_p3_label_firewall.py          # 82 checks, ~1s: label firewall,
 python3.10 p3/p3_bigint_audit.py --gsm8k_root llama3/gsm8k   # needs ROLEANSWER
                                            # or --roleanswer; verdict-equivalence
                                            # of norm_exact on stored GSM8K
+
+# P3 evaluator. Synthetic fixtures only -- reads no real gold. Run from
+# RoleAnswer/ (it imports the frozen extractor from analyze_first_last_acc).
+# The load-bearing check is the WRONG-prediction fixture: it proves the
+# evaluator reports failure as failure instead of passing it silently.
+python3.10 p3/test_p3_eval.py              # 35 checks, ~5s
 
 # Manifold pilot (sections 1-3). All CPU-only, no GPU, no server.
 # check_hs_llama.py itself runs on the SERVER (conda `python`); its test does not.
