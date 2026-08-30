@@ -1,4 +1,6 @@
 
+**Marcus et al., Nature 2026 — *Endocannabinoids facilitate reward engagement through retrograde gain control*.** 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。[Nature 论文](https://doi.org/10.1038/s41586-026-10967-w)
+
 ## TO DO
 0. 测试一下qwen中间一点的mask ✖
 1. Qwen25-7B ICG实验结果整理 ✔ 
