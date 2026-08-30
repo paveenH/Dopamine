@@ -1729,13 +1729,24 @@ No-CoT 结果来自 §5.10，仅用于比较效应大小，不属于本节的 Ho
 
 ### Exploratory Answer-First Pattern
 
-Llama 在 CoT `α=−6` 下，156 个 committed 样本中有 91 个（58.3%）以 `#### N` 开始输出，随后才生成 step-by-step reasoning，`posN` 中位数为 `0.0000`。
+**Table 5.11e — Llama answer-first pattern across prompt conditions（EXPLORATORY）**
 
-这一模式在 No-CoT `α=−6` 已经存在：164 个 committed 样本中有 40 个（24.4%）采用 answer-first 格式，而 No-CoT `α=0` 仅为 3.7%。CoT 放大了这种输出顺序，但并未阻止准确率提高。
+| Condition | α | Accuracy | Committed n | Answer-first n (%) | posN median |
+|---|---:|---:|---:|---:|---:|
+| No-CoT | 0 | .1800 | 163 | 5 (3.1%) | .2161 |
+| No-CoT | −6 | .2433 | 164 | 40 (24.4%) | .2740 |
+| CoT | 0 | .2000 | 124 | 14 (11.3%) | .2810 |
+| **CoT** | **−6** | **.2600** | **156** | **91 (58.3%)** | **.0000** |
 
-因此：
+`answer-first` 在此冻结定义为：
 
-> 低 `posN` 本身不是稳定的退化指标。它记录答案标记在文本中的位置，不必然等同于模型形成答案的内部时刻。
+> 生成文本的首个非空白内容即为可解析的 `#### <number>`。
+
+不写成「第一个 token」：`#### <number>` 对应多个 tokenizer tokens，且 token 级规则会额外依赖所加载的 tokenizer。分母为 committed 子集，四行一致。四格 accuracy 均由冻结抽取链复算并与 `p3_evaluation.json` / `p3_supp_evaluation.json` 完全一致（脚本 `p3/answer_first_panel.py` 内置该断言）。
+
+CoT 明显放大了 Llama 在 `α=−6` 下的 answer-first 输出模式（24.4% → 58.3%，`posN` 中位数 `.2740 → .0000`），但准确率仍由 `.2000` 提升至 `.2600`。同时该模式并非 steering 独有：CoT 在 `α=0` 下已把 answer-first 由 3.1% 抬升至 11.3%，两个因素同向叠加。
+
+> 因此：低 `posN` 或 answer-first 格式本身不能被视为退化或 premature commitment 的充分证据。它记录答案标记在文本中的位置，不必然等同于模型形成答案的内部时刻。
 
 Commitment health 必须结合 early candidate、commit state、loop 和 marker validity 等特征共同判断，不能将 commitment score 的提高简单解释为“先推理、后作答”。该结果属于 exploratory association，不构成 mediation evidence。
 
