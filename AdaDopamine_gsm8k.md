@@ -44,12 +44,13 @@ CoT:     Solve the following math problem.
 
 ## 1. GSM8K Performance
 
-**Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, greedy bs=batched(regenerate, prefill steering), `max_new_tokens=768`, NMD mask layer 11–20, EMA α=0.95。
-α=0 即 `diff = mask×0` no-op == 纯 baseline。steering 为 **prefill-only**（在 prompt 最后一个 token 静态推一下，decode 不干预）。
+**Setup.** Llama3.1-8B-Instruct，GSM8K 300 题，greedy decoding，`max_new_tokens=768`。Steering 仅作用于 prompt 最后一个 token，decode 阶段不再干预；`α=0` 为严格 no-op baseline。
 
-> **ACC 计算**：所有准确率统一由 `~/Downloads/RSNResult/RoleAnswer/analyze_first_last_acc.py`（offline）计算，整体口径（分母=300，含无 marker 的 fallback）。每条件同时报 **first acc**（取首个 commit marker）与 **last acc**（取末个）。生成脚本内联的 `correct_*` 字段仅过程态，不作最终依据。**GSM8K production 抽取取首个 `####`，故 first 列 = 上报值**（见 §2.2：改答案是单向破坏，取首最优）。
+**Accuracy.** 正文统一报告 offline `first_acc`：优先读取首个可解析的 `####`，无 marker 时使用冻结的 fallback，固定分母为 300。`last_acc` 仅作为答案修改诊断（见 §2.2：改答案是单向破坏，取首最优）。
 
-> **数据版本：`<|eot_id|>` terminator 修复后、机器 182 同机重跑（end_token-fixed，2026-06-04）**。
+本节使用 `<|eot_id|>` 修复后的 server-182 单机 production batch；不得与后文 server-184 signal batch 逐题混合（§5.1）。
+
+复现细节——分析脚本路径、batch size 与 driver、机器编号与运行日期、mask 文件与注入层区间（exclusive 口径）、inline `correct_*` 仅作运行诊断、first/last/fallback 的完整实现、`<|eot_id|>` 修复经过与旧数据废止原因——统一记录于 `CLAUDE.md`。
 
 ### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
 
