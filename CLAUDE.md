@@ -130,7 +130,7 @@ Scope: every colour-logit diagnostic claim. -->
 | Manifold pilot | **COMPLETE + CLOSED 2026-08-28.** Full chain: **symmetric injection → layer-wise divergence → last-layer piecewise-scalar geometry**, which still does NOT explain Llama's peak vs Qwen's plateau. Each arm is a 1-D scalar family; the two arms coincide at the first steered layer and separate monotonically with depth, so the fixed cross-arm angle is EMERGENT, not an input property. Qwen's positive arm does not saturate while its behaviour plateaus → entry-state saturation EXCLUDED, difference located downstream. Incremental prediction NOT DETECTED; decode did not extend. **Do not extend** — next line is commit-aligned Z_t/s_t + commitment dynamics |
 | P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
-| P3 supplement (CoT condition transfer) | **FROZEN, PREFLIGHT PASSED, GENERATION PENDING** — 4 cells (llama 0/−6, qwen 0/+8) at the SAME 768 budget; α not re-searched. Locked prospective on the CONDITION, not a new blind test |
+| P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1296,7 +1296,7 @@ Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. 
   adapter, workpoints and success criteria may not be changed in light of this result.
   Any further analysis is **exploratory** and must be labelled so.
 
-## P3 supplement: CoT condition transfer (FROZEN; PREFLIGHT PASSED, GENERATION PENDING)
+## P3 supplement: CoT condition transfer (COMPLETE + FROZEN 2026-08-30)
 
 > **`docs/PREREG_P3_SUPPLEMENT.md` is the protocol** (`p3-supp-v1`, tag `p3-supp-frozen`),
 > amended additively by `docs/p3_supp_amendment_0{1,2,3}.json` — none overwrites its
@@ -1361,7 +1361,55 @@ Scope: every supplement citation. -->
 - **PREFLIGHT PASSED 2026-08-30** (5 samples, format only): `protocol=p3-supp-v1`,
   `cot=true`, the template carries the CoT line, `####` parses, and
   `steering_fires` read **0 / 45** (llama, `9×5×1`) and **0 / 30** (qwen, `6×5×1`).
-  Formal cells expect **2700** (llama `9×300`) and **1800** (qwen `6×300`), α=0 → 0.
+  The four formal cells then read exactly **2700 / 0** (llama) and **1800 / 0** (qwen),
+  n=300 each, one shared digest `48cc7635…`, no label fields.
+
+### RESULT (2026-08-30) — `AdaptiveThinking.md` §5.11 is the results document
+
+- **BOTH MODELS MATCHED THE LOCKED DIRECTION AND BOTH SURVIVE HOLM (m=2).** Llama
+  α=−6: `.2000 → .2600`, **+6.00 pp**, discordant 27/9, McNemar p=.00393, Holm
+  p=.00393, bootstrap [+2.33, +10.00]. Qwen α=+8: `.3800 → .5133`, **+13.33 pp**,
+  58/18, p=4.71e−06, Holm p=9.42e−06, [+8.00, +19.00].
+- **The interaction was NOT DETECTED and is EXCLUDED from Holm** — its No-CoT half
+  was already unsealed, so it is not a locked prediction. Llama −0.33 pp
+  [−6.00, +5.33], Qwen −3.00 pp [−9.67, +4.00]; both CIs contain 0, landing on the
+  pre-registered `≈ 0` row ("steering's effect does not depend on CoT"). **Write
+  "not detected", never an equivalence claim** — the CIs are wide.
+<!-- Why: the trigger is about whether truncation EXPLAINS the result, not about the
+cap rate; reading the 95-96% figure alone would fire stage 2 unnecessarily.
+Evidence: docs/p3_supp_result_20260830.json budget_and_truncation.
+Scope: amendment 03 only. -->
+- **Amendment 03's stage-2 trigger DOES NOT FIRE, and the reason is a measurement,
+  not a judgement call.** Llama's two cells do **not** differ in cap-hit (.953 vs
+  .963, paired discordant 13/10, **p=.678**), and the effect is unchanged on the
+  **276 questions where BOTH cells truncated** (+6.16 pp, p=.00455, against +6.00 pp
+  overall) — truncation is a ceiling both cells sit against equally. Qwen's cap-hit
+  *falls* under steering (.233 → .103) and its effect is **larger** on the 207
+  untruncated questions (+14.98 pp, p=5.5e−06). **No 1024 cells are run**; the claim
+  stays a fixed-768-budget result.
+- **Stage 2 commitment (frozen BEFORE accuracy):** llama score .6454 → .6797,
+  early-cand .437 → .303; qwen .7860 → .8830, early-cand .960 → .083. Both moved
+  positive, the direction stage 1 predicted for accuracy. **The score is a
+  descriptive commitment readout, NOT a calibrated accuracy estimate** — the
+  predictor was fitted on 768-token No-CoT GSM8K output.
+<!-- Why: posN=0 reads as the premature-lock-in failure signature, but here it sits at
+the WORKING point with accuracy improving, so the obvious reading is backwards.
+Evidence: docs/p3_supp_result_20260830.json llama_answer_first_pattern.
+Scope: llama GSM-Hard CoT; check before reusing posN as a degradation marker. -->
+- **EXPLORATORY: llama's answer-first pattern.** Under CoT α=−6, **91 of 156
+  committed samples (58.3%) emit `#### N` as the FIRST token** and only then write
+  the Step-by-step reasoning — `posN` median exactly **0.0000**. It is **inherited,
+  not introduced**: No-CoT α=−6 already reads 24.4% of committed against 3.7% at
+  No-CoT α=0, so CoT doubles it. This is §5.10.1's premature-lock-in signature
+  appearing at the **working point** rather than the overshoot point, **with accuracy
+  still improving +6.00 pp** — so a low `posN` is not by itself a degradation marker,
+  and the commitment score's rise must NOT be read as "reasons before answering".
+- **Artifacts:** stage 1 `fcf8b9c9b8fa8b70`, stage 2 `6a16d4d862edbdaa`, evaluation
+  `7e39f9e36edfd0c4`; full record `docs/p3_supp_result_20260830.json`.
+- **`run_p3_supp_eval.py` REFUSES to start without `p3_supp_commit.json`** — the same
+  ordering guard `run_p3_eval.py` has. Both new scripts were mutation-tested before
+  use: ten guards on the stage-2 freeze and six on the evaluator each verified to
+  fire with the right message, against a passing unmutated control.
 
 ```bash
 # Server, from /data1/paveen/Dopamine. One model per card; both cells of a model
@@ -1378,6 +1426,12 @@ CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_cot_qwen25.sh  --full > p3_cot_fu
 # Offline (RoleAnswer/, python3.10, no GPU). Refuses to overwrite a frozen file,
 # so re-running the chain requires deliberately deleting it.
 python3.10 p3/freeze_p3_supp_predictions.py   # stage 1; already run, fcf8b9c9b8fa8b70
+python3.10 p3/freeze_p3_supp_commit.py        # stage 2; already run, 6a16d4d862edbdaa
+                                              # applies the frozen P2 predictor to the
+                                              # four CoT cells and seals the commitment
+                                              # side BEFORE any accuracy is read
+python3.10 p3/run_p3_supp_eval.py             # unlocks CoT accuracy; REFUSES to start
+                                              # without the stage-2 file
 python3.10 p3/commit_panel_gsm_hard.py        # commitment + cap% panel (EXPLORATORY)
 ```
 

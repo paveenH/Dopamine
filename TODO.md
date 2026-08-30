@@ -19,8 +19,8 @@
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
-15. GSM-Hard ✔ -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优
-15. GSM-Hard COT + alpha Vs. COT 
+15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
+15. GSM-Hard COT + alpha Vs. COT ✔ -> 两模型方向均符合锁定预测且过 Holm；CoT×steering 交互未检出
 15. commitment regime 作为预测标的（直接预测调整的方向）
 ---
 

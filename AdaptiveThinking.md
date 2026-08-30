@@ -1692,6 +1692,71 @@ CoT 生成更长而上限不变，故 CoT 结果若变差，截断是必须与 c
 Protocol provenance、artifact hashes、evaluator validation 与完整统计见 `CLAUDE.md`。
 
 
+## 5.11 CoT Condition Transfer (P3 Supplement)
+
+**证据等级先行。** 这是对 **condition** 的 locked prospective 检验，不是第二次
+blind dataset validation：同一批 300 题、同一份 gold，已于 2026-08-30 解封。在
+方向被冻结时不存在的是 **CoT 条件本身**。同样地，它也不是单纯的 exploratory
+analysis——两种误述都存在，且都不正确。§5.10 的封闭盲测结果不受本节任何改动影响。
+
+**两阶段冻结。** Stage 1 在任何 CoT cell 生成之前冻结 `ΔAcc` 的预测**方向**
+（两模型皆 positive，`fcf8b9c9b8fa8b70`）；Stage 2 在生成之后、读取任何 CoT
+accuracy 之前冻结 per-cell commitment score（`6a16d4d862edbdaa`）。评估脚本在
+Stage 2 文件不存在时拒绝启动。α 取自 GSM8K 既定工作点，**未重新搜索**，也未跑
+CoT 剂量曲线。
+
+**Table 5.11a — Primary: CoT condition transfer (n=300/cell, 768-token budget)**
+
+| 模型 | α | Acc(CoT) | Acc(CoT+α) | ΔAcc | discordant | McNemar p | Holm p | 95% CI |
+|---|---:|---:|---:|---:|:--:|---:|---:|:--:|
+| **Llama3-8B** | −6 | .2000 | .2600 | **+6.00 pp** | 27/9 | .00393 | **.00393** | [+2.33, +10.00] |
+| **Qwen2.5-7B** | +8 | .3800 | .5133 | **+13.33 pp** | 58/18 | 4.71e−06 | **9.42e−06** | [+8.00, +19.00] |
+
+**两模型都符合锁定的预测方向，且都通过 Holm（m=2）。**
+
+**Table 5.11b — Descriptive: CoT × steering interaction**
+
+| 模型 | ΔAcc(CoT) | ΔAcc(No-CoT) | Δ_interaction | 95% CI |
+|---|---:|---:|---:|:--:|
+| Llama3-8B | +6.00 pp | +6.33 pp | −0.33 pp | [−6.00, +5.33] |
+| Qwen2.5-7B | +13.33 pp | +16.33 pp | −3.00 pp | [−9.67, +4.00] |
+
+交互**排除在 Holm family 之外**——其 No-CoT 一半已解封，不是锁定预测。两个 CI
+都很宽且包含 0，落在预注册表的 `≈ 0` 行，读作 **steering 的效应不依赖 CoT**。
+这是**未检出**，在此样本量下不构成等效性结论。
+
+**Generation budget: amendment 03 的 stage-2 触发条件未满足。**
+
+触发条件是「截断是否构成对主结果的 **live alternative explanation**」，而非
+cap 率本身是否高。Llama 两格的 cap 率**并无差异**（.953 vs .963，配对
+discordant 13/10，p=.678），且在**两格都截断**的 276 题上效应不变
+（+6.16 pp，p=.00455，对比全样本 +6.00 pp）——截断是两格共同抵着的天花板。
+Qwen 的 cap 率在 steering 下**下降**（.233→.103），其效应在 207 题未截断子集上
+反而更大（+14.98 pp，p=5.5e−06）。故两模型的截断都不生成该效应，**不补 1024
+cells**，主张维持为 fixed-768-budget 结果。
+
+**Llama answer-first pattern（exploratory，非预注册）。**
+
+CoT `α=−6` 下，156 个 committed 样本中有 **91 个（58.3%）以 `#### N` 作为首个
+token**，随后才写出 Step-by-step 推理，`posN` 中位数恰为 **0.0000**。该形态在
+No-CoT `α=−6` 已存在（40/164 = 24.4% of committed，对比 No-CoT `α=0` 的 3.7%），
+CoT 使其**翻倍而非创造**它。这正是 §5.10.1 记录于 No-CoT `α=−8` 的 premature
+lock-in 签名，此处却出现在**工作点**而非过载点，且 accuracy 仍提升 6.00 pp。
+因此 **低 `posN` 本身不是退化标记**，commitment score 的上升也**不可**读作
+"先推理后作答"。commitment features 是 α 的结果变量，故此项为 consistent-with
+证据，绝非 mediation。
+
+**Conclusion.**
+
+> 在固定 768-token 预算下，GSM8K 上确定的工作点在 CoT 条件下依然迁移到
+> GSM-Hard，两个模型皆然（Llama −6：+6.00 pp，Holm p=.0039；Qwen +8：
+> +13.33 pp，Holm p=9.4e−06），方向与 CoT 数据产生之前锁定的预测一致。
+> CoT × steering 交互**未检出**。
+
+Artifact hashes、guard mutation testing 与运行顺序见
+`docs/p3_supp_result_20260830.json` 与 `CLAUDE.md`。
+
+
 ## 6. Conclusion
 
 从目前的 Llama3 与 Qwen2.5 结果来看，ThinkingCurve 可以形成一条相当完整、但需要分层表述的结论链：

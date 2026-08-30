@@ -1,0 +1,91 @@
+{
+  "record": "p3-supp-result",
+  "protocol": "p3-supp-v1",
+  "date": "2026-08-30",
+  "additive": "does not overwrite PREREG_P3_SUPPLEMENT.md, p3_supp_predictions.json, or amendments 01-03",
+  "does_not_modify": "docs/p3_result_20260830.json; tag p3-result-unsealed. The closed P3 blind result is unchanged.",
+
+  "evidential_status": {
+    "is": "LOCKED PROSPECTIVE test of the CONDITION. The four CoT cells did not exist when the direction was frozen (stage 1), and the commitment scores were frozen before any CoT accuracy was read (stage 2).",
+    "is_not": "a second blind dataset validation -- same 300 questions, same gold, unsealed 2026-08-30.",
+    "also_is_not": "merely exploratory. Both misstatements are available and both are wrong."
+  },
+
+  "order_of_operations": [
+    "stage 1 frozen before any CoT cell existed: p3_supp_predictions.json sha256 fcf8b9c9b8fa8b70",
+    "four CoT cells generated, no accuracy code path",
+    "stage 2 frozen: p3_supp_commit.json sha256 6a16d4d862edbdaa",
+    "CoT accuracy read once: p3_supp_evaluation.json sha256 7e39f9e36edfd0c4"
+  ],
+
+  "primary_result": {
+    "metric": "dAcc = Acc(CoT+alpha) - Acc(CoT), first_acc, paired per question",
+    "test": "exact two-sided McNemar; Holm across the two models, m=2",
+    "verdict": "BOTH MODELS MATCHED THE LOCKED PREDICTION (positive) AND BOTH SURVIVE HOLM",
+    "llama": {
+      "alpha": -6,
+      "acc_cot_alpha": 0.26, "acc_cot_0": 0.20,
+      "dAcc_pp": 6.0, "discordant": "27/9",
+      "mcnemar_p": 0.003929, "holm_p": 0.003929,
+      "boot_ci_pp": [2.33, 10.0]
+    },
+    "qwen": {
+      "alpha": 8,
+      "acc_cot_alpha": 0.513333, "acc_cot_0": 0.38,
+      "dAcc_pp": 13.333333, "discordant": "58/18",
+      "mcnemar_p": 4.7118e-06, "holm_p": 9.4236e-06,
+      "boot_ci_pp": [8.0, 19.0]
+    }
+  },
+
+  "descriptive_interaction": {
+    "status": "EXCLUDED from Holm -- its No-CoT half was already unsealed, so it is not a locked prediction",
+    "llama_pp": -0.333333, "llama_ci_pp": [-6.0, 5.33],
+    "qwen_pp": -3.0, "qwen_ci_pp": [-9.67, 4.0],
+    "prereg_row_selected": "approximately 0",
+    "prereg_reading": "steering's effect does not depend on CoT",
+    "caveat": "Both CIs are wide and contain zero. This is a NOT-DETECTED interaction at this sample size, never an equivalence claim."
+  },
+
+  "budget_and_truncation": {
+    "estimand": "CoT condition transfer at a FIXED 768-token generation budget. Not a statement about unconstrained reasoning.",
+    "llama_cap_hit": {"cot_0": 0.953, "cot_alpha": 0.963,
+                      "paired_discordant": "13/10", "paired_p": 0.678},
+    "qwen_cap_hit": {"cot_0": 0.233, "cot_alpha": 0.103,
+                     "paired_discordant": "23/62", "paired_p": 2.77e-05},
+    "amendment_03_stage_2_trigger": "DOES NOT FIRE",
+    "why_not": "The trigger is whether truncation is a LIVE ALTERNATIVE EXPLANATION for the primary result, not whether the cap-hit rate is high. Llama's two cells do not differ in cap-hit (p=0.678), and the effect is unchanged on the 276 questions where BOTH cells truncated (+6.16 pp, p=0.00455, vs +6.00 pp overall). Truncation is a ceiling both cells sit against equally.",
+    "qwen_note": "Qwen's cap-hit falls under steering (0.233 -> 0.103) and its effect is LARGER on the 207 untruncated questions (+14.98 pp, p=5.5e-06), so truncation does not generate the Qwen effect either.",
+    "consequence": "No 1024 cells are run. The primary claim stands as a fixed-768-budget result."
+  },
+
+  "commitment_frozen_stage2": {
+    "note": "Frozen BEFORE accuracy. Score is a descriptive commitment readout, NOT a calibrated accuracy estimate -- the predictor was fitted on 768-token No-CoT GSM8K output.",
+    "llama": {"score_0": 0.6454, "score_alpha": 0.6797,
+              "early_cand_0": 0.437, "early_cand_alpha": 0.303,
+              "posN_med_0": 0.2810, "posN_med_alpha": 0.0000},
+    "qwen":  {"score_0": 0.7860, "score_alpha": 0.8830,
+              "early_cand_0": 0.960, "early_cand_alpha": 0.083,
+              "posN_med_0": 0.8611, "posN_med_alpha": 0.8286},
+    "direction": "Both models' commitment scores moved POSITIVE, the same direction stage 1 predicted for accuracy."
+  },
+
+  "llama_answer_first_pattern": {
+    "status": "EXPLORATORY -- found while reading stage-2 output, not pre-registered",
+    "observation": "Under CoT alpha=-6, 91 of 156 committed llama samples (58.3%) emit '#### N' as the FIRST token and only then produce the Step-by-step reasoning, giving posN median exactly 0.0000.",
+    "inherited_not_introduced": "The same pattern is already present under No-CoT alpha=-6 (40/164 = 24.4% of committed) against 3.7% at No-CoT alpha=0. CoT more than doubles it rather than creating it.",
+    "why_it_matters": "It is the premature-lock-in signature AdaptiveThinking.md 5.10.1 records for No-CoT alpha=-8, appearing here at the WORKING point rather than at the overshoot point -- and accuracy still improves +6.00 pp. So a low posN is not by itself a degradation marker, and the commitment score's rise must not be read as 'reasons before answering'.",
+    "caution": "Commitment features are outcomes of alpha, so this is consistent-with evidence and never mediation."
+  },
+
+  "artifacts_sha256": {
+    "p3_supp_predictions.json": "fcf8b9c9b8fa8b70",
+    "p3_supp_commit.json": "6a16d4d862edbdaa",
+    "p3_supp_evaluation.json": "7e39f9e36edfd0c4"
+  },
+
+  "frozen_wording": {
+    "en": "At a fixed 768-token budget, the GSM8K-established workpoint transfers to GSM-Hard under CoT on both models (llama -6: +6.00 pp, Holm p=0.0039; qwen +8: +13.33 pp, Holm p=9.4e-06), matching the direction locked before the CoT cells existed. The CoT x steering interaction was NOT DETECTED on either model.",
+    "zh": "在固定 768-token 预算下, GSM8K 上确定的工作点在 CoT 条件下依然迁移到 GSM-Hard, 两个模型皆然, 方向与 CoT 数据产生之前锁定的预测一致。CoT x steering 交互未检出 -- 这是未检出, 不是等效性结论。"
+  }
+}
