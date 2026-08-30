@@ -133,7 +133,7 @@ CoT:     Solve the following math problem.
 
 #### 2.1.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
-> 数据来源：`gsm8k/mdf_0`（plain）与 `gsm8k/mdf_0_pushy`（pushy），各 role 的 `generated_<role>`，No-CoT，end_token 修复版、182 同机。题号为 0-based 样本 index。例子均由 `analyze_loop_anxiety.py --mode persona --dump_examples` 直接抽出（脚本检出，非手挑），原文片段为该题身份独白的实际文本。
+> 下列例子均由 `--dump_examples` **脚本自动抽出，非人工挑选**；引文为原始生成文本，题号为 0-based。
 
 **PLAIN α=0**（含身份 / 重度 / 否定数学 = neutral 2/2/1 · expert 3/2/0 · non_expert 7/5/4 · teacher 2/1/1）
 
