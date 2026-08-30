@@ -1591,6 +1591,74 @@ Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落�
 
 这些工作点直接取自冻结的 GSM8K 结果，未使用 GSM-Hard predicted score。
 
+**Table 5.10d — Llama3-8B commitment panel (No-CoT, n=300/cell)**
+
+| α | acc | early% | committed% | unparsed_nonloop% | loop% | no-marker% | posN med | post-commit% | chars med |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −8 | .110 | 66.0 | 67.7 | 10.3 | 13.3 | 8.7 | **0.0000** | **100.0** | 2194 |
+| **−6** | **.243** | **28.7** | 54.7 | 5.3 | 34.0 | 6.0 | 0.2740 | 72.6 | 2168 |
+| −4 | .240 | 28.0 | 53.0 | 4.3 | 34.7 | 8.0 | 0.2351 | 76.5 | 2134 |
+| 0 | .180 | 45.7 | 54.3 | 4.0 | 28.0 | 13.7 | 0.2161 | 78.4 | 2072 |
+| +4 | .170 | 60.0 | 44.7 | 6.3 | 27.7 | 21.3 | 0.1274 | 87.3 | 2078 |
+
+**Table 5.10e — Qwen2.5-7B commitment panel (No-CoT, n=300/cell)**
+
+| α | acc | early% | committed% | unparsed_nonloop% | loop% | no-marker% | posN med | post-commit% | chars med |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −4 | .343 | 94.7 | 79.3 | 18.3 | 2.3 | 0.0 | 0.8062 | 19.4 | 1326 |
+| 0 | .340 | 93.7 | 72.7 | 22.7 | 4.7 | 0.0 | 0.7680 | 23.2 | 1271 |
+| +4 | .347 | 92.0 | 78.0 | 17.3 | 4.3 | 0.3 | 0.6791 | 32.1 | 1268 |
+| +6 | .403 | 58.7 | 86.3 | 11.0 | 2.3 | 0.3 | 0.5969 | 40.3 | 1145 |
+| **+8** | **.503** | **6.0** | **98.3** | 1.7 | 0.0 | 0.0 | 0.7765 | 22.3 | **875** |
+
+各列含义如下：
+
+| 指标 | 含义 |
+|---|---|
+| `α` | RSN steering 的干预剂量。`0` 是不干预，正负值表示沿相反方向 steering。 |
+| `acc` | 该剂量下的真实准确率，即 `first_acc`。 |
+| `early%` | 生成开头较早出现答案候选的样本比例，用于衡量是否存在过早回答倾向。 |
+| `committed%` | 输出中存在可解析最终答案 marker，例如 `#### 42` 的样本比例。 |
+| `unparsed_nonloop%` | 输出中出现 `####`，但后面没有可解析数字，并且不属于重复 marker loop 的比例。即“尝试提交，但格式无效”。 |
+| `loop%` | `####` 或答案提交片段反复出现，形成退化循环的样本比例。 |
+| `no-marker%` | 整段输出完全没有出现 `####` 的样本比例，即没有按照指定格式提交答案。 |
+| `posN med` | 首个可解析 `#### <数字>` 在整段生成文本中的归一化位置中位数。`0` 表示几乎在开头提交，`1` 表示接近结尾才提交。只在存在可解析 commitment 的样本上定义。 |
+| `post-commit%` | 第一次提交答案之后的文本占整段生成文本的比例。越高表示模型越早提交，随后仍继续生成大量文字。需与其有效样本分母一起解释。 |
+| `chars med` | 每个样本生成文本字符数的中位数，用于描述输出长度。 |
+
+```text
+committed
++ unparsed_nonloop
++ loop
++ no-marker
+= 100%
+```
+
+例如 Llama `α=−8`：
+
+- `early%=66%`：很多样本很早出现答案候选；
+- `posN med=0`：可解析答案通常在生成开头就出现；
+- `post-commit%=100%`：几乎整段文字都生成在首次提交之后。
+
+这表示“过早锁定后继续生成”，而不是“推理长度不足”。完整分母与抽取规则见 `CLAUDE.md`。
+
+**Observed Commitment Patterns.**
+
+以下分析均为 **exploratory**：十个 No-CoT cell 的 accuracy 已在该分析开始前解封，因此只能作为与 P1 一致的行为证据，不能构成 mediation。
+
+- **高准确率对应较低的 early-candidate rate。** Llama 的近优区间 `{−6,−4}` 位于 early-candidate 低谷（28.7% / 28.0%）；Qwen `+8` 则从 `+6` 的 58.7% 骤降至 6.0%。这一方向与 GSM8K 上的结果一致。
+- **Llama `−8` 表现为极端的过早锁定。** 在可解析 commitment 样本中，`posN med=0`、`post-commit=100%`，同时 early-candidate 升至 66.0%，accuracy 降至 .110。其生成长度并未明显缩短，说明性能崩溃不是因为“少生成”，而是因为答案形成得过早。
+- **Qwen `+8` 的输出格式最稳定。** Parseable commitment 达到 98.3%，`loop=0%`、`unparsed_nonloop=1.7%`，生成长度也缩短至 875 字符，对应最高 accuracy `.503`。
+- **两个模型具有不同的失败模式。** Llama 主要表现为 loop 与 no-marker failure；Qwen 几乎不 loop，no-marker 也接近于零（0–0.3%），其失败更多表现为写出 `####` 但没有可解析数字。这一模型差异同样延续了 GSM8K 上的观察。
+
+**Qwen Commit-Position Rebound.**
+
+Qwen 的 `posN med` 从 `+6` 的 0.597 回升至 `+8` 的 0.777。该回升在五个剂量都 committed 的共同子集上仍然存在（n=153；0.566→0.758），因此不是 committed coverage 改变造成的分母假象。
+
+在该共同子集中，绝对 `commit_char` 从 274 延后至436，而总生成长度从 959 缩短至831。因此，`+8` 并不是简单地让正式 marker 更早出现；它主要减少了过早答案候选和不可解析提交，并使最终提交更加完整。可迁移规律是由 candidate timing、commit validity、loop/no-marker 和生成长度共同构成的 commitment regime，而不是单一 `posN` 的单调变化。
+
+Llama 的五剂量共同 committed 子集仅 n=35，且由 `−8` 的极端行为强烈筛选，因此不作对应的共同子集推断。
+
 **Conclusion.**
 
 > 在前瞻性封存的 GSM-Hard 上，frozen commitment predictor 正确判断了两个模型的 steering 方向，并以 zero empirical regret 选中 observed near-optimal workpoint。直接迁移 GSM8K 工作点使 Llama 与 Qwen 的 accuracy 分别提高 6.33 pp 和 16.33 pp，但 absolute probability calibration 未能迁移。
@@ -1599,51 +1667,15 @@ Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落�
 
 **Interpretation Boundaries.**
 
-- **三张表不是独立证据。** 它们使用同一批 per-question correctness；Table 5.10c 检验的是既定工作点能否直接复用，而不是提供独立重复。
+- **Tables 5.10a–c 不是独立证据。** 它们使用同一批 per-question correctness；固定工作点表检验的是既定 α 能否直接迁移，而不是提供独立重复。Tables 5.10d–e 使用相同输出进行 exploratory commitment analysis。
 - **Llama 未实质区分 `−6` 与 `−4`。** 两者 predicted score 仅差约 0.00006，且都属于 observed near-optimal set。Qwen 的选择更明确，`+8` 比次优 predicted dose 高 0.137。
-- **Qwen 并非完美排序。** `ρ=+0.600`；predictor 将 `−4` 排在 `0` 之上，但 observed accuracy 的顺序相反，差距为一道题。
+- **Qwen 并非完美排序。** `ρ=+0.600`；predictor 将 `−4` 排在 `0` 之上，但两者 observed accuracy 仅相差一道题。
 - **绝对校准没有迁移。** Predicted score 系统性高于 observed accuracy（`.55–.86` vs `.11–.50`）；迁移的是 dose ordering，而非 absolute probability calibration。
-- 本结果不构成 causal mediation，也不能外推到所有 reasoning tasks；当前方法仍需生成多个剂量，尚未实现仅从 `α=0` 选择 steering 方向。
+- Commitment panel 与既有机制一致，但属于解封后的 exploratory analysis，不构成 causal mediation。
+- 当前证据限于 GSM8K→GSM-Hard 的 near-domain transfer，且仍需生成多个剂量，尚未实现仅从 `α=0` 选择 steering 方向。
 
 Protocol provenance、artifact hashes、evaluator validation 与完整统计见 `CLAUDE.md`。
 
-### 5.10.1 Commitment Behaviour on GSM-Hard (EXPLORATORY)
-
-> **状态：EXPLORATORY，且永久如此。** 十个 No-CoT cell 已于 2026-08-30 解封，因此以下全部
-> 为事后分析。它**描述**一个与已关闭 P3 结果一致的机制，但不检验该机制，也不修改 P3 的结论、
-> 措辞或边界。commitment 特征本身是 α 的结果，按其分层的准确率属 consistent-with 证据，绝非
-> mediation。抽取器与三分口径均从 P1 (`thinking_curve/extract_metrics.py`) 导入，未重写。
-
-**Table 5.10d — Llama3-8B commitment panel (No-CoT, n=300/cell)**
-
-| α | acc | early% | committed% | unparsed% | loop% | no-marker% | posN med | post-commit% | chars med | **cap%** |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| −8 | .110 | 66.0 | 67.7 | 10.3 | 13.3 | 8.7 | **0.0000** | **100.0** | 2194 | 91.3 |
-| **−6** | **.243** | **28.7** | 54.7 | 5.3 | 34.0 | 6.0 | 0.2740 | 72.6 | 2168 | 92.3 |
-| −4 | .240 | 28.0 | 53.0 | 4.3 | 34.7 | 8.0 | 0.2351 | 76.5 | 2134 | 96.0 |
-| 0 | .180 | 45.7 | 54.3 | 4.0 | 28.0 | 13.7 | 0.2161 | 78.4 | 2072 | 94.0 |
-| +4 | .170 | 60.0 | 44.7 | 6.3 | 27.7 | 21.3 | 0.1274 | 87.3 | 2078 | 95.3 |
-
-**Table 5.10e — Qwen2.5-7B commitment panel (No-CoT, n=300/cell)**
-
-| α | acc | early% | committed% | unparsed% | loop% | no-marker% | posN med | post-commit% | chars med | **cap%** |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| −4 | .343 | 94.7 | 79.3 | 18.3 | 2.3 | 0.0 | 0.8062 | 19.4 | 1326 | 20.3 |
-| 0 | .340 | 93.7 | 72.7 | 22.7 | 4.7 | 0.0 | 0.7680 | 23.2 | 1271 | 21.0 |
-| +4 | .347 | 92.0 | 78.0 | 17.3 | 4.3 | 0.3 | 0.6791 | 32.1 | 1268 | 22.7 |
-| +6 | .403 | 58.7 | 86.3 | 11.0 | 2.3 | 0.3 | 0.5969 | 40.3 | 1145 | 19.3 |
-| **+8** | **.503** | **6.0** | **98.3** | 1.7 | 0.0 | 0.0 | 0.7765 | 22.3 | **875** | 13.3 |
-
-**观察到的规律（描述性）。**
-
-- **两个模型的准确率峰值都出现在 `early_candidate` 的低点**：Llama `−6` 的 28.7% 是曲线最小值之一，Qwen `+8` 的 6.0% 相对 `+6` 的 58.7% 是断崖式下降。方向与 P1 在 GSM8K 上的记录一致。
-- **Llama `−8` 是过早锁定的极端形态**：`posN med = 0.0000`、post-commit 占比 **100%**、early 66.0%——答案出现在生成最开头，其后 2194 字符全在提交之后；准确率同时塌至 .110。与 P1 记录的「负向大剂量 → 过早锁定」同形。
-- **Qwen `+8` 的提交形态最干净**：committed 98.3%、loop 0.0%、unparsed 1.7%，且生成最短（875 字符）。
-- **两模型的失败模式不同。** Llama 的退化以 `loop`（27.7–34.7%）与 `no_marker`（最高 21.3%）为主；Qwen 几乎不 loop（≤4.7%）、`no_marker` 恒为 0，其退化表现为 `marker_unparsed`（最高 22.7%，即写出 `####` 却无可解析数字）。这与 P1 在 GSM8K 上记录的跨模型差异同向。
-
-**一处必须分解、不可直读的数字。** Qwen `posN med` 在 `+6` 触底 0.597 后于 `+8` 回升至 0.777，看似打断单调下降。固定分母（五格皆 committed 的 153 题）后回升依旧（0.566 → 0.758），**故不是分母效应**；但绝对位置显示 `commit_char` 由 274 回升至 436，而 `gen_chars` 持续缩短（959 → 831）。**归一化位置与绝对位置在此是两个量**——同 §5.5 已记录的「commit timing plateaus 对归一化为真、对绝对步数为假」。Llama 的同类共同子集仅 **n=35**（被 `−8` 的极端行为筛出，有选择偏倚），故**只报全样本表**。
-
-**Llama 的长度截断限制（必须与其 commitment 数字同行）。** `cap%` = 重新分词后达到生成上限（`>=767` of `max_new_tokens=768`）的比例。**Llama 五格全部 91–96%，decode 长度中位数正是 768**；Qwen 仅 13–23%。因此 Llama 的 `chars med`（~2100）与 `post-commit%` 是在**被截断的生成**上测得的，不能读作自然生成长度。阈值取 `>=767` 而非精确等于：离线重新分词存在边界误差，Llama α=0 精确判定读 82.0%，`>=767` 读 94.0%，`>=760` 读 94.3%——760 以上的平台才是真实的截断群体。**这不影响 P3 的准确率对比**（全部十格在同一约定下逐题配对）。CoT 生成更长而上限不变，故 CoT 结果若变差，截断是必须与 commitment 解读并列报告的替代解释，而非可径直归因于其一。
 
 ## 6. Conclusion
 
