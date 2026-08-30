@@ -1691,81 +1691,59 @@ CoT 生成更长而上限不变，故 CoT 结果若变差，截断是必须与 c
 
 Protocol provenance、artifact hashes、evaluator validation 与完整统计见 `CLAUDE.md`。
 
+下面这个版本更适合放进 `AdaptiveThinking.md`：保留完整结果，冻结流程、hash、guard 和详细截断诊断移至 `CLAUDE.md`。
 
-## 5.11 CoT Condition Transfer (P3 Supplement)
+## 5.11 CoT Condition Transfer
 
-**证据等级先行。** 这是对 **condition** 的 locked prospective 检验，不是第二次
-blind dataset validation：同一批 300 题、同一份 gold，已于 2026-08-30 解封。在
-方向被冻结时不存在的是 **CoT 条件本身**。同样地，它也不是单纯的 exploratory
-analysis——两种误述都存在，且都不正确。§5.10 的封闭盲测结果不受本节任何改动影响。
+本节检验 GSM8K 确立的固定工作点，在加入 CoT prompt 后能否继续改善 GSM-Hard 表现。Llama 使用 `α=−6`，Qwen 使用 `α=+8`，均未重新搜索剂量。
 
-**两阶段冻结。** Stage 1 在任何 CoT cell 生成之前冻结 `ΔAcc` 的预测**方向**
-（两模型皆 positive，`fcf8b9c9b8fa8b70`）；Stage 2 在生成之后、读取任何 CoT
-accuracy 之前冻结 per-cell commitment score（`6a16d4d862edbdaa`）。评估脚本在
-Stage 2 文件不存在时拒绝启动。α 取自 GSM8K 既定工作点，**未重新搜索**，也未跑
-CoT 剂量曲线。
+这是预先锁定的 **condition transfer test**，不是新的 blind dataset validation：题目和 gold 与 §5.10 相同，但 CoT 条件、预测方向和评价规则在生成前已经冻结。
 
-**Table 5.11a — Primary: CoT condition transfer (n=300/cell, 768-token budget)**
+**Table 5.11a — CoT Condition Transfer (n=300/cell, 768-token budget)**
 
-| 模型 | 条件 | α | Acc(α=0) | Acc(α) | ΔAcc | discordant | McNemar p | Holm p | 95% CI |
-|---|---|---:|---:|---:|---:|:--:|---:|---:|:--:|
+| Model | Condition | α | Acc(α=0) | Acc(α) | ΔAcc | Discordant | McNemar p | Holm p | 95% CI |
+|---|---|---:|---:|---:|---:|:---:|---:|---:|:---:|
 | **Llama3-8B** | **CoT** | −6 | .2000 | .2600 | **+6.00 pp** | 27/9 | .00393 | **.00393** | [+2.33, +10.00] |
-| Llama3-8B | *No-CoT* | −6 | .1800 | .2433 | *+6.33 pp* | *32/13* | *.00661* | *—* | *—* |
+| Llama3-8B | *No-CoT* | −6 | .1800 | .2433 | *+6.33 pp* | *32/13* | *.00661* | — | — |
 | **Qwen2.5-7B** | **CoT** | +8 | .3800 | .5133 | **+13.33 pp** | 58/18 | 4.71e−06 | **9.42e−06** | [+8.00, +19.00] |
-| Qwen2.5-7B | *No-CoT* | +8 | .3400 | .5033 | *+16.33 pp* | *63/14* | *1.41e−08* | *—* | *—* |
+| Qwen2.5-7B | *No-CoT* | +8 | .3400 | .5033 | *+16.33 pp* | *63/14* | *1.41e−08* | — | — |
 
-**CoT 行是本节的锁定检验；两模型都符合锁定的预测方向，且都通过 Holm（m=2）。**
+两个模型都符合预先锁定的正向增益预测，并通过 Holm 校正。说明固定工作点在 CoT 条件下仍然有效：steering 并非只是重复 “Let’s think step by step” 的提示作用。
 
-**No-CoT 行以斜体列出，是 §5.10 已封闭结果的固定工作点读数，在此仅作对照。**
-三点必须同时说明，否则该行会被误读：（1）它**不属于本节的 Holm family**——该
-family 只含两个 CoT 对比（m=2），No-CoT 的 p 值属于 §5.10 已封闭的家族，故
-Holm 列留空；（2）它**不是锁定预测**——这批 accuracy 早在 2026-08-30 解封，正是
-stage 1 据以写下"positive"方向的依据，因此**不能**当作独立重复；（3）两行相减
-即 Table 5.11b 的交互，属描述性统计，不可用两行各自的显著性去推断二者有差异
-（"一个更大"不等于"显著不同"）。
+No-CoT 结果来自 §5.10，仅用于比较效应大小，不属于本节的 Holm family，也不是第二次独立验证。
 
-**Table 5.11b — Descriptive: CoT × steering interaction**
+**Table 5.11b — Descriptive CoT × Steering Interaction**
 
-| 模型 | ΔAcc(CoT) | ΔAcc(No-CoT) | Δ_interaction | 95% CI |
-|---|---:|---:|---:|:--:|
+| Model | ΔAcc(CoT) | ΔAcc(No-CoT) | ΔInteraction | 95% CI |
+|---|---:|---:|---:|:---:|
 | Llama3-8B | +6.00 pp | +6.33 pp | −0.33 pp | [−6.00, +5.33] |
 | Qwen2.5-7B | +13.33 pp | +16.33 pp | −3.00 pp | [−9.67, +4.00] |
 
-交互**排除在 Holm family 之外**——其 No-CoT 一半已解封，不是锁定预测。两个 CI
-都很宽且包含 0，落在预注册表的 `≈ 0` 行，读作 **steering 的效应不依赖 CoT**。
-这是**未检出**，在此样本量下不构成等效性结论。
+两个 interaction CI 均包含 0，未检出 CoT 对 steering effect 的明显增强或削弱。结果与两者产生近似可加的行为增益一致，但由于区间较宽，不能解释为严格等效或机制完全独立。
 
-**Generation budget: amendment 03 的 stage-2 触发条件未满足。**
+### Generation-Budget Boundary
 
-触发条件是「截断是否构成对主结果的 **live alternative explanation**」，而非
-cap 率本身是否高。Llama 两格的 cap 率**并无差异**（.953 vs .963，配对
-discordant 13/10，p=.678），且在**两格都截断**的 276 题上效应不变
-（+6.16 pp，p=.00455，对比全样本 +6.00 pp）——截断是两格共同抵着的天花板。
-Qwen 的 cap 率在 steering 下**下降**（.233→.103），其效应在 207 题未截断子集上
-反而更大（+14.98 pp，p=5.5e−06）。故两模型的截断都不生成该效应，**不补 1024
-cells**，主张维持为 fixed-768-budget 结果。
+结果限定在固定的 768-token budget 下。Llama 的 CoT baseline 与 steering 条件均高度触及生成上限（`.953` vs `.963`，paired `p=.678`）；在两格都触及上限的 276 道题中，增益仍为 `+6.16 pp`。Qwen 的 cap-hit rate 则由 `.233` 降至 `.103`，未触及上限的 207 道题中增益为 `+14.98 pp`。
 
-**Llama answer-first pattern（exploratory，非预注册）。**
+这些诊断表明，观察到的提升不能简单由两格截断率差异解释，但 subgroup analysis 属于辅助分析，且截断仍可能影响绝对表现。因此，本节只主张 fixed-768-budget 下的 condition transfer，不外推至不受生成预算限制的能力表现，也不追加 1024-token cells。
 
-CoT `α=−6` 下，156 个 committed 样本中有 **91 个（58.3%）以 `#### N` 作为首个
-token**，随后才写出 Step-by-step 推理，`posN` 中位数恰为 **0.0000**。该形态在
-No-CoT `α=−6` 已存在（40/164 = 24.4% of committed，对比 No-CoT `α=0` 的 3.7%），
-CoT 使其**翻倍而非创造**它。这正是 §5.10.1 记录于 No-CoT `α=−8` 的 premature
-lock-in 签名，此处却出现在**工作点**而非过载点，且 accuracy 仍提升 6.00 pp。
-因此 **低 `posN` 本身不是退化标记**，commitment score 的上升也**不可**读作
-"先推理后作答"。commitment features 是 α 的结果变量，故此项为 consistent-with
-证据，绝非 mediation。
+### Exploratory Answer-First Pattern
 
-**Conclusion.**
+Llama 在 CoT `α=−6` 下，156 个 committed 样本中有 91 个（58.3%）以 `#### N` 开始输出，随后才生成 step-by-step reasoning，`posN` 中位数为 `0.0000`。
 
-> 在固定 768-token 预算下，GSM8K 上确定的工作点在 CoT 条件下依然迁移到
-> GSM-Hard，两个模型皆然（Llama −6：+6.00 pp，Holm p=.0039；Qwen +8：
-> +13.33 pp，Holm p=9.4e−06），方向与 CoT 数据产生之前锁定的预测一致。
-> CoT × steering 交互**未检出**。
+这一模式在 No-CoT `α=−6` 已经存在：164 个 committed 样本中有 40 个（24.4%）采用 answer-first 格式，而 No-CoT `α=0` 仅为 3.7%。CoT 放大了这种输出顺序，但并未阻止准确率提高。
 
-Artifact hashes、guard mutation testing 与运行顺序见
-`docs/p3_supp_result_20260830.json` 与 `CLAUDE.md`。
+因此：
 
+> 低 `posN` 本身不是稳定的退化指标。它记录答案标记在文本中的位置，不必然等同于模型形成答案的内部时刻。
+
+Commitment health 必须结合 early candidate、commit state、loop 和 marker validity 等特征共同判断，不能将 commitment score 的提高简单解释为“先推理、后作答”。该结果属于 exploratory association，不构成 mediation evidence。
+
+### Conclusion
+
+> 在固定 768-token budget 下，GSM8K 确立的工作点在 CoT 条件下仍能迁移到 GSM-Hard：Llama 准确率提高 6.00 pp，Qwen 提高 13.33 pp，且两者均通过 Holm 校正。CoT 与 steering 的行为增益近似可加，说明 steering 并非 CoT prompt 的简单替代；但当前结果不能证明两者具有完全独立的机制。
+
+冻结顺序、artifact hashes、mutation tests、cap-hit subgroup 计算及完整 provenance 统一记录于 `CLAUDE.md`。
 
 ## 6. Conclusion
 
