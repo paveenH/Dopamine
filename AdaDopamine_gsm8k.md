@@ -1089,7 +1089,6 @@ CoT 生成更长而上限不变，故 CoT 结果若变差，截断是必须与 c
 
 Protocol provenance、artifact hashes、evaluator validation 与完整统计见 `CLAUDE.md`。
 
-
 ### 5.6 CoT Condition Transfer
 
 本节检验 GSM8K 确立的固定工作点，在加入 CoT prompt 后能否继续改善 GSM-Hard 表现。Llama 使用 `α=−6`，Qwen 使用 `α=+8`，均未重新搜索剂量。
