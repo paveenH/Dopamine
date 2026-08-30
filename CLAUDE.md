@@ -848,11 +848,11 @@ Scope: every inside-ratio cross-model claim. -->
 <!-- Why: commit-state was first coded as a BOOLEAN ("no parseable '#### <num>'") and read a
 flat ~41% at every Llama alpha, merging degenerate loops (repeated commits) with genuine
 no-marker cases -- an inversion of meaning, not a rounding issue.
-Evidence: AdaptiveThinking.md 5.9.0; thinking_curve/extract_metrics.py docstring.
+Evidence: AdaptiveThinking.md 5.8.0; thinking_curve/extract_metrics.py docstring.
 Scope: every commitment readout on GSM8K, both models. -->
 ## P2 commitment prediction + cross-task workpoint transfer (COMPLETE + FROZEN 2026-08-28)
 
-> **`AdaptiveThinking.md` §5.9 is the results document** — 口径, tables, evidence level
+> **`AdaDopamine_gsm8k.md` §5.1–5.4 is the results document** — 口径, tables, evidence level
 > and boundaries live there. This section is provenance, hashes and reproduction.
 
 Offline in `RoleAnswer/p2/` (**not in this git repo** — a server `git pull` will not
@@ -1163,7 +1163,7 @@ CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_qwen25.sh --preflight > p3_pre_qw
 
 ### RESULT (gold unsealed 2026-08-30, `p3-result-unsealed`)
 
-> **`AdaptiveThinking.md` §5.10 is the results document.** This block is provenance,
+> **`AdaDopamine_gsm8k.md` §5.5 is the results document.** This block is provenance,
 > hashes, and the 口径 traps.
 
 <!-- Why: the five-point table and the fixed-workpoint table share one set of
@@ -1249,9 +1249,9 @@ Scope: every llama P3 selection claim. -->
 <!-- Why: Qwen's posN rises again at +8, which reads as breaking the monotone
 fall; it survives a fixed denominator, so the tempting "denominator effect"
 dismissal is wrong -- the actual split is absolute position vs generation length.
-Evidence: AdaptiveThinking.md 5.10.1; p3/commit_panel_gsm_hard.py.
+Evidence: AdaDopamine_gsm8k.md §5.5; p3/commit_panel_gsm_hard.py.
 Scope: every GSM-Hard posN claim. -->
-- **Commitment panel (`p3/commit_panel_gsm_hard.py`, `AdaptiveThinking.md` §5.10.1) is
+- **Commitment panel (`p3/commit_panel_gsm_hard.py`, `AdaDopamine_gsm8k.md` §5.5) is
   EXPLORATORY and permanently so** — the ten No-CoT cells were unsealed first. It imports
   P1's `per_sample` rather than reimplementing the three-way partition. Both models peak
   where `early_candidate` is lowest (Llama −6: 28.7%; Qwen +8: 6.0% against +6's 58.7%);
@@ -1267,7 +1267,7 @@ Scope: every GSM-Hard posN claim. -->
 <!-- Why: llama's GSM-Hard generations hit the 768 cap in 91-96% of samples in EVERY
 cell, so its chars-median and post-commit share describe truncated text; and an exact
 ==768 test undercounts the cap population by ~12pp because the text is re-tokenized.
-Evidence: docs/p3_supp_amendment_01.json; AdaptiveThinking.md 5.10.1.
+Evidence: docs/p3_supp_amendment_01.json; AdaDopamine_gsm8k.md §5.5.
 Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. -->
 - **LLAMA GSM-HARD IS TRUNCATION-BOUND: 91-96% cap-hit in all five cells, median decode
   length exactly 768** (Qwen 13-23%). So Llama's `chars med` (~2100) and `post-commit%`
@@ -1281,7 +1281,7 @@ Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. 
   accuracy and dose differences**, so the result may NOT be read as unconstrained
   reasoning capability. Llama's cap rate spans 4.7 pp across doses (91.3–96.0%); the one
   pair the fixed-workpoint test uses, `−6 vs 0`, is not significantly different (18/23,
-  exact McNemar p=.53), and that covers that pair only. **A corollary for §5.10.1's Llama
+  exact McNemar p=.53), and that covers that pair only. **A corollary for AdaDopamine_gsm8k.md §5.5's Llama
   −8 reading: "generation length did not shorten" is a CEILING EFFECT, not an
   observation** — every dose is flattened against the same cap. The conclusion (the
   collapse is not from generating less) still holds, but must rest on `posN med=0` and
@@ -1309,7 +1309,7 @@ Evidence: p3_supp_predictions.json cot_cells_exist_at_freeze_time=false.
 Scope: every supplement citation. -->
 - **TWO PARTS, DIFFERENT EVIDENTIAL STATUS, and the split is the point.** Part 1 (the four
   CoT cells) is a **locked prospective condition test** — they did not exist when
-  `p3_supp_predictions.json` was frozen. Part 2's No-CoT half (`§5.10.1`'s commitment
+  `p3_supp_predictions.json` was frozen. Part 2's No-CoT half (`AdaDopamine_gsm8k.md` §5.5's commitment
   panel) is **EXPLORATORY and permanently so** — those ten cells were unsealed first.
   **This is NOT a new blind dataset validation**: same 300 questions, same gold. What is
   prospective is the CONDITION.
@@ -1364,7 +1364,7 @@ Scope: every supplement citation. -->
   The four formal cells then read exactly **2700 / 0** (llama) and **1800 / 0** (qwen),
   n=300 each, one shared digest `48cc7635…`, no label fields.
 
-### RESULT (2026-08-30) — `AdaptiveThinking.md` §5.11 is the results document
+### RESULT (2026-08-30) — `AdaDopamine_gsm8k.md` §5.6 is the results document
 
 - **BOTH MODELS MATCHED THE LOCKED DIRECTION AND BOTH SURVIVE HOLM (m=2).** Llama
   α=−6: `.2000 → .2600`, **+6.00 pp**, discordant 27/9, McNemar p=.00393, Holm
@@ -1397,10 +1397,10 @@ the WORKING point with accuracy improving, so the obvious reading is backwards.
 Evidence: docs/p3_supp_result_20260830.json llama_answer_first_pattern.
 Scope: llama GSM-Hard CoT; check before reusing posN as a degradation marker. -->
 - **EXPLORATORY: llama's answer-first pattern.** Under CoT α=−6, **91 of 156
-  committed samples (58.3%) emit `#### N` as the FIRST token** and only then write
-  the Step-by-step reasoning — `posN` median exactly **0.0000**. It is **inherited,
-  not introduced**: No-CoT α=−6 already reads 24.4% of committed against 3.7% at
-  No-CoT α=0, so CoT doubles it. This is §5.10.1's premature-lock-in signature
+  committed samples (58.3%) begin with a parseable `#### N`** and only then write
+  the Step-by-step reasoning — `posN` median exactly **0.0000**. The pattern is present
+  under both manipulations: No-CoT α=0/−6 reads 3.1%/24.4% of committed, while CoT
+  α=0/−6 reads 11.3%/58.3%. This is AdaDopamine_gsm8k.md §5.5's premature-lock-in signature
   appearing at the **working point** rather than the overshoot point, **with accuracy
   still improving +6.00 pp** — so a low `posN` is not by itself a degradation marker,
   and the commitment score's rise must NOT be read as "reasons before answering".
