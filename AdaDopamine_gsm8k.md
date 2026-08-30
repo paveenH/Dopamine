@@ -92,14 +92,20 @@ CoT:     Solve the following math problem.
 
 ## 2. Behavioral Findings: Wanting (Incentive Salience)
 
-> **本节所有 acc / 行为指标以 first-`####` 为准**（取首个 `####`，= §1 上报值）。取首的正当性：模型几乎从不"首错改对"（neutral 改对=0/0/0 @ −4/0/+4），多 `####` 是 over-wanting→loop 的单向破坏（改坏=14/14/8），故取首最宽容也最干净，避开末尾 loop 污染。
+**框架.** α 调的是一个内部旋钮，我们称为 **wanting**（动机性渴求，Berridge & Robinson 的 wanting≠liking）。它本身看不见，看得见的是它的行为后果——模型**何时收口**，即 commitment。
 
-**统一框架**：α 调节的内部变量是 **"wanting"（incentive salience）** —— 多巴胺驱动的动机性渴求（Berridge & Robinson 的 wanting≠liking 理论；ACL "digital dopamine" 主线）。wanting 是**上游动机状态**；它的**下游行为表现**是 commitment dynamics（"commitment to a choice"，ACL 引 dopamine 文献：将内部状态推过行动阈值、抑制 change-of-mind）。
+**wanting 是因，commitment 行为是果。** 两个方向各有两层表现：
 
-- **α=+4（high wanting / over-commit）** → 急于输出（**抢答 / 冲动**，没想清就答）+ 答完**放不下**（强迫性反复确认、重算、纠结格式 → loop / 空转 / 不收敛 = 固著）。
-- **α=−4（low wanting / 适度）** → 不急（**不抢答**、冷静条理）+ 算完**放下**（果断收口，不回头质疑）。
+| | 何时答 | 答完之后 |
+|---|---|---|
+| **α=+4**（wanting 过高） | 抢答：没想清就给答案 | 放不下：反复确认、重算、纠结格式 → loop 不收敛 |
+| **α=−4**（wanting 适度） | 不抢答：条理推进 | 放得下：给出答案后不再回头 |
 
-> 术语层级：**wanting = 我们 steer 的内部旋钮（因）；commitment behavior = 我们测的行为（果）**。+4 的行为有两层：① "急着答"（commit timing 提前）② "答完放不下"（letting-go 失败、反复确认）。
+所以 +4 的损害不是"算错了"，而是**答得太早、又停不下来**。
+
+> **口径**：本节 acc 与行为指标一律取首个 `####`（= §1 上报值）。多个 `####` 几乎只会把对的改错（neutral 改对 0/0/0、改坏 14/14/8 @ −4/0/+4），取首因此既最宽容又能避开尾部 loop 污染。
+
+框架的溯源（+α 锚点 2026-07-24 由「焦虑」改为「冲动 + 强迫性反复」，VTA→NAcc，及脚本字段沿用旧名的原因）记录于 `CLAUDE.md`。
 
 
 ### 2.1 Identity-confirmation loop: persona modulates the semantic content of looping
