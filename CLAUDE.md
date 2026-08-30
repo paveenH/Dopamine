@@ -1245,6 +1245,24 @@ Scope: every llama P3 selection claim. -->
   evaluator reports `direction_correct=False`, large regret and negative ρ rather than
   passing a bad result silently.
 
+<!-- Why: Qwen's posN rises again at +8, which reads as breaking the monotone
+fall; it survives a fixed denominator, so the tempting "denominator effect"
+dismissal is wrong -- the actual split is absolute position vs generation length.
+Evidence: AdaptiveThinking.md 5.10.1; p3/commit_panel_gsm_hard.py.
+Scope: every GSM-Hard posN claim. -->
+- **Commitment panel (`p3/commit_panel_gsm_hard.py`, `AdaptiveThinking.md` §5.10.1) is
+  EXPLORATORY and permanently so** — the ten No-CoT cells were unsealed first. It imports
+  P1's `per_sample` rather than reimplementing the three-way partition. Both models peak
+  where `early_candidate` is lowest (Llama −6: 28.7%; Qwen +8: 6.0% against +6's 58.7%);
+  Llama −8 is extreme premature lock-in (`posN` 0.0000, **100%** of the generation after
+  the commit, acc .110); the failure modes differ (Llama loops and drops the marker, Qwen
+  never loops and instead emits an unparseable `####`). **Qwen's `posN` rebound at +8
+  (0.597→0.777) is NOT a denominator effect** — it survives on the 153 questions committed
+  in all five cells (0.566→0.758); the decomposition is `commit_char` rising 274→436 while
+  `gen_chars` keeps shrinking 959→831, i.e. the same normalized-vs-absolute split §5.5
+  already records. Llama's common-committed subset is n=35 and selection-biased by −8, so
+  only the full-sample table is reported.
+
 - **POST-UNSEAL RULE: the main analysis 口径 is CLOSED.** The predictor, features, marker
   adapter, workpoints and success criteria may not be changed in light of this result.
   Any further analysis is **exploratory** and must be labelled so.

@@ -1560,41 +1560,88 @@ Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落�
 
 ## 5.10 Prospective Blind Transfer on GSM-Hard
 
-§5.9.4 提出的缺口——「仍需在从未查看准确率的数据集上进行预注册验证」——在此兑现。协议、剂量、工作点与成功标准全部在生成之前冻结；GSM-Hard 的 gold 在预测冻结之前从未被任何人读取。
+本节在从未查看 accuracy 的 GSM-Hard 上，前瞻性检验由 GSM8K 冻结的 commitment predictor。剂量、predictor、工作点规则与成功标准均在生成前冻结，预测文件也在 gold 解封前固定。
 
-**Table 5.10a — Blind Dose Ranking and Workpoint Selection**
+**Table 5.10a — Predicted and Observed Dose Curves**
 
-| Model | α | −8 | −6 | −4 | 0 | +4 | +6 | +8 | Direction | Selected | Observed best | Observed near-optimal | Regret | ρ |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Llama3-8B | first_acc | .1100 | **.2433** | .2400 | .1800 | .1700 | — | — | negative ✓ | −6 | −6 | {−6, −4} | 0.00 pp | +1.000 |
-| Qwen2.5-7B | first_acc | — | — | .3433 | .3400 | .3467 | .4033 | **.5033** | positive ✓ | +8 | +8 | {+8} | 0.00 pp | +0.600 |
+| Model      | Metric                 | −8    | −6        | −4      | 0     | +4    | +6    | +8        |
+| ---------- | ---------------------- | ----- | --------- | ------- | ----- | ----- | ----- | --------- |
+| Llama3-8B  | Predicted score        | .5554 | **.68834** | .68828 | .6303 | .5770 | —     | —         |
+|            | Observed `first_acc`   | .1100 | **.2433** | .2400   | .1800 | .1700 | —     | —         |
+| Qwen2.5-7B | Predicted score        | —     | —         | .6959   | .7038 | .6794 | .7182 | **.8552** |
+|            | Observed `first_acc`   | —     | —         | .3433   | .3400 | .3467 | .4033 | **.5033** |
 
-两条剂量曲线均可读（paired McNemar + Holm，min p = 2.29e−07 / 1.35e−07，n=300）。
+`Predicted score` 是 frozen logistic regression 对每题正确概率的输出在同一剂量内取平均，用于排序而非估计 GSM-Hard 的绝对准确率。
 
-**Table 5.10b — Direct Transfer of GSM8K Workpoints**
+**Table 5.10b — Blind Workpoint Selection**
 
-| Model | GSM8K workpoint | acc(α) | acc(0) | Δ | discordant | McNemar p |
-|---|---|---|---|---|---|---|
-| Llama3-8B | α = −6 | .2433 | .1800 | **+6.33 pp** | 32 / 13 | .0066 |
-| Qwen2.5-7B | α = +8 | .5033 | .3400 | **+16.33 pp** | 63 / 14 | 1.41e−08 |
+| Model      | Direction  | Selected | Observed best | Observed near-optimal | Regret  | ρ      |
+| ---------- | ---------- | -------- | ------------- | --------------------- | ------- | ------ |
+| Llama3-8B  | negative ✓ | −6       | −6            | {−6, −4}              | 0.00 pp | +1.000 |
+| Qwen2.5-7B | positive ✓ | +8       | +8            | {+8}                  | 0.00 pp | +0.600 |
 
-工作点取自冻结的 GSM8K 记录，未使用任何 GSM-Hard 预测分数。
+两条剂量曲线均可读（paired McNemar tests with Holm correction：Llama minimum adjusted p = 2.29e−07，Qwen = 1.35e−07；n=300）。
 
-**结论。**
+**Table 5.10c — Direct Transfer of GSM8K Workpoints**
 
-> On prospectively sealed GSM-Hard data, the GSM8K-frozen commitment predictor recovered the correct steering direction for both models and selected an empirically near-optimal workpoint with zero observed regret. Directly transferred GSM8K workpoints improved accuracy by 6.33 pp for Llama and 16.33 pp for Qwen. Absolute probability calibration did not transfer.
+| Model      | GSM8K workpoint | acc(α) | acc(0) | Δ             | discordant | McNemar p |
+| ---------- | --------------- | ------ | ------ | ------------- | ---------- | --------- |
+| Llama3-8B  | α = −6          | .2433  | .1800  | **+6.33 pp**  | 32 / 13    | .0066     |
+| Qwen2.5-7B | α = +8          | .5033  | .3400  | **+16.33 pp** | 63 / 14    | 1.41e−08  |
 
-> 盲测结果表明，commitment timing 携带可跨任务迁移的工作点位置信息：它正确判断了两个模型的 steering 方向，并选中实测近优工作点。但该证据目前限于 GSM8K→GSM-Hard 的近域迁移，不能解释因果机制，也尚未实现仅根据 α=0 选择方向。
+这些工作点直接取自冻结的 GSM8K 结果，未使用 GSM-Hard predicted score。
 
-**边界（每一条都必须随结果同行）。**
+**Conclusion.**
 
-- **两张表不是两条独立证据。** 它们共用同一批 per-question correctness，且 Llama 的 `α=−6 vs α=0` 对比同时出现在两处。Table 5.10b 的价值在于它检验的是不同命题（既定工作点能否直接搬用），而非提供独立重复。
-- **Llama 并未区分 −6 与 −4。** 预测分数差约 0.00006，实测近优集同样是 {−6, −4}。正确表述是「选中实测近优集中的工作点，empirical regret 为 0」，不能写成「准确识别 −6」。只有 Qwen 的选点是锐利的（预测领先 0.137，实测近优集为单元素）。
-- **Qwen 的 ρ = +0.600 而非完美排序**：predictor 将 −4 排在 0 之上，实测顺序相反（.3433 vs .3400，相差一道题）。倒置落在噪声范围内，但须如实报 +0.600。
-- **绝对分数系统性高估**（预测 .55–.86 对实测 .11–.50），与 GSM-Hard 的任务难度变化一致。解封前已声明主读数为排序而非校准，未对任何预测做缩放。
-- 本结果显示 commitment 特征携带可迁移的工作点位置信息，**不显示**中介或因果机制，也不表示 predictor 能估计新任务的绝对准确率。
+> 在前瞻性封存的 GSM-Hard 上，frozen commitment predictor 正确判断了两个模型的 steering 方向，并以 zero empirical regret 选中 observed near-optimal workpoint。直接迁移 GSM8K 工作点使 Llama 与 Qwen 的 accuracy 分别提高 6.33 pp 和 16.33 pp，但 absolute probability calibration 未能迁移。
 
-冻结顺序、文件 hash、evaluator 测试与完整统计见 `CLAUDE.md`。
+结果表明 commitment timing 携带可迁移的工作点位置信息，但目前证据仅覆盖 GSM8K→GSM-Hard 的 near-domain transfer。
+
+**Interpretation Boundaries.**
+
+- **三张表不是独立证据。** 它们使用同一批 per-question correctness；Table 5.10c 检验的是既定工作点能否直接复用，而不是提供独立重复。
+- **Llama 未实质区分 `−6` 与 `−4`。** 两者 predicted score 仅差约 0.00006，且都属于 observed near-optimal set。Qwen 的选择更明确，`+8` 比次优 predicted dose 高 0.137。
+- **Qwen 并非完美排序。** `ρ=+0.600`；predictor 将 `−4` 排在 `0` 之上，但 observed accuracy 的顺序相反，差距为一道题。
+- **绝对校准没有迁移。** Predicted score 系统性高于 observed accuracy（`.55–.86` vs `.11–.50`）；迁移的是 dose ordering，而非 absolute probability calibration。
+- 本结果不构成 causal mediation，也不能外推到所有 reasoning tasks；当前方法仍需生成多个剂量，尚未实现仅从 `α=0` 选择 steering 方向。
+
+Protocol provenance、artifact hashes、evaluator validation 与完整统计见 `CLAUDE.md`。
+
+### 5.10.1 Commitment Behaviour on GSM-Hard (EXPLORATORY)
+
+> **状态：EXPLORATORY，且永久如此。** 十个 No-CoT cell 已于 2026-08-30 解封，因此以下全部
+> 为事后分析。它**描述**一个与已关闭 P3 结果一致的机制，但不检验该机制，也不修改 P3 的结论、
+> 措辞或边界。commitment 特征本身是 α 的结果，按其分层的准确率属 consistent-with 证据，绝非
+> mediation。抽取器与三分口径均从 P1 (`thinking_curve/extract_metrics.py`) 导入，未重写。
+
+**Table 5.10d — Llama3-8B commitment panel (No-CoT, n=300/cell)**
+
+| α | acc | early% | committed% | unparsed% | loop% | no-marker% | posN med | post-commit% | chars med |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −8 | .110 | 66.0 | 67.7 | 10.3 | 13.3 | 8.7 | **0.0000** | **100.0** | 2194 |
+| **−6** | **.243** | **28.7** | 54.7 | 5.3 | 34.0 | 6.0 | 0.2740 | 72.6 | 2168 |
+| −4 | .240 | 28.0 | 53.0 | 4.3 | 34.7 | 8.0 | 0.2351 | 76.5 | 2134 |
+| 0 | .180 | 45.7 | 54.3 | 4.0 | 28.0 | 13.7 | 0.2161 | 78.4 | 2072 |
+| +4 | .170 | 60.0 | 44.7 | 6.3 | 27.7 | 21.3 | 0.1274 | 87.3 | 2078 |
+
+**Table 5.10e — Qwen2.5-7B commitment panel (No-CoT, n=300/cell)**
+
+| α | acc | early% | committed% | unparsed% | loop% | no-marker% | posN med | post-commit% | chars med |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −4 | .343 | 94.7 | 79.3 | 18.3 | 2.3 | 0.0 | 0.8062 | 19.4 | 1326 |
+| 0 | .340 | 93.7 | 72.7 | 22.7 | 4.7 | 0.0 | 0.7680 | 23.2 | 1271 |
+| +4 | .347 | 92.0 | 78.0 | 17.3 | 4.3 | 0.3 | 0.6791 | 32.1 | 1268 |
+| +6 | .403 | 58.7 | 86.3 | 11.0 | 2.3 | 0.3 | 0.5969 | 40.3 | 1145 |
+| **+8** | **.503** | **6.0** | **98.3** | 1.7 | 0.0 | 0.0 | 0.7765 | 22.3 | **875** |
+
+**观察到的规律（描述性）。**
+
+- **两个模型的准确率峰值都出现在 `early_candidate` 的低点**：Llama `−6` 的 28.7% 是曲线最小值之一，Qwen `+8` 的 6.0% 相对 `+6` 的 58.7% 是断崖式下降。方向与 P1 在 GSM8K 上的记录一致。
+- **Llama `−8` 是过早锁定的极端形态**：`posN med = 0.0000`、post-commit 占比 **100%**、early 66.0%——答案出现在生成最开头，其后 2194 字符全在提交之后；准确率同时塌至 .110。与 P1 记录的「负向大剂量 → 过早锁定」同形。
+- **Qwen `+8` 的提交形态最干净**：committed 98.3%、loop 0.0%、unparsed 1.7%，且生成最短（875 字符）。
+- **两模型的失败模式不同。** Llama 的退化以 `loop`（27.7–34.7%）与 `no_marker`（最高 21.3%）为主；Qwen 几乎不 loop（≤4.7%）、`no_marker` 恒为 0，其退化表现为 `marker_unparsed`（最高 22.7%，即写出 `####` 却无可解析数字）。这与 P1 在 GSM8K 上记录的跨模型差异同向。
+
+**一处必须分解、不可直读的数字。** Qwen `posN med` 在 `+6` 触底 0.597 后于 `+8` 回升至 0.777，看似打断单调下降。固定分母（五格皆 committed 的 153 题）后回升依旧（0.566 → 0.758），**故不是分母效应**；但绝对位置显示 `commit_char` 由 274 回升至 436，而 `gen_chars` 持续缩短（959 → 831）。**归一化位置与绝对位置在此是两个量**——同 §5.5 已记录的「commit timing plateaus 对归一化为真、对绝对步数为假」。Llama 的同类共同子集仅 **n=35**（被 `−8` 的极端行为筛出，有选择偏倚），故**只报全样本表**。
 
 ## 6. Conclusion
 
