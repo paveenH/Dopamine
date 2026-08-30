@@ -1,0 +1,34 @@
+{
+  "version": "p3-amendment-02",
+  "amended": "2026-08-28",
+  "status": "NO DOWNLOAD. NO MODEL RUN. NO GSM-Hard ACCURACY COMPUTED OR VIEWED.",
+  "builds_on": "p3-amendment-01 (docs/p3_amendment_01.json), which is NOT overwritten",
+  "protocol_text_changed": false,
+  "reason": "float64 pre-corruption hard stop. HF stores GSM-Hard `target` as float64, so datasets returns a python float; float(2**53+1) is already exactly 2**53, so the value is lossy BEFORE our code runs and no string parse can recover it. The prior tests used the string form and never exercised this path. assert_float_safe() now refuses any float gold with |x| >= 2**53 before counting. Expected inert at the pinned revision (GSM-Hard range is ~-9.83e9..9.28e9); it exists so the audit cannot silently under-report.",
+  "process_note": "Two earlier test edits silently no-opped on a stale anchor and the suite count did not rise as expected; both blocks are now present, inserted at an asserted anchor. 61 -> 78 checks.",
+  "commits": {
+    "1c0b865": "protocol freeze (p3-v1), before download",
+    "26bffce": "P3 code: loader, label-free runner, launchers, tests",
+    "42583fd": "fix three pre-download defects (revision, float audit, audit input)",
+    "8bff68a": "pre-download amendment: four further defects (this manifest)",
+    "c059607": "amendment-01 manifest",
+    "HEAD": "amendment-02: float64 hard stop (this manifest)"
+  },
+  "planned_download_command": "python data_gsm8k_hard.py --revision 960448f73503112d4226baeb8eb41d3fb5ae2506",
+  "revision_note": "HEAD confirmed by the user on 2026-08-28 as 960448f73503112d4226baeb8eb41d3fb5ae2506, superseding the earlier bbf48283... The loader refuses anything that is not a full 40-hex SHA.",
+  "sha256": {
+    "data_gsm8k_hard.py": "cd4d7af65968a3ee13e514cbb3a3bb13368673b6d0c2a9f4bab0d092036087b6",
+    "get_answer_gsm8k_hard_blind.py": "798247cdcf0fb9ea7fff7a47f8296ee35fdb79343f223dae877404c49630ea66",
+    "run_gsm8k_hard_llama3.sh": "bc14fcad69a28f0be1e3c953b4c1d72d01cfc625cbaf6d0aa391f34dae029ba3",
+    "run_gsm8k_hard_qwen25.sh": "09fa66ad33aded340984a28d643e427c69edb7bbd3c18a64106badcf51824947",
+    "test_p3_label_firewall.py": "3b3c7fd6e1a09bf7cbdcff7dc6ce068a7df9cf777442f79279a2f3e34c350028",
+    "p3/p3_bigint_audit.py": "a724ef0b58145347fc17699ffbc663b61a7fd1973ae2bbc3c970f128fe873664",
+    "docs/PREREG_P3.md": "a1f918bc68904ab3ce1bc54484050beff1ee90062d2bc5b817a5c7322a99a909"
+  },
+  "verification": {
+    "test_suite": "test_p3_label_firewall.py -- 78/78",
+    "interpreters": "passes under python3.10 AND bare python3 (stdlib only)",
+    "mutation_tested": "disabling the label firewall -> exit 1; disabling the float64 guard -> exit 1 with 3 expected FAILs",
+    "crash_is_failure": "an uncaught exception exits 2, never 0"
+  }
+}
