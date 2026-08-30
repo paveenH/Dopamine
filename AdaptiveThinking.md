@@ -1659,6 +1659,21 @@ Qwen 的 `posN med` 从 `+6` 的 0.597 回升至 `+8` 的 0.777。该回升在�
 
 Llama 的五剂量共同 committed 子集仅 n=35，且由 `−8` 的极端行为强烈筛选，因此不作对应的共同子集推断。
 
+**Generation-Budget Truncation (Llama).**
+
+`cap%` = 重新分词后达到生成上限的样本比例（`>=767` of `max_new_tokens=768`；阈值不取精确等于，因离线重新分词在边界处有误差——Llama α=0 精确判定读 82.0%，`>=767` 读 94.0%，`>=760` 读 94.3%，760 以上的平台才是真实截断群体）。
+
+| | −8 | −6 | −4 | 0 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **Llama cap%** | 91.3 | 92.3 | 96.0 | 94.0 | 95.3 | — | — |
+| **Qwen cap%** | — | — | 20.3 | 21.0 | 22.7 | 19.3 | 13.3 |
+
+**Llama 五格全部 91–96% 触及上限，decode 长度中位数恒为 768**；Qwen 仅 13–23%。因此上文「Llama `−8` 生成长度并未明显缩短」应理解为**天花板效应而非自然观测**——各剂量长度都被同一上限压平。这不削弱该处结论（性能崩溃不是因为少生成），但其依据应改为 `posN med=0` 与 `post-commit=100%` 这两项与长度无关的量：答案出现在生成开头，其后整段皆在提交之后。
+
+**截断不否定「固定 768-token budget 下」的配对比较**——全部十格在同一预算、同一约定下逐题配对，estimand 是一致的。**但它会影响绝对准确率，也可能影响剂量差异**（Llama 各格 cap 率散布 4.7 pp；固定工作点检验所用的 `−6 vs 0` 一对差异不显著，18/23，exact McNemar p=.53，但这只覆盖该一对），**因此结果不能外推为不受生成预算限制的能力表现**。
+
+CoT 生成更长而上限不变，故 CoT 结果若变差，截断是必须与 commitment 解读并列报告的替代解释，而非可径直归因于其一。**现阶段不提高上限**：那会改变已冻结的主问题。先完成 768-token 条件；若 Llama 结果为 null/negative，再单独建立 larger-budget sensitivity，且不得事后替换主结果。
+
 **Conclusion.**
 
 > 在前瞻性封存的 GSM-Hard 上，frozen commitment predictor 正确判断了两个模型的 steering 方向，并以 zero empirical regret 选中 observed near-optimal workpoint。直接迁移 GSM8K 工作点使 Llama 与 Qwen 的 accuracy 分别提高 6.33 pp 和 16.33 pp，但 absolute probability calibration 未能迁移。

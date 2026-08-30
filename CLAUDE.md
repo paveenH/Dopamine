@@ -1275,9 +1275,21 @@ Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. 
   boundary, and on Llama α=0 an exact test reads 82.0% against 94.0% at `>=767` and 94.3%
   at `>=760`; the plateau above 760 is the real cap population. This does **not** affect
   the P3 accuracy comparison (all ten cells paired per question under one convention).
-  For the CoT supplement, generations are longer at the same cap, so a degraded CoT result
-  must report truncation and the commitment reading side by side rather than resolving it
-  in favour of either.
+  **Cap-hit does not invalidate the paired P3 comparison as a FIXED-BUDGET estimand** —
+  every dose was evaluated under the same 768-token budget. **But it can affect absolute
+  accuracy and dose differences**, so the result may NOT be read as unconstrained
+  reasoning capability. Llama's cap rate spans 4.7 pp across doses (91.3–96.0%); the one
+  pair the fixed-workpoint test uses, `−6 vs 0`, is not significantly different (18/23,
+  exact McNemar p=.53), and that covers that pair only. **A corollary for §5.10.1's Llama
+  −8 reading: "generation length did not shorten" is a CEILING EFFECT, not an
+  observation** — every dose is flattened against the same cap. The conclusion (the
+  collapse is not from generating less) still holds, but must rest on `posN med=0` and
+  `post-commit=100%`, which are length-independent. For the CoT supplement, generations
+  are longer at the same cap, so a degraded CoT result must report truncation and the
+  commitment reading side by side rather than resolving it in favour of either. **Do NOT
+  raise the cap now** — that would change the frozen primary question. Finish the
+  768-token condition; if Llama comes out null or negative, build a larger-budget
+  sensitivity SEPARATELY, never substituting it for the main result.
 
 - **POST-UNSEAL RULE: the main analysis 口径 is CLOSED.** The predictor, features, marker
   adapter, workpoints and success criteria may not be changed in light of this result.

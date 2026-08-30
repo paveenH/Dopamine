@@ -154,8 +154,15 @@ def main():
         print(f"  wrote {out}  steering_fires={fires}")
 
     print("\nGeneration complete. NO accuracy was computed -- by construction.")
-    print("Next: extract commitment features, freeze p3_predictions.json, "
-          "and only then unseal gold.")
+    if args.cot:
+        # The supplement cannot "unseal" anything: the GSM-Hard gold was already
+        # read once during P3. Printing the P3 next-step here would send an
+        # operator looking for a seal that no longer exists.
+        print("Next: extract commitment features, freeze per-cell supplement "
+              "scores,\nthen run the frozen CoT evaluator.")
+    else:
+        print("Next: extract commitment features, freeze p3_predictions.json, "
+              "and only then unseal gold.")
 
 
 if __name__ == "__main__":

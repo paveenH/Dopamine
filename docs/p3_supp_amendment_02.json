@@ -1,0 +1,51 @@
+{
+  "amendment": "p3-supp-amend-02",
+  "protocol": "p3-supp-v1",
+  "date": "2026-08-30",
+  "status": "frozen BEFORE any CoT cell is generated",
+  "additive": "does not overwrite PREREG_P3_SUPPLEMENT.md, p3_supp_predictions.json, or p3_supp_amendment_01.json",
+  "cot_cells_exist_at_amendment_time": false,
+
+  "correction_1_stale_next_step_message": {
+    "defect": "get_answer_gsm_hard_blind.py printed the P3 next-step ('freeze p3_predictions.json, and only then unseal gold') after EVERY run, including CoT runs.",
+    "why_wrong": "The supplement cannot unseal anything -- the GSM-Hard gold was read once during P3 and is not resealed. The message would send an operator looking for a seal that no longer exists.",
+    "fix": "Under --cot the runner now prints: 'Next: extract commitment features, freeze per-cell supplement scores, then run the frozen CoT evaluator.' The non-CoT branch is byte-unchanged.",
+    "affects_existing_data": false
+  },
+
+  "correction_2_cap_hit_claim_was_too_strong": {
+    "retracted_wording": "This does NOT affect the P3 accuracy comparison (all ten cells paired per question under one convention).",
+    "why_wrong": "An identical cap guarantees a common ESTIMAND, not that truncation acts equally on every dose. Llama's cap rate in fact spans 4.7 pp across doses (91.3-96.0%).",
+    "frozen_wording": "Cap-hit does not invalidate the paired P3 comparison as a FIXED-BUDGET estimand, because all doses were evaluated under the same 768-token budget. However, it can affect absolute accuracy and dose differences, so the result cannot be interpreted as unconstrained reasoning capability.",
+    "measured": {
+      "llama_cap_rate_by_dose": {"-8": 0.913, "-6": 0.923, "-4": 0.960, "0": 0.940, "4": 0.953},
+      "llama_cap_rate_spread_pp": 4.7,
+      "fixed_workpoint_pair_neg6_vs_0": {
+        "discordant_only_neg6": 18, "discordant_only_0": 23,
+        "exact_mcnemar_p": 0.5327,
+        "reading": "not significantly different -- but this covers that ONE pair, and is not a general statement about the other doses"
+      }
+    }
+  },
+
+  "correction_3_ceiling_effect_in_5_10_1": {
+    "context": "AdaptiveThinking.md 5.10.1 argued that Llama's alpha=-8 collapse is not from generating less, citing that its generation length did not shorten.",
+    "defect_in_the_JUSTIFICATION_not_the_conclusion": "Llama hits the 768 cap in 91-96% of samples in EVERY cell with a median decode length of exactly 768, so 'length did not shorten' is a CEILING EFFECT, not a free observation. All doses are flattened against the same bound.",
+    "resolution": "The conclusion stands and is in fact strengthened, but its basis is changed to the two length-independent quantities already reported: posN med = 0.0000 and post-commit = 100%. The answer appears at the very start of the generation and everything after it is post-commit text.",
+    "documented_in": "AdaptiveThinking.md 5.10.1 'Generation-Budget Truncation (Llama)'"
+  },
+
+  "decision_do_not_raise_the_cap": {
+    "rule": "max_new_tokens stays 768 for the CoT supplement.",
+    "why": "Raising it would change the frozen primary question, which is defined under this budget.",
+    "if_llama_cot_is_null_or_negative": "Build a larger-budget sensitivity as a SEPARATE analysis. It may never be substituted for the main result after the fact."
+  },
+
+  "unchanged": [
+    "the four cells and their alpha (llama -6, qwen +8)",
+    "p3_supp_predictions.json sha256 fcf8b9c9b8fa8b70",
+    "the Holm family (two models, primary dAcc, m=2)",
+    "the two-stage freeze rule established in p3-supp-amend-01",
+    "the closed P3 result: docs/p3_result_20260830.json, tag p3-result-unsealed"
+  ]
+}
