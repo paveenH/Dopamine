@@ -1,0 +1,82 @@
+{
+  "record": "p3-result",
+  "protocol": "p3-v1 + p3-amend-05",
+  "date": "2026-08-30",
+  "status": "GOLD UNSEALED -- main analysis 口径 is now closed",
+
+  "order_of_operations": [
+    "protocol frozen (tag p3-prereg-v1, commit 1c0b865)",
+    "data downloaded, gold SEALED, 2^53 audit 0/300",
+    "ten cells generated with no accuracy code path",
+    "predictions frozen (commit 9ad21ee, sha256 8f0c514ae4776441)",
+    "evaluator frozen and tagged (tag p3-evaluator-frozen, commit 850ef29)",
+    "gold unsealed ONCE"
+  ],
+
+  "artifacts": {
+    "gold_sha256": "a464d591abe659dca3fde2f9bccbd184ef1ccf0ba4dc66afa4d01a00ce8368c2",
+    "predictions_sha256": "8f0c514ae4776441b1ea92240127eace13749be1a0a36d63bfd8620869979a51",
+    "evaluation_sha256": "0e3511c74ba89115446c3c6c668b43f83942fd634c01a46c64011397d17c34a8",
+    "evaluator_sha256": "2ca6de427d2a8ceb6abed8052f1765959f55b51ca170604d4dee7e536cdd509c",
+    "unseal_log_sha256": "0ba5510226ef30e80c7e2e1110de96a1c88fc9e4f0e760377a72ce143ffbd10f",
+    "questions_sha256": "48cc763545d2ee23835833f5165456b90db194863420a10b6741a57cff781d02",
+    "gsm_hard_revision": "960448f73503112d4226baeb8eb41d3fb5ae2506",
+    "n_gold_exceeding_2_53": 0
+  },
+
+  "verdict": "BOTH readouts pass on BOTH models, in a genuinely blind test.",
+
+  "readout_A_five_point_ordering": {
+    "llama": {
+      "accuracy_first": {"-8": 0.1100, "-6": 0.2433, "-4": 0.2400, "0": 0.1800, "4": 0.1700},
+      "readable_dose_curve": true,
+      "omnibus_min_holm_p": 2.29e-07,
+      "predicted_direction": "negative",
+      "observed_direction": "negative",
+      "direction_correct": true,
+      "predicted_best": -6,
+      "observed_best": -6,
+      "observed_near_optimal": [-6, -4],
+      "selected_in_observed_near_optimal": true,
+      "regret_pp": 0.0,
+      "spearman_rho": 1.000
+    },
+    "qwen": {
+      "accuracy_first": {"-4": 0.3433, "0": 0.3400, "4": 0.3467, "6": 0.4033, "8": 0.5033},
+      "readable_dose_curve": true,
+      "omnibus_min_holm_p": 1.35e-07,
+      "predicted_direction": "positive",
+      "observed_direction": "positive",
+      "direction_correct": true,
+      "predicted_best": 8,
+      "observed_best": 8,
+      "observed_near_optimal": [8],
+      "selected_in_observed_near_optimal": true,
+      "regret_pp": 0.0,
+      "spearman_rho": 0.600
+    }
+  },
+
+  "readout_B_fixed_workpoint_transfer": {
+    "llama": {"alpha": -6, "acc_alpha": 0.2433, "acc_alpha0": 0.1800,
+              "diff_pp": 6.33, "discordant": [32, 13], "mcnemar_p": 0.006609,
+              "improves": true},
+    "qwen": {"alpha": 8, "acc_alpha": 0.5033, "acc_alpha0": 0.3400,
+             "diff_pp": 16.33, "discordant": [63, 14], "mcnemar_p": 1.414e-08,
+             "improves": true}
+  },
+
+  "frozen_wording": {
+    "headline": "The commitment-based predictor, frozen on GSM8K, selected the correct steering direction and the true best dose on BOTH models on a task whose labels had never been read. Regret is 0.00 pp on both. The GSM8K workpoint also transfers: it beats alpha=0 by +6.33 pp (llama, p=.0066) and +16.33 pp (qwen, p=1.4e-08).",
+
+    "llama_margin_caveat": "The PREDICTED scores for -6 and -4 differ by only about 0.00006, so the prediction did not distinguish them. The observed near-optimal set is likewise {-6, -4} (observed accuracy .2433 vs .2400). So llama's result is 'selected a dose inside the observed near-optimal set', and must NOT be written as 'distinguished -6 from -4'. Qwen's predicted margin over its runner-up is 0.137 and its observed near-optimal set is the singleton {8}, so only qwen's selection is sharp.",
+
+    "spearman_caveat": "Qwen's rho is +0.600, not +1.000: the predictor ordered -4 above 0 while the observed accuracies run the other way (.3433 vs .3400). Those two cells differ by 0.33 pp -- one question -- so the inversion is inside noise, but the rho must be reported as +0.600 rather than rounded up to a perfect ordering.",
+
+    "calibration": "Predicted probabilities remain far above observed accuracy (llama predicted .55-.69 vs observed .11-.24; qwen .68-.86 vs .34-.50). This is EXPECTED under dataset shift and is not a failure: GSM-Hard enlarges the numbers past what an 8B model reliably computes, so the base rate collapses. The primary readout was declared to be ordering, not calibration, before the gold was unsealed. No prediction was rescaled.",
+
+    "what_this_does_and_does_not_show": "It shows that commitment features carry transferable information about WHERE the steering workpoint lies, on an unseen task, under a locked protocol. It does NOT show mediation, a causal mechanism, or that the predictor estimates absolute accuracy on a new task."
+  },
+
+  "post_unseal_rule": "The main analysis 口径 is closed. The predictor, features, marker adapter, workpoints and success criteria may not be changed in light of this result. Any further analysis is exploratory and must be labelled as such."
+}

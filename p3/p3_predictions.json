@@ -1,0 +1,149 @@
+{
+  "protocol": "p3-v1",
+  "note": "Frozen BEFORE the GSM-Hard gold was unsealed. Primary readout is dose ordering/direction/selection, not calibration.",
+  "predictor_sha256": {
+    "llama": "b9ee07e4719514e51eff16629efce7b5e897894e9e0e0a3996a0f9a3a667b558",
+    "qwen": "9aad950a7494d3bf07a5c681a614a371c78b2b93659f566d838ccd4ccb024603"
+  },
+  "models": {
+    "llama": {
+      "scope": "full",
+      "questions_sha256": "48cc763545d2ee23835833f5165456b90db194863420a10b6741a57cff781d02",
+      "dose_scores": {
+        "-8": 0.5553774621204736,
+        "-6": 0.6883409342966791,
+        "-4": 0.6882815189168021,
+        "0": 0.6302752420712457,
+        "4": 0.5769617757589209
+      },
+      "predicted_direction_from_alpha0": "negative",
+      "predicted_best_alpha": -6,
+      "predicted_near_optimal": [
+        -6,
+        -4
+      ],
+      "near_optimal_tol": 0.013296347217620554,
+      "predicted_ordering": [
+        -6,
+        -4,
+        0,
+        4,
+        -8
+      ],
+      "predicted_plateau_or_overshoot_onset": -8,
+      "n_per_cell": {
+        "-8": 300,
+        "-6": 300,
+        "-4": 300,
+        "0": 300,
+        "4": 300
+      },
+      "commit_state_audit": {
+        "-8": {
+          "n": 300,
+          "committed": 203,
+          "marker_unparsed_nonloop": 31,
+          "loop": 40,
+          "no_marker": 26
+        },
+        "-6": {
+          "n": 300,
+          "committed": 164,
+          "marker_unparsed_nonloop": 16,
+          "loop": 102,
+          "no_marker": 18
+        },
+        "-4": {
+          "n": 300,
+          "committed": 159,
+          "marker_unparsed_nonloop": 13,
+          "loop": 104,
+          "no_marker": 24
+        },
+        "0": {
+          "n": 300,
+          "committed": 163,
+          "marker_unparsed_nonloop": 12,
+          "loop": 84,
+          "no_marker": 41
+        },
+        "4": {
+          "n": 300,
+          "committed": 134,
+          "marker_unparsed_nonloop": 19,
+          "loop": 83,
+          "no_marker": 64
+        }
+      }
+    },
+    "qwen": {
+      "scope": "full",
+      "questions_sha256": "48cc763545d2ee23835833f5165456b90db194863420a10b6741a57cff781d02",
+      "dose_scores": {
+        "-4": 0.6959272946965164,
+        "0": 0.7038368372002547,
+        "4": 0.6793986877919755,
+        "6": 0.7181834724419157,
+        "8": 0.8552025144851401
+      },
+      "predicted_direction_from_alpha0": "positive",
+      "predicted_best_alpha": 8,
+      "predicted_near_optimal": [
+        8
+      ],
+      "near_optimal_tol": 0.01758038266931645,
+      "predicted_ordering": [
+        8,
+        6,
+        0,
+        -4,
+        4
+      ],
+      "predicted_plateau_or_overshoot_onset": 4,
+      "n_per_cell": {
+        "-4": 300,
+        "0": 300,
+        "4": 300,
+        "6": 300,
+        "8": 300
+      },
+      "commit_state_audit": {
+        "-4": {
+          "n": 300,
+          "committed": 238,
+          "marker_unparsed_nonloop": 55,
+          "loop": 7,
+          "no_marker": 0
+        },
+        "0": {
+          "n": 300,
+          "committed": 218,
+          "marker_unparsed_nonloop": 68,
+          "loop": 14,
+          "no_marker": 0
+        },
+        "4": {
+          "n": 300,
+          "committed": 234,
+          "marker_unparsed_nonloop": 52,
+          "loop": 13,
+          "no_marker": 1
+        },
+        "6": {
+          "n": 300,
+          "committed": 259,
+          "marker_unparsed_nonloop": 33,
+          "loop": 7,
+          "no_marker": 1
+        },
+        "8": {
+          "n": 300,
+          "committed": 295,
+          "marker_unparsed_nonloop": 5,
+          "loop": 0,
+          "no_marker": 0
+        }
+      }
+    }
+  }
+}

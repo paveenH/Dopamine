@@ -1,0 +1,304 @@
+{
+  "protocol": "p3-v1+amend05",
+  "predictions_sha256": "8f0c514ae4776441b1ea92240127eace13749be1a0a36d63bfd8620869979a51",
+  "gold_sha256": "a464d591abe659dca3fde2f9bccbd184ef1ccf0ba4dc66afa4d01a00ce8368c2",
+  "models": {
+    "llama": {
+      "n": 300,
+      "accuracy_first": {
+        "-8": 0.11,
+        "-6": 0.24333333333333335,
+        "-4": 0.24,
+        "0": 0.18,
+        "4": 0.17
+      },
+      "accuracy_last_sensitivity": {
+        "-8": 0.11333333333333333,
+        "-6": 0.23666666666666666,
+        "-4": 0.23,
+        "0": 0.17333333333333334,
+        "4": 0.17333333333333334
+      },
+      "five_point": {
+        "readable_dose_curve": true,
+        "omnibus_min_holm_p": 2.2918642095248742e-07,
+        "pairwise": [
+          {
+            "pair": [
+              -8,
+              -6
+            ],
+            "p_raw": 2.2918642095248742e-08,
+            "p_holm": 2.2918642095248742e-07
+          },
+          {
+            "pair": [
+              -8,
+              -4
+            ],
+            "p_raw": 2.706279703008907e-07,
+            "p_holm": 2.4356517327080163e-06
+          },
+          {
+            "pair": [
+              -8,
+              0
+            ],
+            "p_raw": 0.0014504910141113214,
+            "p_holm": 0.011603928112890571
+          },
+          {
+            "pair": [
+              -8,
+              4
+            ],
+            "p_raw": 0.007915897334896727,
+            "p_holm": 0.02643529136912548
+          },
+          {
+            "pair": [
+              -6,
+              -4
+            ],
+            "p_raw": 1.0,
+            "p_holm": 1.0
+          },
+          {
+            "pair": [
+              -6,
+              0
+            ],
+            "p_raw": 0.00660882284228137,
+            "p_holm": 0.02643529136912548
+          },
+          {
+            "pair": [
+              -6,
+              4
+            ],
+            "p_raw": 0.0020881073339964473,
+            "p_holm": 0.012528644003978684
+          },
+          {
+            "pair": [
+              -4,
+              0
+            ],
+            "p_raw": 0.0021024015732109547,
+            "p_holm": 0.012528644003978684
+          },
+          {
+            "pair": [
+              -4,
+              4
+            ],
+            "p_raw": 0.0014504910141113214,
+            "p_holm": 0.011603928112890571
+          },
+          {
+            "pair": [
+              0,
+              4
+            ],
+            "p_raw": 0.7428293587290682,
+            "p_holm": 1.0
+          }
+        ],
+        "observed_best_alpha": -6,
+        "observed_near_optimal": [
+          -6,
+          -4
+        ],
+        "predicted_best_alpha": -6,
+        "predicted_direction": "negative",
+        "observed_direction": "negative",
+        "direction_correct": true,
+        "selected_in_observed_near_optimal": true,
+        "regret_pp": 0.0,
+        "spearman_rho": 0.9999999999999998,
+        "predicted_rollover_onset": -8
+      },
+      "fixed_workpoint": {
+        "alpha": -6,
+        "source": "frozen GSM8K record (p3_amendment_05)",
+        "acc_alpha": 0.24333333333333335,
+        "acc_alpha0": 0.18,
+        "diff_pp": 6.333333333333336,
+        "discordant_only_alpha": 32,
+        "discordant_only_alpha0": 13,
+        "mcnemar_p": 0.00660882284228137,
+        "improves": true
+      },
+      "cell_meta": {
+        "-8": {
+          "n": 300,
+          "steering_fires": 2700
+        },
+        "-6": {
+          "n": 300,
+          "steering_fires": 2700
+        },
+        "-4": {
+          "n": 300,
+          "steering_fires": 2700
+        },
+        "0": {
+          "n": 300,
+          "steering_fires": 0
+        },
+        "4": {
+          "n": 300,
+          "steering_fires": 2700
+        }
+      }
+    },
+    "qwen": {
+      "n": 300,
+      "accuracy_first": {
+        "-4": 0.3433333333333333,
+        "0": 0.34,
+        "4": 0.3466666666666667,
+        "6": 0.4033333333333333,
+        "8": 0.5033333333333333
+      },
+      "accuracy_last_sensitivity": {
+        "-4": 0.36666666666666664,
+        "0": 0.3466666666666667,
+        "4": 0.36,
+        "6": 0.4033333333333333,
+        "8": 0.48333333333333334
+      },
+      "five_point": {
+        "readable_dose_curve": true,
+        "omnibus_min_holm_p": 1.3477668518977772e-07,
+        "pairwise": [
+          {
+            "pair": [
+              -4,
+              0
+            ],
+            "p_raw": 1.0,
+            "p_holm": 1.0
+          },
+          {
+            "pair": [
+              -4,
+              4
+            ],
+            "p_raw": 1.0,
+            "p_holm": 1.0
+          },
+          {
+            "pair": [
+              -4,
+              6
+            ],
+            "p_raw": 0.038460053348927506,
+            "p_holm": 0.15384021339571002
+          },
+          {
+            "pair": [
+              -4,
+              8
+            ],
+            "p_raw": 1.9409574271727468e-07,
+            "p_holm": 1.5527659417381975e-06
+          },
+          {
+            "pair": [
+              0,
+              4
+            ],
+            "p_raw": 0.8938530948350217,
+            "p_holm": 1.0
+          },
+          {
+            "pair": [
+              0,
+              6
+            ],
+            "p_raw": 0.020414713799634897,
+            "p_holm": 0.12248828279780938
+          },
+          {
+            "pair": [
+              0,
+              8
+            ],
+            "p_raw": 1.414072408794608e-08,
+            "p_holm": 1.3477668518977772e-07
+          },
+          {
+            "pair": [
+              4,
+              6
+            ],
+            "p_raw": 0.027008317653722358,
+            "p_holm": 0.1350415882686118
+          },
+          {
+            "pair": [
+              4,
+              8
+            ],
+            "p_raw": 1.3477668518977772e-08,
+            "p_holm": 1.3477668518977772e-07
+          },
+          {
+            "pair": [
+              6,
+              8
+            ],
+            "p_raw": 0.00017632711255144299,
+            "p_holm": 0.001234289787860101
+          }
+        ],
+        "observed_best_alpha": 8,
+        "observed_near_optimal": [
+          8
+        ],
+        "predicted_best_alpha": 8,
+        "predicted_direction": "positive",
+        "observed_direction": "positive",
+        "direction_correct": true,
+        "selected_in_observed_near_optimal": true,
+        "regret_pp": 0.0,
+        "spearman_rho": 0.5999999999999999,
+        "predicted_rollover_onset": 4
+      },
+      "fixed_workpoint": {
+        "alpha": 8,
+        "source": "frozen GSM8K record (p3_amendment_05)",
+        "acc_alpha": 0.5033333333333333,
+        "acc_alpha0": 0.34,
+        "diff_pp": 16.33333333333333,
+        "discordant_only_alpha": 63,
+        "discordant_only_alpha0": 14,
+        "mcnemar_p": 1.414072408794608e-08,
+        "improves": true
+      },
+      "cell_meta": {
+        "-4": {
+          "n": 300,
+          "steering_fires": 1800
+        },
+        "0": {
+          "n": 300,
+          "steering_fires": 0
+        },
+        "4": {
+          "n": 300,
+          "steering_fires": 1800
+        },
+        "6": {
+          "n": 300,
+          "steering_fires": 1800
+        },
+        "8": {
+          "n": 300,
+          "steering_fires": 1800
+        }
+      }
+    }
+  }
+}
