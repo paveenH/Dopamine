@@ -1134,19 +1134,17 @@ No-CoT 结果来自 §5.5，仅用于比较效应大小，不属于本节的 Hol
 | CoT | 0 | .2000 | 124 | 14 (11.3%) | .2810 |
 | **CoT** | **−6** | **.2600** | **156** | **91 (58.3%)** | **.0000** |
 
-`answer-first` 在此冻结定义为：
+> `answer-first` 定义为：生成文本的首个非空白内容是可解析的 `#### <number>`。
 
-> 生成文本的首个非空白内容即为可解析的 `#### <number>`。
+这里不使用“第一个 token”，因为 `#### <number>` 通常包含多个 tokenizer tokens。比例统一以 committed 样本为分母。四格 accuracy 均通过冻结的抽取流程复算，并与原始评估结果完全一致。
 
-不写成「第一个 token」：`#### <number>` 对应多个 tokenizer tokens，且 token 级规则会额外依赖所加载的 tokenizer。分母为 committed 子集，四行一致。四格 accuracy 均由冻结抽取链复算并与 `p3_evaluation.json` / `p3_supp_evaluation.json` 完全一致（脚本 `p3/answer_first_panel.py` 内置该断言）。
+CoT 明显增强了 Llama 在 `α=−6` 下的 answer-first 模式：比例由 24.4% 升至 58.3%，`posN` 中位数由 `.2740` 降至 `.0000`，但 accuracy 仍从 `.2000` 提升至 `.2600`。这一模式也并非 steering 独有：在 `α=0` 下，CoT 已将 answer-first 从 3.1% 提高到 11.3%。
 
-CoT 明显放大了 Llama 在 `α=−6` 下的 answer-first 输出模式（24.4% → 58.3%，`posN` 中位数 `.2740 → .0000`），但准确率仍由 `.2000` 提升至 `.2600`。同时该模式并非 steering 独有：CoT 在 `α=0` 下已把 answer-first 由 3.1% 抬升至 11.3%，两个因素同向叠加。
+> **结论：answer-first 或较低的 `posN` 只反映答案标记出现得早，不能单独证明模型过早形成或锁定答案。**
 
-> 因此：低 `posN` 或 answer-first 格式本身不能被视为退化或 premature commitment 的充分证据。它记录答案标记在文本中的位置，不必然等同于模型形成答案的内部时刻。
+Commitment health 应结合 early candidate、commit state、loop 和 marker validity 综合判断。因此，commitment score 的改善不能简单解释为“模型先推理、后作答”。该结果属于 exploratory association，不构成 mediation evidence
 
-Commitment health 必须结合 early candidate、commit state、loop 和 marker validity 等特征共同判断，不能将 commitment score 的提高简单解释为“先推理、后作答”。该结果属于 exploratory association，不构成 mediation evidence。
-
-**Table 5.6d — Candidate-based answer-formation timing（EXPLORATORY，逐题配对）**
+**Table 5.6d — Candidate-based answer-formation timing**
 
 `####` 是格式事件，其位置不等于答案形成时刻。下表改以**第一个答案候选值**为锚点，
 分母为两格均可定位候选的共同子集：
@@ -1158,31 +1156,28 @@ Commitment health 必须结合 early candidate、commit state、loop 和 marker 
 | GSM-Hard No-CoT | 0 → **−6** | .1800 → **.2433** | 267 | .0000 → **.0937** | 0 → **201** | 25.8% → **61.0%** |
 | GSM-Hard CoT | 0 → **−6** | .2000 → **.2600** | 248 | .0000 → **.1012** | 0 → **231.5** | 40.3% → **63.7%** |
 
-`reason_before_answer`（候选出现前已存在至少一个等式或推理步）为**主指标**——它是布尔量，
-不受位置口径影响；四组配对 McNemar 全部 p<1e−8（0→1 分别为 120/80/112/77）。`pre_chars`
-次之，`cand_pos` 仅作辅助。三者出自同一次生成，**不是三条独立证据**。
+- **共同 n**：两个剂量下都能定位到答案候选的同一批题目数量，用于逐题配对比较。
+- **`cand_pos`**：第一个答案候选在全文中的归一化位置，即“候选出现位置 ÷ 总文本长度”。越大表示答案候选出现得越晚。
+- **`pre_chars`**：第一个答案候选出现前生成的字符数中位数。越大表示模型在给出候选答案前写了更多内容。
+- **reason-first**：第一个答案候选出现前，是否已经存在等式或推理步骤。它是主要指标，不受文本长度和位置归一化影响；数值越高，表示越多样本呈现“先推理、后形成答案”。四组配对检验均显著（McNemar `p < 1e−8`；`0→1` 分别为 120、80、112、77）。`pre_chars` 和 `cand_pos` 仅作补充，三项来自同一次生成，并非独立证据。
 
-> **三个分母并存，混用会得到错误读数。** 全样本 300（accuracy、coverage）；committed 子集
-> （`posN`、answer-first，Table 5.6c）；candidate-covered 子集（本表）。以 GSM-Hard CoT
-> `−6` 为例：同样那 91 个以 `#### N` 开头的样本，占 committed 的 **58.3%**，却只占
-> candidate-covered 的 **34.7%**。**定位器并不会跳过开头的 `#### N`**——在这 91 个样本上它
-> 返回偏移 4–6，即把该 marker 的数字直接当作候选。因此中位数的差异是**分母效应**，不是定位器
-> 「看穿了占位符」。
+- **整体趋势**：四种条件下，最佳 α 都伴随答案候选推迟、候选前推理增加，以及更高的 `reason_before_answer` 比例。这些变化与准确率提升同向，但不代表因果关系。
 
-**GSM-Hard CoT 是一个混合体制，旧矛盾并未完全消失。** 总体分布确实后移（上表），但仍有相当
-大的 committed 子群以答案 marker 开头，两种现象同时存在。
+- **分母差异**：在 GSM-Hard CoT `α=−6` 下，91 个以 `#### N` 开头的样本占 committed 子集的 58.3%，但只占 candidate-covered 子集的 34.7%。定位器仍会将开头的数字识别为候选，因此不同表格的差异主要来自分析分母不同。
 
-> Candidate-based metrics show that the optimal α generally shifts answer formation
-> after more reasoning across both prompt conditions. GSM-Hard CoT remains a mixed
-> regime: the overall distribution shifts later, while a substantial committed subset
-> still emits an answer marker first.
+- **混合状态**：GSM-Hard CoT 整体上呈现答案候选后移，但仍有一部分 committed 样本以答案 marker 开头。这两种模式可以同时存在。
 
-**边界。** `cand_pos` 的定位器接受 `=` 右侧的值，可能命中中间结果，故 `cand_pos` 是**下界**；
-该偏差跨 α 恒定，配对对比仍可读。这三个读数是**新增的 exploratory 指标，不修改 P2 冻结
-predictor 中的 `early_candidate` 特征**，也不改动任何冻结产物。GSM-Hard 的 accuracy 取自冻结
-评估产物（其生成文件依 label firewall 不含 gold）。三者均为 α 的结果，按其分层属
-post-treatment stratification，最强只能写「准确率提升伴随答案形成时序改善」。
-复算脚本 `p3/precandidate_reasoning.py`。
+**Interpretation Boundaries**
+
+- `cand_pos` 可能命中等号右侧的中间结果，因此只能作为答案形成位置的下界和辅助指标。
+
+- 所有 α 使用相同的定位规则，因此逐题配对差异仍然可读。
+
+- 这些指标属于 exploratory analysis，不修改冻结 predictor 的 `early_candidate`，也不改变任何冻结结果。
+
+- 所有指标都是干预后的行为读数，不能用于证明因果机制。
+
+> **结论：准确率提升稳定伴随着答案形成时序改善，但尚不能证明时序改善导致了准确率提升。**
 
 #### 5.6.3 Conclusion
 
