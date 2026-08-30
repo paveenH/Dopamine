@@ -1,0 +1,42 @@
+{
+  "version": "p3-amendment-04",
+  "amended": "2026-08-28",
+  "status": "NO DOWNLOAD. NO MODEL RUN. NO GSM-Hard ACCURACY COMPUTED OR VIEWED.",
+  "builds_on": [
+    "p3_amendment_01.json",
+    "p3_amendment_02.json",
+    "p3_amendment_03.json"
+  ],
+  "protocol_text_changed": false,
+  "reason": "Output path corrected to the server's real benchmark tree: components/benchmark/, not benchmark/. Confirmed against the server listing, which shows the flat single-file tree (mmlu_all.json, gpqa_train.json, gsm8k_test_sample.json, ...) living under components/benchmark/. The loader default and both launchers now point there, and the loader refuses a non-existent --out_dir rather than creating it, so a wrong working directory fails loudly instead of writing the sample into the wrong tree.",
+  "paths": {
+    "questions": "components/benchmark/gsm_hard_p3_questions.json",
+    "sealed_gold": "components/benchmark/gsm_hard_p3_gold.SEALED.json",
+    "generation_out": "components/<model>/gsm_hard_p3/"
+  },
+  "commits": {
+    "1c0b865": "protocol freeze (p3-v1), before download",
+    "26bffce": "P3 code: loader, label-free runner, launchers, tests",
+    "42583fd": "fix three pre-download defects (revision, float audit, audit input)",
+    "8bff68a": "pre-download amendment: four further defects (this manifest)",
+    "c059607": "amendment-01 manifest",
+    "HEAD": "amendment-04: components/benchmark path (this manifest)",
+    "4381f31": "amendment-02: float64 hard stop",
+    "b3796f4": "amendment-02 manifest",
+    "23241ed": "amendment-03: rename to gsm_hard"
+  },
+  "planned_download_command": "cd /data1/paveen/Dopamine && python data_gsm_hard.py --revision 960448f73503112d4226baeb8eb41d3fb5ae2506",
+  "sha256": {
+    "data_gsm_hard.py": "38667fc19f6bd3a8ef1d9fced4491e77601bf74c990a3fd99686ce4b967b4480",
+    "get_answer_gsm_hard_blind.py": "403dc2c8c4afc6e1eb302ad24cf7cfd0a053d0866a4b247a37007138584bc695",
+    "run_gsm_hard_llama3.sh": "bfb550329285316d8620d8b2b21d287241259da71ba55f7e55bc4baeefcd25fb",
+    "run_gsm_hard_qwen25.sh": "98f6f6964f286851dc20bbf1ae9280e6f312833bfcc9444152c92b95c3472d8c",
+    "test_p3_label_firewall.py": "0e0b12232a73dbc8ff8b42b9ae332c201e06e80380139f555e1e08d86abb7fe5",
+    "p3/p3_bigint_audit.py": "15155e039ab117cdc6f6d3b13785ef7d5850937ab529a9bfc4423615a9160003",
+    "docs/PREREG_P3.md": "a1f918bc68904ab3ce1bc54484050beff1ee90062d2bc5b817a5c7322a99a909"
+  },
+  "verification": {
+    "test_suite": "78/78 under python3.10 and bare python3",
+    "out_dir_guard": "verified: a non-existent --out_dir exits before download"
+  }
+}
