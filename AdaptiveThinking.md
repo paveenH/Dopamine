@@ -1368,7 +1368,7 @@ Commit state 分为三类：
 
 #### 5.8.1 Within-Model Dose–Response Curves (Item-Paired, n=300 per Cell)
 
-每格對各自 α=0 逐題配對，附 bootstrap 95% CI。**raw α 不跨模型比較。**
+每格對各自 α=0 逐題配對。**raw α 只用於模型內部比較。**
 
 | Llama α | acc | early-cand% | posN | `unparsed%` | (其中 `loop%`) | `nomk%` |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1386,23 +1386,54 @@ Commit state 分为三类：
 | **+8** | **86.00** | **5.0** | 0.657 | 2.0 | 0.7 | **0.0** |
 | +12 | 87.67 | 4.0 | 0.697 | 2.3 | 1.3 | **0.0** |
 
-**两个主要读数的操作型定义（frozen 2026-08-21，两任务共用一套，不调参）：**
+四个读数分别测量：**是否在推导前就写下答案**（`early-cand%`）、**答案标记出现在文本何处**
+（`posN`）、**提交了但答案不可解析**（`unparsed%`，括号内为退化反复提交的 `loop%`）、
+**完全没有提交**（`nomk%`）。冻结定义与实现见 `CLAUDE.md`。
 
-- `early-cand%`：**首个非空行**同时满足 (1) strip 后 ≤ **60 字符**、(2) 含至少一个数字 token、(3) 不是编号推理开头（`1. To find …`）、(4) 不是纯标题行（`Step 1:`／`Solution:`）——即模型在任何推导之前就写下一个答案形状的裸数字。长度上限 40/60/80 的敏感度并列报告，结论不依赖该选择。
-- `posN`：**首个可解析的** `#### <数字>` 的字符起点除以生成总字符数，仅在该样本存在可解析 marker 时有定义（即 `committed` 一类）。越接近 0 越早提交。以字符而非 token 计；token 口径需 tokenizer，缺失时列直接省略而非估算。
+**两个模型内部都成立：剂量不只改变准确率，也系统性改变答案形成与提交的时序。**
 
-> **注意：`early-cand%` 本身是干预的结果，按它分层属 post-treatment stratification，只能作为 consistent-with 证据，不构成 mediation。**
-- `unparsed%`：出现 `####` 但答案不可解析的比例（= `marker_unparsed`）；括号内 `loop%` 是其中 marker ≥4 次的退化反复提交子集。
-- `nomk%`：全文完全没有出现 `####` marker 的比例。
+- **Llama 是 peak–collapse。** `−6` 抢答最少（19.3%）、准确率最高（79.67%）；到 `−8` 抢答
+  升至 77.0%、`posN` 提前到 0.043，准确率崩至 40.67%。
+- **Qwen 是单调后移至饱和。** 正向剂量把抢答从 96.3% 压到 5.0%；`+8` 之后各指标趋于饱和，
+  准确率随之进入平台而非继续上升。
+- **Qwen 的 `nomk%` 在全部 11 格均为 0.0**——它总是写出 `####`，不可解析样本全部属于
+  `marker_unparsed`。
 
-> **Qwen 的 `nomk%` 在全部 11 格均为 0.0**——它总是写出 `####`，其不可解析样本全部属于 `marker_unparsed`（典型形式 `70\n####\n\n`：marker 已发出但其后无数字）。这与 §4 记录的 Qwen commit 计数口径差异同源。**此前版本因分类器把带 1–3 个 marker 的样本误归入 `nomk%`，报出 1.0–16.7% 的虚假比例（全部 20 格共 469 题受影响，Qwen 337、Llama 132）；上表为修正后的值。**
+**量化：commitment timing 是比 raw α 更具跨模型一致性的功能坐标。**
 
-> 在各模型内部，剂量不仅改变准确率，也系统性改变答案形成与提交的时序。
+在各自完整剂量曲线上，准确率与提交时点同向变化：
 
-- **Llama**：`−6` 时过早回答最少、准确率最佳；到 `−8` 时答案候选和 commit 大幅提前，并伴随异常提交，准确率随之崩溃。
-- **Qwen**：正向剂量逐渐推迟答案形成和提交；到 `+8` 后相关指标趋于饱和，因此准确率表现为平台，而非继续上升。
+| 模型 | 曲线 | `acc ~ posN` | `acc ~ early-cand%` |
+|---|---|---:|---:|
+| Llama | 九档（§2.2，182 批次） | ρ = **+.941** (p=.0002) | 该曲线无此列 † |
+| Qwen | 十一档（Table 4.1a） | ρ = **+.863** (p=.0006) | ρ = **−.804** (p=.0029) |
 
-> **Llama 的 peak 与 Qwen 的 plateau，都与各自的 commitment timing 曲线相对应。** raw α 只用于模型内部比较，不能直接跨模型对齐。
+† Llama 九档表建於凍結檢測器之前，只有口徑不同的 `premature (either)`（九档 ρ=−.300，n.s.）；
+`early-cand%` 僅在上方五格表中可得（ρ=−1.000）。兩者不可互換，故留空而非填入替代指標。
+
+**尽管两个模型需要相反方向的 α，准确率提升都伴随更晚的 commitment 与更少的 early
+candidate。** 但曲线形状不同，这一差异限定了结论的形式：
+
+- **Llama 呈较连续的剂量关系**，`−8` 是清楚的极端反例：`posN`=0.043（几乎开头即提交）
+  同时准确率 40.67%，为全曲线最低。
+- **Qwen 呈阈值式变化**：α≤+4 时 `posN` 恒为 .003 完全不动，到 `+6/+8` 才翻转。其相关系数
+  几乎全部由这一次跃变承担，**不应读作平滑斜坡**。
+- **`+8` 之后准确率进入平台，而 `posN` 仍继续后移**（.754→.802），准确率增幅塌缩为
+  +8.00 / +2.33 / +0.34 pp。
+
+> **因此数据支持的是「过早 commitment 有害」，而非「越晚越准」：把模型推离过早提交状态
+> 可以提高准确率，但进入健康区间后，进一步推迟未必继续带来收益。**
+
+> Across both models, higher accuracy was associated with reduced premature answer
+> formation and later commitment, despite opposite optimal steering directions. The
+> relationship reflects transition out of a premature-commitment regime rather than a
+> universal "later is always better" rule.
+
+**读数边界。** `early-candidate%` 在全部样本上有定义，作**主指标**；`posN` 仅在存在可解析
+marker 的 committed 样本上有定义，其分母随剂量变化（Qwen 79%→98%），只作**支持性指标**。
+两者出自同一次生成，**不是两条独立证据**，且均为 α 的结果——按其分层属 post-treatment
+stratification，只能作 consistent-with 证据，不构成 mediation。五格对照可用于功能状态比较，
+但 n=5 且接近人为挑选的工作区，正文统计以完整曲线为准。
 
 #### 5.8.2 Comparing Transfer Curves in Standardized Entry Coordinates
 

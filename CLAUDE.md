@@ -1048,6 +1048,13 @@ Evidence: AdaptiveThinking.md 5.8.1 footnote; early_candidate_detector.py (froze
 Scope: every cross-model commitment-timing claim. -->
 - **The cross-model commitment-timing correlation is `acc ~ posN` rho=+.941 (Llama, 9 doses, 182) and +.863 (Qwen, 11 doses); `acc ~ early-cand%` is -.804 on Qwen and DOES NOT EXIST on Llama's nine-dose curve** (that table predates the frozen detector and carries `premature (either)`, a different definition reading rho=-.300, n.s.). Leave the cell empty rather than substituting. **Frozen wording is "transition out of a premature-commitment regime", NEVER "later is always better"** — Qwen's `posN` keeps rising past +8 (.754->.802) while accuracy flattens (+8.00/+2.33/+0.34 pp), and Qwen's whole rank correlation is carried by ONE threshold flip (`posN` is constant at .003 for every alpha<=+4). `early-candidate%` is the MAIN indicator (defined on all samples); `posN` is SUPPORTING (defined only on committed samples, whose share moves 79%->98% across the Qwen curve). The two come from one generation and are NOT independent evidence, and both are outcomes of alpha, so stratifying on them is post-treatment.
 
+<!-- Why: the 5.8.1 nomk% column once read 1.0-16.7% because the classifier keyed on
+marker COUNT (>=4) and fell through, misfiling 469 samples that carry 1-3 markers; a
+reader who assumes the published table was always right will not re-check a rebuild.
+Evidence: AdaptiveThinking.md 5.8.1; thinking_curve/extract_metrics.py.
+Scope: every commit-state number, both models. -->
+- **The four §5.8.1 readouts, frozen 2026-08-21, ONE definition shared by GSM8K and MATH.** `early-cand%`: the FIRST NON-EMPTY LINE is (1) <=60 chars stripped, (2) contains a number token, (3) is NOT a numbered reasoning opening (`1. To find …`), (4) is NOT a bare heading (`Step 1:` / `Solution:`) — i.e. an answer-shaped bare number written before any derivation; sensitivity at 40/60/80 is reported alongside and the conclusion does not depend on the choice. `posN`: char start of the FIRST PARSEABLE `#### <number>` over total generated chars, **defined only on `committed` samples**; measured in CHARACTERS, never tokens (a token 口径 needs a tokenizer, and the column is OMITTED rather than estimated when absent). `unparsed%`: `####` present but the answer unparseable (= `marker_unparsed`), with `loop%` its >=4-marker degenerate-resubmission subset. `nomk%`: no `####` anywhere. **Qwen's `nomk%` is 0.0 in all 11 cells** — it always emits `####`, so its unparseable samples are all `marker_unparsed` (`70\n####\n\n`: marker emitted, no number after), the same fact as §4's two commit counts. **A previous version reported a spurious 1.0–16.7% there** because the classifier keyed on marker COUNT and fell through to `no_marker`, misfiling 469 samples across all 20 cells (Qwen 337, Llama 132); the published table is the corrected one, and `extract_metrics.py` asserts the three states sum to 100 at runtime.
+
 <!-- Why: posN and cand_pos are computed on DIFFERENT denominators, and reading the
 gap as "the locator sees through the placeholder" is wrong -- it returns offset 4-6 on
 those samples, i.e. it treats the marker's number AS the candidate.
@@ -1421,6 +1428,12 @@ Scope: llama GSM-Hard CoT; check before reusing posN as a degradation marker. --
   appearing at the **working point** rather than the overshoot point, **with accuracy
   still improving +6.00 pp** — so a low `posN` is not by itself a degradation marker,
   and the commitment score's rise must NOT be read as "reasons before answering".
+  `answer-first` is frozen as the first non-whitespace content being a parseable
+  `#### <number>`; it is deliberately NOT called the "first token" because the marker
+  spans multiple tokenizer tokens. Its denominator is the committed subset in every
+  cell. `p3/answer_first_panel.py` recomputes all four accuracies through the frozen
+  extractor and asserts exact agreement with `p3_evaluation.json` /
+  `p3_supp_evaluation.json`.
 - **Artifacts:** stage 1 `fcf8b9c9b8fa8b70`, stage 2 `6a16d4d862edbdaa`, evaluation
   `7e39f9e36edfd0c4`; full record `docs/p3_supp_result_20260830.json`.
 - **`run_p3_supp_eval.py` REFUSES to start without `p3_supp_commit.json`** — the same

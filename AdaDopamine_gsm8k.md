@@ -1123,9 +1123,11 @@ No-CoT 结果来自 §5.5，仅用于比较效应大小，不属于本节的 Hol
 
 这些诊断表明，观察到的提升不能简单由两格截断率差异解释，但 subgroup analysis 属于辅助分析，且截断仍可能影响绝对表现。因此，本节只主张 fixed-768-budget 下的 condition transfer，不外推至不受生成预算限制的能力表现，也不追加 1024-token cells。
 
-#### 5.6.2 Exploratory Answer-First Pattern
+#### 5.6.2 Exploratory Answer-Formation Timing
 
-**Table 5.6c — Llama answer-first pattern across prompt conditions（EXPLORATORY）**
+本节区分两个事件：`#### N` 是答案的**格式标记**，第一个答案候选则更接近答案的**形成时点**。两者相关，但不能互相替代。
+
+**Table 5.6c — Llama Answer-First Pattern across Prompt Conditions (Exploratory)**
 
 | Condition | α | Accuracy | Committed n | Answer-first n (%) | posN median |
 |---|---:|---:|---:|---:|---:|
@@ -1134,50 +1136,45 @@ No-CoT 结果来自 §5.5，仅用于比较效应大小，不属于本节的 Hol
 | CoT | 0 | .2000 | 124 | 14 (11.3%) | .2810 |
 | **CoT** | **−6** | **.2600** | **156** | **91 (58.3%)** | **.0000** |
 
-> `answer-first` 定义为：生成文本的首个非空白内容是可解析的 `#### <number>`。
+`answer-first` 表示生成文本以可解析的 `#### <number>` 开头，分母为 committed 样本。CoT 会增加这种输出格式：在 `α=0` 下由 3.1% 升至 11.3%，在 `α=−6` 下由 24.4% 升至 58.3%。但在 CoT 条件内，steering 仍使 accuracy 从 `.2000` 提升至 `.2600`。因此，较低的 `posN` 或 answer-first **不能单独证明模型过早形成或锁定答案**。
 
-这里不使用“第一个 token”，因为 `#### <number>` 通常包含多个 tokenizer tokens。比例统一以 committed 样本为分母。四格 accuracy 均通过冻结的抽取流程复算，并与原始评估结果完全一致。
+**Table 5.6d — Candidate-Based Answer-Formation Timing**
 
-CoT 明显增强了 Llama 在 `α=−6` 下的 answer-first 模式：比例由 24.4% 升至 58.3%，`posN` 中位数由 `.2740` 降至 `.0000`，但 accuracy 仍从 `.2000` 提升至 `.2600`。这一模式也并非 steering 独有：在 `α=0` 下，CoT 已将 answer-first 从 3.1% 提高到 11.3%。
+下表改以第一个答案候选为锚点，并在两个剂量都能定位候选的共同题目上进行配对比较。
 
-> **结论：answer-first 或较低的 `posN` 只反映答案标记出现得早，不能单独证明模型过早形成或锁定答案。**
-
-Commitment health 应结合 early candidate、commit state、loop 和 marker validity 综合判断。因此，commitment score 的改善不能简单解释为“模型先推理、后作答”。该结果属于 exploratory association，不构成 mediation evidence
-
-**Table 5.6d — Candidate-based answer-formation timing**
-
-`####` 是格式事件，其位置不等于答案形成时刻。下表改以**第一个答案候选值**为锚点，
-分母为两格均可定位候选的共同子集：
-
-| Task / Condition | α | Accuracy | 共同 n | `cand_pos` | `pre_chars` | reason-first |
+| Task / Condition | α | Accuracy | Shared n | `cand_pos` | `pre_chars` | reason-first |
 |---|---:|---:|---:|---:|---:|---:|
 | GSM8K No-CoT | 0 → **−6** | .6000 → **.7800** | 281 | .0000 → **.0843** | 0 → **175** | 29.2% → **66.5%** |
 | GSM8K CoT | 0 → **−4** | .6900 → **.8500** | 252 | .0021 → **.1117** | 5 → **234.5** | 46.0% → **76.2%** |
 | GSM-Hard No-CoT | 0 → **−6** | .1800 → **.2433** | 267 | .0000 → **.0937** | 0 → **201** | 25.8% → **61.0%** |
 | GSM-Hard CoT | 0 → **−6** | .2000 → **.2600** | 248 | .0000 → **.1012** | 0 → **231.5** | 40.3% → **63.7%** |
 
-- **共同 n**：两个剂量下都能定位到答案候选的同一批题目数量，用于逐题配对比较。
-- **`cand_pos`**：第一个答案候选在全文中的归一化位置，即“候选出现位置 ÷ 总文本长度”。越大表示答案候选出现得越晚。
-- **`pre_chars`**：第一个答案候选出现前生成的字符数中位数。越大表示模型在给出候选答案前写了更多内容。
-- **reason-first**：第一个答案候选出现前，是否已经存在等式或推理步骤。它是主要指标，不受文本长度和位置归一化影响；数值越高，表示越多样本呈现“先推理、后形成答案”。四组配对检验均显著（McNemar `p < 1e−8`；`0→1` 分别为 120、80、112、77）。`pre_chars` 和 `cand_pos` 仅作补充，三项来自同一次生成，并非独立证据。
+- **reason-first（主指标）**：答案候选出现前是否已有等式或推理步骤。四组均显著提高（McNemar `p<1e−8`；`0→1` 分别为 120、80、112、77）。
+- **`pre_chars`（补充指标）**：候选出现前生成的字符数中位数。
+- **`cand_pos`（辅助指标）**：候选在全文中的归一化位置；数值越大，候选出现越晚。
 
-- **整体趋势**：四种条件下，最佳 α 都伴随答案候选推迟、候选前推理增加，以及更高的 `reason_before_answer` 比例。这些变化与准确率提升同向，但不代表因果关系。
+四种条件下，最佳 α 都伴随更高的 accuracy、更多候选前推理和更晚的答案候选。这说明准确率提升稳定伴随答案形成时序改善，但不代表时序改善造成了准确率提升。
 
-- **分母差异**：在 GSM-Hard CoT `α=−6` 下，91 个以 `#### N` 开头的样本占 committed 子集的 58.3%，但只占 candidate-covered 子集的 34.7%。定位器仍会将开头的数字识别为候选，因此不同表格的差异主要来自分析分母不同。
+**Table 5.6e — Cross-Model Association between Accuracy and Commitment Timing**
 
-- **混合状态**：GSM-Hard CoT 整体上呈现答案候选后移，但仍有一部分 committed 样本以答案 marker 开头。这两种模式可以同时存在。
+| Model | Dose curve | `acc ~ posN` | `acc ~ early-cand%` |
+|---|---|---:|---:|
+| Llama | 9 doses (§2.2, server-182) | ρ = **+.941** (p=.0002) | — † |
+| Qwen | 11 doses (Table 4.1a) | ρ = **+.863** (p=.0006) | ρ = **−.804** (p=.0029) |
 
-**Interpretation Boundaries**
+† Llama 的九档表没有同口径的 `early-cand%`。其历史指标 `premature (either)` 在九档上的 ρ=−.300（n.s.）；五格冻结检测器结果为 ρ=−1.000。两种定义不可互换，因此主表留空。
 
-- `cand_pos` 可能命中等号右侧的中间结果，因此只能作为答案形成位置的下界和辅助指标。
+尽管 Llama 与 Qwen 的最佳 α 方向相反，两者的准确率提升都伴随较少的 early candidate 和较晚的 commitment。但曲线并非“越晚越准”：
 
-- 所有 α 使用相同的定位规则，因此逐题配对差异仍然可读。
+- **Llama** 的关系较连续；在过冲点 `α=−8`，`posN=0%` 且 accuracy 仅 40.3%。
+- **Qwen** 在 `+6/+8` 附近发生阈值式转换；`α≤+4` 时 `posN` 均为 `.003`。
+- Qwen 在 `+8` 后 accuracy 进入平台，而 `posN` 仍由 `.754` 升至 `.802`；accuracy 增幅依次为 `+8.00 / +2.33 / +0.34 pp`。
 
-- 这些指标属于 exploratory analysis，不修改冻结 predictor 的 `early_candidate`，也不改变任何冻结结果。
+> **结论：α 改变了答案形成与提交模式。最佳工作点通常使模型摆脱过早回答，更多地呈现“先推理、后形成答案”；进入健康区间后，继续推迟答案不会持续提高准确率。**
 
-- 所有指标都是干预后的行为读数，不能用于证明因果机制。
+**Interpretation Boundaries.** 三张表使用不同分母：accuracy 使用全部 300 题；answer-first 与 `posN` 使用 committed 子集；`cand_pos`、`pre_chars` 与 reason-first 使用 candidate-covered 共同子集。以 GSM-Hard CoT `α=−6` 为例，同一批 91 个 answer-first 样本占 committed 的 58.3%，但占 candidate-covered 的 34.7%，因此总体候选后移与部分样本 marker-first 可以同时存在。
 
-> **结论：准确率提升稳定伴随着答案形成时序改善，但尚不能证明时序改善导致了准确率提升。**
+`cand_pos` 可能命中等号右侧的中间结果，只作辅助下界；`early-candidate%` 在全部样本上有定义，是完整剂量曲线的主指标。`posN` 仅在 committed 子集上定义，其 Qwen 分母随剂量由 79% 升至 98%，因此只作支持。所有指标均来自 α 干预后的同一次生成，不是独立证据，也不构成 causal mediation。新增分析不修改冻结 predictor 或任何冻结产物；复算与实现细节见 `CLAUDE.md`。
 
 #### 5.6.3 Conclusion
 
