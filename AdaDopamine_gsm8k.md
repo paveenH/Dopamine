@@ -207,42 +207,42 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 - **模型越早提交，反而越难停止。** `####` 中位位置从 `−6` 的 **31%** 提前到 `+6` 的 **14%**，但生成长度在正向端升至最长（`+6`：**2284** 字符）。也就是说，模型更早给出答案，却在提交后继续反复书写；这表现为**过早提交与停止失败同时出现**。适度负向的 `−4` 生成最短（**2044** 字符），更接近“完成推理后及时收束”。
 
 ### 2.3 Compulsive Over-Checking: The “Can’t Let Go” Semantics
-
-> **命名说明**：本节及脚本 `analyze_loop_anxiety.py` 沿用历史字段名 "anxiety"，但下面四子类命中的**是强迫性反复确认 / 固著（compulsive over-checking / perseveration），不是临床焦虑**——见 §0.2。表格中的 "anxiety" 一律按"强迫/固著"解读；下文表述统一用"强迫性反复"。
+> **命名说明**：本节与脚本保留历史字段名 `anxiety`，但实际测量的是**强迫性反复确认与行为固著**（compulsive over-checking / perseveration），不是临床焦虑。下文统一称为“强迫性反复”，具体判定规则见 `CLAUDE.md`。
 >
-> **注意：不要把原始 loop-rate 直接等同 perseveration。** loop samples 本身基线就高（~74–88%，见 §2.2 表），且随 α 无干净趋势——大量是无收益的机械复读尾（未自然 EOS 刷到 max_new_tokens），不承载动机信号。真正有意义的固著读数是下面四类**语义**过度确认（self-doubt / format-fixation / persona-reassurance / over-precision）、其**锚点重复 ≥2**（`--mode anxious_repeat`）、以及 answer switching 与 early-commit 后持续无收益生成——这些才随 α 呈干净 U 形。
+> **原始 loop-rate 不能直接等同于固著。** loop 在所有剂量下都很常见，其中许多只是模型未及时停止、持续生成机械重复文本。真正有解释力的是带有明确语义的反复确认、自我推翻、格式纠结和过度精确，以及它们与抢答、答案切换和提交后持续生成的共同变化。
 
-loop 尾部循环块的"放不下"（拿到答案后仍反复复查、纠结格式、自我怀疑或继续求解），按四类语义打标（统一口径，权威脚本 `analyze_loop_anxiety.py`；neutral No-CoT plain，server-182）。**强迫性反复(任一)** = 命中四子类之一（去重，故 ≤ 子类之和）。每类判据 + α+4 实例：
+下面将“提交答案后仍反复检查、怀疑或继续求解”的行为分为四类。**Any** 表示至少命中其中一类；由于类别可能重叠，其数量不超过各子类之和。抽取实现与完整规则见 `CLAUDE.md`。
 
-| Compulsive-repetition subtype (historical field=anxiety) | Criterion | α+4 example |
-|---|---|---|
-| **Self-doubt** (answers, then overturns itself) | however / but / is not the correct answer / let's try / recheck | **Q10** (gold=5): `"…The answer is 3. **However**, the answer choices…"` — answer → overturn → answer again → overturn again |
-| **Format fixation** (`####` fixation) | the format requires / question asks for / after '####' / not a word | **Q15** (gold=17): `"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"` — correct answer, then format rumination |
-| **Persona reassurance** | I hope it is correct / Sincerely / please let me know | **Q58** (gold=15, first answer correct): `"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"` — submits, then seeks reassurance |
-| **Over-precision loop** | approximate / round / nearest | **Q17** (gold=36, early commit `40`): `"(Approximating number)(Approximate number)…"` — keeps approximating an integer answer |
+| Compulsive-repetition subtype (historical field=anxiety) | Criterion                                                           | α+4 example                                                                                                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Self-doubt** (answers, then overturns itself)          | however / but / is not the correct answer / let's try / recheck     | **Q10** (gold=5): `"…The answer is 3. **However**, the answer choices…"` — answer → overturn → answer again → overturn again                                    |
+| **Format fixation** (`####` fixation)                    | the format requires / question asks for / after '####' / not a word | **Q15** (gold=17): `"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"` — correct answer, then format rumination |
+| **Persona reassurance**                                  | I hope it is correct / Sincerely / please let me know               | **Q58** (gold=15, first answer correct): `"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"` — submits, then seeks reassurance            |
+| **Over-precision loop**                                  | approximate / round / nearest                                       | **Q17** (gold=36, early commit `40`): `"(Approximating number)(Approximate number)…"` — keeps approximating an integer answer                                   |
 
 **Compulsive repetition in loop** (historical field=anxiety)
 
-| α | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---|---|---|---|---|---|---|---|---|---|
-| **Any (repeat)** | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58 | 57 |
-| Self-doubt repetition | 55 | 13 | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
-| Format fixation | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
-| Persona reassurance | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
-| Over-precision loop | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
+| α                     | −8 †   | **−6** | −4 | −2 | 0  | +2 | +4 | +6     | +8 |
+| --------------------- | ------ | ------ | -- | -- | -- | -- | -- | ------ | -- |
+| **Any (repeat)**      | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58     | 57 |
+| Self-doubt repetition | 55     | 13     | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
+| Format fixation       | 32     | 18     | 15 | 19 | 23 | 25 | 37 | 36     | 32 |
+| Persona reassurance   | 11     | 7      | 7  | 11 | 15 | 13 | 13 | 6      | 6  |
+| Over-precision loop   | 4      | 2      | 1  | 5  | 7  | 5  | 5  | 3      | 3  |
 
-† −8 见末条（过冲塌缩端，机制与正向的强迫性反复不同——是 commitment 崩溃，非 over-checking）。
+† `α=−8` 是过冲崩溃点：其主要表现是过早锁定错误答案，而不是正向高剂量下典型的提交后反复确认。
 
-- **强迫性反复题数沿 α 呈 U 形，谷底正好在 acc 峰值处（−6/−4）**：**27–29 题**（−6/−4）是全段最低，而 −6 正是 acc 峰（78.0%）——**适度降 wanting = 既最准、又最"算完就放下"**。这一区进 loop 的题大多是无情绪的机械空转（纯符号 / 复读答案），模型冷静算对、放下了，只是没有自然 EOS 而刷到上限。这是 §1.2 acc 倒 U 在行为层面的镜像。
-- **0→+8 上升后饱和（46→54→59→58→57）**：模型在这套 GSM8K prompt 下本来就偏 high-wanting / 高唤起，继续正向推只会很快进入饱和区。
-- **两端都高，但机制相反**：+8（57 题）是"过度 commit 后放不下"的强迫性反复；**−8 最高（73 题）**却是另一回事——首 token 抢答锁错（§2.2：committed_acc 崩到 23.6%）后陷入挣扎。倒 U 两端各有一种失败模式，中段（−6/−4）才是低反复高准确的"甜区"。
-- 四类语义高度一致：**答案已得却放不下**，正是 over-wanting → 冲动扑向 commit + 执行控制失效 / 固著的行为签名（功能相容，非脑区定位；见 §3.6）。
+- **强迫性反复在 `−6/−4` 附近最低。** 两个剂量分别有 29 和 27 题，恰好位于准确率最高的区域。这说明适度负向 steering 不仅提高准确率，也让模型更容易在完成推理后停止。
+- **从 `α=0` 向正侧移动时，反复行为先增加、随后趋于饱和。** Any 从 46 增至 54、59，之后维持在 58、57。基线已经存在明显反复，正向 steering 进一步放大该行为，但高剂量后增幅有限。
+- **两端都出现高反复，但行为形态不同。** 正向高剂量主要表现为提交答案后仍不断复查和纠结；`α=−8` 则伴随开头直接提交错误答案及后续退化。两者都降低表现，但不能解释为同一种失败机制。
+- 四类指标共同指向同一现象：**模型已经形成或输出答案，却仍无法稳定收束。** 这与冲动提交和提交后固著的解释相容，但只是行为层面的对应关系，不构成生物多巴胺机制或脑区定位证据。
 
-**全文锚点-重复口径（不依赖 loop 门槛，分母 /300；`analyze_loop_anxiety.py --mode anxious_repeat`）：**
+**Full-Text Compulsive Repetition**
 
-上表把强迫性反复寄生在"进 loop"门槛上，会漏掉"自我推翻一两次但没陷入重复就 EOS"的题。更干净的口径是**直接检测强迫性反复**：以反复词为锚点，取"词 + 后续 60 字符"为片段，该片段在全文重复 ≥2 次才算（一次性的逻辑 however 不计，只算反复纠结同一件事）。这样定义不再依赖 loop。
+仅在 loop 样本中统计可能漏掉“短暂反复后正常停止”的情况，因此进一步在全部 300 个样本中直接检测同一语义片段是否重复出现。该指标不依赖 loop 判定；具体锚点与匹配实现见 `CLAUDE.md`。
 
 **Compulsive repetition in full text** (historical field=anxiety)
+
 | α | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---|---|---|---|---|---|---|---|---|
 | **Any (repeat≥2)** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
@@ -251,7 +251,7 @@ loop 尾部循环块的"放不下"（拿到答案后仍反复复查、纠结格�
 | Persona reassurance | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
 | Over-precision loop | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
 
-- **U 形 + 谷底 −6 在不同口径下全一致**（loop 内 29、锚点-重复 23；宽松全文出现口径同样谷底在 −6）：**强迫性反复随 α 偏离甜区而升的结论与 loop 门槛无关，鲁棒。**
+- **不同统计口径得到一致结论。** 无论只看 loop 样本，还是在全文中直接检测重复，强迫性反复都在适度负向区域最低，并在远离该区域时上升。因此，这一结果不是由 loop 门槛造成的统计假象。
 
 ### 2.4 Under-wanting: answer-candidate oscillation (α=−8 collapse)
 
