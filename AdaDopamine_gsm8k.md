@@ -189,21 +189,22 @@ TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系�
 | ≥2 `Step` markers | 31 | 185 | 73 | 36 | 25 | 31 | 31 | 27 | 37 | No-CoT rarely enters stepwise reasoning |
 | stuck loops (loop ∧ `=` < 2) | 6 | 16 | 27 | 25 | 25 | 24 | 20 | 30 | 22 | Plateau around 20–30; −8 is artificially low because it commits at the first token without a loop body |
 | median equation count (`=`) | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 3 | 4 | Flat (~3–4); not predictive of accuracy |
+> `analyze_cot_metrics.py`（`--table dose`）汇总以下行为指标；具体抽取规则与实现见 `CLAUDE.md`：
+>
+> - **commit_rate**：输出中出现至少一个可解析 `#### N` 的样本比例。
+> - **committed_acc**：已提交样本中，首个 `#### N` 答对的比例；分母仅为 committed 样本。
+> - **median / mean `####` position**：首次出现 `####` 的相对文本位置。median 表示典型提交时点，mean 用于识别晚提交长尾。
+> - **median gen_len**：生成文本字符长度的中位数。
+> - **loop samples**：出现退化重复的样本数。
+> - **≥2 Step、卡死、等式数**：用于区分有效推理、无运算复读和推理展开程度，定义见 §2.5.1。
+> - **premature (either)**：主要抢答指标，包括“开头直接出现数字”或“`####` 出现在全文前 2%”。`leading-digit` 仅作辅助，因为它会漏掉以 `#### N` 开头的抢答。比如 α=−8 的 leading-digit 仅为 4，但完整口径识别出 **175** 个抢答样本，为全曲线最高。
 
-> `analyze_cot_metrics.py`（`RoleAnswer/`，`--table dose`） → `llama3/cot_metrics_dose.csv`：=
-> - **commit_rate** = 含 ≥1 个有效 `####N` 的样本比例；**committed_acc** = 这些 committed 样本里 first-`####` 答对的比例（分母=commit 数）。
-> - **median `####` position** = `median(首个 ####（含裸 ####）char 起点 / 全文长度) × 100`（在有 `####` 的样本上取中位）。
-> - **mean `####` position** = 同上但取均值（右偏诊断；mean>median 说明有晚提交长尾）。
-> - **median gen_len** = 生成的**字符**长度中位数。
-> - **loop samples** = `analyze_loop_anxiety.py --mode loop` 的 `n_loop`。
-> - **≥2 Step 标记**、**卡死**（短串复读 loop ∧ `=`<2，即从未真正运算）、**med 等式数**（`=` 计数）见 §2.5.1。
-> - **抢答主指标 = premature (either)**（全文统一口径）= 首字符即数字 ∪ `####` 出现在前 2% 文本（lead-digit ∪ early-`####`）。**leading-digit 单列仅作辅助**——它只抓"裸数字"抢答（+α 端），会漏掉 −α 端的 **`#### N` 首 token 锁值**：−8 lead 只读到 4，either 口径下实为 **175（全表最高）**。这与 anxiety 的 full/loop 取舍同理：抢答也用更全的检测器当主口径，见 §2.4 / §2.5.1。
-
-† **α=−8 = 过冲塌缩，不在单调线上**：`committed_acc` 崩到 **23.6%**、`####` 中位位置 **0%**（首 token 即抢答）——α 太负使模型一开口就 `#### N` 锁死错值。倒 U 的负向尽头是"过早 commit 锁错"，不是"算不出"。
+† **α=−8 是过冲后的崩溃点，不属于中间剂量的单调趋势。** 此时 `committed_acc` 降至 **23.6%**，`####` 中位位置为 **0%**：模型几乎一开始就提交答案并锁定错误候选。因此，负向极端剂量的问题不是“无法计算”，而是**过早提交错误答案**。
 
 **核心结论**：
-- **`committed_acc` 是最干净的 commitment 信号**：−6→+8 严格单调（79.7%→58.5%），比 acc 本身（倒 U）更纯——剥离"愿不愿提交"（`commit_rate` 非单调），单看"提交得对不对"，则**升 wanting 持续劣化提交质量**（越急→越草率→提交的答案越可能错）。
-- **又早提交、又放不下**：`####` 中位位置随 α 单调提前（31%@−6 → 14%@+6，抢答），而 gen_len 在正向端反而最长（2284@+6）——**越早交答案、却越写不完**（letting-go 失败：交了还在写）。适度负向（−4）gen_len 最短（2044）= 算完即收。
+
+- **提交质量随剂量上升而持续下降。** 在 Llama 的 `−6→+8` 区间内，`committed_acc` 从 **79.7%** 单调降至 **58.5%**。这说明在已经提交答案的样本中，剂量越向正侧移动，提交的答案越容易出错。由于各剂量的 committed 样本比例不同，该指标用于描述提交质量，不能单独替代整体 accuracy。
+- **模型越早提交，反而越难停止。** `####` 中位位置从 `−6` 的 **31%** 提前到 `+6` 的 **14%**，但生成长度在正向端升至最长（`+6`：**2284** 字符）。也就是说，模型更早给出答案，却在提交后继续反复书写；这表现为**过早提交与停止失败同时出现**。适度负向的 `−4` 生成最短（**2044** 字符），更接近“完成推理后及时收束”。
 
 ### 2.3 Compulsive Over-Checking: The “Can’t Let Go” Semantics
 
