@@ -1,0 +1,85 @@
+{
+  "amendment": "p3-amend-05",
+  "protocol": "p3-v1",
+  "date": "2026-08-30",
+  "status": "frozen BEFORE the GSM-Hard gold was unsealed",
+  "gold_read": false,
+
+  "purpose": [
+    "Correct the pre-unseal record of the Llama selection margin.",
+    "Clarify what predicted_direction_from_alpha0 means.",
+    "Record the complete frozen state (all SHA256) before the evaluator runs.",
+    "Add the fixed-workpoint transfer test as a SECOND, pre-registered readout."
+  ],
+
+  "correction_1_llama_margin": {
+    "retracted_wording": "selected by tie-break; -6 and -4 are tied",
+    "why_wrong": "The scores are not equal. -6 is strictly greater than -4, so the tie-break branch of the frozen selection rule was never reached.",
+    "frozen_wording": "The predicted score of -6 is slightly higher than that of -4, but the difference is only about 0.00006, so the two are effectively indistinguishable; -6 was NOT chosen by tie-break.",
+    "measured": {
+      "llama_score_neg6": 0.6883409342966791,
+      "llama_score_neg4": 0.6882815189168021,
+      "difference": 5.941537987697032e-05,
+      "strictly_greater": true
+    },
+    "consequence": "Any verdict that -6 was correctly selected must be reported together with this margin. The Llama selection does not distinguish -6 from -4 and must not be presented as if it did. Qwen's margin over its runner-up is 0.13701904204322435, three orders of magnitude larger, and the two must not be described with the same confidence."
+  },
+
+  "clarification_2_direction": {
+    "field": "predicted_direction_from_alpha0",
+    "means": "The sign of the argmax over ALL FIVE alpha cells, expressed relative to alpha=0. It is a property of the five-point ordering.",
+    "does_not_mean": "A prediction made from the alpha=0 cell alone, and not a per-question prediction of any single cell."
+  },
+
+  "frozen_state": {
+    "p3_predictions_sha256": "8f0c514ae4776441b1ea92240127eace13749be1a0a36d63bfd8620869979a51",
+    "run_p3_predict_sha256": "45346e43d079c7ed81d6c664f9d57f65c13694508be1e1c24639f7b1f0d844e4",
+    "predictor_sha256": {
+      "llama": "b9ee07e4719514e5",
+      "qwen": "9aad950a7494d3bf"
+    },
+    "questions_sha256": "48cc763545d2ee23835833f5165456b90db194863420a10b6741a57cff781d02",
+    "generation_sha256": {
+      "llama3/gsm_hard/mdf_0/gsm_hard_8B_11_20.json": "777464e9893696b4de7667621d5ec0e4724d6d5ad65d533670ec9a84995ffb58",
+      "llama3/gsm_hard/mdf_4/gsm_hard_8B_11_20.json": "a18280f5f21861d70692fc20b72eba73f82ff79787170d824ea5e33caa031b4f",
+      "llama3/gsm_hard/mdf_neg4/gsm_hard_8B_11_20.json": "c66fcc8c25fdf8ee4f7dcedd0ef39bbdd8ccf3944ff4da265d68efcc9fa5af84",
+      "llama3/gsm_hard/mdf_neg6/gsm_hard_8B_11_20.json": "b53bde52898f6250dfc308fda40174cb1dd4b535d9fa12ad951eb4bb7fb95ccd",
+      "llama3/gsm_hard/mdf_neg8/gsm_hard_8B_11_20.json": "fd3bcabed4d339c99c64c09f7d400ef07efa05687a131cfe2d0e45a0f6f69717",
+      "qwen2.5/gsm_hard/mdf_0/gsm_hard_7B_16_22.json": "0775443ee7e7eac45ca47bbae1e27ffb3517e2008d44e618098ccb8a77c6029e",
+      "qwen2.5/gsm_hard/mdf_4/gsm_hard_7B_16_22.json": "031c0c1efe27c0bbc5a184c850ced6dcbe0574e4827c22d836e678225996ef7d",
+      "qwen2.5/gsm_hard/mdf_6/gsm_hard_7B_16_22.json": "295e9fe20c71fa2ee34f8f42fe48ddaac4ee072e7d7fc46380b47e5d6a79efd4",
+      "qwen2.5/gsm_hard/mdf_8/gsm_hard_7B_16_22.json": "20a639951e5e4e24f887d10cfe3d2ca27cfdd8bb829add5a1f1de08c9d827049",
+      "qwen2.5/gsm_hard/mdf_neg4/gsm_hard_7B_16_22.json": "37bdc56e206f7b7cf6d0a8c015808d28212e16fdfbd82e6bf32a550d9f5bb873"
+    },
+    "prediction_commit": "9ad21ee",
+    "locked": "predictor, features, selected workpoint and success criteria may not change after this amendment"
+  },
+
+  "addition_4_fixed_workpoint_transfer": {
+    "rationale": "The five-point ordering test asks whether the predictor can RANK doses. The fixed-workpoint test asks the question a practitioner actually faces: take the alpha that was already established on GSM8K and apply it unchanged to a new task. It is a single paired contrast, so it needs no Holm correction across doses, and it cannot be influenced by the GSM-Hard predicted scores.",
+    "workpoints_from_gsm8k": {
+      "llama": {
+        "alpha": -6,
+        "source": "frozen GSM8K discrete optimum (asymmetric peaked working-point response; sharp optimum -6, collapse at -8)",
+        "citation": "CLAUDE.md GSM8K/AdaDopamine_gsm8k.md; AdaptiveThinking.md 4.4"
+      },
+      "qwen": {
+        "alpha": 8,
+        "source": "frozen GSM8K saturation onset (first_acc 86.00 at +8; +10/+12 not significantly different and outside the P3 dose set)",
+        "citation": "AdaDopamine_gsm8k.md 4.1a; CLAUDE.md high-dose result"
+      }
+    },
+    "selection_provenance": "Both alphas are read from the frozen GSM8K record and were NOT chosen using any GSM-Hard predicted score. They coincide with the five-point predicted best for both models, which is a fact about the data and not a selection step.",
+    "test": "paired per-question difference in accuracy between the fixed alpha and alpha=0, on the same 300 questions, using the frozen offline extractor",
+    "statistic": "exact two-sided McNemar on the discordant pairs, reported with the discordant counts and the paired difference in percentage points",
+    "family": "ONE test per model. Reported separately from, and never pooled with, the five-point omnibus family.",
+    "success": "the fixed alpha improves over alpha=0",
+    "failure_is_informative": "A null here with a correct five-point ordering would mean the predictor ranks doses but the GSM8K workpoint does not transfer; the two readouts are reported independently and neither overrides the other."
+  },
+
+  "unchanged": [
+    "docs/PREREG_P3.md sha256 a1f918bc (never modified by any amendment)",
+    "p3_predictions.json is NOT edited by this amendment",
+    "features, predictor coefficients, standardization, posN median, marker adapter"
+  ]
+}
