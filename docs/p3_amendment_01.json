@@ -1,0 +1,41 @@
+{
+  "version": "p3-amendment-01",
+  "amended": "2026-08-28",
+  "status": "NO DOWNLOAD. NO MODEL RUN. NO GSM-Hard ACCURACY COMPUTED OR VIEWED.",
+  "supersedes": {
+    "file": "docs/p3_freeze_manifest.json",
+    "note": "NOT overwritten. The original freeze manifest stays byte-unchanged as the record of the protocol freeze; this file records the pre-download code amendment on top of it.",
+    "original_protocol_freeze_commit": "1c0b865",
+    "original_protocol_tag": "p3-prereg-v1",
+    "stale_entry_explained": "The original manifest records p3_bigint_audit.py = 7f24952d... That hash is now stale BY DESIGN: the script was corrected twice after the protocol freeze (sealed-file re-audit path removed; norm_exact made Decimal-based; moved into the repo). The protocol TEXT is unchanged; only code was fixed, and both fixes are recorded here."
+  },
+  "commits": {
+    "1c0b865": "protocol freeze (p3-v1), before download",
+    "26bffce": "P3 code: loader, label-free runner, launchers, tests",
+    "42583fd": "fix three pre-download defects (revision, float audit, audit input)",
+    "8bff68a": "pre-download amendment: four further defects (this manifest)"
+  },
+  "reasons": [
+    "norm_exact did not repair '.0' / scientific forms -- the LIKELY surface form for a float64 target, so the repair was a no-op where it was needed",
+    "--revision required=True still accepted branch names, which is not a pin",
+    "the audit script lived outside the repo and would not sync to the server",
+    "the loader silently fell back from input/target to question/answer, which protocol 2.1 forbids (schema incompatibility is a hard stop)"
+  ],
+  "protocol_text_changed": false,
+  "sha256": {
+    "data_gsm8k_hard.py": "1aaa4a507a287f5606852f2fd4b0e5ffea68eab07386d8bfee6982b48efa96d7",
+    "get_answer_gsm8k_hard_blind.py": "798247cdcf0fb9ea7fff7a47f8296ee35fdb79343f223dae877404c49630ea66",
+    "run_gsm8k_hard_llama3.sh": "bc14fcad69a28f0be1e3c953b4c1d72d01cfc625cbaf6d0aa391f34dae029ba3",
+    "run_gsm8k_hard_qwen25.sh": "09fa66ad33aded340984a28d643e427c69edb7bbd3c18a64106badcf51824947",
+    "test_p3_label_firewall.py": "89992ecdcdcbc8893c190d80ff31dfb1406a0268658e1e09b84faaf638ef6ae8",
+    "p3/p3_bigint_audit.py": "a724ef0b58145347fc17699ffbc663b61a7fd1973ae2bbc3c970f128fe873664",
+    "docs/PREREG_P3.md": "a1f918bc68904ab3ce1bc54484050beff1ee90062d2bc5b817a5c7322a99a909"
+  },
+  "verification": {
+    "test_suite": "test_p3_label_firewall.py -- 61/61",
+    "interpreters": "passes under python3.10 AND bare python3 (stdlib only)",
+    "mutation_tested": "disabling the label firewall makes the suite exit 1",
+    "crash_is_failure": "an uncaught exception exits 2, never 0",
+    "verdict_equivalence": "norm_exact vs norm_gsm8k: 0 verdict changes over 6600 stored GSM8K predictions"
+  }
+}
