@@ -440,8 +440,8 @@ Confidence: <number>
 
 ## 3. MATH Performance
 
-**Setup**：Llama3.1-8B-Instruct, MATH 300 samples (level 1–5), greedy bs=8 (regenerate, prefill steering), `max_new_tokens=2048`, NMD mask layer 11–20。模板 = `build_math_suite`，收口指令 `Provide your final answer in \boxed{}.`（MATH 版的 `####`），No-CoT vs CoT 唯一差别 `Let's think step by step.`。ACC: `analyze_first_last_acc.py`。Level 分布：L1=21, L2=55, L3=60, L4=75, L5=89。数据为 `<|eot_id|>` 。结果目录 `RoleAnswer/llama3/math/math_eot/`。
-
+**Setup.** Llama3.1-8B-Instruct，MATH 300 题（level 1–5，分布 L1=21 / L2=55 / L3=60 / L4=75 / L5=89），greedy decoding。收口指令为 `Provide your final answer in \boxed{}.`——**`\boxed{}` 是 MATH 的 `####`**，下文所有提交位置与抢答指标都以它为锚点。正文报告 offline `first_acc`（取首个 `\boxed{}`）。
+生成预算、mask 层区间、模板对称化与 `<|eot_id|>` 版本等复现细节见 `CLAUDE.md`。
 
 ### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
 
