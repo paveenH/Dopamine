@@ -1,0 +1,64 @@
+{
+  "amendment": "p3-supp-amend-03",
+  "protocol": "p3-supp-v1",
+  "date": "2026-08-30",
+  "status": "frozen BEFORE any CoT cell is generated",
+  "additive": "does not overwrite PREREG_P3_SUPPLEMENT.md, p3_supp_predictions.json, or amendments 01-02",
+  "cot_cells_exist_at_amendment_time": false,
+
+  "subject": "generation-budget policy: 768 stays primary; 1024 is a pre-declared, conditionally-triggered sensitivity",
+
+  "decision": {
+    "primary": {
+      "max_new_tokens": 768,
+      "why": "Consistency with the frozen GSM8K main line the P2 predictor was fitted on, and with the ten P3 No-CoT cells. posN and early_candidate are sensitive to length; changing the budget would change what the frozen features mean.",
+      "cells": "the four already-frozen CoT cells (llama 0/-6, qwen 0/+8)"
+    },
+    "sensitivity": {
+      "max_new_tokens": 1024,
+      "status": "PRE-DECLARED but CONDITIONAL -- not run unless the trigger below fires",
+      "never": "may not replace, rescore or reinterpret the 768 primary result"
+    }
+  },
+
+  "why_a_single_extra_cell_is_insufficient": {
+    "rejected": "adding only No-CoT alpha=0 at 1024",
+    "reason": "It cannot separate a budget increase from a steering effect: with one cell there is no alpha contrast at the new budget, so any change is jointly attributable to both.",
+    "complete_form": "A full 1024 comparison requires a same-budget 2x2 PER MODEL: {No-CoT, CoT} x {alpha=0, alpha=workpoint}.",
+    "what_the_2x2_answers": {
+      "CoT+a - CoT": "does steering still add on top of CoT, at this budget",
+      "NoCoT+a - NoCoT": "does the original workpoint still hold at this budget",
+      "difference_of_the_two": "does CoT change the steering gain"
+    }
+  },
+
+  "staged_trigger": [
+    {"stage": 1, "action": "run the frozen 768 CoT cells (llama 0/-6, qwen 0/+8)", "conditional": false},
+    {"stage": 2, "action": "add llama CoT alpha=0/-6 at 1024",
+     "trigger": "llama CoT cap-hit is high enough that truncation is a live alternative explanation for the primary result",
+     "note": "two cells; gives a same-budget CoT alpha contrast"},
+    {"stage": 3, "action": "add llama No-CoT alpha=0/-6 at 1024",
+     "trigger": "only if the CoT interaction needs to be compared at a common budget",
+     "note": "completes the 2x2 for llama"}
+  ],
+
+  "qwen_not_auto_included": {
+    "reason": "Qwen's cap-hit on GSM-Hard No-CoT is 13.3-22.7%, far below Llama's 91.3-96.0%, so truncation is not a leading explanation for Qwen.",
+    "rule": "Qwen gets a 1024 arm only if its own CoT cells show a comparable cap-hit problem -- not automatically, and not for symmetry."
+  },
+
+  "predictor_scores_at_1024_are_exploratory": {
+    "rule": "Any frozen-predictor commitment score computed on 1024 output is an EXPLORATORY readout only.",
+    "why": "The predictor was fitted on 768-token generations. posN is a normalized position and early_candidate is a first-line rule, so both shift with the generation budget; the frozen coefficients were never calibrated for that distribution."
+  },
+
+  "reporting_rule": "Any 1024 result is labelled a generation-budget sensitivity, reported separately from the 768 primary, and never substituted for it. The primary claim stays 'CoT condition transfer under a fixed 768-token budget'.",
+
+  "unchanged": [
+    "the four primary cells and their alpha (llama -6, qwen +8) at 768",
+    "p3_supp_predictions.json sha256 fcf8b9c9b8fa8b70",
+    "the Holm family (two models, primary dAcc, m=2)",
+    "the two-stage freeze rule (amend-01) and the fixed-budget wording (amend-02)",
+    "the closed P3 result: docs/p3_result_20260830.json, tag p3-result-unsealed"
+  ]
+}
