@@ -128,6 +128,8 @@ Scope: every colour-logit diagnostic claim. -->
 | Qwen logit family (§5.5 output decisiveness) | **UNBLOCKED + FROZEN** 2026-08-26 — 7 cells, `logit_family.py` / `logit_family_RESULT.txt`. Reads `PARTIALLY AVAILABLE / SPARSELY SAMPLED`, never "available"; CoT is one readable cell and its transition is **not detected**, never "abolished" |
 | Qwen band-position probe `[11,18)` vs `[16,22)` | **PREPARED, NOT RUN** — launchers exist, zero artifacts; see the mask/pre-flight block |
 | Manifold pilot | **COMPLETE + CLOSED 2026-08-28.** Full chain: **symmetric injection → layer-wise divergence → last-layer piecewise-scalar geometry**, which still does NOT explain Llama's peak vs Qwen's plateau. Each arm is a 1-D scalar family; the two arms coincide at the first steered layer and separate monotonically with depth, so the fixed cross-arm angle is EMERGENT, not an input property. Qwen's positive arm does not saturate while its behaviour plateaus → entry-state saturation EXCLUDED, difference located downstream. Incremental prediction NOT DETECTED; decode did not extend. **Do not extend** — next line is commit-aligned Z_t/s_t + commitment dynamics |
+| P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
+| P3 blind validation (GSM-Hard) | **PROTOCOL FROZEN, GENERATION PENDING** — eligibility audited, data downloaded, gold SEALED. Do not read gold before predictions are frozen |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1058,6 +1060,106 @@ point — a silent regeneration would let a later fit masquerade as the locked p
 
 **Known limitation to state explicitly at §5, not to discover there:** this batch has **no independent second α=0 cell**, so α=0 manifold stability can only be estimated by train/val subsampling / bootstrap, never by cross-validating two independent α=0 batches. That weakens the "the manifold is stable" premise, and its failure is a pre-registered **stop condition**.
 
+## P3 blind cross-task validation on GSM-Hard (PROTOCOL FROZEN; GENERATION PENDING)
+
+> **`docs/PREREG_P3.md` is the protocol** (frozen `p3-v1`, tag `p3-prereg-v1`,
+> commit `1c0b865`). This section is provenance and the run order. Amendments are
+> `docs/p3_amendment_0{1..4}.json`, each ADDITIVE — none overwrites its predecessor.
+
+<!-- Why: the blind property is the only thing separating P3 from P2, it cannot be
+restored once lost, and nothing in the code can enforce "a human did not look".
+Evidence: docs/PREREG_P3.md section 0; the eligibility audit in section 1.
+Scope: all of P3. Read before touching anything under gsm_hard_p3. -->
+- **P3's entire value is that GSM-Hard accuracy has never been viewed. Reading
+  `components/benchmark/gsm_hard_p3_gold.SEALED.json` before `p3_predictions.json`
+  is frozen destroys that PERMANENTLY** — no later re-freeze repairs it, and the
+  result degrades to another retrospective test like P2. That includes an editor
+  preview or a `head`. Eligibility was audited before download (no data, no loader,
+  no artifacts anywhere on the machine) and recorded in the protocol.
+
+- **The loader writes TWO files and that split IS the firewall.**
+  `data_gsm_hard.py` → `gsm_hard_p3_questions.json` (question + `sample_id`, meta
+  declares `contains_labels: false`) and `gsm_hard_p3_gold.SEALED.json`. Generation
+  reads only the former. A single file would leave the label one attribute access
+  from every script; P2 established that "unused" is far weaker than "unreachable".
+  Both live in **`components/benchmark/`** (the server's flat benchmark tree), NOT
+  `benchmark/`.
+
+- **`get_answer_gsm_hard_blind.py` is a FORK of `get_answer_regenerate_gsm8k.py`, not
+  a reuse.** That script calls `is_correct_gsm8k` per sample and prints accuracy
+  (lines 83–96), so running it would compute GSM-Hard accuracy during generation.
+  Prompt construction and every `vc.regenerate` argument are identical to the frozen
+  GSM8K path — so commitment features keep the meaning they had in P2 — while
+  correctness/gold/`pred_answer` are removed entirely.
+
+- **Generation params match the frozen GSM8K main line, deliberately: `max_new_tokens
+  =768`, `temperature=0.0`, `bs=24`.** The P2 predictor was fitted on GSM8K output
+  produced this way and `posN` / `early_candidate` are sensitive to length and
+  sampling. **Do NOT borrow MATH's 2048/bs=8** — GSM-Hard keeps GSM8K's structure and
+  only enlarges the numbers.
+
+- **Doses are fixed in advance and are NOT re-searched:** Llama `−8/−6/−4/0/+4`
+  (band `11-20`), Qwen `−4/0/+4/+6/+8` (band `16-22`). **Qwen keeps a negative probe
+  by design** — with every candidate on the positive side, "correctly predicted the
+  positive direction" could not have been wrong and would not be a test.
+
+- **One MODEL's five doses must share one card; the two models may run on two.**
+  bf16 greedy is not byte-reproducible across GPUs (a measured re-run differed on
+  205/300 samples), so a split dose curve mixes the device difference into the α
+  effect. The models are never compared per-question, so they parallelise freely.
+
+- **Sample = 300 by frozen hash, never dataset order** (`sha256(salt:question_text)`,
+  dedup on exact text first). Digest `48cc7635…`, revision pinned to
+  `960448f73503112d4226baeb8eb41d3fb5ae2506`. `--revision` is type-checked to a full
+  40-hex SHA: `required=True` alone is not a pin, since `--revision main` still
+  follows upstream.
+
+<!-- Why: auditing a float64 precision failure BY CALLING float() is self-defeating,
+and the string-form test passed while the real input shape would have been missed.
+Evidence: docs/p3_amendment_02.json; test_p3_label_firewall.py section 4b1.
+Scope: the 2^53 audit only. Measured 0 of 300 at the pinned revision. -->
+- **The `2^53` audit must never route through `float`, and a float64 gold in the
+  unsafe range is a HARD STOP.** `float('9007199254740993') == 2**53`, so a
+  float-based audit misses the first value that matters; `Decimal` parses the literal
+  exactly. Separately, HF stores `target` as float64, so `datasets` hands back a
+  python float whose `+1` is already destroyed upstream — unrecoverable, hence
+  `assert_float_safe` refuses rather than under-reporting. **Measured at the pinned
+  revision: 0 of 300 exceed `2^53`, so the ORIGINAL extractor is used and
+  `norm_exact` is NOT enabled.** `p3/p3_bigint_audit.py` verified `norm_exact` against
+  6600 stored GSM8K predictions with **0 verdict changes**.
+
+- **Two near-optimal sets exist and must never be conflated.** The *predicted*
+  region comes from the frozen predicted-score rule; the *observed* set is the doses
+  whose paired per-question accuracy difference from the empirical best is
+  indistinguishable. **The verdict is whether the predicted workpoint lands in the
+  OBSERVED set** — closeness in predicted score is not sufficient.
+
+- **No α=0 accuracy threshold gates readability.** A low baseline does not mean the
+  curve is unreadable. Instead: a paired omnibus over each model's five doses, Holm
+  across the two models; if no dose difference is detected the result is **"no
+  readable dose curve"** and direction/workpoint are **not evaluable** — neither a
+  success nor a failure.
+
+- **Locked run order:** freeze protocol → download + schema/`2^53` audit → format
+  preflight (`--preflight`, 5 samples, format ONLY) → generate all ten cells with NO
+  accuracy → extract commitment features, apply the frozen P2 predictors, **freeze
+  `p3_predictions.json` + SHA256** → only then unseal gold, once. **If the preflight
+  format violates the frozen protocol the response is a HARD STOP** — not a redesigned
+  prompt or extractor.
+
+```bash
+# Server, from /data1/paveen/Dopamine. Download writes to components/benchmark/;
+# a non-existent --out_dir is refused rather than created, so a wrong working
+# directory fails before the download instead of writing to the wrong tree.
+python data_gsm_hard.py --revision 960448f73503112d4226baeb8eb41d3fb5ae2506
+
+# Format preflight, then the ten cells. One model per card.
+CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_hard_llama3.sh --preflight > p3_pre_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_qwen25.sh --preflight > p3_pre_qwen.log 2>&1 &
+# cat the log immediately -- a wrong PY exits 127 before anything runs and the
+# nohup log looks empty.
+```
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
@@ -1065,6 +1167,22 @@ There is no pytest suite and no linter config. The tests that exist are standalo
 Two things about running them that have each cost a wrong verdict: **(a) these scripts print their own `ok` lines and signal failure through the EXIT CODE**, so redirecting output to `/dev/null` and reading only the status is fine, but reading only the last printed line is not — check `$?`. **(b) `timeout` does NOT exist on this macOS box**; wrapping a check in it yields exit 127 for every script, which looks exactly like a mass test failure. Verified passing on 2026-08-21: `test_cgt_seq_v5.py`, `test_bandit_pv10.py`, `test_bandit_pv10c.py`, `test_bandit_pv11.py`, `test_pv10_stop_parity.py`, plus `bash -n` on the Qwen launchers.
 
 ```bash
+# P3 blind validation (GSM-Hard). STDLIB ONLY -- runs under bare python3 too,
+# deliberately: it once imported the generation module (numpy via utils) and
+# under a numpy-less interpreter CRASHED WITH EXIT CODE 0, i.e. CI would have
+# read a crash as a pass. Guards are AST-extracted and an excepthook forces
+# exit 2 on any crash. Every guard is mutation-tested.
+python3 test_p3_label_firewall.py          # 82 checks, ~1s: label firewall,
+                                           # 2^53 exactness, float64 hard stop,
+                                           # 40-hex revision pin, schema hard
+                                           # stop, sample determinism, and the
+                                           # CLI contract (parses the launchers'
+                                           # real argv -- a source grep missed a
+                                           # live --configs nargs bug)
+python3.10 p3/p3_bigint_audit.py --gsm8k_root llama3/gsm8k   # needs ROLEANSWER
+                                           # or --roleanswer; verdict-equivalence
+                                           # of norm_exact on stored GSM8K
+
 # Manifold pilot (sections 1-3). All CPU-only, no GPU, no server.
 # check_hs_llama.py itself runs on the SERVER (conda `python`); its test does not.
 python3.10 test_check_hs_llama.py          # 27 guards: metadata fail-closed,
