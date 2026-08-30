@@ -554,7 +554,9 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 ### 3.4 Compulsive Over-Checking: The “Can’t Let Go” Semantics on MATH 
 
-> 命名同 §2.3：字段名 "anxiety" 读作**强迫性反复 / 固著**,非临床焦虑。`analyze_loop_anxiety.py --task math`,**四子类判据与 GSM8K 完全一致,唯一差别是 `Format anxiety` 改用 MATH 版词表**（GSM8K 纠结 `####`,MATH 纠结 `\boxed{}` / `in the form`;`self_doubt / persona / over_precision` 三类原样转用)。neutral No-CoT,server-182。**强迫性反复(任一)** = 命中四子类之一(去重,故 ≤ 子类之和)。
+> 命名同 §2.3：字段名 "anxiety" 读作**强迫性反复 / 固著**，非临床焦虑。
+> 
+> **四子类判据与 GSM8K 完全一致，只有 `Format fixation` 换了词表**（GSM8K 纠结 `####`，MATH 纠结 `\boxed{}`）——其余三类原样转用，所以两个任务的数字可以直接对比。「任一」= 命中四类之一，去重，故 ≤ 子类之和。
 
 | Compulsive-repetition subtype (historical field=anxiety) | Criterion(MATH) | α+4 example |
 |---|---|---|
