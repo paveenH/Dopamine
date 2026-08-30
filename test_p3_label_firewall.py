@@ -147,6 +147,66 @@ def _naive(g):
 check("float-based audit WOULD have missed 2^53+1 (why this test exists)",
       _naive(str(L + 1)) is False and exceeds_2_53(str(L + 1)) is True)
 
+# ---- 4b1. float64 gold in the unsafe range is a HARD STOP
+print("\n[4b1] float64 gold reaching 2^53 is refused, not silently audited")
+_lsrc = open("data_gsm8k_hard.py", encoding="utf-8").read()
+_lt = ast.parse(_lsrc)
+_p2 = [n for n in _lt.body
+       if (isinstance(n, ast.Assign) and any(
+               getattr(t, "id", None) == "LIMIT_2_53" for t in n.targets))
+       or (isinstance(n, ast.ClassDef) and n.name == "UnsafeFloatGold")
+       or (isinstance(n, ast.FunctionDef) and n.name == "assert_float_safe")]
+_ns2 = {}
+exec(compile(ast.Module(body=_p2, type_ignores=[]), "loader_subset", "exec"), _ns2)
+assert_float_safe, UnsafeFloatGold = _ns2["assert_float_safe"], _ns2["UnsafeFloatGold"]
+L3 = 2 ** 53
+
+
+def _stops(v):
+    try:
+        assert_float_safe(v)
+        return False
+    except UnsafeFloatGold:
+        return True
+
+
+# The REAL input shape: `datasets` hands back a python float for a float64
+# column, and float(2**53+1) is ALREADY 2**53 -- the +1 was destroyed upstream
+# before any of our code ran, so no string parse can recover it. The 4b tests
+# use the STRING form, which never exercises this path and passed while the
+# real input would have been silently missed.
+check("float(2^53+1) -> HARD STOP (value already lossy)", _stops(float(L3 + 1)))
+check("float(2^53) -> HARD STOP", _stops(float(L3)))
+check("-float(2^53) -> HARD STOP (negative side)", _stops(-float(L3)))
+check("float(2^53-1) -> allowed (still exact)", not _stops(float(L3 - 1)))
+check("GSM-Hard actual max ~9.28e9 -> allowed", not _stops(9.28e9))
+check("GSM-Hard actual min ~-9.83e9 -> allowed", not _stops(-9.83e9))
+check("int 8000 -> allowed", not _stops(8000))
+check("str '9007199254740993' -> allowed (exact string path)", not _stops(str(L3 + 1)))
+check("loader hard-stops BEFORE counting", "assert_float_safe(g[" in _lsrc)
+
+# ---- 4b2. the SCORER repairs what the audit flags
+print("\n[4b2] norm_exact REPAIRS the flagged forms (not just detects them)")
+sys.path.insert(0, "p3")
+os.environ.setdefault("ROLEANSWER", os.path.expanduser("~/Documents/RSNResult/RoleAnswer"))
+try:
+    import p3_bigint_audit as _pb
+    _pb.norm_gsm8k = _pb._load_norm_gsm8k()[0]
+    ne = _pb.norm_exact
+    for label, val, want in [
+        ("bare 2^53+1", str(L3 + 1), str(L3 + 1)),
+        ("'.0' suffix", f"{L3 + 1}.0", str(L3 + 1)),
+        ("scientific", "9.007199254740993e15", str(L3 + 1)),
+        ("negative", str(-(L3 + 1)), str(-(L3 + 1))),
+        ("thousands commas", f"{L3 + 1:,}", str(L3 + 1)),
+        ("small int unchanged", "8000", "8000"),
+        ("true float unchanged", "1234.5", "1234.5"),
+        ("3.0 -> 3 (frozen behaviour)", "3.0", "3"),
+    ]:
+        check(f"norm_exact {label}", ne(val) == want)
+except SystemExit:
+    print("       (skipped: offline RoleAnswer workspace not present here)")
+
 # ---- 4c. --revision is mandatory
 print("\n[4c] dataset revision is genuinely pinned")
 ld_src = open("data_gsm8k_hard.py", encoding="utf-8").read()

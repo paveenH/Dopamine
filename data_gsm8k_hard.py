@@ -61,6 +61,32 @@ def _commit_sha(v: str) -> str:
     return v.lower()
 
 
+class UnsafeFloatGold(RuntimeError):
+    """Gold arrived as a float64 already in the lossy integer range."""
+
+
+def assert_float_safe(gold) -> None:
+    """HARD STOP if a float64 gold reaches the unsafe integer range.
+
+    This closes a hole no amount of string parsing can: HF stores GSM-Hard's
+    `target` as float64, so `datasets` hands us a PYTHON FLOAT. By then
+    float(2**53 + 1) is already exactly 2**53 -- the +1 was destroyed upstream,
+    before any of our code ran, and Decimal(str(x)) cannot recover it. The
+    earlier tests used the STRING '9007199254740993', which never exercises
+    this path and so passed while the real input would have been missed.
+
+    Refusing is the only honest response: we cannot know whether such a value
+    was exact or already rounded, and silently auditing it as "within range"
+    would under-report the very hazard the audit exists to find.
+    """
+    if isinstance(gold, float) and abs(gold) >= LIMIT_2_53:
+        raise UnsafeFloatGold(
+            f"HARD STOP: float64 gold {gold!r} reaches the unsafe integer range "
+            f"(>= 2**53). The exact value cannot be recovered from a float, so "
+            f"the 2^53 audit cannot be trusted for this revision. Protocol 2.4 "
+            f"requires an exact audit; do not proceed.")
+
+
 def exceeds_2_53(gold) -> bool:
     """EXACT magnitude test. Deliberately never calls float().
 
@@ -135,6 +161,8 @@ def main():
     # scope. Only the COUNT and an audit digest reach metadata, so the sealed
     # file never has to be reopened for a second audit -- reopening it is the
     # one irreversible mistake in P3.
+    for g in gold:                       # hard stop BEFORE counting
+        assert_float_safe(g["gold"])
     n_big = sum(1 for g in gold if exceeds_2_53(g["gold"]))
     # The digest is derived from revision + question digest + count + audit
     # version -- NOT from raw gold. A gold-derived hash in the label-free
