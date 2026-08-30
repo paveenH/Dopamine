@@ -130,6 +130,7 @@ Scope: every colour-logit diagnostic claim. -->
 | Manifold pilot | **COMPLETE + CLOSED 2026-08-28.** Full chain: **symmetric injection → layer-wise divergence → last-layer piecewise-scalar geometry**, which still does NOT explain Llama's peak vs Qwen's plateau. Each arm is a 1-D scalar family; the two arms coincide at the first steered layer and separate monotonically with depth, so the fixed cross-arm angle is EMERGENT, not an input property. Qwen's positive arm does not saturate while its behaviour plateaus → entry-state saturation EXCLUDED, difference located downstream. Incremental prediction NOT DETECTED; decode did not extend. **Do not extend** — next line is commit-aligned Z_t/s_t + commitment dynamics |
 | P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
+| P3 supplement (CoT condition transfer) | **FROZEN, PREFLIGHT PASSED, GENERATION PENDING** — 4 cells (llama 0/−6, qwen 0/+8) at the SAME 768 budget; α not re-searched. Locked prospective on the CONDITION, not a new blind test |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1294,6 +1295,91 @@ Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. 
 - **POST-UNSEAL RULE: the main analysis 口径 is CLOSED.** The predictor, features, marker
   adapter, workpoints and success criteria may not be changed in light of this result.
   Any further analysis is **exploratory** and must be labelled so.
+
+## P3 supplement: CoT condition transfer (FROZEN; PREFLIGHT PASSED, GENERATION PENDING)
+
+> **`docs/PREREG_P3_SUPPLEMENT.md` is the protocol** (`p3-supp-v1`, tag `p3-supp-frozen`),
+> amended additively by `docs/p3_supp_amendment_0{1,2,3}.json` — none overwrites its
+> predecessor. This section is provenance and the run order.
+
+<!-- Why: the supplement's whole claim to being "locked" rests on the CoT cells not
+existing when the direction was frozen; a reader who treats it as another blind
+validation will over-claim, and one who treats it as post-hoc will under-claim.
+Evidence: p3_supp_predictions.json cot_cells_exist_at_freeze_time=false.
+Scope: every supplement citation. -->
+- **TWO PARTS, DIFFERENT EVIDENTIAL STATUS, and the split is the point.** Part 1 (the four
+  CoT cells) is a **locked prospective condition test** — they did not exist when
+  `p3_supp_predictions.json` was frozen. Part 2's No-CoT half (`§5.10.1`'s commitment
+  panel) is **EXPLORATORY and permanently so** — those ten cells were unsealed first.
+  **This is NOT a new blind dataset validation**: same 300 questions, same gold. What is
+  prospective is the CONDITION.
+
+- **FOUR CELLS ONLY: llama `0`/`−6`, qwen `0`/`+8`.** The α is the workpoint already
+  established on GSM8K and already used in P3 — **not re-searched, and no CoT dose curve
+  is run**. Everything else is held identical to the P3 No-CoT cells (same questions and
+  order, `768`/`0.0`/bs `24`, prefill-only `tail=1` at the `Answer: ` anchor). **Both cells
+  of one model share a card** — the primary metric is a per-question paired contrast
+  between them.
+
+- **`--cot` inserts EXACTLY one line, `Let's think step by step.`** Verified by diffing the
+  two frozen templates: the `####` directive and the `Answer: ` anchor are untouched, so
+  the injection site (token 220) and the commitment features keep the meaning they had
+  when the predictor was fitted. The flag defaults to False, so every P3 caller is
+  byte-identical, and it is recorded in meta — `prompt_template` alone would leave a
+  consumer that reads only `alpha` unable to tell the two batches apart.
+
+- **`meta.protocol` is `p3-supp-v1` when `--cot`, else `p3-v1`** (amend-01). A CoT cell
+  carrying `p3-v1` would claim provenance from the CLOSED blind validation, and `cot=true`
+  does not repair that — a consumer filtering on `protocol` would still pick it up as P3.
+
+- **The freeze is TWO-STAGE, because the one-stage version was impossible** (amend-01).
+  §1.5 originally listed "the frozen predictor's mean predicted score per cell" among the
+  items frozen BEFORE generation — not computable, since the cells have no generations and
+  therefore no features. The artifact was already correct (it contains no such field); only
+  the protocol text overstated it. Stage 1 = freeze the **direction** of `ΔAcc` before
+  generation (done, `fcf8b9c9b8fa8b70`); stage 2 = freeze the per-cell commitment score
+  after generation but **before** accuracy.
+
+- **Statistics.** Primary `ΔAcc = Acc(CoT+α) − Acc(CoT)` on `first_acc`, paired per
+  question; exact two-sided McNemar with discordant counts; **the two models are ONE Holm
+  family (m=2)**. The interaction `[CoT+α − CoT] − [NoCoT+α − NoCoT]` is **descriptive and
+  EXCLUDED from Holm** — its No-CoT half is already unsealed, so it is not a locked
+  prediction. Its four readings are pre-registered so the result cannot pick its own frame.
+
+- **BUDGET POLICY IS STAGED AND CONDITIONAL (amend-03).** `768` stays primary. **A single
+  extra cell at 1024 is explicitly rejected** — adding only No-CoT α=0 cannot separate a
+  budget increase from a steering effect, because there is no α contrast at the new budget;
+  a complete 1024 comparison needs a same-budget **2×2 per model**, `{No-CoT, CoT} ×
+  {α=0, α=workpoint}`. Trigger order: run the 768 CoT cells → add llama CoT `0`/`−6` at
+  1024 **only if** llama's CoT cap-hit makes truncation a live alternative explanation →
+  add llama No-CoT `0`/`−6` at 1024 **only if** the interaction then needs a common budget.
+  **Qwen is NOT auto-included** (its No-CoT cap-hit is 13–23% against llama's 91–96%); it
+  gets a 1024 arm on its own evidence, never for symmetry. **Predictor scores on 1024
+  output are EXPLORATORY** — the coefficients were fitted on 768-token generations, and
+  `posN` is a normalized position while `early_candidate` is a first-line rule.
+
+- **PREFLIGHT PASSED 2026-08-30** (5 samples, format only): `protocol=p3-supp-v1`,
+  `cot=true`, the template carries the CoT line, `####` parses, and
+  `steering_fires` read **0 / 45** (llama, `9×5×1`) and **0 / 30** (qwen, `6×5×1`).
+  Formal cells expect **2700** (llama `9×300`) and **1800** (qwen `6×300`), α=0 → 0.
+
+```bash
+# Server, from /data1/paveen/Dopamine. One model per card; both cells of a model
+# stay together. cat the log immediately -- a wrong PY exits 127 before anything
+# runs and the nohup log looks empty.
+CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_hard_cot_llama3.sh --preflight > p3_cot_pre_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_cot_qwen25.sh  --preflight > p3_cot_pre_qwen.log  2>&1 &
+# then, only after the format check passes:
+CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_hard_cot_llama3.sh --full > p3_cot_full_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_cot_qwen25.sh  --full > p3_cot_full_qwen.log  2>&1 &
+```
+
+```bash
+# Offline (RoleAnswer/, python3.10, no GPU). Refuses to overwrite a frozen file,
+# so re-running the chain requires deliberately deleting it.
+python3.10 p3/freeze_p3_supp_predictions.py   # stage 1; already run, fcf8b9c9b8fa8b70
+python3.10 p3/commit_panel_gsm_hard.py        # commitment + cap% panel (EXPLORATORY)
+```
 
 ## Local checks (no GPU, no server)
 
