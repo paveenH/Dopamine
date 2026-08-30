@@ -65,6 +65,12 @@ def parse_args():
     p.add_argument("--top_p", type=float, default=1.0)
     p.add_argument("--batch_size", type=int, default=24)
     p.add_argument("--limit", type=int, default=0, help="format preflight only; 0 = all")
+    # P3 supplement (p3-supp-v1). Default False, so every P3 caller is
+    # byte-identical. The two templates differ by exactly one inserted line,
+    # "Let's think step by step." -- the anchor and the #### directive are
+    # unchanged, so the injection site and the commitment features keep their
+    # meaning.
+    p.add_argument("--cot", action="store_true")
     return p.parse_args()
 
 
@@ -89,9 +95,9 @@ def main():
         print(f"[PREFLIGHT] limited to {len(samples)} samples -- format check only")
 
     # Frozen GSM8K main line: plain wording (the neutral #### directive that does
-    # NOT induce early-####), No-CoT. Must match get_answer_regenerate_gsm8k.py:116
-    # or the commitment features change meaning.
-    templates = select_templates_gsm8k(suite="default", cot=False, wording="plain")
+    # NOT induce early-####). Must match get_answer_regenerate_gsm8k.py:116
+    # or the commitment features change meaning. cot defaults to False.
+    templates = select_templates_gsm8k(suite="default", cot=args.cot, wording="plain")
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
     raw_mask = np.load(args.mask_path)
@@ -132,6 +138,7 @@ def main():
                             "max_new_tokens": args.max_new_tokens,
                             "temperature": args.temperature,
                             "batch_size": args.batch_size,
+                            "cot": args.cot,
                             "steering_fires": fires,
                             "questions_sha256": meta["questions_sha256"],
                             "prompt_template": templates["neutral"],

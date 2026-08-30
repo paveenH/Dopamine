@@ -1,0 +1,54 @@
+{
+  "protocol": "p3-supp-v1",
+  "status": "frozen BEFORE any CoT cell was generated",
+  "cot_cells_exist_at_freeze_time": false,
+  "not_a_blind_dataset_validation": "Same 300 questions and same gold, unsealed 2026-08-30. What is prospective is the CONDITION (CoT), not the data.",
+  "does_not_modify": "docs/p3_result_20260830.json; tag p3-result-unsealed",
+  "basis_sha256": {
+    "p3_predictions": "8f0c514ae4776441b1ea92240127eace13749be1a0a36d63bfd8620869979a51",
+    "p3_evaluation": "0e3511c74ba89115446c3c6c668b43f83942fd634c01a46c64011397d17c34a8"
+  },
+  "models": {
+    "llama": {
+      "cells": [
+        "CoT alpha=0",
+        "CoT alpha=-6"
+      ],
+      "alpha": -6,
+      "alpha_source": "frozen GSM8K workpoint, already used in P3; NOT re-searched and NOT derived from any CoT data",
+      "predicted_direction_of_dAcc": "positive",
+      "justification": "Under No-CoT the same alpha improved over alpha=0 by +6.33 pp (McNemar p=0.00661). The pre-registered prediction is that the sign carries over to CoT. A null or a reversal is a result about condition specificity and is reported with equal prominence.",
+      "nocot_reference": {
+        "acc_alpha": 0.24333333333333335,
+        "acc_alpha0": 0.18,
+        "diff_pp": 6.333333333333336,
+        "mcnemar_p": 0.00660882284228137
+      },
+      "interaction_status": "NOT a locked prediction -- its No-CoT half is already unsealed. Reported descriptively with a CI and excluded from the Holm family."
+    },
+    "qwen": {
+      "cells": [
+        "CoT alpha=0",
+        "CoT alpha=+8"
+      ],
+      "alpha": 8,
+      "alpha_source": "frozen GSM8K workpoint, already used in P3; NOT re-searched and NOT derived from any CoT data",
+      "predicted_direction_of_dAcc": "positive",
+      "justification": "Under No-CoT the same alpha improved over alpha=0 by +16.33 pp (McNemar p=1.41e-08). The pre-registered prediction is that the sign carries over to CoT. A null or a reversal is a result about condition specificity and is reported with equal prominence.",
+      "nocot_reference": {
+        "acc_alpha": 0.5033333333333333,
+        "acc_alpha0": 0.34,
+        "diff_pp": 16.33333333333333,
+        "mcnemar_p": 1.414072408794608e-08
+      },
+      "interaction_status": "NOT a locked prediction -- its No-CoT half is already unsealed. Reported descriptively with a CI and excluded from the Holm family."
+    }
+  },
+  "statistics": {
+    "primary": "dAcc = Acc(CoT+alpha) - Acc(CoT), first_acc, paired per question",
+    "test": "exact two-sided McNemar per model, with discordant counts",
+    "ci": "paired question-level bootstrap, B=10000, seed 0",
+    "holm_family": "the two models, m=2, primary metric only",
+    "interaction_excluded_from_holm": true
+  }
+}
