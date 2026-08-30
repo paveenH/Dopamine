@@ -1,0 +1,58 @@
+{
+  "amendment": "p3-supp-amend-01",
+  "protocol": "p3-supp-v1",
+  "date": "2026-08-30",
+  "status": "frozen BEFORE any CoT cell is generated",
+  "additive": "does not overwrite docs/PREREG_P3_SUPPLEMENT.md or p3_supp_predictions.json",
+  "cot_cells_exist_at_amendment_time": false,
+
+  "correction_1_protocol_metadata": {
+    "defect": "get_answer_gsm_hard_blind.py hardcoded meta.protocol = 'p3-v1', so a CoT cell would have claimed provenance from the CLOSED blind validation.",
+    "why_cot_true_is_not_enough": "A consumer filtering on `protocol` would pick the supplement cell up as P3. The flag records the condition; it does not record which protocol authorised the run.",
+    "fix": "meta.protocol = 'p3-supp-v1' if args.cot else 'p3-v1'",
+    "affects_existing_data": false,
+    "reason_no_existing_data_affected": "All ten P3 cells were generated with cot=False and correctly carry p3-v1; their bytes are unchanged."
+  },
+
+  "correction_2_impossible_freeze_step": {
+    "defect": "PREREG_P3_SUPPLEMENT.md section 1.5 listed, among the items frozen BEFORE generation, 'the frozen predictor's mean predicted score per cell'. That is not computable: the CoT cells do not exist, so they have no generations and therefore no commitment features.",
+    "what_the_frozen_file_actually_contains": [
+      "the four cells with their alpha, band and mask",
+      "the predicted direction of dAcc for each model, with justification",
+      "the statistical rules (primary metric, test, CI, Holm family)"
+    ],
+    "verified": "p3_supp_predictions.json contains NO predicted-score field. The freeze script did not produce one, so the artifact was already correct and is NOT reissued; only the protocol text overstated it.",
+    "revised_two_stage_rule": {
+      "stage_1_before_generation": "freeze the predicted DIRECTION of dAcc (already done, sha256 fcf8b9c9b8fa8b70)",
+      "stage_2_after_generation_before_accuracy": "apply the frozen predictor to the CoT generations, compute and freeze the per-cell commitment score, THEN compute CoT accuracy",
+      "status_this_confers": "locked condition transfer -- NOT a blind validation",
+      "why_still_locked": "The direction was fixed before any CoT data existed, and stage 2 is sealed against accuracy the same way P3's prediction step was."
+    }
+  },
+
+  "addition_3_truncation_diagnostic": {
+    "rationale": "CoT generations are longer while max_new_tokens stays 768. Without a cap-hit readout, a degraded CoT+alpha result cannot be separated into a commitment change and a length truncation.",
+    "metric": "cap_hit_rate = fraction of samples whose re-tokenized generation reaches the generation cap",
+    "threshold": ">= 767 tokens, not == 768",
+    "why_not_exact": "The stored text is re-tokenized offline, so the boundary is approximate: on llama a=0, '>=768' reads 82.0% while '>=767' reads 94.0% and '>=760' reads 94.3%. The plateau above 760 is the real cap population; an exact-equality test undercounts it by ~12 percentage points.",
+    "status": "secondary diagnostic, NOT a primary metric and NOT in any Holm family",
+
+    "measured_on_the_already_unsealed_no_cot_cells": {
+      "status": "EXPLORATORY (post-unseal), recorded here because it bounds how the existing Llama commitment numbers may be read",
+      "llama3": {"-8": 0.913, "-6": 0.923, "-4": 0.960, "0": 0.940, "4": 0.953,
+                 "median_decode_tokens": 768},
+      "qwen2.5": {"-4": 0.203, "0": 0.210, "4": 0.227, "6": 0.193, "8": 0.133,
+                  "median_decode_tokens": {"-4": 430, "0": 431, "4": 436, "6": 378, "8": 303}},
+      "consequence": "Llama's GSM-Hard generations hit the cap in 91-96% of samples in EVERY cell, with a median decode length of exactly 768. So Llama's chars-median and post-commit-share in AdaptiveThinking.md 5.10.1 are measured on truncated generations and must be cited with that caveat. Qwen is far less affected (13-23%). This does NOT invalidate the P3 accuracy comparison, which is paired per question under one identical convention across all cells.",
+      "consequence_for_cot": "Llama CoT is expected to be at or above this cap rate. If Llama's CoT dAcc is null or negative, truncation is a live alternative explanation and must be reported alongside the commitment reading rather than being resolved in favour of either."
+    }
+  },
+
+  "unchanged": [
+    "the four cells and their alpha (llama -6, qwen +8)",
+    "p3_supp_predictions.json sha256 fcf8b9c9b8fa8b70",
+    "the Holm family (two models, primary dAcc, m=2)",
+    "the interaction's descriptive status and its exclusion from Holm",
+    "the closed P3 result: docs/p3_result_20260830.json, tag p3-result-unsealed"
+  ]
+}

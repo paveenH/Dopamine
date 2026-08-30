@@ -131,7 +131,12 @@ def main():
         fires = vc.steering_fire_count()
         rows = [{"sample_id": s["sample_id"], "question": s["question"],
                  "generated": g} for s, g in zip(samples, gen)]
-        json.dump({"meta": {"protocol": "p3-v1", "task": "gsm_hard",
+        # Provenance must name the protocol the cell was generated UNDER. A CoT
+        # cell carrying "p3-v1" would attribute a supplement cell to the closed
+        # blind validation; cot=true alone does not repair that, since a
+        # consumer filtering on `protocol` would pick it up as P3.
+        proto = "p3-supp-v1" if args.cot else "p3-v1"
+        json.dump({"meta": {"protocol": proto, "task": "gsm_hard",
                             "model": args.model, "size": args.size,
                             "alpha": alpha, "layer_start": ls, "layer_end": le,
                             "mask_path": args.mask_path, "mask_sha256": mask_sha,

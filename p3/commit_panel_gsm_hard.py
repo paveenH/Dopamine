@@ -27,13 +27,20 @@ sys.path.insert(0, os.path.join(ROOT, "thinking_curve"))
 from analyze_first_last_acc import all_hash, norm_gsm8k, fallback_gsm8k
 from extract_metrics import per_sample
 
-CELLS = {"llama3": ("llama3/gsm_hard", "gsm_hard_8B_11_20.json", (-8, -6, -4, 0, 4)),
-         "qwen2.5": ("qwen2.5/gsm_hard", "gsm_hard_7B_16_22.json", (-4, 0, 4, 6, 8))}
+CELLS = {"llama3": ("llama3/gsm_hard", "gsm_hard_8B_11_20.json", (-8, -6, -4, 0, 4),
+                    "meta-llama/Llama-3.1-8B-Instruct"),
+         "qwen2.5": ("qwen2.5/gsm_hard", "gsm_hard_7B_16_22.json", (-4, 0, 4, 6, 8),
+                     "Qwen/Qwen2.5-7B-Instruct")}
+MAX_NEW_TOKENS = 768
+# >= 767, not == 768. The stored text is re-tokenized offline, so the boundary is
+# approximate: on llama a=0 an exact test reads 82.0% while >=767 reads 94.0% and
+# >=760 reads 94.3%. The plateau above 760 is the real cap population.
+CAP_THRESHOLD = 767
 GOLD = os.path.join(ROOT, "gsm_hard_p3_gold.SEALED.json")
 
 
-def load(model):
-    sub, fname, doses = CELLS[model]
+def load(model, tok=None):
+    sub, fname, doses, _ = CELLS[model]
     gold = {int(s["sample_id"]): str(s["gold"])
             for s in json.load(open(GOLD, encoding="utf-8"))["data"]}
     out = {}
@@ -57,6 +64,10 @@ def load(model):
                                     "correct": corr,
                                     "x_prefill": 0.0, "x_decode": []}))
             rows[-1]["correct"] = bool(corr)
+            if tok is not None:
+                ntok = len(tok(s["generated"], add_special_tokens=False)["input_ids"])
+                rows[-1]["n_tok"] = ntok
+                rows[-1]["cap_hit"] = ntok >= CAP_THRESHOLD
         out[a] = rows
     return out
 
@@ -69,17 +80,21 @@ def med(v):
     return v[n // 2] if n % 2 else (v[n // 2 - 1] + v[n // 2]) / 2
 
 
-def panel(model):
-    data = load(model)
+def panel(model, with_cap=True):
+    tok = None
+    if with_cap:
+        from transformers import AutoTokenizer
+        tok = AutoTokenizer.from_pretrained(CELLS[model][3])
+    data = load(model, tok)
     doses = CELLS[model][2]
     print(f"\n{'='*104}")
     print(f"{model}  GSM-Hard No-CoT commitment panel   [EXPLORATORY -- post-unseal]")
-    print("=" * 104)
+    print("=" * 111)
     hdr = (f"{'a':>4} {'acc':>6} {'early%':>7} {'cmt%':>6} {'mu%':>6} {'loop%':>6} "
            f"{'nomk%':>6} {'posN_med':>9} {'nmark_med':>10} {'post%':>6} "
-           f"{'chars':>6} {'ec_acc':>7} {'nec_acc':>8}")
+           f"{'chars':>6} {'cap%':>6} {'ec_acc':>7} {'nec_acc':>8}")
     print(hdr)
-    print("-" * 104)
+    print("-" * 111)
     for a in doses:
         r = data[a]
         n = len(r)
@@ -98,10 +113,11 @@ def panel(model):
         ec = [x["correct"] for x in r if x["early_candidate"]]
         ne = [x["correct"] for x in r if not x["early_candidate"]]
         f = lambda v: (sum(v) / len(v)) if v else float("nan")
+        cap = (sum(x.get("cap_hit", False) for x in r) / n) if tok else float("nan")
         print(f"{a:>+4d} {acc:>6.3f} {100*early:>6.1f}% {100*cmt:>5.1f}% "
               f"{100*mu:>5.1f}% {100*loop:>5.1f}% {100*nomk:>5.1f}% "
               f"{pos:>9.4f} {nm:>10.1f} {100*post:>5.1f}% {ch:>6.0f} "
-              f"{f(ec):>7.3f} {f(ne):>8.3f}")
+              f"{100*cap:>5.1f}% {f(ec):>7.3f} {f(ne):>8.3f}")
     return data
 
 

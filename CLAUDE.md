@@ -1263,6 +1263,22 @@ Scope: every GSM-Hard posN claim. -->
   already records. Llama's common-committed subset is n=35 and selection-biased by −8, so
   only the full-sample table is reported.
 
+<!-- Why: llama's GSM-Hard generations hit the 768 cap in 91-96% of samples in EVERY
+cell, so its chars-median and post-commit share describe truncated text; and an exact
+==768 test undercounts the cap population by ~12pp because the text is re-tokenized.
+Evidence: docs/p3_supp_amendment_01.json; AdaptiveThinking.md 5.10.1.
+Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. -->
+- **LLAMA GSM-HARD IS TRUNCATION-BOUND: 91-96% cap-hit in all five cells, median decode
+  length exactly 768** (Qwen 13-23%). So Llama's `chars med` (~2100) and `post-commit%`
+  are measured on truncated generations and may not be read as natural lengths. **The
+  threshold is `>= 767`, not `== 768`** — offline re-tokenization is approximate at the
+  boundary, and on Llama α=0 an exact test reads 82.0% against 94.0% at `>=767` and 94.3%
+  at `>=760`; the plateau above 760 is the real cap population. This does **not** affect
+  the P3 accuracy comparison (all ten cells paired per question under one convention).
+  For the CoT supplement, generations are longer at the same cap, so a degraded CoT result
+  must report truncation and the commitment reading side by side rather than resolving it
+  in favour of either.
+
 - **POST-UNSEAL RULE: the main analysis 口径 is CLOSED.** The predictor, features, marker
   adapter, workpoints and success criteria may not be changed in light of this result.
   Any further analysis is **exploratory** and must be labelled so.
