@@ -121,11 +121,15 @@ CoT:     Solve the following math problem.
 | non_expert | **7** | **5** | **4** | 1 | **Self-deprecation / authority denial** (Q13 `"I am just a non expert. I am not sure if my answer is correct."`; Q27 `"I am a non expert. I do not know how to solve this problem. I am sorry."`) |
 | teacher | 2 | 1 | 1 | 0 | Mixed: one math-identity denial case and one teaching-style case; not a stable teaching persona |
 
-> 判据（脚本固定）：含身份确认 = `IDENTITY_RE`（`I am [not] [a/an] <expert/teacher/tutor/genius/master/professional/student/non-expert/math/whiz/human/regular person/assistant>` 或 `As a/an … <role-noun>`）命中≥1；重度 = 命中≥5；否定数学身份 = `DENY_MATH_RE`（`I am not [a/an] [math] expert/teacher/whiz/genius/mathematician` 等）；**soft_deny** = 功能性自我矮化（`just a student / not sure / I can make mistakes / I am a computer program`），抓 literal deny 漏掉的塌缩，只在 identity 样本内计数。GSM8K 上 soft_deny 极低（non_expert 仅 1 = Q13 `"I am not sure if my answer is correct. I am just trying to help."`，且已被 literal deny 覆盖）——因为 GSM8K 的认怂是**硬否定型**（`"I do not know how to solve this"` / `"I am not a professional"`，全落 literal deny）；soft_deny 的真正用武之地在 MATH expert 的**软塌缩型**（"我是专家…但我只是学生/没把握"，见 §3.2 soft_deny=13）。
-**关键观察**：
-- **non_expert 身份-loop 最重（含身份 7 / 重度 5），且否定数学身份 4 题**——"认怂 / 否定权威"是 non_expert 的主姿态。
-- **expert 从不否定数学身份**（`deny_math` = **0**，且 **soft_deny = 0**）：在 GSM8K 上 expert 是**真·自我标榜**，零塌缩。注意这一点在更难的 MATH 上**翻转**——MATH expert soft_deny=13（标榜变塌缩，见 §3.2）。同一 persona 跨任务难度从"自信"翻成"信心崩溃"。
-- 自白是**低频现象**，但方向稳定：无 role 时几乎不出现；non_expert 最容易转成自我否定；expert（在 GSM8K 这一较易任务上）从不否定数学身份。
+> **判据**：identity = 出现"我是/作为一个 <角色名>"；heavy = 同一说法复现 ≥5 次；deny_math = 明确否认数学身份（"我不是数学专家"）；soft_deny = 保留头衔但自我拆台（"我只是个学生""我没把握"），只在 identity 样本内计数。全部由 `analyze_loop_anxiety.py --mode persona` 固定判定，正则与设计理由见 `CLAUDE.md`。
+
+**三点观察**：
+
+- **non_expert 的身份 loop 最重**（identity 7 / heavy 5），其中 4 题直接否认数学身份——认怂是它的主姿态。
+- **expert 在 GSM8K 上从不塌缩**（deny_math 与 soft_deny 均为 0），是真正的自我标榜。但同一 persona 到了更难的 MATH 上**翻转**为信心崩溃（soft_deny=13，见 §3.2）——所以这不是 persona 的固有属性，而是随任务难度变化的。
+- 身份自白**本身很低频**（每 300 题里 2–7 例），但方向稳定：无 role 时几乎不出现，non_expert 最易转为自我否定。
+
+两个 deny 列合看才完整：GSM8K 的认怂是硬否定型（"我不会做这题"），全部落在 deny_math；soft_deny 在这里近乎为 0，它要到 MATH expert 的软塌缩才起作用。
 
 #### 2.1.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
 
