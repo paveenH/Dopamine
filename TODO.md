@@ -20,6 +20,17 @@
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
 15. GSM-Hard ⏸
+
+- ✅ 数据集盲测资格已确认；
+- ✅ 实验协议、模型剂量和300题选择规则已冻结；
+- ✅ label-free loader、generation runner 和 firewall 已完成；
+- ⬜ 修复最后几处 pre-download 技术问题；
+- ⬜ 下载 GSM-Hard；
+- ⬜ 运行两个模型的5题格式 preflight；
+- ⬜ 正式生成10个 cell；
+- ⬜ 冻结 commitment 预测；
+- ⬜ 最后解封 gold 并计算 accuracy。
+
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
 ---
