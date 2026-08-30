@@ -7,7 +7,13 @@ repo has twice shipped checks that passed vacuously.
 
 Runs in ~1s. Exits non-zero on failure.
 """
-import ast, json, os, subprocess, sys, tempfile
+import ast, json, os, subprocess, sys, tempfile, traceback
+
+# This suite must run under ANY python3 (the server, a bare CI image), so it
+# depends on the stdlib only. It previously imported the generation module,
+# which pulls numpy via utils -- under a numpy-less interpreter it crashed with
+# EXIT CODE 0, i.e. CI would have read a crash as a pass. Guards are extracted
+# by AST/text instead, and the crash handler below forces a non-zero exit.
 
 OK = []
 
@@ -16,6 +22,14 @@ def check(name, cond):
     print(f"  {'ok  ' if cond else 'FAIL'}  {name}")
     OK.append(cond)
 
+
+def _die(exc_type, exc, tb):
+    traceback.print_exception(exc_type, exc, tb)
+    print("\nFAIL: the suite crashed. A crash is a FAILURE, never a pass.")
+    sys.exit(2)
+
+
+sys.excepthook = _die
 
 print("P3 label firewall + preflight")
 print("=" * 66)
@@ -55,16 +69,20 @@ check("dataset revision is pinned", "--revision" in ld)
 # ---- 4. MUTATION TEST: the loader's guard rejects a leaked label
 print("\n[4] mutation test -- load_questions rejects a leaked label")
 sys.path.insert(0, ".")
-# Import the real module so its constants (FORBIDDEN_KEYS) exist. Stub only the
-# heavy deps -- importing llms would pull in torch and defeat "no GPU, ~1s".
-import types
-# numpy is real (utils needs it); only llms pulls in torch, so stub just that.
-if "llms" not in sys.modules:
-    sys.modules["llms"] = types.ModuleType("llms")
-sys.modules["llms"].VicundaModel = object
-import importlib
-blind = importlib.import_module("get_answer_gsm8k_hard_blind")
-load_questions = blind.load_questions
+# Extract load_questions and FORBIDDEN_KEYS by AST and exec ONLY those, so the
+# test needs no numpy and no torch. Executing the real module would import
+# utils -> numpy; see the header.
+_blind_tree = ast.parse(src)
+_wanted = {"FORBIDDEN_KEYS", "load_questions"}
+_ns = {"json": json, "sys": sys}
+_picked = [n for n in _blind_tree.body
+           if (isinstance(n, ast.Assign) and any(
+                   getattr(t, "id", None) in _wanted for t in n.targets))
+           or (isinstance(n, ast.FunctionDef) and n.name in _wanted)]
+exec(compile(ast.Module(body=_picked, type_ignores=[]), "blind_subset", "exec"), _ns)
+load_questions = _ns["load_questions"]
+check("extracted load_questions + FORBIDDEN_KEYS without importing numpy",
+      "FORBIDDEN_KEYS" in _ns and callable(load_questions))
 
 with tempfile.TemporaryDirectory() as td:
     clean = os.path.join(td, "clean.json")
@@ -134,13 +152,44 @@ print("\n[4c] dataset revision is genuinely pinned")
 ld_src = open("data_gsm8k_hard.py", encoding="utf-8").read()
 check("--revision is required=True", 'ap.add_argument("--revision", required=True' in ld_src)
 check("no silent default to main", 'ap.add_argument("--revision", default=None' not in ld_src)
+from data_gsm8k_hard import _commit_sha
+import argparse as _ap
+for bad in ("main", "latest", "HEAD", "bbf48283", "a" * 39, "g" * 40):
+    try:
+        _commit_sha(bad)
+        check(f"REJECTS --revision {bad!r}", False)
+    except _ap.ArgumentTypeError:
+        check(f"REJECTS --revision {bad!r}", True)
+check("accepts a full 40-hex SHA", _commit_sha("A" * 40) == "a" * 40)
 check("audit uses Decimal, not float", "Decimal(" in ld_src and "int(float(" not in ld_src)
 check("audit result is published to metadata",
       '"n_gold_exceeding_2_53"' in ld_src and '"bigint_audit_digest"' in ld_src)
-audit_src = open("/Users/paveenhuang/Documents/RSNResult/RoleAnswer/p3/p3_bigint_audit.py",
-                 encoding="utf-8").read()
+audit_src = open(os.path.join("p3", "p3_bigint_audit.py"), encoding="utf-8").read()
 check("bigint audit script cannot re-open sealed gold",
       "--data" not in audit_src and "--questions" in audit_src)
+
+check("schema incompatibility is a HARD STOP, no silent fallback",
+      "HARD STOP" in ld_src and 'else "question"' not in ld_src)
+check("audit digest is not derived from raw gold",
+      "AUDIT_VERSION" in ld_src and 'sorted(big)' not in ld_src)
+
+# ---- 4d. sample selection (item 6: promoted into the committed suite)
+print("\n[4d] sample selection is deterministic and order-independent")
+from data_gsm8k_hard import select
+qs = [f"synthetic question {i}?" for i in range(500)] + ["synthetic question 7?"]
+chosen, n_uniq = select(qs)
+check("dedup on exact text", n_uniq == 500)
+check("exactly 300 chosen", len(chosen) == 300)
+check("no duplicates among chosen", len(set(chosen)) == 300)
+check("NOT dataset order", chosen[:3] != qs[:3])
+check("deterministic across calls", select(qs)[0] == chosen)
+check("order-independent (reversed input, same sample)",
+      select(list(reversed(qs)))[0] == chosen)
+try:
+    select([f"q{i}" for i in range(299)])
+    check("REJECTS a corpus smaller than 300", False)
+except SystemExit:
+    check("REJECTS a corpus smaller than 300", True)
 
 # ---- 5. launchers: per-model params, single-GPU guard, no accuracy
 print("\n[5] launchers")
@@ -164,4 +213,4 @@ check("qwen retains a negative probe (protocol 2.2)", "neg4-16-22" in q)
 
 print("\n" + "=" * 66)
 print(f"{sum(OK)}/{len(OK)} checks passed")
-sys.exit(0 if all(OK) else 1)
+sys.exit(0 if (OK and all(OK)) else 1)

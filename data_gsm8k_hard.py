@@ -41,7 +41,24 @@ from decimal import Decimal, InvalidOperation
 
 SALT = "rsn-p3-sample-v1"          # frozen in protocol 2.3
 N_SAMPLE = 300
+AUDIT_VERSION = "p3-bigint-audit-v1"
 LIMIT_2_53 = 2 ** 53
+
+
+def _commit_sha(v: str) -> str:
+    """Reject anything that is not a full 40-hex commit SHA.
+
+    A branch name or short SHA is not a pin: `--revision main` follows upstream
+    exactly as an unset revision would, and a short SHA can become ambiguous.
+    Pinning is the only thing that makes "the P3 sample" mean one fixed object.
+    """
+    v = v.strip()
+    if len(v) != 40 or any(c not in "0123456789abcdef" for c in v.lower()):
+        raise argparse.ArgumentTypeError(
+            f"--revision must be a full 40-hex commit SHA, got {v!r}. "
+            "Branch names (main/latest) and short SHAs are refused: they follow "
+            "upstream and would silently change what the P3 sample means.")
+    return v.lower()
 
 
 def exceeds_2_53(gold) -> bool:
@@ -78,11 +95,10 @@ def select(questions):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hf_name", default="reasoning-machines/gsm-hard")
-    ap.add_argument("--revision", required=True,
-                    help=("REQUIRED. Pin the dataset revision to a commit SHA. "
-                          "Without it `datasets` silently follows main, so a "
-                          "later upstream edit would change what 'the P3 sample' "
-                          "means with no trace. Confirm HEAD before use."))
+    ap.add_argument("--revision", required=True, type=_commit_sha,
+                    help=("REQUIRED, and must be a full 40-hex commit SHA. "
+                          "`required=True` alone is not a pin: --revision main "
+                          "still follows upstream. Confirm HEAD before use."))
     ap.add_argument("--split", default="train")
     ap.add_argument("--out_dir", default="benchmark")
     ap.add_argument("--prefix", default="gsm8k_hard_p3")
@@ -93,10 +109,18 @@ def main():
     print(f"loaded {a.hf_name} split={a.split} revision={a.revision} n={len(ds)}")
     print(f"columns: {ds.column_names}")
 
-    # GSM-Hard's fields are `input` (question) and `target` (gold, often a float).
-    qcol = "input" if "input" in ds.column_names else "question"
-    gcol = "target" if "target" in ds.column_names else "answer"
-    rows = [{"q": r[qcol], "g": r[gcol]} for r in ds]
+    # HARD STOP on schema (protocol 2.1). A silent fallback to question/answer
+    # would let an unexpected upstream schema quietly produce a plausible-looking
+    # sample built from the wrong columns; the protocol says incompatibility is a
+    # stop, not something to adapt around.
+    required = {"input", "target"}
+    missing = required - set(ds.column_names)
+    if missing:
+        sys.exit(f"HARD STOP: expected columns {sorted(required)} at this revision, "
+                 f"missing {sorted(missing)}; found {ds.column_names}. "
+                 "Protocol 2.1: schema incompatibility is a hard stop -- do not "
+                 "adapt the loader to the data.")
+    rows = [{"q": r["input"], "g": r["target"]} for r in ds]
 
     chosen, n_uniq = select([r["q"] for r in rows])
     by_q = {}
@@ -111,10 +135,13 @@ def main():
     # scope. Only the COUNT and an audit digest reach metadata, so the sealed
     # file never has to be reopened for a second audit -- reopening it is the
     # one irreversible mistake in P3.
-    big = [str(g["gold"]) for g in gold if exceeds_2_53(g["gold"])]
-    n_big = len(big)
+    n_big = sum(1 for g in gold if exceeds_2_53(g["gold"]))
+    # The digest is derived from revision + question digest + count + audit
+    # version -- NOT from raw gold. A gold-derived hash in the label-free
+    # questions file would put a (weak, but real) label-dependent value on the
+    # blind side of the firewall for no benefit: the count is what P3 acts on.
     audit_digest = hashlib.sha256(
-        "|".join(sorted(big)).encode("utf-8")).hexdigest() if big else "none"
+        f"{AUDIT_VERSION}|{a.revision}|{qdigest}|{n_big}".encode("utf-8")).hexdigest()
     # ---- questions file: NO gold, NO correctness. Generation reads only this.
     qs = [{"task": "gsm8k_hard", "sample_id": i, "question": q}
           for i, q in enumerate(chosen)]
@@ -126,6 +153,7 @@ def main():
                         "questions_sha256": qdigest,
                         "n_gold_exceeding_2_53": n_big,
                         "bigint_audit_digest": audit_digest,
+                        "audit_version": AUDIT_VERSION,
                         "contains_labels": False},
                "data": qs}, open(qpath, "w", encoding="utf-8"),
               ensure_ascii=False, indent=2)
