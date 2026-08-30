@@ -54,8 +54,11 @@ def parse_args():
     p.add_argument("--questions", required=True,
                    help="the LABEL-FREE questions JSON from data_gsm_hard.py")
     p.add_argument("--mask_path", required=True)
-    p.add_argument("--configs", required=True,
-                   help="e.g. 'neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20'")
+    # nargs="+" like every other runner here (get_answer_regenerate_gsm8k.py
+    # uses nargs="*"). Without it argparse takes only the first dose and reports
+    # the rest as unrecognized.
+    p.add_argument("--configs", required=True, nargs="+",
+                   help="e.g. neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20")
     p.add_argument("--out_dir", required=True)
     p.add_argument("--max_new_tokens", type=int, default=768)
     p.add_argument("--temperature", type=float, default=0.0)
@@ -92,7 +95,7 @@ def main():
     mask_sha = hashlib.sha256(open(args.mask_path, "rb").read()).hexdigest()
     os.makedirs(args.out_dir, exist_ok=True)
 
-    for alpha, ls, le in utils.parse_configs(args.configs):
+    for alpha, (ls, le) in utils.parse_configs(args.configs):
         tag = f"mdf_{alpha}".replace("-", "neg")
         out = os.path.join(args.out_dir, tag,
                            f"gsm_hard_{args.size}_{ls}_{le}.json")

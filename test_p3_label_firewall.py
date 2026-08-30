@@ -251,6 +251,34 @@ try:
 except SystemExit:
     check("REJECTS a corpus smaller than 300", True)
 
+# ---- 4e. CLI contract: the launcher's argv must actually parse
+print("\n[4e] runner CLI accepts what the launchers pass")
+# This was a REAL failure: --configs lacked nargs, so argparse consumed only the
+# first dose and rejected the other four AFTER the model had loaded. A source
+# check alone would not have caught it -- the argv has to be parsed.
+_rsrc = open("get_answer_gsm_hard_blind.py", encoding="utf-8").read()
+check("--configs declares nargs (multi-dose)", 'nargs="+"' in _rsrc or "nargs='+'" in _rsrc)
+_rt = ast.parse(_rsrc)
+_pa = [n for n in _rt.body if isinstance(n, ast.FunctionDef) and n.name == "parse_args"]
+_ns3 = {"argparse": __import__("argparse")}
+exec(compile(ast.Module(body=_pa, type_ignores=[]), "runner_subset", "exec"), _ns3)
+for model, doses in (("llama3", "neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20"),
+                     ("qwen25", "neg4-16-22 0-16-22 4-16-22 6-16-22 8-16-22")):
+    argv = ["--model", "m", "--size", "8B", "--model_dir", "d", "--questions", "q",
+            "--mask_path", "mk", "--out_dir", "o", "--configs"] + doses.split()
+    old_argv = sys.argv
+    sys.argv = ["prog"] + argv
+    try:
+        a = _ns3["parse_args"]()
+        check(f"{model}: all 5 doses parse from argv", len(a.configs) == 5)
+    except SystemExit:
+        check(f"{model}: all 5 doses parse from argv", False)
+    finally:
+        sys.argv = old_argv
+# and the unpacking must match utils.parse_configs' [alpha, (start, end)] shape
+check("unpacks parse_configs as alpha,(ls,le)",
+      "for alpha, (ls, le) in utils.parse_configs" in _rsrc)
+
 # ---- 5. launchers: per-model params, single-GPU guard, no accuracy
 print("\n[5] launchers")
 for m, band, doses in (("llama3", ("11", "20"), "neg8-11-20 neg6-11-20 neg4-11-20 0-11-20 4-11-20"),
