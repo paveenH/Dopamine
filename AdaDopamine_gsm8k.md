@@ -514,7 +514,9 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 ### 3.3 α dose behavioral panel (MATH 版 §2.2)
 
-与 GSM8K §2.2 同一套 12-metric 面板，同脚本 `analyze_cot_metrics.py --task math --table dose` → `llama3/cot_metrics_dose_math.csv`。**MATH 只有 −4/0/+4 **，口径 = neutral、No-CoT、首个 `\boxed{}`、182 同机。两个 GSM8K 锚定指标在 MATH 改义：commit-marker `####` → `\boxed{}`，抢答 lead 形态从"裸数字开头"→"`\boxed{}` 即首 token"。
+与 GSM8K §2.2 同一套面板，但 **MATH 只跑了 −4/0/+4 三个剂量**。
+
+两个指标换了锚点：提交位置从 `####` 改看 `\boxed{}`，抢答从"裸数字开头"改为"`\boxed{}` 即首 token"。**因此 MATH 与 GSM8K 的位置类数值不可直接对比**，只能比趋势方向。
 
 | Metric | **α=−4** | α=0 | **α=+4** | Trend / 对照 GSM8K §2.2 |
 |---|---:|---:|---:|---|
