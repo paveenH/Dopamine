@@ -40,7 +40,7 @@ import numpy as np
 from tqdm import tqdm
 
 from llms import VicundaModel
-from template import select_templates
+from template import select_templates_gsm8k
 import utils
 
 FORBIDDEN_KEYS = ("answer", "gold", "gold_answer", "correct", "accuracy", "target")
@@ -88,7 +88,10 @@ def main():
         samples = samples[: args.limit]
         print(f"[PREFLIGHT] limited to {len(samples)} samples -- format check only")
 
-    templates = select_templates(suite="default", task="gsm8k", cot=False)
+    # Frozen GSM8K main line: plain wording (the neutral #### directive that does
+    # NOT induce early-####), No-CoT. Must match get_answer_regenerate_gsm8k.py:116
+    # or the commitment features change meaning.
+    templates = select_templates_gsm8k(suite="default", cot=False, wording="plain")
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
     raw_mask = np.load(args.mask_path)
