@@ -45,7 +45,7 @@ TEMPERATURE=0.0
 BATCH_SIZE=24
 
 WORK_DIR="/data1/paveen/Dopamine"
-QUESTIONS="${WORK_DIR}/benchmark/gsm_hard_p3_questions.json"
+QUESTIONS="${WORK_DIR}/components/benchmark/gsm_hard_p3_questions.json"
 MASK="${WORK_DIR}/components/mask/${HS_PREFIX}_${TYPE}_logits/nmd_${PERCENTAGE}_${LS}_${LE}_${MODEL_SIZE}.npy"
 OUT_DIR="${WORK_DIR}/components/${MODEL_NAME}/gsm_hard_p3"
 

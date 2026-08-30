@@ -126,9 +126,19 @@ def main():
                           "`required=True` alone is not a pin: --revision main "
                           "still follows upstream. Confirm HEAD before use."))
     ap.add_argument("--split", default="train")
-    ap.add_argument("--out_dir", default="benchmark")
+    # The server's benchmark tree is components/benchmark/ (a FLAT directory of
+    # single files: mmlu_all.json, gpqa_train.json, ...). Defaulting to a
+    # relative path would silently write wherever the command was run from, so
+    # this defaults to the real location and can be overridden explicitly.
+    ap.add_argument("--out_dir", default="components/benchmark")
     ap.add_argument("--prefix", default="gsm_hard_p3")
     a = ap.parse_args()
+
+    if not os.path.isdir(a.out_dir):
+        sys.exit(f"FAIL: --out_dir {a.out_dir!r} does not exist. On the server "
+                 "run from /data1/paveen/Dopamine so it resolves to "
+                 "components/benchmark/, or pass --out_dir explicitly. Creating "
+                 "it silently would risk writing the sample to the wrong tree.")
 
     from datasets import load_dataset
     ds = load_dataset(a.hf_name, split=a.split, revision=a.revision)
