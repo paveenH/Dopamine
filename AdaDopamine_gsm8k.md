@@ -858,6 +858,21 @@ P2 使用 GSM8K 已有输出训练基于文本的 commitment predictor，并按�
 
 具体协议版本、commit-state 编码、marker 适配、fold manifest、抽取器、填充与标准化方法、bootstrap 和 SHA256 provenance 统一记录于 `CLAUDE.md`。
 
+**Table 5.1a — 各小节数据源**
+
+| 小节 | 数据源 |
+|---|---|
+| 5.2 GSM8K 预测（P2A） | `llama3/dopamine/signal/dopamine_signal_gsm8k_8B_nocot{α}_ema0.95_L11-20.json`，α ∈ −8…+8 共 9 cells（Qwen 为 `L16-22`，另含 `+10/+12`，11 cells）。同目录下的 role cells 不参与。 |
+| 5.3 MATH 工作点（P2B） | `llama3/math/math_eot/mdf_{0,4,neg4}/`（3 cells）、`qwen2.5/math/mdf_{0,±2,±4,±6,±8}/`（9 cells）。No-CoT only。 |
+| 5.5 GSM-Hard 盲测（P3） | `llama3/gsm_hard/mdf_{neg8,neg6,neg4,0,4}/`、`qwen2.5/gsm_hard/mdf_{neg4,0,4,6,8}/`，各 5 cells。No-CoT only。 |
+| 5.6 CoT 迁移 | `llama3/gsm_hard/mdf_{0,neg6}_cot/`、`qwen2.5/gsm_hard/mdf_{0,8}_cot/`，共 4 cells。 |
+
+GSM8K 训练侧取自 signal 树而非 `llama3/gsm8k/`：signal JSON 带 `x_prefill`，是 entry-only 与 combined 对照组所必需，`llama3/gsm8k/` 无此字段。
+
+> GSM8K predictor was trained and evaluated on the server-184 signal batch (`bs=1`). The server-182 production dose curves reported earlier are a separate generation batch and are not joined at the item level.
+>
+> 两批次呈现一致的定性剂量形状，均在 `α=−6` 出现非对称峰，说明 signal-batch 分析与 production-batch 行为结果相容。P2A 的所有配对、fold 与 OOF 评估均严格在 server-184 批次内部完成，未与 §4 的 server-182 数据进行逐题或统计混合。
+
 ### 5.2 Held-Out Correctness Prediction on GSM8K
 
 **Table 5.2a — Out-of-Sample Prediction Performance on GSM8K**
