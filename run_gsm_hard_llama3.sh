@@ -24,9 +24,14 @@ set -euo pipefail
 PY="${PY:-python}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+# ONE MODEL'S FIVE DOSES STAY ON ONE CARD. bf16 greedy is not byte-reproducible
+# across GPUs (cuBLAS accumulation order flips logit ties; a measured re-run
+# differed on 205/300 samples), so splitting one dose curve across cards would
+# mix the device difference into the alpha effect. Different MODELS may run on
+# different cards concurrently -- they are never compared per-question.
 if [[ -z "${CUDA_VISIBLE_DEVICES:-}" || "${CUDA_VISIBLE_DEVICES}" == *,* ]]; then
   echo "ERROR: set CUDA_VISIBLE_DEVICES to exactly one card." >&2
-  echo "  one curve, one GPU -- see the header." >&2
+  echo "  One model's five doses must share a card; two models may use two." >&2
   exit 1
 fi
 
