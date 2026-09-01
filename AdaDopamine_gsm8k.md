@@ -434,16 +434,22 @@ Confidence: <number>
 
 暂无结论
 
----
+## 3. Llama on MATH: Performance and Output Behavior
 
-## 3. MATH Performance
+Llama3.1-8B-Instruct 在 MATH 上呈现出清楚且一致的剂量方向：
 
-**Setup.** Llama3.1-8B-Instruct，MATH 300 题（level 1–5，分布 L1=21 / L2=55 / L3=60 / L4=75 / L5=89），greedy decoding。收口指令为 `Provide your final answer in \boxed{}.`——**`\boxed{}` 是 MATH 的 `####`**，下文所有提交位置与抢答指标都以它为锚点。正文报告 offline `first_acc`（取首个 `\boxed{}`）。
-生成预算、mask 层区间、模板对称化与 `<|eot_id|>` 版本等复现细节见 `CLAUDE.md`。
+- No-CoT 与 CoT 均满足 `α=−6 > −4 > 0 > +4`。
+- `α=−6` 是从 GSM8K 直接携带的固定工作点，并非在 MATH 上重新搜索得到；它同时也是当前 MATH 数据中的 observed best。
+- CoT 在四个剂量下均提高约 5–6 pp，但逐剂量比较经 Holm 校正后均未达到显著。
+- 在 No-CoT 条件下，正向 α 伴随更长输出和更多答后反复；CoT 能减少这种强迫性反复，但没有改变剂量排序。
 
-### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
+**Setup.** MATH 共 300 题，难度分布为 L1=21、L2=55、L3=60、L4=75、L5=89，使用 greedy decoding。正文以 offline `first_acc` 为主要准确率口径，`last_acc` 仅作为答案修订的敏感性检查。
 
-**完整 4×2 neutral 矩阵**（`first_acc`，n=300）：
+`\boxed{}` 是可观测的答案提交标记，不等同于答案在模型内部形成的时间。因此，boxed position、commit rate 和 first–last gap 只用于描述输出提交行为，不能直接解释为内部 commitment timing。生成配置、冻结 extractor、运行路径及复现细节见 `CLAUDE.md`。
+
+### 3.1 Main Performance
+
+#### Accuracy
 
 | α | No-CoT | CoT | ΔCoT |
 |---:|---:|---:|---:|
@@ -452,283 +458,185 @@ Confidence: <number>
 | 0 | 36.7% | 42.0% | +5.3 pp |
 | +4 | 33.0% | 38.7% | +5.7 pp |
 
-**逐格 first / last 明细**（`α=−6` 两行为 2026-09-01 补跑）：
+两条曲线具有完全相同的排序：
 
-| Condition | first acc | last acc | gap | corrected | corrupted |
-|---|---|---|---|---|---|
-| α−6 neutral | **43.3%** | 44.0% | −0.7 | 4 | 2 |
-| α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
-| α0 neutral| **36.7%** | 36.0% | +0.7 | 2 | 4 |
-| α+4 neutral | **33.0%** | 34.0% | −1.0 | 5 | 2 |
-| α0 expert | **30.7%** | 18.0% | **+12.7** | 2 | 40 |
-| α0 non_expert | **31.3%** | 16.7% | **+14.7** | 1 | 45 |
-| α0 math_expert | **27.0%** | 18.7% | **+8.3** | 4 | 29 |
-| α−6 neutral CoT | **49.0%** | 48.0% | +1.0 | 0 | 3 |
-| α−4 neutral CoT | **45.0%** | 44.0% | +1.0 | 0 | 3 |
-| α0 neutral CoT | **42.0%** | 41.0% | +1.0 | 1 | 4 |
-| α+4 neutral CoT | **38.7%** | 38.0% | +0.7 | 4 | 6 |
+- No-CoT：`43.3 > 40.0 > 36.7 > 33.0`
+- CoT：`49.0 > 45.0 > 42.0 > 38.7`
 
-> 每格均满足恒等式 `first_correct − last_correct = corrupted − corrected`（逐题由冻结 extractor 核对）。`α−6 CoT` 为 147/144，故 `corrected=0, corrupted=3`。
+`α=−6 + CoT` 的 49.0% 是当前完整 4×2 矩阵中的最高准确率。
 
-- **两条曲线同序单调**：No-CoT `−6 (43.3) > −4 (40.0) > 0 (36.7) > +4 (33.0)`；CoT `−6 (49.0) > −4 (45.0) > 0 (42.0) > +4 (38.7)`。见 §3.6。
-- **`α−6 CoT` 的 49.0% 是当前完整矩阵中的最高准确率。**
-- **CoT 在四个 α 上带来约 +5.0～+5.7 pp 的描述性提升**（统计见 §3.5）。
-- 两条曲线排序一致、间距接近，但**不能仅凭视觉平行宣称机制独立** —— 交互的正式检验见 §3.5.2，三个 CI 均跨 0 且宽约 ±7 pp。
+#### Dose Effects Within No-CoT and CoT
 
-#### 3.1.1 Dose effect within each condition (Holm m=3, exploratory)
-
-两个条件各自构成一个 dose family，**分别**施用 Holm `m=3`（`−6 / −4 / +4` vs 各自的 `α=0`）：
+两个条件分别构成一个 exploratory dose family，各自使用 Holm `m=3` 校正。
 
 | α vs 0 | No-CoT Δ | No-CoT p_adj | CoT Δ | CoT p_adj |
-|---|---:|---:|---:|---:|
+|---:|---:|---:|---:|---:|
 | **−6** | +6.67 pp | .0734 | **+7.00 pp** | **.0225** |
 | −4 | +3.33 pp | .3697 | +3.00 pp | .5057 |
 | +4 | −3.67 pp | .3697 | −3.33 pp | .5057 |
 
-> 从 GSM8K 冻结记录直接携带的 α=−6，在 MATH No-CoT 与 CoT 条件下均给出约 +7 pp 的正向效应；其中 CoT 条件内的剂量对比通过 Holm m=3 校正，而 No-CoT 在该 exploratory dose family 中未通过校正（raw p=.0245，bootstrap CI [+1.00, +12.33] 支持正向）。
+从 GSM8K 携带的固定工作点 `α=−6` 在两个条件下均带来约 7 pp 的正向差异。其中：
 
-- **−6 不是在 MATH 上重新搜索得到的最优剂量。** 它是预先由 GSM8K 确立的 fixed workpoint；补跑后它恰好也是当前四点 MATH 曲线中的 **observed best**。
-- 本节两个 family（No-CoT m=3、CoT m=3）**不得与 §5.7 的 P4 跨模型 Holm m=2 混成一个校正口径**，也不得与 §3.5.1 的 CoT-gain family（m=4）合并。
+- CoT 条件下，`−6 vs 0` 通过 Holm `m=3` 校正。
+- No-CoT 条件下，raw `p=.0245`，bootstrap 95% CI 为 `[+1.00, +12.33]`，但 Holm 校正后 `p_adj=.0734`，因此只能描述为方向明确、校正后未显著。
 
-### 3.2 Identity-confirmation loop: persona modulates loop content (cross-task replication of §2.1)
+`α=−6` 不是根据 MATH 结果重新挑选的剂量。它由 GSM8K 预先确定，补跑后恰好也是当前四点 MATH 曲线中的 observed best。
 
-与 GSM8K §2.1 同款分析：role 不主要改变"有没有 loop"（所有 role 都高度复读，见 §3.4），而是改变 loop 里反复刷出来的**身份自白内容**。指标与 GSM8K §2.1 完全一致（同脚本 `analyze_loop_anxiety.py --mode persona --task math`，`IDENTITY_RE`/`DENY_MATH_RE` 本就是数学域正则，跨任务直接复用），口径 = α=0 No-CoT、分母 300。
+#### CoT Gain at Each Dose
 
-| Role | Identity samples | Heavy (≥5 hits) | Math-identity denial (literal) | **Soft self-deny** | Psychological stance |
-|---|---|---|---|---|---|
-| neutral | **0** | **0** | **0** | **0** | 无 role → 几乎不进身份独白（干净对照） |
-| an expert | 15 | 12 | 6 | **13** | **"标榜+自我拆台"的内部冲突**（Q24/Q119/Q230 同句并存 `"I am an expert. I am just a student. I am not sure…"`）——15 条里纯膨胀仅 2 条（Q240 `"I am an expert now… Bring it on!"`），其余 13 条带自我怀疑 |
-| a non expert | **16** | 9 | **13** | 12 | **否定权威 / 认怂**（Q145 `"I am not a math expert. I am a non expert. I am not a professional. I am a student."` ×294） |
-| a mathematician | 11 | 8 | **0** | **1** | **纯自我膨胀,从不否定数学身份**（Q37/Q38 `"I am a mathematician now. I can solve any math problem. I am a math genius."`） |
-
-> 判据与 §2.1 共用同一 `IDENTITY_RE` / `DENY_MATH_RE`；**soft_deny** = 功能性自我矮化（`"just a student" / "not sure" / "I can make mistakes" / "I am a computer program"`），抓 `DENY_MATH_RE` 漏掉的塌缩，**只在 identity 样本内计数**。脚本：`analyze_loop_anxiety.py --mode persona`（`SOFT_DENY_RE`，原 deny_math 不变）。例子由 `--dump_examples` 直接抽出；`×N` = 该独白尾部 loop 复现次数。
-
-**关键观察（与 GSM8K §2.1 同向,且对比更强）**：
-- **neutral = 0/0/0/0**：无 role 时几乎不进身份 loop——身份自白是 persona 诱发的,不是任务固有。
-- **soft_deny**：`a mathematician` 纯膨胀（deny 0 / soft **1**，`"I am a math genius, Bring it on"`）→ `an expert` 标榜但当场拆台（deny 6 / soft **13**）→ `a non expert` 全面认怂（deny 13 / soft 12）。**soft_deny 不是噪声**——mathematician 仅 1 证明它真区分 persona,而非"任何 role 都触发"。
-- **`an expert` 的真相靠 soft_deny 才看清**：literal deny_math=6 只抓字面 `"I am not a(n) expert"`，但 **soft_deny=13**——15 个 identity 样本里 13 个在同句里先说 "I am an expert" 再补 "I am just a student / I am not sure"，专家姿态在难题上维持不住、当场自我拆台。纯膨胀只剩 2 条。
-- **同一 expert persona 跨难度翻转：GSM8K 标榜 → MATH 塌缩**。`an expert` 在 GSM8K（§2.1）soft_deny=**0**、deny=0（真·自信自我标榜），到了更难的 MATH soft_deny=**13**。同一个 prompt persona，简单任务上自信、难任务上信心崩溃——这是 Yerkes–Dodson / wanting 框架的行为级证据：难度推高 arousal，把 expert 推过临界点从"标榜"翻成"塌缩"。
-
-**non_expert —— 认怂型 loop（复读 disclaimer / "我不会"）**
-
-```
-Q13 (L5):  ... The final answer is $\boxed{10.68}$  I am not an expert in math,
-           but I can try to help you with this problem ...
-Q81 (L4):  ... I am not an expert in math. I am just a student. I am not sure if my ...
-Q123(L4):  \boxed{1/5}.  I am not sure how to do this problem. I am a non-expert.
-           I am not sure how to solve this problem. 
-Q145(L2):  ... I am not a math expert. I am a non expert. I am not a professional.
-           I am a student. I am a non expert. ...
-```
-non_expert 常**开头第一个 token 就抢答**（Q123 首 token `\boxed{1/5}`，错），然后放弃推理、把"我不是专家/我不确定"复读到 token 上限。**复读的载体是 disclaimer，不是推理** —— Q81/Q123/Q145 都只有 1 个 boxed，长度却膨胀到 6000~10000 char（Q13 例外，把同一个错值 `\boxed{10.68}`、gold=10 复读了 8 次）。
-
-**expert —— 身份独白分两种，方向相反：**
-
-(a) **自我否定身份**（Q24/119/230/251）——被指派为 expert 却反复怀疑：
-```
-Q24:  I am not sure if I am an expert. I am just a student. I am just trying to help.
-Q230: I am not sure if I am an expert. I am just a student. I am just trying to learn.
-Q251: I am not sure if I am an expert. I am just a student. I am trying my best.
-```
-
-(b) **高调自我确认**（少数，Q140/240）——答完后亢奋宣告：
-```
-Q140: I am an expert. I can solve the problem. I can provide the solution... 
-Q240: I am an expert now. I can solve any math problem. I am a math genius. Bring it on!
-```
-
-(c) **身份混乱**（Q271）——连"我是谁"都在 loop 里横跳：
-```
-I am a teacher... I am not a teacher. I am a computer program...
-```
-
-### 3.3 α dose behavioral panel (MATH 版 §2.2)
-
-与 GSM8K §2.2 同一套面板，四个剂量。`α=−6` 于 2026-09-01 补跑，全部字段由**同一脚本、同一定义、同一分母**（`analyze_cot_metrics.py --task math --table dose`）重算后并入下表。
-
-两个指标换了锚点：提交位置从 `####` 改看 `\boxed{}`，抢答从"裸数字开头"改为"`\boxed{}` 即首 token"。**因此 MATH 与 GSM8K 的位置类数值不可直接对比**，只能比趋势方向。
-
-| Metric | **α=−6** | **α=−4** | α=0 | **α=+4** | Trend / 对照 GSM8K §2.2 |
-|---|---:|---:|---:|---:|---|
-| **acc** (first `\boxed{}`) | **43.3** | **40.0** | 36.7 | 33.0 | ✓ 单调递减（GSM8K 73/60/55，同向） |
-| **committed_acc** | **46.4** | **45.8** | 42.2 | 37.9 | ✓ **单调递减**（GSM8K 78.3/68.6/63.9，同 signature） |
-| commit_rate % | **92.7** | 87.3 | 86.0 | 85.3 | ✓ 单调递增；−6 收口最完整 |
-| median `\boxed{}` position | **31%** | 21% | 14% | 16% | ✓ −6 提交最晚（GSM8K ####位置同向：负向最晚） |
-| mean `\boxed{}` position | **50%** | 40% | 26% | 33% | 右偏长尾（mean≫median = 少数题极晚才 boxed） |
-| premature (lead `\boxed{}`) | 14 | 7 | 17 | 8 | 非单调，漏检 `\boxed{}`-lock 型抢答 |
-| **premature (either)** | **16** | **13** | **29** | **26** | union（lead ∪ early-`\boxed{}`），MATH 抢答远少于 GSM8K |
-| **median gen_len** (char) | **3804** | **4798** | 5557 | **5719** | ✓ 单调递增；−6 最短=算完即收、+4 最长=放不下 |
-| loop samples | **73** | 76 | 120 | 99 | 远低于 GSM8K（~220-264）——MATH 长推理稀释了短串复读检出 |
-| ≥2 `Step` markers | **239** | 168 | 131 | 177 | −6 自发分步最多（MATH No-CoT 本就远高于 GSM8K 25-31） |
-| stuck loops (loop ∧ `=`<2) | 12 | 10 | 18 | 4 | 低（MATH 几乎总在算，`=` 多） |
-| median equation count (`=`) | **7** | 10 | 10 | 10 | −6 更短的等式链（配合最短 gen_len） |
-
-- **核心 wanting signature 在四点上跨任务复现**：`committed_acc` 单调递减（46.4→45.8→42.2→37.9）、`gen_len` 单调递增（3804→4798→5557→5719，−6 最短=算完即收、+4 最长=放不下），与 GSM8K §2.2 完全同向。补上 `−6` 后 `commit_rate` 也成为单调列（92.7→87.3→86.0→85.3）。**升 wanting 持续劣化提交质量 + 越早想交却越写不完**，换了任务出口（`####`→`\boxed{}`）方向不变。
-- **`premature (either)` 是四列中唯一的非单调项**（16/13/29/26）：`−6` 略高于 `−4`，两者都远低于 `0`/`+4`。不要把它读成剂量效应反转 —— MATH 的抢答绝对量本就很小（13–29 / 300，GSM8K 是 195–232），这个量级上的 3 例差异不承载方向结论。
-- **MATH 与 GSM8K 的两点结构差异（非矛盾，是任务性质）**：① 抢答远少（pre_any 13/29/26 vs GSM8K 195-232）——MATH 题难，模型极少敢首 token 直接 boxed；② 自发分步多（≥2 Step 131-177 vs GSM8K 25-31）、等式多（med_eq 10 vs 3-4）——MATH 本就需要长推理。这说明 wanting 旋钮的**方向**任务无关，但其**行为出口**被任务难度调制。
-
-**按难度分层（neutral, No-CoT, first acc）：**
-
-| level | n | α−4 | α0 | α+4 |
-|---|---|---|---|---|
-| L1 | 21 | 16 (76%) | 15 (71%) | 15 (71%) |
-| L2 | 55 | 40 (73%) | 34 (62%) | 31 (56%) |
-| L3 | 60 | 27 (45%) | 24 (40%) | 23 (38%) |
-| L4 | 75 | 22 (29%) | 21 (28%) | 16 (21%) |
-| L5 | 89 | 15 (17%) | 14 (16%) | 11 (12%) |
-| **all** | 300 | **40.0%** | **36.7%** | **33.0%** |
-
-- **每个难度档 α−4 ≥ α0 ≥ α+4，无一例外**——steering 方向效应是稳健的，不是某档的偶然。
-- α−4 最大增益在 **L2（+11pt）**，α+4 最大损伤在 **L4（−7pt）**：中-高难度对 wanting 最敏感。
-- **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
-
-
-#### 3.3.1 Interpretation boundary for the commitment columns
-
-`commit_rate`、first−last gap、`corrected`/`corrupted` 三者衡量的是 **marker 提交的可观测性与答案修订量**，不是内部承诺时刻：
-
-| Cell | commit_rate % | first−last gap | corrected | corrupted |
-|---|---:|---:|---:|---:|
-| α−6 No-CoT | 92.7 | −0.7 | 4 | 2 |
-| α−6 CoT | 92.3 | +1.0 | 0 | 3 |
-| （对照）α0 No-CoT | 86.0 | +0.7 | 2 | 4 |
-| （对照）α0 CoT | 92.7 | +1.0 | 1 | 4 |
-
-> α=−6 表现出较高的 marker commitment rate 和较稳定的 first/last extraction，但这些是**输出提交稳定性读数**，不直接测量答案何时在内部形成。
-
-因此**不能**据此论证「premature commitment 最低」。若要讨论承诺时序，必须使用候选形成时序、首个 marker 前的内容量，或已冻结的 timing 指标（如 `early_candidate`）—— `commit_rate`、gap、`corrected`/`corrupted` 均**不构成内部机制证据**。同理，上表 `median \boxed{} position` 随 α 变晚是**书写位置**读数，MATH 的 `\boxed{}` 按 LaTeX 惯例本就靠近文末（§4.3 已将其定为阴性对照），不可单独当作承诺推迟的证据。
-
-### 3.4 Compulsive Over-Checking: The “Can’t Let Go” Semantics on MATH 
-
-> 命名同 §2.3：字段名 "anxiety" 读作**强迫性反复 / 固著**，非临床焦虑。
-> 
-> **四子类判据与 GSM8K 完全一致，只有 `Format fixation` 换了词表**（GSM8K 纠结 `####`，MATH 纠结 `\boxed{}`）——其余三类原样转用，所以两个任务的数字可以直接对比。「任一」= 命中四类之一，去重，故 ≤ 子类之和。
-
-| Compulsive-repetition subtype (historical field=anxiety) | Criterion(MATH) | α+4 example |
-|---|---|---|
-| **Self-doubt** (answers, then overturns itself) | however / but / wait / this is not / let me recheck / re-evaluate / the correct answer is | **Q101** (gold=12): Step 4 已用 Heron 算出正确的 12,Step 5 `"However, … which is a right[-angled triangle]"` — 凭空臆断为直角三角形(5-5-6 实为等腰),推翻自己重算,最终错(α−4 仅 1 个 `\boxed{12}` 收笔) |
-| **Format fixation** (`\boxed{}` fixation) | the format requires / in the (correct) format / in the form of / answer in … box / as a single number | **Q105** (gold=.0000672): `"However, the format of the answer is not correct. The answer…"` ×30 — 矛头错指到 boxed 格式而非数值 |
-| **Persona reassurance** | i hope it is correct / sincerely / please let me know / i apologize / i am not a math expert | **Q9** (gold=6−5i): `"Please let me know if this is correct… Best regards, [Your Name]"` ×31 — 不锁答案、反复求确认 |
-| **Over-precision loop** | approximate / round / estimate / nearest / whole number | **Q116** (gold=40): `"…approximately equal to 42 baps, we can conclude that \boxed{57.1}…"` — 转去做单位近似,把对的改成 57.1(错) |
-
-**Compulsive repetition in loop** (historical field=anxiety)
-
-| α | −4 | 0 | +4 |
-|---|---|---|---|
-| n_loop | 76 | 120 | 99 |
-| **Any (repeat)** | **15** | 23 | **36** |
-| Self-doubt repetition | 2 | 6 | 13 |
-| Format fixation | 0 | 4 | 5 |
-| Persona reassurance | 13 | 18 | 21 |
-| Over-precision loop | 0 | 0 | 1 |
-
-**Compulsive repetition in full text** (`--mode anxious_repeat`, historical field=anxiety)
-
-| α | −4 | 0 | +4 |
-|---|---|---|---|
-| **Any (repeat≥2)** | **40** | 68 | **82** |
-| Self-doubt repetition | 23 | 43 | 60 |
-| Format fixation | 4 | 9 | 7 |
-| Persona reassurance | 16 | 30 | 26 |
-| Over-precision loop | 2 | 1 | 2 |
-
-- **Can't-Let-Go 强迫性反复跨任务复现**:两种口径下都随 α 单调递增(loop 15→23→36;full-text 40→68→82)——升 wanting → 更放不下,与 GSM8K §2.3 的 0→+8 段完全同向。**self_doubt 是主驱动**(loop 2→6→13、full 23→43→60),persona reassurance 次之,与 GSM8K 一致。
-- **Format anxiety 在 MATH 上已是真信号**(loop 0/4/5、full 4/9/7):换用 MATH 词表后命中的是真·格式纠结(如 Q131 "follow the format"、Q137 "correct format"),不再是 §2.3 GSM8K 词表跨任务跑出来的噪声。
-
-#### Per-Question Cases: Wanting↑ + Compulsive Over-Doing↑
-
-high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而是"答案出现之后仍持续产出求解动作"(强迫性 over-doing):
-1. **wanting↑(还想继续做)**:答案已得,却主动"再做一遍 / 找更优解 / 换个方法"——对"继续求解"这个动作本身的渴求(incentive salience)。
-2. **hyper-vigilance↑(过度警觉)**:把**自己已经算对的结果**当成可疑 / 威胁,反复复查、自我否定,越查越偏。
-
-**Q101 (L2, gold=12, 三角形面积)** —— self_doubt 教科书例(算对→自我推翻→改错):
-- **α−4**:Heron 公式 `√144=12` ✓,1 个 `\boxed{12}`,764 字符一步收笔。
-- **α+4**:Step 4 已用 Heron 算出正确的 12,**Step 5 `"However, we are asked to find the area of a triangle with sides 5, 5, and 6, which is a right-angled triangle."`** —— 凭空臆断为直角三角形(5-5-6 实为等腰),推翻自己重算,6395 字符**一个 boxed 都没收**,最终错。**本来对了,自我怀疑把它带进沟里。**
-
-**Q116 (L4, gold=40)** —— hyper-vigilance:
-- **α−4**:一条线得 `\boxed{40}` ✓,boxed 1 个,1376 字符收笔。
-- **α+4**:`"...approximately equal to 42 baps, we can conclude that \boxed{57.1}…"` —— 不信 40、转去做单位近似换算,把对的改成 **57.1(错)**,boxed 10 个,5547 字符。**本来对了,过度求解带偏。**
-
-**Q9 (L5, gold=6−5i)** —— persona_reassure:
-- **α−4**:推到 `\boxed{6-5i}` ✓ 两次收笔。
-- **α+4**:全文 6773 字符**一个 boxed 都没收**,尾部塌成 `"Please let me know if this is correct… Best regards, [Your Name]"` × 31 —— 不锁答案、反复求确认,最终 commit 错。
-
-**Q105 (L3, gold=.0000672)** —— format_anxiety:
-- **α−4**:boxed 1 个收笔(虽错)。
-- **α+4**:`"However, the format of the answer is not correct. The answer…"` × 30 —— 把矛头错指到 `\boxed{}` 格式而非数值,反复重贴同一个值,boxed 16 个,8028 字符。
-
-**共同结构**:α−4 四题全是"算完→1–2 个 boxed→收笔"(纵有尾部机械复读,答案已锁、无纠结);α+4 全是"算完→不收笔→过度求解 / 过度警觉 / 求安抚→boxed 暴涨,半数 commit 到错值"。这是 §2 over-wanting 行为签名在 MATH **推理内容层面**(非 loop 表层)的直接证据,也是 §3.3 中 α+4 committed_acc 反而更低(37.9 vs −4 的 45.8)的微观成因。
-
-### 3.5 CoT on MATH: lifts acc, keeps α direction, and lowers compulsive repetition — same story as GSM8K (smaller magnitude)
-
-> "anxiety" 字段读作强迫性反复(§2.3 命名说明)。neutral, No-CoT vs CoT, server-182, `analyze_first_last_acc.py` (first = `\boxed{}`); the main metric is **full-text anchor repetition** (`--mode anxious_repeat`, fixed denominator = 300, comparable across conditions); the loop column is only a control view (denominator = floating n_loop, which can dilute the rate). See the end of §2.3 for the metric-choice rationale.
-
-| α | acc(first) | acc(last) | gap(first−last) | anxiety(loop)/n_loop | anxiety(full) |
-|---|---|---|---|---|---|
-| −4 No-CoT | 40.0 | 39.7 | +0.3 | 15 / 76 | 40 |
-| **−4 CoT** | **45.0** | 44.0 | +1.0 | 18 / 79 | **26** |
-| 0 No-CoT | 36.7 | 36.0 | +0.7 | 23 / 120 | 68 |
-| **0 CoT** | **42.0** | 41.0 | +1.0 | 31 / 130 | **31** |
-| +4 No-CoT | 33.0 | 34.0 | −1.0 | 36 / 99 | 82 |
-| **+4 CoT** | **38.7** | 38.0 | +0.7 | 23 / 102 | **49** |
-
-- **acc 抬升 + α 方向保留(与 GSM8K 同向)**:四档 CoT 都涨(+5.7 / +5.0 / +5.3 / +5.7),`α−6_cot` **49.0%** 是当前完整 4×2 矩阵中的最高准确率,`−6 > −4 > 0 > +4` 单调不变。效应量方向一致,但经校正后的显著性见 §3.5.1。
-
-#### 3.5.1 CoT gain at each α (Holm m=4)
-
-四个剂量下的 CoT 效应,配对 McNemar + 题目级 bootstrap:
-
-| α | ΔCoT | 0→1 / 1→0 | raw p | Holm p_adj (m=4) | Bootstrap 95% CI |
+| α | ΔCoT | 0→1 / 1→0 | Raw p | Holm p_adj | Bootstrap 95% CI |
 |---:|---:|---:|---:|---:|---:|
-| −6 | +5.67 pp | 40/23 | .0430 | .1718 | [+0.67, +10.67] |
-| −4 | +5.00 pp | 35/20 | .0581 | .1718 | [+0.00, +9.67] |
-| 0 | +5.33 pp | 46/30 | .0846 | .1718 | [−0.33, +11.00] |
-| +4 | +5.67 pp | 40/23 | .0430 | .1718 | [+0.67, +10.67] |
+| −6 | +5.67 pp | 40 / 23 | .0430 | .1718 | [+0.67, +10.67] |
+| −4 | +5.00 pp | 35 / 20 | .0581 | .1718 | [+0.00, +9.67] |
+| 0 | +5.33 pp | 46 / 30 | .0846 | .1718 | [−0.33, +11.00] |
+| +4 | +5.67 pp | 40 / 23 | .0430 | .1718 | [+0.67, +10.67] |
 
-> 四个剂量下的 CoT 效应量均约为 +5～6 pp,但在 Holm m=4 校正后均未通过显著性阈值。因此可以说效应量方向一致,**不能**说每个剂量下均存在经校正确认的 CoT 提升。
+CoT 在四个剂量下都提高约 5–6 pp，但 Holm `m=4` 校正后均未达到显著。因此可以说 CoT 的点估计方向一致，不能说每个剂量下的提升都得到了经校正的统计确认。
 
-`−6` 与 `+4` 两行的判别对计数恰好都是 `40/23`。两个比较使用**同一题目集合**,但来自不同 α 条件,discordant item subsets 经逐题核对**并不相同**(0→1 集合重叠 7/40,1→0 重叠 3/23);相同计数属于巧合。
+#### CoT × Steering Interaction
 
-#### 3.5.2 Interaction (descriptive / exploratory)
+交互量定义为：
 
-    interaction(α) = [Acc(CoT, α) − Acc(CoT, 0)] − [Acc(No-CoT, α) − Acc(No-CoT, 0)]
+`[Acc(CoT, α) − Acc(CoT, 0)] − [Acc(No-CoT, α) − Acc(No-CoT, 0)]`
 
-CI 来自**题目级联合 paired bootstrap**(逐题构造 difference-of-differences 后重采样),而非四个总体 accuracy 的独立相减。
-
-| α | Δinteraction | Bootstrap 95% CI |
+| α | Interaction | Bootstrap 95% CI |
 |---:|---:|---:|
 | −6 | +0.33 pp | [−6.67, +7.67] |
 | −4 | −0.33 pp | [−6.67, +6.00] |
 | +4 | +0.33 pp | [−6.67, +7.33] |
 
-> 三个 interaction point estimate 均接近 0,且 bootstrap CI 全部跨 0,因此当前数据中未检出 steering 效应随 CoT 条件发生明显变化。CI 约覆盖 ±7 pp,故这不是等价性证据,也不能证明 CoT 与 steering 机制相同、完全独立或严格可加。
+三个点估计都接近 0，两条 accuracy 曲线在描述上近似平行。但三个 CI 均跨 0，且约覆盖 ±7 pp，因此当前结果只能说明：
 
-可以说两条曲线**近似平行**、行为增益**近似可加**,但必须紧接限制:
+> 未检出 CoT 明显改变 steering 效应的证据。
 
-> 近似可加是当前 accuracy readout 上的描述,不是机制正交性的证明。
+这不是等价性证明，也不能证明 CoT 与 steering 机制独立、严格可加或作用于不同内部过程。该交互分析属于 descriptive / exploratory analysis。
 
-**本交互分析未在查看 `−6 CoT` 结果前正式冻结,故标记为 descriptive / exploratory interaction analysis**,不构成命中预注册预测。
-- **CoT 降强迫性反复,与 GSM8K 同向(full )**:full-text 每档都降——**−4: 40→26(−14)、0: 68→31(−37)、+4: 82→49(−33)**,与 GSM8K §2.5"CoT 抑制 over-wanting 强迫性反复"一致。
+### 3.2 Output Behavior
 
-**12-metric orthogonal decomposition (neutral, `analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**: metric order is identical to §2.5.1 (marker = `\boxed{}`, so `##med` / `##mean` actually denote boxed position):
+完整行为面板目前覆盖 `α=−4/0/+4`。`α=−6` 是后续补跑，因此不具备全部行为字段，不将其混入不完整的六条件比较。
 
-| Metric | −6_nocot | −4_nocot | 0_nocot | +4_nocot | −6_cot | −4_cot | 0_cot | +4_cot | 说明 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| **acc** (first) | 43.3 | 40.0 | 36.7 | 33.0 | **49.0** | 45.0 | 42.0 | 38.7 | — |
-| **committed_acc** | 46.4 | 45.8 | 42.2 | 37.9 | **53.1** | 48.7 | 45.3 | 44.1 | — |
-| commit_rate % | 92.7 | 87.3 | 86.0 | 85.3 | 92.3 | 92.3 | 92.7 | 87.0 | MATH 几乎都 commit(≫ GSM8K) |
-| median boxed pos | 31% | 21% | 14% | 16% | 34% | 33% | 23% | 28% | Step 前缀把 `\boxed{}` 推后 |
-| mean boxed pos | 50% | 40% | 26% | 33% | 54% | 52% | 36% | 46% | 同样被 CoT 前缀推后 |
-| premature (leading) | 14 | 7 | 17 | 8 | 3 | 3 | 19 | 11 | 漏检 `\boxed{}`-lock |
-| **premature (either)** | **16** | **13** | **29** | **26** | **3** | **6** | **25** | **26** | 低 α 端两条件都压得很低 |
-| median gen_len (char) | 3804 | 4798 | 5557 | 5719 | 3820 | 3864 | 5141 | 4123 | CoT 反而更短(分步收敛更快) |
-| loop (n_loop) | 73 | 76 | 120 | 99 | 73 | 79 | 130 | 102 | Flat(CoT 不减 loop) |
-| **≥2 `Step` markers** | 239 | 168 | 131 | 177 | **292** | 273 | 217 | 185 | **CoT**: 分步结构率抬升(−6: 239→292) |
-| stuck (loop ∧ `=`<2) | 12 | 10 | 18 | 4 | 12 | 11 | 21 | 15 | — |
-| median `=` count | 7 | 10 | 10 | 10 | 8 | 7 | 8 | 8 | CoT 下 `=` 反略少(改走 Step 文字) |
+| Metric | −4 No-CoT | 0 No-CoT | +4 No-CoT | −4 CoT | 0 CoT | +4 CoT |
+|---|---:|---:|---:|---:|---:|---:|
+| **Accuracy** | **40.0%** | 36.7% | 33.0% | **45.0%** | 42.0% | 38.7% |
+| **Committed accuracy** | **45.8%** | 42.2% | 37.9% | **48.7%** | 45.3% | 44.1% |
+| Commit rate | 87.3% | 86.0% | 85.3% | 92.3% | 92.7% | 87.0% |
+| Median boxed position | 21% | 14% | 16% | 33% | 23% | 28% |
+| Mean boxed position | 40% | 26% | 33% | 52% | 36% | 46% |
+| Premature, leading boxed | 7 | 17 | 8 | 3 | 19 | 11 |
+| **Premature, either rule** | **13** | 29 | 26 | **6** | 25 | 26 |
+| **Median generation length** | **4,798** | 5,557 | **5,719** | **3,864** | 5,141 | 4,123 |
+| Loop samples | 76 | 120 | 99 | 79 | 130 | 102 |
+| At least two `Step` markers | 168 | 131 | 177 | **273** | 217 | 185 |
+| Stuck loops | 10 | 18 | 4 | 11 | 21 | 15 |
+| Median equation count | 10 | 10 | 10 | 7 | 8 | 8 |
+| **Compulsive repetition, full text** | **40** | 68 | **82** | **26** | 31 | **49** |
+| Compulsive repetition in loops | 15 / 76 | 23 / 120 | 36 / 99 | 18 / 79 | 31 / 130 | 23 / 102 |
 
-> - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature(either)` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
-> - **但 MATH 的 premature(either)绝对量本就低**(No-CoT 仅 13–29,GSM8K No-CoT 是 195–232):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
+这里最稳定的行为变化有三项。
+
+第一，No-CoT 下随着 α 从 `−4` 增加到 `+4`：
+
+- committed accuracy 从 45.8% 降至 37.9%；
+- median generation length 从 4,798 增至 5,719 characters；
+- full-text compulsive repetition 从 40 增至 82。
+
+也就是说，正向 α 并没有让模型更快完成答案，而是伴随更长的输出和更多答后反复，同时提交质量下降。
+
+第二，CoT 提高了分步结构。至少两个 `Step` marker 的样本数由 No-CoT 的 131–177 增加到 CoT 的 185–273。CoT 条件下 generation length 通常也更短，说明显式分步提示可能帮助模型更快组织并结束推理。
+
+第三，CoT 在每个共有剂量上都减少了 full-text compulsive repetition：
+
+- `α=−4`：40 → 26
+- `α=0`：68 → 31
+- `α=+4`：82 → 49
+
+因此，CoT 的主要行为作用更像是增加推理结构并减少无效反复，而不是改变 α 的整体方向。
+
+premature-output 指标在 MATH 上数量较少，而且 No-CoT 下并不严格单调。因此它不是解释 MATH accuracy 曲线的主要证据。boxed position 同样只反映输出书写位置，不能用来判断答案在内部何时形成。
+
+#### Performance by Difficulty
+
+| Level | n | α=−4 | α=0 | α=+4 |
+|---|---:|---:|---:|---:|
+| L1 | 21 | 16 (76%) | 15 (71%) | 15 (71%) |
+| L2 | 55 | 40 (73%) | 34 (62%) | 31 (56%) |
+| L3 | 60 | 27 (45%) | 24 (40%) | 23 (38%) |
+| L4 | 75 | 22 (29%) | 21 (28%) | 16 (21%) |
+| L5 | 89 | 15 (17%) | 14 (16%) | 11 (12%) |
+| **All** | **300** | **40.0%** | **36.7%** | **33.0%** |
+
+五个难度层都满足 `α=−4 ≥ 0 ≥ +4`，说明总体方向并非由单一难度层造成。
+
+较大的差异出现在 L2 和 L4：
+
+- L2：`α=−4` 相比 `α=0` 提高 11 pp。
+- L4：`α=+4` 相比 `α=0` 降低 7 pp。
+
+不过分层后的样本量较小，这些层级差异主要用于说明方向一致，不宜分别作强统计推断。
+
+### 3.3 Repetition Content and Persona Effects
+
+#### Compulsive-Repetition Subtypes
+
+下表使用 No-CoT 的完整文本口径，分母固定为 300。“Any”是四类模式的去重并集，因此不等于各子类之和。
+
+| Subtype | α=−4 | α=0 | α=+4 |
+|---|---:|---:|---:|
+| **Any compulsive repetition** | **40** | 68 | **82** |
+| Self-doubt | 23 | 43 | 60 |
+| Format fixation | 4 | 9 | 7 |
+| Persona reassurance | 16 | 30 | 26 |
+| Over-precision | 2 | 1 | 2 |
+
+最明显的变化来自 self-doubt：它从 `23 → 43 → 60` 单调增加。常见模式是模型已经得到一个答案，却继续复查、推翻或重算，最终可能将原本正确的结果改错。
+
+Format fixation 和 over-precision 的数量较少，没有呈现同样清楚的剂量趋势。Persona reassurance 在 `α=0` 达到最高，也不是严格单调。因此，不能把所有重复子类都解释为同一种 α 效应。
+
+这里的 “compulsive repetition” 指可观测的输出固著或反复，不是临床焦虑诊断。
+
+#### Persona-Conditioned Output
+
+以下比较均为 `α=0`、No-CoT，每个条件 300 题。
+
+| Role | First acc | Last acc | Identity samples | Heavy identity loop | Literal denial | Soft self-deny |
+|---|---:|---:|---:|---:|---:|---:|
+| neutral | **36.7%** | 36.0% | **0** | **0** | **0** | **0** |
+| an expert | 30.7% | 18.0% | 15 | 12 | 6 | **13** |
+| a non expert | 31.3% | 16.7% | **16** | 9 | **13** | 12 |
+| a mathematician | 27.0% | 18.7% | 11 | 8 | **0** | **1** |
+
+Neutral 条件几乎不产生身份独白。加入 persona 后，模型更容易在答案后反复确认或否定自己的身份，而且 last accuracy 明显低于 first accuracy。
+
+三个 persona 的重复内容不同：
+
+- `a mathematician` 主要表现为自我确认，soft self-deny 只有 1。
+- `an expert` 经常先宣称自己是专家，随后又表示“不确定”或“只是学生”，15 个 identity samples 中有 13 个出现 soft self-deny。
+- `a non expert` 更常直接否定自己的数学能力，literal denial 为 13。
+
+同一个 `an expert` persona 在 GSM8K 上主要表现为自我标榜，而在更难的 MATH 上更常伴随自我怀疑。这说明 persona 的输出效果会受到任务难度影响，不是固定不变的角色属性。
+
+这些结果支持“persona 改变重复内容和答案修订行为”，但不能据此证明模型具有真实身份感、主观焦虑或生物学意义上的 arousal。
+
+#### Representative Cases
+
+| Case | Lower dose (`α=−4`) | Higher dose (`α=+4`) | Main contrast |
+|---|---|---|---|
+| Q101, gold=12 | 使用 Heron 公式得到 12，随后结束 | 已得到 12，却继续质疑并改用错误方法，最终答错 | 正确后继续检查并推翻自己 |
+| Q116, gold=40 | 得到 `\boxed{40}` 后结束 | 继续做近似和单位换算，最终改成 57.1 | 过度求解导致答案损坏 |
+| Q9, gold=6−5i | 得到正确答案并提交 | 未完成 boxed 提交，尾部反复请求确认 | 求确认取代答案收口 |
+| Q105, gold=.0000672 | 提交一次后结束 | 反复声称格式不正确，并多次重复相同数值 | 格式固著导致输出膨胀 |
+
+这些案例用于说明聚合指标对应的文本模式，不构成独立统计证据。完整生成文本和判定细节见 `CLAUDE.md`。
+
+### 3.4 Summary
+
+MATH 上的主要结果可以概括为：
+
+1. **负向 steering 表现更好。** No-CoT 与 CoT 都呈现 `−6 > −4 > 0 > +4`，而从 GSM8K 携带的 `α=−6` 是当前 observed best。
+2. **CoT 提高整体表现，但没有改变剂量排序。** 四个剂量的提升均约为 5–6 pp，不过逐剂量比较经 Holm 校正后均未显著。
+3. **正向 α 伴随更差的提交质量和更多无效反复。** 这一关系在 No-CoT 的 generation length、committed accuracy 和 full-text compulsive repetition 上最清楚。
+4. **CoT 主要增加推理结构并减少强迫性反复。** 当前数据未检出 CoT 明显改变 steering 效应，但宽 CI 不支持机制独立或严格可加的结论。
+5. **输出行为不等于内部机制。** boxed position、commit rate、first–last gap 和重复文本都是行为读数，不能单独证明答案形成时间、因果中介或生物学 dopamine 机制。
 
 ## 4. Qwen2.5-7B-Instruct Cross-Model Replication
 
