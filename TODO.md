@@ -5,6 +5,7 @@
 1）工作点的可移植
 2）行为方式的改变：一致性以及与COT不同
 3）commit 可预测性
+4）与行为学实验是否一致 qwen行为学实验虽然表现较差 但是趋势和llama3是一致的
 
 ## TO DO
 0. 测试一下qwen中间一点的mask ✖
@@ -25,7 +26,7 @@
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
 15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
-15. GSM-Hard COT + alpha Vs. COT 
+15. GSM-Hard COT + alpha Vs. COT ✔ 
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
