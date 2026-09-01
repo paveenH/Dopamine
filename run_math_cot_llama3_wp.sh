@@ -85,8 +85,11 @@ cd "${WORK_DIR}" || { echo "[x] cannot cd ${WORK_DIR}"; exit 1; }
 if [ ! -f "${MASK}" ]; then
     echo "[x] mask not found: ${MASK}"; exit 1
 fi
-if [ ! -f "${MATH_FILE}" ]; then
-    echo "[x] benchmark not found: ${MATH_FILE}"; exit 1
+# NOTE: --test_file is resolved against BASE_DIR by the generator
+# (get_answer_regenerate_math.py:212, DATA_DIR = join(BASE, args.test_file)),
+# NOT against the CWD. Check the resolved path, not the relative one.
+if [ ! -f "${BASE_DIR}/${MATH_FILE}" ]; then
+    echo "[x] benchmark not found: ${BASE_DIR}/${MATH_FILE}"; exit 1
 fi
 if [ -e "${OUT}" ]; then
     echo "[x] refusing to overwrite an existing cell: ${OUT}"
