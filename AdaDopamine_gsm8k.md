@@ -1,5 +1,3 @@
-# AdaptativeThinking — 2026-05-29
-
 ## 0. Background
 
 ### 0.1 Prompt Template Symmetrization
