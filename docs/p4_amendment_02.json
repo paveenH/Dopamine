@@ -1,0 +1,94 @@
+{
+  "amendment": "p4-amend-02",
+  "protocol": "logiqa2-p4-v0",
+  "date": "2026-09-01",
+  "type": "additive",
+  "supersedes": {
+    "amendment": "p4-amend-01",
+    "fields": [
+      "prompt.template_verbatim",
+      "prompt.template_sha256",
+      "anchor_and_injection.anchor",
+      "anchor_and_injection.injection_token_measured"
+    ],
+    "note": "p4-amend-01 is NOT edited and remains on record. This amendment replaces ONLY the prompt template and the anchor. Everything else in amend-01 -- bare-string interface, prefill_only tail_len=1, natural EOS with no stop string, greedy bs=8, the parsing regex, the generation-metadata requirement -- carries forward unchanged."
+  },
+  "reason": "amend-01's prompt contained 'Think step by step.', making it an explicit CoT elicitation: every sample is INSTRUCTED to reason. That confounds the question P4 actually asks -- whether a fixed workpoint changes how the model SPONTANEOUSLY forms reasoning and commits an answer under free generation. With the instruction present, a reasoning trajectory cannot be attributed to the model rather than to the instruction. Note the instruction never guaranteed CoT either; it only required the model to attempt it. Changed BEFORE any generation exists, so nothing is discarded.",
+  "prompt": {
+    "template_verbatim": "{passage}\n\n{question}\nA) {opt_a}\nB) {opt_b}\nC) {opt_c}\nD) {opt_d}\n\nEnd your response with 'Final answer: X' where X is A, B, C, or D.\n\nResponse: ",
+    "template_sha256": "c42dc9c81f117a6c5b060ce93e69c0e4a102207b2b42bc8de0bca5d7129e8c06",
+    "fields": [
+      "passage",
+      "question",
+      "opt_a",
+      "opt_b",
+      "opt_c",
+      "opt_d"
+    ],
+    "field_source": "LogiQA2.0 test.txt: text, question, options[0..3], stripped of surrounding whitespace only",
+    "options_shuffled": false,
+    "what_changed": [
+      "removed the sentence 'Think step by step.'",
+      "the remaining instruction is output-format only: \"End your response with 'Final answer: X' ...\"",
+      "anchor 'Reasoning: ' -> 'Response: '"
+    ],
+    "why_anchor_changed": "'Reasoning: ' is itself a CoT cue -- it names the expected output as reasoning. 'Response: ' is neutral: the model may answer immediately or reason first, and WHICH IT DOES IS THE OBSERVABLE. Deleting the instruction while keeping 'Reasoning: ' would have left a weaker but still-present elicitation."
+  },
+  "anchor_and_injection": {
+    "anchor": "Response: ",
+    "anchor_note": "ONE literal ASCII trailing space; the prompt ends here and nothing may follow it",
+    "injection_token_measured": {
+      "llama3.1-8B": {
+        "id": 220,
+        "repr": "' '",
+        "tail_ids": [
+          382,
+          2647,
+          25,
+          220
+        ]
+      },
+      "qwen2.5-7B": {
+        "id": 220,
+        "repr": "' '",
+        "tail_ids": [
+          382,
+          2582,
+          25,
+          220
+        ]
+      }
+    },
+    "measured_how": "AutoTokenizer on the real checkpoints, add_special_tokens=True, 2026-09-01",
+    "measured_not_assumed": true,
+    "cross_model_wording": "Both models use the SAME TEXT anchor 'Response: ', and each tokenizer's final token happens to be id 220 ' '. Do NOT write that the two models share 'the same decision-bottleneck token': an identical integer in two different tokenizers is a numbering coincidence and does not imply equivalent internal mechanism.",
+    "double_bos_risk": {
+      "llama3.1-8B": "bos_token_id=128000, no double BOS observed on the bare path",
+      "qwen2.5-7B": "bos_token_id=None, structurally impossible"
+    },
+    "hazard_rstrip": "MEASURED on the new anchor: rstrip() moves the tail token from 220 to ':' (25) on BOTH tokenizers, silently relocating the injection site. The trailing space is an assertion, not a formatting preference.",
+    "steering": {
+      "mode": "prefill_only",
+      "prefill_tail_len": 1,
+      "decode_steered": false
+    },
+    "expected_steering_fires": "L * B * 1 per batch (llama L=9, qwen L=6); alpha=0 fires 0"
+  },
+  "consequences_for_readouts": {
+    "reasoning_emergence_becomes_an_outcome": "Under a neutral anchor, whether the model reasons at all is no longer fixed by the prompt. Reasoning emergence, answer position, and answer revision become behavioral readouts alongside accuracy.",
+    "status": "These remain SECONDARY and DESCRIPTIVE, excluded from the Holm family, exactly as PREREG v0 section 5 already specifies. Removing the instruction does not promote them.",
+    "post_treatment_warning": "Reasoning emergence is itself an outcome of alpha, so stratifying accuracy on it is post-treatment stratification -- consistent-with evidence, never mediation. Same rule the repo applies to early_candidate.",
+    "no_extra_cell": "The neutral prompt is the MAIN protocol. No CoT cell is added: a prompt-condition contrast is a different experiment, and PREREG v0 section 2 fixes this at four cells.",
+    "parser_unaffected": "The instruction still names 'Final answer: X' verbatim, so the frozen regex and the LAST-match MAIN rule carry over unchanged. It also remains the reason no stop string may be used -- the phrase is still in the prompt and the model may restate it mid-response."
+  },
+  "unchanged_by_this_amendment": [
+    "the four cells and their alpha",
+    "the 300-item sampling algorithm and its digest 4d4b25e071a2a6dd",
+    "the preflight design and the 512/1024 upgrade rule",
+    "the statistics, Holm family and pre-registered readings",
+    "bare-string interface, greedy bs=8, natural EOS, no stop string",
+    "the parsing regex and the LAST/FIRST convention",
+    "the generation-time metadata requirement"
+  ],
+  "numbering_note": "This amendment takes 02, so the stage-1 budget freeze written by decide_p4_budget.py becomes docs/p4_amendment_03.json."
+}

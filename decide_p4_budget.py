@@ -15,7 +15,7 @@ def die(m): print(f"[FATAL] {m}", file=sys.stderr); raise SystemExit(2)
 ap = argparse.ArgumentParser()
 ap.add_argument("--preflight", nargs="+", required=True,
                 help="both models' preflight result JSONs")
-ap.add_argument("--out", default="docs/p4_amendment_02.json")
+ap.add_argument("--out", default="docs/p4_amendment_03.json")
 a = ap.parse_args()
 
 cells, thr, up, base = {}, None, None, None
@@ -59,7 +59,7 @@ if fmt_bad:
     print(f"\n[!] FORMAT VIOLATION in {fmt_bad}. Protocol section 4: the response "
           f"is a HARD STOP, not a redesigned prompt or parser.")
 
-json.dump({"amendment": "p4-amend-02", "protocol": "logiqa2-p4-v1",
+json.dump({"amendment": "p4-amend-03", "protocol": "logiqa2-p4-v1",
            "type": "additive", "decision_rule": f">= {thr} in ANY of 4 cells -> {up}",
            "triggered": trigger, "formal_max_new_tokens": budget,
            "accuracy_computed": False, "cells": rows},

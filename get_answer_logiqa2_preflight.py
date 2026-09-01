@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LogiQA 2.0 P4 FORMAT-ONLY PREFLIGHT (`logiqa2-p4-v0` + `p4-amend-01`).
+LogiQA 2.0 P4 FORMAT-ONLY PREFLIGHT (`logiqa2-p4-v0` + `p4-amend-02`).
 
 Runs the 20 no-gold preflight items through all four cells at
 `max_new_tokens=512` and reports FORMAT ONLY: does the output carry a unique
@@ -41,9 +41,14 @@ from llms import VicundaModel                                  # noqa: E402
 from utils import parse_configs, decoder_layer_range           # noqa: E402
 
 PROTOCOL = "logiqa2-p4-v0"
-AMENDMENT = "p4-amend-01"
+AMENDMENT = "p4-amend-02"
 
-# frozen verbatim by p4-amend-01 (template_sha256 45cfa1ef...)
+# Frozen verbatim by p4-amend-02, which REPLACED amend-01's prompt before any
+# generation existed. amend-01 said "Think step by step." with a "Reasoning: "
+# anchor -- an explicit CoT elicitation, which confounds the question P4 asks
+# (whether a fixed workpoint changes SPONTANEOUS reasoning formation). The
+# instruction here is output-format only and the anchor is neutral, so whether
+# the model reasons before answering is an OBSERVABLE rather than a given.
 PROMPT = (
     "{passage}\n"
     "\n"
@@ -53,11 +58,11 @@ PROMPT = (
     "C) {opt_c}\n"
     "D) {opt_d}\n"
     "\n"
-    "Think step by step. End with 'Final answer: X' where X is A, B, C, or D.\n"
+    "End your response with 'Final answer: X' where X is A, B, C, or D.\n"
     "\n"
-    "Reasoning: "
+    "Response: "
 )
-PROMPT_SHA256 = "45cfa1ef9355b984"          # first 16 hex, asserted at runtime
+PROMPT_SHA256 = "c42dc9c81f117a6c"          # first 16 hex, asserted at runtime
 ANSWER_RE = re.compile(r"Final answer:\s*([A-D])\b")
 
 PREFLIGHT_BUDGET = 512
@@ -76,16 +81,16 @@ def die(msg):
 def build_prompt(item):
     import hashlib
     if hashlib.sha256(PROMPT.encode()).hexdigest()[:16] != PROMPT_SHA256:
-        die("prompt template does not match the frozen sha256; the prompt is "
-            "frozen by p4-amend-01 and may not be edited")
+        die(f"prompt template does not match the frozen sha256; the prompt is "
+            f"frozen by {AMENDMENT} and may not be edited")
     o = item["options"]
     if len(o) != 4:
         die(f"item {item['sample_id']} has {len(o)} options")
     p = PROMPT.format(passage=item["passage"].strip(),
                       question=item["question"].strip(),
                       opt_a=o[0], opt_b=o[1], opt_c=o[2], opt_d=o[3])
-    if not p.endswith("Reasoning: "):
-        die("prompt does not end at the frozen anchor 'Reasoning: '")
+    if not p.endswith("Response: "):
+        die("prompt does not end at the frozen anchor 'Response: '")
     return p
 
 

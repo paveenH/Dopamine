@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LogiQA 2.0 English MRC loader for P4 (protocol `logiqa2-p4-v0` + `p4-amend-01`).
+LogiQA 2.0 English MRC loader for P4 (protocol `logiqa2-p4-v0` + `p4-amend-02`).
 
 Builds THREE files:
 
@@ -44,7 +44,7 @@ from collections import Counter, defaultdict
 
 # ---------------------------------------------------------------- frozen constants
 PROTOCOL = "logiqa2-p4-v0"
-AMENDMENT = "p4-amend-01"
+AMENDMENT = "p4-amend-02"
 SALT = "logiqa2-p4-v0"
 
 RAW_URL = ("https://raw.githubusercontent.com/csitfun/LogiQA2.0/"
