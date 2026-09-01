@@ -1,0 +1,117 @@
+{
+  "amendment": "p4-amend-01",
+  "protocol": "logiqa2-p4-v0",
+  "date": "2026-09-01",
+  "type": "additive",
+  "supersedes_nothing": true,
+  "reason": "PREREG v0 section 3 specified the OUTPUT contract ('Final answer: X') but never froze the prompt itself, the interface (bare vs chat), the anchor, the injection site, or the stopping condition. Section 4 forbids redesigning the prompt after a failed preflight -- a rule that is vacuous if the prompt was never frozen. This amendment closes that gap BEFORE any generation exists. It adds; it edits nothing already frozen.",
+  "prompt": {
+    "template_verbatim": "{passage}\n\n{question}\nA) {opt_a}\nB) {opt_b}\nC) {opt_c}\nD) {opt_d}\n\nThink step by step. End with 'Final answer: X' where X is A, B, C, or D.\n\nReasoning: ",
+    "template_sha256": "45cfa1ef9355b984ea91afd52b6aa8a42b901f2069ca0a30b00111fa6e70526f",
+    "fields": [
+      "passage",
+      "question",
+      "opt_a",
+      "opt_b",
+      "opt_c",
+      "opt_d"
+    ],
+    "field_source": "LogiQA2.0 test.txt: text, question, options[0..3], stripped of surrounding whitespace only",
+    "options_shuffled": false,
+    "note_empty_passage": "If passage is empty after stripping, the passage line AND the blank line after it are both omitted, so the prompt never opens with a blank line. Measured at freeze: all 1572 rows carry a non-empty passage, so this branch is defensive and is asserted, not exercised.",
+    "field_integrity_measured": {
+      "empty_passage": 0,
+      "empty_question": 0,
+      "empty_option_cells": 0,
+      "options_containing_newline": 0,
+      "passage_containing_Final_answer": 0,
+      "n_rows": 1572,
+      "measured": "2026-09-01"
+    }
+  },
+  "interface": {
+    "mode": "bare string",
+    "use_chat_template": false,
+    "why": "The NMD mask was extracted on bare-string prompts, so steering must inject into the same activation distribution. GSM8K, MATH, GSM-Hard and the P3 CoT supplement are all bare; keeping LogiQA bare is what makes the transferred workpoint the same intervention. This is the repo default, stated explicitly because two experiments (betting, CGT) are deliberate chat exceptions."
+  },
+  "anchor_and_injection": {
+    "anchor": "Reasoning: ",
+    "anchor_note": "ONE literal ASCII trailing space; the prompt ends here and nothing may follow it",
+    "injection_token_measured": {
+      "llama3.1-8B": {
+        "id": 220,
+        "repr": "' '",
+        "tail_ids": [
+          26197,
+          287,
+          25,
+          220
+        ]
+      },
+      "qwen2.5-7B": {
+        "id": 220,
+        "repr": "' '",
+        "tail_ids": [
+          25139,
+          287,
+          25,
+          220
+        ]
+      }
+    },
+    "measured_how": "AutoTokenizer on the real checkpoints, add_special_tokens=True, 2026-09-01",
+    "measured_not_assumed": true,
+    "double_bos_risk": {
+      "llama3.1-8B": "bos_token_id=128000, no double BOS observed on the bare path",
+      "qwen2.5-7B": "bos_token_id=None, structurally impossible"
+    },
+    "steering": {
+      "mode": "prefill_only",
+      "prefill_tail_len": 1,
+      "decode_steered": false
+    },
+    "hazard_rstrip": "rstrip() on this prompt moves the tail token from 220 to ':' (25) and silently relocates the injection site. The trailing space is an assertion, not a formatting preference.",
+    "expected_steering_fires": "L * B * 1 per batch (llama L=9, qwen L=6); alpha=0 fires 0"
+  },
+  "stopping": {
+    "natural_eos_only": true,
+    "stop_strings": null,
+    "why_no_stop_string": "HF stop_strings halts on the substring appearing ANYWHERE in the output. The prompt literally contains \"Final answer: X\" in its instruction, and the model routinely restates an instruction while reasoning, so any stop string built from that phrase can truncate before the real answer -- the failure CGT already paid for (invalid_rate 0.02 -> 0.11). Generation ends at natural EOS or at max_new_tokens.",
+    "terminators": "VicundaModel._build_terminators() (registers <|eot_id|> / <|im_end|> as additional EOS)"
+  },
+  "decoding": {
+    "temperature": 0.0,
+    "do_sample": false,
+    "greedy": true,
+    "batch_size": 8,
+    "batch_size_note": "held identical across a model's two cells; batched vs bs=1 differ by ~2% on Llama due to padding"
+  },
+  "generation_metadata": {
+    "required_fields": [
+      "generated_token_count",
+      "stop_reason",
+      "raw_text"
+    ],
+    "stop_reason_vocabulary": [
+      "natural_eos",
+      "budget_exhausted"
+    ],
+    "implementation_note": "VicundaModel.regenerate() returns list[str] only; llms.py:1024 already holds gen_ids and discards it after decoding. A metadata-return path must be added there, DEFAULT OFF (return_metadata=False) so every existing caller stays byte-identical. Deriving the count by re-tokenizing the decoded text afterwards is NOT acceptable as the primary measurement: decode(skip_special_tokens=True) drops the EOS and re-tokenization is approximate at the boundary -- the same gap that made P3 under-report Llama's cap rate by ~12 pp.",
+    "offline_crosscheck": "conservative only, >= budget - 1, never == budget"
+  },
+  "parsing_regex": {
+    "pattern": "Final answer:\\s*([A-D])\\b",
+    "flags": "none (case-sensitive, matching the prompt's literal casing)",
+    "main": "LAST match",
+    "sensitivity": "FIRST match",
+    "no_match": "no_marker, scored incorrect",
+    "denominator": 300,
+    "rescue_generation": false
+  },
+  "unchanged_by_this_amendment": [
+    "the four cells and their alpha",
+    "the 300-item sampling algorithm and its digest",
+    "the preflight design and the 512/1024 upgrade rule",
+    "the statistics, Holm family and pre-registered readings"
+  ]
+}
