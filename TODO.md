@@ -30,28 +30,14 @@
 13. manifold sentiity ✔
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
 15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
-15. GSM-Hard COT + alpha Vs. COT ✔ 
-16. MATH补充完整
+15. GSM-Hard COT + alpha Vs. COT ✔
+--- 
+16. MATH补充完整 ⏸
+17. MMLUpro reasoning版本
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
 ---
-## P4. Fixed-Workpoint Transfer Across Reasoning Tasks
-
-检验 GSM8K 确立的固定工作点能否在不重新搜索 α 的情况下迁移到其他 reasoning tasks。
-
-### MATH
-
-- [x] 使用现有结果计算 Qwen `α=+8 vs α=0` 的 paired accuracy difference、bootstrap CI 与 McNemar test。
-      **结果：+2.67 pp（60.67→63.33），McNemar 33/25 p=.358，bootstrap 95% CI [−2.33, +7.67] — 未检出。**
-      `last_acc` 敏感性同向（+3.67 pp），故不是抽取口径造成。
-- [ ] 补跑 Llama MATH `α=−6`，与已有 `α=0` 配对比较。（`run_math_llama3_wp.sh`，单格，待跑）
-- [x] 明确区分 fixed-workpoint transfer 与 commitment-based workpoint selection。
-      两者问的不是同一个问题，且 Qwen 上恰好分叉：GSM8K 工作点是 `+8`，而 MATH 最优是 `+6`
-      （九档曲线 68.33，倒 U 在 `+8` 已过峰）。P2B 测「能否**挑出**最优档」→ 挑中 `+6`，regret 0；
-      固定工作点测「已确立的 α 换任务后**还灵不灵**」→ 测 `+8`。选点成功 ≠ 固定工作点可迁移，两者不可合并。
-
-### LogiQA
 
 - [ ] 在查看结果前冻结 300 道题、prompt、生成参数与评价规则。
 - [ ] Llama 只运行 `α∈{0,−6}`。
