@@ -138,6 +138,7 @@ Scope: every colour-logit diagnostic claim. -->
 | P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
+| P4 fixed-workpoint transfer (LogiQA 2.0) | **STAGE-1 FROZEN, FORMAL RUN PENDING** 2026-09-01 — two-stage freeze (`logiqa2-p4-v0` + amendments 01–06); blind preflight done, budget frozen at 1024; the 300-item run has NOT been scored. NOT a blind validation — LogiQA gold is public |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1472,6 +1473,166 @@ python3.10 p3/run_p3_supp_eval.py             # unlocks CoT accuracy; REFUSES to
 python3.10 p3/commit_panel_gsm_hard.py        # commitment + cap% panel (EXPLORATORY)
 ```
 
+## P4 fixed-workpoint transfer to generative logical reasoning (LogiQA 2.0)
+
+> **`docs/PREREG_P4_LOGIQA2.md` is the protocol** (`logiqa2-p4-v0`, stage 0,
+> commit `cb796ea`), amended additively by `docs/p4_amendment_0{1,2,3,4,5,6}.json`
+> — none overwrites its predecessor. `docs/P4_LOGIQA2_PREFLIGHT_OUTCOME.md` is
+> the preflight record. **Status 2026-09-01: stage-1 frozen, formal run pending,
+> nothing scored.**
+
+**The question is FIXED-WORKPOINT TRANSFER, not selection.** Does a workpoint
+established on GSM8K (llama `−6`, qwen `+8`) still help on generative logical
+reasoning, without re-searching α? **Never conflate this with P2B**, which asks
+whether commitment features can PICK the best dose — they already diverge on
+Qwen, whose GSM8K workpoint is `+8` while its MATH optimum is `+6`.
+
+**This is NOT a blind validation.** LogiQA 2.0 gold is public and reachable; P3
+(GSM-Hard) was the blind test and is CLOSED. What is prospective here is the
+task, not sealed data. A null on both models is a **task-boundary result** and
+is reported with equal prominence.
+
+- **Two-stage freeze, and the split is the point.** Stage 0 fixed the question,
+  doses, sampling, parsing, statistics and the token-budget upgrade rule BEFORE
+  any loader existed. Stage 1 (`p4-amend-04`) added ONLY the budget the blind
+  preflight selected. Anything else changing between them would be an
+  adaptive edit.
+- **`data_logiqa.py` (LogiQA 1.0-era) downloads the same file and is left
+  byte-unchanged.** It is unusable here for four reasons: it writes to the
+  stale `/data2/.../RolePlaying` tree, drops `id` / raw fields / `type`
+  provenance, freezes no manifest, and has no generative runner. `data_logiqa2.py`
+  is new.
+- **The item key is a COMPOSITE, and this is load-bearing.** Measured on the
+  1572-row test split: `id` is unique only 1568/1572 and `(passage, question)`
+  only 1557/1572 — **neither is a key**. The frozen key is
+  `sha256(salt:id US passage US question US options.join(RS))`, unique 1572/1572.
+  Never `hash()` (process-salted). Both the official `id` and a salt-free
+  `content_sha256` are stored, so an upstream edit is detectable.
+- **Sample: 300 items, exactly 75 per gold label**, taken as ranks 1–75 by key
+  within each label; the 20 preflight items are ranks 76–80, so **disjointness is
+  structural, not checked after the fact**. Frozen digest `4d4b25e071a2a6dd`.
+  Label pools are 347/384/417/424, so no stratum is starved.
+- **`type` is a MULTI-LABEL dict (3–4 reasoning types per row) and is provenance
+  only, never a stratification axis.** Splitting 300 items across an unbalanced
+  multi-label space is the sampling problem that shelved MMLU-Pro; it is avoided
+  here rather than re-imported.
+- **The prompt is NEUTRAL-GENERATION and frozen verbatim** (`p4-amend-02`,
+  sha256 `c42dc9c81f117a6c`, anchor `Response: `). `p4-amend-01`'s original
+  prompt said "Think step by step." with a `Reasoning: ` anchor — an explicit
+  CoT elicitation, so a reasoning trajectory could not be attributed to the model
+  rather than the instruction. Deleting the sentence alone was insufficient:
+  `Reasoning: ` itself names the expected output as reasoning. **Measured, not
+  assumed:** the tail is token **220 `' '`** on BOTH tokenizers (llama
+  `382/2647/25/220`, qwen `382/2582/25/220`), and `rstrip()` moves it to `':'`
+  (25) on both — the trailing space is an assertion. **Do not write that the two
+  models share "the same decision-bottleneck token"**: an identical integer in
+  two tokenizers is a numbering coincidence.
+- **Parsing: MAIN = LAST match, sensitivity = FIRST, and the reason differs from
+  MATH's on purpose.** MATH uses FIRST because tail loops pollute the last
+  `\boxed{}`; LogiQA uses LAST because the generative protocol invites revision
+  and FIRST would lock a pre-reasoning guess. Zero markers scores incorrect,
+  denominator stays 300, **no rescue generation**. The instruction still names
+  `Final answer: X` verbatim, which is also why **no stop string may be used** —
+  HF `stop_strings` matches anywhere in the output and the model restates the
+  instruction (the CGT failure, invalid_rate 0.02→0.11).
+- **The label firewall is STRUCTURAL on both blind paths, and the distinction is
+  one I got wrong once.** `data_logiqa2.py` emits the formal sample twice from
+  one selection: `logiqa2_p4_formal_blind.json` (gold absent, whitelist-built,
+  payload-scanned) for generation and `logiqa2_p4_formal.json` (gold present)
+  for `eval_logiqa2.py` only. An earlier runner read the gold-bearing file and
+  merely declined to touch `answer_letter` — **"the code does not access gold"
+  is much weaker than "gold is not reachable"**, which is the whole point of the
+  P2 firewall. `get_answer_logiqa2.py` refuses any input whose meta does not say
+  `contains_labels: false`.
+- **Generation and scoring are separate scripts**, mirroring P3: a generation run
+  cannot quietly become an accuracy run.
+- **PREFLIGHT RESULT (20 held-out items × 4 cells, 512 tokens, gold-blind):
+  Llama is SCORABLE BUT ITS TERMINATION IS DEGRADED; Qwen is normal.** llama
+  α=0 20/20 cap-hit (min length 512, **no output stopped naturally**),
+  `answer_first` 13/20, degenerate 17/20, first marker at position **0.000**;
+  α=−6 `answer_first` 4/20, degenerate 14/20. qwen 0/20 `answer_first`,
+  degenerate 0–1/20, first marker at 0.94–0.98, cap-hit 2–4/20. FIRST and LAST
+  agree in **39/40** scorable outputs.
+- **Degeneration does NOT make it unreadable — this repo's GSM8K precedent is
+  strictly more extreme** (97% cap-hit, raw loop rate 74–88% with no clean α
+  trend) and remains a main result source. Accuracy is readable because the
+  answer is complete BEFORE the degeneration. Adopted with GSM8K's convention:
+  **the degeneration rate is descriptive and must NOT be read as perseveration
+  absent a clean α trend**, and it uses the same strict `is_loop` detector
+  (final 40-char block recurring ≥4×) so the two tasks stay comparable — a
+  permissive n-gram proxy read 80–86% on GSM8K and was all false positives.
+  One real difference is recorded rather than smoothed over: GSM8K's `####` is
+  terminal so its loop is always post-submission, while llama α=0 here is 13/20
+  `answer_first`, a different shape.
+- **The format gate was RELAXED and the budget rule was EXECUTED AS WRITTEN —
+  opposite directions, deliberately** (`p4-amend-05`). The gate was written
+  against "cannot produce the format", which is not what happened, so one valid
+  marker now makes an output scorable and only a cell with NO marker anywhere is
+  a hard stop. The budget rule fires because of repetition rather than long
+  reasoning, but it states a MECHANICAL condition; keeping 512 would have been a
+  SECOND adaptive change made in response to preflight output. **Budget = 1024**,
+  with longer llama tails as the accepted, recorded cost.
+- **`answer_first` 13/20 → 4/20 at α=−6 is a PILOT-GENERATED TIMING HYPOTHESIS,
+  not effect evidence**: n=20, held-out items, a sample authorised only for
+  fixing the budget, and degeneration stayed high (17/20 → 14/20) rather than
+  falling with it. Direction is consistent with GSM8K's `early_candidate` minimum
+  at the same workpoint.
+- **Do NOT write "externalized reasoning emergence increased."** Text before the
+  marker is not necessarily reasoning, and no frozen content-judgement rule
+  exists. Report morphological fields only: `answer_first`, `pre_marker_chars`,
+  `first_marker_pos`, `multi_marker` / `degenerate` rate. **`first_marker_pos` is
+  AUXILIARY** — a longer repetition tail lowers it independently of anything
+  preceding the marker, so it cannot carry a "more reasoning" reading alone.
+  Qwen's 0.94–0.98 means the marker is LATE, **not** that the preceding text is
+  complete or correct reasoning.
+- **Descriptive fields are PREFLIGHT-INFORMED SECONDARY**: outside the Holm
+  family, and themselves outcomes of α, so stratifying accuracy on them is
+  post-treatment stratification — consistent-with evidence, never mediation.
+- **Statistics**: primary `ΔAcc` on MAIN parsing paired per item; exact two-sided
+  McNemar with discordant counts; question-level paired bootstrap 95% CI
+  (B=10000, seed 0); **Holm over the TWO MODELS (m=2), judged only when both are
+  complete** — a partial family reports an `m=1` adjustment under an `m=2` label.
+- **`p4_amendment_04.json` was produced by the earlier warning-then-write decider
+  build** (it warned on llama α=−6's 19/20 AND wrote the artifact). Re-running the
+  current gate-corrected code reproduces it with NO differing keys, so it is kept
+  rather than renumbered — `p4-amend-02` and `p4-amend-05` both already name 04 as
+  the stage-1 freeze. This does **not** bless that build; the defect is fixed at
+  `407e6ab`, and the artifact survives because its CONTENT was independently
+  reproduced. Provenance in `p4-amend-06`.
+- **Two frozen-artifact rules this line established the hard way.** A generator of
+  frozen artifacts must ship **no `--allow_overwrite` escape hatch** — "refuses to
+  overwrite" is not true while a flag bypasses it. And a **format violation is a
+  hard stop BEFORE any write**: warning-then-write both downgrades the rule and
+  leaves a stage-1 freeze derived from non-conforming output on disk.
+- **A launcher bug worth not repeating:** `${1:?usage: ... {llama3|qwen2.5}}`
+  ends the parameter expansion at the FIRST `}`, so `MODEL` became the literal
+  `llama3}`. `bash -n` is clean on this — the syntax is valid, the semantics are
+  not. Always invoke a launcher with real arguments, not just a syntax check.
+- **`MODEL_DIR` is an HF REPO ID and the mask dir is `${MODEL}_non_logits`** (not
+  `_nmd_logits`), matching every other launcher; there is no filesystem model
+  tree. A nonexistent path is handed to transformers, which parses it as a repo
+  id and raises an `HFValidationError` naming neither the launcher nor the
+  missing directory. All cheap checks now run BEFORE the model loads.
+
+```bash
+# Server, from /data1/paveen/Dopamine. One model per card; both cells of a
+# model stay together (bf16 greedy is not byte-reproducible across GPUs and the
+# two cells are a paired contrast). The two MODELS may run on two cards.
+python data_logiqa2.py --out_dir components/benchmark   # digest must read 4d4b25e071a2a6dd
+
+CUDA_VISIBLE_DEVICES=0 nohup bash run_logiqa2_formal.sh llama3  > p4_formal_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_logiqa2_formal.sh qwen2.5 > p4_formal_qwen.log  2>&1 &
+cat p4_formal_llama.log   # immediately -- a wrong PY exits 127 and the log looks empty
+
+# Scoring is a SEPARATE script and the only one that reads gold. Run it once,
+# after BOTH models finish (a single model is scored with Holm WITHHELD).
+python eval_logiqa2.py \
+  --generations components/logiqa2/formal/formal_llama3.json \
+                components/logiqa2/formal/formal_qwen2.5.json \
+  --formal_file components/benchmark/logiqa2_p4_formal.json \
+  --out docs/p4_logiqa2_evaluation.json
+```
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
@@ -1479,6 +1640,16 @@ There is no pytest suite and no linter config. The tests that exist are standalo
 Two things about running them that have each cost a wrong verdict: **(a) these scripts print their own `ok` lines and signal failure through the EXIT CODE**, so redirecting output to `/dev/null` and reading only the status is fine, but reading only the last printed line is not — check `$?`. **(b) `timeout` does NOT exist on this macOS box**; wrapping a check in it yields exit 127 for every script, which looks exactly like a mass test failure. Verified passing on 2026-08-21: `test_cgt_seq_v5.py`, `test_bandit_pv10.py`, `test_bandit_pv10c.py`, `test_bandit_pv11.py`, `test_pv10_stop_parity.py`, plus `bash -n` on the Qwen launchers.
 
 ```bash
+# P4 LogiQA 2.0. The loader's --check re-runs every stage-0 assertion and
+# reprints the frozen digests; it writes nothing. It is the fastest way to
+# confirm the upstream split has not moved under you.
+python3.10 data_logiqa2.py --check     # must print formal digest 4d4b25e071a2a6dd
+                                       # and "preflight and blind formal carry
+                                       # NO gold (whitelist + payload scan)"
+bash -n run_logiqa2_preflight.sh && bash -n run_logiqa2_formal.sh
+# bash -n is NOT sufficient for a launcher -- it passed the ${1:?...} brace bug
+# that made every invocation die. Also invoke with real arguments.
+
 # P3 blind validation (GSM-Hard). STDLIB ONLY -- runs under bare python3 too,
 # deliberately: it once imported the generation module (numpy via utils) and
 # under a numpy-less interpreter CRASHED WITH EXIT CODE 0, i.e. CI would have
