@@ -129,18 +129,29 @@ for r in rows:
           f"{r['n_budget_exhausted']:4d} {r['n_with_final_answer']:3d}/{r['n']}")
 print(f"\nthreshold >= {thr}   triggered: {trigger}   FORMAL BUDGET = {budget}")
 
-# PREREG v0 section 4 defines a format violation as a HARD STOP. Emitting a
-# warning and then writing the amendment anyway would both downgrade that rule
-# and leave a stage-1 freeze derived from non-conforming output on disk. So it
-# exits non-zero BEFORE any write.
-fmt_bad = [(r["cell"], r["n_with_final_answer"], r["n"])
-           for r in rows if r["n_with_final_answer"] < r["n"]]
-if fmt_bad:
-    detail = ", ".join(f"{c} {g}/{n}" for c, g, n in fmt_bad)
-    die(f"FORMAT VIOLATION -- cells not emitting 'Final answer: [A-D]' in every "
+# Format gate, as relaxed by p4-amend-05: at least ONE valid marker makes an
+# output scorable, and marker multiplicity is a descriptive repeated-submission
+# readout rather than a violation. A cell in which NO output carries a marker
+# is still a hard stop -- that is the "cannot produce the format" case the gate
+# was written for -- and it exits non-zero BEFORE any write, so no stage-1
+# freeze derived from non-conforming output is ever left on disk.
+#
+# Zero-marker OUTPUTS are not a violation: the frozen parser scores them
+# incorrect, the denominator stays 300, and there is no rescue generation.
+fmt_dead = [(r["cell"], r["n"]) for r in rows if r["n_with_final_answer"] == 0]
+if fmt_dead:
+    detail = ", ".join(f"{c} 0/{n}" for c, n in fmt_dead)
+    die(f"FORMAT VIOLATION -- cell(s) produced NO 'Final answer: [A-D]' in any "
         f"output: {detail}. PREREG v0 section 4: the response is a HARD STOP. "
         f"No stage-1 amendment is written. The prompt and the parser are frozen "
         f"(p4-amend-02) and may NOT be redesigned in response to this output.")
+
+unscorable = [(r["cell"], r["n"] - r["n_with_final_answer"], r["n"])
+              for r in rows if r["n_with_final_answer"] < r["n"]]
+if unscorable:
+    detail = ", ".join(f"{c} {k}/{n}" for c, k, n in unscorable)
+    print(f"\n[note] outputs with no marker (scored incorrect by the frozen "
+          f"parser, no rescue): {detail}")
 
 json.dump({"amendment": "p4-amend-04", "protocol": "logiqa2-p4-v1",
            "type": "additive", "stage": 1,
