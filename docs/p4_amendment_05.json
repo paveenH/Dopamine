@@ -1,0 +1,74 @@
+{
+  "amendment": "p4-amend-05",
+  "protocol": "logiqa2-p4-v0",
+  "date": "2026-09-01",
+  "type": "additive",
+  "supersedes_nothing": true,
+  "preflight_record": "docs/P4_LOGIQA2_PREFLIGHT_OUTCOME.md",
+  "reason": "The blind format-only preflight surfaced two protocol problems. (a) The PREREG v0 section 4 format gate treats a missing marker as a hard stop, and llama alpha=-6 reads 19/20 -- but 19 of those outputs ARE scorable, and the single failure is one sample cut mid-argument. The gate was written against 'the model cannot produce the format', which is not what occurred. (b) Llama's outputs degrade into repetition rather than terminating. Both decisions below are taken from GOLD-BLIND observations; no accuracy was computed at any point.",
+  "format_gate": {
+    "old": "any cell not emitting a marker in EVERY output -> hard stop",
+    "new": "at least ONE valid marker in an output makes that output scorable",
+    "multiple_markers": "no longer a violation. Marker multiplicity becomes a DESCRIPTIVE repeated-submission readout.",
+    "zero_markers": "unchanged -- scored incorrect by the frozen parser, denominator stays 300, and there is NO rescue generation",
+    "why_this_is_not_loosening_to_fit_the_data": "The parser is byte-unchanged. What changes is only which OUTPUTS the run refuses to proceed on. A missing marker still costs the item; the gate simply no longer treats a repeated marker as evidence the interface failed. The prompt, anchor, regex and MAIN/sensitivity convention are all untouched."
+  },
+  "parsing": {
+    "main": "LAST valid 'Final answer: [A-D]'  (UNCHANGED)",
+    "sensitivity": "FIRST valid match  (UNCHANGED)",
+    "correction_to_an_earlier_reading": "It was briefly claimed that the preflight 'confirmed the original rationale' for LAST. It did not. The data show only that FIRST and LAST agree in 39 of 40 scorable outputs, because a repetition tail usually repeats the SAME letter. That is robustness on these 20 items, not confirmation that LAST captures a revised judgement."
+  },
+  "token_budget": {
+    "decision": "EXECUTE THE FROZEN RULE AS WRITTEN -> 1024",
+    "rule": ">= 511 in ANY of the four cells -> 1024",
+    "triggered_by": "all four llama cells reach 512; qwen medians are 279-303",
+    "why_not_512": "The frozen rule states a MECHANICAL condition. It does not say 'upgrade only if reasoning was truncated'. Keeping 512 because the preflight revealed the trigger to be repetition rather than long reasoning would be a SECOND adaptive change made in response to preflight output, and would weaken the evidential standing further. 1024 is the minimum departure from the pre-registered design. The expected cost is acknowledged in advance: Llama's repetition tails will grow longer. That cost is accepted, and truncation and repetition are retained as behavioural readouts rather than suppressed.",
+    "note": "the stage-1 freeze written by decide_p4_budget.py remains amendment 04"
+  },
+  "descriptive_fields_frozen_for_the_formal_run": {
+    "fields": [
+      "answer_first",
+      "pre_marker_chars",
+      "first_marker_pos",
+      "multi_marker_rate",
+      "degenerate_rate",
+      "n_markers",
+      "budget_exhausted_rate",
+      "first_last_disagreement_rate"
+    ],
+    "definitions": {
+      "answer_first": "the first non-whitespace content is a 'Final answer:' marker",
+      "pre_marker_chars": "characters before the first valid marker",
+      "first_marker_pos": "char offset of the first marker / total characters",
+      "degenerate_rate": "final 40-char block recurs >=4x (the repo is_loop convention)"
+    },
+    "status": "PREFLIGHT-INFORMED SECONDARY DESCRIPTIVE. Excluded from the Holm family (PREREG v0 section 5). They are themselves outcomes of alpha, so stratifying accuracy on them is post-treatment stratification -- consistent-with evidence, never mediation.",
+    "first_marker_pos_caveat": "CONFOUNDED BY TAIL LENGTH. A longer repetition tail lowers the normalised position independently of anything preceding the marker, so it may NOT carry a 'more reasoning' reading on its own. Auxiliary only; report pre_marker_chars beside it.",
+    "content_judgement_is_out_of_scope": "Text before the marker is NOT assumed to be reasoning. No frozen rule exists for judging whether it constitutes a justification, so only morphological fields are reported. Do NOT write 'externalized reasoning emergence increased' -- that asserts the content question these fields cannot answer, and is the same class of overreach p4-amend-03 forbids one level up."
+  },
+  "pilot_generated_hypothesis": {
+    "statement": "In the 20-item held-out preflight, Llama's answer_first rate descriptively fell from 13/20 at alpha=0 to 4/20 at alpha=-6, with more text preceding the marker. This raises a hypothesis that -6 may delay explicit answer submission, directionally consistent with GSM8K's early_candidate minimum at the same workpoint.",
+    "evidential_status": "NOT formal effect evidence",
+    "limits": [
+      "n=20; a 13->4 shift is well within sampling noise at that size",
+      "held-out items, disjoint from the formal 300 by construction",
+      "the preflight's only authorised purpose is fixing the token budget",
+      "the degeneration rate remains high with no clear synchronous decrease (17/20 -> 14/20), so submission timing and termination did not move together"
+    ],
+    "how_the_formal_run_relates": "The 300-item run can serve as an INDEPENDENT test of this pilot-generated timing hypothesis, but that analysis is preflight-informed secondary: outside Holm, and never used for mediation or for causal stratification of accuracy."
+  },
+  "cross_model_observation": {
+    "content": "Llama shows answer_first 13/20 at alpha=0 and degeneration 14-17/20; Qwen shows 0/20 answer_first, degeneration 0-1/20, and a first marker at 0.94-0.98 of the text.",
+    "status": "GOLD-BLIND PREFLIGHT OBSERVATION, used to adjust the readability protocol and to freeze descriptive fields. The cross-model RESULT waits for the formal 300.",
+    "caveat": "Qwen's late marker means the marker is LATE. It does NOT establish that the preceding text is complete or correct reasoning; no content judgement was made."
+  },
+  "unchanged_by_this_amendment": [
+    "the prompt template and its sha256 c42dc9c81f117a6c",
+    "the 'Response: ' anchor and the measured injection token",
+    "the parsing regex and the LAST/FIRST convention",
+    "the four cells and their alpha",
+    "the 300-item sample and its digest 4d4b25e071a2a6dd",
+    "the primary metric, exact McNemar, bootstrap CI and the m=2 Holm family",
+    "the pre-registered readings in PREREG v0 section 6"
+  ]
+}
