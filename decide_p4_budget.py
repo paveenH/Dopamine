@@ -129,10 +129,18 @@ for r in rows:
           f"{r['n_budget_exhausted']:4d} {r['n_with_final_answer']:3d}/{r['n']}")
 print(f"\nthreshold >= {thr}   triggered: {trigger}   FORMAL BUDGET = {budget}")
 
-fmt_bad = [r["cell"] for r in rows if r["n_with_final_answer"] < r["n"]]
+# PREREG v0 section 4 defines a format violation as a HARD STOP. Emitting a
+# warning and then writing the amendment anyway would both downgrade that rule
+# and leave a stage-1 freeze derived from non-conforming output on disk. So it
+# exits non-zero BEFORE any write.
+fmt_bad = [(r["cell"], r["n_with_final_answer"], r["n"])
+           for r in rows if r["n_with_final_answer"] < r["n"]]
 if fmt_bad:
-    print(f"\n[!] FORMAT VIOLATION in {fmt_bad}. Protocol section 4: the "
-          f"response is a HARD STOP, not a redesigned prompt or parser.")
+    detail = ", ".join(f"{c} {g}/{n}" for c, g, n in fmt_bad)
+    die(f"FORMAT VIOLATION -- cells not emitting 'Final answer: [A-D]' in every "
+        f"output: {detail}. PREREG v0 section 4: the response is a HARD STOP. "
+        f"No stage-1 amendment is written. The prompt and the parser are frozen "
+        f"(p4-amend-02) and may NOT be redesigned in response to this output.")
 
 json.dump({"amendment": "p4-amend-04", "protocol": "logiqa2-p4-v1",
            "type": "additive", "stage": 1,
