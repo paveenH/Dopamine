@@ -1,0 +1,118 @@
+{
+  "protocol": "logiqa2-p4-v0",
+  "stage": 0,
+  "frozen_date": "2026-09-01",
+  "document": "docs/PREREG_P4_LOGIQA2.md",
+  "document_sha256": "e8092be64220a13303413438c128f514d1f53cae671576c9e8108f66ce3ee3d2",
+  "what_stage0_freezes": [
+    "scientific question",
+    "doses",
+    "300-item sampling algorithm",
+    "parsing rule",
+    "statistics and Holm family",
+    "token-budget upgrade rule"
+  ],
+  "what_stage1_will_add": [
+    "selected max_new_tokens",
+    "preflight measurements",
+    "manifest hash"
+  ],
+  "source": {
+    "repo": "csitfun/LogiQA2.0",
+    "path": "logiqa/DATA/LOGIQA/test.txt",
+    "split": "English MRC test",
+    "n_rows": 1572
+  },
+  "measured_at_freeze": {
+    "label_distribution": {
+      "0": 347,
+      "1": 384,
+      "2": 417,
+      "3": 424
+    },
+    "n_options_all_rows": 4,
+    "id_unique": 1568,
+    "id_total": 1572,
+    "passage_question_unique": 1557,
+    "composite_key_unique": 1572,
+    "note": "id and (passage,question) are BOTH non-unique; the composite key is the item key"
+  },
+  "sampling": {
+    "salt": "logiqa2-p4-v0",
+    "per_label": 75,
+    "total": 300,
+    "key": "sha256(salt:id US passage US question US options.join(RS))",
+    "verified_marginals": {
+      "0": 75,
+      "1": 75,
+      "2": 75,
+      "3": 75
+    },
+    "verified_digest_prefix": "4d4b25e071a2a6dd"
+  },
+  "cells": [
+    {
+      "model": "llama3.1-8B",
+      "alphas": [
+        0,
+        -6
+      ],
+      "band": "11-20",
+      "L": 9,
+      "mask": "nmd_0.5_11_20_8B.npy"
+    },
+    {
+      "model": "qwen2.5-7B",
+      "alphas": [
+        0,
+        8
+      ],
+      "band": "16-22",
+      "L": 6,
+      "mask": "nmd_0.5_16_22_7B.npy"
+    }
+  ],
+  "parsing": {
+    "main": "LAST valid 'Final answer: [A-D]'",
+    "sensitivity": "FIRST valid match",
+    "no_match": "no_marker, scored incorrect",
+    "denominator": 300,
+    "rescue_generation": false,
+    "why_last_differs_from_MATH": "MATH uses FIRST because tail loops pollute the last boxed; LogiQA uses LAST because the generative protocol invites revision and FIRST would lock a pre-reasoning guess"
+  },
+  "budget_rule": {
+    "preflight_budget": 512,
+    "preflight_n": 20,
+    "per_label": 5,
+    "drawn_from": "rows NOT in the formal 300, next 5 by key within each label",
+    "upgrade_if": "ANY of the 20 outputs in ANY of the 4 cells has offline length >= 511",
+    "upgraded_budget": 1024,
+    "else_budget": 512,
+    "accuracy_computed_during_preflight": false,
+    "offline_truncation_threshold": ">= budget - 1, never == budget"
+  },
+  "statistics": {
+    "primary": "paired dAcc on MAIN parsing",
+    "tests": [
+      "exact two-sided McNemar",
+      "question-level bootstrap 95% CI, B=10000, seed 0"
+    ],
+    "holm_family_m": 2,
+    "holm_withheld_if_incomplete": true
+  },
+  "not_this": [
+    "not commitment-based workpoint selection (P2B)",
+    "not a blind dataset validation (gold is public; P3 was the blind test and is closed)",
+    "not evidence that workpoints transfer generally"
+  ],
+  "loader": {
+    "new_file": "data_logiqa2.py",
+    "existing_file_left_unchanged": "data_logiqa.py",
+    "reasons_existing_unusable": [
+      "writes to stale /data2/.../RolePlaying tree",
+      "drops id, raw passage/question/options and type provenance",
+      "freezes no sampling manifest",
+      "no generative runner"
+    ]
+  }
+}
