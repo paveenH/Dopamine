@@ -1,0 +1,40 @@
+{
+  "amendment": "p4-amend-06",
+  "protocol": "logiqa2-p4-v0",
+  "date": "2026-09-01",
+  "type": "additive",
+  "supersedes_nothing": true,
+  "reason": "Two records that must not be left implicit: the provenance of the stage-1 budget freeze (amendment 04), and the evidential positioning of Llama's degenerate tails against this repo's own GSM8K precedent.",
+  "provenance_of_amendment_04": {
+    "what_happened": "docs/p4_amendment_04.json was produced by an EARLIER build of decide_p4_budget.py in which a format violation printed a warning and then wrote the amendment anyway. llama alpha=-6 reads 19/20, so that build emitted the warning AND left the artifact on disk. The warning-then-write behaviour was subsequently replaced (commit 407e6ab) by a hard stop before any write, and the gate itself was then relaxed by p4-amend-05.",
+    "why_it_was_kept_rather_than_regenerated": "Re-running the CURRENT code against the same two preflight files produces a byte-equivalent object: a key-by-key comparison of the as-found artifact against a fresh recomputation reported NO differing keys. So amendment 04 is exactly what the current, gate-corrected code writes. Archiving it under a new number would leave the 04 slot permanently empty while p4-amend-02 and p4-amend-05 both already name amendment 04 as the stage-1 freeze -- creating more inconsistency than it removes.",
+    "verification": "recomputed 2026-09-01; differing keys: NONE",
+    "what_is_NOT_claimed": "This does not retroactively bless the warning-then-write build. That was a real defect and is fixed. The artifact survives because its CONTENT was independently reproduced under the corrected code, not because the build that first wrote it is now considered acceptable.",
+    "frozen_values": {
+      "formal_max_new_tokens": 1024,
+      "triggered": true,
+      "decision_rule": ">= 511 in ANY of 4 cells -> 1024"
+    }
+  },
+  "degenerate_tails_are_a_known_repo_phenomenon": {
+    "correction": "The preflight outcome record presented Llama's degenerate tails as a newly surfaced problem that put readability in question. That framing OVERSTATED it. This repo's principal GSM8K result set was produced under a strictly more extreme version of the same phenomenon.",
+    "gsm8k_precedent": {
+      "cap_hit": "97% of trajectories hit the 767 max_new_tokens cap",
+      "loop_baseline": "raw loop rate 74-88% across alpha, with no clean alpha trend",
+      "tail_form": "the text after the 2nd '####' is a degenerate '#### N ...' loop, NOT reasoning",
+      "consequence": "GSM8K remains one of this project's main result sources. Cap-hit and looping did not make it unreadable."
+    },
+    "why_accuracy_stays_readable": "The answer is fully produced BEFORE the degeneration. GSM8K takes the FIRST '####', so the repeated tail is post-submission. In the LogiQA preflight the parallel evidence is that FIRST and LAST agree in 39 of 40 scorable outputs -- the repetition repeats the SAME letter.",
+    "a_real_difference_that_does_not_change_the_conclusion": "The two degeneration morphologies are NOT identical and must not be described as one phenomenon. GSM8K's '####' is terminal by construction, so its loop is always post-submission. LogiQA's Llama alpha=0 shows 13/20 answer_first, i.e. the marker precedes any derivation -- a different shape. Both nonetheless leave a complete submitted answer before the degeneration, which is what accuracy readability requires.",
+    "adopted_reading_convention": "Follow the GSM8K convention: the degeneration rate is a DESCRIPTIVE readout and MUST NOT be read as perseveration unless it shows a clean alpha trend. The GSM8K precedent for this is explicit -- a 74-88% baseline with no alpha trend is exactly why the raw loop rate is barred from a perseveration reading there.",
+    "detector_is_shared_deliberately": "degenerate_rate uses the repo's is_loop convention (final 40-character block recurring >=4x), the same strict definition GSM8K uses, so the two tasks stay comparable. A permissive n-gram proxy is explicitly rejected: on GSM8K it read 80-86% and every flagged case was a false positive.",
+    "not_an_exemption": "Citing the precedent does not waive quantification. The rates are measured, reported per cell, and carried into the formal run as frozen descriptive fields (p4-amend-05)."
+  },
+  "unchanged_by_this_amendment": [
+    "the prompt, anchor, parser and MAIN/sensitivity convention",
+    "the four cells and their alpha",
+    "the 300-item sample and its digest 4d4b25e071a2a6dd",
+    "the primary metric, exact McNemar, bootstrap CI and the m=2 Holm family",
+    "amendment 04's frozen budget of 1024"
+  ]
+}

@@ -48,6 +48,24 @@ Field definitions: `answer_first` = the first non-whitespace content is a
 in the text (the repo's `is_loop` convention). `first_marker_pos` = character
 offset of the first marker / total characters.
 
+### 2.0 Context: this repo has a stronger precedent (added by p4-amend-06)
+
+Read section 2.1 against GSM8K, where **97% of trajectories hit the token cap**
+and the raw loop rate runs **74–88% across α with no clean α trend** — and which
+is nonetheless one of this project's main result sources. The Llama cells below
+(20/20 cap-hit, degeneration 14–17/20) are the same order of magnitude, arguably
+milder. Degeneration here is a **known phenomenon with an established handling
+convention**, not a newly discovered obstacle; an earlier draft of this file
+overstated it as putting readability in question.
+
+The convention: accuracy stays readable because the answer is complete BEFORE
+the degeneration (GSM8K takes the first `####`; here FIRST and LAST agree in
+39/40), and the degeneration rate is descriptive — **never read as perseveration
+unless it shows a clean α trend**. One genuine difference is recorded rather
+than smoothed over: GSM8K's `####` is terminal by construction so its loop is
+always post-submission, whereas Llama α=0 here shows 13/20 `answer_first`, a
+different shape. Both still leave a submitted answer before the tail.
+
 ### 2.1 Llama: scorable, with degraded termination
 
 Not "cannot answer" and not "unreadable". 19 of 20 outputs in each cell carry
@@ -109,7 +127,9 @@ Recorded here; resolved in `docs/p4_amendment_05.json`.
 1. **The format gate treats repetition as a violation.** PREREG v0 §4 makes a
    missing marker a hard stop, and llama α=−6 reads 19/20. But 19 of those 20
    outputs are scorable; the gate was written against "the model cannot produce
-   the format", which is not what happened.
+   the format", which is not what happened. Resolved by `p4-amend-05`: one valid
+   marker makes an output scorable, and only a cell with NO marker anywhere is
+   still a hard stop.
 
 2. **The budget rule fires for a reason its premise did not anticipate.** The
    rule reads "any output ≥511 → 1024", intended as "reasoning needs more
