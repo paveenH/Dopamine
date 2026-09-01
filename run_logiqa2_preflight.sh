@@ -12,7 +12,12 @@
 # across GPUs, and these two cells are a paired contrast.
 set -euo pipefail
 
-MODEL="${1:?usage: run_logiqa2_preflight.sh {llama3|qwen2.5}}"
+# NOTE: do NOT put braces in a ${1:?...} message -- the parameter expansion
+# ends at the FIRST '}', so "{llama3|qwen2.5}" made MODEL literally 'llama3}'.
+if [[ $# -lt 1 ]]; then
+  echo "usage: run_logiqa2_preflight.sh llama3|qwen2.5" >&2; exit 1
+fi
+MODEL="$1"
 PY="${PY:-python}"
 WORK_DIR="${WORK_DIR:-/data1/paveen/Dopamine}"
 BENCH="${BENCH:-$WORK_DIR/components/benchmark}"
