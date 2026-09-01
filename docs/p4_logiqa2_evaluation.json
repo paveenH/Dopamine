@@ -1,0 +1,101 @@
+{
+  "protocol": "logiqa2-p4-v0",
+  "amendments": "p4-amend-02,03,04,05,06",
+  "holm_family_m": 2,
+  "holm_complete": true,
+  "results": {
+    "llama3": {
+      "alpha": -6,
+      "acc_base": 0.5633333333333334,
+      "acc_steer": 0.52,
+      "dAcc_pp": -4.333333333333334,
+      "discordant_0to1": 13,
+      "discordant_1to0": 26,
+      "p_raw": 0.05325191409792751,
+      "ci95_pp": [
+        -8.333333333333334,
+        -0.3333333333333333
+      ],
+      "sensitivity_first": {
+        "acc_base": 0.5733333333333334,
+        "acc_steer": 0.54,
+        "dAcc_pp": -3.3333333333333335
+      },
+      "descriptive": {
+        "-6": {
+          "no_marker_rate": 0.02,
+          "first_last_disagree": 0.043333333333333335,
+          "answer_first": 0.33,
+          "degenerate": 0.8633333333333333,
+          "multi_marker": 0.6233333333333333,
+          "budget_exhausted": 0.97,
+          "gen_tokens_med": 1024,
+          "pre_marker_chars_med": 148,
+          "pre_marker_n": 294,
+          "first_marker_pos_med": 0.042598509052183174
+        },
+        "0": {
+          "no_marker_rate": 0.01,
+          "first_last_disagree": 0.016666666666666666,
+          "answer_first": 0.7566666666666667,
+          "degenerate": 0.95,
+          "multi_marker": 0.6066666666666667,
+          "budget_exhausted": 0.9933333333333333,
+          "gen_tokens_med": 1024,
+          "pre_marker_chars_med": 0,
+          "pre_marker_n": 297,
+          "first_marker_pos_med": 0.0
+        }
+      }
+    },
+    "qwen2.5": {
+      "alpha": 8,
+      "acc_base": 0.64,
+      "acc_steer": 0.65,
+      "dAcc_pp": 1.0,
+      "discordant_0to1": 33,
+      "discordant_1to0": 30,
+      "p_raw": 0.8013064925040662,
+      "ci95_pp": [
+        -4.0,
+        6.333333333333333
+      ],
+      "sensitivity_first": {
+        "acc_base": 0.6566666666666666,
+        "acc_steer": 0.6633333333333333,
+        "dAcc_pp": 0.6666666666666667
+      },
+      "descriptive": {
+        "0": {
+          "no_marker_rate": 0.0,
+          "first_last_disagree": 0.02,
+          "answer_first": 0.0,
+          "degenerate": 0.13333333333333333,
+          "multi_marker": 0.48333333333333334,
+          "budget_exhausted": 0.15666666666666668,
+          "gen_tokens_med": 311,
+          "pre_marker_chars_med": 1401,
+          "pre_marker_n": 300,
+          "first_marker_pos_med": 0.9699481865284975
+        },
+        "8": {
+          "no_marker_rate": 0.0033333333333333335,
+          "first_last_disagree": 0.04,
+          "answer_first": 0.0,
+          "degenerate": 0.21666666666666667,
+          "multi_marker": 0.6166666666666667,
+          "budget_exhausted": 0.26,
+          "gen_tokens_med": 323,
+          "pre_marker_chars_med": 1370,
+          "pre_marker_n": 299,
+          "first_marker_pos_med": 0.866754617414248
+        }
+      }
+    }
+  },
+  "p_adj": {
+    "llama3": 0.10650382819585502,
+    "qwen2.5": 0.8013064925040662
+  },
+  "note": "descriptive fields are preflight-informed secondary, outside Holm; they are outcomes of alpha, so stratifying accuracy on them is post-treatment"
+}
