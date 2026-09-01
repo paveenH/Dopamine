@@ -33,17 +33,38 @@
 15. GSM-Hard COT + alpha Vs. COT ✔
 --- 
 16. MATH补充完整 ⏸
-17. MMLUpro reasoning版本
+17. 版本
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
 ---
 
-- [ ] 在查看结果前冻结 300 道题、prompt、生成参数与评价规则。
-- [ ] Llama 只运行 `α∈{0,−6}`。
-- [ ] Qwen 只运行 `α∈{0,+8}`。
-- [ ] 报告 paired accuracy difference、bootstrap CI 与 McNemar test。
-- [ ] commitment analysis 仅作 supplementary；选择题格式不得直接套用 GSM8K predictor。
+我建议先做 **LogiQA 2.0 English MRC**，理由是：
+
+- 它集中测逻辑推理，不需要处理 MMLU-Pro 的多学科抽样问题。
+- 官方 test split 是 1,572 题，规模明显更可控。
+- 四选一，生成后的答案解析比 A–J 简单。
+- 当前 loader 已经存在。
+- 它与 GSM8K/MATH 的任务差异更大，更适合检验 fixed-workpoint 的边界。[LogiQA 2.0 官方资料](https://github.com/csitfun/LogiQA2.0)
+
+但不必全跑 1,572 题。我建议冻结：
+
+- 从 test split 抽 300 题；
+- 每个正确标签 A–D 各 75 题，标签内按固定种子随机抽样；
+- 两个模型及所有 α 共用同一题目清单；
+- Llama3.1：`0 vs −6`；
+- Qwen2.5：`0 vs +8`；
+- 强制自由生成 reasoning，最后输出 `Final answer: X`；
+- 先用少量题只检查格式、截断率和生成长度，再冻结 `max_new_tokens`，不看准确率；
+- paired bootstrap、McNemar，Holm `m=2`。
+
+这样总计仍是 1,200 次生成，但 LogiQA 的输出通常可以控制得比 MMLU-Pro 短，建议先检验 `512` tokens 是否足够。
+
+证据定位仍要写成：
+
+> LogiQA 2.0 tests fixed-workpoint transfer to generative logical reasoning.
+
+不是“证明工作点普遍可迁移”。如果两模型都不改善，也是明确的任务边界结果。
 
 ### Hypothesis under test（**非结论**）
 
