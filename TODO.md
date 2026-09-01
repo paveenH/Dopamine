@@ -7,6 +7,10 @@
 3）commit 可预测性
 4）与行为学实验是否一致 qwen行为学实验虽然表现较差 但是趋势和llama3是一致的
 
+组会内容：
+1）弄清楚neurons的差异：confident & unconfident // thinking & answer directly (先推理再提交、先提交再推理)
+2）Manifold -> 不同方法找到的neurons之间的差异
+
 ## TO DO
 0. 测试一下qwen中间一点的mask ✖
 1. Qwen25-7B ICG实验结果整理 ✔ 
@@ -27,6 +31,7 @@
 14. cross-model thinking curve + 再次整理thinking.md -> commitment regime ✔
 15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
 15. GSM-Hard COT + alpha Vs. COT ✔ 
+16. MATH补充完整
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
