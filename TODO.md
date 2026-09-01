@@ -33,13 +33,6 @@
 15. GSM-Hard COT + alpha Vs. COT ✔
 --- 
 16. MATH补充完整 ✔ (2026-09-01)
-    - Llama MATH `−6` No-CoT ✔ (43.33%, +6.67 pp vs α=0)
-    - Llama MATH `−6` CoT ✔ (49.00%, +7.00 pp vs α=0_cot；矩阵最高)
-    - 4×2 accuracy / dose (No-CoT m=3, CoT m=3) / CoT gain (m=4) / interaction 分析 ✔
-    - 结论边界：Llama fixed workpoint 在 MATH 两个条件下均约 +7 pp；Qwen `+8` 仍为
-      方向性正增益且 CI 跨 0 → **fixed-workpoint transfer 有模型/任务边界**。
-      interaction 三个 CI 全部跨 0（descriptive/exploratory，未事前冻结），
-      **不得据此宣称机制独立**。
 17. LogiQA working point ⏸ (formal run 已完成，评分与文档整理待办)
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
