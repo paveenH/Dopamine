@@ -42,9 +42,14 @@
 
 ### MATH
 
-- [ ] 使用现有结果计算 Qwen `α=+8 vs α=0` 的 paired accuracy difference、bootstrap CI 与 McNemar test。
-- [ ] 补跑 Llama MATH `α=−6`，与已有 `α=0` 配对比较。
-- [ ] 明确区分 fixed-workpoint transfer 与 commitment-based workpoint selection。
+- [x] 使用现有结果计算 Qwen `α=+8 vs α=0` 的 paired accuracy difference、bootstrap CI 与 McNemar test。
+      **结果：+2.67 pp（60.67→63.33），McNemar 33/25 p=.358，bootstrap 95% CI [−2.33, +7.67] — 未检出。**
+      `last_acc` 敏感性同向（+3.67 pp），故不是抽取口径造成。
+- [ ] 补跑 Llama MATH `α=−6`，与已有 `α=0` 配对比较。（`run_math_llama3_wp.sh`，单格，待跑）
+- [x] 明确区分 fixed-workpoint transfer 与 commitment-based workpoint selection。
+      两者问的不是同一个问题，且 Qwen 上恰好分叉：GSM8K 工作点是 `+8`，而 MATH 最优是 `+6`
+      （九档曲线 68.33，倒 U 在 `+8` 已过峰）。P2B 测「能否**挑出**最优档」→ 挑中 `+6`，regret 0；
+      固定工作点测「已确立的 α 换任务后**还灵不灵**」→ 测 `+8`。选点成功 ≠ 固定工作点可迁移，两者不可合并。
 
 ### LogiQA
 
@@ -54,9 +59,17 @@
 - [ ] 报告 paired accuracy difference、bootstrap CI 与 McNemar test。
 - [ ] commitment analysis 仅作 supplementary；选择题格式不得直接套用 GSM8K predictor。
 
-### Target Conclusion
+### Hypothesis under test（**非结论**）
 
 > GSM8K 确立的模型特异工作点，无需在目标任务上重新搜索，即可迁移并改善不同类型的 reasoning tasks。
+
+**当前证据不支持把它写成结论。** Qwen MATH `+8 vs 0` 已是 null（CI 跨 0），且其 GSM8K 工作点
+并非 MATH 最优档。因此本行保持为待检验假设，最终更可能落在：
+
+> 固定工作点的迁移**具有模型/任务边界**——能否迁移取决于目标任务的剂量曲线是否把该 α 仍
+> 留在有效区间内，而不是工作点本身可无条件携带。
+
+Llama MATH `−6` 与 LogiQA 两条腿跑完前，不得写「可迁移并改善」。
 ---
 
 ### P2. 补 causal direction control

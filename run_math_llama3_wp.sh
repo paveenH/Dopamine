@@ -23,6 +23,14 @@
 # ONE CARD. bf16 greedy is not byte-reproducible across GPUs, and this cell is
 # compared per-question against a stored alpha=0. Pin CUDA_VISIBLE_DEVICES.
 #
+# SUMMARY CSV HAZARD. get_answer_regenerate_math.py:164 opens
+# summary_math_<model>_<size>.csv in mode="w" and writes only THIS run's
+# csv_rows -- so a single-cell run REPLACES the existing multi-cell summary
+# with one line. The JSON cells are untouched (each has its own mdf_* dir),
+# but the summary is a real artifact and losing it is silent. This script
+# therefore snapshots it before the run and MERGES the new row back after,
+# keeping a .bak of the pre-run file either way.
+#
 # NOTE the stored cells' physical GPU is unrecoverable (summary CSV carries no
 # device field), so -6 vs 0 is a cross-run pairing. At temperature=0 the drift
 # is small, but it is a real limitation and must be stated with the result.
@@ -85,6 +93,18 @@ if [ -e "${OUT}" ]; then
     exit 1
 fi
 
+# The generator rewrites the summary CSV from scratch with only this run's row.
+# Snapshot it so the pre-existing cells can be merged back afterwards.
+CSV="${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}/summary_math_${MODEL_NAME}_${MODEL_SIZE}.csv"
+CSV_BAK="${CSV}.bak.$(date +%Y%m%d_%H%M%S)"
+if [ -e "${CSV}" ]; then
+    cp -p "${CSV}" "${CSV_BAK}" || { echo "[x] cannot snapshot ${CSV}"; exit 1; }
+    echo "[i] summary CSV snapshot -> ${CSV_BAK}"
+else
+    CSV_BAK=""
+    echo "[i] no existing summary CSV; nothing to preserve"
+fi
+
 echo ""
 echo "[1/1] alpha=-6 No-CoT — neutral"
 "${PY}" get_answer_regenerate_math.py \
@@ -105,6 +125,31 @@ echo "[1/1] alpha=-6 No-CoT — neutral"
     --temperature    ${TEMPERATURE} \
     --batch_size     ${BATCH_SIZE}
 [ $? -eq 0 ] && echo "[v] alpha=-6 done" || { echo "[x] alpha=-6 failed"; exit 1; }
+
+# Merge the pre-run rows back in: the generator just replaced the file with a
+# single row. Dedup on (alpha, start, end, role); the NEW row wins on conflict.
+if [ -n "${CSV_BAK}" ] && [ -e "${CSV}" ]; then
+    "${PY}" - "${CSV_BAK}" "${CSV}" <<'PYMERGE'
+import csv, sys
+bak, cur = sys.argv[1], sys.argv[2]
+key = lambda r: (r["alpha"], r["start"], r["end"], r["role"])
+with open(bak, newline="", encoding="utf-8") as f:
+    old = list(csv.DictReader(f))
+with open(cur, newline="", encoding="utf-8") as f:
+    new = list(csv.DictReader(f))
+    fields = list(csv.DictReader(open(cur, newline="", encoding="utf-8")).fieldnames)
+merged, seen = [], {key(r) for r in new}
+for r in old:
+    if key(r) not in seen:
+        merged.append(r)
+merged.extend(new)
+with open(cur, "w", newline="", encoding="utf-8") as f:
+    w = csv.DictWriter(f, fieldnames=fields)
+    w.writeheader(); w.writerows(merged)
+print(f"[i] summary CSV merged: {len(old)} pre-existing + {len(new)} new -> {len(merged)} rows")
+PYMERGE
+    [ $? -eq 0 ] || echo "[!] merge failed; the pre-run summary is intact at ${CSV_BAK}"
+fi
 
 echo ""
 echo "=================================================="

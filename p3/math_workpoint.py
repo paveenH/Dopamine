@@ -43,6 +43,19 @@ from analyze_first_last_acc import all_boxed, norm_math, fallback_math
 import numpy as np
 from scipy.stats import binomtest
 
+N_EXPECTED = 300  # the frozen MATH sample; a cell of any other size is a hard stop
+
+# Frozen correct-counts for the ALREADY-STORED cells, recomputed through this
+# script's own extractor. A stored cell that no longer reproduces its frozen
+# count means the extractor, the normalizer or the data changed underneath --
+# in which case nothing below is citable. The workpoint cells are absent here
+# on purpose: llama -6 has never been run, and qwen +8's count is the result.
+FROZEN_COUNTS = {
+    ("llama", "mdf_0"): 110,
+    ("qwen", "mdf_0"): 182,
+    ("qwen", "mdf_8"): 190,
+}
+
 # alpha read from the frozen GSM8K record -- NOT re-searched, NOT predicted.
 CELLS = {
     "llama": {
@@ -129,6 +142,9 @@ def main():
 
         # pairing: fail closed rather than silently comparing different problems
         assert len(d0) == len(dw), f"{model}: n differs {len(d0)} vs {len(dw)}"
+        assert len(d0) == N_EXPECTED, (
+            f"{model}: n={len(d0)}, expected {N_EXPECTED} -- a truncated or "
+            f"extended cell is not the frozen MATH sample")
         g0 = [s["gold_answer"] for s in d0]
         gw = [s["gold_answer"] for s in dw]
         assert g0 == gw, f"{model}: gold vectors differ -- not the same problems in the same order"
@@ -139,6 +155,15 @@ def main():
         a, b = vec_first(d0), vec_first(dw)
         al, bl = vec_last(d0), vec_last(dw)
         n = len(a)
+
+        # stored cells must still reproduce their frozen counts
+        for cell, v in ((cfg["base"], a), (cfg["wp"], b)):
+            exp = FROZEN_COUNTS.get((model, cell))
+            if exp is not None:
+                assert sum(v) == exp, (
+                    f"{model}/{cell}: first_acc count {sum(v)} != frozen {exp}. "
+                    f"The stored cell no longer reproduces; nothing here is citable "
+                    f"until that is explained.")
         b01, b10, p = mcnemar(a, b)
         lo, hi = boot(a, b)
         res[model] = dict(
@@ -154,17 +179,30 @@ def main():
         if not res:
             print("\nnothing to report."); return
 
-    adj = holm([(m, r["p"]) for m, r in res.items()])
+    # Holm is defined over the DECLARED family (both models). Running it over a
+    # partial family would report an m=1 adjustment under an m=2 label, which
+    # is anti-conservative -- so the column is withheld until the family is
+    # complete, rather than silently changing meaning.
+    complete = set(res) == set(CELLS)
+    adj = holm([(m, r["p"]) for m, r in res.items()]) if complete else None
 
-    print(f"\n{'model':>6} {'alpha':>6} {'acc0':>7} {'acc_wp':>7} {'Delta':>8} "
-          f"{'0->1':>5} {'1->0':>5} {'p':>10} {'p_adj':>9}  95% CI (pp)")
-    print("-" * 90)
+    head = (f"\n{'model':>6} {'alpha':>6} {'acc0':>7} {'acc_wp':>7} {'Delta':>8} "
+            f"{'0->1':>5} {'1->0':>5} {'p':>10}")
+    print(head + (f" {'p_adj':>9}  95% CI (pp)" if complete else "  95% CI (pp)"))
+    print("-" * (90 if complete else 79))
     for m, r in res.items():
         d = (r["accw"] - r["acc0"]) * 100
-        star = "*" if adj[m] < .05 else " "
-        print(f"{m:>6} {r['cfg']['wp_label']:>6} {r['acc0']*100:7.2f} {r['accw']*100:7.2f} "
-              f"{d:+8.2f} {r['b01']:5d} {r['b10']:5d} {r['p']:10.4g} {adj[m]:9.4g}{star} "
-              f"[{r['lo']*100:+.2f}, {r['hi']*100:+.2f}]")
+        line = (f"{m:>6} {r['cfg']['wp_label']:>6} {r['acc0']*100:7.2f} {r['accw']*100:7.2f} "
+                f"{d:+8.2f} {r['b01']:5d} {r['b10']:5d} {r['p']:10.4g}")
+        if complete:
+            line += f" {adj[m]:9.4g}{'*' if adj[m] < .05 else ' '}"
+        print(line + f"  [{r['lo']*100:+.2f}, {r['hi']*100:+.2f}]")
+
+    if not complete:
+        absent = sorted(set(CELLS) - set(res))
+        print(f"\n[!] Holm WITHHELD: the declared family is both models (m=2); "
+              f"missing {absent}.")
+        print("    Raw p above is UNADJUSTED and must not be cited as if corrected.")
 
     print(f"\n{'model':>6}  last_acc sensitivity (never the headline)")
     for m, r in res.items():
@@ -176,7 +214,8 @@ def main():
     for m, r in res.items():
         print(f"  {m:>6}  band {r['cfg']['band']:<14} n={r['n']}  "
               f"workpoint from: {r['cfg']['workpoint_source']}")
-    print("\nHolm family = the two models, m=2 (matches the P3 supplement).")
+    if complete:
+        print("\nHolm family = the two models, m=2 (matches the P3 supplement).")
     print("Cross-run pairing: the stored cells' physical GPU is unrecoverable")
     print("(summary CSV carries no device field). At temperature=0 the drift is")
     print("small, but this is a limitation and must travel with the result.")
