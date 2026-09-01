@@ -33,7 +33,7 @@
 15. GSM-Hard COT + alpha Vs. COT ✔
 --- 
 16. MATH补充完整 ⏸
-17. 版本
+17. LogiQA working point
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
