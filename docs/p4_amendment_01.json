@@ -71,7 +71,8 @@
       "decode_steered": false
     },
     "hazard_rstrip": "rstrip() on this prompt moves the tail token from 220 to ':' (25) and silently relocates the injection site. The trailing space is an assertion, not a formatting preference.",
-    "expected_steering_fires": "L * B * 1 per batch (llama L=9, qwen L=6); alpha=0 fires 0"
+    "expected_steering_fires": "L * B * 1 per batch (llama L=9, qwen L=6); alpha=0 fires 0",
+    "cross_model_wording": "Both models use the SAME TEXT anchor 'Reasoning: ', and each tokenizer's final token happens to be id 220 ' '. Do NOT write that the two models share 'the same decision-bottleneck token': an identical integer in two different tokenizers is a numbering coincidence and does not imply equivalent internal mechanism. What is shared is the anchor TEXT and the fact that injection lands on a trailing-space token in each model; anything beyond that is unmeasured."
   },
   "stopping": {
     "natural_eos_only": true,
