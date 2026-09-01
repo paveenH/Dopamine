@@ -544,26 +544,27 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 ### 3.3 α dose behavioral panel (MATH 版 §2.2)
 
-与 GSM8K §2.2 同一套面板。**本面板的完整字段仅覆盖 −4/0/+4 三个剂量** —— `α=−6` 于 2026-09-01 补跑，其 accuracy / commit rate / first-last 已在 §3.1 报告，但 `analyze_cot_metrics.py` 的全套字段尚未在该格重算。为避免制造不完整列，`−6` 不并入下表，另见本节末的 submission stability supplement。
+与 GSM8K §2.2 同一套面板，四个剂量。`α=−6` 于 2026-09-01 补跑，全部字段由**同一脚本、同一定义、同一分母**（`analyze_cot_metrics.py --task math --table dose`）重算后并入下表。
 
 两个指标换了锚点：提交位置从 `####` 改看 `\boxed{}`，抢答从"裸数字开头"改为"`\boxed{}` 即首 token"。**因此 MATH 与 GSM8K 的位置类数值不可直接对比**，只能比趋势方向。
 
-| Metric | **α=−4** | α=0 | **α=+4** | Trend / 对照 GSM8K §2.2 |
-|---|---:|---:|---:|---|
-| **acc** (first `\boxed{}`) | **40.0** | 36.7 | 33.0 | ✓ 递减（GSM8K 73/60/55，同向） |
-| **committed_acc** | **45.8** | 42.2 | 37.9 | ✓ **单调递减**（GSM8K 78.3/68.6/63.9，同 signature） |
-| commit_rate % | 87.3 | 86.0 | 85.3 | 高且平（MATH `\boxed{}` 收口稳定，不像 GSM8K `####` 的 58/63/49） |
-| median `\boxed{}` position | 21% | 14% | 16% | −4 提交最晚（GSM8K ####位置同向：负向最晚） |
-| mean `\boxed{}` position | 40% | 26% | 33% | 右偏长尾（mean≫median = 少数题极晚才 boxed） |
-| premature (lead `\boxed{}`) | 7 | 17 | 8 | 漏检 `\boxed{}`-lock 型抢答 |
-| **premature (either)** | **13** | **29** | **26** | union（lead ∪ early-`\boxed{}`），MATH 抢答远少于 GSM8K |
-| **median gen_len** (char) | **4798** | 5557 | **5719** | ✓ 递增；−4 算完即收、+4 写不完（GSM8K 同向，量级大 2×+） |
-| loop samples | 76 | 120 | 99 | 远低于 GSM8K（~220-264）——MATH 长推理稀释了短串复读检出 |
-| ≥2 `Step` markers | 168 | 131 | 177 | 高（MATH No-CoT 也大量自发分步，与 GSM8K 25-31 截然不同） |
-| stuck loops (loop ∧ `=`<2) | 10 | 18 | 4 | 低（MATH 几乎总在算，`=` 多） |
-| median equation count (`=`) | 10 | 10 | 10 | 平（~10，远高于 GSM8K 的 3-4——MATH 推理更长） |
+| Metric | **α=−6** | **α=−4** | α=0 | **α=+4** | Trend / 对照 GSM8K §2.2 |
+|---|---:|---:|---:|---:|---|
+| **acc** (first `\boxed{}`) | **43.3** | **40.0** | 36.7 | 33.0 | ✓ 单调递减（GSM8K 73/60/55，同向） |
+| **committed_acc** | **46.4** | **45.8** | 42.2 | 37.9 | ✓ **单调递减**（GSM8K 78.3/68.6/63.9，同 signature） |
+| commit_rate % | **92.7** | 87.3 | 86.0 | 85.3 | ✓ 单调递增；−6 收口最完整 |
+| median `\boxed{}` position | **31%** | 21% | 14% | 16% | ✓ −6 提交最晚（GSM8K ####位置同向：负向最晚） |
+| mean `\boxed{}` position | **50%** | 40% | 26% | 33% | 右偏长尾（mean≫median = 少数题极晚才 boxed） |
+| premature (lead `\boxed{}`) | 14 | 7 | 17 | 8 | 非单调，漏检 `\boxed{}`-lock 型抢答 |
+| **premature (either)** | **16** | **13** | **29** | **26** | union（lead ∪ early-`\boxed{}`），MATH 抢答远少于 GSM8K |
+| **median gen_len** (char) | **3804** | **4798** | 5557 | **5719** | ✓ 单调递增；−6 最短=算完即收、+4 最长=放不下 |
+| loop samples | **73** | 76 | 120 | 99 | 远低于 GSM8K（~220-264）——MATH 长推理稀释了短串复读检出 |
+| ≥2 `Step` markers | **239** | 168 | 131 | 177 | −6 自发分步最多（MATH No-CoT 本就远高于 GSM8K 25-31） |
+| stuck loops (loop ∧ `=`<2) | 12 | 10 | 18 | 4 | 低（MATH 几乎总在算，`=` 多） |
+| median equation count (`=`) | **7** | 10 | 10 | 10 | −6 更短的等式链（配合最短 gen_len） |
 
-- **核心 wanting signature 跨任务复现**：`committed_acc` 单调递减（45.8→42.2→37.9）、`gen_len` 单调递增（4798→5719，−4 最短=算完即收、+4 最长=放不下），与 GSM8K §2.2 完全同向。**升 wanting 持续劣化提交质量 + 越早想交却越写不完**，换了任务出口（`####`→`\boxed{}`）方向不变。
+- **核心 wanting signature 在四点上跨任务复现**：`committed_acc` 单调递减（46.4→45.8→42.2→37.9）、`gen_len` 单调递增（3804→4798→5557→5719，−6 最短=算完即收、+4 最长=放不下），与 GSM8K §2.2 完全同向。补上 `−6` 后 `commit_rate` 也成为单调列（92.7→87.3→86.0→85.3）。**升 wanting 持续劣化提交质量 + 越早想交却越写不完**，换了任务出口（`####`→`\boxed{}`）方向不变。
+- **`premature (either)` 是四列中唯一的非单调项**（16/13/29/26）：`−6` 略高于 `−4`，两者都远低于 `0`/`+4`。不要把它读成剂量效应反转 —— MATH 的抢答绝对量本就很小（13–29 / 300，GSM8K 是 195–232），这个量级上的 3 例差异不承载方向结论。
 - **MATH 与 GSM8K 的两点结构差异（非矛盾，是任务性质）**：① 抢答远少（pre_any 13/29/26 vs GSM8K 195-232）——MATH 题难，模型极少敢首 token 直接 boxed；② 自发分步多（≥2 Step 131-177 vs GSM8K 25-31）、等式多（med_eq 10 vs 3-4）——MATH 本就需要长推理。这说明 wanting 旋钮的**方向**任务无关，但其**行为出口**被任务难度调制。
 
 **按难度分层（neutral, No-CoT, first acc）：**
@@ -582,9 +583,9 @@ I am a teacher... I am not a teacher. I am a computer program...
 - **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
 
-#### 3.3.1 Submission stability supplement (α=−6)
+#### 3.3.1 Interpretation boundary for the commitment columns
 
-`α=−6` 两格目前只有与 `−4/0/+4` **同一冻结 extractor** 计算的提交稳定性字段：
+`commit_rate`、first−last gap、`corrected`/`corrupted` 三者衡量的是 **marker 提交的可观测性与答案修订量**，不是内部承诺时刻：
 
 | Cell | commit_rate % | first−last gap | corrected | corrupted |
 |---|---:|---:|---:|---:|
@@ -593,11 +594,9 @@ I am a teacher... I am not a teacher. I am a computer program...
 | （对照）α0 No-CoT | 86.0 | +0.7 | 2 | 4 |
 | （对照）α0 CoT | 92.7 | +1.0 | 1 | 4 |
 
-**解释边界（重要）**：`commit_rate` 衡量 marker 提交的可观测性/完整性；first/last 一致或 `corrupted` 很少表示**答案修订较少**。
+> α=−6 表现出较高的 marker commitment rate 和较稳定的 first/last extraction，但这些是**输出提交稳定性读数**，不直接测量答案何时在内部形成。
 
-> α=−6 CoT 表现出较高的 marker commitment rate 和较稳定的 first/last extraction，但这些是**输出提交稳定性读数**，不直接测量答案何时在内部形成。
-
-因此这些数字**不能**用来论证「premature commitment 最低」。若要讨论承诺时序，必须使用候选形成时序、首个 marker 前的内容量，或已冻结的 timing 指标（如 `early_candidate`）—— commit rate、gap、corrected/corrupted 均**不构成内部机制证据**。
+因此**不能**据此论证「premature commitment 最低」。若要讨论承诺时序，必须使用候选形成时序、首个 marker 前的内容量，或已冻结的 timing 指标（如 `early_candidate`）—— `commit_rate`、gap、`corrected`/`corrupted` 均**不构成内部机制证据**。同理，上表 `median \boxed{} position` 随 α 变晚是**书写位置**读数，MATH 的 `\boxed{}` 按 LaTeX 惯例本就靠近文末（§4.3 已将其定为阴性对照），不可单独当作承诺推迟的证据。
 
 ### 3.4 Compulsive Over-Checking: The “Can’t Let Go” Semantics on MATH 
 
@@ -713,20 +712,20 @@ CI 来自**题目级联合 paired bootstrap**(逐题构造 difference-of-differe
 
 **12-metric orthogonal decomposition (neutral, `analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**: metric order is identical to §2.5.1 (marker = `\boxed{}`, so `##med` / `##mean` actually denote boxed position):
 
-| Metric | −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | 说明 |
-|---|---:|---:|---:|---:|---:|---:|---|
-| **acc** (first) | 40.0 | 36.7 | 33.0 | **45.0** | 42.0 | 38.7 | — |
-| **committed_acc** | 45.8 | 42.2 | 37.9 | **48.7** | 45.3 | 44.1 | — |
-| commit_rate % | 87.3 | 86.0 | 85.3 | 92.3 | 92.7 | 87.0 | MATH 几乎都 commit(≫ GSM8K) |
-| median boxed pos | 21% | 14% | 16% | 33% | 23% | 28% | Step 前缀把 `\boxed{}` 推后 |
-| mean boxed pos | 40% | 26% | 33% | 52% | 36% | 46% | 同样被 CoT 前缀推后 |
-| premature (leading) | 7 | 17 | 8 | 3 | 19 | 11 | 漏检 `\boxed{}`-lock |
-| **premature (either)** | **13** | **29** | **26** | **6** | **25** | **26** | 抢答随 α,CoT 在 −4 端再压(13→6) |
-| median gen_len (char) | 4798 | 5557 | 5719 | 3864 | 5141 | 4123 | CoT 反而更短(分步收敛更快) |
-| loop (n_loop) | 76 | 120 | 99 | 79 | 130 | 102 | Flat(CoT 不减 loop) |
-| **≥2 `Step` markers** | 168 | 131 | 177 | **273** | 217 | 185 | **CoT**: 分步结构率抬升(−4: 168→273) |
-| stuck (loop ∧ `=`<2) | 10 | 18 | 4 | 11 | 21 | 15 | — |
-| median `=` count | 10 | 10 | 10 | 7 | 8 | 8 | CoT 下 `=` 反略少(改走 Step 文字) |
+| Metric | −6_nocot | −4_nocot | 0_nocot | +4_nocot | −6_cot | −4_cot | 0_cot | +4_cot | 说明 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| **acc** (first) | 43.3 | 40.0 | 36.7 | 33.0 | **49.0** | 45.0 | 42.0 | 38.7 | — |
+| **committed_acc** | 46.4 | 45.8 | 42.2 | 37.9 | **53.1** | 48.7 | 45.3 | 44.1 | — |
+| commit_rate % | 92.7 | 87.3 | 86.0 | 85.3 | 92.3 | 92.3 | 92.7 | 87.0 | MATH 几乎都 commit(≫ GSM8K) |
+| median boxed pos | 31% | 21% | 14% | 16% | 34% | 33% | 23% | 28% | Step 前缀把 `\boxed{}` 推后 |
+| mean boxed pos | 50% | 40% | 26% | 33% | 54% | 52% | 36% | 46% | 同样被 CoT 前缀推后 |
+| premature (leading) | 14 | 7 | 17 | 8 | 3 | 3 | 19 | 11 | 漏检 `\boxed{}`-lock |
+| **premature (either)** | **16** | **13** | **29** | **26** | **3** | **6** | **25** | **26** | 低 α 端两条件都压得很低 |
+| median gen_len (char) | 3804 | 4798 | 5557 | 5719 | 3820 | 3864 | 5141 | 4123 | CoT 反而更短(分步收敛更快) |
+| loop (n_loop) | 73 | 76 | 120 | 99 | 73 | 79 | 130 | 102 | Flat(CoT 不减 loop) |
+| **≥2 `Step` markers** | 239 | 168 | 131 | 177 | **292** | 273 | 217 | 185 | **CoT**: 分步结构率抬升(−6: 239→292) |
+| stuck (loop ∧ `=`<2) | 12 | 10 | 18 | 4 | 12 | 11 | 21 | 15 | — |
+| median `=` count | 7 | 10 | 10 | 10 | 8 | 7 | 8 | 8 | CoT 下 `=` 反略少(改走 Step 文字) |
 
 > - **两杠杆仍正交**:`≥2 Step` 由 CoT 决定(No-CoT 131–177 → CoT 185–273),`premature(either)` 由 α 决定(随 α 单调,CoT 只在 −4 端再压一点)——与 §2.5.1 GSM8K 同构。
 > - **但 MATH 的 premature(either)绝对量本就低**(No-CoT 仅 13–29,GSM8K No-CoT 是 195–232):MATH 题长、模型不太敢首 token 抢答,所以"CoT 抑制抢答"这条增益通道在 MATH 上贡献很小——MATH 的 CoT 增益主要来自 **结构(Step)抬下限**,而非 GSM8K 那样**结构 × 抑制抢答**双通道叠加。这解释了为何 MATH 的 CoT gain(+5 上下)远小于 GSM8K(+12 / +9 / +4.4)。
