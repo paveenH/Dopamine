@@ -1043,25 +1043,34 @@ class VicundaModel:
                     if not return_metadata:
                         results.append(text.strip())
                         continue
-                    # Generation-time truth. HF right-pads a finished sequence
-                    # with pad_token_id, so strip trailing pads BEFORE counting;
-                    # a terminator is kept (it is a generated token) and is what
-                    # distinguishes natural EOS from an exhausted budget.
+                    # Generation-time truth, counted to the FIRST terminator.
+                    #
+                    # Stripping trailing pads is NOT usable here: __init__ sets
+                    # `tokenizer.pad_token = tokenizer.eos_token`, so pad_id is
+                    # itself a terminator and a trailing-pad rule either strips
+                    # nothing (if it excludes terminators) or eats a real EOS
+                    # (if it does not). In a padded batch HF right-pads every
+                    # finished sequence to the longest one, so a short row would
+                    # otherwise be counted at the batch maximum.
+                    #
+                    # The terminator is INCLUDED in the count: it is a generated
+                    # token, and its presence is what separates a natural stop
+                    # from an exhausted budget.
                     ids = gen_ids.tolist()
-                    pad_id = self.tokenizer.pad_token_id
-                    if pad_id is not None:
-                        term = set(self.terminators) if isinstance(
-                            self.terminators, (list, tuple, set)) else {self.terminators}
-                        while len(ids) > 1 and ids[-1] == pad_id and pad_id not in term:
-                            ids.pop()
-                    n_gen = len(ids)
-                    hit_eos = bool(ids) and ids[-1] in (
-                        set(self.terminators) if isinstance(
-                            self.terminators, (list, tuple, set)) else {self.terminators})
+                    term = set(self.terminators) if isinstance(
+                        self.terminators, (list, tuple, set)) else {self.terminators}
+                    stop_at = next((i for i, t in enumerate(ids) if t in term), None)
+                    if stop_at is None:
+                        n_gen, reason = len(ids), "budget_exhausted"
+                    else:
+                        n_gen, reason = stop_at + 1, "natural_eos"
                     results.append({
                         "text": text.strip(),
+                        "raw_text": self.tokenizer.decode(
+                            ids[:n_gen], skip_special_tokens=False,
+                            spaces_between_special_tokens=False),
                         "generated_token_count": n_gen,
-                        "stop_reason": "natural_eos" if hit_eos else "budget_exhausted",
+                        "stop_reason": reason,
                     })
         finally:
             for h in hooks:

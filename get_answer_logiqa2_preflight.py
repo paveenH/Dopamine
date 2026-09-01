@@ -180,6 +180,9 @@ def main():
             rows.append({
                 "sample_id": it["sample_id"], "key": it["key"],
                 "generated": r["text"],
+                # frozen field: untruncated, special tokens PRESERVED, not
+                # stripped -- `generated` is the cleaned text the parser reads
+                "raw_text": r["raw_text"],
                 "generated_token_count": r["generated_token_count"],
                 "stop_reason": r["stop_reason"],
                 "n_matches": len(m),
