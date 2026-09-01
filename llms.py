@@ -858,6 +858,7 @@ class VicundaModel:
         batch_size: int = 1,
         stop_strings: list[str] = None,
         prefill_tail_len: int = 1,
+        return_metadata: bool = False,
     ) -> list[str]:
         """
         Generate text by modifying hidden states of each layer using diff_matrices.
@@ -871,6 +872,15 @@ class VicundaModel:
                          None preserves existing callers' behavior exactly. Only
                          honored on the prefill_only path (the only branch that
                          drives `model.generate` directly).
+            return_metadata: If True, return list[dict] with keys `text`,
+                         `generated_token_count` and `stop_reason` instead of
+                         list[str]. Default False keeps EVERY existing caller
+                         byte-identical. Only honored on the prefill_only path.
+                         The count is read from the generated ids at generation
+                         time -- re-tokenizing the decoded text afterwards is NOT
+                         equivalent, because decode(skip_special_tokens=True)
+                         drops the terminator and re-tokenization is approximate
+                         at the boundary.
             prefill_tail_len: number of trailing prompt tokens to inject into during
                          prefill. Default 1 = original last-token-only behaviour.
                          >1 injects the last N prompt tokens (CGT --inject_turn).
@@ -882,6 +892,8 @@ class VicundaModel:
         if not prefill_only:
             if prefill_tail_len != 1:
                 raise ValueError("prefill_tail_len>1 is only supported with prefill_only=True.")
+            if return_metadata:
+                raise ValueError("return_metadata=True is only supported with prefill_only=True.")
             # Legacy behavior: hooks active during entire generation
             def forward_fn():
                 return self.generate(
@@ -897,6 +909,7 @@ class VicundaModel:
         return self._regenerate_prefill_only(
             inputs=inputs,
             diff_matrices=diff_matrices,
+            return_metadata=return_metadata,
             max_new_tokens=max_new_tokens,
             top_p=top_p,
             temperature=temperature,
@@ -914,6 +927,7 @@ class VicundaModel:
         temperature: float,
         stop_strings: list[str] = None,
         prefill_tail_len: int = 1,
+        return_metadata: bool = False,
     ) -> list[str]:
         """
         Apply intervention only during prefill (prompt processing), not during generation.
@@ -1026,7 +1040,29 @@ class VicundaModel:
                         skip_special_tokens=True,
                         spaces_between_special_tokens=False,
                     )
-                    results.append(text.strip())
+                    if not return_metadata:
+                        results.append(text.strip())
+                        continue
+                    # Generation-time truth. HF right-pads a finished sequence
+                    # with pad_token_id, so strip trailing pads BEFORE counting;
+                    # a terminator is kept (it is a generated token) and is what
+                    # distinguishes natural EOS from an exhausted budget.
+                    ids = gen_ids.tolist()
+                    pad_id = self.tokenizer.pad_token_id
+                    if pad_id is not None:
+                        term = set(self.terminators) if isinstance(
+                            self.terminators, (list, tuple, set)) else {self.terminators}
+                        while len(ids) > 1 and ids[-1] == pad_id and pad_id not in term:
+                            ids.pop()
+                    n_gen = len(ids)
+                    hit_eos = bool(ids) and ids[-1] in (
+                        set(self.terminators) if isinstance(
+                            self.terminators, (list, tuple, set)) else {self.terminators})
+                    results.append({
+                        "text": text.strip(),
+                        "generated_token_count": n_gen,
+                        "stop_reason": "natural_eos" if hit_eos else "budget_exhausted",
+                    })
         finally:
             for h in hooks:
                 h.remove()
