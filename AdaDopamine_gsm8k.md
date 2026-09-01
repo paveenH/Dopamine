@@ -443,20 +443,52 @@ Confidence: <number>
 
 ### 3.1 Accuracy (first = first boxed = reported value; last = last boxed, diagnostic)
 
+**完整 4×2 neutral 矩阵**（`first_acc`，n=300）：
+
+| α | No-CoT | CoT | ΔCoT |
+|---:|---:|---:|---:|
+| **−6** | **43.3%** | **49.0%** | +5.7 pp |
+| −4 | 40.0% | 45.0% | +5.0 pp |
+| 0 | 36.7% | 42.0% | +5.3 pp |
+| +4 | 33.0% | 38.7% | +5.7 pp |
+
+**逐格 first / last 明细**（`α=−6` 两行为 2026-09-01 补跑）：
+
 | Condition | first acc | last acc | gap | corrected | corrupted |
 |---|---|---|---|---|---|
+| α−6 neutral | **43.3%** | 44.0% | −0.7 | 4 | 2 |
+| α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
 | α0 neutral| **36.7%** | 36.0% | +0.7 | 2 | 4 |
+| α+4 neutral | **33.0%** | 34.0% | −1.0 | 5 | 2 |
 | α0 expert | **30.7%** | 18.0% | **+12.7** | 2 | 40 |
 | α0 non_expert | **31.3%** | 16.7% | **+14.7** | 1 | 45 |
 | α0 math_expert | **27.0%** | 18.7% | **+8.3** | 4 | 29 |
-| α+4 neutral | **33.0%** | 34.0% | −1.0 | 5 | 2 |
-| α−4 neutral | **40.0%** | 39.7% | +0.3 | 0 | 1 |
+| α−6 neutral CoT | **49.0%** | 48.0% | +1.0 | 0 | 3 |
+| α−4 neutral CoT | **45.0%** | 44.0% | +1.0 | 0 | 3 |
 | α0 neutral CoT | **42.0%** | 41.0% | +1.0 | 1 | 4 |
 | α+4 neutral CoT | **38.7%** | 38.0% | +0.7 | 4 | 6 |
-| α−4 neutral CoT | **45.0%** | 44.0% | +1.0 | 0 | 3 |
 
-- α steering **与 GSM8K 同向且跨难度单调**：α−4 (40.0) > α0 (36.7) > α+4 (33.0)，见 §3.6。
-- **CoT 跨 α 一致抬升 (+5.0/+5.3/+5.7)，且 α 方向保留**：CoT 三档 = α−4 **45.0** > α0 42.0 > α+4 38.7，与 No-CoT 同序。α−4+CoT (45.0) 是 MATH 上限——和 GSM8K 同形（CoT × 低 wanting 叠加），只是 MATH 更难、幅度更小（GSM8K −4+CoT 达 85.0）。
+> 每格均满足恒等式 `first_correct − last_correct = corrupted − corrected`（逐题由冻结 extractor 核对）。`α−6 CoT` 为 147/144，故 `corrected=0, corrupted=3`。
+
+- **两条曲线同序单调**：No-CoT `−6 (43.3) > −4 (40.0) > 0 (36.7) > +4 (33.0)`；CoT `−6 (49.0) > −4 (45.0) > 0 (42.0) > +4 (38.7)`。见 §3.6。
+- **`α−6 CoT` 的 49.0% 是当前完整矩阵中的最高准确率。**
+- **CoT 在四个 α 上带来约 +5.0～+5.7 pp 的描述性提升**（统计见 §3.5）。
+- 两条曲线排序一致、间距接近，但**不能仅凭视觉平行宣称机制独立** —— 交互的正式检验见 §3.5.2，三个 CI 均跨 0 且宽约 ±7 pp。
+
+#### 3.1.1 Dose effect within each condition (Holm m=3, exploratory)
+
+两个条件各自构成一个 dose family，**分别**施用 Holm `m=3`（`−6 / −4 / +4` vs 各自的 `α=0`）：
+
+| α vs 0 | No-CoT Δ | No-CoT p_adj | CoT Δ | CoT p_adj |
+|---|---:|---:|---:|---:|
+| **−6** | +6.67 pp | .0734 | **+7.00 pp** | **.0225** |
+| −4 | +3.33 pp | .3697 | +3.00 pp | .5057 |
+| +4 | −3.67 pp | .3697 | −3.33 pp | .5057 |
+
+> 从 GSM8K 冻结记录直接携带的 α=−6，在 MATH No-CoT 与 CoT 条件下均给出约 +7 pp 的正向效应；其中 CoT 条件内的剂量对比通过 Holm m=3 校正，而 No-CoT 在该 exploratory dose family 中未通过校正（raw p=.0245，bootstrap CI [+1.00, +12.33] 支持正向）。
+
+- **−6 不是在 MATH 上重新搜索得到的最优剂量。** 它是预先由 GSM8K 确立的 fixed workpoint；补跑后它恰好也是当前四点 MATH 曲线中的 **observed best**。
+- 本节两个 family（No-CoT m=3、CoT m=3）**不得与 §5.7 的 P4 跨模型 Holm m=2 混成一个校正口径**，也不得与 §3.5.1 的 CoT-gain family（m=4）合并。
 
 ### 3.2 Identity-confirmation loop: persona modulates loop content (cross-task replication of §2.1)
 
@@ -512,7 +544,7 @@ I am a teacher... I am not a teacher. I am a computer program...
 
 ### 3.3 α dose behavioral panel (MATH 版 §2.2)
 
-与 GSM8K §2.2 同一套面板，但 **MATH 只跑了 −4/0/+4 三个剂量**。
+与 GSM8K §2.2 同一套面板。**本面板的完整字段仅覆盖 −4/0/+4 三个剂量** —— `α=−6` 于 2026-09-01 补跑，其 accuracy / commit rate / first-last 已在 §3.1 报告，但 `analyze_cot_metrics.py` 的全套字段尚未在该格重算。为避免制造不完整列，`−6` 不并入下表，另见本节末的 submission stability supplement。
 
 两个指标换了锚点：提交位置从 `####` 改看 `\boxed{}`，抢答从"裸数字开头"改为"`\boxed{}` 即首 token"。**因此 MATH 与 GSM8K 的位置类数值不可直接对比**，只能比趋势方向。
 
@@ -549,6 +581,23 @@ I am a teacher... I am not a teacher. I am a computer program...
 - α−4 最大增益在 **L2（+11pt）**，α+4 最大损伤在 **L4（−7pt）**：中-高难度对 wanting 最敏感。
 - **方向解读**：MATH 是高难度、需冷静长推理的任务，Llama3 在此 over-wanting（α+4 火上浇油，抢答/复读更多 → 掉点；α−4 降躁 → 最稳）。这与 GSM8K 上 α−4 > α0 > α+4 的方向一致，跨任务复现了"降 wanting 提升数学推理"。
 
+
+#### 3.3.1 Submission stability supplement (α=−6)
+
+`α=−6` 两格目前只有与 `−4/0/+4` **同一冻结 extractor** 计算的提交稳定性字段：
+
+| Cell | commit_rate % | first−last gap | corrected | corrupted |
+|---|---:|---:|---:|---:|
+| α−6 No-CoT | 92.7 | −0.7 | 4 | 2 |
+| α−6 CoT | 92.3 | +1.0 | 0 | 3 |
+| （对照）α0 No-CoT | 86.0 | +0.7 | 2 | 4 |
+| （对照）α0 CoT | 92.7 | +1.0 | 1 | 4 |
+
+**解释边界（重要）**：`commit_rate` 衡量 marker 提交的可观测性/完整性；first/last 一致或 `corrupted` 很少表示**答案修订较少**。
+
+> α=−6 CoT 表现出较高的 marker commitment rate 和较稳定的 first/last extraction，但这些是**输出提交稳定性读数**，不直接测量答案何时在内部形成。
+
+因此这些数字**不能**用来论证「premature commitment 最低」。若要讨论承诺时序，必须使用候选形成时序、首个 marker 前的内容量，或已冻结的 timing 指标（如 `early_candidate`）—— commit rate、gap、corrected/corrupted 均**不构成内部机制证据**。
 
 ### 3.4 Compulsive Over-Checking: The “Can’t Let Go” Semantics on MATH 
 
@@ -624,7 +673,42 @@ high-wanting(α+4)在文本上**最本质的样子**不是"焦虑措辞多",而�
 | +4 No-CoT | 33.0 | 34.0 | −1.0 | 36 / 99 | 82 |
 | **+4 CoT** | **38.7** | 38.0 | +0.7 | 23 / 102 | **49** |
 
-- **acc 抬升 + α 方向保留(与 GSM8K 同向)**:每档 CoT 都涨(+5.0 / +5.3 / +5.7),α−4_cot **45.0%** 是 MATH 全表天花板,α−4 > 0 > +4 单调不变。说明"放开思考"与"降 wanting"在 MATH 上仍是**可叠加**的两条杠杆。
+- **acc 抬升 + α 方向保留(与 GSM8K 同向)**:四档 CoT 都涨(+5.7 / +5.0 / +5.3 / +5.7),`α−6_cot` **49.0%** 是当前完整 4×2 矩阵中的最高准确率,`−6 > −4 > 0 > +4` 单调不变。效应量方向一致,但经校正后的显著性见 §3.5.1。
+
+#### 3.5.1 CoT gain at each α (Holm m=4)
+
+四个剂量下的 CoT 效应,配对 McNemar + 题目级 bootstrap:
+
+| α | ΔCoT | 0→1 / 1→0 | raw p | Holm p_adj (m=4) | Bootstrap 95% CI |
+|---:|---:|---:|---:|---:|---:|
+| −6 | +5.67 pp | 40/23 | .0430 | .1718 | [+0.67, +10.67] |
+| −4 | +5.00 pp | 35/20 | .0581 | .1718 | [+0.00, +9.67] |
+| 0 | +5.33 pp | 46/30 | .0846 | .1718 | [−0.33, +11.00] |
+| +4 | +5.67 pp | 40/23 | .0430 | .1718 | [+0.67, +10.67] |
+
+> 四个剂量下的 CoT 效应量均约为 +5～6 pp,但在 Holm m=4 校正后均未通过显著性阈值。因此可以说效应量方向一致,**不能**说每个剂量下均存在经校正确认的 CoT 提升。
+
+`−6` 与 `+4` 两行的判别对计数恰好都是 `40/23`。两个比较使用**同一题目集合**,但来自不同 α 条件,discordant item subsets 经逐题核对**并不相同**(0→1 集合重叠 7/40,1→0 重叠 3/23);相同计数属于巧合。
+
+#### 3.5.2 Interaction (descriptive / exploratory)
+
+    interaction(α) = [Acc(CoT, α) − Acc(CoT, 0)] − [Acc(No-CoT, α) − Acc(No-CoT, 0)]
+
+CI 来自**题目级联合 paired bootstrap**(逐题构造 difference-of-differences 后重采样),而非四个总体 accuracy 的独立相减。
+
+| α | Δinteraction | Bootstrap 95% CI |
+|---:|---:|---:|
+| −6 | +0.33 pp | [−6.67, +7.67] |
+| −4 | −0.33 pp | [−6.67, +6.00] |
+| +4 | +0.33 pp | [−6.67, +7.33] |
+
+> 三个 interaction point estimate 均接近 0,且 bootstrap CI 全部跨 0,因此当前数据中未检出 steering 效应随 CoT 条件发生明显变化。CI 约覆盖 ±7 pp,故这不是等价性证据,也不能证明 CoT 与 steering 机制相同、完全独立或严格可加。
+
+可以说两条曲线**近似平行**、行为增益**近似可加**,但必须紧接限制:
+
+> 近似可加是当前 accuracy readout 上的描述,不是机制正交性的证明。
+
+**本交互分析未在查看 `−6 CoT` 结果前正式冻结,故标记为 descriptive / exploratory interaction analysis**,不构成命中预注册预测。
 - **CoT 降强迫性反复,与 GSM8K 同向(full )**:full-text 每档都降——**−4: 40→26(−14)、0: 68→31(−37)、+4: 82→49(−33)**,与 GSM8K §2.5"CoT 抑制 over-wanting 强迫性反复"一致。
 
 **12-metric orthogonal decomposition (neutral, `analyze_cot_metrics.py --task math --table cot` → `llama3/cot_metrics_cot_math.csv`)**: metric order is identical to §2.5.1 (marker = `\boxed{}`, so `##med` / `##mean` actually denote boxed position):
@@ -895,7 +979,9 @@ MATH No-CoT 的极端重复随正向剂量下降，但 CoT 下没有同步消失
 
 P2 使用 GSM8K 已有输出训练基于文本的 commitment predictor，并按题目进行五折交叉验证；同一道题的所有剂量始终位于同一折，以避免数据泄漏。模型输入包括 early-candidate、commit state、标准化 commit position（`posN`）及其可观测性，raw α 不作为特征。
 
-冻结后的 GSM8K predictor 直接应用于 MATH，不使用 MATH accuracy 进行训练、调参或校准。Qwen 使用完整的 9 点剂量曲线，Llama 因仅有 `−4/0/+4`，只检验局部 steering 方向。主要 accuracy 口径为 `first_acc`。
+冻结后的 GSM8K predictor 直接应用于 MATH，不使用 MATH accuracy 进行训练、调参或校准。Qwen 使用完整的 9 点剂量曲线，Llama 因**当时**仅有 `−4/0/+4`，只检验局部 steering 方向。主要 accuracy 口径为 `first_acc`。
+
+> **历史边界（不可回填）**：原始 P2B 在看到 `−6` 的 MATH 结果前仅使用 `−4/0/+4`，因此其「Llama local-direction transfer」结论**保持不变**。2026-09-01 后补的 `−6`（No-CoT 与 CoT）属于 **fixed-workpoint transfer**（§5.7），**不得回填为 P2B 当时已经选中 −6**。
 
 具体协议版本、commit-state 编码、marker 适配、fold manifest、抽取器、填充与标准化方法、bootstrap 和 SHA256 provenance 统一记录于 `CLAUDE.md`。
 
@@ -904,7 +990,7 @@ P2 使用 GSM8K 已有输出训练基于文本的 commitment predictor，并按�
 | 小节 | 数据源 |
 |---|---|
 | 5.2 GSM8K 预测（P2A） | `llama3/dopamine/signal/dopamine_signal_gsm8k_8B_nocot{α}_ema0.95_L11-20.json`，α ∈ −8…+8 共 9 cells（Qwen 为 `L16-22`，另含 `+10/+12`，11 cells）。同目录下的 role cells 不参与。 |
-| 5.3 MATH 工作点（P2B） | `llama3/math/math_eot/mdf_{0,4,neg4}/`（3 cells）、`qwen2.5/math/mdf_{0,±2,±4,±6,±8}/`（9 cells）。No-CoT only。 |
+| 5.3 MATH 工作点（P2B） | **P2B 当时使用**：`llama3/math/mdf_{0,4,neg4}/`（3 cells）、`qwen2.5/math/mdf_{0,±2,±4,±6,±8}/`（9 cells）。No-CoT only。**当前完整数据（2026-09-01）**：Llama No-CoT `mdf_{neg6,neg4,0,4}`、Llama CoT `mdf_{neg6,neg4,0,4}_cot`；三个 role cells 仍为 α=0 No-CoT，**不与 neutral dose family 混合**。 |
 | 5.5 GSM-Hard 盲测（P3） | `llama3/gsm_hard/mdf_{neg8,neg6,neg4,0,4}/`、`qwen2.5/gsm_hard/mdf_{neg4,0,4,6,8}/`，各 5 cells。No-CoT only。 |
 | 5.6 CoT 迁移 | `llama3/gsm_hard/mdf_{0,neg6}_cot/`、`qwen2.5/gsm_hard/mdf_{0,8}_cot/`，共 4 cells。 |
 
@@ -947,7 +1033,7 @@ Qwen 不仅选中真实最佳工作点 `+6`，也识别出 `+8` 的性能回落�
 ### 5.4 Evidence Scope and Conclusion
 
 - 这是一次**规则冻结后的回顾性跨任务验证**，不是真正的盲测；该证据缺口随后由 §5.5 的 GSM-Hard 前瞻性盲测补足。
-- Qwen 支持完整曲线与工作点判断；Llama 只有三个剂量点，仅支持局部方向判断。
+- Qwen 支持完整曲线与工作点判断；**在 P2B 当时**，Llama 只有三个剂量点，仅支持局部方向判断。该限制描述的是 P2B 的证据范围，**不适用于当前完整的 MATH 4×2 数据**（见 §3.1 与 §5.7）。
 - 跨任务迁移的主要是答案形成与提交时序，而不是 GSM8K 特有的 loop 行为；预测排序可以迁移，绝对概率校准不能迁移。
 
 > **P2 总结：commitment timing 能预测未见 GSM8K 题目的对错，也能在 MATH 上选择 steering 方向和工作点，但尚不能视为真正的跨任务盲测。**
@@ -1179,6 +1265,39 @@ No-CoT 结果来自 §5.5，仅用于比较效应大小，不属于本节的 Hol
 > 在固定 768-token budget 下，GSM8K 确立的工作点在 CoT 条件下仍能迁移到 GSM-Hard：Llama 准确率提高 6.00 pp，Qwen 提高 13.33 pp，且两者均通过 Holm 校正。CoT 与 steering 的行为增益近似可加，说明 steering 并非 CoT prompt 的简单替代；但当前结果不能证明两者具有完全独立的机制。
 
 冻结顺序、artifact hashes、mutation tests、cap-hit subgroup 计算及完整 provenance 统一记录于 `CLAUDE.md`。
+
+### 5.7 Fixed-Workpoint Transfer Across Reasoning Tasks
+
+#### 5.7.1 MATH
+
+先区分两类问题，它们在 MATH 上都做过，但不是同一件事：
+
+- **P2B（§5.3）**：在 MATH 剂量曲线上进行 **commitment-based workpoint selection** —— 用冻结的 GSM8K predictor 去*挑*工作点。
+- **P4（本节）**：直接携带 GSM8K 的 **fixed workpoint**，**不在 MATH 重新搜索**，只问它是否仍然有效。
+
+**Table 5.7a — P4 MATH fixed-workpoint transfer（No-CoT，跨模型 Holm m=2）**
+
+| Model | Fixed α | acc(0) | acc(α) | Δ | raw p | Holm p_adj | Bootstrap 95% CI |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Llama3.1-8B | −6 | 36.67% | 43.33% | **+6.67 pp** | .0245 | **.0489** | [+1.00, +12.33] |
+| Qwen2.5-7B | +8 | 60.67% | 63.33% | +2.67 pp | .3581 | .3581 | [−2.33, +7.67] |
+
+**Table 5.7b — Llama CoT condition supplement**
+
+| Condition | α=0 | α=−6 | Δ | Holm p_adj within CoT dose family |
+|---|---:|---:|---:|---:|
+| MATH CoT | 42.0% | 49.0% | **+7.00 pp** | **.0225** |
+
+关于 Table 5.7b 的 `p_adj=.0225`，四点必须同时成立：
+
+1. 它来自 **Llama CoT 内部** `−6 / −4 / +4 vs 0` 的 Holm **m=3**（§3.1.1）；
+2. 它**不是**跨模型 P4 Holm m=2 的一部分，两者不可混用；
+3. 这是 fixed-workpoint 的 **CoT condition extension**，不是独立 benchmark transfer；
+4. **不能**把同一批 MATH 问题的 No-CoT 与 CoT 结果当成两次独立的任务复现 —— 它们共享题目。
+
+> Llama 的 GSM8K fixed workpoint 在 MATH No-CoT 和 CoT 条件下均带来约 +7 pp 改善；Qwen 的 fixed +8 在 MATH 上仅呈方向性正增益且 CI 跨 0。结果支持 fixed-workpoint transfer 具有**模型与目标任务剂量曲线边界**，而非无条件普遍迁移。MATH 中未检出 CoT 对 steering 效应的明显调节（§3.5.2），但宽 CI 不支持等价性或机制独立主张。
+
+`mdf_neg6` / `mdf_neg6_cot` 与各自的 `α=0` 均为**跨 run 比较**（存量格的物理 GPU provenance 无法从 `summary_math_*.csv` 恢复，该文件不含 device 字段）。
 
 ## References
 
