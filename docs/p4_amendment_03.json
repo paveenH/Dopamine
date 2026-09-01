@@ -1,0 +1,42 @@
+{
+  "amendment": "p4-amend-03",
+  "protocol": "logiqa2-p4-v0",
+  "date": "2026-09-01",
+  "type": "additive",
+  "supersedes_nothing": true,
+  "reason": "A wording boundary was briefly written INTO docs/p4_amendment_02.json by commit c2ac4bc. That edited an already-frozen, already-committed amendment, violating the repo's own rule that frozen files are never edited in place and corrections are recorded as additive amendments. amend-02 has been restored byte-for-byte to its state at 79386f6, and the content is recorded HERE instead. Nothing in amend-02 changed; this amendment only ADDS.",
+  "adds": "a mandatory wording boundary for every externalized-reasoning readout",
+  "wording_boundary": {
+    "status": "MANDATORY",
+    "rule": "The observable created by amend-02's neutral prompt is whether the model EXTERNALIZES an overt reasoning trajectory before committing an answer. It is NOT whether the model reasons. Emitting 'Final answer: X' immediately does not mean no internal computation occurred -- a single forward pass still runs the full network.",
+    "use": [
+      "externalized reasoning emergence",
+      "reasoning-before-answer behavior",
+      "overt reasoning trajectory"
+    ],
+    "never_write": [
+      "whether the model reasons",
+      "the model did not reason",
+      "no reasoning occurred"
+    ],
+    "scope": "every P4 readout, figure, table and prose description, in this repo and in any write-up drawing on it"
+  },
+  "no_mechanism_presumption": "If alpha=0 mostly answers immediately, that is a finding about overt reasoning under neutral generation, not a failed run: the accuracy-transfer question is unaffected. Do NOT presuppose that a steering effect arises THROUGH an unfolded reasoning trajectory -- that is a mechanism claim the four-cell design cannot support. Externalized-reasoning readouts stay SECONDARY and DESCRIPTIVE, excluded from the Holm family (PREREG v0 section 5), and are themselves outcomes of alpha, so stratifying accuracy on them is post-treatment stratification.",
+  "numbering_correction": {
+    "note": "amend-02's own `numbering_note` says the stage-1 budget freeze becomes docs/p4_amendment_03.json. That is now WRONG, because this amendment takes 03. amend-02 is frozen and is deliberately NOT edited to say so; the correction lives here.",
+    "authoritative_mapping": {
+      "p4-amend-01": "original prompt (superseded by 02, still on record)",
+      "p4-amend-02": "neutral-generation prompt + 'Response: ' anchor",
+      "p4-amend-03": "this file -- externalized-reasoning wording boundary",
+      "p4-amend-04": "stage-1 budget freeze, written by decide_p4_budget.py"
+    }
+  },
+  "unchanged_by_this_amendment": [
+    "the prompt template and its sha256 c42dc9c81f117a6c",
+    "the 'Response: ' anchor and the measured injection token",
+    "the four cells and their alpha",
+    "the 300-item sampling algorithm and its digest 4d4b25e071a2a6dd",
+    "the preflight design and the 512/1024 upgrade rule",
+    "the statistics, Holm family and pre-registered readings"
+  ]
+}

@@ -11,8 +11,12 @@ model, the wrong alpha set, a cell that is not exactly 20 items, a prompt hash
 or preflight digest that differs between the two files, disagreeing budget
 parameters, a cell whose steering was not verified, or an existing output file.
 
-Writes docs/p4_amendment_03.json (stage 1). Amendment 02 is the prompt
-replacement and is NEVER overwritten by this script.
+Writes docs/p4_amendment_04.json (stage 1). It NEVER overwrites: a frozen
+amendment is additive by definition, so there is deliberately no
+--allow_overwrite escape hatch. A re-decision needs a new amendment number.
+
+Amendment map: 01 original prompt (superseded), 02 neutral prompt + anchor,
+03 externalized-reasoning wording boundary, 04 this stage-1 budget freeze.
 """
 import argparse, json, os, sys
 
@@ -27,14 +31,14 @@ N_PER_CELL = 20
 ap = argparse.ArgumentParser()
 ap.add_argument("--preflight", nargs="+", required=True,
                 help="both models' preflight result JSONs")
-ap.add_argument("--out", default="docs/p4_amendment_03.json")
-ap.add_argument("--allow_overwrite", action="store_true")
+ap.add_argument("--out", default="docs/p4_amendment_04.json")
 a = ap.parse_args()
 
-if os.path.exists(a.out) and not a.allow_overwrite:
+if os.path.exists(a.out):
     die(f"{a.out} already exists; refusing to overwrite. Amendments are "
-        f"additive -- if this is a re-decision it needs a new number, not a "
-        f"silent rewrite.")
+        f"additive -- a re-decision needs a NEW number, not a rewrite. There "
+        f"is no override flag: a generator of frozen artifacts must not ship "
+        f"an escape hatch past its own freeze.")
 
 # ---------------------------------------------------------------- load + verify
 files, shared = {}, {}
@@ -130,7 +134,7 @@ if fmt_bad:
     print(f"\n[!] FORMAT VIOLATION in {fmt_bad}. Protocol section 4: the "
           f"response is a HARD STOP, not a redesigned prompt or parser.")
 
-json.dump({"amendment": "p4-amend-03", "protocol": "logiqa2-p4-v1",
+json.dump({"amendment": "p4-amend-04", "protocol": "logiqa2-p4-v1",
            "type": "additive", "stage": 1,
            "supersedes_nothing": True,
            "prompt_amendment": shared["amendment"],
