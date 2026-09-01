@@ -17,7 +17,11 @@ Commitment/timing fields are themselves outcomes of alpha, so stratifying
 accuracy on them is post-treatment stratification -- consistent-with evidence,
 never mediation (p4-amend-05).
 
-Fails closed on: a missing model, the wrong alpha set, a cell that is not 300
+A single model is allowed: it is scored, and Holm is explicitly WITHHELD with
+raw p labelled unadjusted (running Holm over a partial family would report an
+m=1 adjustment under an m=2 label).
+
+Fails closed on: the wrong alpha set, a cell that is not 300
 rows, sample_ids not covering 0..299, unverified steering_fires, a generation
 file that claims accuracy was already computed, a formal digest differing from
 the frozen value or between files, and an existing output.
@@ -59,6 +63,11 @@ def boot_ci(a, b, B=B_BOOT, seed=SEED):
         out.append(s / n)
     out.sort()
     return out[int(.025 * B)], out[int(.975 * B)]
+
+
+def med(xs):
+    xs = sorted(xs)
+    return None if not xs else xs[len(xs) // 2]
 
 
 def holm(pairs):
@@ -151,6 +160,23 @@ def main():
                     "multi_marker":    rate(al, lambda r: r["n_matches"] > 1),
                     "budget_exhausted": rate(al, lambda r:
                                              r["stop_reason"] == "budget_exhausted"),
+                    # medians; pre_marker_chars is None when no marker exists,
+                    # so its denominator is the scorable subset -- reported with
+                    # its own n rather than silently imputed
+                    "gen_tokens_med": med([cells[al][i]["generated_token_count"]
+                                           for i in range(N)]),
+                    "pre_marker_chars_med": med([cells[al][i]["pre_marker_chars"]
+                                                 for i in range(N)
+                                                 if cells[al][i]["pre_marker_chars"]
+                                                 is not None]),
+                    "pre_marker_n": sum(1 for i in range(N)
+                                        if cells[al][i]["pre_marker_chars"] is not None),
+                    # AUXILIARY: confounded by tail length -- a longer repetition
+                    # tail lowers this independently of anything before the marker
+                    "first_marker_pos_med": med([cells[al][i]["first_marker_pos"]
+                                                 for i in range(N)
+                                                 if cells[al][i]["first_marker_pos"]
+                                                 is not None]),
                 } for al in sorted(cells)
             },
         }
@@ -169,12 +195,19 @@ def main():
         print("\n[!] raw p is UNADJUSTED and must not be cited as corrected.")
 
     print(f"\n{'model':9s} {'a':>3} {'no_mk':>6} {'ans1st':>7} {'degen':>6} "
-          f"{'multi':>6} {'exhaust':>8}   (descriptive, outside Holm)")
+          f"{'multi':>6} {'exhaust':>8} {'tok_med':>8} {'preCh':>7} {'n':>4} "
+          f"{'pos*':>6}   (descriptive, outside Holm)")
     for m, r in sorted(res.items()):
         for al, dd in r["descriptive"].items():
+            pos = dd["first_marker_pos_med"]
             print(f"{m:9s} {al:>3} {dd['no_marker_rate']:6.3f} "
                   f"{dd['answer_first']:7.3f} {dd['degenerate']:6.3f} "
-                  f"{dd['multi_marker']:6.3f} {dd['budget_exhausted']:8.3f}")
+                  f"{dd['multi_marker']:6.3f} {dd['budget_exhausted']:8.3f} "
+                  f"{dd['gen_tokens_med']:8d} "
+                  f"{dd['pre_marker_chars_med']:7} {dd['pre_marker_n']:4d} "
+                  f"{pos if pos is None else round(pos,3):>6}")
+    print("  * first_marker_pos is AUXILIARY: confounded by tail length. "
+          "preCh/n are over the scorable subset.")
 
     json.dump({"protocol": "logiqa2-p4-v0",
                "amendments": "p4-amend-02,03,04,05,06",

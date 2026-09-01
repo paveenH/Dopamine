@@ -5,20 +5,26 @@ LogiQA 2.0 English MRC loader for P4 (protocol `logiqa2-p4-v0` + `p4-amend-02`).
 
 Builds THREE files:
 
-  logiqa2_p4_formal.json      300 items, gold INCLUDED   (the formal sample)
-  logiqa2_p4_preflight.json    20 items, gold ABSENT     (format-only preflight)
-  logiqa2_p4_manifest.json     provenance + digests
+  logiqa2_p4_formal_blind.json 300 items, gold ABSENT   (what the RUNNER reads)
+  logiqa2_p4_formal.json       300 items, gold INCLUDED (what the EVALUATOR reads)
+  logiqa2_p4_preflight.json     20 items, gold ABSENT   (format-only preflight)
+  logiqa2_p4_manifest.json      provenance + digests
 
 `data_logiqa.py` (the older LogiQA loader) is left byte-unchanged. It downloads
 the same file but writes to the stale /data2/.../RolePlaying tree, drops `id`,
 the raw fields and `type` provenance, and freezes no manifest.
 
-THE PREFLIGHT FILE CARRIES NO GOLD, STRUCTURALLY.
+THE PREFLIGHT AND THE RUNNER'S FORMAL FILE CARRY NO GOLD, STRUCTURALLY.
 Protocol section 4 forbids computing accuracy during the preflight. Making the
 label merely "unused" is far weaker than making it unreachable -- the P2 label
-firewall established this. So the preflight writer builds each record from an
-explicit field whitelist and then ASSERTS that no forbidden key survived. A
-preflight consumer cannot score itself even by mistake.
+firewall established this. So both blind writers build each record from an
+explicit field whitelist and then ASSERT that no forbidden key survived. A
+consumer of either file cannot score itself even by mistake.
+
+The formal sample is emitted TWICE from one selection: a blind copy for
+generation and a gold-bearing copy for evaluation. They share sample_id, key
+and content_sha256, so the evaluator joins them exactly; only the evaluator
+ever opens the gold-bearing one.
 
 Everything the protocol froze is ASSERTED here, not assumed:
   * 1572 rows, every row exactly 4 options
@@ -241,6 +247,28 @@ def formal_record(idx, k, e):
     }
 
 
+def blind_record(idx, k, e):
+    """Formal record WITHOUT gold, for the generation runner. Same whitelist
+    discipline as the preflight: `answer` and `type` are never read into the
+    record, so the label is UNREACHABLE rather than merely unused."""
+    rec = {
+        "sample_id": idx,
+        "key": k,
+        "official_id": e["id"],
+        "passage": e["text"].strip(),
+        "question": e["question"].strip(),
+        "options": [str(o).strip() for o in e["options"]],
+        "content_sha256": content_sha256(e),
+    }
+    leaked = LABEL_FIELDS & set(rec)
+    if leaked:
+        die(f"blind formal record leaked label field(s): {sorted(leaked)}")
+    extra = set(rec) - PREFLIGHT_ALLOWED
+    if extra:
+        die(f"blind formal record has non-whitelisted key(s): {sorted(extra)}")
+    return rec
+
+
 def preflight_record(idx, k, e):
     """Built from an explicit whitelist. `answer` and `type` are never read into
     the record, so the label is UNREACHABLE rather than merely unused."""
@@ -296,20 +324,29 @@ def main():
     print(f"[p4] formal digest matches the stage-0 freeze")
 
     f_recs = [formal_record(i, k, e) for i, (k, e) in enumerate(formal)]
+    b_recs = [blind_record(i, k, e) for i, (k, e) in enumerate(formal)]
     p_recs = [preflight_record(i, k, e) for i, (k, e) in enumerate(pre)]
 
-    blob = json.dumps(p_recs)
-    for f in LABEL_FIELDS:
-        if f'"{f}"' in blob:
-            die(f"preflight payload mentions label field {f!r}")
-    print(f"[p4] preflight carries NO gold (whitelist + payload scan)")
+    for name, recs in (("preflight", p_recs), ("blind formal", b_recs)):
+        blob = json.dumps(recs)
+        for f in LABEL_FIELDS:
+            if f'"{f}"' in blob:
+                die(f"{name} payload mentions label field {f!r}")
+    print(f"[p4] preflight and blind formal carry NO gold "
+          f"(whitelist + payload scan)")
+
+    # the two formal copies must describe the SAME items
+    if [r["key"] for r in b_recs] != [r["key"] for r in f_recs]:
+        die("blind and gold formal copies disagree on item order/identity")
 
     manifest = {
         "protocol": PROTOCOL, "amendment": AMENDMENT,
         "source": {"url": RAW_URL, "revision": rev, "n_rows": len(rows)},
         "salt": SALT, "audit": stats,
         "formal": {"n": len(f_recs), "digest": fd, "per_label": PER_LABEL_FORMAL,
-                   "contains_gold": True},
+                   "contains_gold": True, "read_by": "eval_logiqa2.py only"},
+        "formal_blind": {"n": len(b_recs), "digest": fd, "contains_gold": False,
+                         "read_by": "get_answer_logiqa2.py (generation)"},
         "preflight": {"n": len(p_recs), "digest": pd,
                       "per_label": PER_LABEL_PREFLIGHT, "contains_gold": False,
                       "drawn_from": "rows NOT in the formal 300; next 5 by key "
@@ -327,6 +364,7 @@ def main():
             f"is written to the wrong tree.")
 
     paths = {
+        "formal_blind": os.path.join(args.out_dir, "logiqa2_p4_formal_blind.json"),
         "formal": os.path.join(args.out_dir, "logiqa2_p4_formal.json"),
         "preflight": os.path.join(args.out_dir, "logiqa2_p4_preflight.json"),
         "manifest": os.path.join(args.out_dir, "logiqa2_p4_manifest.json"),
@@ -339,6 +377,11 @@ def main():
 
     meta = {"protocol": PROTOCOL, "amendment": AMENDMENT, "source_url": RAW_URL,
             "source_revision": rev, "salt": SALT}
+    with open(paths["formal_blind"], "w", encoding="utf-8") as f:
+        json.dump({"meta": {**meta, "contains_labels": False, "digest": fd,
+                            "note": "formal sample for GENERATION; gold is "
+                                    "absent by construction, not merely unused"},
+                   "data": b_recs}, f, ensure_ascii=False, indent=2)
     with open(paths["formal"], "w", encoding="utf-8") as f:
         json.dump({"meta": {**meta, "contains_labels": True, "digest": fd},
                    "data": f_recs}, f, ensure_ascii=False, indent=2)

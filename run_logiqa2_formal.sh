@@ -47,8 +47,10 @@ case "$MODEL" in
   *) echo "[FATAL] unknown model '$MODEL'" >&2; exit 1 ;;
 esac
 
+# generation reads the BLIND copy; only eval_logiqa2.py reads the gold-bearing one
+FORMAL_BLIND="${FORMAL_BLIND:-$BENCH/logiqa2_p4_formal_blind.json}"
 FORMAL_FILE="${FORMAL_FILE:-$BENCH/logiqa2_p4_formal.json}"
-for f in "$MASK" "$FORMAL_FILE"; do
+for f in "$MASK" "$FORMAL_BLIND"; do
   if [[ ! -f "$f" ]]; then echo "[FATAL] not found: $f" >&2; exit 1; fi
 done
 if [[ "$MODEL_DIR" == /* && ! -d "$MODEL_DIR" ]]; then
@@ -62,7 +64,7 @@ echo "[p4] budget 1024 (stage-1 frozen), 300 items, ~2 cells"
 "$PY" get_answer_logiqa2.py \
   --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR" --mask "$MASK" \
   --configs "${CONFIGS[@]}" \
-  --formal_file "$FORMAL_FILE" \
+  --formal_file "$FORMAL_BLIND" \
   --out "$OUT_DIR/formal_${MODEL}.json"
 
 echo "[p4] done. After BOTH models finish, score once:"

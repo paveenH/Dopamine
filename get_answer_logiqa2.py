@@ -11,7 +11,15 @@ WHY GENERATION AND SCORING ARE SEPARATE
 Accuracy is computed by `eval_logiqa2.py`, which runs afterwards and reads the
 gold. Keeping them apart means a generation run cannot quietly become an
 accuracy run, and it mirrors the P3 split that made the ordering guarantee
-checkable rather than merely intended. This file never opens the gold file.
+checkable rather than merely intended.
+
+The separation is STRUCTURAL, not a convention. This runner reads
+`logiqa2_p4_formal_blind.json`, which `data_logiqa2.py` builds from a field
+whitelist so no label is present, and it REFUSES a file whose meta says
+`contains_labels` is anything but false. An earlier version read the
+gold-bearing formal file and merely declined to touch `answer_letter`; that is
+"the code does not access gold", which is much weaker than "gold is not
+reachable" -- the same distinction the P2 label firewall exists to enforce.
 
 FROZEN, ASSERTED AT RUNTIME
 ---------------------------
@@ -21,6 +29,9 @@ FROZEN, ASSERTED AT RUNTIME
   the frozen value, never silently)
 * steering_fires must equal 0 at alpha=0 and L*B*1 otherwise
 * the 300 items must carry the frozen digest 4d4b25e071a2a6dd
+* the input file must declare contains_labels: false
+* batch_size must be 8, and each model's full (alpha, band) configuration must
+  match the frozen cells exactly
 """
 
 import argparse
@@ -58,6 +69,17 @@ ANSWER_RE = re.compile(r"Final answer:\s*([A-D])\b")
 FORMAL_BUDGET = 1024              # p4-amend-04
 FORMAL_DIGEST = "4d4b25e071a2a6dd"
 N_FORMAL = 300
+FORMAL_BATCH_SIZE = 8             # p4-amend-01, carried forward
+
+# The complete frozen configuration per model -- not just "two cells".
+# PREREG v0 section 2: alpha AND band AND layer count.
+EXPECTED_CELLS = {
+    "llama3":  {(0, 11, 20), (-6, 11, 20)},
+    "qwen2.5": {(0, 16, 22), (8, 16, 22)},
+}
+
+LABEL_FIELDS = {"answer", "answer_letter", "label", "gold", "gold_answer",
+                "correct", "target", "solution", "type"}
 
 
 def die(msg):
@@ -113,10 +135,14 @@ def main():
     ap.add_argument("--configs", required=True, nargs="+")
     ap.add_argument("--formal_file", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--batch_size", type=int, default=8)
+    ap.add_argument("--batch_size", type=int, default=FORMAL_BATCH_SIZE)
     ap.add_argument("--max_new_tokens", type=int, default=FORMAL_BUDGET)
     args = ap.parse_args()
 
+    if args.batch_size != FORMAL_BATCH_SIZE:
+        die(f"--batch_size {args.batch_size} != the frozen {FORMAL_BATCH_SIZE} "
+            f"(p4-amend-01). Both cells of a model must share one batch size, "
+            f"and changing it needs an amendment, not a flag.")
     if args.max_new_tokens != FORMAL_BUDGET:
         die(f"--max_new_tokens {args.max_new_tokens} != the stage-1 frozen "
             f"budget {FORMAL_BUDGET} (p4-amend-04). Changing it needs a new "
@@ -127,6 +153,19 @@ def main():
     with open(args.formal_file, encoding="utf-8") as f:
         blob = json.load(f)
     meta, items = blob.get("meta", {}), blob.get("data", [])
+    # structural label firewall: this runner accepts ONLY the blind copy
+    if meta.get("contains_labels") is not False:
+        die(f"{args.formal_file} is not the BLIND formal file "
+            f"(contains_labels={meta.get('contains_labels')!r}). The generation "
+            f"runner reads logiqa2_p4_formal_blind.json; the gold-bearing copy "
+            f"is for eval_logiqa2.py only.")
+    for it in items:
+        leaked = LABEL_FIELDS & set(it)
+        if leaked:
+            die(f"item {it.get('sample_id')} carries label field(s) "
+                f"{sorted(leaked)}; gold must be unreachable during generation")
+    if f'"answer_letter"' in json.dumps(items) or '"answer"' in json.dumps(items):
+        die("blind formal payload mentions a label field")
     if len(items) != N_FORMAL:
         die(f"formal file has {len(items)} items, expected {N_FORMAL}")
     if not str(meta.get("digest", "")).startswith(FORMAL_DIGEST):
@@ -141,15 +180,27 @@ def main():
     print(f"[p4] budget {FORMAL_BUDGET} (stage-1 frozen), bs={args.batch_size}")
 
     cfgs = parse_configs(args.configs)
-    if len(cfgs) != 2:
-        die(f"expected exactly 2 cells, got {len(cfgs)}")
+    got = {(al, ls, le) for al, (ls, le) in cfgs}
+    want = EXPECTED_CELLS[args.model]
+    if got != want:
+        die(f"{args.model} cells {sorted(got)} != the frozen "
+            f"{sorted(want)} (PREREG v0 section 2). Checking only the COUNT "
+            f"would accept a wrong alpha or a wrong band.")
 
     prompts = [build_prompt(it) for it in items]
     print("[p4] prompts built; all end at the frozen anchor")
 
+    # Every cheap check runs BEFORE the model loads. Loading 8B first means a
+    # wrong mask or a wrong cell is reported minutes later, behind an unrelated
+    # traceback -- and on a gated repo it is reported as an auth error instead.
+    if not os.path.isfile(args.mask):
+        die(f"mask not found: {args.mask}")
+    raw_mask = np.load(args.mask)
+    if raw_mask.ndim != 2:
+        die(f"mask has shape {raw_mask.shape}; expected 2-D (layers, hidden)")
+
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
-    raw_mask = np.load(args.mask)
     n_layers = len(vc._find_decoder_layers())
     if raw_mask.shape[0] != n_layers:
         die(f"mask has {raw_mask.shape[0]} rows but the model has {n_layers} "
@@ -174,6 +225,10 @@ def main():
         if fires != expect:
             die(f"steering_fires {fires} != expected {expect}; the "
                 f"intervention is unverified and no output is readable")
+
+        if len(out) != N_FORMAL:
+            die(f"generation returned {len(out)} outputs for {N_FORMAL} "
+                f"prompts; zip() would silently drop items")
 
         rows = []
         for it, r in zip(items, out):
