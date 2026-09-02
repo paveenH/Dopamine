@@ -139,7 +139,7 @@ Scope: every colour-logit diagnostic claim. -->
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
 | P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
-| P4b fixed-workpoint transfer (BBH numeric) | **PREREG FROZEN, NOTHING RUN** 2026-09-02 — `bbh-p4b-v0`, second task of the SAME P4 question (not a new phase). Stage-0 headroom gate pending |
+| P4b fixed-workpoint transfer (BBH numeric) | **STAGE-0 PASSED both models** 2026-09-02 (`object_counting`: llama .4160, qwen .5520, gate `[.30,.85]`) — earlycand audit PASSED (29/29, agreement 30/30) but its α=0 base rate is at CEILING (.952/1.000). Workpoint + reverse-diagnostic cells NOT yet run. `bbh-p4b-v0` + `p4b-amend-01`; second task of the SAME P4 question, not a new phase |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1707,11 +1707,98 @@ python eval_logiqa2.py \
   --out docs/p4_logiqa2_evaluation.json
 ```
 
-## P4b fixed-workpoint transfer to BBH numeric reasoning (PREREG FROZEN, NOTHING RUN)
+## P4b fixed-workpoint transfer to BBH numeric reasoning (STAGE-0 PASSED; workpoint cells pending)
 
 > **`docs/PREREG_P4B_BBH.md` is the protocol** (`bbh-p4b-v0`, frozen 2026-09-02
-> before any α=0 cell existed). **Status: prereg + sample-freeze tooling exist;
-> no data has been generated.**
+> before any α=0 cell existed), amended additively by
+> `docs/p4b_amendment_01.json`. **Status: `object_counting` stage-0 is RUN and
+> PASSED on both models; the workpoint and reverse-diagnostic cells are not yet
+> run.**
+
+### STAGE-0 RESULT (`object_counting`, 2026-09-02, `docs/bbh_p4b_object_counting_stage0.json`)
+
+**Both models PASS the frozen `[0.30, 0.85]` headroom gate on α=0 `first_acc`:
+llama3 `.4160` (last `.4120`), qwen2.5 `.5520` (last `.5600`).** Both sit ~4–5×
+the `.104` majority-class rate and 30–43 pp below the ceiling, so a later null on
+either model **cannot** be a baseline-ceiling artifact — the only thing this gate
+exists to establish. The majority-class rate stayed descriptive and did not move
+the interval.
+
+**The public ≈`.90` figure is NOT comparable to `.416`** — it uses BBH's 3-shot
+CoT format, which this protocol deliberately does not inherit. It explains why a
+headroom gate was set at all, nothing more.
+
+**Diagnostics — recorded, NOT a gate, and not grounds to change prompt, parser or
+budget.** Llama shows a looping/truncation **PHENOTYPE SIMILAR TO GSM-Hard**;
+similar phenotype, **not** an established shared mechanism. cap-hit `.956` (decode
+median exactly 768), no-marker `.092`, multi-marker `.840`, chars med 1988. Qwen
+does not loop (cap-hit `.036`, chars med 423). **Consequence:** Llama's accuracy
+stays valid as a **fixed-768-budget estimand**, but its length-derived readouts
+press against that cap and are **not natural lengths**; if α moves truncation or
+marker-absence, both travel with the main result. `last_acc` sensitivity is
+retained even though first/last currently agree to ≤0.8 pp.
+
+**Gold provenance:** the server gold is byte-identical to a locally regenerated
+copy (`questions_sha256 4cfbf739e1fe7870`, matching both generation cells), so
+identity is proved by digest rather than assumed.
+
+### EARLYCAND AUDIT: PASS, with a ceiling limitation that constrains its use
+
+Order preserved: 30 items frozen from the blind file → blind CSV with **no**
+detector flag / gold / accuracy → manual labels written → **only then** was
+`earlycand-v1` run. **Precision 1.000, recall 1.000, agreement 30/30, detector
+positives 29** — clearing the frozen minimum of 10, so the `INCONCLUSIVE` branch
+does not fire. The single FALSE (`id 39`) is the one generation opening with
+working rather than a bare number; the other 29 open with a standalone digit and
+justify afterwards.
+
+<!-- Why: the audit validates the detector but its baseline is saturated, so the
+readout can only fall; reading a flat rate as "α does not move timing" is the
+baseline-ceiling error the accuracy gate exists to exclude, relocated to timing.
+Evidence: docs/p4b_earlycand_audit_result_object_counting.json.
+Scope: every P4b early_candidate number on object_counting. -->
+**CRITICAL: the α=0 base rate is at CEILING (llama `.952`, qwen `1.000`).** The
+audit shows the detector reads this task correctly, but a saturated baseline
+leaves headroom only for a **decrease**. **A flat rate under α must NOT be read as
+"α does not move answer-formation timing."** Scope: **EXPLORATORY, outside Holm**;
+`early_candidate` is an OUTCOME of α, so stratifying accuracy on it is
+post-treatment stratification — consistent-with evidence, never mediation. The
+detector was not re-tuned. Labels come from **one annotator**; the 29/30 split is
+morphologically stark but no inter-rater agreement was measured.
+
+### `p4b-amend-01`: one opposite-signed DIAGNOSTIC cell per model
+
+Additive. The primary test is unchanged — fixed-workpoint transfer, α read from
+the frozen GSM8K record (llama `−6`, qwen `+8`), **Holm m=2 over the two workpoint
+contrasts only**. Adds ONE reverse dose per model (**llama `+4`, qwen `−6`**) to
+read whether the direction ordering continues (`−6 > 0 > +4`; `+8 > 0 > −6`).
+
+**Binding:** the reverse cell is **outside the Holm family**, its p is
+**unadjusted**, and it **MUST NOT redefine the workpoint** — a reverse cell that
+scored higher would still not become the workpoint, because this protocol never
+searches doses on BBH. `run_bbh_numeric.sh REVERSE` refuses until **both** the α=0
+and the workpoint cell exist, so it cannot be mistaken for the search that
+produced the workpoint. **One point is not a curve:** it can show an ordering
+continues or breaks, never a peak, an inverted-U, or an "overshoot point".
+
+<!-- Why: with two steered cells `[x for x in byalpha if x != 0][0]` returns the
+SMALLEST alpha, which for qwen is the DIAGNOSTIC -6 -- it would have been reported
+as the primary transfer result while the real workpoint went unreported.
+Evidence: eval_bbh_numeric.py workpoint selection; verified on a fixture where the
+reverse dose beats the workpoint and +8 still occupies the Holm table.
+Scope: any scorer holding more than one steered cell per model. -->
+**A latent hazard the reverse cell exposed:** the scorer selected the steered α as
+`[x for x in byalpha if x != 0][0]`, fine with one steered cell but wrong with
+two. It now selects `WORKPOINT[model]` **explicitly**. Verified on synthetic
+fixtures including the case that matters — a qwen fixture where the reverse dose
+(`.696`) BEATS the workpoint (`.532`) still puts `+8` in the Holm table, reports
+`−6` separately as `BREAKS` with an unadjusted p, and does not promote it. An
+unfrozen α (`−4`) is refused; Holm stays m=2 with reverse cells present.
+
+**All THREE cells of one model stay on that model's original physical GPU**
+(llama GPU 0, qwen GPU 1) — paired per-item contrasts, and bf16 greedy is not
+byte-reproducible across GPUs. `WORKPOINT` and `REVERSE` of one model run
+**sequentially** (same card, and `REVERSE` checks the workpoint cell exists).
 
 **P4b IS NOT A NEW PHASE — it is the SECOND TASK of P4's question.** It was
 briefly numbered `P5`; that was renamed before any artifact existed, because
@@ -1834,8 +1921,31 @@ python eval_bbh_numeric.py \
   --out docs/bbh_p4b_object_counting_stage0.json
 
 # WORKPOINT only for models that printed PASS, and only after the manual audit.
-CUDA_VISIBLE_DEVICES=0 nohup bash run_bbh_numeric.sh llama3 object_counting WORKPOINT > p4b_oc_l_wp.log 2>&1 &
+# Then REVERSE (p4b-amend-01), which REFUSES until alpha=0 AND the workpoint
+# cell exist. Both cells of one model are SEQUENTIAL on that model's own card.
+CUDA_VISIBLE_DEVICES=0 nohup bash run_bbh_numeric.sh llama3  object_counting WORKPOINT > p4b_oc_l_wp.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_bbh_numeric.sh qwen2.5 object_counting WORKPOINT > p4b_oc_q_wp.log 2>&1 &
+# after each finishes, on the SAME card:
+CUDA_VISIBLE_DEVICES=0 nohup bash run_bbh_numeric.sh llama3  object_counting REVERSE > p4b_oc_l_rv.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_bbh_numeric.sh qwen2.5 object_counting REVERSE > p4b_oc_q_rv.log 2>&1 &
+
+# steering_fires must read L*250 at alpha!=0: llama 2250 (L=9), qwen 1500 (L=6).
+# The runner asserts this itself; 0 means the hook never fired.
+
+# Score all SIX cells at once. The scorer accepts only three alphas per model
+# (0, the frozen workpoint, the frozen reverse dose) and refuses anything else.
+python eval_bbh_numeric.py \
+  --generations components/llama3/bbh/object_counting/mdf_{0,neg6,4}/bbh_object_counting_8B_11_20.json \
+                components/qwen2.5/bbh/object_counting/mdf_{0,8,neg6}/bbh_object_counting_7B_16_22.json \
+  --gold_file components/benchmark/bbh_p4b_object_counting.json \
+  --out docs/bbh_p4b_object_counting_result.json
 ```
+
+**Runtime, measured off the stage-0 length distributions:** Llama ≈25–40 min per
+cell (250 items, 95.6% running to the 768 cap), Qwen ≈5–10 min (median 131
+tokens). Sequential per model: Llama ≈1–1.5 h for its two cells, Qwen ≈15–20 min;
+with the two models on two cards the wall clock is Llama's. α can move length in
+either direction, so treat these as estimates.
 
 **Prior worth knowing before reading the gate**: public reports put
 Llama-3.1-8B near **.90** on `object_counting` under *their* prompt, budget and
@@ -1876,6 +1986,18 @@ TMP=$(mktemp -d) && python3.10 data_bbh_numeric.py --task object_counting --out_
   && python3.10 freeze_p4b_earlycand_audit.py --task object_counting --bench "$TMP" --check \
   && rm -rf "$TMP"
 bash -n run_bbh_numeric.sh
+# The step guard (STAGE0/WORKPOINT/REVERSE) and the REVERSE ordering guard sit
+# AFTER the mask/blind-file checks, whose paths are server-side -- locally they
+# refuse first, for an unrelated reason. To exercise them, stub the paths:
+#   T=$(mktemp -d); mkdir -p "$T/mask/llama3_non_logits" "$T/benchmark"
+#   touch "$T/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy" \
+#         "$T/benchmark/bbh_p4b_object_counting_blind.json"
+#   CUDA_VISIBLE_DEVICES=0 BASE_DIR=$T BENCH=$T/benchmark \
+#     MODEL_DIR=stub/model WORK_DIR=$T PY=python3.10 \
+#     bash run_bbh_numeric.sh llama3 object_counting REVERSE   # refuses: no a0
+# Driving the launcher with REAL arguments is the only test that catches a
+# semantic break -- bash -n once passed a ${1:?} brace bug that made MODEL
+# literally 'llama3}'.
 CUDA_VISIBLE_DEVICES=0 bash run_bbh_numeric.sh llama3 dyck_languages STAGE0
                                            # must be REFUSED: the task
                                            # allowlist is the guard, and
