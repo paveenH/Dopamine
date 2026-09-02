@@ -21,8 +21,6 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 # 182/184/185/177/178
-ssh d12922004@140.112.31.184
-password paveen94
 /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/math
 rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/logiqa2   /Users/paveenhuang/Downloads
 rsync -avzP /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/bandit/pv11/pv11_a0 d12922004@140.112.31.185:/data1/paveen/Dopamine/components/llama3/bandit/pv11/pv11_a0/
