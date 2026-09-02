@@ -1,0 +1,39 @@
+{
+  "record": "p4b-earlycand-audit-result",
+  "protocol": "bbh-p4b-v0",
+  "task": "object_counting",
+  "detector": "earlycand-v1",
+  "cell_audited": "llama3 alpha=0 (stage-0)",
+  "selection_digest": "04508a19ce30b0b6",
+  "order_of_operations": [
+    "30 items frozen from the blind file before any detector output was inspected",
+    "blind CSV built with NO detector flag, NO gold, NO accuracy",
+    "manual labels assigned against the frozen rubric and written to _FILLED.csv",
+    "only then was earlycand-v1 run and compared"
+  ],
+  "counts": {
+    "n": 30,
+    "detector_positives": 29,
+    "manual_positives": 29,
+    "agreements": 30,
+    "agreement_rate": 1.0,
+    "TP": 29,
+    "FP": 0,
+    "FN": 0,
+    "TN": 1
+  },
+  "precision": 1.0,
+  "recall": 1.0,
+  "outcome": "PASS -- detector positives (29) exceed the frozen minimum of 10, so precision is decidable on this sample; earlycand-v1 may be used as an EXPLORATORY timing readout on this task.",
+  "verdict_scope": [
+    "EXPLORATORY only: outside the Holm family.",
+    "early_candidate is an OUTCOME of alpha, so stratifying accuracy on it is post-treatment stratification -- consistent-with evidence, never mediation.",
+    "The detector was NOT re-tuned; it is the frozen earlycand-v1 imported unchanged."
+  ],
+  "critical_limitation": {
+    "alpha0_rate_llama3": 0.952,
+    "alpha0_rate_qwen2.5": 1.0,
+    "note": "The alpha=0 base rate is at CEILING on both models (.952 / 1.000). The audit establishes that the detector reads this task correctly, but a near-saturated baseline leaves almost no headroom for the rate to RISE, so only a DECREASE under alpha is measurable. A flat or unchanged rate must NOT be read as 'alpha does not move answer-formation timing' -- it is the same baseline-ceiling problem the stage-0 accuracy gate exists to exclude, here reappearing in the timing readout rather than in accuracy. This limitation is recorded BEFORE any steered cell was generated."
+  },
+  "single_annotator": "Labels come from one annotator against the frozen rubric. The 29/30 pattern is morphologically stark (a bare standalone number on line 1 versus a reasoning opening), so it is unlikely to be annotator-sensitive, but no inter-rater agreement was measured."
+}
