@@ -55,6 +55,11 @@ GATE_LO, GATE_HI = 0.30, 0.85
 B_BOOT, SEED = 10000, 0
 # frozen GSM8K workpoints -- read, never searched
 WORKPOINT = {"llama3": -6, "qwen2.5": 8}
+# p4b-amend-01: ONE opposite-signed DIAGNOSTIC dose per model. It exists only
+# to read whether the direction ordering continues (llama -6 > 0 > +4; qwen
+# +8 > 0 > -6). It is NOT in the Holm family and MUST NOT redefine the
+# workpoint -- that stays read from the frozen GSM8K record.
+REVERSE = {"llama3": 4, "qwen2.5": -6}
 
 
 def die(m):
@@ -153,9 +158,10 @@ def main():
             die(f"{p}: steering_fires {m.get('steering_fires')} != {exp}; "
                 "intervention unverified")
         mdl, al = m["model"], m["alpha"]
-        if al != 0 and al != WORKPOINT.get(mdl):
-            die(f"{p}: alpha {al} is not {mdl}'s frozen GSM8K workpoint "
-                f"{WORKPOINT.get(mdl)}; this protocol does not search doses")
+        if al not in (0, WORKPOINT.get(mdl), REVERSE.get(mdl)):
+            die(f"{p}: alpha {al} is neither 0, {mdl}'s frozen GSM8K workpoint "
+                f"{WORKPOINT.get(mdl)}, nor its frozen reverse diagnostic dose "
+                f"{REVERSE.get(mdl)}; this protocol does not search doses")
         if al in cells.get(mdl, {}):
             die(f"{mdl} alpha={al} supplied twice")
         cells.setdefault(mdl, {})[al] = {r["sample_id"]: r for r in rows}
@@ -195,9 +201,13 @@ def main():
                      "not motivate a changed prompt, parser or budget"),
         }
 
-        steer = [x for x in byalpha if x != 0]
-        if steer:
-            al = steer[0]
+        # Select the workpoint EXPLICITLY. With a reverse cell present,
+        # `[x for x in byalpha if x != 0][0]` would pick whichever steered
+        # alpha sorts first -- for qwen that is -6, the DIAGNOSTIC dose, which
+        # would silently report the diagnostic as the primary transfer result.
+        wp = WORKPOINT.get(mdl)
+        if wp in byalpha:
+            al = wp
             accA = score(al, extract_gsm8k_answer)
             f0 = score(0, last_hash_answer)
             fA = score(al, last_hash_answer)
@@ -213,6 +223,34 @@ def main():
                     "acc_base": sum(f0) / N, "acc_steer": sum(fA) / N,
                     "dAcc_pp": (sum(fA) - sum(f0)) / N * 100},
             }
+
+        rv = REVERSE.get(mdl)
+        if rv in byalpha:
+            accR = score(rv, extract_gsm8k_answer)
+            b01, b10, p = mcnemar_exact(acc0, accR)
+            lo, hi = boot_ci(acc0, accR)
+            r["reverse_diagnostic"] = {
+                "alpha": rv,
+                "acc_base": sum(acc0) / N, "acc_steer": sum(accR) / N,
+                "dAcc_pp": (sum(accR) - sum(acc0)) / N * 100,
+                "discordant_0to1": b01, "discordant_1to0": b10,
+                "p_raw": p, "ci95_pp": [lo, hi],
+                "scope": ("p4b-amend-01 DIAGNOSTIC. Outside the Holm family; "
+                          "p is UNADJUSTED. It reads whether the direction "
+                          "ordering continues and MUST NOT redefine the "
+                          "workpoint, which stays read from the frozen GSM8K "
+                          "record. One point is not a dose-response curve: it "
+                          "can show an ordering continues or breaks, but "
+                          "cannot locate a peak or establish an inverted-U."),
+            }
+            if "transfer" in r:
+                a0, aw, ar = sum(acc0) / N, r["transfer"]["acc_steer"], sum(accR) / N
+                r["reverse_diagnostic"]["ordering"] = {
+                    "acc_workpoint": aw, "acc_zero": a0, "acc_reverse": ar,
+                    "continues": bool(aw > a0 > ar),
+                    "note": ("`continues` compares POINT ESTIMATES only and is "
+                             "not a test; read it beside both CIs."),
+                }
         res[mdl] = r
 
     # ---- stage-0 verdicts
@@ -258,7 +296,33 @@ def main():
                   "is UNADJUSTED and must not be cited as corrected, and this "
                   "is not the two-model panel.")
 
+    rev = {m: r for m, r in res.items() if "reverse_diagnostic" in r}
+    if rev:
+        print("\n=== REVERSE DIAGNOSTIC (p4b-amend-01)  NOT in the Holm family; "
+              "p is UNADJUSTED")
+        print("    Reads whether the direction ordering continues. It does NOT "
+              "redefine the workpoint,")
+        print("    which stays read from the frozen GSM8K record. One point is "
+              "not a dose-response curve.")
+        print(f"{'model':9s} {'a':>3} {'acc0':>7} {'acc_a':>7} {'dAcc':>8} "
+              f"{'p_raw':>9}  {'CI95':>18}  ordering")
+        for m, r in sorted(rev.items()):
+            v = r["reverse_diagnostic"]; o_ = v.get("ordering")
+            if o_:
+                sign = ">" if o_["continues"] else "!"
+                od = (f"{v['alpha']:+d}:{o_['acc_reverse']:.3f} {sign} "
+                      f"0:{o_['acc_zero']:.3f} {sign} "
+                      f"wp:{o_['acc_workpoint']:.3f}")
+                od = ("CONTINUES  " if o_["continues"] else "BREAKS     ") + od
+            else:
+                od = "(no workpoint cell)"
+            print(f"{m:9s} {v['alpha']:>3} {v['acc_base']:7.4f} "
+                  f"{v['acc_steer']:7.4f} {v['dAcc_pp']:+8.2f} "
+                  f"{v['p_raw']:9.4f}  "
+                  f"[{v['ci95_pp'][0]:+6.2f}, {v['ci95_pp'][1]:+6.2f}]  {od}")
+
     json.dump({"protocol": PROTOCOL, "task": task,
+               "amendments": "p4b-amend-01",
                "gold_sha256": gmeta["gold_sha256"],
                "questions_sha256": gmeta["questions_sha256"],
                "revision": gmeta["revision"],

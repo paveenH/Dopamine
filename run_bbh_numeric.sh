@@ -4,24 +4,33 @@
 #   bash run_bbh_numeric.sh llama3  object_counting STAGE0
 #   bash run_bbh_numeric.sh qwen2.5 object_counting STAGE0
 #   bash run_bbh_numeric.sh llama3  object_counting WORKPOINT   # only after PASS
+#   bash run_bbh_numeric.sh llama3  object_counting REVERSE     # diagnostic only
 #
 # STAGE0 runs alpha=0 ONLY, on all 250 items. WORKPOINT runs that model's
 # frozen GSM8K alpha (llama -6 / qwen +8) and is refused unless the alpha=0
 # cell already exists -- the gate is judged on alpha=0, so running the
 # workpoint first would make the gate decision unfalsifiable.
 #
-# The launcher CANNOT express any other alpha: this protocol reads the
-# workpoint from the frozen GSM8K record and never searches doses.
+# REVERSE (p4b-amend-01) runs ONE opposite-signed dose per model as a
+# DIRECTION-ORDERING DIAGNOSTIC: llama +4, qwen -6. It exists only to see
+# whether the ordering continues (llama -6 > 0 > +4; qwen +8 > 0 > -6).
+# It is NOT part of the primary test, it is NOT in the Holm family, and it
+# MUST NOT redefine the workpoint -- that stays read from the frozen GSM8K
+# record. It is refused until BOTH the alpha=0 and the workpoint cell exist,
+# so it can never be mistaken for a dose search that produced the workpoint.
 #
-# ONE MODEL PER CARD, and a model's two cells must share it: they are a paired
-# per-item contrast and bf16 greedy is not byte-reproducible across GPUs. The
+# Apart from those two frozen reverse doses the launcher CANNOT express any
+# other alpha: this protocol never searches doses.
+#
+# ONE MODEL PER CARD, and a model's THREE cells must share it: they are paired
+# per-item contrasts and bf16 greedy is not byte-reproducible across GPUs. The
 # two MODELS may run on two cards -- they are never compared per item.
 set -euo pipefail
 
 # NOTE: no braces in a ${1:?...} message -- the expansion ends at the FIRST '}',
 # which once made MODEL literally 'llama3}'. bash -n does NOT catch that.
 if [[ $# -lt 3 ]]; then
-  echo "usage: run_bbh_numeric.sh llama3|qwen2.5 <task> STAGE0|WORKPOINT" >&2
+  echo "usage: run_bbh_numeric.sh llama3|qwen2.5 <task> STAGE0|WORKPOINT|REVERSE" >&2
   echo "  task: object_counting | multistep_arithmetic_two" >&2
   exit 1
 fi
@@ -57,12 +66,14 @@ case "$MODEL" in
     SIZE=8B
     MODEL_DIR="${MODEL_DIR:-meta-llama/Llama-3.1-8B-Instruct}"
     MASK="${MASK:-$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy}"
-    A0=0-11-20 ; AWP=neg6-11-20 ; WPTAG=mdf_neg6 ; BAND=11_20 ;;
+    A0=0-11-20 ; AWP=neg6-11-20 ; WPTAG=mdf_neg6 ; BAND=11_20
+    AREV=4-11-20 ; REVTAG=mdf_4 ;;
   qwen2.5)
     SIZE=7B
     MODEL_DIR="${MODEL_DIR:-Qwen/Qwen2.5-7B-Instruct}"
     MASK="${MASK:-$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy}"
-    A0=0-16-22 ; AWP=8-16-22 ; WPTAG=mdf_8 ; BAND=16_22 ;;
+    A0=0-16-22 ; AWP=8-16-22 ; WPTAG=mdf_8 ; BAND=16_22
+    AREV=neg6-16-22 ; REVTAG=mdf_neg6 ;;
   *) echo "[FATAL] unknown model '$MODEL'" >&2; exit 1 ;;
 esac
 
@@ -89,7 +100,24 @@ case "$STEP" in
       exit 1
     fi
     CONFIGS="$AWP" ;;
-  *) echo "[FATAL] step must be STAGE0 or WORKPOINT" >&2; exit 1 ;;
+  REVERSE)
+    # Refused until alpha=0 AND the workpoint cell exist. The reverse dose is a
+    # direction diagnostic on an already-completed transfer test; running it
+    # earlier would make it look like the dose search this protocol forbids.
+    A0DIR="$OUT_ROOT/mdf_0/bbh_${TASK}_${SIZE}_${BAND}.json"
+    WPDIR="$OUT_ROOT/$WPTAG/bbh_${TASK}_${SIZE}_${BAND}.json"
+    if [[ ! -f "$A0DIR" ]]; then
+      echo "[FATAL] alpha=0 cell missing: $A0DIR" >&2; exit 1
+    fi
+    if [[ ! -f "$WPDIR" ]]; then
+      echo "[FATAL] workpoint cell missing: $WPDIR" >&2
+      echo "        REVERSE is a diagnostic on a COMPLETED transfer test." >&2
+      echo "        Run WORKPOINT first; the workpoint is read from the" >&2
+      echo "        frozen GSM8K record and is never chosen from BBH." >&2
+      exit 1
+    fi
+    CONFIGS="$AREV" ;;
+  *) echo "[FATAL] step must be STAGE0, WORKPOINT or REVERSE" >&2; exit 1 ;;
 esac
 
 mkdir -p "$OUT_ROOT"

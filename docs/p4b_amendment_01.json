@@ -1,0 +1,43 @@
+{
+  "amendment": "p4b-amend-01",
+  "protocol": "bbh-p4b-v0",
+  "date": "2026-09-02",
+  "title": "Add ONE opposite-signed diagnostic cell per model (direction ordering)",
+  "additive": true,
+  "supersedes": null,
+  "motivation": "The primary test is fixed-workpoint transfer and stays exactly as frozen. It compares alpha=0 against the workpoint read from the GSM8K record, and that comparison alone cannot show whether the DIRECTION continues on the other side of zero. One opposite-signed cell per model makes the ordering readable.",
+  "cells_added": {
+    "llama3": {
+      "alpha": 4,
+      "config": "4-11-20"
+    },
+    "qwen2.5": {
+      "alpha": -6,
+      "config": "neg6-16-22"
+    }
+  },
+  "ordering_read": {
+    "llama3": "-6 > 0 > +4",
+    "qwen2.5": "+8 > 0 > -6"
+  },
+  "binding_constraints": [
+    "DIAGNOSTIC ONLY. The reverse cell is NOT part of the primary test and is NOT in the Holm family (m=2 stays the two workpoint contrasts).",
+    "It MUST NOT redefine the BBH workpoint. alpha stays read from the frozen GSM8K record (llama -6 / qwen +8); this protocol never searches doses, and a reverse cell that happened to score higher would NOT become the workpoint.",
+    "Refused until BOTH the alpha=0 and the workpoint cell exist, so it can never be mistaken for the dose search that produced the workpoint.",
+    "All THREE cells of one model stay on that model's original physical GPU (llama GPU 0, qwen GPU 1): they are paired per-item contrasts and bf16 greedy is not byte-reproducible across GPUs.",
+    "A reverse cell is a single point, so it can show that an ordering CONTINUES or BREAKS; it cannot establish a dose-response curve or an optimum."
+  ],
+  "what_it_cannot_show": "Three points do not make a curve. An ordering consistent with -6 > 0 > +4 is consistent with a monotone direction over the sampled range; it does not locate a peak, does not establish an inverted-U, and does not license calling +4 an overshoot point.",
+  "code_changes": [
+    "run_bbh_numeric.sh: new REVERSE step, per-model AREV/REVTAG, refusal until alpha=0 and workpoint both exist. STAGE0 and WORKPOINT byte-unchanged in behaviour (verified by driving the launcher with real arguments).",
+    "eval_bbh_numeric.py: REVERSE = {llama3: 4, qwen2.5: -6} added to the alpha allowlist and reported in a SEPARATE diagnostic block, never folded into the Holm family or the transfer table."
+  ],
+  "unchanged": [
+    "gate interval [0.30, 0.85]",
+    "workpoints llama -6 / qwen +8",
+    "sample, digests, revision",
+    "prompt, budget 768, parser",
+    "predictor / features / marker adapter",
+    "Holm family m=2"
+  ]
+}
