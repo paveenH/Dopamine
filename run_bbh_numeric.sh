@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BBH numeric fixed-workpoint transfer (bbh-p5-v0).
+# BBH numeric fixed-workpoint transfer (bbh-p4b-v0).
 #
 #   bash run_bbh_numeric.sh llama3  object_counting STAGE0
 #   bash run_bbh_numeric.sh qwen2.5 object_counting STAGE0
@@ -69,7 +69,7 @@ esac
 # cheap checks BEFORE 8B of weights load: a missing local model dir is
 # otherwise handed to HF, which parses it as a repo id and raises an
 # unrelated-looking HFValidationError.
-QFILE="${QFILE:-$BENCH/bbh_p5_${TASK}_blind.json}"
+QFILE="${QFILE:-$BENCH/bbh_p4b_${TASK}_blind.json}"
 [[ -f "$MASK" ]]  || { echo "[FATAL] mask not found: $MASK" >&2; exit 1; }
 [[ -f "$QFILE" ]] || { echo "[FATAL] blind questions not found: $QFILE" >&2
                        echo "        run: $PY data_bbh_numeric.py --task $TASK --out_dir $BENCH" >&2
@@ -93,8 +93,8 @@ case "$STEP" in
 esac
 
 mkdir -p "$OUT_ROOT"
-echo "[p5] model=$MODEL task=$TASK step=$STEP configs=$CONFIGS card=$CUDA_VISIBLE_DEVICES"
-echo "[p5] start $(date)"
+echo "[p4b] model=$MODEL task=$TASK step=$STEP configs=$CONFIGS card=$CUDA_VISIBLE_DEVICES"
+echo "[p4b] start $(date)"
 
 cd "$WORK_DIR"
 "$PY" get_answer_bbh_numeric.py \
@@ -102,12 +102,12 @@ cd "$WORK_DIR"
   --task "$TASK" --questions "$QFILE" --mask_path "$MASK" \
   --configs $CONFIGS --out_dir "$OUT_ROOT"
 
-echo "[p5] done $(date)"
+echo "[p4b] done $(date)"
 if [[ "$STEP" == "STAGE0" ]]; then
-  echo "[p5] Next -- score the gate (this is the ONLY script that reads gold):"
+  echo "[p4b] Next -- score the gate (this is the ONLY script that reads gold):"
   echo "     $PY eval_bbh_numeric.py \\"
   echo "       --generations $OUT_ROOT/mdf_0/bbh_${TASK}_${SIZE}_${BAND}.json \\"
-  echo "       --gold_file $BENCH/bbh_p5_${TASK}.json \\"
-  echo "       --out docs/bbh_p5_${TASK}_stage0_${MODEL}.json"
+  echo "       --gold_file $BENCH/bbh_p4b_${TASK}.json \\"
+  echo "       --out docs/bbh_p4b_${TASK}_stage0_${MODEL}.json"
   echo "     Run WORKPOINT only if that prints PASS."
 fi

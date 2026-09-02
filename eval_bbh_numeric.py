@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BBH numeric-task scoring. The ONLY script that reads gold. Protocol bbh-p5-v0.
+BBH numeric-task scoring. The ONLY script that reads gold. Protocol bbh-p4b-v0.
 
 TWO MODES, and which one runs is decided by the cells supplied, not by a flag:
 
@@ -49,7 +49,7 @@ from math import comb
 
 from utils import extract_gsm8k_answer, normalize_gsm8k
 
-PROTOCOL = "bbh-p5-v0"
+PROTOCOL = "bbh-p4b-v0"
 N = 250
 GATE_LO, GATE_HI = 0.30, 0.85
 B_BOOT, SEED = 10000, 0
@@ -114,7 +114,7 @@ def main():
     ap.add_argument("--generations", nargs="+", required=True,
                     help="cell JSONs written by get_answer_bbh_numeric.py")
     ap.add_argument("--gold_file", required=True,
-                    help="the gold-bearing bbh_p5_<task>.json")
+                    help="the gold-bearing bbh_p4b_<task>.json")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 

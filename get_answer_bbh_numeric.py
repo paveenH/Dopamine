@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BBH numeric-task generation for the P5 fixed-workpoint transfer. LABEL-FREE.
+BBH numeric-task generation for the P4b fixed-workpoint transfer. LABEL-FREE.
 
-Protocol: `bbh-p5-v0`. Tasks: object_counting / multistep_arithmetic_two.
+Protocol: `bbh-p4b-v0`. Tasks: object_counting / multistep_arithmetic_two.
 
 WHY A FORK RATHER THAN get_answer_regenerate_gsm8k.py
 -----------------------------------------------------
@@ -144,7 +144,7 @@ def main():
 
         rows = [{"sample_id": s["sample_id"], "question": s["question"],
                  "generated": g} for s, g in zip(samples, gen)]
-        json.dump({"meta": {"protocol": "bbh-p5-v0", "task": args.task,
+        json.dump({"meta": {"protocol": "bbh-p4b-v0", "task": args.task,
                             "model": args.model, "size": args.size,
                             "alpha": alpha, "layer_start": ls, "layer_end": le,
                             "L": n_layers,

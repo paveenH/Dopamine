@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BBH numeric-answer loader for the P5 fixed-workpoint transfer stage-0 gate.
+BBH numeric-answer loader for the P4b fixed-workpoint transfer stage-0 gate.
 
-Protocol: `bbh-p5-v0` (stage 0 = the alpha=0 headroom gate; the workpoint
+Protocol: `bbh-p4b-v0` (stage 0 = the alpha=0 headroom gate; the workpoint
 cells are only frozen if a model passes it).
+
+RELATION TO P4. This is NOT a new phase. P4 asks one question -- does a
+workpoint established on GSM8K still help when carried unchanged to another
+reasoning task -- and LogiQA 2.0 was its first task (`logiqa2-p4-v0`, double
+null). BBH numeric is the SECOND task of that same question, so it is numbered
+P4b rather than P5. It exists because LogiQA changed two things at once
+relative to GSM8K -- the reasoning content AND the answer space (a constructed
+number became a four-way choice among given candidates) -- so its null cannot
+say which change broke the transfer. These two BBH tasks hold the answer space
+and the submission interface fixed and vary only the reasoning content.
 
 TASK ALLOWLIST -- deliberately only two configs
 -----------------------------------------------
@@ -63,7 +73,7 @@ import os
 import sys
 from collections import Counter
 
-PROTOCOL = "bbh-p5-v0"
+PROTOCOL = "bbh-p4b-v0"
 HF_NAME = "lukaemon/bbh"
 # HEAD of lukaemon/bbh as verified 2026-09-02; both configs are pure Parquet
 # with a 250-row `test` split and columns ['input', 'target'].
@@ -120,7 +130,7 @@ def main():
     ap.add_argument("--revision", default=REVISION, type=_commit_sha)
     ap.add_argument("--split", default=SPLIT)
     ap.add_argument("--out_dir", default="components/benchmark")
-    ap.add_argument("--prefix", default="bbh_p5")
+    ap.add_argument("--prefix", default="bbh_p4b")
     ap.add_argument("--check", action="store_true",
                     help="re-run every assertion and print the digests; write nothing")
     a = ap.parse_args()
