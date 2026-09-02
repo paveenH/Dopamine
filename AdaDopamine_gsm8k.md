@@ -38,55 +38,120 @@ CoT:     Solve the following math problem.
 >
 > **次要旁证（不作主锚，DA→焦虑另有通路特异性）**：DA 亦有一条独立的焦虑通路证据，最强因果来自 **VTA→IPN（D1）**，机制是威胁高估 / 过度警觉——但这**不是**本数据的主要解释（我们没观测到回避 / freezing），仅作为 DA 多下游效应的旁注列出。来源：[PMC7687288 (VTA→IPN dopamine promotes anxiety)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/) · [MIT News 2018 (dopamine vigilance & anxiety)](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107) · [Frontiers Neurosci 2020 (dopaminergic alteration in anxiety/compulsive disorders)](https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full) · [J. Neurosci 2019 (dopaminergic mechanisms of trait anxiety)](https://www.jneurosci.org/content/39/14/2735)
 
----
 
-## 1. GSM8K Performance
+## 1. Llama on GSM8K: Performance Summary
 
-**Setup.** Llama3.1-8B-Instruct，GSM8K 300 题，greedy decoding，`max_new_tokens=768`。Steering 仅作用于 prompt 最后一个 token，decode 阶段不再干预；`α=0` 为严格 no-op baseline。
+Llama3.1-8B-Instruct 在 GSM8K 上呈现出三个主要结果：
 
-**Accuracy.** 正文统一报告 offline `first_acc`：优先读取首个可解析的 `####`，无 marker 时使用冻结的 fallback，固定分母为 300。`last_acc` 仅作为答案修改诊断（见 §2.2：改答案是单向破坏，取首最优）。
+- No-CoT 剂量曲线是明显的**非对称峰形**：准确率在 `α=−6` 达到最高，但到 `α=−8` 明显崩落。
+- CoT 在已测试的 `−4/0/+4` 三个剂量上都提高准确率，同时保留 `−4 > 0 > +4` 的局部排序。
+- 催促式措辞会降低准确率并压缩不同 α 之间的差异，带 persona 的条件尤其敏感。
 
-本节使用 `<|eot_id|>` 修复后的 server-182 单机 production batch；不得与后文 server-184 signal batch 逐题混合（§5.1）。
+**Setup.** Llama3.1-8B-Instruct，GSM8K 300 题，greedy decoding。正文统一报告 offline `first_acc`；`last_acc` 仅用于检查后续答案修改，不作为主要性能指标。所有数据来自同一冻结 production batch，具体运行配置、数据路径和提取口径见 `CLAUDE.md`。
 
-复现细节——分析脚本路径、batch size 与 driver、机器编号与运行日期、mask 文件与注入层区间（exclusive 口径）、inline `correct_*` 仅作运行诊断、first/last/fallback 的完整实现、`<|eot_id|>` 修复经过与旧数据废止原因——统一记录于 `CLAUDE.md`。
+### 1.1 Main Dose–Response
 
-### 1.1 Role accuracy (α=0, No-CoT; first acc = reported value)
+下表合并完整 No-CoT 曲线，以及现有的 CoT 和 pushy 对照。`—` 表示该条件未运行。
 
-| Role | plain first | plain last | pushy first | Δ(pushy−plain, first) |
-|---|---|---|---|---|
-| neutral | 60.0% | 55.3% | 55.7% | −4.3 |
-| an expert | 58.0% | 57.7% | **34.0%** | **−24.0** |
-| a non expert | 68.0% | 65.7% | 48.3% | −19.7 |
-| a primary school teacher | 68.0% | 67.0% | 41.7% | **−26.3** |
+| Condition | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Plain No-CoT, first acc** | 40.3% | **78.0%** | 73.0% | 69.0% | 60.0% | 57.0% | 55.3% | 55.0% | 53.7% |
+| Plain No-CoT, last acc | 41.7% | 74.7% | 68.3% | 65.3% | 55.3% | 55.3% | 52.7% | 53.3% | 52.3% |
+| **Plain CoT, first acc** | — | — | **85.0%** | — | 69.0% | — | 59.7% | — | — |
+| Plain CoT, last acc | — | — | 84.7% | — | 68.3% | — | 59.0% | — | — |
+| **Pushy No-CoT, first acc** | — | — | 61.7% | — | 55.7% | — | 53.0% | — | — |
+| Pushy CoT, first acc | — | — | — | — | 57.7% | — | — | — | — |
 
-- **措辞效应：neutral 几乎不受影响（−4.3），带 role 全部被 pushy 重创（−20 ~ −26）**
-- **first−last gap 很小（role ≤2.3，neutral 4.7）**。
+#### Negative α: Improvement Followed by Collapse
 
-### 1.2 Steering (neutral, No-CoT; first acc = reported value)
+从 `α=0` 向负向移动时，No-CoT first accuracy 先连续上升：`60.0 → 69.0 → 73.0 → 78.0%`。因此，`α=−6` 是当前九点 No-CoT 曲线中的离散最佳点，相比 `α=0` 提高 18.0 pp。但负向并非越强越好。继续移动到 `α=−8` 后，准确率从 78.0% 降至 40.3%，不仅失去此前增益，还比 baseline 低 19.7 pp。
 
-**完整 dose-response（neutral, No-CoT, plain first）：**
+> GSM8K 上存在一个以 `α=−6` 为峰值的非对称工作区间；适度负向 steering 有利，但极端负向 steering 会导致性能崩落。
 
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---|---|---|---|---|---|---|---|---|---|
-| **first** | 40.3 | **78.0** | 73.0 | 69.0 | 60.0 | 57.0 | 55.3 | 55.0 | 53.7 |
-| last | 41.7 | 74.7 | 68.3 | 65.3 | 55.3 | 55.3 | 52.7 | 53.3 | 52.3 |
+#### Positive α: Gradual Decline and Flattening
 
-**关键 α + CoT / pushy 对照：**
+正向一侧的 first accuracy 为：`60.0 → 57.0 → 55.3 → 55.0 → 53.7%`，准确率随 α 增加而下降，但降幅主要集中在 `0 → +4`；从 `+4` 到 `+8` 只再下降 1.6 pp。因此，正向一侧不是持续加速恶化，而是：
 
-| α | plain first | plain last | pushy first |
-|---|---|---|---|
-| −4 | **73.0%** | 68.3% | 61.7% |
-| 0 | 60.0% | 55.3% | 55.7% |
-| +4 | 55.3% | 52.7% | 53.0% |
-| cot (α=0) | **69.0%** | 68.3% | 57.7% |
-| cot (α−4) | **85.0%** | 84.7% | — |
-| cot (α+4) | 59.7% | 59.0% | — |
+> 准确率先下降，随后在约 54% 附近逐渐趋平。
 
-- **倒 U 形（Yerkes–Dodson），峰值在 α=−6（78.0%）而非端点**：负向不是越负越好——α 从 0→−6 单调爬升（60→69→73→**78**），但 **α=−8 骤降到 40.3%**。这是框架预言的**适度降 wanting 提升、过度降 wanting 反而崩**的直接证据。
-- **正向单调下降但快速饱和**：0→+2→+4→+6→+8 = 60→57→55.3→55→53.7，+4 以后基本压平（~54%）——升 wanting 一路损害，但边际递减。
-- **CoT 把 steering 抬高且仍单调**：α−4_cot **85.0%**（全表最高）> α0_cot 69.0 > α+4_cot 59.7。放开思考与降 wanting 叠加，α−4+CoT 把 acc 推到 85%。
-- **pushy 压扁 steering**：pushy first 下 −4/0/+4 = 61.7/55.7/53.0，跨度仅 ~9pt（plain 同区间 17.7pt），**+4≈0**——pushy 把所有 α 拉向同一抢答水平，steering 区分度被措辞吃掉。
-- **first−last gap 一律 ≤4.7**：取首即上报，末尾 loop 不污染（CoT 几乎为 0）。
+#### First Versus Last Answer
+
+完整 No-CoT 曲线中，first 与 last accuracy 的绝对差均不超过 4.7 pp。除 `α=−8` 外，多数条件都是 first accuracy 略高，说明后续答案修改通常没有改善总体表现。不过，first–last gap 只能描述输出过程中答案是否被改动，不能用于判断答案在模型内部何时形成。具体的修改方向、重复提交和收口行为见 §2。
+
+### 1.2 CoT and Prompt Wording
+
+#### CoT Improves All Three Tested Doses
+
+在已有的三个剂量上，CoT 相比 No-CoT 的 first-accuracy 差异为：
+
+| α | No-CoT | CoT | ΔCoT |
+|---:|---:|---:|---:|
+| −4 | 73.0% | **85.0%** | **+12.0 pp** |
+| 0 | 60.0% | **69.0%** | **+9.0 pp** |
+| +4 | 55.3% | **59.7%** | **+4.4 pp** |
+
+CoT 在三个剂量上都提高了准确率，而且局部排序保持为：
+
+`α=−4 > 0 > +4`
+
+`α=−4 + CoT` 的 85.0% 是当前所有已测试 Llama GSM8K 条件中的最高准确率。
+
+但 CoT 目前只有 `−4/0/+4` 三个剂量点，没有 `−6 CoT`。因此可以说 `−4 + CoT` 是**已测试条件中的最高值**，不能据此认定它是完整 CoT 剂量曲线的全局最佳点。CoT 增益在负向一侧更大，但当前结果只是描述性比较。仅凭三个剂量点，不能证明 CoT 与 steering 存在正式交互，也不能证明两者作用机制独立或严格可加。
+
+#### Pushy Wording Compresses the Dose Difference
+
+No-CoT 条件下，plain 与 pushy wording 的结果为：
+
+| α | Plain | Pushy | ΔPushy |
+|---:|---:|---:|---:|
+| −4 | 73.0% | 61.7% | −11.3 pp |
+| 0 | 60.0% | 55.7% | −4.3 pp |
+| +4 | 55.3% | 53.0% | −2.3 pp |
+
+Plain wording 下，`−4` 到 `+4` 的准确率跨度为 17.7 pp；pushy wording 下缩小为 8.7 pp。
+
+Pushy 条件仍然保留 `−4 > 0 > +4` 的排序，但三个剂量被拉得更近。这说明催促式答案指令不只是整体降低表现，也会减弱当前区间内不同 steering 剂量的区分度。
+
+在 `α=0 + CoT` 条件下，pushy wording 同样将准确率从 69.0% 降至 57.7%，下降 11.3 pp。因此，CoT 本身不能抵消催促式措辞的负面影响。
+
+这些结果说明模型性能明显依赖 prompt wording；具体的抢答、重复和收口行为见 §2。
+
+### 1.3 Persona and Wording Sensitivity
+
+以下结果均为 `α=0`、No-CoT。
+
+| Role | Plain first | Plain last | Pushy first | ΔPushy |
+|---|---:|---:|---:|---:|
+| neutral | 60.0% | 55.3% | 55.7% | −4.3 pp |
+| an expert | 58.0% | 57.7% | **34.0%** | **−24.0 pp** |
+| a non expert | **68.0%** | 65.7% | 48.3% | −19.7 pp |
+| a primary school teacher | **68.0%** | 67.0% | 41.7% | **−26.3 pp** |
+
+Plain wording 下，persona 没有统一的性能方向：
+
+- `an expert` 为 58.0%，略低于 neutral 的 60.0%。
+- `a non expert` 和 `a primary school teacher` 均为 68.0%，高于 neutral。
+- 因此，不能简单概括为“专家 persona 提高数学能力”或“非专家 persona 降低数学能力”。
+
+更稳定的结果来自 wording sensitivity：
+
+- Neutral 在 pushy wording 下下降 4.3 pp。
+- 三个 persona 条件下降 19.7–26.3 pp。
+- 最大降幅出现在 `a primary school teacher`（−26.3 pp），其次是 `an expert`（−24.0 pp）。
+
+> Persona 会明显放大模型对催促式答案指令的敏感性，但不同 persona 在普通措辞下并不存在统一的准确率方向。
+
+Persona 如何改变答案后的身份独白和重复内容，将在 §2 中讨论。这里不把 persona accuracy 解释为真实身份、能力认同或主观心理状态。
+
+### 1.4 Summary
+
+Llama 在 GSM8K 上的性能结果可以概括为：
+
+1. **No-CoT 剂量曲线呈非对称峰形。** 准确率在 `α=−6` 达到 78.0%，但 `α=−8` 降至40.3%。
+2. **正向 α 伴随准确率下降。** 主要降幅发生在 `0 → +4`，之后逐渐趋平。
+3. **CoT 在已测试的三个剂量上都提高准确率。** `α=−4 + CoT` 达到 85.0%，但由于缺少完整 CoT 曲线，不能称为全局最优剂量。
+4. **催促式措辞会降低性能并压缩剂量差异。** 这一影响在 persona 条件下尤其明显。
+5. **本节只报告性能现象。** 剂量如何影响抢答、答案形成、重复和收口行为，将在 §2 中分析；这些行为也不能直接等同于生物学 dopamine。
 
 ## 2. Behavioral Findings: Wanting (Incentive Salience)
 
