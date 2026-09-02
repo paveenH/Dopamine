@@ -1206,7 +1206,51 @@ No-CoT 结果来自 §5.5，仅用于比较效应大小，不属于本节的 Hol
 `mdf_neg6` / `mdf_neg6_cot` 与各自的 `α=0` 均为**跨 run 比较**（存量格的物理 GPU provenance 无法从 `summary_math_*.csv` 恢复，该文件不含 device 字段）。
 
 
-### 5.8
+### 5.8 BBH `object_counting`：行为 signature 部分迁移，准确率双 null
+
+§5.7 的 LogiQA null 无法说明*为什么*，因为 LogiQA 相对 GSM8K 同时改了两件事：答案空间（自构整数 → 四选一）与推理内容。BBH `object_counting` 把**答案空间与提交接口恢复成 GSM8K 的形式**（自构整数 + `####`），保留推理内容的差异。注意这是三个*选定*维度的比较，不是受控单因子操作：BBH 在题目格式、领域、文本分布与生成形态上同样不同。
+
+协议 `bbh-p4b-v0` + `p4b-amend-01`。α 由冻结的 GSM8K 记录读出（Llama `−6`、Qwen `+8`），**不在 BBH 重新搜索**；每模型另加一个反方向诊断格（Llama `+4`、Qwen `−6`），该格在 Holm 家族之外，p 不校正，且**不得用于重新定义工作点**。全部 250 题，No-CoT，plain wording，`max_new_tokens=768`，greedy。α=0 已通过冻结的 headroom gate `[0.30, 0.85]`（Llama .4160、Qwen .5520），因此下面的 null 不是 baseline 天花板伪影。
+
+**Table 5.8a — 主准确率：双 null + reverse diagnostic**
+
+| Model | α | 角色 | first_acc | Δ vs α=0 | discordant | raw p | Holm p_adj | Bootstrap 95% CI |
+|---|---:|---|---:|---:|---:|---:|---:|---:|
+| Llama3.1-8B | 0 | baseline | .4160 | — | — | — | — | — |
+| Llama3.1-8B | **−6** | **workpoint** | .4080 | **−0.80 pp** | 27/29 | .8939 | **1.0000** | [−6.80, +5.20] |
+| Llama3.1-8B | +4 | reverse diag. | .3280 | −8.80 pp | 10/32 | .0009 | *不校正* | [−13.60, −4.00] |
+| Qwen2.5-7B | 0 | baseline | .5520 | — | — | — | — | — |
+| Qwen2.5-7B | **+8** | **workpoint** | .5760 | **+2.40 pp** | 34/28 | .5258 | **1.0000** | [−4.00, +8.40] |
+| Qwen2.5-7B | −6 | reverse diag. | .5680 | +1.60 pp | 27/23 | .6718 | *不校正* | [−4.00, +7.20] |
+
+Holm 家族 **m=2，仅含两个 workpoint 对比**。`last_acc` sensitivity 与 MAIN 同号且同量级（Llama −0.40 pp、Qwen +0.40 pp），因此两个 null 都不是 LAST 解析器或尾部改写造成的。
+
+**方向排序两个模型都 BREAKS。** Llama 为 `0 (.416) > −6 (.408) > +4 (.328)`，预期的 `−6 > 0 > +4` 不成立——α=0 本身高于工作点；`+4` 是本任务唯一显著的对比，且是**退化**，符合过度 steering 的损伤，不构成方向排序证据。Qwen 为 `+8 (.576) > −6 (.568) > 0 (.552)`，反向剂量反而高于 α=0，两个 CI 均跨 0。一个点不是剂量曲线：它可以显示排序是否延续，但定不出峰，也定不出倒 U。
+
+**Table 5.8b — 探索性行为表（不进 Holm）**
+
+| Model | α | early-cand% | 首行裸数字% | multi-marker% | 退化尾% | 语料续写% | chars 中位 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Llama3.1-8B | 0 | 95.2 | 94.8 | 84.0 | 92.8 | 0.0 | 1988 |
+| Llama3.1-8B | **−6** | **84.4** | 79.6 | 78.4 | 88.4 | 0.0 | 1928 |
+| Llama3.1-8B | +4 | 99.2 | 98.0 | 80.0 | 94.8 | 0.0 | 2003 |
+| Qwen2.5-7B | 0 | 100.0 | 54.4 | 92.0 | 3.6 | 50.8 | 422 |
+| Qwen2.5-7B | **+8** | **44.4** | **0.0** | **36.0** | 4.8 | 42.8 | 322 |
+| Qwen2.5-7B | −6 | 100.0 | 54.8 | 92.4 | 3.6 | 50.4 | 420 |
+
+`early_candidate` 为冻结的 `earlycand-v1`，本任务盲审 30/30 通过（precision 1.000、recall 1.000），但 **α=0 基线处于天花板**（Llama .952、Qwen 1.000），故只有*下降*可测；**一个持平的比率不能读作「α 不改变答案形成时序」**。该 flag 是 α 的*结果*，按其分层属 post-treatment 分层，只作 consistent-with 证据，绝非中介。
+
+**Qwen `+8` 应写作 mixed regime，不能概括为全面「先算后答」。** 它确实把首行裸数字压到 0.0%、multi-marker 由 92.0 降到 36.0，且反向格 `−6` 完全不动（100.0 / 54.8），说明这是 `+α` 特有而非任意扰动。但在 139 条转为非 early-candidate 的样本中，只有一部分真正先展开计数（`sid=1`：先逐项列举再求和，marker 落在推理之后），另一部分仅改变了答案的**表面形式**——`sid=2` 首行写英文数词 `three`、`sid=17` 首行即以散文报出 `You have a total of 9 objects (3 fridges + 1 bed + 5 stoves = 9)`，仍是先报答案。
+
+**`pre-marker` 字符数由 313 降到 44、`posN` 由 .757 降到 .699 只作格式诊断，不能支持「答案后移」**——方向恰好相反，且该量混入了「早期空 `####`、首个可解析 marker 更晚出现」的情形。timing 证据以经过审计的 `early_candidate` 加原文形态为准。
+
+Llama `−6` 产生同方向但弱得多的变化（early-cand 95.2 → 84.4，`+4` 反而推满至 99.2）；其三格原文形态高度相似，均为「数字 → Explanation → 尾部退化循环」。Llama 三格退化尾率 88–95%、cap-hit 高，其准确率**只能称为固定 768-token 预算下的准确率**，长度类读数不是自然长度；这是与 GSM-Hard **相似的循环/截断表型，而非已确立的相同机制**。Qwen 约 **50%** 的生成尾部带训练语料续写（`You are an AI assistant …`），三格接近（50.8 / 42.8 / 50.4），α 既未制造也未消除它；它位于 `####` 之后，不影响 first-口径抽取。
+
+> **结论。** Qwen `+8` 明显抑制裸数字式抢答，并使部分输出转入 reasoning-before-marker；Llama `−6` 也产生较弱的同方向变化。但这些行为变化没有稳定转化为准确率改善，说明改善答案提交时序不是跨任务准确率提升的充分条件。
+
+因此可写的是 **GSM8K 上的行为 signature 部分迁移**，而非「机制迁移成功」。同时，恢复答案空间与提交接口**不足以**恢复准确率迁移；按冻结措辞，这**不**能推出「推理内容才是约束条件」——要把选项接口效应与推理类型效应分开，需要同题有选项／无选项的对照，本协议未授权。
+
+行为数字由 `analyze_bbh_behavior.py` 从六个原始生成文件复算至 `docs/bbh_p4b_object_counting_behavior.json`（该脚本同时复算准确率并断言与冻结的 `docs/bbh_p4b_object_counting_result.json` 逐格一致），其中包含按 `early_candidate` 转换分组的配对拆解——该拆解按 steering *之后*的行为结果选组，属 post-treatment selection，标为 exploratory，不进 Holm，且不能解释为中介效应。冻结顺序、artifact hashes 与完整 provenance 见 `CLAUDE.md`。
 
 ## References
 
