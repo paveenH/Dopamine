@@ -85,7 +85,7 @@ Daily
 17. LogiQA working point ✖ 目前做不出来，不确定是因为选择题的形式问题还是逻辑推理无法迁移
 18. BBH counting task ✔
 19. 精简claude.md的内容 ✔
-20. 整理GSM8K文档 ⏸
+20. 整理GSM8K文档 ✔
 21. 补充一下llama3-gsm8k-cot working point的结果 ⏸
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
