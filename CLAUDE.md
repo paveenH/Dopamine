@@ -138,7 +138,8 @@ Scope: every colour-logit diagnostic claim. -->
 | P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
-| P4 fixed-workpoint transfer (LogiQA 2.0) | **STAGE-1 FROZEN, FORMAL RUN PENDING** 2026-09-01 — two-stage freeze (`logiqa2-p4-v0` + amendments 01–06); blind preflight done, budget frozen at 1024; the 300-item run has NOT been scored. NOT a blind validation — LogiQA gold is public |
+| P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
+| P4b fixed-workpoint transfer (BBH numeric) | **PREREG FROZEN, NOTHING RUN** 2026-09-02 — `bbh-p4b-v0`, second task of the SAME P4 question (not a new phase). Stage-0 headroom gate pending |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1498,8 +1499,61 @@ python3.10 p3/commit_panel_gsm_hard.py        # commitment + cap% panel (EXPLORA
 > **`docs/PREREG_P4_LOGIQA2.md` is the protocol** (`logiqa2-p4-v0`, stage 0,
 > commit `cb796ea`), amended additively by `docs/p4_amendment_0{1,2,3,4,5,6}.json`
 > — none overwrites its predecessor. `docs/P4_LOGIQA2_PREFLIGHT_OUTCOME.md` is
-> the preflight record. **Status 2026-09-01: stage-1 frozen, formal run pending,
-> nothing scored.**
+> the preflight record. **Status: COMPLETE + FROZEN 2026-09-01 — DOUBLE NULL.**
+
+### RESULT (scored 2026-09-01, `docs/p4_logiqa2_evaluation.json`)
+
+**Neither model survives Holm (m=2), and llama's raw p is not significant
+either** — llama `−6` `.5633 → .5200` = **−4.33 pp**, discordant 13/26, exact
+McNemar **p=.0533**, `p_adj=.107`, CI `[−8.33, −0.33]`; qwen `+8`
+`.6400 → .6500` = **+1.00 pp**, 33/30, p=.8013, `p_adj=.801`, CI
+`[−4.00, +6.33]`. **The GSM8K workpoint did not transfer to neutral
+single-stage generative multiple-choice reasoning.**
+
+**FIRST sensitivity is same-signed with MAIN in both models** (llama −3.33 pp
+vs LAST-MAIN −4.33; qwen +0.67 vs +1.00), which is what excludes "the LAST
+parser or a tail revision manufactured this". Given llama's degeneration rate
+that exclusion is not a formality.
+
+**`answer_first` .757 → .330 is a MARKER artifact and must NOT be cited as
+answer-formation timing.** The field is frozen as "first non-whitespace content
+is a parseable `Final answer: X`", so `B\nFinal answer: B` and
+`The correct answer is A … Final answer: A` are FALSE by definition while the
+model has plainly already committed. An exploratory text scan reads
+**86.7% → 54.3%** instead. Correct wording: "α=−6 reduced canonical marker-first
+and increased pre-marker text; explicit option candidates also moved later, but
+a large share of outputs still name an option before or at the opening of the
+argument."
+
+**Marker delay did NOT buy better judgement**, which is the load-bearing
+observation. On the 146 items that moved marker-first → non-marker-first,
+9 improved and 17 worsened (52.1% → 46.6%); globally α changed the TEXT of
+246/300 items but the final option of only 61/300, and within those 13 improved
+and 26 worsened. Post-treatment stratification — consistent-with evidence,
+never mediation.
+
+**Qwen's null is the one that closes the "MCQ leaves no room to reason" escape
+hatch.** It compared ≥2 options before the marker in 270/300 (α=0) and 258/300
+(+8), had **zero** strictly answer-first outputs in both cells, and median
+pre-marker chars barely moved (1401 → 1370). Reasoning WAS expanded; the
+workpoint still did nothing. Its generation behaviour is not inert either
+(degeneration .133 → .217, multi-marker .483 → .617, budget exhaustion
+.157 → .260, 74/300 changed answers with a net ≈ 0) — so write "+8 broadly
+perturbed the trajectory with a near-zero net effect on accuracy", never "+8
+had no effect on Qwen".
+
+**Llama's outputs mix two things and the record must say so**: task-specific
+logical judgement, and severe continuation/termination degeneration under the
+bare generative protocol (`Final answer: D` repeated, `Skill 1a / Skill 1b …`
+training-corpus continuation, drifting into unrelated problems, marker loops to
+the budget cap).
+
+**What this result does NOT establish.** LogiQA changed the reasoning content
+AND the answer space (constructed number → four-way choice among given
+candidates) at once, so the null cannot separate a choice-interface effect from
+a reasoning-type effect. **P4b (BBH numeric) is the control built for exactly
+this**, and even it cannot fully separate them — that needs a within-item
+with/without-options contrast, which has not been run.
 
 **The question is FIXED-WORKPOINT TRANSFER, not selection.** Does a workpoint
 established on GSM8K (llama `−6`, qwen `+8`) still help on generative logical
@@ -1653,6 +1707,142 @@ python eval_logiqa2.py \
   --out docs/p4_logiqa2_evaluation.json
 ```
 
+## P4b fixed-workpoint transfer to BBH numeric reasoning (PREREG FROZEN, NOTHING RUN)
+
+> **`docs/PREREG_P4B_BBH.md` is the protocol** (`bbh-p4b-v0`, frozen 2026-09-02
+> before any α=0 cell existed). **Status: prereg + sample-freeze tooling exist;
+> no data has been generated.**
+
+**P4b IS NOT A NEW PHASE — it is the SECOND TASK of P4's question.** It was
+briefly numbered `P5`; that was renamed before any artifact existed, because
+`P5` implied a stage that does not exist. Do not renumber it back.
+
+**Why it exists.** P4's LogiQA null cannot say *why*, because LogiQA changed two
+things at once relative to GSM8K:
+
+| | answer space | reasoning content | submission |
+|---|---|---|---|
+| GSM8K | model constructs an integer | arithmetic word problems | `####` |
+| LogiQA 2.0 | choose among 4 **given** candidates | textual logic | `Final answer: X` |
+| **BBH numeric** | model constructs an integer | counting / nested arithmetic | `####` |
+
+The two BBH tasks restore the answer space and the submission interface to
+GSM8K's. **That table compares three CHOSEN dimensions and is not exhaustive** —
+BBH also differs in item format, domain, text distribution and generation shape,
+so this is a between-task comparison, not a controlled single-factor
+manipulation.
+
+**FROZEN OUTCOME WORDING, both weaker than a causal claim.** Transfer → "the
+workpoint transferred to an option-free numeric reasoning task, **consistent
+with** the choice interface being part of the LogiQA boundary" — **never**
+"LogiQA failed because of the options". Null → "removing the option interface
+was **not sufficient** to restore transfer", which does **not** establish that
+reasoning content is the binding constraint. **Separating a choice-interface
+effect from a reasoning-type effect needs a within-item contrast (the same items
+with and without options); that is a different experiment and is not authorised
+here.**
+
+- **Task tier is fixed in advance so task choice is not a post-hoc narrative**:
+  `object_counting` → `multistep_arithmetic_two` (only if the first fails the
+  gate for BOTH models) → `dyck_languages`, the last **unimplemented and
+  unauthorised** (it changes the answer space to a symbol string and needs its
+  own parser, prompt and gate). `--task` is an allowlist of the two numeric
+  configs; a third cannot be smuggled through it.
+- **`lukaemon/bbh` pinned to `982bb89fd79532a8ac676a61fc42eb1aeec63f99`**, `test`
+  split, **all 250 items, no sampling** (so no salt and no selection step).
+  `maveriq/bigbenchhard` is script-based and would hit current `datasets`'
+  rejection of loading scripts — the same trap SIQA hit.
+- **Measured at freeze:** `object_counting` 17 gold values 2…18, majority-class
+  **.104**, digest `4cfbf739e1fe7870`; `multistep_arithmetic_two` 185 values
+  −39960…250992, majority-class **.016**, digest `e69d300b94274ce3`. Both
+  all-integer gold, so `normalize_gsm8k` applies unchanged.
+- **Stage-0 gate is `α=0 first_acc ∈ [0.30, 0.85]`, judged PER MODEL, and the
+  interval is FROZEN.** Its purpose is not to test α but to confirm a later null
+  is interpretable rather than a baseline-ceiling artifact (the Qwen-MMLU-betting
+  and pv6-Easy-bare failure). **The majority-class rate is recorded but does NOT
+  move the interval** — it is the trivial constant-guess baseline, not a
+  random-guess rate, and letting it adjust the gate after inspecting the data
+  would make the gate itself adjustable. At .104/.016 it is moot, which is a fact
+  about the data, not a licence to revisit the rule.
+- **Format/truncation diagnostics are NOT a gate.** They exist only to confirm
+  the 768 budget and the shared extractor did not fail *technically*. Seeing the
+  output shape must not lead to a changed prompt, a redefined parser, or a
+  re-tuned budget.
+- **Per-model eligibility, but the two-model panel is the design.** Both eligible
+  → Holm m=2. Exactly one → its workpoint cell still runs, pre-specified as
+  **single-model exploratory transfer** with Holm **WITHHELD** and the raw p
+  labelled unadjusted; running Holm at m=1 under an m=2 label is the error this
+  prevents. Neither → no workpoint cell, move to the next task in the tier.
+- **α is expressible ONLY as 0 or the frozen GSM8K workpoint** (llama `−6`, qwen
+  `+8`). The launcher cannot name another dose and the scorer rejects one.
+  `WORKPOINT` also refuses to run before the α=0 cell exists — the gate is judged
+  on α=0, so running the workpoint first would make the gate unfalsifiable.
+- **`cot=False` and `wording="plain"` are HARDCODED in the runner, not flags.**
+  BBH ships 3-shot CoT prompts; inheriting them would add exemplars and explicit
+  reasoning, re-mixing the variables this design exists to separate. The "pushy"
+  wording is a known early-`####` inducer. Neither has a cell here.
+- **Not a blind validation, and the files say so.** BBH gold is public; P3 was
+  the blind test and is closed. What carries over is the OTHER half of the
+  discipline: α read from the frozen record and never re-searched, predictor /
+  features / marker adapter untouched, generation and scoring as separate
+  scripts, sample frozen before any steered cell. The sample is still emitted as
+  a blind copy (field whitelist, then asserted label-free) plus a gold copy, so
+  generation cannot reach a label even by mistake.
+- **`earlycand-v1` must be re-validated on this task BEFORE it may be called a
+  commitment metric.** It was frozen on GSM8K, where a short first line with a
+  number is answer-shaped; on `object_counting` the question IS a list of objects
+  and the reasoning is a running count, so a leading number may merely restate
+  the question. Its GSM8K blind audit (precision 1.000, recall .976) was on
+  arithmetic text and does not transfer by assumption.
+  `freeze_p4b_earlycand_audit.py` fixes **30 items from the frozen question
+  digests before stage-0 generation** (ranked by salted `sha256` of the question
+  text — never `hash()`, which is process-salted; `object_counting` selection
+  digest `04508a19ce30b0b6`), because choosing them after seeing detector output
+  would let the sample flatter the detector. The rubric is applied **without
+  seeing the detector flag**; comparison happens only afterwards.
+  **Three outcomes, all frozen**: pass → exploratory timing readout, outside
+  Holm; fail → withdrawn as a timing metric, only marker/format description
+  survives; **fewer than 10 detector positives among the 30 → INCONCLUSIVE**,
+  report the raw counts (detector positives / manual positives / agreements) and
+  claim no precision in either direction. In every case the accuracy main test is
+  unaffected (it never uses the detector), the sample is not re-drawn or enlarged
+  to chase positives, and **the detector is NOT re-tuned** — that would fork the
+  definition against every stored GSM8K and MATH number.
+- **`early_candidate` is an OUTCOME of α**, so stratifying accuracy on it is
+  post-treatment stratification: consistent-with evidence, never mediation.
+
+```bash
+# Server, from /data1/paveen/Dopamine. Steps 1-2 precede ANY generation.
+python data_bbh_numeric.py --task object_counting --out_dir components/benchmark
+python data_bbh_numeric.py --task multistep_arithmetic_two --out_dir components/benchmark
+#   digests must read 4cfbf739e1fe7870 / e69d300b94274ce3
+python freeze_p4b_earlycand_audit.py --task object_counting --bench components/benchmark
+#   selection_digest must read 04508a19ce30b0b6
+
+# Stage-0: the two MODELS may share nothing but the task -- they are never
+# compared per item, so they parallelise. A model's own two cells must stay on
+# ONE card (paired per-item contrast; bf16 greedy is not byte-reproducible).
+CUDA_VISIBLE_DEVICES=0 nohup bash run_bbh_numeric.sh llama3  object_counting STAGE0 > p4b_oc_l_s0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_bbh_numeric.sh qwen2.5 object_counting STAGE0 > p4b_oc_q_s0.log 2>&1 &
+cat p4b_oc_l_s0.log      # immediately -- a wrong PY exits 127 and the log looks empty
+
+# The gate, and the ONLY script that reads gold:
+python eval_bbh_numeric.py \
+  --generations components/llama3/bbh/object_counting/mdf_0/bbh_object_counting_8B_11_20.json \
+                components/qwen2.5/bbh/object_counting/mdf_0/bbh_object_counting_7B_16_22.json \
+  --gold_file components/benchmark/bbh_p4b_object_counting.json \
+  --out docs/bbh_p4b_object_counting_stage0.json
+
+# WORKPOINT only for models that printed PASS, and only after the manual audit.
+CUDA_VISIBLE_DEVICES=0 nohup bash run_bbh_numeric.sh llama3 object_counting WORKPOINT > p4b_oc_l_wp.log 2>&1 &
+```
+
+**Prior worth knowing before reading the gate**: public reports put
+Llama-3.1-8B near **.90** on `object_counting` under *their* prompt, budget and
+extractor — not comparable to ours, but enough that a `> .85` ceiling failure is
+a live outcome, not a formality. If it fails, `multistep_arithmetic_two`'s sample
+is already frozen; switch `--task`, no code change.
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
@@ -1669,6 +1859,27 @@ python3.10 data_logiqa2.py --check     # must print formal digest 4d4b25e071a2a6
 bash -n run_logiqa2_preflight.sh && bash -n run_logiqa2_formal.sh
 # bash -n is NOT sufficient for a launcher -- it passed the ${1:?...} brace bug
 # that made every invocation die. Also invoke with real arguments.
+
+# P4b BBH numeric. --check re-runs every stage-0 assertion (schema, 250 rows,
+# unique questions, integer gold, gold-distribution drift, content digest) and
+# reprints the digests; it writes nothing and reads no gold. It DOES hit the
+# network to fetch the pinned revision.
+python3.10 data_bbh_numeric.py --task object_counting --check
+python3.10 data_bbh_numeric.py --task multistep_arithmetic_two --check
+# The audit freeze is deterministic and must reprint 04508a19ce30b0b6; run it
+# twice if you touched the selection, since a process-salted hash() would give
+# a different 30 items each run and the digest is what catches that. It reads
+# the BLIND file, so it needs --bench pointing at a tree where that file
+# exists; components/benchmark/ is SERVER-side, so locally write one to a temp
+# dir first (the loader refuses to overwrite, hence the temp dir).
+TMP=$(mktemp -d) && python3.10 data_bbh_numeric.py --task object_counting --out_dir "$TMP" >/dev/null \
+  && python3.10 freeze_p4b_earlycand_audit.py --task object_counting --bench "$TMP" --check \
+  && rm -rf "$TMP"
+bash -n run_bbh_numeric.sh
+CUDA_VISIBLE_DEVICES=0 bash run_bbh_numeric.sh llama3 dyck_languages STAGE0
+                                           # must be REFUSED: the task
+                                           # allowlist is the guard, and
+                                           # bash -n cannot test it
 
 # P3 blind validation (GSM-Hard). STDLIB ONLY -- runs under bare python3 too,
 # deliberately: it once imported the generation module (numpy via utils) and
