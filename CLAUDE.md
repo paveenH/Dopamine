@@ -139,7 +139,7 @@ Scope: every colour-logit diagnostic claim. -->
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
 | P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
-| P4b fixed-workpoint transfer (BBH numeric) | **STAGE-0 PASSED both models** 2026-09-02 (`object_counting`: llama .4160, qwen .5520, gate `[.30,.85]`) — earlycand audit PASSED (29/29, agreement 30/30) but its α=0 base rate is at CEILING (.952/1.000). Workpoint + reverse-diagnostic cells NOT yet run. `bbh-p4b-v0` + `p4b-amend-01`; second task of the SAME P4 question, not a new phase |
+| P4b fixed-workpoint transfer (BBH numeric) | **COMPLETE — DOUBLE NULL** 2026-09-02 (`object_counting`, 6 cells) — neither model survives Holm m=2 (llama −6 −0.80 pp p_adj=1.000; qwen +8 +2.40 pp p_adj=1.000); reverse diagnostic BREAKS the ordering on both. Behaviour DOES move (qwen +8 bare-first-line 54.4→0.0%), so the frozen reading is **GSM8K 行为 signature 部分迁移**, never "mechanism transferred". Stage-0 gate PASSED (.4160/.5520) and the earlycand audit (29/29, α=0 at CEILING .952/1.000) stay as history. `bbh-p4b-v0` + `p4b-amend-01`; second task of the SAME P4 question, not a new phase |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 **Required reading before non-trivial changes:**
@@ -1508,13 +1508,15 @@ python eval_logiqa2.py \
   --out docs/p4_logiqa2_evaluation.json
 ```
 
-## P4b fixed-workpoint transfer to BBH numeric reasoning (STAGE-0 PASSED; workpoint cells pending)
+## P4b fixed-workpoint transfer to BBH numeric reasoning (COMPLETE — DOUBLE NULL)
 
 > **`docs/PREREG_P4B_BBH.md` is the protocol** (`bbh-p4b-v0`, frozen 2026-09-02
 > before any α=0 cell existed), amended additively by
-> `docs/p4b_amendment_01.json`. **Status: `object_counting` stage-0 is RUN and
-> PASSED on both models; the workpoint and reverse-diagnostic cells are not yet
-> run.**
+> `docs/p4b_amendment_01.json`. **`AdaDopamine_gsm8k.md` §5.8 is the results
+> document.** **Status: `object_counting` is COMPLETE — all six cells run, a
+> DOUBLE NULL on the primary test.** The stage-0 and audit blocks below are
+> RETAINED AS HISTORY and were not rewritten in light of the result; the RESULT
+> block is appended after them.
 
 ### STAGE-0 RESULT (`object_counting`, 2026-09-02, `docs/bbh_p4b_object_counting_stage0.json`)
 
@@ -1600,6 +1602,134 @@ unfrozen α (`−4`) is refused; Holm stays m=2 with reverse cells present.
 (llama GPU 0, qwen GPU 1) — paired per-item contrasts, and bf16 greedy is not
 byte-reproducible across GPUs. `WORKPOINT` and `REVERSE` of one model run
 **sequentially** (same card, and `REVERSE` checks the workpoint cell exists).
+
+### RESULT (`object_counting`, 2026-09-02, `docs/bbh_p4b_object_counting_result.json`)
+
+> **`AdaDopamine_gsm8k.md` §5.8 is the results document.** This block is
+> provenance and the 口径 traps. The stage-0 and audit blocks ABOVE are history
+> and were not rewritten in light of this result.
+
+**DOUBLE NULL. Neither model survives Holm (m=2), and neither raw p is
+significant either** — llama `−6` `.4160 → .4080` = **−0.80 pp**, discordant
+27/29, exact McNemar **p=.8939**, `p_adj=1.0000`, CI `[−6.80, +5.20]`; qwen `+8`
+`.5520 → .5760` = **+2.40 pp**, 34/28, p=.5258, `p_adj=1.0000`, CI
+`[−4.00, +8.40]`. **The GSM8K workpoint did not transfer to BBH numeric
+reasoning.**
+
+**LAST sensitivity is same-signed with MAIN in both models** (llama −0.40 pp vs
+MAIN −0.80; qwen +0.40 vs +2.40), which is what excludes "the LAST parser or a
+tail revision manufactured this". Given llama's 88–95% degenerate-tail rate that
+exclusion is not a formality. **First/last marker revision is small on this
+task**: llama `first .4160 / last .4120`, qwen `.5520 / .5600` — later markers
+rarely flip correctness, which is NOT the same as "reasons before answering".
+
+**Six cells, one shared digest `4cfbf739e1fe7870`, n=250 each,
+`steering_fires` exactly 2250 (llama, L=9) / 1500 (qwen, L=6) at α≠0 and 0 at
+α=0.** All carry `protocol=bbh-p4b-v0`, `cot=False`, `max_new_tokens=768`.
+
+| model | α | role | first_acc | Δ pp | disc. | raw p | Holm p_adj | CI95 |
+|---|---:|---|---:|---:|---:|---:|---:|---:|
+| llama3 | 0 | baseline | .4160 | — | — | — | — | — |
+| llama3 | **−6** | **workpoint** | .4080 | **−0.80** | 27/29 | .8939 | **1.0000** | [−6.80, +5.20] |
+| llama3 | +4 | reverse diag. | .3280 | −8.80 | 10/32 | .0009 | *unadjusted* | [−13.60, −4.00] |
+| qwen2.5 | 0 | baseline | .5520 | — | — | — | — | — |
+| qwen2.5 | **+8** | **workpoint** | .5760 | **+2.40** | 34/28 | .5258 | **1.0000** | [−4.00, +8.40] |
+| qwen2.5 | −6 | reverse diag. | .5680 | +1.60 | 27/23 | .6718 | *unadjusted* | [−4.00, +7.20] |
+
+**THE REVERSE CELL DOES NOT REDEFINE THE WORKPOINT, and on qwen it would be
+tempting to let it.** Ordering **BREAKS on both**: llama is `0 (.416) > −6 (.408)
+> +4 (.328)` — α=0 already beats the workpoint, so `−6 > 0 > +4` fails; qwen is
+`+8 (.576) > −6 (.568) > 0 (.552)` — the reverse dose sits ABOVE α=0, so
+`+8 > 0 > −6` fails too. **Llama `+4` (p_raw=.0009) is the ONLY significant
+contrast anywhere in this task and it is a DEGRADATION**, consistent with
+over-steering damage rather than with a direction ordering; it is outside Holm
+and its p is unadjusted. One point is not a curve: it can show an ordering
+continues or breaks, never a peak or an inverted-U.
+
+<!-- Why: qwen +8's early-candidate rate falls 100.0 -> 44.4 and bare-first-line
+54.4 -> 0.0, which reads as "reasoning before marker" until you open the text --
+a large share of the turned-off group merely restates the answer in prose or as an
+English number word. Writing "reasons first" would overstate a mixed regime.
+Evidence: docs/bbh_p4b_object_counting_behavior.json; qwen +8 sid=1 (genuine),
+sid=2 'three', sid=17 prose-first.
+Scope: every BBH timing claim. -->
+**BEHAVIOUR DID MOVE, and this is the finding accuracy cannot show — but it is a
+MIXED REGIME.** Qwen `+8` drives bare-first-line **54.4% → 0.0%**,
+`early_candidate` **100.0% → 44.4%**, multi-marker **92.0% → 36.0%**, while the
+reverse cell `−6` does not move at all (100.0 / 54.8 / 92.4) — so this is
+`+α`-specific, not arbitrary perturbation. **But it must NOT be summarised as
+"先算后答".** Of the 139 samples that turned off, only some genuinely expand the
+count first (`sid=1`: itemised list, then the sum, marker last); others merely
+change the SURFACE FORM of an answer still stated first — `sid=2` opens with the
+English word `three`, `sid=17` opens with
+`You have a total of 9 objects (3 fridges + 1 bed + 5 stoves = 9)`. Llama `−6`
+moves the same direction far more weakly (95.2 → 84.4) while `+4` saturates it
+(99.2); its three cells' morphology is near-identical (digit → `Explanation:` →
+degenerate `####.####…` tail), representative `sid=7`.
+
+**`pre_marker_chars` (313 → 44) and `posN` (.757 → .699) are FORMAT DIAGNOSTICS
+ONLY and must never be cited as "the answer moved later" — they move the OTHER
+way.** They mix the "early empty `####`, first parseable marker later" case, so
+the fall is an artifact of marker bookkeeping. The timing reading rests on the
+audited `early_candidate` flag plus raw-text morphology.
+
+**`early_candidate` is frozen as `earlycand-v1` and was NOT re-tuned for this
+task.** Definition: the FIRST NON-EMPTY LINE is (1) ≤60 chars stripped,
+(2) contains a number token, (3) is NOT a numbered reasoning opening
+(`1. To find …`), (4) is NOT a bare heading (`Step 1:` / `Solution:`) — an
+answer-shaped bare number written before any derivation. Its blind audit on THIS
+task passed 30/30 (precision 1.000, recall 1.000), **but its α=0 base rate is at
+CEILING (llama .952, qwen 1.000)**, so only a DECREASE is measurable and a flat
+rate must NOT be read as "α does not move answer-formation timing".
+
+**Stratifying accuracy on `early_candidate` is POST-TREATMENT stratification —
+consistent-with evidence, never mediation.** The flag is an OUTCOME of α. The
+paired split (EXPLORATORY, outside Holm, unadjusted p) is nonetheless recorded
+because it cuts BOTH ways and a one-sided reading would be wrong: qwen `+8`
+turned_off n=139 `.554 → .691` (gained 30 / lost 11, p_raw .0043) while
+stayed_early n=111 `.549 → .432` (gained 4 / lost 17, p_raw .0072); llama `−6`
+turned_off n=39 `.231 → .590` (14/0, p_raw .0001) while stayed_early n=211
+`.450 → .374` (13/29, p_raw .0195). **There is no matched α=0 control group** —
+qwen's α=0 early-candidate rate is 1.000 — so the between-group difference
+cannot be attributed to α.
+
+**Qwen carries ~50% training-corpus continuation in ALL THREE cells** (`You are
+an AI assistant …`): 50.8 / 42.8 / 50.4 at 0 / +8 / −6. **α neither created nor
+removed it.** It sits AFTER the marker, so it does not affect first-caliber
+extraction, but it means this batch's termination behaviour is not clean
+independently of steering.
+
+**LLAMA IS A FIXED-768-BUDGET ESTIMAND.** Degenerate-tail rate 92.8 / 88.4 / 94.8
+and `chars_median` 1988 / 1928 / 2003 across 0 / −6 / +4. The paired comparison
+stays valid — every cell was evaluated under the same 768-token budget — but the
+accuracies may NOT be read as unconstrained reasoning capability, and llama's
+length-derived readouts are NOT natural lengths. **Frozen wording: "Llama 出现与
+GSM-Hard 相似的循环/截断表型" — a SIMILAR PHENOTYPE, never an established shared
+mechanism.** Qwen does not loop (degenerate 3.6–4.8%, `chars_median` 322–422).
+
+**FROZEN OUTCOME WORDING.** Restoring the answer space and the submission
+interface was **not sufficient** to restore transfer; this does **NOT** establish
+that reasoning content is the binding constraint — separating a choice-interface
+effect from a reasoning-type effect needs a within-item with/without-options
+contrast, which is a different experiment and is not authorised here. Write
+**"GSM8K 上的行为 signature 部分迁移"**, never "mechanism transferred". And:
+**改善答案提交时序不是跨任务准确率提升的充分条件.**
+
+**Behaviour numbers are RECOMPUTED, never hand-copied into Markdown.**
+`analyze_bbh_behavior.py` reads the six generation files and writes
+`docs/bbh_p4b_object_counting_behavior.json`; it IMPORTS the frozen
+`early_candidate_detector` (`--detector_dir`) rather than reimplementing it, and
+`--expect_acc` makes it recompute `first_acc` per cell and **die** unless it
+reproduces the frozen eval exactly — that reproduction is the acceptance check
+for any future edit. It refuses to overwrite an existing output. Its
+`degenerate_tail` uses the strict GSM8K detector (final 40-char block recurring
+≥4×), so the rate stays comparable with GSM8K; a permissive n-gram proxy read
+80–86% there and was all false positives.
+
+**POST-RESULT RULE: the P4b main analysis 口径 is CLOSED.** The predictor,
+features, marker adapter, workpoints and success criteria may not be changed in
+light of this result. Do not add doses, do not re-search α on BBH, do not promote
+the reverse cell. Any further analysis is **exploratory** and must be labelled so.
 
 **P4b IS NOT A NEW PHASE — it is the SECOND TASK of P4's question.** It was
 briefly numbered `P5`; that was renamed before any artifact existed, because
