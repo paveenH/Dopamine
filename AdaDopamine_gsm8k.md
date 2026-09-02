@@ -44,7 +44,7 @@ CoT:     Solve the following math problem.
 Llama3.1-8B-Instruct 在 GSM8K 上呈现出三个主要结果：
 
 - No-CoT 剂量曲线是明显的**非对称峰形**：准确率在 `α=−6` 达到最高，但到 `α=−8` 明显崩落。
-- CoT 在已测试的 `−4/0/+4` 三个剂量上都提高准确率，同时保留 `−4 > 0 > +4` 的局部排序。
+- CoT 改变了负向剂量的最佳位置：No-CoT 在 `α=−6` 达到最高准确率，而 CoT 在已测试剂量中以 `α=−4` 最佳；更强的 `−6` 反而回落。
 - 催促式措辞会降低准确率并压缩不同 α 之间的差异，带 persona 的条件尤其敏感。
 
 **Setup.** Llama3.1-8B-Instruct，GSM8K 300 题，greedy decoding。正文统一报告 offline `first_acc`；`last_acc` 仅用于检查后续答案修改，不作为主要性能指标。所有数据来自同一冻结 production batch，具体运行配置、数据路径和提取口径见 `CLAUDE.md`。
@@ -57,8 +57,8 @@ Llama3.1-8B-Instruct 在 GSM8K 上呈现出三个主要结果：
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | **Plain No-CoT, first acc** | 40.3% | **78.0%** | 73.0% | 69.0% | 60.0% | 57.0% | 55.3% | 55.0% | 53.7% |
 | Plain No-CoT, last acc | 41.7% | 74.7% | 68.3% | 65.3% | 55.3% | 55.3% | 52.7% | 53.3% | 52.3% |
-| **Plain CoT, first acc** | — | — | **85.0%** | — | 69.0% | — | 59.7% | — | — |
-| Plain CoT, last acc | — | — | 84.7% | — | 68.3% | — | 59.0% | — | — |
+| **Plain CoT, first acc** | — | 75.3% | **85.0%** | — | 69.0% | — | 59.7% | — | — |
+| Plain CoT, last acc | — | 78.0% | 84.7% | — | 68.3% | — | 59.0% | — | — |
 | **Pushy No-CoT, first acc** | — | — | 61.7% | — | 55.7% | — | 53.0% | — | — |
 | Pushy CoT, first acc | — | — | — | — | 57.7% | — | — | — | — |
 
@@ -80,23 +80,39 @@ Llama3.1-8B-Instruct 在 GSM8K 上呈现出三个主要结果：
 
 ### 1.2 CoT and Prompt Wording
 
-#### CoT Improves All Three Tested Doses
+#### CoT Shifts the Best Tested Dose
 
-在已有的三个剂量上，CoT 相比 No-CoT 的 first-accuracy 差异为：
+加入 `α=−6` 后，GSM8K CoT 已覆盖四个剂量。下表合并 No-CoT 对照、CoT 的 first/last accuracy，以及答案修改情况。
 
-| α | No-CoT | CoT | ΔCoT |
-|---:|---:|---:|---:|
-| −4 | 73.0% | **85.0%** | **+12.0 pp** |
-| 0 | 60.0% | **69.0%** | **+9.0 pp** |
-| +4 | 55.3% | **59.7%** | **+4.4 pp** |
+| α | No-CoT first acc | CoT first acc | ΔCoT | CoT last acc | CoT commit rate | 改对 / 改坏 |
+|---:|---:|---:|---:|---:|---:|---:|
+| −6 | **78.0%** | 75.3% | −2.7 pp | 78.0% | 37.7% | 12 / 4 |
+| −4 | 73.0% | **85.0%** | **+12.0 pp** | 84.7% | 31.7% | 3 / 4 |
+| 0 | 60.0% | 69.0% | +9.0 pp | 68.3% | 37.7% | 1 / 3 |
+| +4 | 55.3% | 59.7% | +4.4 pp | 59.0% | 29.0% | 0 / 2 |
 
-CoT 在三个剂量上都提高了准确率，而且局部排序保持为：
+CoT 条件下的准确率排序为：
 
-`α=−4 > 0 > +4`
+`α=−4 > −6 > 0 > +4`
 
-`α=−4 + CoT` 的 85.0% 是当前所有已测试 Llama GSM8K 条件中的最高准确率。
+因此，`α=−4 + CoT` 的 85.0% 是当前已测试 Llama GSM8K 条件中的最高准确率。`α=−6` 并不是 CoT 曲线的最佳点：它相对 CoT baseline 只提高 6.33 pp，而且明显低于 `α=−4`。
 
-但 CoT 目前只有 `−4/0/+4` 三个剂量点，没有 `−6 CoT`。因此可以说 `−4 + CoT` 是**已测试条件中的最高值**，不能据此认定它是完整 CoT 剂量曲线的全局最佳点。CoT 增益在负向一侧更大，但当前结果只是描述性比较。仅凭三个剂量点，不能证明 CoT 与 steering 存在正式交互，也不能证明两者作用机制独立或严格可加。
+| α vs CoT baseline | ΔAccuracy | 0→1 / 1→0 | Raw p | Holm p_adj | Bootstrap 95% CI |
+|---:|---:|---:|---:|---:|---:|
+| −6 | +6.33 pp | 52 / 33 | .0503 | .0503 | [+0.33, +12.33] |
+| −4 | **+16.00 pp** | 66 / 18 | 1.33e−07 | **4.0e−07** | [+10.33, +21.67] |
+| +4 | −9.33 pp | 36 / 64 | .00664 | **.0133** | [−15.67, −2.67] |
+
+以上三项属于同一个 Llama CoT dose family，使用 Holm `m=3` 校正。`α=−6` 校正后 `p=.0503`，因此按主要检验记为未显著；bootstrap CI 仅作为效应范围的补充。
+
+`−4` 与 `−6` 的直接配对比较为 +9.67 pp，discordant counts 为 42/13，`p=1.1e−04`。这说明两者的差距稳定，不只是抽样波动。
+
+更重要的是，CoT 改变了负向剂量的排序：
+
+- No-CoT：`−6` 78.0% > `−4` 73.0%
+- CoT：`−4` 85.0% > `−6` 75.3%
+
+因此，GSM8K 的最佳工作点依赖推理条件；从 No-CoT 得到的固定 `α=−6` 可以迁移到 CoT，但不是 CoT 下的最优剂量。
 
 #### Pushy Wording Compresses the Dose Difference
 
@@ -303,18 +319,20 @@ Loop 口径只统计已经进入退化重复的样本，分母随剂量变化；
 | **Compulsive repetition, full text** | **34** | 77 | 91 | **8** | 36 | 52 |
 | Compulsive repetition in loops | 27 / 242 | 46 / 232 | 59 / 220 | 18 / 284 | 19 / 254 | 23 / 250 |
 
-#### CoT Raises Accuracy but Keeps the Dose Ordering
+#### CoT Changes the Negative-Side Ordering
 
-CoT 条件下仍然满足：`α=−4 > 0 > +4`
+加入 `α=−6` 后，CoT 不再只是整体提高准确率，也改变了负向剂量的最佳位置。
 
-三个剂量的 accuracy 分别提高：
+| α (CoT) | First accuracy | Last accuracy | Commit rate | Answer-first among committed |
+|---:|---:|---:|---:|---:|
+| −6 | 75.3% | 78.0% | 37.7% | **40.7%** |
+| −4 | **85.0%** | 84.7% | 31.7% | 15.8% |
+| 0 | 69.0% | 68.3% | 37.7% | 19.5% |
+| +4 | 59.7% | 59.0% | 29.0% | 0.0% |
 
-- `α=−4`：73.0% → 85.0%
-- `α=0`：60.0% → 69.0%
-- `α=+4`：55.3% → 59.7%
+`α=−6 + CoT` 的 answer-first rate 达到 40.7%（46/113 committed），明显高于 `−4` 和 baseline。部分输出会先给出一个错误的 `####` 答案，再在后续步骤中推导出正确答案；由于主指标读取第一个 `####`，这些样本仍记为错误。这与 `−6` 的 last accuracy 高于 first accuracy 2.7 pp 相一致。
 
-因此，CoT 提高了整体表现，但没有改变当前三个剂量点的排序。
-这些是描述性结果。不能仅凭三点比较证明 CoT 与 steering 机制独立、严格可加或存在正式交互。
+不过，answer-first 是 α 干预后的输出行为，而且 `α=+4` 在 answer-first 为零时准确率仍然较低。因此，它只能作为 `−6 + CoT` 回落的相符线索，不能作为普遍的准确率中介或因果解释。
 
 #### CoT Adds Stepwise Structure
 
@@ -430,7 +448,7 @@ GSM8K 的输出行为可以概括为：
 1. **最佳区域不仅准确率较高，提交质量也更好。** `α=−6/−4` 具有较高 committed accuracy 和较少语义性反复。
 2. **正向 α 伴随更早输出和更多答后反复。** 这些变化与准确率下降同时出现，但不能据此认定抢答或反复是准确率变化的因果中介。
 3. **`α=−8` 是不同的边界失效。** 它主要表现为开头正式提交、候选值振荡和极低的提交质量，而不是正向端典型的“答完后放不下”。
-4. **CoT 增加分步结构并减少语义性反复。** 但它没有消除 α 的方向差异，在 `α=+4` 下也没有抑制过早输出。
+4. **CoT 会改变最佳工作点。** No-CoT 以 `α=−6` 最佳，而当前 CoT 剂量中 `α=−4` 最佳；`−6 + CoT` 较高的 answer-first rate 是与其回落相符的行为线索，但不是因果中介证明。
 5. **Persona 主要改变重复内容。** `non_expert` 更容易产生身份否定，pushy wording 会进一步放大这一模式。
 6. **口头自评不是可靠的 wanting 指标。** Willingness 和 confidence 曲线不一致，极端剂量还出现量表锁定和格式失效。
 7. **Wanting 是功能类比，不是直接测量。** 更稳妥的表述是：α 改变了模型的 engagement、commitment 和 stopping behavior，这些现象与 incentive-salience gain 的计算类比相容，但不等于生物多巴胺或主观欲望。
@@ -910,6 +928,7 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 
 | Target | Condition | Model | acc(0) | acc(workpoint) | Δ | raw p | Adjusted p | 95% CI | Result |
 |---|---|---|---:|---:|---:|---:|---:|---|---|
+| GSM8K | CoT | Llama | .6900 | .7533 | +6.33pp | .0503 | .0503 | [+0.33, +12.33] | Not detected |
 | GSM-Hard | No-CoT | Llama | .1800 | .2433 | **+6.33pp** | .00661 | — | — | Positive |
 | GSM-Hard | No-CoT | Qwen | .3400 | .5033 | **+16.33pp** | 1.41e−08 | — | — | Positive |
 | GSM-Hard | CoT | Llama | .2000 | .2600 | **+6.00pp** | .00393 | **.00393** | [+2.33, +10.00] | Positive |
@@ -929,6 +948,8 @@ Adjusted p 来自不同的预先定义统计家族，不能跨行直接比较：
 - MATH CoT：Llama CoT 曲线内三个剂量相对 α=0，Holm `m=3`；
 - LogiQA：两个模型的 workpoint comparison，Holm `m=2`；
 - BBH：两个模型的 workpoint comparison，Holm `m=2`。
+
+GSM8K CoT 使用 Llama CoT dose family 的 Holm `m=3`。固定 `α=−6` 相对 baseline 的方向为正，但校正后 `p=.0503`，且明显低于重新选择得到的 `α=−4`。因此，fixed-workpoint transfer 检验的是原工作点能否继续带来增益，不代表它仍是新条件下的最佳剂量。
 
 GSM-Hard No-CoT 同时承担上一节的 blind workpoint-selection 验证，因此不是一项独立重复证据。
 
