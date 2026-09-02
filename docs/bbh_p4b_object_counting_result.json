@@ -1,0 +1,151 @@
+{
+  "protocol": "bbh-p4b-v0",
+  "task": "object_counting",
+  "amendments": "p4b-amend-01",
+  "gold_sha256": "349c9729336e6170",
+  "questions_sha256": "4cfbf739e1fe7870",
+  "revision": "982bb89fd79532a8ac676a61fc42eb1aeec63f99",
+  "gate_interval": [
+    0.3,
+    0.85
+  ],
+  "majority_class_rate": 0.104,
+  "holm_family_m": 2,
+  "holm_complete": true,
+  "p_adj": {
+    "qwen2.5": 1.0,
+    "llama3": 1.0
+  },
+  "results": {
+    "llama3": {
+      "alphas": [
+        -6,
+        0,
+        4
+      ],
+      "stage0": {
+        "first_acc": 0.416,
+        "last_acc": 0.412,
+        "gate_interval": [
+          0.3,
+          0.85
+        ],
+        "gate_pass": true,
+        "diagnostics": {
+          "no_marker_rate": 0.092,
+          "parseable_marker_rate": 0.868,
+          "multi_marker_rate": 0.84,
+          "gen_chars_med": 1988,
+          "max_new_tokens": 768,
+          "note": "diagnostic only -- these rates are NOT a gate and must not motivate a changed prompt, parser or budget"
+        }
+      },
+      "transfer": {
+        "alpha": -6,
+        "alpha_source": "frozen GSM8K workpoint, not searched",
+        "acc_base": 0.416,
+        "acc_steer": 0.408,
+        "dAcc_pp": -0.8,
+        "discordant_0to1": 27,
+        "discordant_1to0": 29,
+        "p_raw": 0.8938530948350217,
+        "ci95_pp": [
+          -6.8,
+          5.2
+        ],
+        "sensitivity_last": {
+          "acc_base": 0.412,
+          "acc_steer": 0.408,
+          "dAcc_pp": -0.4
+        }
+      },
+      "reverse_diagnostic": {
+        "alpha": 4,
+        "acc_base": 0.416,
+        "acc_steer": 0.328,
+        "dAcc_pp": -8.799999999999999,
+        "discordant_0to1": 10,
+        "discordant_1to0": 32,
+        "p_raw": 0.0009406740282429382,
+        "ci95_pp": [
+          -13.6,
+          -4.0
+        ],
+        "scope": "p4b-amend-01 DIAGNOSTIC. Outside the Holm family; p is UNADJUSTED. It reads whether the direction ordering continues and MUST NOT redefine the workpoint, which stays read from the frozen GSM8K record. One point is not a dose-response curve: it can show an ordering continues or breaks, but cannot locate a peak or establish an inverted-U.",
+        "ordering": {
+          "acc_workpoint": 0.408,
+          "acc_zero": 0.416,
+          "acc_reverse": 0.328,
+          "continues": false,
+          "note": "`continues` compares POINT ESTIMATES only and is not a test; read it beside both CIs."
+        }
+      }
+    },
+    "qwen2.5": {
+      "alphas": [
+        -6,
+        0,
+        8
+      ],
+      "stage0": {
+        "first_acc": 0.552,
+        "last_acc": 0.56,
+        "gate_interval": [
+          0.3,
+          0.85
+        ],
+        "gate_pass": true,
+        "diagnostics": {
+          "no_marker_rate": 0.0,
+          "parseable_marker_rate": 0.868,
+          "multi_marker_rate": 0.92,
+          "gen_chars_med": 423,
+          "max_new_tokens": 768,
+          "note": "diagnostic only -- these rates are NOT a gate and must not motivate a changed prompt, parser or budget"
+        }
+      },
+      "transfer": {
+        "alpha": 8,
+        "alpha_source": "frozen GSM8K workpoint, not searched",
+        "acc_base": 0.552,
+        "acc_steer": 0.576,
+        "dAcc_pp": 2.4,
+        "discordant_0to1": 34,
+        "discordant_1to0": 28,
+        "p_raw": 0.5257733601756501,
+        "ci95_pp": [
+          -4.0,
+          8.4
+        ],
+        "sensitivity_last": {
+          "acc_base": 0.56,
+          "acc_steer": 0.564,
+          "dAcc_pp": 0.4
+        }
+      },
+      "reverse_diagnostic": {
+        "alpha": -6,
+        "acc_base": 0.552,
+        "acc_steer": 0.568,
+        "dAcc_pp": 1.6,
+        "discordant_0to1": 27,
+        "discordant_1to0": 23,
+        "p_raw": 0.6718110337653656,
+        "ci95_pp": [
+          -4.0,
+          7.2
+        ],
+        "scope": "p4b-amend-01 DIAGNOSTIC. Outside the Holm family; p is UNADJUSTED. It reads whether the direction ordering continues and MUST NOT redefine the workpoint, which stays read from the frozen GSM8K record. One point is not a dose-response curve: it can show an ordering continues or breaks, but cannot locate a peak or establish an inverted-U.",
+        "ordering": {
+          "acc_workpoint": 0.576,
+          "acc_zero": 0.552,
+          "acc_reverse": 0.568,
+          "continues": false,
+          "note": "`continues` compares POINT ESTIMATES only and is not a test; read it beside both CIs."
+        }
+      }
+    }
+  },
+  "blind_validation": false,
+  "note": "BBH gold is public; this is fixed-workpoint transfer, not blind validation. alpha comes from the frozen GSM8K record. Stage-0 diagnostics are not a gate."
+}
