@@ -1,13 +1,71 @@
+source ~/.bashrc
 
+# Tmux
+conda activate dopamine
+conda activate roleplaying
+conda deactivate
+
+tmux new -s da
+tmux attach -t da
+
+cd /data1/paveen/Dopamine
+
+git pull origin main
+watch -n 1 nvidia-smi
+export CUDA_VISIBLE_DEVICES=3
+
+top -u $USER
+
+# huggingface
+huggingface-cli login
+hf auth login
+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
+export HUGGINGFACE_HUB_TOKEN=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
+
+# 清理缓存
+rm -rf /home/nas/d12922004/.cache/huggingface/hub
+rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
+
+# 182/184/185/177/178
+ssh d12922004@140.112.31.184
+password paveen94
+/Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/math
+rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/logiqa2   /Users/paveenhuang/Downloads
+rsync -avzP /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/bandit/pv11/pv11_a0 d12922004@140.112.31.185:/data1/paveen/Dopamine/components/llama3/bandit/pv11/pv11_a0/
+rsync -avzh \
+  --exclude 'hidden_states_non' \
+  d12922004@140.112.31.185:/data2/paveen/RolePlaying \
+  /data1/paveen/
+
+---
+Daily
+09.02 整理衣橱、写三件感恩的事、
+09.04 Lab聚餐/ 爸爸生日
+09.07 生理期推迟
+09.11 seminar
+09.19 台北-杭州萧山 机票 ✔
+09.20 杭州逛逛
+09.21 回家 高铁*1 - Helene ⏸
+09.22、09.23、09.24 在家 需要去办理公证 + 爸妈护照
+09.24 全曜回家 高铁*1  ⏸
+09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
+10.02 丽江
+10.02晚上-10.03 成都市区 机票 ✔ 住宿 ⏸
+10.04 成都-武夷山Flight Home
+10.04-10.10 Home
+10.11 Flight Taipei
+
+办理公证需要的下料
+成都的住宿（10.03）
+购买徒步需要携带的东西
+准备多益考试
+看完瑜伽视频
+看完徐玉兰视频
+---
 **Marcus et al., Nature 2026 — *Endocannabinoids facilitate reward engagement through retrograde gain control*.** 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。[Nature 论文](https://doi.org/10.1038/s41586-026-10967-w)
 
-汇报内容：
-1）工作点的可移植
-2）行为方式的改变：一致性以及与COT不同
-3）commit 可预测性
-4）与行为学实验是否一致 qwen行为学实验虽然表现较差 但是趋势和llama3是一致的
-
-组会内容：
+---
+组会内容（08.31）：
 1）弄清楚neurons的差异：confident & unconfident // thinking & answer directly (先推理再提交、先提交再推理)
 2）Manifold -> 不同方法找到的neurons之间的差异
 
@@ -32,51 +90,27 @@
 15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
 15. GSM-Hard COT + alpha Vs. COT ✔
 --- 
-16. MATH补充完整 ✔ (2026-09-01)
-17. LogiQA working point ⏸ (formal run 已完成，评分与文档整理待办)
+16. MATH补充完整 ✔ 
+17. LogiQA working point ✖ 目前做不出来，不确定是因为选择题的形式问题还是逻辑推理无法迁移
+18. BBH task
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
 ---
 
-我建议先做 **LogiQA 2.0 English MRC**，理由是：
+| 优先级 | 任务 | 最能回答什么 | Llama3 表现 / 风险预期 |
+|---|---|---|---|
+| 1 | **BBH object_counting** | 去掉选项后，GSM8K 式数值提交是否仍保留工作点效应 | **偏高，可能 80–90%+**；最大风险是 ceiling |
+| 2 | **BBH dyck_languages** | 工作点能否迁移到非算术、纯符号推理 | **中等到偏低**；严格串匹配与长度会显著影响结果 |
+| 3 | **CRUXEval output prediction** | 工作点能否迁移到程序状态追踪；可执行、确定性评分 | **中等**；会混入 Python/code-state 能力 |
+| 4 | **ZebraLogic** | 非选择题逻辑约束求解的更强测试 | **exact solve 偏低**；格式与能力地板风险高，cellwise 可较可读 |
+| 5 | **ProofWriter / RuleTaker** | 移除选项内容、保留离散答案空间的机制控制 | **中高**；规则推导相对适合 8B，但仍是标签提交 |
+| 6 | **FinQA** | 开放数值答案的跨数据域验证 | **中等**；表格读取与程序式计算是额外难点 |
+| 7 | **TruthfulQA-Gen** | 去除选项后的自由生成行为是否改变 | **不宜写单一 accuracy**；可生成，但要面对 judge 评分与 Llama 尾部 loop |
+| 8 | **FOLIO** | 自然语言逻辑 | **中低到中等**；三值判断、语义歧义，小样本 |
+| 9 | **GSM-Symbolic** | GSM8K 接口鲁棒性 | **中高**；最接近 GSM8K，因此独立性弱 |
+| 10 | **LiveCodeBench output prediction** | 程序输出预测 | **偏低到中等**；题目版本、代码能力与执行环境成本较高 |
 
-- 它集中测逻辑推理，不需要处理 MMLU-Pro 的多学科抽样问题。
-- 官方 test split 是 1,572 题，规模明显更可控。
-- 四选一，生成后的答案解析比 A–J 简单。
-- 当前 loader 已经存在。
-- 它与 GSM8K/MATH 的任务差异更大，更适合检验 fixed-workpoint 的边界。[LogiQA 2.0 官方资料](https://github.com/csitfun/LogiQA2.0)
-
-但不必全跑 1,572 题。我建议冻结：
-
-- 从 test split 抽 300 题；
-- 每个正确标签 A–D 各 75 题，标签内按固定种子随机抽样；
-- 两个模型及所有 α 共用同一题目清单；
-- Llama3.1：`0 vs −6`；
-- Qwen2.5：`0 vs +8`；
-- 强制自由生成 reasoning，最后输出 `Final answer: X`；
-- 先用少量题只检查格式、截断率和生成长度，再冻结 `max_new_tokens`，不看准确率；
-- paired bootstrap、McNemar，Holm `m=2`。
-
-这样总计仍是 1,200 次生成，但 LogiQA 的输出通常可以控制得比 MMLU-Pro 短，建议先检验 `512` tokens 是否足够。
-
-证据定位仍要写成：
-
-> LogiQA 2.0 tests fixed-workpoint transfer to generative logical reasoning.
-
-不是“证明工作点普遍可迁移”。如果两模型都不改善，也是明确的任务边界结果。
-
-### Hypothesis under test（**非结论**）
-
-> GSM8K 确立的模型特异工作点，无需在目标任务上重新搜索，即可迁移并改善不同类型的 reasoning tasks。
-
-**当前证据不支持把它写成结论。** Qwen MATH `+8 vs 0` 已是 null（CI 跨 0），且其 GSM8K 工作点
-并非 MATH 最优档。因此本行保持为待检验假设，最终更可能落在：
-
-> 固定工作点的迁移**具有模型/任务边界**——能否迁移取决于目标任务的剂量曲线是否把该 α 仍
-> 留在有效区间内，而不是工作点本身可无条件携带。
-
-Llama MATH `−6` 已完成（No-CoT +6.67 pp / CoT +7.00 pp，2026-09-01），**LogiQA 一条腿仍未整理完**。在 LogiQA 结果定稿前，**不得**把 MATH 结果概括为「工作点普遍跨 reasoning tasks 可迁移」——目前可写的上限是：该 fixed workpoint 在 Llama 的 GSM8K / GSM-Hard / MATH（两种条件）上一致有效，而 Qwen 的 `+8` 在 MATH 上为 null，故迁移性受模型与目标任务剂量曲线约束。
 ---
 
 ### P2. 补 causal direction control
