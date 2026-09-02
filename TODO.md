@@ -16,12 +16,6 @@ export CUDA_VISIBLE_DEVICES=3
 
 top -u $USER
 
-# huggingface
-huggingface-cli login
-hf auth login
-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
-export HUGGINGFACE_HUB_TOKEN=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
-
 # 清理缓存
 rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
