@@ -139,6 +139,7 @@ Plain wording 下，persona 没有统一的性能方向：
 - 三个 persona 条件下降 19.7–26.3 pp。
 - 最大降幅出现在 `a primary school teacher`（−26.3 pp），其次是 `an expert`（−24.0 pp）。
 
+
 > Persona 会明显放大模型对催促式答案指令的敏感性，但不同 persona 在普通措辞下并不存在统一的准确率方向。
 
 Persona 如何改变答案后的身份独白和重复内容，将在 §2 中讨论。这里不把 persona accuracy 解释为真实身份、能力认同或主观心理状态。
