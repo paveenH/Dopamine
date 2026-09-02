@@ -20,7 +20,7 @@ rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 # 182/184/185/177/178
 /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/math
-rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/logiqa2   /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.184:/data1/paveen/Dopamine/components/qwen2.5 /Users/paveenhuang/Downloads
 rsync -avzP /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/bandit/pv11/pv11_a0 d12922004@140.112.31.185:/data1/paveen/Dopamine/components/llama3/bandit/pv11/pv11_a0/
 rsync -avzh \
   --exclude 'hidden_states_non' \
@@ -29,7 +29,7 @@ rsync -avzh \
 
 ---
 Daily
-09.02 整理衣橱、写三件感恩的事、
+09.02 整理衣橱、写三件感恩的事
 09.04 Lab聚餐/ 爸爸生日
 09.07 生理期推迟
 09.11 seminar
