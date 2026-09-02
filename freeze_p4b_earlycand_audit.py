@@ -32,6 +32,13 @@ OUTCOME RULE, frozen here so it cannot be renegotiated later:
   * validation fails  -> early_candidate is withdrawn as a timing metric for
     this task. Only marker/format descriptions survive. THIS DOES NOT AFFECT
     THE ACCURACY MAIN TEST, which never uses the detector.
+  * fewer than 10 detector positives among the 30 -> INCONCLUSIVE. Precision
+    over a handful of positives is not an estimate, so no precision claim is
+    available in either direction. Report the raw counts and treat
+    early_candidate as descriptive only. Do NOT re-draw the sample, enlarge it
+    to chase positives, or re-tune the detector: each of those would select the
+    audit on the detector's own output, which freezing the list in advance
+    exists to prevent.
 
 The detector is NOT re-tuned either way. Retuning it here would fork the
 definition against every stored GSM8K and MATH number.
@@ -68,6 +75,9 @@ RUBRIC = [
     "If the text states no candidate answer anywhere, label FALSE.",
     "Record a one-line reason for every item, so a disagreement can be "
     "re-read rather than re-litigated.",
+    "Report the RAW COUNTS -- detector positives, manual positives, and the "
+    "agreements between them -- not only a precision figure. Precision over a "
+    "handful of positives is not an estimate.",
 ]
 
 
@@ -125,11 +135,22 @@ def main():
                      "alpha, so stratifying accuracy on it is post-treatment"),
             "fail": ("early_candidate is WITHDRAWN as a timing metric for this "
                      "task; only marker/format description survives"),
+            "inconclusive_low_positives": (
+                "If the detector flags FEWER THAN 10 of the 30 items positive, "
+                "precision is NOT validated and must not be claimed. Report the "
+                "raw counts (detector positives / manual positives / "
+                "agreements) and label the audit INCONCLUSIVE. Treat "
+                "early_candidate as descriptive only for this task. Do NOT "
+                "re-draw the 30 items, do not enlarge the sample to chase "
+                "positives, and do not re-tune the detector -- any of those "
+                "would select the audit sample on the detector's own output, "
+                "which is what freezing it in advance prevents."),
             "either_way": ("the accuracy main test is unaffected -- it never "
                            "uses the detector -- and the detector is NOT "
                            "re-tuned, which would fork the definition against "
                            "every stored GSM8K and MATH number"),
         },
+        "min_positives_for_precision_claim": 10,
     }
 
     print(f"task={a.task}  n={N_AUDIT}  selection_digest={sel_digest}")

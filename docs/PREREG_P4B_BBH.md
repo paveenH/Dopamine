@@ -22,18 +22,41 @@ changed **two** things at once relative to GSM8K:
 
 So a LogiQA null is consistent with two incompatible readings: the workpoint
 does not transfer to *non-arithmetic reasoning*, or it does not transfer to a
-*classification answer space*. These two BBH tasks hold the answer space and
-the submission interface **fixed** and vary only the reasoning content, which
-is the minimal-variable control needed to separate them.
+*classification answer space*. These two BBH tasks restore the answer space and
+the submission interface to GSM8K's, which is the closest available control on
+the second reading.
 
-Reading of the outcome, fixed in advance:
+**The table is a comparison on three chosen dimensions, not an exhaustive
+one.** BBH also differs from GSM8K and from LogiQA in item format, domain, text
+distribution and generation shape. So "the answer space and the submission
+interface are held fixed" is true of those two dimensions and is **not** a claim
+that everything else is matched — this is a between-task comparison, not a
+controlled manipulation of a single factor.
 
-- **BBH transfers** → the answer space is the binding constraint; LogiQA's null
-  is attributable to choosing among given candidates rather than constructing
-  an answer.
-- **BBH does not transfer** → the reasoning content matters too, and the
-  workpoint's transfer range is narrower than the GSM8K→MATH→GSM-Hard chain
-  suggested. This is a negative result and is reported with equal prominence.
+Reading of the outcome, fixed in advance. **Both readings are deliberately
+weaker than "task A caused it", because P4b narrows LogiQA's ambiguity without
+resolving it** (see the limit below):
+
+- **BBH transfers** → the workpoint transfers to *this option-free numeric
+  task*. That is **consistent with** the option interface being part of
+  LogiQA's boundary; it does not establish that the options caused LogiQA's
+  null. Frozen wording: "the workpoint transferred to an option-free numeric
+  reasoning task, consistent with the choice interface being part of the
+  LogiQA boundary" — never "LogiQA failed because of the options".
+- **BBH does not transfer** → the workpoint's transfer range is narrower than
+  the GSM8K→MATH→GSM-Hard chain suggested, and removing the option interface
+  was **not sufficient** to restore it. That does **not** establish that
+  reasoning content is the binding constraint. This is a negative result and is
+  reported with equal prominence.
+
+**Limit that travels with either reading.** BBH and LogiQA differ in more than
+the answer space: item format, domain, text distribution and generation shape
+all move together. So P4b can substantially narrow the ambiguity but **cannot
+by itself separate a choice-interface effect from a reasoning-type effect**.
+Identifying the choice interface would need a **within-item** contrast — the
+same items presented with and without options — which is a different experiment
+and is not authorised here. Do not write either conclusion as if that contrast
+had been run.
 
 Neither reading is available from one task alone, which is why the task order
 in §2 is fixed here rather than chosen later.
@@ -167,6 +190,15 @@ on arithmetic text and does not transfer by assumption.
   Selection digest `04508a19ce30b0b6` for `object_counting`.
 - Labelled by the rubric in that file **without seeing the detector flag**;
   only afterwards are the two compared.
+- **Report the raw counts, not only a precision figure**: detector positives,
+  manual positives, and agreements between them.
+- **Fewer than 10 detector positives among the 30 → INCONCLUSIVE.** Precision
+  over a handful of positives is not an estimate, so no precision claim is
+  available in either direction. `early_candidate` is then descriptive only for
+  this task. The sample is **not** re-drawn, **not** enlarged to chase
+  positives, and the detector is **not** re-tuned — each of those would select
+  the audit on the detector's own output, which freezing the list in advance
+  exists to prevent.
 - **Pass** → `early_candidate` may be reported as an *exploratory* timing
   readout for this task, outside Holm.
 - **Fail** → withdrawn as a timing metric for this task; only marker/format
