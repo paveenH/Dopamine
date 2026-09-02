@@ -88,3 +88,56 @@ Both `run_p2b_predict.py` and `build_p2_folds.py` refuse to overwrite an existin
 frozen file: re-running the pipeline end-to-end requires deliberately deleting
 them, which is the point — a silent regeneration would let a later fit
 masquerade as the locked prediction.
+
+---
+
+## P3 — blind cross-task validation on GSM-Hard
+
+Protocol `docs/PREREG_P3.md` (`p3-v1`, tag `p3-prereg-v1`, commit `1c0b865`).
+Result record `docs/p3_result_20260830.json`. Gold was unsealed once, on
+2026-08-30; **the main analysis 口径 is CLOSED** and anything further is
+exploratory.
+
+```bash
+# Server, from /data1/paveen/Dopamine. Download writes to components/benchmark/;
+# a non-existent --out_dir is refused rather than created, so a wrong working
+# directory fails before the download instead of writing to the wrong tree.
+python data_gsm_hard.py --revision 960448f73503112d4226baeb8eb41d3fb5ae2506
+
+# Format preflight, then the ten cells. One model per card.
+CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_hard_llama3.sh --preflight > p3_pre_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_qwen25.sh --preflight > p3_pre_qwen.log 2>&1 &
+# cat the log immediately -- a wrong PY exits 127 before anything runs and the
+# nohup log looks empty.
+```
+
+---
+
+## P3 supplement — CoT condition transfer
+
+Protocol `docs/PREREG_P3_SUPPLEMENT.md` (`p3-supp-v1`, tag `p3-supp-frozen`).
+Result record `docs/p3_supp_result_20260830.json`.
+
+```bash
+# Server, from /data1/paveen/Dopamine. One model per card; both cells of a model
+# stay together. cat the log immediately -- a wrong PY exits 127 before anything
+# runs and the nohup log looks empty.
+CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_hard_cot_llama3.sh --preflight > p3_cot_pre_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_cot_qwen25.sh  --preflight > p3_cot_pre_qwen.log  2>&1 &
+# then, only after the format check passes:
+CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_hard_cot_llama3.sh --full > p3_cot_full_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_hard_cot_qwen25.sh  --full > p3_cot_full_qwen.log  2>&1 &
+```
+
+```bash
+# Offline (RoleAnswer/, python3.10, no GPU). Refuses to overwrite a frozen file,
+# so re-running the chain requires deliberately deleting it.
+python3.10 p3/freeze_p3_supp_predictions.py   # stage 1; already run, fcf8b9c9b8fa8b70
+python3.10 p3/freeze_p3_supp_commit.py        # stage 2; already run, 6a16d4d862edbdaa
+                                              # applies the frozen P2 predictor to the
+                                              # four CoT cells and seals the commitment
+                                              # side BEFORE any accuracy is read
+python3.10 p3/run_p3_supp_eval.py             # unlocks CoT accuracy; REFUSES to start
+                                              # without the stage-2 file
+python3.10 p3/commit_panel_gsm_hard.py        # commitment + cap% panel (EXPLORATORY)
+```
