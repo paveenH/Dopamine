@@ -1,0 +1,171 @@
+{
+ "protocol": "bbh-p4b-v0",
+ "amendments": "p4b-amend-01",
+ "task": "object_counting",
+ "questions_sha256": "4cfbf739e1fe7870",
+ "scope": "EXPLORATORY. Every readout here is outside the Holm family and carries no adjusted p. early_candidate is an OUTCOME of alpha, so stratifying accuracy on it is POST-TREATMENT stratification: consistent-with evidence, never mediation.",
+ "detector": "earlycand-v1, IMPORTED frozen and never re-tuned. Blind audit on this task passed 30/30 (precision 1.000, recall 1.000), but the alpha=0 base rate is at CEILING (llama .952, qwen 1.000), so only a DECREASE is measurable; a flat rate must NOT be read as 'alpha does not move answer-formation timing'.",
+ "posN_caveat": "pre_marker_chars and posN are FORMAT DIAGNOSTICS ONLY. They mix 'early empty ####, first parseable marker later' cases, so a FALL in posN does not mean the answer moved later and must not be cited as timing evidence.",
+ "cells": {
+  "llama3|a-6": {
+   "model": "llama3",
+   "alpha": -6,
+   "n": 250,
+   "first_acc": 0.408,
+   "role": "workpoint",
+   "early_candidate_rate": 0.844,
+   "bare_first_line_rate": 0.796,
+   "multi_marker_rate": 0.784,
+   "no_marker_rate": 0.104,
+   "degenerate_tail_rate": 0.884,
+   "corpus_continuation_rate": 0.0,
+   "chars_median": 1928.0,
+   "chars_p90": 3148,
+   "cap_hit_rate": 0.004,
+   "pre_marker_chars_median": 144,
+   "posN_median": 0.0875
+  },
+  "llama3|a0": {
+   "model": "llama3",
+   "alpha": 0,
+   "n": 250,
+   "first_acc": 0.416,
+   "role": "baseline",
+   "early_candidate_rate": 0.952,
+   "bare_first_line_rate": 0.948,
+   "multi_marker_rate": 0.84,
+   "no_marker_rate": 0.092,
+   "degenerate_tail_rate": 0.928,
+   "corpus_continuation_rate": 0.0,
+   "chars_median": 1987.5,
+   "chars_p90": 3055,
+   "cap_hit_rate": 0.004,
+   "pre_marker_chars_median": 125,
+   "posN_median": 0.0633
+  },
+  "llama3|a4": {
+   "model": "llama3",
+   "alpha": 4,
+   "n": 250,
+   "first_acc": 0.328,
+   "role": "reverse_diagnostic",
+   "early_candidate_rate": 0.992,
+   "bare_first_line_rate": 0.98,
+   "multi_marker_rate": 0.8,
+   "no_marker_rate": 0.108,
+   "degenerate_tail_rate": 0.948,
+   "corpus_continuation_rate": 0.0,
+   "chars_median": 2003.0,
+   "chars_p90": 3118,
+   "cap_hit_rate": 0.008,
+   "pre_marker_chars_median": 194,
+   "posN_median": 0.0963
+  },
+  "qwen2.5|a-6": {
+   "model": "qwen2.5",
+   "alpha": -6,
+   "n": 250,
+   "first_acc": 0.568,
+   "role": "reverse_diagnostic",
+   "early_candidate_rate": 1.0,
+   "bare_first_line_rate": 0.548,
+   "multi_marker_rate": 0.924,
+   "no_marker_rate": 0.0,
+   "degenerate_tail_rate": 0.036,
+   "corpus_continuation_rate": 0.504,
+   "chars_median": 420.0,
+   "chars_p90": 840,
+   "cap_hit_rate": 0.004,
+   "pre_marker_chars_median": 307.5,
+   "posN_median": 0.7428
+  },
+  "qwen2.5|a0": {
+   "model": "qwen2.5",
+   "alpha": 0,
+   "n": 250,
+   "first_acc": 0.552,
+   "role": "baseline",
+   "early_candidate_rate": 1.0,
+   "bare_first_line_rate": 0.544,
+   "multi_marker_rate": 0.92,
+   "no_marker_rate": 0.0,
+   "degenerate_tail_rate": 0.036,
+   "corpus_continuation_rate": 0.508,
+   "chars_median": 422.5,
+   "chars_p90": 697,
+   "cap_hit_rate": 0.004,
+   "pre_marker_chars_median": 313,
+   "posN_median": 0.7568
+  },
+  "qwen2.5|a8": {
+   "model": "qwen2.5",
+   "alpha": 8,
+   "n": 250,
+   "first_acc": 0.576,
+   "role": "workpoint",
+   "early_candidate_rate": 0.444,
+   "bare_first_line_rate": 0.0,
+   "multi_marker_rate": 0.36,
+   "no_marker_rate": 0.0,
+   "degenerate_tail_rate": 0.048,
+   "corpus_continuation_rate": 0.428,
+   "chars_median": 322.5,
+   "chars_p90": 1920,
+   "cap_hit_rate": 0.004,
+   "pre_marker_chars_median": 44,
+   "posN_median": 0.6986
+  }
+ },
+ "paired_by_earlycand_transition": {
+  "llama3": {
+   "alpha": -6,
+   "groups": {
+    "stayed_early": {
+     "n": 211,
+     "acc_base": 0.4502,
+     "acc_steer": 0.3744,
+     "dAcc_pp": -7.58,
+     "gained": 13,
+     "lost": 29,
+     "p_raw_unadjusted": 0.01952
+    },
+    "turned_off": {
+     "n": 39,
+     "acc_base": 0.2308,
+     "acc_steer": 0.5897,
+     "dAcc_pp": 35.9,
+     "gained": 14,
+     "lost": 0,
+     "p_raw_unadjusted": 0.000122
+    }
+   },
+   "selection": "POST-TREATMENT SELECTION: groups are defined by the early_candidate flag AFTER steering, i.e. by an outcome of the manipulation. Not a mediation analysis, not a causal decomposition, not in Holm; p values are UNADJUSTED.",
+   "no_control_group": "alpha=0 early_candidate is 0.952, so the 'turned_off' group has no matched alpha=0 counterpart and the between-group difference cannot be attributed to alpha."
+  },
+  "qwen2.5": {
+   "alpha": 8,
+   "groups": {
+    "turned_off": {
+     "n": 139,
+     "acc_base": 0.554,
+     "acc_steer": 0.6906,
+     "dAcc_pp": 13.67,
+     "gained": 30,
+     "lost": 11,
+     "p_raw_unadjusted": 0.004324
+    },
+    "stayed_early": {
+     "n": 111,
+     "acc_base": 0.5495,
+     "acc_steer": 0.4324,
+     "dAcc_pp": -11.71,
+     "gained": 4,
+     "lost": 17,
+     "p_raw_unadjusted": 0.007197
+    }
+   },
+   "selection": "POST-TREATMENT SELECTION: groups are defined by the early_candidate flag AFTER steering, i.e. by an outcome of the manipulation. Not a mediation analysis, not a causal decomposition, not in Holm; p values are UNADJUSTED.",
+   "no_control_group": "alpha=0 early_candidate is 1.0, so the 'turned_off' group has no matched alpha=0 counterpart and the between-group difference cannot be attributed to alpha."
+  }
+ }
+}
