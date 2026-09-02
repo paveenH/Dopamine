@@ -166,8 +166,6 @@ Llama 在 GSM8K 上的性能结果可以概括为：
 
 这里将 wanting / incentive salience 作为一种**功能类比**：α 是实际施加的 RSN gain intervention，而 wanting 并未被直接测量。因此，正文首先报告可观测的输出行为，再讨论它与 engagement、commitment 和 stopping control 的关系。
 
-这些结果不能证明模型具有主观欲望，也不等同于生物学 dopamine。
-
 ### 2.1 Dose-Dependent Output Behavior
 
 下表汇总 neutral、plain、No-CoT 条件下的完整九点剂量曲线。Accuracy 与 §1 相同，在此仅作为行为指标的参照。
@@ -209,11 +207,7 @@ Commit rate 本身并不单调，因此准确率变化不能简单解释为“�
 
 但输出长度并没有同步缩短。正向端的 median generation length 反而较长，并在 `α=+6` 达到 2,284 characters。
 
-因此，正向 α 的典型模式不是“更快完成”，而是：
-
-> 更早输出答案，但在答案出现后继续生成。
-
-Premature-output 数量并非每个相邻剂量都严格单调，因此不能将其单独视为准确率曲线的中介变量。它与 generation length、答案质量和语义性反复共同描述一种输出状态。
+因此，正向 α 的典型模式不是“更快完成”，而是：更早输出答案，但在答案出现后继续生成。Premature-output 数量并非每个相邻剂量都严格单调，因此不能将其单独视为准确率曲线的中介变量。它与 generation length、答案质量和语义性反复共同描述一种输出状态。
 
 #### Raw Loop Is Not the Main Signal
 
@@ -311,9 +305,7 @@ Loop 口径只统计已经进入退化重复的样本，分母随剂量变化；
 
 #### CoT Raises Accuracy but Keeps the Dose Ordering
 
-CoT 条件下仍然满足：
-
-`α=−4 > 0 > +4`
+CoT 条件下仍然满足：`α=−4 > 0 > +4`
 
 三个剂量的 accuracy 分别提高：
 
@@ -322,7 +314,6 @@ CoT 条件下仍然满足：
 - `α=+4`：55.3% → 59.7%
 
 因此，CoT 提高了整体表现，但没有改变当前三个剂量点的排序。
-
 这些是描述性结果。不能仅凭三点比较证明 CoT 与 steering 机制独立、严格可加或存在正式交互。
 
 #### CoT Adds Stepwise Structure
@@ -634,245 +625,159 @@ MATH 上的主要结果可以概括为：
 4. **CoT 主要增加推理结构并减少强迫性反复。** 当前数据未检出 CoT 明显改变 steering 效应，但宽 CI 不支持机制独立或严格可加的结论。
 5. **输出行为不等于内部机制。** boxed position、commit rate、first–last gap 和重复文本都是行为读数，不能单独证明答案形成时间、因果中介或生物学 dopamine 机制。MATH 的 boxed position 尤其是阴性对照（§4.3），承诺时序须以 early-candidate rate 为准。
 
-## 4. Qwen2.5-7B-Instruct Cross-Model Replication
+## 4. Qwen2.5-7B-Instruct Cross-Model Analysis
 
-本节只保留结果与结论；运行配置、产物校验和分析器细节见 `CLAUDE.md`。完整剂量曲线均予保留：
-**显著性区分证据强弱，但不用于删除具有一致方向的描述性规律。**
+本节使用与 Llama 相同的任务和主要评价口径，分析 Qwen2.5-7B-Instruct 在 GSM8K 与 MATH 上的准确率和答案形成行为。运行配置、模型专属层带、输出抽取和产物校验记录于 `CLAUDE.md`。
 
-### 4.1 GSM8K No-CoT: Positive RSN Reorders Commitment and Saturates after `+8`
+`first_acc` 是主要准确率指标，`last_acc` 用于观察后续修改答案的影响。由于两种模型使用不同的 mask、层带和激活尺度，raw α 只能在同一模型内比较，不能视为跨模型等效剂量。
 
-**Table 4.1a. GSM8K No-CoT dose-response (n=300)**
+### 4.1 Performance across Tasks and Prompt Conditions
 
-| α | first_acc | last_acc | gap | commit% | early-candidate% | posN_med | Holm p_adj |
-|---|---:|---:|---:|---:|---:|---:|---|
-| −8 | 60.33 | 71.00 | −10.67 | 84.0 | 95.7 | 0.003 | .124 |
-| −6 | 64.00 | 68.67 | −4.67 | 83.7 | 95.7 | 0.003 | .973 |
-| −4 | 68.67 | 75.33 | −6.67 | 79.7 | 97.3 | 0.003 | .973 |
-| −2 | 71.00 | 79.00 | −8.00 | 79.7 | 96.3 | 0.003 | .973 |
-| **0** | **68.00** | 73.33 | −5.33 | 81.0 | 96.3 | 0.003 | — |
-| +2 | 70.33 | 75.00 | −4.67 | 81.0 | 95.3 | 0.003 | .973 |
-| +4 | 71.67 | 78.67 | −7.00 | 78.7 | 92.7 | 0.003 | .973 |
-| +6 | 78.00 | 76.33 | **+1.67** | 92.0 | 45.3 | 0.242 | **.016** |
-| +8 | **86.00** | 80.33 | **+5.67** | 97.0 | 5.0 | 0.754 | **<1e−4** |
-| *+10* | *88.33* | *84.33* | *+4.00* | *98.3* | *2.7* | *0.794* | *<1e−4 ✦* |
-| *+12* | *88.67* | *86.33* | *+2.34* | *98.3* | *3.7* | *0.802* | *<1e−4 ✦* |
+#### GSM8K
 
-| 指标 | 含义 |
-|---|---|
-| `α` | RSN steering 的剂量。正负方向及绝对大小只适合在同一模型内部比较。 |
-| `first_acc` | 按第一次提交的答案计算准确率，是本文的主要 accuracy 指标。 |
-| `last_acc` | 按生成文本中最后一次提交的答案计算准确率，用于观察模型后续是否改答案。 |
-| `gap` | `first_acc − last_acc`。正值表示后续修改总体把答案改坏；负值表示后续修改总体改善答案。 |
-| `commit%` | 生成中至少出现一次可解析最终答案标记的样本比例。GSM8K 通常指有效的 `#### <数字>`。 |
-| `early-candidate%` | 在生成开头很早就出现答案候选的样本比例，用于衡量抢答或过早形成答案。比例越高，越倾向先给答案再推理。 |
-| `posN_med` | 首次可解析 commit 在全文中的归一化位置中位数，即“首次 commit 位置 ÷ 总生成长度”。接近 0 表示几乎开头就提交，接近 1 表示接近结尾才提交。只在存在可解析 commit 的样本中计算。 |
-| `Holm p_adj` | 各剂量相对 `α=0` 的准确率差异经过 Holm 多重比较校正后的 p 值。通常 `<.05` 表示与 baseline 的差异具有统计显著性。 |
+**Table 4.1. Qwen GSM8K dose-response with and without CoT (n=300 per cell)**
 
-`first_acc` 是主读数，`last_acc` 用于观察后续修订。曲线在 `−8…+4` 变化较小，主要跃升出现在
-`+6/+8`；`−8` 的下降方向保留，但未通过 Holm 校正。`+10/+12` 是观察九档结果后追加的扩展剂量
-（✦），不与原九档视为同一预注册检验族。
+| α | No-CoT first_acc | No-CoT last_acc | No-CoT Holm p_adj | commit% | early-candidate% | posN | CoT first_acc | CoT last_acc | CoT Holm p_adj | CoT early-candidate% | CoT posN |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −8 | 60.33 | 71.00 | .124 | 84.0 | 95.7 | .003 | 80.33 | 79.00 | 1.000 | 99.0 | .003 |
+| −6 | 64.00 | 68.67 | .973 | 83.7 | 95.7 | .003 | 77.67 | 79.33 | 1.000 | 98.7 | .003 |
+| −4 | 68.67 | 75.33 | .973 | 79.7 | 97.3 | .003 | 79.00 | 79.33 | 1.000 | 99.7 | .003 |
+| −2 | 71.00 | 79.00 | .973 | 79.7 | 96.3 | .003 | 79.00 | 81.00 | 1.000 | 99.3 | .003 |
+| **0** | **68.00** | **73.33** | — | 81.0 | 96.3 | .003 | **76.33** | **76.67** | — | 97.3 | .003 |
+| +2 | 70.33 | 75.00 | .973 | 81.0 | 95.3 | .003 | 74.33 | 75.00 | 1.000 | 96.3 | .003 |
+| +4 | 71.67 | 78.67 | .973 | 78.7 | 92.7 | .003 | 78.33 | 81.00 | 1.000 | 91.7 | .003 |
+| **+6** | **78.00** | 76.33 | **.016** | 92.0 | **45.3** | **.242** | **88.33** | **89.00** | **.0002** | **34.3** | **.809** |
+| **+8** | **86.00** | 80.33 | **<1e−4** | 97.0 | **5.0** | **.754** | **86.00** | 84.00 | **.0030** | **7.0** | **.825** |
+| *+10* | *88.33* | *84.33* | *<1e−4* | *98.3* | *2.7* | *.794* | — | — | — | — | — |
+| *+12* | *88.67* | *86.33* | *<1e−4* | *98.3* | *3.7* | *.802* | — | — | — | — | — |
 
-高剂量没有出现预期的右臂：`+8→+10→+12` 为 86.00→88.33→88.67，三个探索性两两比较均未
-分开。因此预先提出的“更高剂量应使准确率回落”预测被证伪；GSM8K 在当前范围内呈
-**单调上升后饱和**。
+`commit%` 表示生成中出现可解析 `#### <number>` 的比例；`posN` 是首次可解析提交在全文中的归一化位置。`+10/+12` 是观察九档结果后追加的探索性剂量，不属于原九档 Holm 检验族。
 
-**Table 4.1b. High-dose integrity checks**
-这张表用于检查 Qwen 高剂量的平台是否由输出退化或数据污染造成。
-> Qwen 在 `+8` 后的准确率平台并不是空输出、截断或极端重复造成的假象。
+No-CoT 准确率在 `−8…+4` 内变化较小，主要提升出现在 `+6/+8`。继续增加到 `+10/+12` 后，`first_acc` 为 88.33% 和 88.67%，与 `+8` 没有明显分开。因此，GSM8K 在当前剂量范围内表现为上升后饱和，没有观察到高剂量右臂。
 
-| α | contamination% | empty% | truncated% | clean n | clean acc | `####` count p99 |
-|---|---:|---:|---:|---:|---:|---:|
-| 0 | 17.7 | 0.0 | 1.7 | 247 | 70.85 | 61 |
-| +6 | 44.7 | 0.0 | 0.7 | 166 | 78.31 | 29 |
-| +8 | 60.3 | 0.0 | 0.7 | 119 | 84.03 | 18 |
-| +10 | 58.7 | 0.0 | 1.0 | 124 | 87.90 | 21 |
-| +12 | 59.7 | 0.0 | 1.0 | 121 | 84.30 | 7 |
+CoT 将 α=0 的准确率由 68.00%提高到76.33%，但在 α≤+4 时仍有91.7%–99.7%的样本很早出现答案候选。直到 `+6`，early-candidate 和 `posN` 才同时发生明显变化。CoT 曲线的最高点是 `+6`，但 `+6` 与 `+8` 未显著分开（探索性 p=.371），因此不能确认 CoT 已形成稳定右臂。
 
-| 指标 | 含义 |
-|---|---|
-| `α` | RSN steering 剂量。 |
-| `contamination%` | 输出出现异常或非标准行为的样本比例，例如答案标记重复、格式异常或生成内容受到循环污染。它是输出完整性诊断，不等于错误率。 |
-| `empty%` | 生成文本为空或没有产生有效内容的样本比例。用于排除高剂量导致模型无法生成。 |
-| `truncated%` | 生成触及 `max_new_tokens` 上限、可能被强制截断的比例。用于判断结果是否受长度上限影响。 |
-| `clean n` | 排除 contamination、empty 和 truncated 等异常样本后，剩余的干净样本数。 |
-| `clean acc` | 只在 `clean n` 样本上计算的准确率。用于检查总体趋势在干净输出中是否仍然成立。 |
-| `#### count p99` | 每个输出中 `####` 出现次数的第 99 百分位数。数值越高，说明最极端的 1% 样本存在严重的答案标记重复或 loop。 |
+#### MATH
 
-任务外溢在 `+8` 后不再增加，空生成始终为 0%，干净子集准确率仍维持在 84–88%，极端重复也继续
-下降。因此饱和不是健康样本与退化样本相互抵消的假象。干净子集由干预后行为筛选，只作健康检查，
-不作跨剂量因果比较。
+**Table 4.2. Qwen MATH dose-response with and without CoT (n=300 per cell)**
 
-准确率跃升与提交顺序翻转同步发生。α≤+4 时，92.7–97.3% 的样本先给候选答案、再展开推理；
-到 +6/+8，推理被移到首次提交之前。
+| α | No-CoT first_acc | No-CoT last_acc | Holm p_adj | early-candidate% | Pre-commit chars | `\boxed{}` posN | CoT first_acc | CoT last_acc | CoT early-candidate% | CoT pre-commit chars | CoT `\boxed{}` posN |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −8 | 54.00 | 50.00 | .094 | 85.0 | 1414 | .977 | 59.67 | 57.67 | 86.7 | 1345 | .965 |
+| −6 | 57.00 | 54.00 | 1.000 | 79.3 | 1395 | .978 | 59.33 | 57.33 | 80.0 | 1372 | .966 |
+| −4 | 58.00 | 55.00 | 1.000 | 74.3 | 1362 | .978 | 65.00 | 61.67 | 76.7 | 1330 | .964 |
+| −2 | 59.00 | 55.33 | 1.000 | 71.3 | 1376 | .977 | 63.00 | 58.67 | 74.0 | 1305 | .966 |
+| **0** | **60.67** | **60.00** | — | 67.3 | 1356 | .977 | **63.00** | **57.67** | 71.3 | 1344 | .969 |
+| +2 | 60.00 | 58.67 | 1.000 | 59.7 | 1319 | .977 | 62.00 | 58.33 | 69.0 | 1317 | .970 |
+| +4 | 63.33 | 61.33 | 1.000 | 46.3 | 1270 | .975 | 63.00 | 59.00 | 58.3 | 1315 | .973 |
+| **+6** | **68.33** | **67.67** | **.0087** | **19.3** | **1029** | .969 | **66.00** | **65.67** | **29.7** | **1116** | .968 |
+| +8 | 63.33 | 63.67 | 1.000 | **10.3** | **828** | .960 | 64.00 | 64.33 | **10.3** | **1002** | .964 |
 
-**Table 4.1c. Effort reallocation from α=0 to α=+8**
+No-CoT 的准确率从 `−8` 到 `+6` 总体上升，并在 `+8` 回落5个百分点。只有 `+6` 相对 α=0 的差异通过 Holm 校正；`+6` 与 `+8` 的探索性配对比较为 p=.040。因此，MATH 出现了描述性的右臂，但证据主要来自 `+6` 这一工作点。
+
+CoT 提高了部分负向和低剂量条件的准确率，但没有稳定改变峰值位置。CoT 各剂量相对自身 α=0 的八项比较均为 Holm p_adj=1.000；CoT 与 No-CoT 的九项逐剂量比较也没有结果通过校正，最大差异为 `−4` 的 +7.00pp（raw p=.0065，Holm p_adj=.0581）。
+
+这说明 CoT 压缩了当前剂量范围内可观察到的提升空间：No-CoT 从60.67%升至68.33%，CoT 则从63.00%升至66.00%。这些结果不能解释为模型已经达到能力上限。
+
+### 4.2 Commitment Reordering across GSM8K and MATH
+
+Qwen 在两个任务上都表现出明显的 early-candidate transition，但两个任务需要不同的承诺指标。
+
+**Table 4.3. Main commitment changes at baseline and high-performing doses**
+
+| Condition | Compared doses | early-candidate% | Pre-commit chars | posN or marker position | Accuracy |
+|---|---|---:|---:|---:|---:|
+| GSM8K No-CoT | 0 → +8 | 96.3 → 5.0 | 3 → 324 | .003 → .754 | 68.00 → 86.00 |
+| GSM8K CoT | 0 → +6 | 97.3 → 34.3 | 3 → 517 | .003 → .809 | 76.33 → 88.33 |
+| MATH No-CoT | 0 → +6 → +8 | 67.3 → 19.3 → 10.3 | 1356 → 1029 → 828 | `.977 → .969 → .960` | 60.67 → 68.33 → 63.33 |
+| MATH CoT | 0 → +6 → +8 | 71.3 → 29.7 → 10.3 | 1344 → 1116 → 1002 | `.969 → .968 → .964` | 63.00 → 66.00 → 64.00 |
+
+在 GSM8K 中，`####` 是正式答案标记，因此 `posN` 可以反映首次提交的位置。α=0 时，模型通常先给答案，再在后文检查或修正；到 `+6/+8`，更多计算被移到第一次正式提交之前。
+
+**Table 4.4. GSM8K effort reallocation from α=0 to α=+8**
 
 | Measure | α=0 median | +8 median | Median Δ | p |
 |---|---:|---:|---:|---:|
 | Pre-commit characters | 3 | 324 | **+302** | 7.6e−50 |
 | Post-commit characters | 1116 | 120 | **−862** | 2.0e−33 |
 | Total characters | 1130 | 700 | **−430** | 1.2e−14 |
-| Pre-commit equations | 0 | 2 | +2 | 8.2e−35 |
+| Pre-commit equations | 0 | 2 | **+2** | 8.2e−35 |
 | Post-commit equations | 1 | 0 | −0 | 3.7e−19 |
 
-这不是“写得更多”，而是 **commitment ordering** 改变所带来的 **effort reallocation**：总输出更短，
-但计算从答案之后移到答案之前，随后更快停止。Qwen 的基线问题因此更像“先猜、再审、却不稳定回填”；
-正向 RSN 提高了提交门槛，使已有计算更有效地进入第一次正式回答。
+总输出长度下降，但提交前计算增加、提交后内容减少。因此，这一变化更适合描述为计算位置和停止行为的重新组织，而不是推理量简单增加。
 
-### 4.2 GSM8K CoT: Scaffolding Helps, but the Positive Transition Remains at `+6`
+MATH 的 `\boxed{}` 几乎始终位于文末，`posN` 只在 .960–.978 之间变化，不能有效区分答案何时形成。MATH 更合适的指标是开头是否先出现未加框的答案候选。正向 α 降低了 early-candidate 比例，但没有明显移动文末的 `\boxed{}`。
 
-**Table 4.2. GSM8K CoT dose-response (n=300)**
+冻结的 early-candidate detector 在180条盲法审核中达到 precision 1.000、recall .976、一致率 .983。三条假阴性均来自 MATH `+8` 的首行长句，因此高剂量的 early-candidate 比例应视为下界，不能把10.3%直接解释为其余89.7%的样本都完成了“先推理、后形成答案”。
 
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | **+6** | +8 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **first_acc** | 80.33 | 77.67 | 79.00 | 79.00 | 76.33 | 74.33 | 78.33 | **88.33** | 86.00 |
-| last_acc | 79.00 | 79.33 | 79.33 | 81.00 | 76.67 | 75.00 | 81.00 | **89.00** | 84.00 |
-| Holm p_adj (first) | 1.000 | 1.000 | 1.000 | 1.000 | — | 1.000 | 1.000 | **.0002** | **.0030** |
-| **early-candidate%** | 99.0 | 98.7 | 99.7 | 99.3 | **97.3** | 96.3 | 91.7 | **34.3** | **7.0** |
-| **Pre-commit characters (median)** | 3 | 3 | 3 | 3 | **3** | 3 | 3 | **517** | 529 |
-| **Commit position (posN)** | .003 | .003 | .003 | .003 | **.003** | .003 | .003 | **.809** | .825 |
+### 4.3 Task-Dependent High-Dose Behavior
 
-CoT 在 α≤+4 时提高了准确率，却几乎没有改变外显提交顺序：α=0 仍有 97.3% 的早期候选，提交前
-仅 3 个字符。`first_acc ≈ last_acc` 只说明后续 marker 很少改变对错，不能解释为“先推理再回答”。
-直到 `+6`，early-candidate、提交前字符和 `posN` 才同时发生阈值式翻转。
+GSM8K 和 MATH 在 commitment transition 之后呈现不同的高剂量结果。
 
-因此两种干预的作用可以区分：**CoT 主要改善推理结构和候选质量，RSN 更直接改变何时提交答案。**
-α=0 时 Qwen 的 CoT gain 为 +8.33pp，与 Llama 的 +9.0pp 接近；差别不在增益大小，而在 Qwen
-仍然维持“先答后推”，Llama 的 CoT 在适度剂量下还会推迟提交。
+**Table 4.5. Task-dependent response after the main transition**
 
-曲线的描述性峰值在 `+6`。统计上仅 `+6/+8` 高于 CoT 自身基线；主读数中二者未分开
-（探索性 p=.371），因此尚不能确认 CoT 曲线已经进入右臂。CoT 在共同剂量 `+8` 相对 No-CoT
-不再增益，但 `+6` 仍高 10.33pp；由于 CoT 未跑 `+10/+12`，不能据此宣称两条曲线在更高剂量
-持续收敛。
+| Condition | Main transition | High-dose pattern | Interpretation |
+|---|---|---|---|
+| GSM8K No-CoT | Accuracy and commitment ordering change around `+6/+8` | Accuracy remains at 86.00%–88.67% through `+12` | Rise followed by saturation; no observed right arm |
+| GSM8K CoT | Transition occurs near `+6` | `+6` and `+8` are not statistically separated | Right arm not established |
+| MATH No-CoT | Accuracy peaks at `+6` | Falls from 68.33% to 63.33% at `+8` | Descriptive right arm |
+| MATH CoT | Low-dose performance improves | Peaks near `+6`, with weaker dose separation | CoT compresses the observed dose effect |
 
-### 4.3 MATH and CoT: The Same Early Candidate Is Suppressed, with a Right Arm on Hard Problems
+#### GSM8K high-dose integrity
 
-**Table 4.3a. MATH No-CoT dose-response (n=300)**
+**Table 4.6. GSM8K No-CoT high-dose integrity checks**
 
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | **+6** | +8 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **first_acc** | 54.00 | 57.00 | 58.00 | 59.00 | 60.67 | 60.00 | 63.33 | **68.33** | 63.33 |
-| last_acc | 50.00 | 54.00 | 55.00 | 55.33 | 60.00 | 58.67 | 61.33 | **67.67** | 63.67 |
-| Holm p_adj | .094 | 1.000 | 1.000 | 1.000 | — | 1.000 | 1.000 | **.0087** | 1.000 |
-| **early-candidate%** | 85.0 | 79.3 | 74.3 | 71.3 | 67.3 | 59.7 | 46.3 | **19.3** | **10.3** |
-| **Pre-commit characters (median)** | 1414 | 1395 | 1362 | 1376 | 1356 | 1319 | 1270 | **1029** | **828** |
-| `\boxed{}` position (posN; negative control) | .977 | .978 | .978 | .977 | .977 | .977 | .975 | .969 | .960 |
+| α | contamination% | empty% | truncated% | clean n | clean acc | `####` count p99 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 17.7 | 0.0 | 1.7 | 247 | 70.85 | 61 |
+| +6 | 44.7 | 0.0 | 0.7 | 166 | 78.31 | 29 |
+| +8 | 60.3 | 0.0 | 0.7 | 119 | 84.03 | 18 |
+| +10 | 58.7 | 0.0 | 1.0 | 124 | 87.90 | 21 |
+| +12 | 59.7 | 0.0 | 1.0 | 121 | 84.30 | 7 |
 
-MATH 与 GSM8K 的答案标记语义不同。GSM8K 的 `####` 就是正式提交，因此其位置能直接测量承诺时刻；
-MATH 的 `\boxed{}` 按书写惯例始终接近文末，真正的早期承诺是开头未加框的候选答案。
+高剂量下没有空生成，截断率始终不超过1.0%，干净子集准确率也维持在84%–88%。因此，GSM8K 的平台不能简单归因于空输出、截断或极端 marker 重复。由于干净子集是根据干预后的输出行为筛选，只用于完整性检查，不用于估计跨剂量因果效应。
 
-**Table 4.3c. Post-treatment stratification from α=0 to α=+6**
+#### MATH gain and high-dose decline
 
-| Transition | n | acc@0 | acc@+6 | Δ | Interpretation |
-|---|---:|---:|---:|---:|---|
-| y → n | 149 | 51.7 | 66.4 | **+14.8pp** | Early candidate suppressed |
-| y → y | 53 | 54.7 | 56.6 | +1.9pp | Early candidate retained |
-| n → n | 93 | 78.5 | 79.6 | +1.1pp | No early candidate in either cell |
-| n → y | 5 | 60.0 | 40.0 | −20.0pp | Early candidate newly appears |
+**Table 4.7. Post-treatment early-candidate transitions from α=0 to α=+6**
 
-增益集中在 `y→n` 样本，而本来就没有早期候选的 `n→n` 样本几乎不变。这支持 ordering-mediated
-解释，但分组本身由干预结果定义，因此只能作为事后机制线索，不能作为中介因果证明。
-
-#### 4.3.1 MATH CoT: Higher Low-Dose Baseline, but the Peak Remains at `+6`
-
-**Table 4.3d. MATH CoT versus No-CoT (n=300)**
-
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | **+6** | +8 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **CoT first_acc** | 59.67 | 59.33 | 65.00 | 63.00 | 63.00 | 62.00 | 63.00 | **66.00** | 64.00 |
-| CoT last_acc | 57.67 | 57.33 | 61.67 | 58.67 | 57.67 | 58.33 | 59.00 | 65.67 | 64.33 |
-| No-CoT first_acc | 54.00 | 57.00 | 58.00 | 59.00 | 60.67 | 60.00 | 63.33 | **68.33** | 63.33 |
-| ΔCoT | +5.67 | +2.33 | **+7.00** | +4.00 | +2.33 | +2.00 | −0.33 | −2.33 | +0.67 |
-| **CoT early-candidate%** | 86.7 | 80.0 | 76.7 | 74.0 | 71.3 | 69.0 | 58.3 | **29.7** | 10.3 |
-| **CoT pre-commit characters** | 1345 | 1372 | 1330 | 1305 | 1344 | 1317 | 1315 | **1116** | **1002** |
-| CoT `\boxed{}` posN (negative control) | .965 | .966 | .964 | .966 | .969 | .970 | .973 | .968 | .964 |
-
-CoT 抬高了负向和低剂量端，但没有移动峰位：两条曲线都在 `+6` 达到最高点。
-
-检验分为**两个独立的 Holm family，不合并**（对照对象与批次都不同）：**Family A**（CoT 各档
-vs CoT 自身 α=0，m=8）八个点全部 p_adj=1.000，最大点估计为 `+6` 的 +3.00pp；**Family B**
-（CoT vs No-CoT 逐档配对，m=9）无一存活，最大增益在 `−4`（+7.00pp，p=.0065，**p_adj=.0581**）。
-参照：No-CoT 家族中 `+6` vs α=0 为 +7.66pp，p_adj=.0087，是该族唯一存活点。这些趋势仍有
-描述意义，但证据不足以宣称 CoT 改变了最优剂量。
-
-**剂量效应被吃平的原因是可提升空间，而非机制消失：** CoT 的 α=0 已是 63.00，两条曲线的峰
-都在 66–68，No-CoT 从 60.67 出发尚有约 7.7pp 可挣，CoT 只剩约 3pp。**只能写“可提升空间被
-明显压缩”，不能写“接近模型能力上限”** —— 66–68% 是本剂量带内的峰值，没有实验去逼近后者。
-
-CoT 也没有消除开头裸候选。相反，在 `+2/+4/+6`，CoT 比 No-CoT 多保留 9–12pp 的早期候选，
-直到 `+8` 才共同降到 10.3%。因此 CoT 使 ordering transition 更抗 steering，同时保留了更多
-提交前推理：在 `+8`，CoT 为 1002 字符，No-CoT 为 828 字符。CoT 的作用更像提高后续推理与
-修正质量，而不是提高首次承诺门槛。
-
-Level 5 的右臂在两种提示下方向一致：No-CoT 为 40.4→47.2→36.0，CoT 为 38.2→43.8→36.0
-（α=0/+6/+8）。丢分样本的提交前推理明显缩短，而提交后字符始终约 27–34、截断率接近 0%。
-因此难题回落更符合**提交前计算不足**，而不是提交后修订失控。总体 CoT 曲线的回落仍只作描述性
-结果，不能写成“完整右臂已经确立”。
-
-**Table 4.3b. Dynamic range of commitment measures**
-
-| Measure | GSM8K | GSM8K-CoT | MATH | MATH-CoT |
+| Transition | n | acc@0 | acc@+6 | Δ |
 |---|---:|---:|---:|---:|
-| Commit position (posN) | .003→.754 (**251×**) | .003→.825 (**275×**) | .960–.978 (**1.0×**) | .964–.973 (**1.0×**) |
-| early-candidate% | 96.3→5.0 | 97.3→7.0 | 85.0→10.3 (**8.3×**) | 86.7→10.3 (**8.4×**) |
+| Early candidate removed (`y→n`) | 149 | 51.7 | 66.4 | **+14.8pp** |
+| Early candidate retained (`y→y`) | 53 | 54.7 | 56.6 | +1.9pp |
+| Absent in both cells (`n→n`) | 93 | 78.5 | 79.6 | +1.1pp |
+| Early candidate newly appears (`n→y`) | 5 | 60.0 | 40.0 | −20.0pp |
 
-所以 MATH 的 `posN` 是阴性对照，而 `early-candidate%` 才是承诺读数。典型生成顺序为：
-**开头裸候选 → 推理 → 文末 `\boxed{}`**。正向 RSN 抑制的是第一个候选，而不是移动末尾标记。
+准确率提升主要集中在 early candidate 被抑制的 `y→n` 样本，而原本就没有 early candidate 的 `n→n` 样本变化很小。不过，这些组别由干预后的输出定义，因此只能说明准确率提升与 ordering change 相关，不能证明后者是因果中介。
 
-准确率点估计呈倒 U：`−8→+6` 总体上升，`+6→+8` 回落 5pp。只有 `+6` 相对 α=0 通过 Holm；
-探索性配对比较也支持 `+6` 高于 `+8`（p=.040）。回落集中在较难题：Level 3 为 −6.7pp，
-Level 5 为 −10.1pp，Level 1 不变。与此同时，提交前字符、总长度和等式数继续下降，说明高剂量
-可能开始压缩完成难题所需的计算。
+MATH 的高剂量回落主要集中在困难题。Level 5 的 No-CoT 准确率为40.4%→47.2%→36.0%，CoT 为38.2%→43.8%→36.0%（α=0/+6/+8）。与此同时，No-CoT 提交前字符由1029降至828，而提交后字符始终约为27–34，截断率接近0%。
 
-#### 4.3.2 Extreme `\boxed{}` Repetition: A Separate Exploratory Tail
+因此，`+8` 的回落更符合难题所需的提交前计算被进一步压缩，而不是提交后的修改失控。early-candidate 越少并不一定越好；有效表现需要在延迟提交与保留足够计算之间取得平衡。
 
-MATH No-CoT 的极端重复随正向剂量下降，但 CoT 下没有同步消失：`\boxed{}` 计数 p99 在
-α=0/+6/+8 为 106/121/113。该现象高度集中于少数样本（CoT +8 仅 8/300 个样本有 ≥20 个 marker），
-且只影响 `last_acc`；主读数 `first_acc` 不受影响。重复既包括同一答案复写，也包括两个候选之间
-震荡，因此不能归为单一模式。该尾部与准确率主线分离，仅作为探索性观察。
+MATH 还存在少量极端 `\boxed{}` 重复。No-CoT 下该现象随正向剂量下降，但 CoT 的 marker-count p99 在 α=0/+6/+8 仍为106/121/113。它高度集中于少数样本——CoT `+8` 只有8/300个样本出现至少20次 marker——并且主要影响 `last_acc`，不改变以第一次答案计算的 `first_acc` 主结论。
 
-#### 4.3.3 Validation of the Early-Candidate Measure
+### 4.4 Cross-Model Summary
 
-180 条盲法 AI 审核得到 precision 1.000、recall 0.976、一致率 0.983，说明冻结 detector 的阳性
-结果可信。三条假阴性全部来自 `MATH/+8`：答案被放在首行长句中，而非独立短候选。因此 MATH
-高剂量的 `early-candidate%` 是下界；把这类长句纳入后，α=0→+8 仍从 67.7% 降到 25.0%，方向不变，
-但不能把冻结值 10.3% 解释为“89.7% 的样本都先推理”。GSM8K 的长首行则是在行末以 `####`
-收束答案，属于真正的先推理后提交，不受这一缺口影响。
-
-### 4.4 Cross-Model Pattern: Opposite Directions, Shared Commitment Calibration
-
-**Table 4.4. Behavioral comparison between Llama and Qwen**
+**Table 4.8. Behavioral comparison between Llama and Qwen**
 
 | Dimension | Llama3.1-8B | Qwen2.5-7B |
 |---|---|---|
-| Baseline tendency | Commits early and becomes more impulsive or perseverative under +α | Emits a candidate first, then audits it, often without closing the revision loop |
-| Beneficial direction | Moderate negative α | Moderate positive α |
-| Excess-dose pattern | Positive over-commitment; extreme-negative candidate oscillation | MATH hard-problem compression at +8; GSM8K saturation without a right arm through +12 |
-| CoT | Adds stepwise structure and delays commitment at moderate/low wanting | Improves reasoning quality at low doses; RSN still drives the ordering transition at +6 |
+| GSM8K curve | Asymmetric peak at moderate negative α | Rises at positive α and saturates through `+12` |
+| MATH curve | Best performance near moderate negative α | Peaks near `+6`, then declines at `+8` |
+| Main output change | Positive α is associated with earlier commitment and repetition; extreme negative α produces a separate failure mode | Positive α suppresses early candidates and moves computation before the first formal answer |
+| CoT | Improves structure and can delay commitment at moderate doses | Improves low-dose accuracy, but ordering changes mainly near `+6` |
+| Cross-model interpretation | Model-specific response | Model-specific response |
 
-两模型不共享 raw α 的最优方向，却共享同一个更高层规律：最佳表现对应较合适的
-**commitment state**——既不过早锁定候选，也不在答案后无效反复。Llama 的基线承诺门槛较低，
-适度负向 α 更有利；Qwen 常陷在僵硬的“先猜—再审”脚本中，适度正向 α 使它先完成计算再提交。
-由于两模型的 mask、层带和激活尺度不同，raw α 不能直接视为跨模型等效剂量。
+The same analysis framework identifies commitment-related behavior in both models, but the behavioral dose-response does not replicate point by point. Llama shows an asymmetric peak, whereas Qwen shows a GSM8K high-dose plateau and a task-specific MATH decline.
 
-这是一种行为表型比较，而非临床诊断。共同点是 RSN 都改变 commitment dynamics；差异在于模型
-原本处于不同工作状态，因此相反方向的 steering 可能把它们推向相似的功能区间。
+The two models also respond in opposite raw-α directions. This does not establish that their baselines occupy opposite internal states or that their best doses reach the same working state. Cross-model comparison should therefore focus on the shape of the behavioral transition, not on matching α values.
 
-### 4.5 Conclusions and Boundaries
+In simple terms:
 
-1. **RSN 在 Qwen 上主要改变承诺控制，而非简单增加推理量。** GSM8K 与 MATH 都显示早期候选
-   被压制、计算被移到首次提交之前；收益集中在 ordering transition 附近。
-2. **跨模型共同点是工作点校准，而不是剂量方向一致。** Llama 受益于适度负向，Qwen 受益于
-   适度正向；这与两者不同的基线承诺状态一致。
-3. **CoT 与 RSN 部分独立。** CoT 改善结构和修正质量，RSN 更直接移动首次承诺；CoT 可以在
-   外显顺序不变时提高准确率。
-4. **ordering 改善并非越彻底越好。** MATH `+8` 的 early-candidate 最低（`+6` 为 19.3%，`+8` 为 10.3%），
-   准确率却不如 `+6`；提交前字符同时从 1029 降到 828，难题（Level 5）回落 10.1pp。因此
-   RSN 的收益不是“尽可能消灭抢答”，而是在**延迟提交**与**保留足够计算**之间找工作点。
-5. **最佳工作点与可用带随任务变化。** GSM8K 在 `+8…+12` 饱和，MATH 则在 `+6` 后对难题回落；
-   因此不能把倒 U 写成 Qwen 的普遍性质。
-6. **机制语言仍是计算类比。** 结果支持 RSN 调节 motivational/commitment gain 的工作假设，
-   但不证明模型具有生物多巴胺，也未由事后分层证明中介因果。
+1. Qwen’s improvement is associated with moving calculation before the first formal answer, rather than producing more text.
+2. This reordering helps until it begins to compress the computation needed for difficult MATH problems.
+3. The analysis framework transfers across models, but the optimal direction and dose-response remain model- and task-specific.
+4. These results support a computational commitment-gain interpretation, not literal biological dopamine or a universal wanting axis.
 
 ## 5. Commitment-Based Prediction and Transfer
 
