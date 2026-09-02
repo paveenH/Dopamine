@@ -1,5 +1,3 @@
-source ~/.bashrc
-
 # Tmux
 conda activate dopamine
 conda activate roleplaying
