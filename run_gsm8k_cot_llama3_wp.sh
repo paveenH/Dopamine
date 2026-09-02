@@ -46,6 +46,15 @@
 # CUDA_VISIBLE_DEVICES even though the pairing is already cross-run: an
 # unpinned multi-card run would add a second, avoidable source of divergence.
 #
+# THE SERVER IS SCRATCH SPACE. Finished cells are downloaded to the local
+# analysis tree (RoleAnswer/llama3/gsm8k/) and the server copy is not kept --
+# runs move between machines, so a persistent server tree would be misleading
+# rather than useful. Consequences: (a) the stored alpha=0 CoT cell is normally
+# ABSENT here, so this script only warns about it and never blocks -- do not
+# "fix" that back into a hard stop; (b) the pairing is performed OFFLINE
+# against RoleAnswer/llama3/gsm8k/mdf_0_cot, which is also where the cross-run
+# caveat is enforced; (c) DOWNLOAD THIS CELL AFTER THE RUN or it is lost.
+#
 # Usage:
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm8k_cot_llama3_wp.sh > gsm8k_wp_cot_llama.log 2>&1 &
 #   cat gsm8k_wp_cot_llama.log     # immediately -- a wrong PY exits 127 before anything runs
@@ -110,13 +119,15 @@ fi
 if [ ! -f "${BASE_DIR}/${GSM8K_FILE}" ]; then
     echo "[x] benchmark not found: ${BASE_DIR}/${GSM8K_FILE}"; exit 1
 fi
-# The stored alpha=0 CoT cell is the comparison target; without it this run has
-# nothing to be paired against.
+# The comparison target (stored CoT alpha=0) normally lives OFFLINE, not here:
+# the server is scratch space and finished cells are downloaded to the local
+# analysis tree. So its absence is the NORMAL state and must not block the run.
+# Warn only -- the pairing happens offline, and that is where it is enforced.
 A0="${BASE_DIR}/${MODEL_NAME}/${ANS_COT}/mdf_0"
 if [ ! -d "${A0}" ]; then
-    echo "[x] stored CoT alpha=0 cell not found: ${A0}"
-    echo "    This backfill is a paired contrast against it."
-    exit 1
+    echo "[i] stored CoT alpha=0 not on this box (${A0})."
+    echo "    Expected: the server is scratch; finished cells live offline in"
+    echo "    RoleAnswer/llama3/gsm8k/mdf_0_cot. Pair there, not here."
 fi
 # TOP is computed at runtime (percentage/100 * hidden_size), so the output
 # filename is not known here -- guard on the cell DIRECTORY being non-empty.
@@ -153,6 +164,9 @@ echo ""
 echo "=================================================="
 echo "Done: $(date)"
 echo "CoT -> ${OUT_DIR}/"
+echo ""
+echo "*** DOWNLOAD THIS CELL NOW -- the server is scratch space. ***"
+echo "    -> RoleAnswer/llama3/gsm8k/mdf_neg6_cot/"
 echo ""
 echo "Authoritative accuracy is NOT the inline number: recompute offline with"
 echo "  analyze_first_last_acc.py --gsm8k_root llama3/gsm8k"
