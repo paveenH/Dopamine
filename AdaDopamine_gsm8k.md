@@ -153,365 +153,296 @@ Llama 在 GSM8K 上的性能结果可以概括为：
 3. **CoT 在已测试的三个剂量上都提高准确率。** `α=−4 + CoT` 达到 85.0%，但由于缺少完整 CoT 曲线，不能称为全局最优剂量。
 4. **催促式措辞会降低性能并压缩剂量差异。** 这一影响在 persona 条件下尤其明显。
 5. **本节只报告性能现象。** 剂量如何影响抢答、答案形成、重复和收口行为，将在 §2 中分析；这些行为也不能直接等同于生物学 dopamine。
+## 2. GSM8K Output Behavior and Functional Wanting Interpretation
 
-## 2. Behavioral Findings: Wanting (Incentive Salience)
+本节关注的不是准确率本身，而是 α 如何改变模型的答案形成、提交和停止行为。
 
-**框架.** α 调的是一个内部旋钮，我们称为 **wanting**（动机性渴求，Berridge & Robinson 的 wanting≠liking）。它本身看不见，看得见的是它的行为后果——模型**何时收口**，即 commitment。
+主要观察可以概括为：
 
-**wanting 是因，commitment 行为是果。** 两个方向各有两层表现：
+- `α=−6/−4` 附近具有较高的提交质量和较少的语义性反复。
+- 正向 α 整体伴随更早输出答案，以及更多提交后的检查和重复。
+- `α=−8` 是另一种边界失效：模型常在开头正式提交答案，随后在多个候选值之间振荡。
+- CoT 增加分步结构并减少语义性反复，但没有消除 α 的方向差异。
 
-| | 何时答 | 答完之后 |
-|---|---|---|
-| **α=+4**（wanting 过高） | 抢答：没想清就给答案 | 放不下：反复确认、重算、纠结格式 → loop 不收敛 |
-| **α=−4**（wanting 适度） | 不抢答：条理推进 | 放得下：给出答案后不再回头 |
+这里将 wanting / incentive salience 作为一种**功能类比**：α 是实际施加的 RSN gain intervention，而 wanting 并未被直接测量。因此，正文首先报告可观测的输出行为，再讨论它与 engagement、commitment 和 stopping control 的关系。
 
-所以 +4 的损害不是"算错了"，而是**答得太早、又停不下来**。
+这些结果不能证明模型具有主观欲望，也不等同于生物学 dopamine。
 
-> **口径**：本节 acc 与行为指标一律取首个 `####`（= §1 上报值）。多个 `####` 几乎只会把对的改错（neutral 改对 0/0/0、改坏 14/14/8 @ −4/0/+4），取首因此既最宽容又能避开尾部 loop 污染。
+### 2.1 Dose-Dependent Output Behavior
 
-框架的溯源（+α 锚点 2026-07-24 由「焦虑」改为「冲动 + 强迫性反复」，VTA→NAcc，及脚本字段沿用旧名的原因）记录于 `CLAUDE.md`。
+下表汇总 neutral、plain、No-CoT 条件下的完整九点剂量曲线。Accuracy 与 §1 相同，在此仅作为行为指标的参照。
 
+| Metric | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Accuracy** | 40.3% | **78.0%** | 73.0% | 69.0% | 60.0% | 57.0% | 55.3% | 55.0% | 53.7% |
+| **Committed accuracy** | **23.6%** | **79.7%** | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
+| Commit rate | 60.7% | 60.7% | 58.3% | 63.0% | 62.7% | 53.0% | 49.0% | 45.3% | 53.0% |
+| Median `####` position | **0%** | **31%** | 25% | 18% | 18% | 19% | 16% | 14% | 14% |
+| Mean `####` position | 9% | 33% | 28% | 24% | 22% | 25% | 26% | 22% | 20% |
+| Premature, leading digit | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 |
+| **Premature, either rule** | **175** | **94** | 195 | 223 | 206 | 215 | 232 | 233 | 210 |
+| `####` at text start | **171** | 17 | 9 | 18 | 20 | 19 | 12 | 19 | 20 |
+| **At least two answer switches** | **41** | 3 | 4 | 10 | 9 | 6 | 6 | 12 | 10 |
+| At least three candidate values | **11** | 1 | 4 | 6 | 3 | 1 | 3 | 6 | 4 |
+| Median generation length | 2,328 | 2,127 | **2,044** | 2,091 | 2,107 | 2,100 | 2,228 | **2,284** | 2,206 |
+| Loop samples | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 |
+| At least two `Step` markers | 31 | **185** | 73 | 36 | 25 | 31 | 31 | 27 | 37 |
+| Stuck loops | 6 | 16 | 27 | 25 | 25 | 24 | 20 | 30 | 22 |
+| Median equation count | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 3 | 4 |
+| **Full-text compulsive repetition** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
 
-### 2.1 Identity-confirmation loop: persona modulates the semantic content of looping
+`Committed accuracy` 的分母是输出了可解析答案标记的样本，因此它描述的是**提交质量**，不能替代总体 accuracy。`####` position 也只在已提交样本中定义，而 full-text compulsive repetition 的分母固定为全部 300 题。
 
-下文 §2.2–§2.4 说明 α 会改变 **commitment dynamics**（抢答 / 放不下 / 锁不住）。Role prompt 的作用不同：它不主要改变"有没有 loop"，而是改变 loop 里反复刷出来的**语义内容**。over-arousal looping 在所有 role 都会出现，但**循环内容被 persona 调制**——失调时模型刷的不是随机句子，而是和自己 persona 一致的"身份自白 / 口吻"。
+#### Submission Quality
 
-**全体统计（plain α=0，server-182 `analyze_loop_anxiety.py --mode persona`）**：
+在 `α=−6 → +8` 区间内，committed accuracy 从 79.7% 单调降至58.5%。也就是说，在已经正式提交答案的样本中，剂量越向正侧移动，提交值越容易出错。
 
-| Role | Identity samples | Heavy (≥5 hits) | Math-identity denial (literal) | **Soft self-deny** | Psychological stance |
-|---|---|---|---|---|---|
-| neutral | 2 | 2 | 1 | **0** | Generic assistant; occasional self-deprecation (`"I am not a math whiz. I am just a regular person"`; Q281 `"I am a human..."` ×36) |
-| expert | 3 | 2 | **0** | **0** | **Self-credentialing** (Q129 `"I am an expert in math. I can help you..."`; Q255 `"I am an expert in math and I will be happy to help..."` ×12) |
-| non_expert | **7** | **5** | **4** | 1 | **Self-deprecation / authority denial** (Q13 `"I am just a non expert. I am not sure if my answer is correct."`; Q27 `"I am a non expert. I do not know how to solve this problem. I am sorry."`) |
-| teacher | 2 | 1 | 1 | 0 | Mixed: one math-identity denial case and one teaching-style case; not a stable teaching persona |
+Commit rate 本身并不单调，因此准确率变化不能简单解释为“模型更愿意或更不愿意提交”。更稳定的变化来自提交答案的质量和提交前后的文本结构。
 
-> **判据**：identity = 出现"我是/作为一个 <角色名>"；heavy = 同一说法复现 ≥5 次；deny_math = 明确否认数学身份（"我不是数学专家"）；soft_deny = 保留头衔但自我拆台（"我只是个学生""我没把握"），只在 identity 样本内计数。全部由 `analyze_loop_anxiety.py --mode persona` 固定判定，正则与设计理由见 `CLAUDE.md`。
+#### Answer Timing and Stopping
 
-**三点观察**：
+从负向最佳区域移向正向时，首次 `####` 的典型位置整体提前：
 
-- **non_expert 的身份 loop 最重**（identity 7 / heavy 5），其中 4 题直接否认数学身份——认怂是它的主姿态。
-- **expert 在 GSM8K 上从不塌缩**（deny_math 与 soft_deny 均为 0），是真正的自我标榜。但同一 persona 到了更难的 MATH 上**翻转**为信心崩溃（soft_deny=13，见 §3.2）——所以这不是 persona 的固有属性，而是随任务难度变化的。
-- 身份自白**本身很低频**（每 300 题里 2–7 例），但方向稳定：无 role 时几乎不出现，non_expert 最易转为自我否定。
+- `α=−6`：31%
+- `α=−4`：25%
+- `α=+4/+6/+8`：14–16%
 
-两个 deny 列合看才完整：GSM8K 的认怂是硬否定型（"我不会做这题"），全部落在 deny_math；soft_deny 在这里近乎为 0，它要到 MATH expert 的软塌缩才起作用。
+但输出长度并没有同步缩短。正向端的 median generation length 反而较长，并在 `α=+6` 达到 2,284 characters。
 
-#### 2.1.1 Per-question raw samples (identity monologue — most direct view of the model's "inner identity thinking")
+因此，正向 α 的典型模式不是“更快完成”，而是：
 
-> 下列例子均由 `--dump_examples` **脚本自动抽出，非人工挑选**；引文为原始生成文本，题号为 0-based。
+> 更早输出答案，但在答案出现后继续生成。
 
-**PLAIN α=0**（含身份 / 重度 / 否定数学 = neutral 2/2/1 · expert 3/2/0 · non_expert 7/5/4 · teacher 2/1/1）
+Premature-output 数量并非每个相邻剂量都严格单调，因此不能将其单独视为准确率曲线的中介变量。它与 generation length、答案质量和语义性反复共同描述一种输出状态。
 
-EXPERT = 自我标榜（"我是数学专家、我能帮你"——`deny_math` = 0，从不否定数学身份）：
+#### Raw Loop Is Not the Main Signal
 
-| Q | Raw identity monologue (actual text; × = identity-hit count) |
-|---|---|
-| Q129 | `I am an expert in math. I can help you with any math problem. I can also help you with oth...` (×8) |
-| Q255 | `I am an expert in math and I will be happy to help you with any math problems you have.` (×12) |
+Loop samples 在所有剂量下都很高，但没有清楚的剂量趋势。Equation count 也基本稳定在 3–4。
 
-NON_EXPERT = 认怂 / 自我否定 / 道歉（身份-loop 最重 7/5，否定数学 4 题）：
+因此，单纯的 loop 数量或计算符号数量都无法解释准确率曲线。更有区分力的是：
 
-| Q | Raw identity monologue (actual text; × = identity-hit count) |
-|---|---|
-| Q13 | `I am not an expert. I am just a non expert. I am not sure if my answer is correct.` (×13) — self-deprecation + uncertainty |
-| Q27 | `I am a non expert. I do not know how to solve this problem. I am sorry. I made a mistake.` (×5) — **giving up + apology** |
+- loop 中反复出现什么内容；
+- 答案是否在多个候选值之间切换；
+- 已经输出答案后是否仍持续检查和重算。
 
-TEACHER（轻度，2/1/1；教学口吻在 182 数据里仅 Q60 一例，非系统性）：
+### 2.2 Two Distinct Failure Regimes
 
-| Q | Raw excerpt (actual text) |
-|---|---|
-| Q29 | `I am not a math teacher. I am not a math expert. I am not a math whiz. I am a primary s[chool]...` (×45) — self-deprecation / math-identity denial |
-| Q60 | `As a primary school teacher, you can use this problem to assess the student's understanding...` — the only teaching-style example |
+准确率曲线两端都会失效，但输出形态不同。
 
-**PUSHY α=0**（pushy 见 §0；含身份 / 重度 / 否定数学 = neutral **0/0/0** · expert 4/2/0 · non_expert **16/10/10** · teacher 3/0/0）
-
-身份独白被 role 放大、被 pushy 进一步极化：**neutral pushy 完全无身份-loop（0 题，无 role 就无身份自白）**；**non_expert pushy 认怂翻倍**（含身份 7→16、否定数学 4→10），**expert pushy 仍标榜、仍 0 否定数学**（方向不变）：
-
-| Role / Q | Identity monologue (actual text; script-detected) | Type |
-|---|---|---|
-| expert Q14 | `I am an expert. I know my stuff. I am a math whiz. I am a math genius. I am a math mas[ter]...` (×96) | Self-credentialing escalates into a `whiz/genius/master` sequence |
-| expert Q66 | `I am an expert. I am sure it is correct. I have checked it. I am confident that it is corr[ect]...` (×17) | Self-reassurance / forced certainty |
-| non_expert Q19 | `I am not an expert. I am just a non expert. I am not a math expert. I am just a non exp[ert]...` (×42) | Authority-denial loop |
-| non_expert Q53 | `I am a non expert. I am not a professional. I am not a teacher. I am not a tutor.` (×20) | Broad identity denial |
-| teacher Q161 | `As a primary school teacher, you can use this problem to teach your students about the importance of...` | Teaching-method detour |
-
-### 2.2 α+4 vs α−4 full picture
-
-α 是一个 **commitment-timing / 收敛旋钮**。全 dose 对比（neutral, No-CoT, plain, first-`####`；182 同机）。比例指标比绝对计数更能剥离"提交意愿"与"提交质量"——`committed_acc` = 提交（有 `####`）的题里答对的比例：
-
-| Metric | −8 † | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 | Trend |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **acc** (first) | 40.3 | **78.0** | 73.0 | 69.0 | 60.0 | 57.0 | 55.3 | 55.0 | 53.7 | Inverted U (peak −6) |
-| **committed_acc** | 23.6 | **79.7** | 78.3 | 76.2 | 68.6 | 66.0 | 63.9 | 62.5 | 58.5 | ✓ **Monotonic decrease** (−6→+8) |
-| commit_rate | 60.7 | 60.7 | 58.3 | 63.0 | 62.7 | 53.0 | 49.0 | 45.3 | 53.0 | Non-monotonic |
-| median `####` position | **0%** | 31% | 25% | 18% | 18% | 19% | 16% | 14% | 14% | ✓ Earlier commit |
-| mean `####` position | 9% | 33% | 28% | 24% | 22% | 25% | 26% | 22% | 20% | Same negative-high/positive-low tilt as median, but non-monotonic|
-| premature (leading digit) | 4 | 77 | 195 | 219 | 199 | 211 | 229 | 231 | 206 | 漏检 `####`-lock 型抢答(−8 只读到 4) |
-| **premature (either)** | **175** | **94** | **195** | **223** | **206** | **215** | **232** | **233** | **210** | lead-digit ∪ early-`####`,−8=175 才是真相 |
-| median gen_len (char) | 2328 | 2127 | **2044** | 2091 | 2107 | 2100 | 2228 | **2284** | 2206 | Shortest near optimum; longest at positive end |
-| loop samples ‡ | 213 | 264 | 242 | 230 | 232 | 223 | 220 | 225 | 233 | High baseline (~74–88%); no clean trend |
-| ≥2 `Step` markers | 31 | 185 | 73 | 36 | 25 | 31 | 31 | 27 | 37 | No-CoT rarely enters stepwise reasoning |
-| stuck loops (loop ∧ `=` < 2) | 6 | 16 | 27 | 25 | 25 | 24 | 20 | 30 | 22 | Plateau around 20–30; −8 is artificially low because it commits at the first token without a loop body |
-| median equation count (`=`) | 4 | 4 | 3 | 3 | 3 | 4 | 3 | 3 | 4 | Flat (~3–4); not predictive of accuracy |
-> `analyze_cot_metrics.py`（`--table dose`）汇总以下行为指标；具体抽取规则与实现见 `CLAUDE.md`：
->
-> - **commit_rate**：输出中出现至少一个可解析 `#### N` 的样本比例。
-> - **committed_acc**：已提交样本中，首个 `#### N` 答对的比例；分母仅为 committed 样本。
-> - **median / mean `####` position**：首次出现 `####` 的相对文本位置。median 表示典型提交时点，mean 用于识别晚提交长尾。
-> - **median gen_len**：生成文本字符长度的中位数。
-> - **loop samples**：出现退化重复的样本数。
-> - **≥2 Step、卡死、等式数**：用于区分有效推理、无运算复读和推理展开程度，定义见 §2.5.1。
-> - **premature (either)**：主要抢答指标，包括“开头直接出现数字”或“`####` 出现在全文前 2%”。`leading-digit` 仅作辅助，因为它会漏掉以 `#### N` 开头的抢答。比如 α=−8 的 leading-digit 仅为 4，但完整口径识别出 **175** 个抢答样本，为全曲线最高。
-
-† **α=−8 是过冲后的崩溃点，不属于中间剂量的单调趋势。** 此时 `committed_acc` 降至 **23.6%**，`####` 中位位置为 **0%**：模型几乎一开始就提交答案并锁定错误候选。因此，负向极端剂量的问题不是“无法计算”，而是**过早提交错误答案**。
-
-**核心结论**：
-
-- **提交质量随剂量上升而持续下降。** 在 Llama 的 `−6→+8` 区间内，`committed_acc` 从 **79.7%** 单调降至 **58.5%**。这说明在已经提交答案的样本中，剂量越向正侧移动，提交的答案越容易出错。由于各剂量的 committed 样本比例不同，该指标用于描述提交质量，不能单独替代整体 accuracy。
-- **模型越早提交，反而越难停止。** `####` 中位位置从 `−6` 的 **31%** 提前到 `+6` 的 **14%**，但生成长度在正向端升至最长（`+6`：**2284** 字符）。也就是说，模型更早给出答案，却在提交后继续反复书写；这表现为**过早提交与停止失败同时出现**。适度负向的 `−4` 生成最短（**2044** 字符），更接近“完成推理后及时收束”。
-
-### 2.3 Compulsive Over-Checking: The “Can’t Let Go” Semantics
-> **命名说明**：本节与脚本保留历史字段名 `anxiety`，但实际测量的是**强迫性反复确认与行为固著**（compulsive over-checking / perseveration），不是临床焦虑。下文统一称为“强迫性反复”，具体判定规则见 `CLAUDE.md`。
->
-> **原始 loop-rate 不能直接等同于固著。** loop 在所有剂量下都很常见，其中许多只是模型未及时停止、持续生成机械重复文本。真正有解释力的是带有明确语义的反复确认、自我推翻、格式纠结和过度精确，以及它们与抢答、答案切换和提交后持续生成的共同变化。
-
-下面将“提交答案后仍反复检查、怀疑或继续求解”的行为分为四类。**Any** 表示至少命中其中一类；由于类别可能重叠，其数量不超过各子类之和。抽取实现与完整规则见 `CLAUDE.md`。
-
-| Compulsive-repetition subtype (historical field=anxiety) | Criterion                                                           | α+4 example                                                                                                                                                     |
-| -------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Self-doubt** (answers, then overturns itself)          | however / but / is not the correct answer / let's try / recheck     | **Q10** (gold=5): `"…The answer is 3. **However**, the answer choices…"` — answer → overturn → answer again → overturn again                                    |
-| **Format fixation** (`####` fixation)                    | the format requires / question asks for / after '####' / not a word | **Q15** (gold=17): `"…the correct answer is 17. **But the question asks for** the final numeric answer after '####'…"` — correct answer, then format rumination |
-| **Persona reassurance**                                  | I hope it is correct / Sincerely / please let me know               | **Q58** (gold=15, first answer correct): `"Sincerely, [Your Name] **I hope it is correct.** …Please let me know…"` — submits, then seeks reassurance            |
-| **Over-precision loop**                                  | approximate / round / nearest                                       | **Q17** (gold=36, early commit `40`): `"(Approximating number)(Approximate number)…"` — keeps approximating an integer answer                                   |
-
-**Compulsive repetition in loop** (historical field=anxiety)
-
-| α                     | −8 †   | **−6** | −4 | −2 | 0  | +2 | +4 | +6     | +8 |
-| --------------------- | ------ | ------ | -- | -- | -- | -- | -- | ------ | -- |
-| **Any (repeat)**      | **73** | **29** | 27 | 44 | 46 | 54 | 59 | 58     | 57 |
-| Self-doubt repetition | 55     | 13     | 13 | 30 | 31 | 40 | 43 | **51** | 46 |
-| Format fixation       | 32     | 18     | 15 | 19 | 23 | 25 | 37 | 36     | 32 |
-| Persona reassurance   | 11     | 7      | 7  | 11 | 15 | 13 | 13 | 6      | 6  |
-| Over-precision loop   | 4      | 2      | 1  | 5  | 7  | 5  | 5  | 3      | 3  |
-
-† `α=−8` 是过冲崩溃点：其主要表现是过早锁定错误答案，而不是正向高剂量下典型的提交后反复确认。
-
-- **强迫性反复在 `−6/−4` 附近最低。** 两个剂量分别有 29 和 27 题，恰好位于准确率最高的区域。这说明适度负向 steering 不仅提高准确率，也让模型更容易在完成推理后停止。
-- **从 `α=0` 向正侧移动时，反复行为先增加、随后趋于饱和。** Any 从 46 增至 54、59，之后维持在 58、57。基线已经存在明显反复，正向 steering 进一步放大该行为，但高剂量后增幅有限。
-- **两端都出现高反复，但行为形态不同。** 正向高剂量主要表现为提交答案后仍不断复查和纠结；`α=−8` 则伴随开头直接提交错误答案及后续退化。两者都降低表现，但不能解释为同一种失败机制。
-- 四类指标共同指向同一现象：**模型已经形成或输出答案，却仍无法稳定收束。** 这与冲动提交和提交后固著的解释相容，但只是行为层面的对应关系，不构成生物多巴胺机制或脑区定位证据。
-
-**Full-Text Compulsive Repetition**
-
-仅在 loop 样本中统计可能漏掉“短暂反复后正常停止”的情况，因此进一步在全部 300 个样本中直接检测同一语义片段是否重复出现。该指标不依赖 loop 判定；具体锚点与匹配实现见 `CLAUDE.md`。
-
-**Compulsive repetition in full text** (historical field=anxiety)
-
-| α | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---|---|---|---|---|---|---|---|---|---|
-| **Any (repeat≥2)** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
-| Self-doubt repetition | 99 | 14 | 24 | 51 | 61 | 72 | 75 | **85** | 73 |
-| Format fixation | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
-| Persona reassurance | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
-| Over-precision loop | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
-
-- **不同统计口径得到一致结论。** 无论只看 loop 样本，还是在全文中直接检测重复，强迫性反复都在适度负向区域最低，并在远离该区域时上升。因此，这一结果不是由 loop 门槛造成的统计假象。
-
-### 2.4 Under-wanting: answer-candidate oscillation (α=−8 collapse)
-**排除两个简单解释**：文本证据不支持将 `α=−8` 理解为“不愿回答”或“减少推理”。
-
-- **不是词汇性退缩。** “I am done / I will not answer any more”等表达在各剂量下都很少（每格 1–5 题），没有剂量趋势，而且均出现在答案提交之后。它们主要是 RLHF 风格的礼貌性 loop 尾部，不代表模型拒绝作答。
-- **也不是敷衍短答。** `<300` 字符的样本数在各剂量下接近（0–5 题），等式数中位数始终为 3，生成长度也没有在 `−8` 明显下降。因此，`−8` 的问题不是“写得更少”。
-
-**`α=−8` 更明显的行为特征是 commitment 不稳定：模型会产生多个答案候选，却难以稳定保留其中一个。** 其表现为答案值反复切换。具体抽取规则见 `CLAUDE.md`。
-
-| Metric                       | **−8**    | −6    | −4    | −2    | 0     | +2    | +4    | +6    | +8    |
-| ---------------------------- | --------- | ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |
-| **≥2 answer switches**       | **41**    | 3     | 4     | 10    | 9     | 6     | 6     | 12    | 10    |
-| ≥3 distinct candidate values | **11**    | 1     | 4     | 6     | 3     | 1     | 3     | 6     | 4     |
-| `####` at text start (<2%)   | **171**   | 17    | 9     | 18    | 20    | 19    | 12    | 19    | 20    |
-| committed\_acc (§2.2)        | **23.6%** | 79.7% | 78.3% | 76.2% | 68.6% | 66.0% | 63.9% | 62.5% | 58.5% |
-
-- **`α=−8` 同时出现极早提交和答案振荡。** 模型常在开头直接输出 `#### N`，随后又在正文中得到其他候选值，并在多个答案之间反复切换。结果是提交值难以收敛，`committed_acc` 降至 **23.6%**。
-- **典型例**（neutral，−8）：
-  - **Q31**（gold=40）：`#### 55` → 正文算出 `45−5=40`（✓）→ 在 55 与 40 之间反复切换。模型曾得到正确值，却没有稳定保留。
-  - **Q112**（gold=45）：`#### 70` → 正文算出 45（✓）→ 随后漂移到 75，并最终锁定错误值。候选路径为 `70→45→75`。
-
-**`−8` 与 `+8` 都存在失调，但后续行为不同：**
-
-|                      | Lexical `"I made a mistake"` | Answer-value behavior                                                                                                                                                 | Mechanism                                                                      |
-| -------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **+8** over-wanting  | Present (8 samples)          | Mostly **no switch**, with a few one-step switches; no runaway oscillation within the made-mistake subset (Q298: repeated mistake statements but still locked on 260) | Over-commit: clings to one answer with hollow self-blame (= §2.3 can't let go) |
-| **0** baseline       | Present (7 samples)          | Often **one correction, then convergence** (Q33 `98→70`)                                                                                                              | Normal correction / local repair                                               |
-| **−8** under-wanting | Present (5 samples)          | **Repeated oscillation without convergence** (Q31 `55↔40…`, Q122 `9↔6…`)                                                                                              | Commitment-formation failure: cannot hold any answer                           |
-
-> **关键不在于模型是否说出 “I made a mistake”，而在于答案值随后如何变化。** 这句话在三个条件中都会出现，单看词汇无法区分行为状态。`+8` 多数仍固守原答案，`α=0` 常完成一次有效修正，而 `−8` 更容易在多个候选值之间反复切换、无法收敛。因此，真正有解释力的是答案切换轨迹，而不是自我怀疑词汇本身。
-
-**Opening shape for 8 & -8 steering**
-
-|                      | Opening shape       | `####` at start (<2%) | leading-digit premature answer | Interpretation     |
-| -------------------- | ------------------- | --------------------- | ------------------------------ | ------------------ |
-| **−8** under-wanting | `#### 40 …`（井号开头）   | **171**               | **4**                          | 首 token 即 `#### N` |
-| **+8** over-wanting  | `40 Step1 …`（裸数字开头） | 20                    | **206**                        | 用 **裸数字抢吐**        |
-
-这张表支持三点：
-
-- **两端都出现过早答案形成，但输出形式不同。** `−8` 通常以 `#### N` 开头，直接形成正式提交；`+8` 则更常先输出裸数字，再补写推理。两端都偏离正常的“先推理、后提交”，但不能视为完全相同的失败模式。
-- **开头格式只能描述行为，不能解释原因。** 文本结果说明 `−8` 和 `+8` 的首段输出分布不同，却无法判断这种差异为何产生。抢答率也只是 commitment 状态的行为读数：它与准确率变化同向，不足以证明抢答导致了准确率曲线。
-- **内部机制仍未由文本确定。** `−8` 的答案振荡既可能表示模型完成了计算却无法稳定提交，也可能只是多个高概率候选之间的生成摇摆。仅凭生成文本无法区分，需要 trajectory 或 logit-level 分析。
-
-### 2.5 CoT: reasoning scaffold suppresses over-wanting damage but keeps the α direction
-
-**设问**：仅加入 `Let’s think step by step.`，是否会改变 α steering 的行为效应？
-
-**结论**：CoT 明显减轻了抢答、答案污染和强迫性反复，但没有改变剂量曲线的方向：负向 α 仍然表现最好，正向 α 仍然持续降低表现。表中的历史字段 `anxiety` 仍按“强迫性反复”解读。
-
-**口径**：比较 neutral 条件下的 No-CoT 与 CoT；数据来源、抽取脚本和具体判定规则见 `CLAUDE.md`。
-
-| α | acc(first) | acc(last) | gap(first−last) | anxiety(loop) | anxiety(full) |
-|---|---|---|---|---|---|
-| −4 No-CoT | 73.0 | 68.3 | +4.7 | 27 / 242 | 34 |
-| **−4 CoT** | **85.0** | **84.7** | **+0.3** | **18** / 284 | **8** |
-| 0 No-CoT | 60.0 | 55.3 | +4.7 | 46 / 232 | 77 |
-| **0 CoT** | **69.0** | **68.3** | **+0.7** | **19** / 254 | **36** |
-| +4 No-CoT | 55.3 | 52.7 | +2.7 | 59 / 220 | 91 |
-| **+4 CoT** | **59.7** | **59.0** | **+0.7** | **23** / 250 | **52** |
-
-**Compulsive repetition in loop — CoT** (historical field=anxiety)
-
-| α (CoT) | −4 | 0 | +4 | （对照 No-CoT，§2.3） |
-|---|---|---|---|---|
-| n_loop (denom) | 284 | 254 | 250 | 242 / 232 / 220 |
-| **Any (repeat)** | **18** | 19 | 23 | 27 / 46 / 59 |
-| Self-doubt repetition | 3 | 12 | 19 | 13 / 31 / 43 |
-| Format fixation | 15 | 9 | 12 | 15 / 23 / 37 |
-| Persona reassurance | 0 | 2 | 7 | 7 / 15 / 13 |
-| Over-precision loop | 3 | 2 | 1 | 1 / 7 / 5 |
-
-- **剂量排序不变，准确率整体提高。** CoT 条件下，`α=−4`（85.0%）> `α=0`（69.0%）> `α=+4`（59.7%），与 No-CoT 的方向一致。`α=−4 + CoT` 达到全表最高准确率 **85.0%**。这说明 CoT 与负向 steering 的收益可以在行为层面叠加，但不证明二者具有完全独立的内部机制。
-- **提交后的答案污染基本消失。** CoT 条件下，first- 与 last-answer accuracy 的差距不超过 **0.7 pp**。即使生成末尾仍有重复文本，也很少再将已提交答案改坏。
-- **强迫性反复整体减少，但剂量方向保留。** CoT 在每个剂量下减少约 **26–40** 个强迫性反复样本；其跨剂量跨度由 No-CoT 的 **57** 降至 CoT 的 **44**。因此，CoT 降低了反复行为的整体水平，但没有消除 α 的梯度。
-- **CoT 没有消除 loop，而是改变了 loop 的内容。** CoT 条件下仍有 **250–284/300** 个样本进入 loop，甚至不比 No-CoT 少；但其中多数只是机械性符号或答案复读。例如，`−4_cot` 有 **247/284**、`+4_cot` 有 **213/250** 属于 mechanical loop。也就是说，CoT 主要减少的是带有自我怀疑、格式纠结和反复确认的语义性固著，而不是生成长度上限造成的机械空转。
-
-
-#### 2.5.1 Where α−4 + CoT = 85.0% Comes From: Two Orthogonal Levers Stacked Together (CoT Forces Stepwise Reasoning × Lower Wanting Prevents Premature Answering)
-
- α−4_cot reaches **85.0%** under our first-answer extraction protocol, numerically matching the official Llama 3.1-8B-Instruct GSM8K 8-shot CoT result (**84.5%, em_maj1@1**). The two numbers are not strictly metric-identical: the official result uses 8-shot CoT with the benchmark extractor, whereas ours is zero-shot CoT + α−4 steering with a first-marker extraction policy designed to avoid loop-tail contamination.
-
-**2×2 Accuracy Table (neutral, first-acc):**
-
-| | No-CoT | CoT | +CoT Gain |
+| Regime | Opening pattern | Representative metrics | Behavior after the first answer |
 |---|---|---|---|
-| α=−4 | 73.0 | **85.0** | **+12.0** |
-| α=0 | 60.0 | 69.0 | +9.0 |
-| α=+4 | 55.3 | 59.7 | +4.4 |
-| α span (−4→+4) | 17.7 | 25.3 | — |
+| **Positive α** | 常以裸数字开头 | Leading digit：`229/231/206` at `+4/+6/+8`；full-text repetition：`91/94/88` | 提交后继续检查、重算、确认或重复 |
+| **α=−8** | 常以 `#### N` 开头 | Marker at start：171；answer switches：41；committed accuracy：23.6% | 在多个答案候选之间切换，提交值不稳定 |
+| **α=−6/−4** | 较少在开头直接提交 | Full-text repetition：23/34；answer switches：3/4 | 更常在形成答案后结束 |
 
-**Per-sample attribution across four paired contrasts (newly correct = X correct & Y wrong; net = newly correct − newly wrong):** （neutral，/300，`analyze_cot_metrics.py --table cot` → `llama3/cot_metrics_cot.csv`）：
+这说明正向高剂量与 `α=−8` 不能视为同一种失败。
 
-指标顺序与口径与 §2.2 Table 完全一致（同一脚本 `analyze_cot_metrics.py --table cot`），便于逐行对读。
+- 正向端更接近“答案已经出现，但仍无法停止”。
+- `α=−8` 更接近“过早正式提交，随后无法稳定保持一个候选值”。
 
-| Metric | −4_nocot | 0_nocot | +4_nocot | −4_cot | 0_cot | +4_cot | Lever supported by this metric |
-|---|---:|---:|---:|---:|---:|---:|---|
-| **acc** (first) | 73.0 | 60.0 | 55.3 | **85.0** | 69.0 | 59.7 | — |
-| **committed_acc** | 78.3 | 68.6 | 63.9 | **81.1** | 67.3 | 59.8 | — |
-| commit_rate % | 58.3 | 62.7 | 49.0 | 31.7 | 37.7 | 29.0 | CoT shifts the answer outlet toward `\boxed{}` |
-| median `####` position | 25% | 18% | 16% | 37% | 36% | 41% | Step 前缀 + `\boxed{}` 出口推后 `####` |
-| mean `####` position | 28% | 22% | 26% | 37% | 35% | 37% | 同样被 CoT 前缀推后|
-| premature (leading digit)| 195 | 199 | 229 | 48 | 121 | 237 | 漏检 `####`-lock |
-| **premature (either)** | **195** | **206** | **232** | **63** | **151** | **242** | **Lower wanting** |
-| median gen_len (char) | 2044 | 2107 | 2228 | 2113 | 2091 | 2078 | Flat |
-| loop samples (n_loop) | 242 | 232 | 220 | 284 | 254 | 250 | Flat |
-| **≥2 `Step` markers** | 73 | 25 | 31 | **261** | 220 | 227 | **CoT**: stepwise-structure rate ×3–9 (73→261) |
-| stuck loops (loop ∧ `=` < 2) | 27 | 25 | 20 | **12** | 28 | 42 | -|
-| median equation count (`=`) | 3 | 3 | 3 | 3 | 4 | 3 | Flat |
+这些是生成文本中的行为模式。仅凭文本无法确定其内部原因，也不能判断答案振荡来自计算失败、候选竞争还是其他生成动力学。
 
-> - **两个杠杆正交**：`≥2 Step` 由 CoT 决定、几乎不随 α 变（CoT 三档 220–261）；`premature(either)` 由 α 决定、几乎不随 CoT 变（No-CoT 195/206/232 与 CoT 63/151/242 都随 α 单调）。互不干涉 → 两者的 acc 增益**可叠加**。
-> - **增益不来自显而易见的混淆**：`gen_len`、`med_eq`、`loop` 三个负控制全平 → −4 的优势**不是**靠写更长 / 多算 / 少 loop。可归因到 **结构（Step）× 抑制抢答（premature either）**。
-> - **超加性,在 −4 最强**：CoT gain +12.0(−4) > +9.0(0) > +4.4(+4)。机制:+4 端即便加 CoT,抢答（either）仍被钉在高位(242≈+4_nocot 的 232),过度 wanting 直接穿透脚手架;−4 端抢答塌到 63,分步推理才真正被用上。`stuck` 同向印证:−4_cot=12(全表最低)、+4_cot=42(最高)。
+#### Compulsive-Repetition Subtypes
 
-### 2.6 Self-evaluation:reasoning-willingness / answer-confidence (0–9)
+历史脚本使用 `anxiety` 字段名，但这些指标实际测量的是**强迫性反复确认和行为固著**，不是临床焦虑。
 
-**Setup**：Llama3.1-8B-Instruct, GSM8K 300 samples, neutral, NMD mask layer 11–20, 全 α 剂量扫 −8→+8。这是一套**独立 prompt 家族**——question-only、对 "0".."9" 十个 token 取 argmax 的 logit 抽取,**不生成答案、无 `####`**,所以不受 GSM8K 答案抽取对称化影响。结果目录 `RoleAnswer/llama3/gsm8k/oral_willingness/` 与 `oral_confidence/`,图 `plots_eot/oral_dose_response.png`。
+Loop 口径只统计已经进入退化重复的样本，分母随剂量变化；full-text 口径在全部 300 题中检测重复语义，是本节的主要读数。
 
-Prompt(neutral,No-CoT;`template.py` `build_gsm8k_action_suite` / `build_gsm8k_confidence_suite`):
-
-```
-# willingness
-Here is a question: {context}
-Your self-evaluation of "reasoning willingness" from [0,9] is:
-
-# confidence (pre-answer, question only)
-Here is a question: {context}
-Your confidence of the question from [0,9] is:
-```
-
-**结果(mean 0–9,n=300):**
-
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **willingness** mean | 0.00 | 0.37 | 6.45 | 5.05 | 5.53 | 7.51 | **7.98** | 3.59 | 2.50 |
-| **confidence** mean | 0.00 | 0.07 | 3.57 | 5.28 | 5.27 | 6.61 | **8.10** | 2.01 | 1.22 |
-| entropy(bits) conf | −0.0 | 0.09 | 1.39 | 1.46 | 1.51 | 1.53 | 1.20 | 1.29 | 0.55 |
-
-**观察:**
-- **倒 U 顶点在 +4**:两者都在 α=+4 达到自评最高(willingness 7.98、confidence 8.10,分布几乎全压到 "8")。
-- **`|α|≥6` 是 scale 崩溃,不是信心下降**:entropy 趋 0(−8 全锁 "0"、+8 全锁 "1"),logit 分布被压平后 argmax 在近均匀分布上微弱胜出,退化为单 token lock,与 §2.4 的 α−8 oscillation 同一失效模式 → ±6/±8 应排除,非真实低自评。
-- **confidence 单调、willingness 在 −4 反常**:confidence 在窗口内随 α 单调(−4=3.57 < 0=5.27 < +4=8.10),符合 −α 降 wanting;但 **willingness 在 α=−4 反常偏高(6.45 > baseline 5.53,且 −4 > 0 > −2 非单调)——疑似 −4 异常数据**,与预测方向相反。
-- **定位**:此为 **manipulation-check / 负控制**,非核心 wanting 主张。Berridge 的 wanting 是非意识的 incentive salience,口头自评(尤其 willingness)理论上是错的量尺;数据(willingness 反常、confidence 更像 PFC 元认知读数而非 DA)印证这点。核心 wanting 由非语言选择的 Confidence Betting(`Ada_Dopamine.md` §4.6)承担。
-
-#### 2.6.1 Generation-mode (betting-style readout)
-
-Prompt(neutral,range `[0,9]`,chat + `"Willingness: "` assistant prefill):
-
-```
-<|begin_of_text|><|start_header_id|>system<|end_header_id|>
-
-Cutting Knowledge Date: December 2023
-Today Date: 26 Jul 2024
-
-<|eot_id|><|start_header_id|>user<|end_header_id|>
-
-Here is a question: {context}
-Evaluate your "reasoning willingness" [0,9].
-Respond in this format:
-Willingness: <number><|eot_id|><|start_header_id|>assistant<|end_header_id|>
-
-Willingness: 
-```
-
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+| Metric | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **willingness** mean | 7.95 | 7.97 | 7.98 | 8.33 | 8.57 | 8.74 | **8.69** | 8.15 | 4.45 |
-| invalid_rate | 2.7% | 0% | 0% | 0% | 0% | 0% | 0% | 0% | 22.3% |
+| **Any, loop** | 73 | 29 | **27** | 44 | 46 | 54 | 59 | 58 | 57 |
+| Self-doubt, loop | 55 | 13 | 13 | 30 | 31 | 40 | 43 | 51 | 46 |
+| Format fixation, loop | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
+| Persona reassurance, loop | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
+| Over-precision, loop | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
+| **Any, full text** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
+| Self-doubt, full text | 99 | 14 | 24 | 51 | 61 | 72 | 75 | 85 | 73 |
+| Format fixation, full text | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
+| Persona reassurance, full text | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
+| Over-precision, full text | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
 
-**Confidence**(同 scaffold,措辞换 `"confidence about the question"`,prefill `Confidence: `,`oral_confidence_gen/`):
+两种口径得到的主要结论一致：
 
-```
-Here is a question: {context}
-Evaluate your "confidence about the question" [0,9].
-Respond in this format:
-Confidence: <number>
-```
+- 强迫性反复在 `α=−6/−4` 附近最低。
+- 从 `α=0` 向正侧移动时，full-text repetition 从 77 增至 91、94，随后在 +8 略降至 88。
+- Self-doubt 是数量最大、剂量变化最清楚的子类。
+- Format fixation 也随正向剂量整体增加。
+- Persona reassurance 和 over-precision 没有稳定的单调趋势。
 
-| α | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
+`α=−8` 同样具有很高的重复数量，但它同时伴随大量 marker-first 输出和答案候选振荡，因此不能直接归入正向端的“提交后持续检查”。
+
+#### Representative Cases
+
+| Condition | Case | Observed output trajectory | Interpretation |
+|---|---|---|---|
+| `α=+4` | Q10, gold=5 | 输出一个答案后不断用 “however” 推翻，再次回答后继续推翻 | Self-doubt repetition |
+| `α=+4` | Q15, gold=17 | 已得到正确答案，随后持续纠结 `####` 格式 | Format fixation |
+| `α=+4` | Q58, gold=15 | 首个答案正确，随后反复请求确认 | Persona reassurance |
+| `α=+4` | Q17, gold=36 | 过早提交 40，之后持续进行无意义近似 | Over-precision |
+| `α=−8` | Q31, gold=40 | `#### 55` → 正文算出 40 → 在 55 与 40 之间切换 | Correct candidate appears but is not retained |
+| `α=−8` | Q112, gold=45 | `#### 70` → 算出 45 → 又漂移至 75 | Multiple candidates without convergence |
+
+这些案例用于说明聚合指标对应的文本形态，不构成独立统计证据。
+
+“I made a mistake” 一类词汇在 `−8/0/+8` 都会出现，因此自我怀疑措辞本身不能区分失败模式。真正有区分力的是后续答案轨迹：是否完成一次有效修正，是否固守同一个答案，或者是否持续在多个候选值之间切换。
+
+### 2.3 How CoT Changes the Output Pattern
+
+下表比较 neutral 条件下 `−4/0/+4 × No-CoT/CoT`。Accuracy 与 §1 相同，在此作为行为变化的参照。
+
+| Metric | −4 No-CoT | 0 No-CoT | +4 No-CoT | −4 CoT | 0 CoT | +4 CoT |
+|---|---:|---:|---:|---:|---:|---:|
+| **Accuracy** | 73.0% | 60.0% | 55.3% | **85.0%** | 69.0% | 59.7% |
+| Last accuracy | 68.3% | 55.3% | 52.7% | 84.7% | 68.3% | 59.0% |
+| First–last gap | +4.7 pp | +4.7 pp | +2.7 pp | +0.3 pp | +0.7 pp | +0.7 pp |
+| **Committed accuracy** | 78.3% | 68.6% | 63.9% | **81.1%** | 67.3% | 59.8% |
+| `####` commit rate | 58.3% | 62.7% | 49.0% | 31.7% | 37.7% | 29.0% |
+| Median `####` position | 25% | 18% | 16% | 37% | 36% | 41% |
+| Mean `####` position | 28% | 22% | 26% | 37% | 35% | 37% |
+| Premature, leading digit | 195 | 199 | 229 | 48 | 121 | 237 |
+| **Premature, either rule** | **195** | 206 | 232 | **63** | 151 | 242 |
+| Median generation length | 2,044 | 2,107 | 2,228 | 2,113 | 2,091 | 2,078 |
+| Loop samples | 242 | 232 | 220 | 284 | 254 | 250 |
+| **At least two `Step` markers** | 73 | 25 | 31 | **261** | 220 | 227 |
+| Stuck loops | 27 | 25 | 20 | **12** | 28 | 42 |
+| Median equation count | 3 | 3 | 3 | 3 | 4 | 3 |
+| **Compulsive repetition, full text** | **34** | 77 | 91 | **8** | 36 | 52 |
+| Compulsive repetition in loops | 27 / 242 | 46 / 232 | 59 / 220 | 18 / 284 | 19 / 254 | 23 / 250 |
+
+#### CoT Raises Accuracy but Keeps the Dose Ordering
+
+CoT 条件下仍然满足：
+
+`α=−4 > 0 > +4`
+
+三个剂量的 accuracy 分别提高：
+
+- `α=−4`：73.0% → 85.0%
+- `α=0`：60.0% → 69.0%
+- `α=+4`：55.3% → 59.7%
+
+因此，CoT 提高了整体表现，但没有改变当前三个剂量点的排序。
+
+这些是描述性结果。不能仅凭三点比较证明 CoT 与 steering 机制独立、严格可加或存在正式交互。
+
+#### CoT Adds Stepwise Structure
+
+至少两个 `Step` marker 的样本数明显增加：
+
+- `α=−4`：73 → 261
+- `α=0`：25 → 220
+- `α=+4`：31 → 227
+
+Generation length 和 equation count 则基本稳定。因此，CoT 最清楚的输出变化是增加显式分步结构，而不是简单让模型写得更长或使用更多等式。
+
+#### CoT Reduces Semantic Repetition
+
+Full-text compulsive repetition 在三个剂量下都减少：
+
+- `α=−4`：34 → 8，减少 26
+- `α=0`：77 → 36，减少 41
+- `α=+4`：91 → 52，减少 39
+
+总 loop 数并没有减少，CoT 条件下甚至更高。这说明 CoT 没有解决所有机械性重复，但明显减少了带有自我怀疑、格式纠结和反复确认的语义性固著。
+
+First–last gap 也从 No-CoT 的 2.7–4.7 pp 缩小到 CoT 的 0.3–0.7 pp，说明 CoT 条件下，后续文本较少破坏首个答案。
+
+#### CoT Does Not Uniformly Suppress Premature Output
+
+CoT 对 premature output 的影响取决于 α：
+
+- `α=−4`：195 → 63
+- `α=0`：206 → 151
+- `α=+4`：232 → 242
+
+因此，CoT 在 `−4/0` 下减少了过早输出，但在 `+4` 下没有产生同样作用。正向 steering 较强时，即使加入 step-by-step 提示，模型仍常在推理前输出答案。
+
+`α=−4 + CoT` 同时伴随更多 Step 结构、更少 premature output、更少语义性反复和更高 accuracy。这些变化彼此一致，但当前数据不能确定它们各自的因果贡献，也不能称为两个“正交杠杆”。
+
+CoT 下较低的 `####` commit rate 主要反映答案格式出口发生变化，不应直接解释为模型更不愿意提交。
+
+### 2.4 Persona Shapes the Content of Repetition
+
+Persona 分析关注的不是 loop 是否存在，而是重复文本中出现什么内容。Identity sample 表示生成中出现身份自述；heavy 表示同类身份表达被多次重复。
+
+| Wording | Role | Identity samples | Heavy | Literal denial | Soft self-deny |
+|---|---|---:|---:|---:|---:|
+| Plain | neutral | 2 | 2 | 1 | 0 |
+| Plain | expert | 3 | 2 | 0 | 0 |
+| Plain | non_expert | **7** | **5** | **4** | 1 |
+| Plain | teacher | 2 | 1 | 1 | 0 |
+| Pushy | neutral | **0** | **0** | **0** | — |
+| Pushy | expert | 4 | 2 | 0 | — |
+| Pushy | non_expert | **16** | **10** | **10** | — |
+| Pushy | teacher | 3 | 0 | 0 | — |
+
+Plain 条件下，identity monologue 整体很少，每个 role 在 300 题中只有 2–7 个样本。
+
+最清楚的差异来自 `non_expert`：
+
+- Identity samples：7 → 16
+- Heavy repetition：5 → 10
+- Literal denial：4 → 10
+
+也就是说，pushy wording 最明显地放大了 `non_expert` 的身份否定和自我矮化。
+
+`expert` 的身份文本主要是自我确认，在 plain 与 pushy 条件下都没有 literal denial。Teacher 的 identity sample 很少，也没有形成稳定的教学口吻模式。
+
+同一个 expert persona 在更难的 MATH 上表现不同：GSM8K expert 的 soft self-deny 为 0，而 MATH 中 15 个 identity samples 有 13 个出现 soft self-deny。这个跨任务差异说明 persona 输出会受到任务条件调节，不是固定的身份属性。
+
+Identity monologue 只是生成文本中的角色一致性现象，不能证明模型具有真实身份、自我认知或主观心理状态。
+
+### 2.5 Self-Reported Willingness and Confidence: A Negative Readout
+
+除了答案生成，还测试了两种 0–9 自评方式：
+
+- Logit mode：直接比较十个分数 token。
+- Generation mode：要求模型生成 willingness 或 confidence 分数。
+
+这套实验不生成数学答案，因此与前面的 accuracy 和 commitment 指标属于不同的 prompt family。
+
+| Readout | −8 | −6 | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **confidence** mean | 6.20 | 7.17 | 5.50 | 7.77 | 8.25 | 8.38 | **8.88** | 8.07 | 2.35 |
-| invalid_rate | 1.0% | 0% | 0% | 0% | 0% | 0% | 0% | 0% | 93.3% |
+| **Logit willingness** | 0.00 | 0.37 | 6.45 | 5.05 | 5.53 | 7.51 | **7.98** | 3.59 | 2.50 |
+| **Logit confidence** | 0.00 | 0.07 | 3.57 | 5.28 | 5.27 | 6.61 | **8.10** | 2.01 | 1.22 |
+| Confidence entropy | 0.00 | 0.09 | 1.39 | 1.46 | 1.51 | 1.53 | 1.20 | 1.29 | 0.55 |
+| **Generated willingness** | 7.95 | 7.97 | 7.98 | 8.33 | 8.57 | **8.74** | 8.69 | 8.15 | 4.45 |
+| Willingness invalid rate | 2.7% | 0% | 0% | 0% | 0% | 0% | 0% | 0% | 22.3% |
+| **Generated confidence** | 6.20 | 7.17 | 5.50 | 7.77 | 8.25 | 8.38 | **8.88** | 8.07 | 2.35 |
+| Confidence invalid rate | 1.0% | 0% | 0% | 0% | 0% | 0% | 0% | 0% | **93.3%** |
 
-暂无结论
+这两个自评接口没有给出稳定、可解释的 wanting 曲线。
 
-## 3. Llama on MATH: Performance and Output Behavior
+首先，中间剂量并不一致：
 
-Llama3.1-8B-Instruct 在 MATH 上呈现出清楚且一致的剂量方向：
+- Logit confidence 从 `−4` 到 `+4` 整体上升。
+- Logit willingness 在 `−4` 为 6.45，高于 baseline 5.53，方向并不单调。
+- Generated willingness 在 `+2` 达到最高值，而 generated confidence 在 `+4` 达到最高值。
 
-- No-CoT 与 CoT 均满足 `α=−6 > −4 > 0 > +4`。
-- `α=−6` 是从 GSM8K 直接携带的固定工作点，并非在 MATH 上重新搜索得到；它同时也是当前 MATH 数据中的 observed best。
-- CoT 在四个剂量下均提高约 5–6 pp，但逐剂量比较经 Holm 校正后均未达到显著。
-- 在 No-CoT 条件下，正向 α 伴随更长输出、更少完整收口和更多答后反复；CoT 能减少这种强迫性反复，但没有改变剂量排序。
+其次，极端剂量出现明显的 readout degeneration：
 
-**Setup.** MATH 共 300 题，难度分布为 L1=21、L2=55、L3=60、L4=75、L5=89，使用 greedy decoding。正文以 offline `first_acc` 为主要准确率口径，`last_acc` 仅作为答案修订的敏感性检查。
+- `α=−8` 的 logit willingness 和 confidence 都锁定在 0，confidence entropy 接近 0。
+- `α=+8` 的 generation-mode invalid rate 升至 22.3% 和 93.3%。
 
-`\boxed{}` 是可观测的答案提交标记，不等同于答案在模型内部形成的时间。因此，boxed position、commit rate 和 first–last gap 只用于描述输出提交行为，不能直接解释为内部 commitment timing。生成配置、冻结 extractor、运行路径及复现细节见 `CLAUDE.md`。
+因此，极端剂量下的低分不能解释为模型真实地“缺乏意愿”或“失去信心”，因为量表本身已经发生锁定或格式崩溃。
+
+这组结果应作为一个失败的 manipulation check 保留：
+
+> 口头 willingness 和 confidence 没有提供稳定的 wanting readout，不能用于支持主要机制结论。
+
+其中 confidence 更接近显式元认知判断，而 Berridge 意义上的 wanting 是非意识的 incentive salience，两者本来就不应被视为同一构念。
+
+### 2.6 Summary
+
+GSM8K 的输出行为可以概括为：
+
+1. **最佳区域不仅准确率较高，提交质量也更好。** `α=−6/−4` 具有较高 committed accuracy 和较少语义性反复。
+2. **正向 α 伴随更早输出和更多答后反复。** 这些变化与准确率下降同时出现，但不能据此认定抢答或反复是准确率变化的因果中介。
+3. **`α=−8` 是不同的边界失效。** 它主要表现为开头正式提交、候选值振荡和极低的提交质量，而不是正向端典型的“答完后放不下”。
+4. **CoT 增加分步结构并减少语义性反复。** 但它没有消除 α 的方向差异，在 `α=+4` 下也没有抑制过早输出。
+5. **Persona 主要改变重复内容。** `non_expert` 更容易产生身份否定，pushy wording 会进一步放大这一模式。
+6. **口头自评不是可靠的 wanting 指标。** Willingness 和 confidence 曲线不一致，极端剂量还出现量表锁定和格式失效。
+7. **Wanting 是功能类比，不是直接测量。** 更稳妥的表述是：α 改变了模型的 engagement、commitment 和 stopping behavior，这些现象与 incentive-salience gain 的计算类比相容，但不等于生物多巴胺或主观欲望。
 
 ### 3.1 Main Performance
 
