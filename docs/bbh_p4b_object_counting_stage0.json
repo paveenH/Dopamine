@@ -1,0 +1,63 @@
+{
+  "protocol": "bbh-p4b-v0",
+  "task": "object_counting",
+  "gold_sha256": "349c9729336e6170",
+  "questions_sha256": "4cfbf739e1fe7870",
+  "revision": "982bb89fd79532a8ac676a61fc42eb1aeec63f99",
+  "gate_interval": [
+    0.3,
+    0.85
+  ],
+  "majority_class_rate": 0.104,
+  "holm_family_m": 2,
+  "holm_complete": false,
+  "p_adj": null,
+  "results": {
+    "llama3": {
+      "alphas": [
+        0
+      ],
+      "stage0": {
+        "first_acc": 0.416,
+        "last_acc": 0.412,
+        "gate_interval": [
+          0.3,
+          0.85
+        ],
+        "gate_pass": true,
+        "diagnostics": {
+          "no_marker_rate": 0.092,
+          "parseable_marker_rate": 0.868,
+          "multi_marker_rate": 0.84,
+          "gen_chars_med": 1988,
+          "max_new_tokens": 768,
+          "note": "diagnostic only -- these rates are NOT a gate and must not motivate a changed prompt, parser or budget"
+        }
+      }
+    },
+    "qwen2.5": {
+      "alphas": [
+        0
+      ],
+      "stage0": {
+        "first_acc": 0.552,
+        "last_acc": 0.56,
+        "gate_interval": [
+          0.3,
+          0.85
+        ],
+        "gate_pass": true,
+        "diagnostics": {
+          "no_marker_rate": 0.0,
+          "parseable_marker_rate": 0.868,
+          "multi_marker_rate": 0.92,
+          "gen_chars_med": 423,
+          "max_new_tokens": 768,
+          "note": "diagnostic only -- these rates are NOT a gate and must not motivate a changed prompt, parser or budget"
+        }
+      }
+    }
+  },
+  "blind_validation": false,
+  "note": "BBH gold is public; this is fixed-workpoint transfer, not blind validation. alpha comes from the frozen GSM8K record. Stage-0 diagnostics are not a gate."
+}
