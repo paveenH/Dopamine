@@ -85,6 +85,7 @@ Daily
 18. BBH counting task ✔
 19. 精简claude.md的内容 ✔
 20. 整理GSM8K文档
+21. 补充一下llama3-gsm8k-cot working point的结果 ⏸
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
