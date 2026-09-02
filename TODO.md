@@ -83,6 +83,7 @@ Daily
 16. MATH补充完整 ✔ 
 17. LogiQA working point ✖ 目前做不出来，不确定是因为选择题的形式问题还是逻辑推理无法迁移
 18. BBH counting task ⏸
+19. 精简claude.md的内容 ✔
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
