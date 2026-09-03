@@ -25,7 +25,7 @@ rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/benchmark
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
-  d12922004@140.112.31.185:/data1/paveen/Dopamine/components/ \
+  d12922004@140.112.31.184:/data1/paveen/Dopamine/components/ \
   /data1/paveen/Dopamine/components/
 
 ---
