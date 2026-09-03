@@ -279,8 +279,12 @@ LOADERS = {"logiqa2": load_logiqa, "bbh": load_bbh, "cruxeval": load_cruxeval}
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", required=True, choices=sorted(LOADERS))
-    ap.add_argument("--bbh_task", choices=["object_counting",
-                                           "multistep_arithmetic_two"])
+    # Restricted to the one BBH task in this follow-up's frozen 6-comparison
+    # Holm family (PREREG_COT_TRANSFER_FOLLOWUP.md S1/S4.1). No CoT cell for
+    # multistep_arithmetic_two is authorised here, and combine_cot_followup_
+    # holm.py's REGISTERED_KEYS would reject that row anyway -- refuse it here
+    # too, at the point where a wrong value is cheapest to catch.
+    ap.add_argument("--bbh_task", choices=["object_counting"])
     ap.add_argument("--generations", nargs="+", required=True,
                     help="the CoT generation files (one per model)")
     ap.add_argument("--formal_file",
