@@ -1,0 +1,43 @@
+{
+  "amendment": "p4c-amend-02",
+  "protocol": "cruxeval-p4c-v0",
+  "date": "2026-09-03",
+  "title": "Preflight classification of the two remaining non-parsing payloads: MODEL FORMAT FAILURE, parser NOT changed",
+  "additive": true,
+  "supersedes": null,
+  "stage": "after the p4c-amend-01 re-run of the format-only preflight, BEFORE any formal cell was generated",
+  "code_changes": "NONE. This amendment records a decision NOT to change code.",
+  "context": "p4c-amend-01 fixed two genuine decoding artifacts (a retained EOS token text; a marker the model appended after its answer). After that fix the preflight literal rate is 8/8 for llama3 alpha=0, 8/8 for llama3 alpha=-6, 8/8 for qwen2.5 alpha=0, and 6/8 for qwen2.5 alpha=+8. This amendment classifies the two remaining qwen2.5 alpha=+8 failures.",
+  "cases": [
+    {
+      "sample_id": 1,
+      "shape": "prose after the payload",
+      "raw": "#### 'ohesteo' The function `f` removes the first occurrence of the specified character from the given string. In this case, it removes the first 'r' from the string 'o horseto'. The resulting string is 'ohesteo'.\\n#### 'ohesteo'<|endoftext|>",
+      "first_payload_parses": false,
+      "last_payload_parses": true,
+      "classification": "MODEL FAILED THE FROZEN FORMAT",
+      "reason": "The prompt requires 'exactly one line'. The model wrote an explanation after the first marker and only then emitted a clean answer at a second marker. This is model behaviour, not a decoding artifact."
+    },
+    {
+      "sample_id": 3,
+      "shape": "empty marker line, preceded by a restated assert",
+      "raw": "[PYTHON]\\nassert f([7, 1, 2, 6, 0, 2]) == [0, 2, 7, 1, 2, 6]\\n####\\n#### [0, 2, 7, 1, 2, 6]<|endoftext|>",
+      "first_payload_parses": false,
+      "last_payload_parses": true,
+      "classification": "MODEL FAILED THE FROZEN FORMAT",
+      "reason": "The model restated the full assert, then emitted a BARE '####' with nothing after it, then a second marker carrying the answer. The empty marker line is the model's own output, not a tokenizer artifact. Note also that the answer appears in the restated assert on the first line, OUTSIDE any marker; the parser correctly does not read it, since only a marker payload is an answer submission."
+    }
+  ],
+  "decision": "The parser is NOT changed. Both cases would require widening it to accept extra content after a marker payload, or to skip an empty marker -- and either widening would rescue exactly the behaviour P4c is measuring.",
+  "why_widening_would_be_wrong": "Format obedience is dose-dependent here: qwen2.5 alpha=0 reads 8/8 while alpha=+8 reads 6/8, so the failures are STEERING-SPECIFIC rather than a task-wide defect. A parser that rescued them would systematically hide a steering effect, which is a worse error than scoring two items incorrect. The difference is already reported per cell as `nonliteral_rate` and `last_acc`, so it is visible without changing any caliber.",
+  "why_not_switch_to_LAST": "Both payloads parse under LAST and fail under FIRST, which is precisely the shape that tempts a caliber switch. FIRST stays MAIN: it is frozen by the pre-registration and matches GSM8K / GSM-Hard / BBH production. Choosing a caliber after seeing which one scores better is the freedom the P3/P4 discipline exists to remove. LAST remains reported as a sensitivity readout.",
+  "n_note": "These are 2 of 8 items in a format-only preflight. They establish the SHAPE of the failure, not its rate. The formal cells report `nonliteral_rate` over 300 items per cell.",
+  "unchanged": [
+    "prompt template and its sha256",
+    "marker definition '#### <Python literal>', FIRST=MAIN / LAST=sensitivity",
+    "workpoints llama -6 / qwen +8; the four-cell matrix per model",
+    "sample, digests, revision, budget 768, batch 24",
+    "Holm family m=2",
+    "no accuracy gate"
+  ]
+}
