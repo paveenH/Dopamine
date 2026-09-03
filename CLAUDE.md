@@ -666,6 +666,10 @@ Evidence: run_wps_llama3.sh / run_wps_gsm_hard.sh headers; run_gsm8k_cot_llama3_
 Scope: every launcher guard that tests whether a cell already exists. -->
 **THE SERVER IS SCRATCH SPACE — a finished cell is downloaded to the local `RoleAnswer/` tree and may be gone from the server at any time.** Runs move between machines, so the server holds whatever the current job needs and nothing more. Two consequences for launcher design: **(a) never gate a run on the presence of the stored comparison cell** — pair OFFLINE, in `RoleAnswer/`, not on the server (an overwrite guard on the launcher's OWN output dir is still correct and should stay fail-closed); **(b) a stored cell's physical GPU is unrecoverable** — `summary_*.csv` records model/size/alpha/layers/task/role/acc/suite/cot and **no device field** — so any new-vs-stored contrast is a **cross-run pairing** no matter which device the new cell uses, and pinning one card cannot convert it into a same-card pairing. Record the device with the result instead of constraining it.
 
+<!-- Prospective project-wide device policy, requested 2026-09-03. This changes
+launcher policy, not the provenance of already-completed experiments. -->
+**GPU assignment is NOT a project-wide experimental constraint for future runs.** Different cells in the same curve or paired comparison may run on different physical GPUs or machines; launchers must not require a particular GPU, require cells to share one GPU, or reject a run solely because `CUDA_VISIBLE_DEVICES` is unset or lists multiple devices. Record `CUDA_VISIBLE_DEVICES`, host, and whether the model was single-device or sharded as provenance. Pairing means alignment by the frozen item identity/order, **not** hardware identity. Because bf16 greedy output may vary across hardware, report a new-vs-stored comparison as cross-run and include this limitation; do not present unrestricted hardware placement as byte-level reproducibility. Earlier sections that say an already-completed experiment used one card remain historical provenance and are not retroactively rewritten.
+
 ## Environment
 
 ```bash
