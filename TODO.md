@@ -97,7 +97,7 @@ Agent5: Total Design (GPT)
 21. 补充一下llama3-gsm8k-cot working point的结果 ✔
 22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ✔ 
 23. CRUXEval Design ✔ 
-24. 优化文档GSM8K ⏸
+24. 优化文档GSM8K ✔
 25. 补充BBH CRUX LogiQA cot的结果 ⏸
 25. 顺便丰富一下prediction的结果
 
