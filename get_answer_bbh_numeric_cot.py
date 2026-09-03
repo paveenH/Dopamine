@@ -36,6 +36,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import sys
 
 import numpy as np
@@ -146,6 +147,16 @@ def main():
 
     verify_injection_token_equal(vc, templates, samples[0]["question"])
 
+    # Provenance, not a constraint: cells are NOT required to share a GPU
+    # (project-wide convention). Because bf16 greedy may vary across
+    # hardware, a contrast between cells on different devices is reported as
+    # a CROSS-RUN pairing; pairing means alignment by sample_id, never
+    # hardware identity.
+    device_note = {
+        "host": platform.node(),
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+    }
+
     for alpha, (ls, le) in cfgs:
         tag = f"mdf_{alpha}".replace("-", "neg")
         out = os.path.join(args.out_dir, tag,
@@ -198,6 +209,7 @@ def main():
                             "contains_labels": False,
                             "accuracy_computed": False,
                             "exploratory_followup": True,
+                            "provenance": device_note,
                             "n": len(rows)},
                    "data": rows}, open(out, "w", encoding="utf-8"),
                   ensure_ascii=False, indent=2)
