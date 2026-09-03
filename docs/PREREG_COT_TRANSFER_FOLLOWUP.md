@@ -14,6 +14,13 @@ frozen No-CoT results.** Those stay CLOSED exactly as written in
 `docs/PREREG_P4_LOGIQA2.md`, `docs/PREREG_P4B_BBH.md`, or
 `docs/PREREG_P4C_CRUXEVAL.md` is edited by this document or by this follow-up.
 
+**BBH is restricted to `object_counting` only.** `bbh-p4b-v0`'s task tier also
+names `multistep_arithmetic_two` as an authorized second task, but only
+`object_counting` reached a scored No-CoT workpoint cell, and this follow-up's
+six-comparison family (§4.1) is fixed at exactly the three tasks/six pairs
+below. `multistep_arithmetic_two` has no CoT cell authorized here; extending
+to it would need its own amendment, not an implicit reuse of the BBH tier.
+
 ---
 
 ## 0. What this is, and what it is not
@@ -132,12 +139,14 @@ own No-CoT protocol:
 **The only planned change is inserting one line, the project's existing GSM8K
 CoT cue, into each task's prompt**, in the position specified in §3.
 
-Cells are **not** required to share a GPU. `host` and `CUDA_VISIBLE_DEVICES`
-are recorded as provenance on every generation file, exactly as in P4c. A
-model's own cells for one task still share a card (bf16 greedy is not
-byte-reproducible across GPUs, and the primary/diagnostic contrasts are paired
-per item); the three tasks and the two models may run on any number of cards.
-Statistical pairing is by `sample_id`, never by hardware.
+**Cells are not required to share a GPU** — this follows the project-wide
+convention (GPU assignment is provenance, not an experimental constraint; see
+`~/CLAUDE.md` "Server / data layout"). `host` and `CUDA_VISIBLE_DEVICES` are
+recorded on every generation file. Because bf16 greedy output may vary across
+hardware, a contrast between cells generated on different devices is reported
+as a **cross-run pairing**; pairing itself is always by `sample_id`, never by
+hardware identity, and no launcher in this follow-up rejects a run for having
+an unpinned or multi-card `CUDA_VISIBLE_DEVICES`.
 
 ---
 
@@ -260,10 +269,28 @@ the No-CoT `α=0`):
 
 Each comparison: paired accuracy difference (MAIN parsing, per task's own
 convention), exact two-sided paired McNemar with discordant counts, item-level
-paired bootstrap 95% CI (B=10000, seed 0). **Holm correction over all six,
-m=6.** This is a **new, independent statistical family** and is **never
-pooled** with any P3/P4/P4b/P4c Holm family (each of those stays its own
-m=2 family, judged on its own cells).
+paired bootstrap 95% CI (B=10000, seed 0). This is a **new, independent
+statistical family** and is **never pooled** with any P3/P4/P4b/P4c Holm
+family (each of those stays its own m=2 family, judged on its own cells).
+
+**The family is fixed at exactly these six `(task, model)` pairs by this
+pre-registration. Holm correction (m=6) is computed only when all six are
+present.** If any pair is missing, Holm is **withheld entirely** for the whole
+family — every row is reported with raw p and its bootstrap CI, labelled
+unadjusted, and **no `p_adj` is produced at all**, not even at a smaller
+realized m. **Correcting at a realized m<6 would be anti-conservative, not
+conservative** — a smaller family applies a weaker correction to whichever
+p-values happened to arrive, which is the opposite of a safe response to
+missing data. This is a stricter rule than the P4/P4b/P4c "judge the m=2
+family only when both models are complete" convention, because those
+families' m is inherently "however many models finished" (at most 2), whereas
+this family's m is fixed at 6 regardless of how many rows exist — a family of
+3 or 5 is exactly as incomplete as a family of 1 and is treated identically:
+raw p only, Holm withheld.
+
+A single-model or single-task partial result may still be reported
+descriptively (accuracy, McNemar p, CI) — it simply carries **no Holm
+adjustment** until the full six-pair family is complete.
 
 Sensitivity accuracy (task's own non-MAIN parsing) and all morphological
 diagnostics (no-marker rate, degenerate/loop rate, answer-first rate,
@@ -274,12 +301,6 @@ consistent-with evidence, never mediation. The neighbour (`−4`/`+6`) and
 reverse (`+4`/`−6`) diagnostics are reported per task exactly as in the
 matching No-CoT protocol — outside Holm, unadjusted p, and they **must not**
 redefine the workpoint.
-
-If only one model has both cells for a given task, that task's row is reported
-as **single-model exploratory**, Holm withheld for that row's contribution
-(the remaining rows still form their own m≤6 family over whatever is
-complete — report the realized m explicitly), matching the P4/P4b/P4c
-convention for a partial family.
 
 ### 4.2 CoT × steering interaction (descriptive, outside Holm)
 
@@ -308,6 +329,26 @@ interaction). Given the three confounds named in §0, a nonzero DiD is reported
 as "the steering effect differs between the CoT and No-CoT conditions",
 **never** attributed to reasoning length, propagation depth, or
 self-conditioning individually.
+
+**This is a deliberate choice, confirmed on review, not an oversight: DiD
+stays descriptive (point estimate + CI, no test, outside every Holm family)
+rather than becoming a second, independent six-comparison Holm family.**
+Promoting it to a formal significance-tested family would roughly double the
+scope of this follow-up (a second combiner, a second declared m=6 family) for
+a question (does the steering effect depend on CoT) that is secondary to the
+primary question in §4.1 (does the workpoint still help under CoT). If a
+future amendment wants DiD significance-tested, it should say so explicitly
+rather than silently reusing this section's numbers under a different claim.
+
+### 4.3 A note on LogiQA's historical metadata
+
+`get_answer_logiqa2.py` (the verified `logiqa2-p4-v0` No-CoT runner) never
+wrote a `"cot"` field in its output — it predates this follow-up and is a
+No-CoT-only script, so the field's absence there is read as `cot: false`
+**only when `meta.protocol == "logiqa2-p4-v0"`**, never as a general "missing
+field means No-CoT" rule for any other file. `get_answer_bbh_numeric.py` and
+`get_answer_cruxeval.py` both already write an explicit `"cot": False`, so no
+such inference is needed for BBH or CRUXEval-O.
 
 ---
 
