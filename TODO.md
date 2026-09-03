@@ -62,7 +62,6 @@ Agent2: Task design & check (GPT)
 Agent3: claude.md mataining (claude)
 Agent4: Document (GPT)
 Agent5: Total Design (GPT)
-
 ---
 组会内容（08.31）：
 1）弄清楚neurons的差异：confident & unconfident // thinking & answer directly (先推理再提交、先提交再推理)
@@ -99,7 +98,7 @@ Agent5: Total Design (GPT)
 23. CRUXEval Design ✔ 
 24. 优化文档GSM8K ✔
 25. 补充BBH CRUX LogiQA cot的结果 ⏸
-25. 顺便丰富一下prediction的结果 ⏸ 
+25. 顺便丰富一下prediction的结果 ✔
 
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
