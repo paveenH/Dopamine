@@ -14,6 +14,12 @@
 #   qwen_cot_10    : Qwen  CoT  alpha=+10 -- right neighbour of +8
 #   qwen_nocot_10  : Qwen  No-CoT alpha=+10 -- +8 is at the tested boundary
 #
+# New-machine alpha=0 checks (wps-amend-01; sensitivity/provenance only):
+#   llama_cot_0    : Llama CoT alpha=0
+#   qwen_cot_0     : Qwen  CoT alpha=0
+#   qwen_nocot_0   : Qwen  No-CoT alpha=0
+# These use isolated output trees so an older mdf_0 cannot cause a silent skip.
+#
 # GOLD IS NEVER READ HERE. Generation and scoring stay separate scripts, as in
 # P3: get_answer_gsm_hard_blind.py computes no accuracy, and the questions file
 # must declare contains_labels=false (checked below).
@@ -31,13 +37,16 @@
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh qwen_cot_6     > wps_g3.log 2>&1 &
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh qwen_cot_10    > wps_g4.log 2>&1 &
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh qwen_nocot_10  > wps_g5.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh llama_cot_0     > wps_l0.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh qwen_cot_0      > wps_qc0.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh qwen_nocot_0    > wps_qn0.log 2>&1 &
 #   cat wps_g2.log     # immediately -- a wrong PY exits 127 before anything runs
 set -euo pipefail
 
 CELL="${1:-}"
 case "${CELL}" in
-    llama_cot_neg4|qwen_cot_6|qwen_cot_10|qwen_nocot_10) ;;
-    *) echo "usage: $0 {llama_cot_neg4|qwen_cot_6|qwen_cot_10|qwen_nocot_10}" >&2; exit 2 ;;
+    llama_cot_neg4|qwen_cot_6|qwen_cot_10|qwen_nocot_10|llama_cot_0|qwen_cot_0|qwen_nocot_0) ;;
+    *) echo "usage: $0 {llama_cot_neg4|qwen_cot_6|qwen_cot_10|qwen_nocot_10|llama_cot_0|qwen_cot_0|qwen_nocot_0}" >&2; exit 2 ;;
 esac
 
 PY="${PY:-python}"
@@ -84,6 +93,24 @@ case "${CELL}" in
     MODEL_SIZE="7B"; HS_PREFIX="qwen2.5"; LS=16; LE=22
     CONFIGS="10-16-22"; COT_FLAG=""; SUB="gsm_hard_p3"
     DESC="Qwen GSM-Hard No-CoT alpha=+10 (right neighbour of +8)"
+    ;;
+  llama_cot_0)
+    MODEL_NAME="llama3"; MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
+    MODEL_SIZE="8B"; HS_PREFIX="llama3"; LS=11; LE=20
+    CONFIGS="0-11-20"; COT_FLAG="--cot"; SUB="gsm_hard_wps_machine_baseline_cot"
+    DESC="Llama GSM-Hard CoT alpha=0 (new-machine sensitivity baseline)"
+    ;;
+  qwen_cot_0)
+    MODEL_NAME="qwen2.5"; MODEL_DIR="Qwen/Qwen2.5-7B-Instruct"
+    MODEL_SIZE="7B"; HS_PREFIX="qwen2.5"; LS=16; LE=22
+    CONFIGS="0-16-22"; COT_FLAG="--cot"; SUB="gsm_hard_wps_machine_baseline_cot"
+    DESC="Qwen GSM-Hard CoT alpha=0 (new-machine sensitivity baseline)"
+    ;;
+  qwen_nocot_0)
+    MODEL_NAME="qwen2.5"; MODEL_DIR="Qwen/Qwen2.5-7B-Instruct"
+    MODEL_SIZE="7B"; HS_PREFIX="qwen2.5"; LS=16; LE=22
+    CONFIGS="0-16-22"; COT_FLAG=""; SUB="gsm_hard_wps_machine_baseline"
+    DESC="Qwen GSM-Hard No-CoT alpha=0 (new-machine sensitivity baseline)"
     ;;
 esac
 

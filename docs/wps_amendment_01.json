@@ -1,0 +1,41 @@
+{
+  "protocol": "wps-v0",
+  "amendment": "wps-amend-01",
+  "date": "2026-09-03",
+  "status": "frozen before the new-machine alpha=0 cells",
+  "reason": "The seven registered neighbour cells will run on a different machine from the stored alpha=0 cells. Add run-local alpha=0 sensitivity baselines without changing the registered tests.",
+  "added_cells": [
+    {
+      "model": "llama3",
+      "benchmark": "gsm_hard",
+      "condition": "cot",
+      "alpha": 0,
+      "launcher_cell": "llama_cot_0"
+    },
+    {
+      "model": "qwen2.5",
+      "benchmark": "gsm_hard",
+      "condition": "cot",
+      "alpha": 0,
+      "launcher_cell": "qwen_cot_0"
+    },
+    {
+      "model": "qwen2.5",
+      "benchmark": "gsm_hard",
+      "condition": "nocot",
+      "alpha": 0,
+      "launcher_cell": "qwen_nocot_0"
+    }
+  ],
+  "output_isolation": {
+    "cot": "gsm_hard_wps_machine_baseline_cot",
+    "nocot": "gsm_hard_wps_machine_baseline",
+    "purpose": "Prevent an existing stored mdf_0 from being skipped or overwritten."
+  },
+  "analysis_boundary": [
+    "The stored alpha=0 remains the registered comparator for the Holm m=7 family.",
+    "The added alpha=0 cells are machine-drift and cross-run sensitivity checks only.",
+    "They do not add hypotheses, do not change m=7, and cannot replace a registered result selectively.",
+    "Report agreement or disagreement between stored-baseline and run-local-baseline estimates transparently."
+  ]
+}
