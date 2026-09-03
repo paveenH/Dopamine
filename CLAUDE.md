@@ -1976,6 +1976,27 @@ bash -n run_logiqa2_preflight.sh && bash -n run_logiqa2_formal.sh
 # bash -n is NOT sufficient for a launcher -- it passed the ${1:?...} brace bug
 # that made every invocation die. Also invoke with real arguments.
 
+# P4c CRUXEval-O. --check re-runs every loader assertion (schema, 800 rows,
+# gold all literal_eval-able, no newline in gold, no '####' in the source,
+# frozen selection digests) and reprints the digests; it writes nothing. It
+# DOES hit the network to fetch the pinned revision.
+python3.10 data_cruxeval.py --check    # must print questions 4580b7a9a9ef6054
+                                       # and gold a214d1fc7d84a2d9
+# The guard suite is STDLIB ONLY and runs under bare python3 too -- deliberately,
+# per the test_p3_label_firewall lesson (an import of numpy-via-utils once made
+# a crash exit 0). Guards are AST-extracted, not imported; every one is
+# mutation-tested, including the security property that a payload like
+# __import__('os').system(...) does NOT parse and is NOT executed.
+python3 test_cruxeval_p4c.py           # 86 checks, ~2s, no GPU/server/network
+bash -n run_cruxeval.sh
+# bash -n is NOT sufficient for a launcher -- it once passed the ${1:?...} brace
+# bug that made MODEL literally 'llama3}'. Drive it with real arguments; the
+# model allowlist, the step allowlist and the need_baseline ordering guard are
+# all semantic:
+CUDA_VISIBLE_DEVICES=0 bash run_cruxeval.sh llama3 SEARCH_DOSES   # must REFUSE
+CUDA_VISIBLE_DEVICES=0 bash run_cruxeval.sh llama3 WORKPOINT      # must REFUSE
+                                       # until the alpha=0 cell exists
+
 # P4b BBH numeric. --check re-runs every stage-0 assertion (schema, 250 rows,
 # unique questions, integer gold, gold-distribution drift, content digest) and
 # reprints the digests; it writes nothing and reads no gold. It DOES hit the
