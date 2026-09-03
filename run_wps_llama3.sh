@@ -19,10 +19,10 @@
 # encode cot, so a CoT run MUST use its own --ans_file or it would overwrite the
 # No-CoT cell of the same alpha.
 #
-# ONE CARD. bf16 greedy is not byte-reproducible across GPUs and every cell is
-# compared per question against a stored alpha=0. The stored cells' physical GPU
-# is unrecoverable (summary CSV carries no device field), so each contrast is a
-# CROSS-RUN pairing -- state that with the result.
+# DEVICES. bf16 greedy is not byte-reproducible across GPUs, and the stored
+# cells' physical GPU is unrecoverable (summary CSV carries no device field), so
+# every contrast here is a CROSS-RUN pairing regardless -- state that with the
+# result. The launcher does NOT constrain the device; it records what was used.
 #
 # SERVER IS SCRATCH. Finished cells are downloaded to the local RoleAnswer/
 # tree; nothing here requires the comparison target to be present on the server.
@@ -41,15 +41,17 @@ case "${CELL}" in
     *) echo "usage: $0 {gsm8k_cot_neg2|math_neg8|math_cot_neg8}" >&2; exit 2 ;;
 esac
 
-if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then
-    echo "[x] refusing to run: CUDA_VISIBLE_DEVICES is unset."
-    echo "    This cell is paired per question against a stored alpha=0 cell;"
-    echo "    an unpinned or multi-card run mixes device differences into the"
-    echo "    alpha effect irrecoverably."
-    exit 1
-fi
-case "${CUDA_VISIBLE_DEVICES}" in
-    *,*) echo "[x] refusing to run: CUDA_VISIBLE_DEVICES='${CUDA_VISIBLE_DEVICES}' names more than one card."; exit 1 ;;
+# Device selection is the caller's choice; this does not block on it. It only
+# RECORDS what was used, because bf16 greedy is not byte-reproducible across
+# GPUs and each cell is paired per question against a stored alpha=0 whose own
+# device is unrecoverable -- so every contrast is a cross-run pairing either
+# way. A multi-card run additionally shards the model (device_map="auto"),
+# which changes the numerical path relative to a single-card stored cell.
+DEVICES="${CUDA_VISIBLE_DEVICES:-<unset: all visible>}"
+case "${DEVICES}" in
+    *,*) echo "[i] multi-card run (${DEVICES}): the model will be sharded, so this"
+         echo "    cell's numerical path differs from a single-card stored cell."
+         echo "    Record it with the result." ;;
 esac
 
 PY="${PY:-python}"
@@ -122,7 +124,7 @@ OUT_DIR="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}/${TAG}"
 
 echo "=================================================="
 echo "wps-v0 | ${DESC}"
-echo "  cell ${CELL} | card ${CUDA_VISIBLE_DEVICES} | mnt=${MAX_NEW_TOKENS} bs=${BATCH_SIZE}"
+echo "  cell ${CELL} | devices ${DEVICES} | mnt=${MAX_NEW_TOKENS} bs=${BATCH_SIZE}"
 echo "Start: $(date)"
 echo "=================================================="
 cd "${WORK_DIR}" || { echo "[x] cannot cd ${WORK_DIR}"; exit 1; }

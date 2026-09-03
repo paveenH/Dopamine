@@ -21,9 +21,10 @@
 # The blind generator SKIPS an existing cell rather than overwriting it, so
 # pointing at the stored tree is safe -- the stored cells are left untouched.
 #
-# ONE CARD, and budgets inherited from the stored cells: 768 / bs=24 / greedy.
-# The stored cells' physical GPU is unrecoverable (no device field in the
-# summary), so each new-vs-stored contrast is a CROSS-RUN pairing.
+# Budgets are inherited from the stored cells: 768 / bs=24 / greedy. The stored
+# cells' physical GPU is unrecoverable (no device field in the summary), so each
+# new-vs-stored contrast is a CROSS-RUN pairing regardless of device. The
+# launcher does NOT constrain the device; it records what was used.
 #
 # Usage:
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_wps_gsm_hard.sh llama_cot_neg4 > wps_g2.log 2>&1 &
@@ -42,11 +43,13 @@ esac
 PY="${PY:-python}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-if [[ -z "${CUDA_VISIBLE_DEVICES:-}" || "${CUDA_VISIBLE_DEVICES}" == *,* ]]; then
-  echo "ERROR: set CUDA_VISIBLE_DEVICES to exactly one card." >&2
-  echo "  Each cell is paired per question against a stored cell; an unpinned" >&2
-  echo "  or multi-card run mixes device differences into the alpha effect." >&2
-  exit 1
+# Device selection is the caller's choice; this only RECORDS it. See the
+# DEVICES note in the header.
+DEVICES="${CUDA_VISIBLE_DEVICES:-<unset: all visible>}"
+if [[ "${DEVICES}" == *,* ]]; then
+  echo "[i] multi-card run (${DEVICES}): the model will be sharded, so this"
+  echo "    cell's numerical path differs from a single-card stored cell."
+  echo "    Record it with the result."
 fi
 
 TYPE="non"
@@ -108,7 +111,7 @@ PYCHK
 
 echo "=================================================="
 echo "wps-v0 | ${DESC}"
-echo "  band ${LS}-${LE} | cell ${CONFIGS} | card ${CUDA_VISIBLE_DEVICES}"
+echo "  band ${LS}-${LE} | cell ${CONFIGS} | devices ${DEVICES}"
 echo "  out: ${OUT_DIR}"
 echo "  (an existing cell is SKIPPED, not overwritten)"
 echo "=================================================="

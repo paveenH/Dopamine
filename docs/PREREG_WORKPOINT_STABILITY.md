@@ -73,14 +73,18 @@ data on both sides.
 
 ## 5. Run constraints
 
-Every new cell uses the SAME physical GPU, prompt, batch size and generation
-budget as the stored cells it is compared against. Budgets are inherited, not
-chosen: GSM8K/GSM-Hard `768`/bs `24`; MATH `2048`/bs `8`.
+Every new cell uses the same prompt, batch size and generation budget as the
+stored cells it is compared against. Budgets are inherited, not chosen:
+GSM8K/GSM-Hard `768`/bs `24`; MATH `2048`/bs `8`.
 
-One model's cells within one curve stay on one card (bf16 greedy is not
-byte-reproducible across GPUs). Stored cells carry no device field in their
-summary CSV, so every new-vs-stored contrast is a **cross-run pairing** and must
-be cited with that caveat.
+**Device is NOT constrained, and the reason is that it cannot help here.** The
+stored cells carry no device field in their summary CSV, so their physical GPU
+is unrecoverable and **every new-vs-stored contrast is a cross-run pairing no
+matter what device the new cell uses**. bf16 greedy is not byte-reproducible
+across GPUs, and a multi-card run additionally shards the model
+(`device_map="auto"`), changing the numerical path relative to a single-card
+stored cell. The launchers therefore RECORD the device rather than restrict it,
+and the cross-run caveat travels with every result in this supplement.
 
 ## 6. No-GPU analyses accompanying this supplement
 
