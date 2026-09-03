@@ -20,6 +20,11 @@ budget (768), batch size (24), parser (utils.extract_gsm8k_answer, FIRST=MAIN)
 THIS IS A POST-HOC EXPLORATORY FOLLOW-UP, NOT A REPLICATION. It does not
 touch, rescale, or supersede the frozen No-CoT P4b `object_counting` result.
 
+TASK IS RESTRICTED TO object_counting: it is the only BBH task in this
+follow-up's frozen 6-comparison Holm family (PREREG_COT_TRANSFER_FOLLOWUP.md
+S4.1). `multistep_arithmetic_two` has no No-CoT P4b workpoint cell and no CoT
+cell authorised here -- accepting it would silently run an unregistered task.
+
 alpha=0 PASSES A REAL ALL-ZERO MATRIX, exactly as every other runner in this
 family. Hooks register and the zero add executes; steering_fires reads 0 only
 because a zero row is not counted as steered.
@@ -42,7 +47,9 @@ import utils
 
 PROTOCOL = "cot-transfer-followup-v0"
 BASE_PROTOCOL = "bbh-p4b-v0"
-TASKS = ("object_counting", "multistep_arithmetic_two")
+# Restricted to the one task this follow-up's Holm family covers. See the
+# module docstring: multistep_arithmetic_two is not authorised here.
+TASKS = ("object_counting",)
 FORBIDDEN_KEYS = ("target", "answer", "gold", "gold_answer", "correct",
                   "accuracy", "solution")
 
