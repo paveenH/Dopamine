@@ -140,6 +140,7 @@ Scope: every colour-logit diagnostic claim. -->
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
 | P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
 | P4b fixed-workpoint transfer (BBH numeric) | **COMPLETE — DOUBLE NULL** 2026-09-02 (`object_counting`, 6 cells) — neither model survives Holm m=2 (llama −6 −0.80 pp p_adj=1.000; qwen +8 +2.40 pp p_adj=1.000); reverse diagnostic BREAKS the ordering on both. Behaviour DOES move (qwen +8 bare-first-line 54.4→0.0%), so the frozen reading is **GSM8K 行为 signature 部分迁移**, never "mechanism transferred". Stage-0 gate PASSED (.4160/.5520) and the earlycand audit (29/29, α=0 at CEILING .952/1.000) stay as history. `bbh-p4b-v0` + `p4b-amend-01`; second task of the SAME P4 question, not a new phase |
+| P4c fixed-workpoint transfer (CRUXEval-O) | **PREPARED, PREFLIGHT PASSED, NOT RUN** 2026-09-03 — `docs/PREREG_P4C_CRUXEVAL.md` (`cruxeval-p4c-v0`) frozen before any cell existed; 8 cells (llama 0/−6/−4/+4, qwen 0/+8/+6/−6), 300 of 800 items. **THIRD task of the SAME P4 question**, not a new phase. Scoring is `ast.literal_eval` + Python object equality, **NOT** the official exec-based pass@1 — model output is never executed. Format-only preflight found and fixed two decoding artifacts (`p4c-amend-01`); two remaining non-parsing payloads were classified as MODEL FORMAT FAILURE and the parser was deliberately NOT widened (`p4c-amend-02`) |
 | Workpoint-stability supplement (wps-v0) | **PREPARED, NOT RUN** — 7 neighbour cells, `docs/PREREG_WORKPOINT_STABILITY.md` frozen 2026-09-03 before any cell existed. Asks only whether each reported workpoint is a LOCAL OPTIMUM or the edge of an untested region; **not a dose search**, and no frozen workpoint may be redefined by it. Own family, Holm **m=7**; neighbour comparisons are EXPLORATORY and outside it |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
@@ -149,8 +150,9 @@ and a reader can cite one arm without the other.
 Evidence: docs/p3_result_20260830.json, p3_supp_result_20260830.json,
 p4_logiqa2_evaluation.json, bbh_p4b_object_counting_result.json.
 Scope: any claim about how far the GSM8K workpoint transfers. -->
-**FIXED-WORKPOINT TRANSFER SCOREBOARD (all four tests complete; α read from the frozen
-GSM8K record and NEVER re-searched — llama `−6`, qwen `+8`).** Report these together:
+**FIXED-WORKPOINT TRANSFER SCOREBOARD (four tests COMPLETE, a fifth PREPARED but NOT
+RUN; α read from the frozen GSM8K record and NEVER re-searched — llama `−6`, qwen
+`+8`).** Report the four completed rows together:
 
 | Task | Answer space | llama `−6` | qwen `+8` | Verdict |
 |---|---|---|---|---|
@@ -158,6 +160,7 @@ GSM8K record and NEVER re-searched — llama `−6`, qwen `+8`).** Report these 
 | GSM-Hard CoT (P3-supp) | constructed integer | **+6.00 pp** p=.0039 | **+13.33 pp** p=9.4e−06 | both transfer |
 | LogiQA 2.0 (P4) | choose among 4 given | −4.33 pp p_adj=.107 | +1.00 pp p_adj=.801 | **DOUBLE NULL** |
 | BBH object_counting (P4b) | constructed integer | −0.80 pp p_adj=1.00 | +2.40 pp p_adj=1.00 | **DOUBLE NULL** |
+| CRUXEval-O (P4c) | constructed **Python literal** | — | — | **NOT RUN** — do not fill this row from anything but `docs/p4c_cruxeval_evaluation.json` |
 
 **The frozen reading, and it is narrower than the table looks.** The workpoint transfers
 across *task difficulty and CoT* on GSM-Hard, and fails on **both** a changed answer space
@@ -167,7 +170,11 @@ and restoring the answer space and `####` submission did NOT restore transfer. S
 **"removing the option interface was not sufficient to restore transfer"** — never "the
 options caused the LogiQA null", and never "the workpoint transfers to numeric reasoning".
 Separating a choice-interface effect from a reasoning-type effect still needs a within-item
-with/without-options contrast, which has NOT been run.
+with/without-options contrast, which has NOT been run. **P4c will not supply it either**:
+CRUXEval-O is option-free but changes reasoning type AND answer space at once (a constructed
+integer becomes an arbitrary Python literal), so it is a third, harder point on the
+boundary, not a controlled single-factor manipulation — that limit is frozen in its
+pre-registration §1 rather than left to be discovered in its results.
 
 **Do not read the two nulls as one finding.** They differ in shape: LogiQA's llama arm is
 directionally NEGATIVE and near-significant raw (p=.0533), while P4b's is flat (−0.80 pp,
@@ -194,6 +201,7 @@ even locally stable; until it runs, "the workpoint" is a single α from one froz
 - `AdaBandit.md` — **the Bandit design + literature doc** (renamed 2026-08-11 from `BanditExperiment_LiteratureReview.md`). §1.3 `Prompt Design Constraints` / `PV9 Prompt Modifications` is the design source for the pv9 Stage-1 changes; §2 is the literature review (EVOLvE, greedy-agent papers, Krishnamurthy et al.).
 - `PV8_SCAFFOLD_DESIGN.md` — **deleted 2026-08-28** (commit `576cd1c`); recoverable from git history. It held the pv8 scaffold design notes; the Bandit line is CLOSED, and the pv8 facts a later protocol still depends on live in the pv8 bullet above.
 - **Three `docs/*_ARCHIVE.md` files hold content SPLIT OUT of this one on 2026-09-02 to shrink the always-loaded context** — `LOCAL_CHECKS_ARCHIVE.md` (Bandit pv6–pv11 check commands), `P_PHASE_ARCHIVE.md` (P2/P3/P3-supp result tables, artifact hashes, runbooks), `BANDIT_PV6_PV11_ARCHIVE.md` (pv6–pv11 protocol internals). Every block in them is **byte-identical** to what stood here, and each was verified to still exist somewhere before the cut. They cover CLOSED or COMPLETE lines only; frozen wording, 口径 traps and anything an ACTIVE line needs stayed in this file. **Do not move an active line's rules into an archive** — the whole point of the split is that archived content is out of context by default.
+- `docs/PREREG_P4C_CRUXEVAL.md` + `docs/p4c_amendment_0{1,2}.json` — the P4c protocol and its two amendments. Read before touching `data_cruxeval.py` / `get_answer_cruxeval.py` / `eval_cruxeval.py` / `run_cruxeval.sh`. The load-bearing decisions are recorded there, not in the code: why the official executor is NOT used, why FIRST stays MAIN when LAST would score two preflight items higher, and why a non-parsing payload is sometimes a parser bug and sometimes a result.
 - `AGENTS.md` — Codex-facing **delta file, NOT a mirror**. This file is canonical and wins on any disagreement; AGENTS.md carries only the Codex-specific execution guidance plus a short orientation (playbook, architecture, local checks, editing guidance). It deliberately does NOT restate the experiment ledger, frozen-protocol rules, or 口径 traps — those live here only. **So a large size difference between the two is expected and is not drift.** When a convention changes, edit THIS file; touch AGENTS.md only if the Codex-specific delta itself changed.
 - `~/CLAUDE.md` — running commands and data-directory map
 
@@ -1940,6 +1948,140 @@ extractor — not comparable to ours, but enough that a `> .85` ceiling failure 
 a live outcome, not a formality. If it fails, `multistep_arithmetic_two`'s sample
 is already frozen; switch `--task`, no code change.
 
+## P4c fixed-workpoint transfer to program-execution reasoning (CRUXEval-O)
+
+> **`docs/PREREG_P4C_CRUXEVAL.md` is the protocol** (`cruxeval-p4c-v0`, frozen
+> 2026-09-03 before any cell existed), amended additively by
+> `docs/p4c_amendment_0{1,2}.json`. **Status: PREPARED, format-only preflight
+> PASSED, formal cells NOT RUN.** This section is provenance and the 口径 traps.
+
+**P4c IS NOT A NEW PHASE — it is the THIRD TASK of P4's question**, after LogiQA 2.0
+and BBH numeric. Do not renumber it P5.
+
+**It cannot isolate what LogiQA left ambiguous, and that limit is frozen in advance.**
+CRUXEval-O removes the option interface but changes reasoning content AND answer space
+at once (constructed integer → arbitrary Python literal). It is a **third, harder point
+on the transfer boundary**, not a controlled single-factor manipulation. Frozen wording:
+transfer → "the workpoint transferred to open-ended program-execution reasoning", never
+"to code reasoning in general"; null → "the transfer range does not extend to open-ended
+program-execution reasoning", which does **not** establish which of the two changes binds.
+
+**Data.** `cruxeval-org/cruxeval`, revision pinned `b96af0450242eb4da433032b90998f25588a5d0f`,
+800 rows, columns `code/input/output/id`. **300 selected** by `sha256(salt:id:code:input)`
+— never `hash()`, which is process-salted. Digests `4580b7a9a9ef6054` (questions) /
+`a214d1fc7d84a2d9` (gold). Measured and asserted at freeze: **800/800 gold `literal_eval`,
+0 gold contain a newline, `####` appears nowhere in the source** — those three facts are
+what make a single-line `#### <literal>` marker safe, and the loader checks them rather
+than assuming them.
+
+**Matrix: 8 cells.** llama `0/−6/−4/+4` (band 11–20), qwen `0/+8/+6/−6` (band 16–22).
+**Holm m=2 covers ONLY the two workpoint contrasts** (llama −6, qwen +8). The neighbour
+(`−4`/`+6`) and reverse (`+4`/`−6`) cells are reported always, sit **outside Holm with
+unadjusted p**, and **MUST NOT redefine the workpoint** — α is read from the frozen GSM8K
+record and never re-searched. Four sampled doses are not a dose-response curve.
+
+<!-- Why: the official CRUXEval scorer execs model output; a later reader may "restore
+fidelity" by porting it. The gap it would close is already reported as nonliteral_rate.
+Evidence: docs/PREREG_P4C_CRUXEVAL.md §5; test_cruxeval_p4c.py exec-payload guards.
+Scope: P4c scoring only. -->
+- **SCORING IS `ast.literal_eval` + PYTHON OBJECT EQUALITY, NOT the official
+  execution-based `pass@1`.** Official CRUXEval runs
+  `exec(f"{code}\nassert {gold} == {candidate}")`, interpolating **model-generated text**
+  into an executed expression. This protocol never does that, and **`reliability_guard`
+  is not a security sandbox** — do not describe it as one. The recorded gap: a candidate
+  that is a non-literal *expression* evaluating correctly (`[1]*3`) scores **incorrect**
+  here and would score correct officially; its size is reported per cell as
+  `nonliteral_rate` rather than assumed. The test suite pins the security property by
+  feeding `__import__('os').system(...)` and asserting it neither parses nor executes.
+
+<!-- Why: the parser was right BY COINCIDENCE before amend-01 -- '#' opens a Python
+comment, so literal_eval silently truncated a trailing '####'. 5 of the 300 gold values
+contain '#', so the coincidence was unsafe.
+Evidence: docs/p4c_amendment_01.json; the REGRESSION checks in test_cruxeval_p4c.py.
+Scope: P4c parsing. -->
+- **`p4c-amend-01` strips TWO decoding artifacts, and the second one is subtle.** (a) a
+  trailing EOS token text — Qwen returned `[1, 1, 1, 1]<|endoftext|>`, a correct answer
+  failing to parse purely because the decoder surfaced EOS (5 of 8 preflight payloads per
+  Qwen cell). (b) a trailing `####` occurring **outside** a string literal — Llama writes
+  `#### <literal> ####` then loops. **Without (b) the payload parsed anyway**, because `#`
+  opens a Python comment and `literal_eval` truncates there — correct by coincidence, and
+  unsafe because **5 of the 300 gold values contain `#`** (`sample_755` is
+  `'ph>t#A#BiEcDefW#ON#iiNCU'`). The cut is quote-parity-guarded, so a `####` **inside** a
+  string literal is preserved; all five `#`-bearing gold values were verified to round-trip.
+
+<!-- Why: the tempting move is to widen the parser or switch FIRST->LAST, and both
+would hide a steering effect: qwen format obedience is 8/8 at a=0 but 6/8 at +8.
+Evidence: docs/p4c_amendment_02.json (no code change); REGRESSION amend-02 checks.
+Scope: P4c parsing; the same logic applies to any task where format obedience is dosed. -->
+- **`p4c-amend-02` is a decision NOT to change code, and it is the load-bearing one.**
+  Two Qwen `+8` preflight payloads still fail: prose after the payload
+  (`#### 'ohesteo' The function f removes…`), and a **bare `####`** followed by a second
+  marker carrying the answer. Both are the **MODEL failing the frozen "exactly one line"
+  format**, not decoding artifacts. **Widening the parser would systematically hide a
+  steering effect** — Qwen reads 8/8 at α=0 and 6/8 at α=+8, so the failures are
+  dose-specific. **Both parse under LAST and fail under FIRST**, which is exactly the shape
+  that tempts a caliber switch: **FIRST stays MAIN** (frozen, matching GSM8K/GSM-Hard/BBH
+  production), and the difference is already visible as `nonliteral_rate` + `last_acc`.
+  The rule generalises: *a decoding artifact is a parser bug; a model failing the format
+  is a result.*
+
+- **PREFLIGHT is FORMAT-ONLY and structurally cannot become an accuracy read.**
+  `--preflight` forces n=8, writes to a separate `_preflight/` tree with a `preflight`
+  filename prefix and meta flag, and **the scorer refuses any preflight cell**. It checks
+  the frozen digest and the 300-item count on the FULL file *before* truncating — the
+  reverse order would let a preflight run on anything.
+
+- **PREFLIGHT MEASURED (2026-09-03, after amend-01):** marker 8/8 in all four cells;
+  literal 8/8 / 8/8 / 8/8 / **6/8** (llama 0, llama −6, qwen 0, qwen +8);
+  `steering_fires` 0 / 72 / 0 / 48, matching `L×n`. **Llama is truncation-bound**:
+  capped 8/8 and 7/8, `chars` median ≈2450, tails degenerating to `[/PYTHON] [/PYTHON]…`.
+  Qwen is not (1/8, median 50/241).
+
+<!-- Why: GSM-Hard froze this wording after a ceiling effect was nearly read as an
+observation; llama P4c sits against the same 768 cap.
+Evidence: the P3 GSM-Hard truncation bullet; preflight capped 8/8 and 7/8.
+Scope: every llama P4c length or accuracy claim. -->
+- **Llama accuracy is a FIXED-768-BUDGET ESTIMAND.** The paired comparison stays valid
+  (every cell has the same budget), but it may **not** be read as unconstrained reasoning
+  capability, and llama's length-derived readouts are **not natural lengths**. The answer
+  completes *before* the degenerate tail, so accuracy is readable — this is **not** a
+  Mistral-style extraction floor. **Do not raise the budget now**: that changes the frozen
+  primary question. Per the P3-supp precedent, finish 768 first and build a larger-budget
+  sensitivity separately if needed, never substituting it for the main result.
+
+- **NO ACCURACY GATE, deliberately** — unlike P4b's `[0.30, 0.85]`. A low baseline is a
+  limitation on the reading, not a cancelled test; this removes the failure mode where a
+  gate interval becomes adjustable after seeing data. **Hard stops are technical only**
+  (six, listed in §7), and a hard stop is a stop — not a licence to redesign the prompt,
+  parser or budget.
+
+- **Cells are NOT required to share a GPU** (per the repo-wide rule); `host` and
+  `CUDA_VISIBLE_DEVICES` are recorded as provenance, and a cross-device contrast is
+  reported as a **cross-run pairing**. Pairing means alignment by the frozen item order.
+
+```bash
+# Server, from /data1/paveen/Dopamine. Loader first -- digests must match.
+python data_cruxeval.py --out_dir components/benchmark
+
+# Format-only preflight (no accuracy exists to read), then inspect:
+CUDA_VISIBLE_DEVICES=2 bash run_cruxeval.sh llama3  PREFLIGHT
+CUDA_VISIBLE_DEVICES=3 bash run_cruxeval.sh qwen2.5 PREFLIGHT
+python inspect_p4c_preflight.py --root components
+python dump_p4c_nonliteral.py --root components --preflight   # classify failures
+
+# Formal cells. The two MODELS may run on two cards.
+CUDA_VISIBLE_DEVICES=2 nohup bash run_cruxeval.sh llama3  ALL > p4c_llama.log 2>&1 &
+CUDA_VISIBLE_DEVICES=3 nohup bash run_cruxeval.sh qwen2.5 ALL > p4c_qwen.log  2>&1 &
+cat p4c_llama.log      # immediately -- a wrong PY exits 127 and the log looks empty
+
+# Score ONCE, after BOTH models finish (a single model withholds Holm).
+python eval_cruxeval.py \
+  --generations components/llama3/cruxeval/mdf_{0,neg6,neg4,4}/cruxeval_o_8B_11_20.json \
+                components/qwen2.5/cruxeval/mdf_{0,8,6,neg6}/cruxeval_o_7B_16_22.json \
+  --gold_file components/benchmark/cruxeval_p4c_formal.json \
+  --out docs/p4c_cruxeval_evaluation.json
+```
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
@@ -1987,7 +2129,7 @@ python3.10 data_cruxeval.py --check    # must print questions 4580b7a9a9ef6054
 # a crash exit 0). Guards are AST-extracted, not imported; every one is
 # mutation-tested, including the security property that a payload like
 # __import__('os').system(...) does NOT parse and is NOT executed.
-python3 test_cruxeval_p4c.py           # 86 checks, ~2s, no GPU/server/network
+python3 test_cruxeval_p4c.py           # 100 checks, ~2s, no GPU/server/network
 bash -n run_cruxeval.sh
 # bash -n is NOT sufficient for a launcher -- it once passed the ${1:?...} brace
 # bug that made MODEL literally 'llama3}'. Drive it with real arguments; the
