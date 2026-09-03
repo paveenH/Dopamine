@@ -19,7 +19,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.184:/data1/paveen/Dopamine/components/qwen2.5 /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/llama3 /Users/paveenhuang/Downloads
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states_non' \
@@ -94,9 +94,9 @@ Agent5: Total Design (GPT)
 20. 整理GSM8K文档 ✔
 21. 补充一下llama3-gsm8k-cot working point的结果 ✔
 22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ⏸
-run_wps_llama3.sh	gsm8k_cot_neg2 / math_neg8 / math_cot_neg8	#1 #6 #7
+run_wps_llama3.sh	gsm8k_cot_neg2 / math_neg8 / math_cot_neg8	✔
 run_wps_gsm_hard.sh	llama_cot_neg4 / qwen_cot_6 / qwen_cot_10 / qwen_nocot_10	#2 #3 #4 #5
-23.  
+23. CRUXEval Design ⏸ 
 
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
