@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import re
 import sys
 
@@ -248,6 +249,16 @@ def main():
 
     verify_injection_token_equal(vc, items[0])
 
+    # Provenance, not a constraint: cells are NOT required to share a GPU
+    # (project-wide convention). Because bf16 greedy may vary across
+    # hardware, a contrast between cells on different devices is reported as
+    # a CROSS-RUN pairing; pairing means alignment by sample_id, never
+    # hardware identity.
+    device_note = {
+        "host": platform.node(),
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+    }
+
     results = {}
     for alpha, (ls, le) in cfgs:
         band = decoder_layer_range(ls, le)
@@ -313,6 +324,7 @@ def main():
                  "prompt_sha256_prefix": PROMPT_COT_SHA256,
                  "accuracy_computed": False,
                  "exploratory_followup": True,
+                 "provenance": device_note,
                  "parsing": {"main": "LAST", "sensitivity": "FIRST",
                              "rescue_generation": False, "denominator": 300}},
         "cells": results,
