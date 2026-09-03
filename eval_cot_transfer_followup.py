@@ -45,7 +45,16 @@ alpha=0. Exact two-sided McNemar, item-level paired bootstrap 95% CI
 (B=10000, seed 0). This script reports its OWN task's up-to-2 rows; run it
 once per task and combine the (up to 6) rows externally for the m=6 Holm
 family -- see `combine_cot_followup_holm.py`. Doing Holm inside a single-task
-invocation would silently apply m=2 under an m=6 label.
+invocation would silently apply m=2 under an m=6 label; that combiner ALSO
+withholds Holm entirely unless all 6 pre-registered rows are present, since
+correcting at a smaller realized m is anti-conservative, not conservative.
+
+NOTE on LogiQA's historical metadata: `get_answer_logiqa2.py` (the verified
+`logiqa2-p4-v0` No-CoT runner) never wrote a `"cot"` key at all, because it is
+a No-CoT-only script. `load_logiqa()` interprets a missing `cot` field as
+False ONLY when `meta.protocol == "logiqa2-p4-v0"` -- a missing field from any
+other source is NOT inferred and is left to fail the explicit cot==False /
+cot==True check downstream.
 
 SECONDARY (S4.2, descriptive, never Holm-adjusted, never a significance test):
 DiD = [Acc(CoT,wp) - Acc(CoT,0)] - [Acc(NoCoT,wp) - Acc(NoCoT,0)], via a
@@ -141,6 +150,15 @@ def load_logiqa(gen_files, formal_file):
         d = json.load(open(p, encoding="utf-8"))
         model = d["meta"]["model"]
         cot = d["meta"].get("cot")
+        if cot is None:
+            # get_answer_logiqa2.py (the verified logiqa2-p4-v0 No-CoT runner)
+            # never wrote a "cot" key at all -- it is a No-CoT-only script, so
+            # the field's absence there always means No-CoT, never "unknown".
+            # This inference is scoped to that ONE verified protocol string;
+            # a missing "cot" field from anything else is NOT interpreted and
+            # falls through to the explicit want_cot check below, which dies.
+            if d["meta"].get("protocol") == "logiqa2-p4-v0":
+                cot = False
         byalpha = {}
         for tag, c in d["cells"].items():
             rows = {r["sample_id"]: r for r in c["rows"]}
