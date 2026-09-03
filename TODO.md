@@ -55,6 +55,13 @@ Daily
 Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retrograde gain control.](https://doi.org/10.1038/s41586-026-10967-w) 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。
 
 ---
+Agent1: task coding (claude)
+Agent2: Task design & check (GPT)
+Agent3: claude.md mataining (claude)
+Agent4: Document (GPT)
+Agent5: Total Design (GPT)
+
+---
 组会内容（08.31）：
 1）弄清楚neurons的差异：confident & unconfident // thinking & answer directly (先推理再提交、先提交再推理)
 2）Manifold -> 不同方法找到的neurons之间的差异
@@ -89,7 +96,7 @@ Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retro
 22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ⏸
 run_wps_llama3.sh	gsm8k_cot_neg2 / math_neg8 / math_cot_neg8	#1 #6 #7
 run_wps_gsm_hard.sh	llama_cot_neg4 / qwen_cot_6 / qwen_cot_10 / qwen_nocot_10	#2 #3 #4 #5
-23. 
+23.  
 
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
@@ -99,8 +106,6 @@ run_wps_gsm_hard.sh	llama_cot_neg4 / qwen_cot_6 / qwen_cot_10 / qwen_nocot_10	#2
 
 | 优先级 | 任务 | 最能回答什么 | Llama3 表现 / 风险预期 |
 |---|---|---|---|
-| 1 | **BBH object_counting** | 去掉选项后，GSM8K 式数值提交是否仍保留工作点效应 | **偏高，可能 80–90%+**；最大风险是 ceiling |
-| 2 | **BBH dyck_languages** | 工作点能否迁移到非算术、纯符号推理 | **中等到偏低**；严格串匹配与长度会显著影响结果 |
 | 3 | **CRUXEval output prediction** | 工作点能否迁移到程序状态追踪；可执行、确定性评分 | **中等**；会混入 Python/code-state 能力 |
 | 4 | **ZebraLogic** | 非选择题逻辑约束求解的更强测试 | **exact solve 偏低**；格式与能力地板风险高，cellwise 可较可读 |
 | 5 | **ProofWriter / RuleTaker** | 移除选项内容、保留离散答案空间的机制控制 | **中高**；规则推导相对适合 8B，但仍是标签提交 |
