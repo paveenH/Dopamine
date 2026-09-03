@@ -843,6 +843,18 @@ Commitment features 在两个模型上都能预测未见 GSM8K 题目的正确�
 
 这说明答案形成和提交行为包含与正确率有关的信息，但不证明这些行为造成了正确率变化，也不证明 entry gain 没有机制作用。
 
+**Table 5.1b. Llama GSM8K CoT: predicted score by dose (condition-shift post-hoc stress test)**
+
+| α | Predicted score | Observed `first_acc` | Status |
+|---:|---:|---:|---|
+| −6 | .7202 | 75.33% | added later |
+| −4 | **.7283** | **85.00%** | original |
+| −2 | .6887 | 74.00% | added later |
+| 0 | .6282 | 69.00% | original |
+| +4 | .5110 | 59.67% | added later |
+
+预测排序与实际排序完全一致（`−4 > −6 > −2 > 0 > +4`），选中的 `−4` 与 GSM8K CoT 已知的独立峰值（§1.2）一致。但这不是 §5.1 训练所用批次的直接延伸：predictor 的 GSM8K 训练特征来自 signal-tree bs=1 批次（184 题，仅 CoT `{0,−4}` 两档），此处的 `−6/−2/+4` 来自 production-tree bs=24 批次（182 题）。**这是跨批次的条件迁移压力测试，不是新的 held-out correctness 验证**，也不改变 Table 5.1 的 AUROC 结果。
+
 ### 5.2 Retrospective Workpoint Selection on MATH
 
 冻结的 GSM8K predictor 随后直接应用于 MATH，不使用 MATH accuracy 重新训练、调参或校准。预测分数用于排列剂量，而不是估计 MATH 的绝对准确率。
@@ -862,18 +874,32 @@ Llama 在原始分析时只有 `−4/0/+4`，因此只能证明局部 steering �
 
 这一阶段是规则冻结后的回顾性迁移，不是真正的盲测。
 
+**Table 5.2b. Llama MATH No-CoT: predicted score by dose (post-hoc extension)**
+
+| α | Predicted score | Observed `first_acc` | Status |
+|---:|---:|---:|---|
+| −8 | .7137 | 39.33% | added later |
+| −6 | **.7421** | **43.33%** | added later |
+| −4 | .7143 | 40.00% | original |
+| 0 | .6605 | 36.67% | original |
+| +4 | .5889 | 33.00% | original |
+
+在原始 `{−4,0,+4}` 之外补充 `−8/−6` 后，predictor 在五点曲线上选中 `−6`，与 observed best 一致，regret 为 0。**Predicted score 用于排列剂量顺序，不是针对 MATH 校准过的 predicted accuracy** —— 数值本身不应读作该剂量在 MATH 上的准确率估计。`−8/−6` 两格为后补，不能回填为原始 P2B 分析时已经预测。
+
 ### 5.3 Prospective Blind Validation on GSM-Hard
 
 下一步在尚未查看 accuracy 的 GSM-Hard 上进行前瞻性验证。Predictor、剂量、workpoint 选择规则和成功标准均在 gold 解封前冻结。
 
 **Table 5.3. Predicted and observed GSM-Hard dose curves**
 
-| Model | Metric | −8 | −6 | −4 | 0 | +4 | +6 | +8 |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| Llama3.1-8B | Predicted score | .5554 | **.68834** | .68828 | .6303 | .5770 | — | — |
-|  | Observed `first_acc` | .1100 | **.2433** | .2400 | .1800 | .1700 | — | — |
-| Qwen2.5-7B | Predicted score | — | — | .6959 | .7038 | .6794 | .7182 | **.8552** |
-|  | Observed `first_acc` | — | — | .3433 | .3400 | .3467 | .4033 | **.5033** |
+| Model | Metric | −8 | −6 | −4 | 0 | +4 | +6 | +8 | +10 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Llama3.1-8B (No-CoT) | Predicted score | .5554 | **.68834** | .68828 | .6303 | .5770 | — | — | — |
+|  | Observed `first_acc` | .1100 | **.2433** | .2400 | .1800 | .1700 | — | — | — |
+| Qwen2.5-7B (No-CoT) | Predicted score | — | — | .6959 | .7038 | .6794 | .7182 | **.8552** | .8547 (added later) |
+|  | Observed `first_acc` | — | — | .3433 | .3400 | .3467 | .4033 | **.5033** | .5033 (added later) |
+
+原始盲测只覆盖 No-CoT 各七档；`+10` 为后补邻点，predictor 仍选择 `+8`，实际 `+8/+10` 并列（regret 0）。CoT 条件的逐剂量预测分数单独见 Table 5.4b。
 
 **Table 5.4. Blind workpoint-selection results**
 
@@ -887,6 +913,22 @@ Predictor 正确判断了两个模型的有效方向，并选中了 observed nea
 Llama 的 `−6` 与 `−4` 预测分数只相差约 `.00006`，实际准确率也只差 `.0033`，因此不能说 predictor 精确区分了这两个剂量。更准确的结论是，它选中了正确的近优区间。
 
 Qwen 的 `+8` 选择更明确，但整体排序并不完美：predictor 将 `−4` 排在 `0` 之上，而实际准确率只相差一道题。两个模型的预测分数也都系统性高于实际准确率，因此 absolute probability calibration 没有迁移。
+
+**Table 5.4b. GSM-Hard CoT: predicted score by dose (post-hoc / condition-transfer extension)**
+
+| Model | α | Predicted score | Observed `first_acc` | Status |
+|---|---:|---:|---:|---|
+| Llama | −4 | **.7183** | **30.00%** | added later (post-hoc local stability) |
+| Llama | −6 | .6797 | 26.00% | frozen workpoint |
+| Llama | 0 | .6454 | 20.00% | baseline |
+| Qwen | 0 | .7860 | 38.00% | baseline |
+| Qwen | +6 | .8387 | 49.00% | added later (post-hoc local stability) |
+| Qwen | +8 | .8830 | **51.33%** | frozen workpoint |
+| Qwen | +10 | **.8863** | 50.33% | added later (post-hoc local stability) |
+
+Llama：加入 `−4` 后 predictor 的选择从 `−6` 移到 `−4`，与 observed best 一致，observed near-optimal region 为 `{−6,−4}`。
+
+Qwen：这里需要如实保留一个小偏差 —— predictor 在四点曲线上选择 `+10`，但 observed best 是 `+8`（regret 1.0 pp）；`{+6,+8,+10}` 三档均落在 observed near-optimal region 内，因此这个偏差落在近优区间之内，而不是排序失败。`+6/+10` 两格均为后补，`0/+8` 沿用原有 CoT condition-transfer supplement（§5.3 之外，参见 `CLAUDE.md` 的 P3-supp 记录），未与原始盲测数据混用。
 
 ### 5.4 Workpoints Are Usually Regions, Not Single Doses
 
@@ -937,11 +979,28 @@ Llama 的九档曲线没有与 Qwen 完全相同的 frozen early-candidate 指�
 
 所有 timing 指标都是 α 干预后的输出结果，并且部分指标只在 committed 或 candidate-covered 子集中定义，因此属于关联证据，不构成因果中介证明。
 
+### 5.5b A Negative Boundary Result: BBH Object Counting
+
+并非所有兼容的任务都支持 predictor 的排序结论。BBH object counting 使用与 GSM8K 相同的 `####` 数字提交格式，冻结 adapter 无需修改即可直接提取 commitment features，因此可以作为 predictor 的 post-hoc stress test。但 §6.3 已经报告：该任务本身的 fixed-workpoint transfer 结果是双侧 null（两个模型均未通过 Holm 校正）。
+
+**Table 5.5b. BBH object counting: predicted score by dose (post-hoc stress test on a null-transfer task)**
+
+| Model | α | Predicted score | Observed `first_acc` |
+|---|---:|---:|---:|
+| Llama | −6 | **.5143** | 40.80% |
+| Llama | 0 | .4816 | **41.60%** |
+| Llama | +4 | .4701 | 32.80% |
+| Qwen | −6 | .7132 | 56.80% |
+| Qwen | 0 | **.7331** | 55.20% |
+| Qwen | +8 | .7267 | **57.60%** |
+
+Predictor 在两个模型上都未选中 observed best：Llama 选择 `−6`，实际最高是 `0`（regret 0.8 pp）；Qwen 选择 `0`，实际最高是 `+8`（regret 2.4 pp）。但三个剂量之间的准确率本身没有被显著区分（§6.3），因此这里的 argmax 差异幅度很小，不应写成 predictor 的强预测失败，而应读作：**在一个 steering 本身检测不到效果的任务上，predictor 的剂量排序同样没有识别出真实最优点**——这是一个信息量有限但如实保留的边界案例，不是排序能力的正面证据，也不能被省略。
+
 ### 5.6 Conclusion
 
-Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH 和 GSM-Hard 提供有用的剂量排序信息。
+Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH 和 GSM-Hard 提供有用的剂量排序信息。补充的后补剂量（MATH `−8/−6`、GSM8K CoT 扩展曲线、GSM-Hard 邻点）在多数情况下与 predictor 的原始排序保持一致，但这些补充分析均为回顾性的 post-hoc stress test，不构成新的盲测证据。BBH object counting 是一个反例：它与冻结 adapter 兼容，但其本身的 steering 效果是 null，predictor 的排序也未命中 observed best，说明 predictor 的有效性依赖于目标任务本身存在可检测的剂量效应。
 
-其中，MATH 是回顾性的 locked transfer；GSM-Hard 才是前瞻性盲测。两者都表明 commitment predictor 更适合选择方向和低 regret 的近优工作区间，而不是精确命中唯一 argmax，也不是直接预测新任务的绝对准确率。
+其中，MATH 是回顾性的 locked transfer；GSM-Hard 才是前瞻性盲测。两者都表明 commitment predictor 更适合选择方向和低 regret 的近优工作区间，而不是精确命中唯一 argmax，也不是直接预测新任务的绝对准确率。LogiQA 2.0 与 CRUXEval-O 的 marker 格式与冻结 adapter 不兼容（§6.3），因此不填入 predicted score，只保留在 fixed-workpoint transfer 的结果中。
 
 ## 6. Fixed-Workpoint Transfer, Local Stability, and Task Boundaries
 
