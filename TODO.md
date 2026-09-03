@@ -22,8 +22,8 @@ rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/llama3 /Users/paveenhuang/Downloads
 
 rsync -avzh --partial --info=progress2 \
-  --exclude '/hidden_states_non' \
-  d12922004@140.112.31.185:/data1/paveen/RolePlaying/components/ \
+  --exclude '/hidden_states' \
+  d12922004@140.112.31.185:/data1/paveen/Dopamine/components/ \
   /data1/paveen/Dopamine/components/
 
 ---
