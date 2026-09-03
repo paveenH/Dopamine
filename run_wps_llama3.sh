@@ -64,8 +64,10 @@ DATA="data1"
 MASK_TYPE="nmd"
 PERCENTAGE=0.5
 TEMPERATURE=0.0
-N_SAMPLES=300
 ROLES_NEUTRAL="neutral"
+# --n_samples exists ONLY on get_answer_regenerate_math.py; the GSM8K
+# generator takes its 300 from the test file and argparse REJECTS the flag.
+N_SAMPLES_ARG=""
 
 WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
@@ -81,6 +83,7 @@ case "${CELL}" in
     MAX_NEW_TOKENS=768         # GSM8K value, NOT MATH's 2048
     BATCH_SIZE=24              # GSM8K value, NOT MATH's 8
     COT_FLAG="--cot"
+    N_SAMPLES_ARG=""          # GSM8K generator has no --n_samples
     OUT_FILE="gsm8k_${MODEL_SIZE}_answers_20_11_20.json"
     CSV="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}/mdf_neg2/summary_gsm8k_${MODEL_NAME}_${MODEL_SIZE}_20_11_20.csv"
     DESC="GSM8K CoT alpha=-2 (neighbour of -4)"
@@ -94,6 +97,7 @@ case "${CELL}" in
     MAX_NEW_TOKENS=2048        # MATH value, NOT GSM8K's 768
     BATCH_SIZE=8
     COT_FLAG=""
+    N_SAMPLES_ARG="--n_samples 300"
     OUT_FILE="math_${MODEL_SIZE}_11_20.json"
     CSV="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}/summary_math_${MODEL_NAME}_${MODEL_SIZE}.csv"
     DESC="MATH No-CoT alpha=-8 (neighbour of -6)"
@@ -107,6 +111,7 @@ case "${CELL}" in
     MAX_NEW_TOKENS=2048
     BATCH_SIZE=8
     COT_FLAG="--cot"
+    N_SAMPLES_ARG="--n_samples 300"
     OUT_FILE="math_${MODEL_SIZE}_11_20.json"
     CSV="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}/summary_math_${MODEL_NAME}_${MODEL_SIZE}.csv"
     DESC="MATH CoT alpha=-8 (neighbour of -6)"
@@ -166,7 +171,7 @@ echo "[1/1] ${DESC}"
     --ans_file   "${ANS_FILE}" \
     --base_dir   "${BASE_DIR}" \
     --roles      "${ROLES_NEUTRAL}" \
-    --n_samples      ${N_SAMPLES} \
+    ${N_SAMPLES_ARG} \
     --max_new_tokens ${MAX_NEW_TOKENS} \
     --temperature    ${TEMPERATURE} \
     --batch_size     ${BATCH_SIZE} \
