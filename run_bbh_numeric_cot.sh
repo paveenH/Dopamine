@@ -9,16 +9,20 @@
 # doses already used for the No-CoT bbh-p4b-v0 result. POST-HOC EXPLORATORY
 # FOLLOW-UP -- does not replace the frozen No-CoT result.
 #
-# ONE MODEL PER CARD: the four cells are paired per item against that model's
-# own CoT alpha=0, and bf16 greedy is not byte-reproducible across GPUs. The
-# two MODELS may run on two cards -- they are never compared per item.
+# TASK IS RESTRICTED TO object_counting: that is the only task in this
+# follow-up's frozen 6-comparison Holm family (see
+# PREREG_COT_TRANSFER_FOLLOWUP.md S4.1). multistep_arithmetic_two has no CoT
+# cell authorised here.
+#
+# CELLS ARE NOT REQUIRED TO SHARE A GPU (project-wide convention). host and
+# CUDA_VISIBLE_DEVICES are recorded per generation file; pairing is by
+# sample_id only, never by hardware identity.
 set -euo pipefail
 
 # NOTE: no braces in a ${1:?...} message -- the expansion ends at the FIRST
 # '}', which once made MODEL literally 'llama3}' in a sibling launcher.
 if [[ $# -lt 2 ]]; then
-  echo "usage: run_bbh_numeric_cot.sh llama3|qwen2.5 <task>" >&2
-  echo "  task: object_counting | multistep_arithmetic_two" >&2
+  echo "usage: run_bbh_numeric_cot.sh llama3|qwen2.5 object_counting" >&2
   exit 1
 fi
 MODEL="$1"; TASK="$2"
@@ -29,17 +33,11 @@ BENCH="${BENCH:-$BASE_DIR/benchmark}"
 OUT_ROOT="${OUT_ROOT:-$BASE_DIR/$MODEL/bbh_cot_followup/$TASK}"
 
 case "$TASK" in
-  object_counting|multistep_arithmetic_two) ;;
-  *) echo "[FATAL] task must be object_counting or multistep_arithmetic_two" >&2; exit 1 ;;
+  object_counting) ;;
+  *) echo "[FATAL] task must be object_counting -- this follow-up's Holm" >&2
+     echo "        family does not include multistep_arithmetic_two" >&2
+     exit 1 ;;
 esac
-
-if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
-  echo "[FATAL] CUDA_VISIBLE_DEVICES must be set to exactly one card." >&2
-  exit 1
-fi
-if [[ "$CUDA_VISIBLE_DEVICES" == *,* ]]; then
-  echo "[FATAL] one card only; got '$CUDA_VISIBLE_DEVICES'." >&2; exit 1
-fi
 
 "$PY" -c "import numpy, torch" >/dev/null 2>&1 || {
   echo "[FATAL] '$PY' cannot import numpy/torch. On the server the" >&2
@@ -69,7 +67,8 @@ if [[ "$MODEL_DIR" == /* && ! -d "$MODEL_DIR" ]]; then
 fi
 
 mkdir -p "$OUT_ROOT"
-echo "[cot-followup] BBH model=$MODEL task=$TASK configs=${CONFIGS[*]} card=$CUDA_VISIBLE_DEVICES"
+echo "[cot-followup] BBH model=$MODEL task=$TASK configs=${CONFIGS[*]}"
+echo "[cot-followup] host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "[cot-followup] POST-HOC EXPLORATORY -- does not replace the frozen No-CoT bbh-p4b-v0 result"
 echo "[cot-followup] start $(date)"
 
@@ -80,11 +79,17 @@ cd "$WORK_DIR"
   --configs "${CONFIGS[@]}" --out_dir "$OUT_ROOT"
 
 echo "[cot-followup] done $(date)"
-echo "[cot-followup] After BOTH models finish, score with the shared eval script:"
+echo "[cot-followup] After BOTH models finish, score with the shared eval script"
+echo "     (NOTE: --nocot_generations needs all FOUR No-CoT cells per model --"
+echo "     alpha=0, workpoint, neighbour, reverse -- since the DiD interaction"
+echo "     term reads both alpha=0 and the workpoint dose for each model):"
 echo "     $PY eval_cot_transfer_followup.py --task bbh --bbh_task $TASK \\"
 echo "       --generations \\"
 echo "         $BASE_DIR/llama3/bbh_cot_followup/$TASK/mdf_{0,neg6,neg4,4}/bbh_${TASK}_cot_8B_11_20.json \\"
 echo "         $BASE_DIR/qwen2.5/bbh_cot_followup/$TASK/mdf_{0,8,6,neg6}/bbh_${TASK}_cot_7B_16_22.json \\"
 echo "       --gold_file $BENCH/bbh_p4b_${TASK}.json \\"
+echo "       --nocot_generations \\"
+echo "         $BASE_DIR/llama3/bbh/$TASK/mdf_{0,neg6}/bbh_${TASK}_8B_11_20.json \\"
+echo "         $BASE_DIR/qwen2.5/bbh/$TASK/mdf_{0,8}/bbh_${TASK}_7B_16_22.json \\"
 echo "       --nocot_evaluation docs/bbh_p4b_${TASK}_result.json \\"
 echo "       --out docs/cot_followup_bbh_${TASK}_evaluation.json"
