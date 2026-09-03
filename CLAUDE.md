@@ -143,6 +143,45 @@ Scope: every colour-logit diagnostic claim. -->
 | Workpoint-stability supplement (wps-v0) | **PREPARED, NOT RUN** — 7 neighbour cells, `docs/PREREG_WORKPOINT_STABILITY.md` frozen 2026-09-03 before any cell existed. Asks only whether each reported workpoint is a LOCAL OPTIMUM or the edge of an untested region; **not a dose search**, and no frozen workpoint may be redefined by it. Own family, Holm **m=7**; neighbour comparisons are EXPLORATORY and outside it |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
+<!-- Why: four fixed-workpoint transfer tests are now complete and each is written up
+in isolation, so the cumulative picture (2 transfers, 2 nulls) exists in no single place
+and a reader can cite one arm without the other.
+Evidence: docs/p3_result_20260830.json, p3_supp_result_20260830.json,
+p4_logiqa2_evaluation.json, bbh_p4b_object_counting_result.json.
+Scope: any claim about how far the GSM8K workpoint transfers. -->
+**FIXED-WORKPOINT TRANSFER SCOREBOARD (all four tests complete; α read from the frozen
+GSM8K record and NEVER re-searched — llama `−6`, qwen `+8`).** Report these together:
+
+| Task | Answer space | llama `−6` | qwen `+8` | Verdict |
+|---|---|---|---|---|
+| GSM-Hard (P3) | constructed integer | **+6.33 pp** p=.0066 | **+16.33 pp** p=1.4e−08 | both transfer |
+| GSM-Hard CoT (P3-supp) | constructed integer | **+6.00 pp** p=.0039 | **+13.33 pp** p=9.4e−06 | both transfer |
+| LogiQA 2.0 (P4) | choose among 4 given | −4.33 pp p_adj=.107 | +1.00 pp p_adj=.801 | **DOUBLE NULL** |
+| BBH object_counting (P4b) | constructed integer | −0.80 pp p_adj=1.00 | +2.40 pp p_adj=1.00 | **DOUBLE NULL** |
+
+**The frozen reading, and it is narrower than the table looks.** The workpoint transfers
+across *task difficulty and CoT* on GSM-Hard, and fails on **both** a changed answer space
+(LogiQA) **and** an option-free numeric task that restored it (P4b). **P4b is what forbids
+the tidy story**: it was built to test whether LogiQA's choice interface caused that null,
+and restoring the answer space and `####` submission did NOT restore transfer. So write
+**"removing the option interface was not sufficient to restore transfer"** — never "the
+options caused the LogiQA null", and never "the workpoint transfers to numeric reasoning".
+Separating a choice-interface effect from a reasoning-type effect still needs a within-item
+with/without-options contrast, which has NOT been run.
+
+**Do not read the two nulls as one finding.** They differ in shape: LogiQA's llama arm is
+directionally NEGATIVE and near-significant raw (p=.0533), while P4b's is flat (−0.80 pp,
+p_adj=1.00). **P4b's reverse DIAGNOSTIC is the sharper signal and sits OUTSIDE the Holm
+family with an UNADJUSTED p** — llama `+4` reads **−8.80 pp, p_raw=.00094**, i.e. the
+wrong-direction dose still hurts on a task where the right-direction dose does nothing.
+Qwen's reverse cell is flat (+1.60 pp, p=.672). Cite it as a diagnostic, never as a result.
+
+**GSM8K is not thereby established as the boundary condition** — three of the four tasks
+share its `####` interface and two of the four ARE GSM-Hard, so the transfers rest on one
+task family. wps-v0 (PREPARED, NOT RUN) asks the prior question of whether the workpoint is
+even locally stable; until it runs, "the workpoint" is a single α from one frozen curve.
+
+
 **Required reading before non-trivial changes:**
 - `AdaDopamine_gsm8k.md` — current state. 2026-05-30 起 GSM8K template 已對稱化、mask offset bug 已修,所有舊 Phase 1/2 數字與當前 pipeline 不可比。Phase 1b(現已改稱 Phase 1)的重做**已完成**,見 §4.1–4.8;Phase 2 (Plans A–H3) 結論**暫擱置**,須重跑。**+α 機制表述已改框 (2026-07-24)**：主錨從「焦慮 anxiety / VTA→IPN」改為 **over-wanting → 冲动 impulsivity (抢答) + 认知僵化 / 强迫性反复 compulsivity / perseveration (loop),锚 VTA→NAcc**(理由:+α 数据无回避/freezing,抢答率随 α 单调升 = 急着 commit;不做 mania 类比)。DA→焦虑文献降為次要旁證。**脚本字段名 `analyze_loop_anxiety.py` / `ANXIETY_PATTERNS` / 表格 "Any anxiety" 保留原名**(改名破坏 U 形复现),但按 §2.3「命名说明」读作「强迫性 over-checking」——**勿把 doc 表述改回焦虑框架**。
 - `AdaptiveThinking.md` — 歷史 Phase 1–2 設計、Plan A–H3 動機 / 失敗分析、Yerkes–Dodson framing、EMA + 1-step-lag physics(設計思路仍有效,但數字本身已過時)
@@ -360,7 +399,7 @@ Scope: every Qwen null-remask number; the same caveat governs the Llama §4.6 fa
 
 Key CLI flags: `--pressure` switches to the authority-challenge prompt; `--gold_r1` uses the gold label as Round 1; `--configs` encodes `{alpha}-{layer_start}-{layer_end}` triplets (e.g. `0-11-20 4-11-20 neg4-11-20`). Output lands in `${BASE_DIR}/mmlupro/${MODEL}/answer_cap_mmlupro/cap_{alpha}/`.
 
-Analysis: `gsm8k/analyze_cap_stratified.py` stratifies capitulation rates by difficulty and task category.
+Analysis: `gsm8k/analyze_cap_stratified.py` stratified capitulation rates by difficulty and task category. **Not on disk (verified 2026-09-03), and there is no `gsm8k/` directory in this repo** — the line is dropped from the main line, so treat this as a historical pointer, not a runnable script.
 
 ## Behavioral-economics / wanting-proxy suite
 
@@ -543,7 +582,7 @@ Scope: any per-sample trajectory plot marking answer declarations. -->
 
 The Phase-2/1b GSM8K numbers from before 2026-05-31 are **discarded** — diagnosis found the prompts and extraction were noisy. Conventions for the re-run:
 
-- **`<|eot_id|>` terminator fix (load-bearing for comparability).** `llms.VicundaModel._build_terminators()` registers `<|eot_id|>` (id 128009) — and `<|end_of_turn|>` if present — as additional `eos_token_id`s, and all three generate sites pass `eos_token_id=self.terminators`. Llama-3.1-Instruct ends each assistant turn with `<|eot_id|>`, **not** `<|end_of_text|>` (128001); without this the model "wants to stop" but the token isn't a terminator, so decoding runs to `max_new_tokens` and the tail degenerates into a `####N####N…` char-level repetition loop. The fix does **not** remove GSM8K loops (the loop is itself a wanting signal we keep), but it makes natural EOS possible and shifts the numbers. **Pre-eot numbers are not comparable to post-eot numbers.** The current data under analysis is the eot rerun: GSM8K answers in `gsm8k_eot/…`, hidden states under `RUN_TAG=phase1b_eot`. **MATH eot rerun has landed, and as of 2026-09-01 the MATH tree is CONSOLIDATED TO ONE VERSION at `RoleAnswer/llama3/math/`** (file `math_8B_11_20[_role].json`, field `generated`, gold in `gold_answer`); `run_math.sh` drives the No-CoT + α=0-CoT matrix and `run_math_cot.sh` is the CoT-supplement split-off.
+- **`<|eot_id|>` terminator fix (load-bearing for comparability).** `llms.VicundaModel._build_terminators()` registers `<|eot_id|>` (id 128009) — and `<|end_of_turn|>` if present — as additional `eos_token_id`s, and all three generate sites pass `eos_token_id=self.terminators`. Llama-3.1-Instruct ends each assistant turn with `<|eot_id|>`, **not** `<|end_of_text|>` (128001); without this the model "wants to stop" but the token isn't a terminator, so decoding runs to `max_new_tokens` and the tail degenerates into a `####N####N…` char-level repetition loop. The fix does **not** remove GSM8K loops (the loop is itself a wanting signal we keep), but it makes natural EOS possible and shifts the numbers. **Pre-eot numbers are not comparable to post-eot numbers.** The current data under analysis is the eot rerun: GSM8K answers in `gsm8k_eot/…`, hidden states under `RUN_TAG=phase1b_eot`. **MATH eot rerun has landed, and as of 2026-09-01 the MATH tree is CONSOLIDATED TO ONE VERSION at `RoleAnswer/llama3/math/`** (file `math_8B_11_20[_role].json`, field `generated`, gold in `gold_answer`); `run_math.sh` drives the No-CoT + α=0-CoT matrix itself (its step [2] passes `--cot`). **`run_math_cot.sh` no longer exists** — deleted 2026-06-09 in `0316de0`; older refs to it are stale, and the CoT ±4/−6 supplement cells were driven by `run_math_llama3_wp.sh` / `run_math_cot_llama3_wp.sh`.
 <!-- Why: three parallel MATH trees coexisted with DIFFERENT token budgets and
 overlapping cell names, so a wrong root silently produced plausible numbers from
 the wrong batch; math_2048 also looked like the main line while being a SUBSET.
@@ -1319,8 +1358,10 @@ frozen file, so re-running the chain requires deliberately deleting it.
 ## P4 fixed-workpoint transfer to generative logical reasoning (LogiQA 2.0)
 
 > **`docs/PREREG_P4_LOGIQA2.md` is the protocol** (`logiqa2-p4-v0`, stage 0,
-> commit `cb796ea`), amended additively by `docs/p4_amendment_0{1,2,3,4,5,6}.json`
-> — none overwrites its predecessor. `docs/P4_LOGIQA2_PREFLIGHT_OUTCOME.md` is
+> commit `cb796ea`), amended additively by `docs/p4_amendment_0{1,2,3,5,6}.json`
+> — none overwrites its predecessor. **`04` is deliberately absent from that list:
+> it is referenced by `p4-amend-02`/`05` but is NOT on disk — see the bullet at the
+> end of this section before citing it.** `docs/P4_LOGIQA2_PREFLIGHT_OUTCOME.md` is
 > the preflight record. **Status: COMPLETE + FROZEN 2026-09-01 — DOUBLE NULL.**
 
 ### RESULT (scored 2026-09-01, `docs/p4_logiqa2_evaluation.json`)
