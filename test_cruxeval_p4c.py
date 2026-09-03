@@ -129,10 +129,29 @@ for g in ["'ph>t#A#BiEcDefW#ON#iiNCU'", "'fiu##nk#he###wumun'",
     ok_, v_ = as_literal(extract(f"#### {g}<|endoftext|>"))
     check(ok_ and v_ == ast.literal_eval(g),
           f"REGRESSION: real gold containing '#' round-trips ({g[:22]}...)")
-# NOT rescued, deliberately: prose after the payload is the model failing the
-# frozen format, which is a result to report, not a parser to widen.
-check(as_literal(extract("#### 'x' The function removes the first"))[0] is False,
-      "prose after the payload is NOT rescued")
+# NOT rescued, deliberately (p4c-amend-02). Both shapes are REAL preflight
+# output from qwen2.5 alpha=+8, and both are the MODEL failing the frozen
+# "exactly one line" format rather than a decoding artifact. Format obedience
+# is dose-dependent here (qwen alpha=0 read 8/8, alpha=+8 read 6/8), so a
+# parser that rescued them would systematically hide a steering effect.
+_prose = ("#### 'ohesteo' The function `f` removes the first occurrence of the "
+          "specified character.\n#### 'ohesteo'<|endoftext|>")
+check(as_literal(extract(_prose, "first"))[0] is False,
+      "REGRESSION amend-02: prose after the payload is NOT rescued (FIRST)")
+check(as_literal(extract(_prose, "last"))[0] is True,
+      "REGRESSION amend-02: it DOES parse under LAST -- reported as "
+      "sensitivity, never promoted to MAIN")
+_empty = ("[PYTHON]\nassert f([7, 1, 2, 6, 0, 2]) == [0, 2, 7, 1, 2, 6]\n"
+          "####\n#### [0, 2, 7, 1, 2, 6]<|endoftext|>")
+check(extract(_empty, "first") == "",
+      "REGRESSION amend-02: a bare '####' yields an EMPTY payload, not the "
+      "next line's answer")
+check(as_literal(extract(_empty, "first"))[0] is False,
+      "REGRESSION amend-02: an empty marker line is NOT rescued")
+# the answer also appears in the model's restated assert, OUTSIDE any marker;
+# only a marker payload is an answer submission
+check("[0, 2, 7, 1, 2, 6]" in _empty and extract(_empty, "first") == "",
+      "REGRESSION amend-02: an answer outside a marker is NOT read")
 
 # --- literal parsing: MUST NOT execute
 ok, v = as_literal("[1, 2]")
