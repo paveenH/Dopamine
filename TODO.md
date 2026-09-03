@@ -1,4 +1,4 @@
-# Tmux
+#### Tmux
 conda activate dopamine
 conda activate roleplaying
 conda deactivate
@@ -14,11 +14,11 @@ export CUDA_VISIBLE_DEVICES=3
 
 top -u $USER
 
-# 清理缓存
+##### 清理缓存
 rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
-# 182/184/185/177/178
+##### 182/184/185/177/178
 /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/math
 rsync -avzP d12922004@140.112.31.184:/data1/paveen/Dopamine/components/qwen2.5 /Users/paveenhuang/Downloads
 rsync -avzP /Users/paveenhuang/Documents/RSNResult/RoleAnswer/llama3/bandit/pv11/pv11_a0 d12922004@140.112.31.185:/data1/paveen/Dopamine/components/llama3/bandit/pv11/pv11_a0/
@@ -30,7 +30,7 @@ rsync -avzh \
 ---
 Daily
 
-09.02 整理衣橱、写三件感恩的事
+09.03 整理衣橱、选课
 09.04 Lab聚餐/ 爸爸生日
 09.07 生理期推迟
 09.11 seminar
@@ -53,7 +53,16 @@ Daily
 看完瑜伽视频
 看完徐玉兰视频
 ---
-**Marcus et al., Nature 2026 — *Endocannabinoids facilitate reward engagement through retrograde gain control*.** 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。[Nature 论文](https://doi.org/10.1038/s41586-026-10967-w)
+Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retrograde gain control.](https://doi.org/10.1038/s41586-026-10967-w) 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。
+
+
+PCA	（真正意义上的）Manifold 学习
+假设的几何	数据落在一个线性子空间（超平面）里	数据落在一个可能弯曲的低维曲面里，嵌在高维空间中
+典型方法	特征值分解 / SVD	Isomap、LLE、t-SNE、UMAP、扩散映射等,或者神经科学里专门拟合非线性流形的方法
+距离度量	欧氏距离，全局线性	通常用测地距离（沿曲面走的最短路径），局部线性、全局非线性
+能否处理"弯曲"结构	不能——如果真实结构是一个卷起来的螺旋，PCA 会把它压扁成一条直线，丢失结构	能——专门设计来展开这种弯曲结构
+可解释性	高（线性组合，容易做 cosine/正交这类简单几何判断）	通常较低（非线性映射难以做像"两条位移向量的夹角"这种简单代数运算）
+在你们项目里的角色	你们 Section 3 用的就是这个	你们文档里提过但明确不做（"不再扩展 UMAP/TLE"——TLE 就是 Tensor/Topological/局部嵌入一类非线性方法，UMAP 是最常见的非线性流形工具）
 
 ---
 组会内容（08.31）：
@@ -86,7 +95,8 @@ Daily
 18. BBH counting task ✔
 19. 精简claude.md的内容 ✔
 20. 整理GSM8K文档 ✔
-21. 补充一下llama3-gsm8k-cot working point的结果 ⏸
+21. 补充一下llama3-gsm8k-cot working point的结果 ✔
+22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182)
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
