@@ -95,9 +95,11 @@ Agent5: Total Design (GPT)
 19. 精简claude.md的内容 ✔
 20. 整理GSM8K文档 ✔
 21. 补充一下llama3-gsm8k-cot working point的结果 ✔
-22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ✔
-23. 优化文档，顺便丰富一下prediction的结果 ⏸ 
-23. CRUXEval Design ⏸ 
+22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ✔ 
+23. CRUXEval Design ✔ 
+24. 优化文档GSM8K ⏸
+25. 补充BBH CRUX LogiQA cot的结果 ⏸
+25. 顺便丰富一下prediction的结果
 
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
