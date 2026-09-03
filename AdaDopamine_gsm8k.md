@@ -980,28 +980,23 @@ MATH 则表现出模型差异。Llama 的固定 `−6` 在 No-CoT 和 CoT 下均
 ### 6.2 From Fixed Points to Near-Optimal Regions
 
 七个预先声明的 workpoint-stability 补充格共同组成独立的 Holm `m=7` 家族。下表同时保留新增剂量的主要结果，以及用于描述局部区域的邻点比较。
+### 6.2 From Fixed Points to Near-Optimal Regions
 
-**Table 6.2. Workpoint-stability results and observed near-optimal regions**
+七个预先声明的 workpoint-stability 补充格共同组成独立的 Holm `m=7` 家族。其中，Llama GSM8K CoT 的 `α=−2` 属于来源任务检查，已在 §1.2 报告；本节只汇总 MATH 和 GSM-Hard 上的六个目标任务补充格。
 
-| Curve | Frozen/reference point | Stability cell(s) versus α=0 | Observed near-optimal region | Key neighbour comparison |
+Qwen GSM8K 的 near-optimal regions 已在 §5.4 报告。Qwen MATH 没有新增 workpoint-stability 剂量：固定 `+8` 的迁移结果保留在 Table 6.1，而目标任务重新选择的 `+6` 属于 §5 的 workpoint selection，不与本表合并。
+
+**Table 6.2. Target-task workpoint stability and observed near-optimal regions**
+
+| Curve | Frozen workpoint | Stability cell(s) versus α=0 | Observed near-optimal region | Key neighbour comparison |
 |---|---|---|---|---|
-| Llama GSM8K CoT | `−6`: 75.33% | `−2`: 74.00%, Δ=+5.00 pp, `p_adj=.174`, CI=[+0.33,+9.67] | **{−4}** | `−4` vs `−6`: +9.67 pp, `p=.000114`; vs `−2`: +11.00 pp, `p=1.07e−06` |
 | Llama MATH No-CoT | `−6`: 43.33% | `−8`: 39.33%, Δ=+2.67 pp, `p_adj=.403`, CI=[−3.00,+8.00] | **{−8,−6,−4}** | `−6` vs `−8`: +4.00 pp, `p=.126`; vs `−4`: +3.33 pp, `p=.212` |
 | Llama MATH CoT | `−6`: 49.00% | `−8`: 45.33%, Δ=+3.33 pp, `p_adj=.328`, CI=[−0.67,+7.67] | **{−8,−6,−4}** | `−6` vs `−8`: +3.67 pp, `p=.0895`; vs `−4`: +4.00 pp, `p=.104` |
 | Llama GSM-Hard CoT | `−6`: 26.00% | `−4`: 30.00%, Δ=+10.00 pp, `p_adj=1.36e−06`, CI=[+6.33,+14.00] | **{−6,−4}** | `−4` vs `−6`: +4.00 pp, `p=.065` |
 | Qwen GSM-Hard No-CoT | `+8`: 50.33% | `+10`: 50.33%, Δ=+16.33 pp, `p_adj=9.90e−08`, CI=[+11.00,+21.67] | **{+8,+10}** | `+10` vs `+8`: 0.00 pp, `p=1.000` |
 | Qwen GSM-Hard CoT | `+8`: 51.33% | `+6`: 49.00%, Δ=+11.00 pp, `p_adj=.000270`, CI=[+5.67,+16.33]; `+10`: 50.33%, Δ=+12.33 pp, `p_adj=8.46e−05`, CI=[+7.00,+18.00] | **{+6,+8,+10}** | `+8` vs `+6`: +2.33 pp, `p=.371`; vs `+10`: +1.00 pp, `p=.664` |
 
-表中的 neighbour comparison 是看到原始曲线后设计的探索性比较，使用未校正 p 值，不进入 Holm `m=7` 家族，也不能重新定义冻结工作点。
-
-这些结果说明：
-
-- **Llama GSM8K CoT 是清晰的例外。** `−4` 同时高于 `−6` 和 `−2`，构成目前唯一明确的单点负向局部峰。
-- **Llama MATH 的峰区较宽。** No-CoT 和 CoT 都支持 `{−8,−6,−4}`，因此 `−6` 更适合解释为宽峰区间内的稳健工作点，而不是精确峰值。
-- **Llama GSM-Hard CoT 支持 `{−6,−4}`。** `−4` 的点估计更高，但与固定 `−6` 的邻点差异未达到显著。
-- **Qwen GSM-Hard 呈现高剂量平台。** 固定 `+8` 位于 No-CoT 的 `{+8,+10}` 和 CoT 的 `{+6,+8,+10}` 中；在已测范围内尚未观察到平台回落，因此右侧边界仍未闭合。
-
-因此，固定 workpoint 可以是一个稳定、低 regret 的选择，但不必是唯一最佳点。不同任务和模型的近优区域并不相同，原始 α 也不能作为跨模型共享的剂量尺度。
+Stability cell 与 α=0 的比较属于 Holm `m=7` 家族。表中的 neighbour comparison 是看到原始曲线后设计的探索性比较，使用未校正 p 值，不进入该家族，也不能重新定义冻结工作点。
 
 ### 6.3 Exploratory Task Boundaries
 
