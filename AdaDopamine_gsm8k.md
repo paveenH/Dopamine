@@ -943,251 +943,120 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 
 其中，MATH 是回顾性的 locked transfer；GSM-Hard 才是前瞻性盲测。两者都表明 commitment predictor 更适合选择方向和低 regret 的近优工作区间，而不是精确命中唯一 argmax，也不是直接预测新任务的绝对准确率。
 
----
+## 6. Fixed-Workpoint Transfer, Local Stability, and Task Boundaries
 
-## 6. Fixed-Workpoint Transfer and Task Boundaries
+> 本节检验：不在目标任务上重新搜索 α，直接使用 GSM8K 确定的 workpoint，是否仍能提高准确率？
 
-> 本节检验另一个问题：不在目标任务上重新搜索 α，直接使用 GSM8K 已经确定的 workpoint，是否仍能提高准确率？
+冻结的迁移点为：
 
-冻结的 workpoint 为：
 - Llama3.1-8B：`α=−6`
 - Qwen2.5-7B：`α=+8`
 
-### 6.1 Scope and Frozen Workpoints
+这与 §5 的 workpoint selection 不同：selection 根据目标任务的完整剂量曲线重新选择 α；fixed-workpoint transfer 则必须沿用 GSM8K 已经确定的剂量。
 
-**Table 6.1. Frozen GSM8K workpoint checked under the CoT condition (source task, not a transfer target)**
+后续补充剂量只用于检查固定点附近的局部稳定性，不改变原有迁移检验。本文所称的 near-optimal region，是指**在已测离散剂量中，与观察最佳点未被显著区分的集合**；它不是连续区间，也不代表已经证明这些剂量统计等效。
 
-| α | Role | acc(0, CoT) | acc(α, CoT) | Δ | 0→1 / 1→0 | Raw p | Statistical family | Holm p_adj | Bootstrap 95% CI |
-|---:|---|---:|---:|---:|---:|---:|---|---:|---|
-| −6 | Fixed workpoint | .6900 | .7533 | +6.33 pp | 52 / 33 | .0503 | Llama CoT dose family, Holm `m=3` | .0503 | [+0.33, +12.33] |
-| −4 | Observed best (not the fixed workpoint) | .6900 | .8500 | **+16.00 pp** | 66 / 18 | 1.33e−07 | Llama CoT dose family, Holm `m=3` | **4.0e−07** | [+10.33, +21.67] |
-| −2 | Workpoint-stability | .6900 | .7400 | +5.00 pp | 35 / 20 | — | Workpoint-stability supplement, Holm `m=7` | .174 | [+0.33, +9.67] |
+### 6.1 Core Transfer Results
 
-固定 `α=−6` 相对 CoT baseline 的方向为正，但在其自身的 Holm `m=3` 家族中校正后 `p=.0503`，且明显低于同一 CoT 曲线上重新选择得到的 `α=−4`（+16.00 pp，Holm `p_adj=4.0e−07`，与 `−6` 同属一个 `m=3` 家族——`+4` 是该家族第三个成员，详见 §1.2）。`α=−4` 在此仅作为该曲线的观察最佳点列出，用于对照，**不是**本节 fixed-workpoint transfer 使用的剂量；§6.2–§6.3 及以下各节继续使用 GSM8K No-CoT 确定的 `−6`。`α=−2` 属于独立的 workpoint-stability `m=7` 家族，不与前者合并。这三行共同说明：fixed-workpoint transfer 检验的是原工作点能否继续带来增益，不代表它仍是新条件下的最佳剂量——这一区分是本节其余内容的前提。
+**Table 6.1. GSM8K-derived fixed-workpoint transfer on MATH and GSM-Hard**
 
-### 6.2 Transfer to MATH
+| Target | Condition | Model | Frozen α | acc(0) | acc(α) | Δ | Main inference | 95% CI | Result |
+|---|---|---|---:|---:|---:|---:|---|---|---|
+| GSM-Hard | No-CoT | Llama | −6 | .1800 | .2433 | **+6.33 pp** | raw `p=.00661` | — | Positive |
+| GSM-Hard | No-CoT | Qwen | +8 | .3400 | .5033 | **+16.33 pp** | raw `p=1.41e−08` | — | Positive |
+| GSM-Hard | CoT | Llama | −6 | .2000 | .2600 | **+6.00 pp** | Holm `p_adj=.00393` | [+2.33, +10.00] | Positive |
+| GSM-Hard | CoT | Qwen | +8 | .3800 | .5133 | **+13.33 pp** | Holm `p_adj=9.42e−06` | [+8.00, +19.00] | Positive |
+| MATH | No-CoT | Llama | −6 | .3667 | .4333 | **+6.67 pp** | Holm `p_adj=.0489` | [+1.00, +12.33] | Positive |
+| MATH | No-CoT | Qwen | +8 | .6067 | .6333 | +2.67 pp | Holm `p_adj=.3581` | [−2.33, +7.67] | Not detected |
+| MATH | CoT | Llama | −6 | .4200 | .4900 | **+7.00 pp** | Holm `p_adj=.0225` | — | Positive |
+| MATH | CoT | Qwen | +8 | .6300 | .6400 | +1.00 pp | Holm `p_adj=1.0000` | — | Not detected |
 
-**Table 6.2a. MATH fixed-workpoint transfer**
+各行来自不同的预先定义统计家族，表中的 p 值不能跨行直接比较。完整的统计家族、raw p 和运行记录保留在 `CLAUDE.md`。
 
-| Condition | Model | acc(0) | acc(workpoint) | Δ | Raw p | Statistical family | Adjusted p | 95% CI | Result |
-|---|---|---:|---:|---:|---:|---|---:|---|---|
-| No-CoT | Llama | .3667 | .4333 | **+6.67pp** | .0245 | Cross-model workpoint comparison, Holm `m=2` | **.0489** | [+1.00, +12.33] | Positive |
-| No-CoT | Qwen | .6067 | .6333 | +2.67pp | .3581 | Cross-model workpoint comparison, Holm `m=2` | .3581 | [−2.33, +7.67] | Not detected |
-| CoT | Llama | .4200 | .4900 | **+7.00pp** | .0075 | Llama CoT dose family, Holm `m=3` | **.0225** | — | Positive |
-| CoT | Qwen | .6300 | .6400 | +1.00pp | — | Qwen MATH CoT dose family (own α=0), Holm `m=8` | 1.0000 | — | Not detected |
+GSM-Hard 提供了最稳定的迁移结果：不重新选择 α，两个模型在 No-CoT 和 CoT 条件下均获得准确率提升。No-CoT 结果同时承担 §5.3 的前瞻性 blind workpoint-selection 验证，因此不是一项独立重复证据。
 
-Qwen MATH CoT 一行的 raw p 与 95% CI 未在冻结记录中逐格公开——`CLAUDE.md` 仅记录该 Holm `m=8` 家族（CoT 八个非零剂量各自相对自身 α=0）"all eight p_adj=1.0000"这一聚合结论，因此这里只填写可核实的 accuracy 与 Adjusted p，不补造 raw p 或 CI。
+MATH 则表现出模型差异。Llama 的固定 `−6` 在 No-CoT 和 CoT 下均提高准确率；Qwen 的固定 `+8` 在两个条件下都只有较小的点估计增益，且均未被检出。§5 的 commitment predictor 在完整 Qwen MATH 曲线上选中的是 `+6`，说明目标任务重新选择 workpoint 与直接迁移固定点支持的是不同结论。
 
-**Table 6.2b. MATH workpoint-stability supplement**
+### 6.2 From Fixed Points to Near-Optimal Regions
 
-| Condition | Model | New α | acc(0) | acc(new α) | Δ | Gains/losses | Statistical family | Holm p_adj | 95% CI |
-|---|---|---:|---:|---:|---:|---:|---|---:|---|
-| No-CoT | Llama | −8 | .3667 | .3933 | +2.67pp | 39/31 | Workpoint-stability supplement, Holm `m=7` | .403 | [−3.00, +8.00] |
-| CoT | Llama | −8 | .4200 | .4533 | +3.33pp | 26/16 | Workpoint-stability supplement, Holm `m=7` | .328 | [−0.67, +7.67] |
+七个预先声明的 workpoint-stability 补充格共同组成独立的 Holm `m=7` 家族。下表同时保留新增剂量的主要结果，以及用于描述局部区域的邻点比较。
 
-Llama 的固定 `−6` 在 No-CoT 下将准确率由 36.67% 提高到 43.33%，通过跨模型 Holm `m=2` 校正。在 CoT 下，`−6` 也将准确率由 42.00% 提高到 49.00%，并通过 Llama CoT 曲线内 Holm `m=3` 校正。新增 `−8` 在 No-CoT/CoT 下分别为 39.33%/45.33%，与 `−6` 的邻点差异都未被检出。因此，MATH 支持的不是精确的 `−6` 单点峰值，而是包含 `−8/−6/−4` 的宽负向工作区间。
+**Table 6.2. Workpoint-stability results and observed near-optimal regions**
 
-Qwen 的固定 `+8` 在 MATH No-CoT 上只提高 2.67pp，CI 跨 0；在 CoT 下同样只提高 1.00pp，属于其自身 Holm `m=8` 家族中 p_adj=1.0000 的八项之一。§5 的 commitment predictor 在完整 MATH 曲线上选中的是 `+6`，而不是 GSM8K 的 `+8`。因此：
+| Curve | Frozen/reference point | Stability cell(s) versus α=0 | Observed near-optimal region | Key neighbour comparison |
+|---|---|---|---|---|
+| Llama GSM8K CoT | `−6`: 75.33% | `−2`: 74.00%, Δ=+5.00 pp, `p_adj=.174`, CI=[+0.33,+9.67] | **{−4}** | `−4` vs `−6`: +9.67 pp, `p=.000114`; vs `−2`: +11.00 pp, `p=1.07e−06` |
+| Llama MATH No-CoT | `−6`: 43.33% | `−8`: 39.33%, Δ=+2.67 pp, `p_adj=.403`, CI=[−3.00,+8.00] | **{−8,−6,−4}** | `−6` vs `−8`: +4.00 pp, `p=.126`; vs `−4`: +3.33 pp, `p=.212` |
+| Llama MATH CoT | `−6`: 49.00% | `−8`: 45.33%, Δ=+3.33 pp, `p_adj=.328`, CI=[−0.67,+7.67] | **{−8,−6,−4}** | `−6` vs `−8`: +3.67 pp, `p=.0895`; vs `−4`: +4.00 pp, `p=.104` |
+| Llama GSM-Hard CoT | `−6`: 26.00% | `−4`: 30.00%, Δ=+10.00 pp, `p_adj=1.36e−06`, CI=[+6.33,+14.00] | **{−6,−4}** | `−4` vs `−6`: +4.00 pp, `p=.065` |
+| Qwen GSM-Hard No-CoT | `+8`: 50.33% | `+10`: 50.33%, Δ=+16.33 pp, `p_adj=9.90e−08`, CI=[+11.00,+21.67] | **{+8,+10}** | `+10` vs `+8`: 0.00 pp, `p=1.000` |
+| Qwen GSM-Hard CoT | `+8`: 51.33% | `+6`: 49.00%, Δ=+11.00 pp, `p_adj=.000270`, CI=[+5.67,+16.33]; `+10`: 50.33%, Δ=+12.33 pp, `p_adj=8.46e−05`, CI=[+7.00,+18.00] | **{+6,+8,+10}** | `+8` vs `+6`: +2.33 pp, `p=.371`; vs `+10`: +1.00 pp, `p=.664` |
 
-- Commitment-based selection 能根据目标任务选择新的 workpoint；
-- Fixed-workpoint transfer 则受到目标任务剂量曲线的限制。
+表中的 neighbour comparison 是看到原始曲线后设计的探索性比较，使用未校正 p 值，不进入 Holm `m=7` 家族，也不能重新定义冻结工作点。
 
-MATH 结果支持 Llama `−6` 作为宽峰区间内的稳健 workpoint，但不支持 Qwen `+8` 在 MATH 上（No-CoT 与 CoT 均如此）具有稳定增益。这两个 null 结果予以完整保留，不因不显著而删除。
+这些结果说明：
 
-### 6.3 Transfer to GSM-Hard
+- **Llama GSM8K CoT 是清晰的例外。** `−4` 同时高于 `−6` 和 `−2`，构成目前唯一明确的单点负向局部峰。
+- **Llama MATH 的峰区较宽。** No-CoT 和 CoT 都支持 `{−8,−6,−4}`，因此 `−6` 更适合解释为宽峰区间内的稳健工作点，而不是精确峰值。
+- **Llama GSM-Hard CoT 支持 `{−6,−4}`。** `−4` 的点估计更高，但与固定 `−6` 的邻点差异未达到显著。
+- **Qwen GSM-Hard 呈现高剂量平台。** 固定 `+8` 位于 No-CoT 的 `{+8,+10}` 和 CoT 的 `{+6,+8,+10}` 中；在已测范围内尚未观察到平台回落，因此右侧边界仍未闭合。
 
-**Table 6.3a. GSM-Hard fixed-workpoint transfer**
+因此，固定 workpoint 可以是一个稳定、低 regret 的选择，但不必是唯一最佳点。不同任务和模型的近优区域并不相同，原始 α 也不能作为跨模型共享的剂量尺度。
 
-| Condition | Model | acc(0) | acc(workpoint) | Δ | Raw p | Statistical family | Adjusted p | 95% CI | Result |
-|---|---|---:|---:|---:|---:|---|---:|---|---|
-| No-CoT | Llama | .1800 | .2433 | **+6.33pp** | .00661 | GSM-Hard blind validation (see §5.3) | — | — | Positive |
-| No-CoT | Qwen | .3400 | .5033 | **+16.33pp** | 1.41e−08 | GSM-Hard blind validation (see §5.3) | — | — | Positive |
-| CoT | Llama | .2000 | .2600 | **+6.00pp** | .00393 | GSM-Hard CoT supplement, Holm `m=2` | **.00393** | [+2.33, +10.00] | Positive |
-| CoT | Qwen | .3800 | .5133 | **+13.33pp** | 4.71e−06 | GSM-Hard CoT supplement, Holm `m=2` | **9.42e−06** | [+8.00, +19.00] | Positive |
+### 6.3 Exploratory Task Boundaries
 
-GSM-Hard No-CoT 同时承担 §5.3 的前瞻性 blind workpoint-selection 验证，因此不是一项独立重复证据；此处保留其数值，是为了与 CoT 条件并排呈现完整的 No-CoT/CoT 对照。
+LogiQA 2.0、BBH object counting 和 CRUXEval-O 用于探索 fixed-workpoint transfer 的任务边界。它们改变了推理内容、答案空间或生成与评分接口，因此单独报告，不用于重新定义 GSM8K workpoint，也不与 MATH/GSM-Hard 合并为统一成功率。
 
-**Table 6.3b. GSM-Hard workpoint-stability supplement**
+**Table 6.3. Fixed-workpoint transfer on exploratory boundary tasks**
 
-| Condition | Model | New α | acc(0) | acc(new α) | Δ | Gains/losses | Holm p_adj | 95% CI |
-|---|---|---:|---:|---:|---:|---:|---:|---|
-| CoT | Llama | −4 | .2000 | **.3000** | **+10.00pp** | 33/3 | **1.36e−06** | [+6.33, +14.00] |
-| No-CoT | Qwen | +10 | .3400 | **.5033** | **+16.33pp** | 63/14 | **9.90e−08** | [+11.00, +21.67] |
-| CoT | Qwen | +6 | .3800 | **.4900** | **+11.00pp** | 50/17 | **.000270** | [+5.67, +16.33] |
-| CoT | Qwen | +10 | .3800 | **.5033** | **+12.33pp** | 55/18 | **8.46e−05** | [+7.00, +18.00] |
+| Target and main metric | Model | Frozen α | acc(0) | acc(α) | Δ | Holm p_adj | 95% CI | Sensitivity |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| LogiQA 2.0, LAST | Llama | −6 | .5633 | .5200 | −4.33 pp | .107 | [−8.33, −0.33] | FIRST: −3.33 pp |
+| LogiQA 2.0, LAST | Qwen | +8 | .6400 | .6500 | +1.00 pp | .801 | [−4.00, +6.33] | FIRST: +0.67 pp |
+| BBH object counting, FIRST | Llama | −6 | .4160 | .4080 | −0.80 pp | 1.000 | [−6.80, +5.20] | LAST: .412→.408 |
+| BBH object counting, FIRST | Qwen | +8 | .5520 | .5760 | +2.40 pp | 1.000 | [−4.00, +8.40] | LAST: .560→.564 |
+| CRUXEval-O, FIRST | Llama | −6 | .3467 | .3100 | −3.67 pp | .1352 | [−8.00, +0.67] | LAST: −2.33 pp |
+| CRUXEval-O, FIRST | Qwen | +8 | .2933 | .3767 | **+8.33 pp** | **.0045** | [+3.33, +13.67] | LAST: −6.00 pp |
 
-四项 new-`α` versus stored-`α=0` 比较属于同一个独立的 Holm `m=7` 家族（与 GSM8K CoT `−2`、MATH `−8` No-CoT/CoT 共享，见 §6.1、§6.2），绝不与 P3/P3-supp/P4/P4b 的 `m=2` 或原 MATH/CoT dose family 的 `m=3` 合并。
+#### LogiQA 2.0
 
-**Table 6.3c. Local near-optimal regions after the stability supplement**
+两个模型的固定 workpoint 均未通过 Holm 校正，FIRST sensitivity 与 LAST 主结果方向一致。因此，该结果不能简单归因于 final-answer parser 或答案的后续修改。
 
-| Target curve | High-performing doses | Near-optimal region | Key neighbour comparison |
-|---|---|---|---|
-| Llama GSM-Hard CoT | `−6`: 26.00%; `−4`: 30.00% | **{−6, −4}** | `−4` vs `−6`: +4.00pp, p=.065 |
-| Qwen GSM-Hard No-CoT | `+8`: 50.33%; `+10`: 50.33% | **{+8, +10}** | `+10` vs `+8`: 0.00pp, p=1.000 |
-| Qwen GSM-Hard CoT | `+6`: 49.00%; `+8`: 51.33%; `+10`: 50.33% | **{+6, +8, +10}** | `+8` vs `+6`: +2.33pp, p=.371; vs `+10`: +1.00pp, p=.664 |
+LogiQA 同时改变了推理内容和答案接口，无法判断具体是哪一个因素限制了迁移。它只能说明 GSM8K workpoint 没有稳定迁移到当前的生成式多选逻辑推理设置。
 
-邻点之间的直接比较是看到原曲线后设计的探索性分析，不进入 Holm `m=7` 家族，只用于描述 near-optimal region，不得重新定义冻结工作点。
+#### BBH Object Counting
 
-补充结果将两个模型的 GSM-Hard 结论都改写为"近优区间"：Llama 的 `−4` 点估计高于固定 `−6`，但两者未显著分开；Qwen 的固定 `+8` 则位于已覆盖 `+6…+10` 的高表现平台内，且该平台在已测剂量范围内尚未表现出回落——即高剂量端仍是平台/边界未完全闭合。因此，固定 workpoint 可以是稳健的低 regret 选择，却不必被解释为唯一峰值。
+BBH 恢复了与 GSM8K 更接近的整数答案和 `####` 提交形式，但两个模型仍未检出准确率提升。恢复输出接口不足以恢复迁移，因此不能把 LogiQA 的 null 单独归因于多选题形式。
 
-**Table 6.3d. CoT and No-CoT steering effects on GSM-Hard, and the CoT × steering interaction**
-
-| Model | ΔAcc No-CoT | ΔAcc CoT | CoT × steering interaction | 95% CI |
-|---|---:|---:|---:|---|
-| Llama3.1-8B | +6.33pp | +6.00pp | −0.33pp | [−6.00, +5.33] |
-| Qwen2.5-7B | +16.33pp | +13.33pp | −3.00pp | [−9.67, +4.00] |
-
-两个 interaction CI 都包含 0，因此没有检测到 CoT 明显增强或削弱 steering effect。结果与两种干预产生近似可加的行为增益相容，但不能证明它们严格等效或具有完全独立的机制。
-
-这些结果限定在固定 768-token budget 下。截断诊断没有显示准确率增益可以简单由两格截断率差异解释，但生成预算仍可能影响绝对表现，因此不能外推为不受长度限制的能力。
-
-### 6.4 Workpoint Stability and Near-Optimal Regions
-
-本小节汇总 §5.4、§6.1–§6.3 中已给出的近优区间证据，不重复列出原始表格，只作跨条件的整体归纳：
-
-- **不应把单一 observed argmax 当作跨条件稳定的常数。** GSM8K、MATH、GSM-Hard 三条核心曲线上，"最佳剂量"在多数条件下更适合表达为一个区间，而不是精确的单点（详见 §5.4 Table 5.5、本节 Table 6.3c）。
-- **优先报告 near-optimal region，而不是单一 argmax。** 六条源曲线中四条的最佳结果表达为区间（见 §5.4 Table 5.5）；GSM-Hard 的三条曲线在加入 workpoint-stability 剂量后同样从单点收窄或扩展为区间（本节 Table 6.3c）。
-- **Llama GSM8K CoT 的 `α=−4` 是该条件下的局部峰（见 §1.2、§5.4 Table 5.5），但不取代固定迁移协议中的 `α=−6`。** Fixed-workpoint transfer（本节 §6.1）继续使用 GSM8K No-CoT 确定的 `−6`，`−4` 只在 commitment-based workpoint selection（§5）或 §1.2 的描述性分析中作为该 CoT 曲线自身的最优点讨论。
-- **MATH 的峰区较宽。** No-CoT 与 CoT 两条曲线上，`−6` 与其邻点 `−8/−4` 的差异均未被检出（本节 Table 6.2a/6.2b），近优区间是 `{−8, −6, −4}`，而不是被精确确定的单点峰值。
-- **Qwen GSM-Hard 的高剂量端仍表现为平台/边界未完全闭合。** 已测剂量范围内 `+8/+10`（No-CoT）与 `+6/+8/+10`（CoT）互不显著分开（本节 Table 6.3c），尚未观察到该平台在已测范围内回落；这一平台是否存在右侧边界，仍是未闭合的问题。
-- **不宣称存在跨模型、跨任务统一的最优 α。** GSM8K、MATH、GSM-Hard 三条核心曲线上，Llama 的近优区间集中在负向（`{−8,−6,−4}` 或 `{−6,−4}`），Qwen 的近优区间集中在正向且尚未闭合（`{+8,+10}` 或更宽）；两个模型的方向本身就不同，且同一模型在不同任务上的具体近优区间也不完全重合。
-
-### 6.5 Additional Exploratory Boundary Results
-
-LogiQA 2.0, BBH object counting, and CRUXEval-O are retained as exploratory boundary evaluations. Their complete accuracy, dose-diagnostic, and output-behavior results are reported for transparency and future hypothesis generation. Because these evaluations differ from the core mathematical-reasoning protocol in task structure, answer space, or generation and scoring interface, they are not included in the core workpoint synthesis and are not used to redefine the frozen workpoints. No cross-task mechanistic explanation is assigned here.
-
-#### 6.5.1 LogiQA 2.0
-
-LogiQA 2.0 使用生成式单选作答，选项由题目给出，与 GSM8K/MATH/GSM-Hard 的构造式数字答案不同。主口径为 **LAST**（Final answer 标记之后可能出现修订），FIRST 作为 sensitivity。
-
-**Table 6.5.1a. LogiQA 2.0 primary accuracy (MAIN = LAST parsing)**
-
-| Model | α | acc(0) | acc(α) | Δ | 0→1 / 1→0 | Raw p | Statistical family | Holm p_adj | 95% CI |
-|---|---:|---:|---:|---:|---:|---:|---|---:|---|
-| Llama3.1-8B | −6 | .5633 | .5200 | −4.33pp | 13 / 26 | .0533 | Two-model workpoint comparison, Holm `m=2` | .107 | [−8.33, −0.33] |
-| Qwen2.5-7B | +8 | .6400 | .6500 | +1.00pp | 33 / 30 | .8013 | Two-model workpoint comparison, Holm `m=2` | .801 | [−4.00, +6.33] |
-
-**Table 6.5.1b. LogiQA 2.0 sensitivity accuracy (FIRST parsing)**
-
-| Model | α | acc(0), FIRST | acc(α), FIRST | Δ |
-|---|---:|---:|---:|---:|
-| Llama3.1-8B | −6 | .5733 | .5400 | −3.33pp |
-| Qwen2.5-7B | +8 | .6567 | .6633 | +0.67pp |
-
-FIRST sensitivity 与 MAIN 同号，量级相近。
-
-**Table 6.5.1c. LogiQA 2.0 output and format diagnostics**
-
-| Model | α | No-marker rate | First/last disagree | Answer-first rate | Degenerate rate | Multi-marker rate | Budget-exhausted rate | Gen tokens (median) | Pre-marker chars (median, n) | First-marker position (median) |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Llama3.1-8B | 0 | .010 | .017 | .757 | .950 | .607 | .993 | 1024 | 0 (n=297) | .0000 |
-| Llama3.1-8B | −6 | .020 | .043 | .330 | .863 | .623 | .970 | 1024 | 148 (n=294) | .0426 |
-| Qwen2.5-7B | 0 | .000 | .020 | .000 | .133 | .483 | .157 | 311 | 1401 (n=300) | .9699 |
-| Qwen2.5-7B | +8 | .003 | .040 | .000 | .217 | .617 | .260 | 323 | 1370 (n=299) | .8668 |
-
-- 两个模型的固定 workpoint 都没有通过 Holm 校正（LogiQA、BBH 共享同一 `m=2` 家族结构，但各自独立校正，不跨 benchmark 合并）。
-- Sensitivity（FIRST）与 MAIN（LAST）方向一致，量级相近。
-- 描述性诊断字段（no-marker/degenerate/multi-marker/budget-exhausted/pre-marker chars/first-marker position）不进入 Holm 家族，是 α 干预后的输出结果。
-- Budget = 1024 tokens；协议、parser、amendment 版本记录于 `docs/PREREG_P4_LOGIQA2.md` 与 `p4-amend-02/03/05/06`（详见 `CLAUDE.md`）。
-
-#### 6.5.2 BBH Object Counting
-
-BBH `object_counting` 恢复了与 GSM8K 更接近的输出形式：模型生成一个整数，并使用 `####` 提交答案。生成预算 768 tokens，MAIN 口径为 FIRST，与 GSM8K/MATH/GSM-Hard/CRUXEval-O 一致。
-
-**Table 6.5.2a. BBH accuracy and reverse-direction diagnostics**
-
-| Model | α | Role | first_acc | last_acc | Δ vs α=0 (first) | Discordant | raw p | Holm p_adj | 95% CI |
-|---|---:|---|---:|---:|---:|---|---:|---:|---|
-| Llama3.1-8B | 0 | Baseline | .4160 | .4120 | — | — | — | — | — |
-| Llama3.1-8B | **−6** | **Fixed workpoint** | .4080 | .4080 | **−0.80pp** | 27/29 | .8939 | **1.000** | [−6.80, +5.20] |
-| Llama3.1-8B | +4 | Reverse diagnostic | .3280 | — | −8.80pp | 10/32 | .0009 | *Not adjusted* | [−13.60, −4.00] |
-| Qwen2.5-7B | 0 | Baseline | .5520 | .5600 | — | — | — | — | — |
-| Qwen2.5-7B | **+8** | **Fixed workpoint** | .5760 | .5640 | **+2.40pp** | 34/28 | .5258 | **1.000** | [−4.00, +8.40] |
-| Qwen2.5-7B | −6 | Reverse diagnostic | .5680 | — | +1.60pp | 27/23 | .6718 | *Not adjusted* | [−4.00, +7.20] |
-
-Holm family 只包含两个 fixed-workpoint comparison（`m=2`）。Reverse diagnostic 不参与校正，也不能用于重新定义工作点。
-
-两个模型都没有保持预期的方向排序：
+探索性 reverse-dose 结果也没有提供一致的剂量排序：
 
 - Llama：`0 (.416) > −6 (.408) > +4 (.328)`；
 - Qwen：`+8 (.576) > −6 (.568) > 0 (.552)`。
 
-**Table 6.5.2b. BBH stage-0 gate diagnostics (α=0, format only, not a gate on the transfer result)**
+Steering 确实改变了部分输出行为，但这些变化没有稳定转化为准确率提升，因此只支持行为 signature 的部分迁移，不支持跨任务机制已经得到验证。
 
-| Model | first_acc | last_acc | Gate interval | Gate pass | No-marker rate | Parseable-marker rate | Multi-marker rate | Gen chars (median) | Max new tokens |
-|---|---:|---:|---|---|---:|---:|---:|---:|---:|
-| Llama3.1-8B | .4160 | .4120 | [0.30, 0.85] | True | .092 | .868 | .840 | 1988 | 768 |
-| Qwen2.5-7B | .5520 | .5600 | [0.30, 0.85] | True | .000 | .868 | .920 | 423 | 768 |
+#### CRUXEval-O
 
-Majority-class gold rate = .104；该值只用于确认 stage-0 gate 的判读区间不是由平凡常数猜测构成，不作为 gate 本身。
+CRUXEval-O 要求生成任意 Python 字面量。主结果使用预先规定的 FIRST marker，并通过 Python 字面量解析与对象相等进行评分，不等同于官方 exec-based pass@1。
 
-**Table 6.5.2c. BBH exploratory output behavior (all three alphas, both models)**
+Llama 的固定 `−6` 未检出提升。其另外两个探索性剂量也接近 baseline：`−4=.3333`、`+4=.3367`，相较 `α=0` 的 `.3467` 均未形成稳定增益。
 
-| Model | α | Role | Early-candidate rate | Bare-first-line rate | Multi-marker rate | No-marker rate | Degenerate-tail rate | Corpus-continuation rate | Chars (median) | Chars (p90) | Cap-hit rate | Pre-marker chars (median) | posN (median) |
-|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Llama3.1-8B | −6 | Fixed workpoint | .844 | .796 | .784 | .104 | .884 | .000 | 1928 | 3148 | .004 | 144 | .0875 |
-| Llama3.1-8B | 0 | Baseline | .952 | .948 | .840 | .092 | .928 | .000 | 1988 | 3055 | .004 | 125 | .0633 |
-| Llama3.1-8B | +4 | Reverse diagnostic | .992 | .980 | .800 | .108 | .948 | .000 | 2003 | 3118 | .008 | 194 | .0963 |
-| Qwen2.5-7B | −6 | Reverse diagnostic | 1.000 | .548 | .924 | .000 | .036 | .504 | 420 | 840 | .004 | 307.5 | .7428 |
-| Qwen2.5-7B | 0 | Baseline | 1.000 | .544 | .920 | .000 | .036 | .508 | 422.5 | 697 | .004 | 313 | .7568 |
-| Qwen2.5-7B | +8 | Fixed workpoint | .444 | .000 | .360 | .000 | .048 | .428 | 322.5 | 1920 | .004 | 44 | .6986 |
+Qwen 在 FIRST 主口径下呈现完整的点估计排序：
 
-Qwen `+8` 明显减少了开头裸数字（bare-first-line rate .544→.000）和 multi-marker rate（.920→.360）。Llama `−6` 也降低了 early-candidate rate（.952→.844），但变化较弱，三个剂量都存在较高的退化尾部（degenerate-tail rate .88–.95）和固定 768-token 生成预算限制。
+`−6 (.2400) < 0 (.2933) < +6 (.3033) < +8 (.3767)`。
 
-BBH 的完整数据在此保留：
+其中固定 `+8` 提高 8.33 pp，并通过 Holm 校正。不过，LAST sensitivity 从 `.2833` 降至 `.2233`，方向变为 −6.00 pp。这说明结果依赖预先规定的答案提交口径：它支持 FIRST marker 下的固定点迁移，但不能概括为不受解析方式影响的整体能力提升。
 
-> GSM8K 上的部分 commitment signature 可以在新任务上再次出现，但没有稳定转化为准确率提升；两个模型都没有在这三个已测剂量上保持预期的方向排序。
+完整的运行配置、统计家族、reverse/neighbor 检验、解析器限制、哈希与输出行为诊断保留在 `CLAUDE.md`。
 
-#### 6.5.3 CRUXEval-O
+### 6.4 Conclusion
 
-CRUXEval-O 是开放式程序执行推理任务：模型需预测一段 Python 函数在给定输入下的返回值，答案格式为任意 Python 字面量，而非受限选项或单一整数。生成预算 768 tokens，MAIN 口径为 FIRST。评分使用 `ast.literal_eval` 双侧解析 + Python 对象相等，**不是官方 exec-based pass@1**——一个求值正确但非字面量的表达式会在此判错，`nonliteral_rate` 记录这一差距的大小。协议：`cruxeval-p4c-v0`；gold 公开，因此这是 fixed-workpoint transfer 而非 blind validation。
+1. **固定工作点在相近数学推理任务上具有有限迁移能力。** GSM-Hard 上两个模型在 No-CoT 和 CoT 下均获得提升；MATH 上只有 Llama 的固定点获得稳定支持。
+2. **工作点通常更适合解释为任务相关的近优区域。** Llama MATH 位于宽负向峰区，Qwen GSM-Hard 位于尚未闭合的正向平台；Llama GSM8K CoT 的 `−4` 则是条件特异的局部峰。
+3. **迁移不会自动扩展到所有任务。** LogiQA 和 BBH 均未检出稳定提升；CRUXEval-O 只在 Qwen 的 FIRST 主口径下得到正向结果，并对答案提交口径敏感。
+4. **不存在跨模型、跨任务统一的最佳 α。** 冻结点仍用于原有迁移检验，near-optimal region 只用于描述已测剂量中的局部稳定性。
+5. **这些结果属于模型输出与准确率层面的证据。** 它们不证明生物多巴胺、通用 wanting 轴或因果中介机制。
 
-**Table 6.5.3a. CRUXEval-O fixed-workpoint transfer (Holm m=2)**
-
-| Model | α | acc(0), first | acc(α), first | Δ | 0→1 / 1→0 | Raw p | Holm p_adj | 95% CI | acc(0), last | acc(α), last | Δ, last |
-|---|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|
-| Llama3.1-8B | **−6** | .3467 | .3100 | **−3.67pp** | 17 / 28 | .1352 | **.1352** | [−8.00, +0.67] | .3100 | .2867 | −2.33pp |
-| Qwen2.5-7B | **+8** | .2933 | .3767 | **+8.33pp** | 44 / 19 | .0022 | **.0045** | [+3.33, +13.67] | .2833 | .2233 | −6.00pp |
-
-**Table 6.5.3b. CRUXEval-O neighbour and reverse diagnostics (outside Holm; p unadjusted)**
-
-| Model | α | Role | acc(0) | acc(α) | Δ | Raw p | 95% CI | Ordering (point estimates only) |
-|---|---:|---|---:|---:|---:|---:|---|---|
-| Llama3.1-8B | −4 | Neighbour | .3467 | .3333 | −1.33pp | .5572 | [−4.67, +2.00] | — |
-| Llama3.1-8B | +4 | Reverse | .3467 | .3367 | −1.00pp | .6776 | [−4.33, +2.33] | BREAKS (+4:.337, 0:.347, wp:.310) |
-| Qwen2.5-7B | +6 | Neighbour | .2933 | .3033 | +1.00pp | .7552 | [−3.33, +5.00] | — |
-| Qwen2.5-7B | −6 | Reverse | .2933 | .2400 | **−5.33pp** | .0293 | [−10.00, −0.67] | CONTINUES (−6:.240, 0:.293, wp:.377) |
-
-Neighbour/reverse 诊断不进入 Holm 家族，不得重新定义冻结工作点。四个已测剂量不构成剂量-反应曲线，只能说明排序继续或中断，不能定位峰值、建立倒 U 或称任一剂量为"过量点"。
-
-**Table 6.5.3c. CRUXEval-O per-cell output and format diagnostics (all four alphas, both models)**
-
-| Model | α | Role | first_acc | last_acc | No-marker rate | Nonliteral rate | Answer-first rate | Degenerate-tail rate | Multi-marker rate | Gen chars (median) |
-|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Llama3.1-8B | −6 | Workpoint | .3100 | .2867 | .007 | .030 | .303 | .887 | .590 | 2505 |
-| Llama3.1-8B | −4 | Neighbour | .3333 | .3033 | .020 | .013 | .053 | .883 | .463 | 2482 |
-| Llama3.1-8B | 0 | Baseline | .3467 | .3100 | .023 | .010 | .000 | .860 | .380 | 2489 |
-| Llama3.1-8B | +4 | Reverse | .3367 | .3067 | .017 | .007 | .000 | .863 | .450 | 2502 |
-| Qwen2.5-7B | −6 | Reverse | .2400 | .2367 | .010 | .213 | .140 | .080 | .343 | 29 |
-| Qwen2.5-7B | 0 | Baseline | .2933 | .2833 | .003 | .123 | .167 | .033 | .227 | 30 |
-| Qwen2.5-7B | +6 | Neighbour | .3033 | .2500 | .013 | .133 | .040 | .030 | .243 | 34 |
-| Qwen2.5-7B | +8 | Workpoint | .3767 | .2233 | .017 | .117 | .137 | .050 | .557 | 97 |
-
-`nonliteral rate` = marker 存在但载荷不是 Python 字面量，此处判为错误；官方 exec-based 口径会接受一个求值正确的表达式。`gen_chars_med` 反映固定 768-token 预算下的生成长度：Llama 四格均在 2482–2505 字符（截断主导，`degenerate_tail_rate` 86–89%）；Qwen 除 `+8`（97 字符）外均在 29–34 字符量级。
-
-Majority-class gold rate = .0433；`questions_sha256=4580b7a9a9ef6054`，`gold_sha256=a214d1fc7d84a2d9`，`revision=b96af0450242eb4da433032b90998f25588a5d0f`。评分产物：`docs/p4c_cruxeval_evaluation.json`；协议与两次 amendment：`docs/PREREG_P4C_CRUXEVAL.md`、`docs/p4c_amendment_01/02.json`（详见 `CLAUDE.md`）。
-
-### 6.6 Conclusion
-
-The core analysis evaluates GSM8K-derived workpoints on MATH and GSM-Hard. These results support limited transfer within the related mathematical-reasoning settings, while also showing that the exact argmax may vary across conditions and is often better represented as a near-optimal region. LogiQA 2.0, BBH object counting, and CRUXEval-O are reported separately as exploratory boundary evaluations and are not used to establish, reject, or redefine the frozen workpoints.
-
-具体而言：
-
-1. **GSM8K 是冻结工作点的来源。** Llama 的 `α=−6`、Qwen 的 `α=+8` 均由 GSM8K No-CoT 主曲线确定；固定工作点在 GSM8K 自身的 CoT 条件下方向为正但校正后未显著，明显低于该条件下重新选择得到的 `α=−4`（§6.1）。
-2. **MATH 和 GSM-Hard 构成核心 fixed-workpoint transfer 证据，结果并非全部为正。** GSM-Hard 上两个模型的 No-CoT 与 CoT 条件均观察到显著提升（§6.3）。MATH 上 Llama 的 No-CoT 与 CoT 均显著提升，但 Qwen 的 No-CoT（+2.67pp，CI 跨 0）与 CoT（+1.00pp，Holm p_adj=1.0000）均未检出提升（§6.2）——这两个 null 予以完整保留，不改写为"两个模型都成功迁移"。
-3. **近优区间比单点 argmax 更能描述这些曲线。** MATH 的负向峰区较宽（`{−8,−6,−4}`），GSM-Hard 上 Qwen 的高剂量端仍是尚未闭合的平台（`{+8,+10}` 及更宽），Llama GSM8K CoT 的局部峰 `−4` 不取代固定迁移协议中使用的 `−6`（§6.4）。
-4. **LogiQA 2.0、BBH object counting 与 CRUXEval-O 完整保留但不进入核心综合。** 三者的全部剂量、角色、accuracy、行为与格式诊断均在 §6.5 报告，供未来假设生成使用；它们与核心数学推理协议在任务结构、答案空间或生成/评分接口上存在差异，因此不用于建立、否定或重新定义冻结工作点，也不在此处赋予跨任务机制解释。
-5. **本节结果支持模型内部的 commitment-gain 观察层面的关联，不证明生物多巴胺、通用 wanting 轴或因果中介关系。**
 ## References
 
 **神经科学（次要旁证）：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.2 / §2.3 的机制**旁**锚。注意本项目主机制锚已改为 **VTA→NAcc wanting 过载 → 冲动 + 固著**，见 §0.2；下列 DA→anxiety 文献有通路特异性（VTA→IPN），列此仅表明 DA 亦有独立焦虑下游，但**非**本数据 +α 端的主要解释——我们观测到的是抢答 / 固著，而非回避 / freezing）
