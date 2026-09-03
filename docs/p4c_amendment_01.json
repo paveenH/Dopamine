@@ -1,0 +1,31 @@
+{
+  "amendment": "p4c-amend-01",
+  "protocol": "cruxeval-p4c-v0",
+  "date": "2026-09-03",
+  "title": "Strip two decoding artifacts before literal parsing (preflight-driven)",
+  "additive": true,
+  "supersedes": null,
+  "stage": "after the format-only preflight, BEFORE any formal cell was generated",
+  "motivation": "The 8-item format-only preflight found that 5 of 8 Qwen payloads and the Llama payloads failed ast.literal_eval for reasons that had nothing to do with the model's answer. Both are decoding/format artifacts, not wrong answers, and leaving them would have systematically scored correct answers as incorrect.",
+  "defects_found": {
+    "qwen_eos": "The returned text retains the EOS token text, so the payload read `[1, 1, 1, 1]<|endoftext|>` -- an entirely correct answer that does not parse. Affected 5 of 8 preflight payloads in each Qwen cell.",
+    "llama_trailing_marker": "Llama writes `#### <literal> ####` and then loops `#### x  #### x  #### x`, so the line remainder carried the next marker."
+  },
+  "dangerous_half": "Without an explicit cut the Llama payload parsed ANYWAY, because '#' opens a Python comment and ast.literal_eval silently truncates there. The parser would have been right BY COINCIDENCE rather than by design, and the coincidence is unsafe: 5 of the 300 frozen gold values contain '#' (sample_177, 755, 199, 205, 228). Verified after the fix that all five round-trip exactly, and that a '####' INSIDE a string literal is preserved.",
+  "change": [
+    "eval_cruxeval.py extract(): strip a trailing EOS token text (<|endoftext|>, <|eot_id|>, <|im_end|>, <|end_of_text|>, </s>), then cut at a '####' that occurs OUTSIDE a string literal (quote-parity checked), never inside one.",
+    "inspect_p4c_preflight.py: import the scorer's extract/as_literal instead of a local copy (a second copy is how the inline/offline caliber gap opened on MATH), and raise ATTENTION when the literal rate is low, not only when it is exactly zero.",
+    "test_cruxeval_p4c.py: 10 regression checks pinning both fixes, each mutation-tested."
+  ],
+  "explicitly_not_changed": [
+    "Prose after the payload is NOT rescued. `#### 'ohesteo' The function f removes ...` still scores incorrect: that is the MODEL failing the frozen format, which is a result to report, never a parser to widen.",
+    "prompt template and its sha256",
+    "marker definition '#### <Python literal>', FIRST=MAIN / LAST=sensitivity",
+    "workpoints llama -6 / qwen +8; the four-cell matrix per model",
+    "sample, digests, revision, budget 768, batch 24",
+    "Holm family m=2",
+    "no accuracy gate"
+  ],
+  "why_this_is_not_adaptive": "The preflight is format-only and computes no correctness field, so no accuracy was viewed before or during this change. The fix removes tokens the tokenizer surfaced and a marker the model appended AFTER its answer; it changes no answer and cannot favour any alpha. Both defects appeared in the alpha=0 and the steered cell alike.",
+  "verification": "9 preflight-derived cases parse to the intended payload; the 5 real gold values containing '#' round-trip exactly; `\"a####b\"` is preserved. Reverting each of the three code paths is caught by a distinct named regression test (mutation-tested)."
+}

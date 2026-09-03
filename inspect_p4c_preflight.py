@@ -22,7 +22,11 @@ section 7) may stop the run, and a hard stop is a stop -- not a redesign.
 """
 import argparse, ast, glob, json, os, re, sys
 
-MARKER_RE = re.compile(r"####[ \t]*(.*)")
+# Import the SCORER's parser rather than reimplementing it. A second copy is
+# exactly how the inline/offline caliber gap opened on MATH: the inspector
+# would report a format the scorer does not actually accept.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from eval_cruxeval import extract, as_literal          # noqa: E402
 
 
 def main():
@@ -54,18 +58,16 @@ def main():
         exp = 0 if m["alpha"] == 0 else m["L"] * n
         texts = [r["generated"] for r in rows]
 
-        firsts = [MARKER_RE.findall(t) for t in texts]
-        n_mark = sum(1 for x in firsts if x)
+        payloads = [extract(t) for t in texts]
+        n_mark = sum(1 for p in payloads if p is not None)
         n_lit = 0
         bad_payloads = []
-        for t, ms in zip(texts, firsts):
-            if not ms:
+        for p in payloads:
+            if p is None:
                 continue
-            p = ms[0].strip()
-            try:
-                ast.literal_eval(p)
+            if as_literal(p)[0]:
                 n_lit += 1
-            except Exception:
+            else:
                 bad_payloads.append(p[:60])
 
         # budget: a CLUSTER at the cap is the signal, never one long sample
@@ -74,12 +76,21 @@ def main():
         med = chars[n // 2]
 
         v = []
+        # HARD STOPS (pre-registration section 7). Only these stop the run.
         if m.get("steering_fires") != exp:
             v.append("FIRES-MISMATCH"); problems.append(f)
         if n_mark == 0:
             v.append("NO-MARKER"); problems.append(f)
         if n_mark and n_lit == 0:
             v.append("NO-LITERAL"); problems.append(f)
+        # ATTENTION, not a hard stop. A low-but-non-zero literal rate is a
+        # RESULT to report (the scorer reports it per cell as
+        # nonliteral_rate), never a licence to widen the parser. It is
+        # surfaced because an earlier version of this script printed
+        # "format ok" while 5 of 8 payloads failed to parse -- a verdict that
+        # only fired at exactly zero is a verdict that does not work.
+        if n_mark and n_lit < n_mark:
+            v.append(f"ATTN-{n_mark - n_lit}-NONLITERAL")
         verdict = " ".join(v) if v else "ok"
 
         print(f"{m['model']:9s} {m['alpha']:>3} {n:>3} "
@@ -109,7 +120,17 @@ def main():
                       f"markers={r['n_markers']} answer_first={r['answer_first']}")
                 print("  " + repr(g[:400]))
 
+    n_attn = sum(1 for f, m, rows, bad in cells if bad)
     print("\n" + "=" * 72)
+    if n_attn:
+        print(f"ATTENTION: {n_attn} cell(s) have payloads that do not parse. "
+              "This is NOT a hard stop.")
+        print("  Judge each one: a DECODING/FORMAT ARTIFACT (a stray EOS token, "
+              "a trailing marker)")
+        print("  is a parser defect and must be fixed. Prose after the payload "
+              "is the MODEL failing")
+        print("  the frozen format -- a result to report, never a parser to "
+              "widen.")
     if problems:
         print("HARD-STOP CANDIDATES -- see pre-registration section 7:")
         for p in sorted(set(problems)):

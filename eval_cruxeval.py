@@ -73,6 +73,15 @@ REVERSE = {"llama3": 4, "qwen2.5": -6}
 
 MARKER_RE = re.compile(r"####[ \t]*(.*)")
 
+# Special tokens that a decoder may leave in the returned text. They are a
+# GENERATION ARTIFACT, not part of the model's answer: Qwen's preflight emitted
+# `[1, 1, 1, 1]<|endoftext|>`, an entirely correct answer that failed to parse
+# purely because the EOS text was still attached. Stripping them is a decoding
+# fix, not a scoring concession -- it changes no answer, only removes a token
+# the tokenizer should not have surfaced.
+EOS_TEXT = ("<|endoftext|>", "<|eot_id|>", "<|im_end|>", "<|end_of_text|>",
+            "</s>")
+
 
 def die(m):
     print(f"[FATAL] {m}", file=sys.stderr)
@@ -80,16 +89,50 @@ def die(m):
 
 
 def extract(text: str, which: str = "first"):
-    """Return the raw text after a '####' marker, or None if there is none.
+    """Return the payload after a '####' marker, or None if there is none.
 
     FIRST is MAIN (GSM8K/GSM-Hard/BBH production convention); LAST is the
-    tail-revision sensitivity readout. The parser takes the remainder of the
+    tail-revision sensitivity readout. The payload is the remainder of the
     marker's LINE -- verified at freeze that no gold contains a newline.
+
+    TWO GENERATION ARTIFACTS ARE REMOVED, and neither is a scoring concession:
+
+    1. A trailing EOS token text (see EOS_TEXT). The decoder surfaced it; the
+       model did not write it as part of its answer.
+
+    2. A TRAILING `####`. Llama's preflight writes `#### <literal> ####` and
+       then loops `#### x  #### x  #### x`, so the line remainder carries the
+       next marker. Without this the payload happens to parse ANYWAY, because
+       `#` starts a Python comment and `ast.literal_eval` silently truncates
+       there -- i.e. the parser would be right BY COINCIDENCE, not by design,
+       and that coincidence is unsafe: 5 of the 300 gold values contain `#`
+       (e.g. sample_755 `'ph>t#A#BiEcDefW#ON#iiNCU'`). Cutting at the marker
+       EXPLICITLY keeps the in-quotes `#` intact -- which is correct, since a
+       `####` inside a string literal is part of the answer -- while removing
+       the marker the model appended after it.
+
+    Nothing else is stripped. Prose after the payload (Qwen's
+    `#### 'ohesteo' The function f removes ...`) is NOT rescued: that is the
+    model failing to obey the frozen format, which is a result to report, not
+    a parser to widen.
     """
     ms = MARKER_RE.findall(text)
     if not ms:
         return None
-    return (ms[0] if which == "first" else ms[-1]).strip()
+    p = (ms[0] if which == "first" else ms[-1]).strip()
+    for t in EOS_TEXT:
+        if p.endswith(t):
+            p = p[: -len(t)].rstrip()
+    # cut a marker the model appended AFTER its answer, never one inside a
+    # string literal (an unterminated quote before it means we are inside one)
+    i = p.find("####")
+    while i != -1:
+        head = p[:i]
+        if head.count("'") % 2 == 0 and head.count('"') % 2 == 0:
+            p = head.rstrip()
+            break
+        i = p.find("####", i + 4)
+    return p.strip()
 
 
 def as_literal(s):

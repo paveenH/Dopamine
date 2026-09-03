@@ -205,7 +205,14 @@ matches anywhere in the output — the CGT failure, where invalid_rate jumped
 ## 5. Parsing and scoring
 
 - **Marker** `#### <Python literal>`; the parser takes the remainder of the
-  marker's line.
+  marker's line, then removes two **decoding artifacts** (`p4c-amend-01`,
+  added after the format-only preflight and before any formal cell): a
+  trailing EOS token text, and a trailing `####` occurring **outside** a
+  string literal. Neither changes an answer. A `####` **inside** a string
+  literal is preserved — 5 of the 300 gold values contain `#`, and all five
+  were verified to round-trip. Prose after the payload is **not** rescued:
+  that is the model failing the frozen format, a result to report rather than
+  a parser to widen.
 - **FIRST match is MAIN** (matching GSM8K/GSM-Hard/BBH production, where
   `extract_gsm8k_answer` takes the first `####`).
 - **LAST match is SENSITIVITY** — a tail-revision readout, never the headline.

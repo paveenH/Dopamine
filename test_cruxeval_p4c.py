@@ -106,6 +106,34 @@ check(extract("####[1]") == "[1]", "marker with no space after ####")
 check(extract("#### 42\nSo the answer is 42.") == "42",
       "marker payload stops at the newline")
 
+# --- PREFLIGHT REGRESSIONS (2026-09-03). Both were REAL defects found by the
+# 8-item preflight: correct answers that failed to score because of a decoding
+# artifact. Each is pinned here so it cannot silently return.
+check(extract("#### [1, 1, 1, 1]<|endoftext|>") == "[1, 1, 1, 1]",
+      "REGRESSION qwen: trailing <|endoftext|> is stripped")
+check(extract("#### {}<|eot_id|>") == "{}",
+      "REGRESSION: <|eot_id|> is stripped too")
+check(extract("#### {'b': 'v'} ####\n[/PYTHON]") == "{'b': 'v'}",
+      "REGRESSION llama: a trailing #### marker is cut")
+check(extract("#### 'o hseto'  #### 'o hseto'  #### 'o hseto'") == "'o hseto'",
+      "REGRESSION llama: a #### loop takes only the first payload")
+# The dangerous half: without the explicit cut the payload parsed ANYWAY,
+# because '#' opens a Python comment -- right by coincidence, not by design.
+# 5 of the 300 gold values contain '#', so the coincidence is unsafe.
+check(extract('#### "a####b"') == '"a####b"',
+      "REGRESSION: a #### INSIDE a string literal is NOT cut")
+check(as_literal(extract('#### "a####b"'))[1] == "a####b",
+      "REGRESSION: that string round-trips to its true value")
+for g in ["'ph>t#A#BiEcDefW#ON#iiNCU'", "'fiu##nk#he###wumun'",
+          "'mnmnj krupa...##!@#!@#$$@##'"]:
+    ok_, v_ = as_literal(extract(f"#### {g}<|endoftext|>"))
+    check(ok_ and v_ == ast.literal_eval(g),
+          f"REGRESSION: real gold containing '#' round-trips ({g[:22]}...)")
+# NOT rescued, deliberately: prose after the payload is the model failing the
+# frozen format, which is a result to report, not a parser to widen.
+check(as_literal(extract("#### 'x' The function removes the first"))[0] is False,
+      "prose after the payload is NOT rescued")
+
 # --- literal parsing: MUST NOT execute
 ok, v = as_literal("[1, 2]")
 check(ok and v == [1, 2], "list literal parses")
