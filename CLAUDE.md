@@ -141,7 +141,7 @@ Scope: every colour-logit diagnostic claim. -->
 | P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
 | P4b fixed-workpoint transfer (BBH numeric) | **COMPLETE — DOUBLE NULL** 2026-09-02 (`object_counting`, 6 cells) — neither model survives Holm m=2 (llama −6 −0.80 pp p_adj=1.000; qwen +8 +2.40 pp p_adj=1.000); reverse diagnostic BREAKS the ordering on both. Behaviour DOES move (qwen +8 bare-first-line 54.4→0.0%), so the frozen reading is **GSM8K 行为 signature 部分迁移**, never "mechanism transferred". Stage-0 gate PASSED (.4160/.5520) and the earlycand audit (29/29, α=0 at CEILING .952/1.000) stay as history. `bbh-p4b-v0` + `p4b-amend-01`; second task of the SAME P4 question, not a new phase |
 | P4c fixed-workpoint transfer (CRUXEval-O) | **PREPARED, PREFLIGHT PASSED, NOT RUN** 2026-09-03 — `docs/PREREG_P4C_CRUXEVAL.md` (`cruxeval-p4c-v0`) frozen before any cell existed; 8 cells (llama 0/−6/−4/+4, qwen 0/+8/+6/−6), 300 of 800 items. **THIRD task of the SAME P4 question**, not a new phase. Scoring is `ast.literal_eval` + Python object equality, **NOT** the official exec-based pass@1 — model output is never executed. Format-only preflight found and fixed two decoding artifacts (`p4c-amend-01`); two remaining non-parsing payloads were classified as MODEL FORMAT FAILURE and the parser was deliberately NOT widened (`p4c-amend-02`) |
-| Workpoint-stability supplement (wps-v0) | **PREPARED, NOT RUN** — 7 neighbour cells, `docs/PREREG_WORKPOINT_STABILITY.md` frozen 2026-09-03 before any cell existed. Asks only whether each reported workpoint is a LOCAL OPTIMUM or the edge of an untested region; **not a dose search**, and no frozen workpoint may be redefined by it. Own family, Holm **m=7**; neighbour comparisons are EXPLORATORY and outside it |
+| Workpoint-stability supplement (wps-v0) | **COMPLETE + FROZEN** 2026-09-03 — 7 pre-registered neighbour cells scored in `docs/wps_evaluation.json`; own Holm **m=7**, with 4/7 new-vs-0 contrasts surviving. GSM8K CoT confirms a sharp llama `−4` local peak; Llama MATH has a broad `{−8,−6,−4}` region; GSM-Hard places llama `−6/−4` and qwen `+6/+8/+10` in near-optimal regions. **Not a dose search**; frozen workpoints are not redefined. Neighbour comparisons remain EXPLORATORY and outside Holm |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
 <!-- Why: four fixed-workpoint transfer tests are now complete and each is written up
@@ -185,8 +185,12 @@ Qwen's reverse cell is flat (+1.60 pp, p=.672). Cite it as a diagnostic, never a
 
 **GSM8K is not thereby established as the boundary condition** — three of the four tasks
 share its `####` interface and two of the four ARE GSM-Hard, so the transfers rest on one
-task family. wps-v0 (PREPARED, NOT RUN) asks the prior question of whether the workpoint is
-even locally stable; until it runs, "the workpoint" is a single α from one frozen curve.
+task family. wps-v0 is now COMPLETE and changes the local-stability reading: llama's fixed
+`−6` lies in GSM-Hard CoT `{−6,−4}` and MATH `{−8,−6,−4}` regions, while qwen's
+fixed `+8` lies in GSM-Hard No-CoT `{+8,+10}` and CoT `{+6,+8,+10}` plateaus. This supports
+the frozen points as low-regret regional choices, **not** unique peaks and not a universal α.
+The seven new-vs-stored-0 tests are one separate Holm `m=7` family; all neighbour contrasts
+are exploratory and outside it. Full statistics and CIs: `docs/wps_evaluation.json`.
 
 
 **Required reading before non-trivial changes:**
