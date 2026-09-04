@@ -1059,56 +1059,35 @@ Stability cell 与 α=0 的比较属于 Holm `m=7` 家族。表中的 neighbour 
 
 ### 6.3 Exploratory Task Boundaries
 
-LogiQA 2.0、BBH object counting 和 CRUXEval-O 用于探索 fixed-workpoint transfer 的任务边界。它们改变了推理内容、答案空间或生成与评分接口，因此单独报告，不用于重新定义 GSM8K workpoint，也不与 MATH/GSM-Hard 合并为统一成功率。
+LogiQA 2.0、BBH object counting 和 CRUXEval-O 用于探索固定工作点的任务边界。三项任务均直接沿用 GSM8K 确定的工作点，不在目标任务上重新选择剂量：
 
-每个任务先在 No-CoT 下检验固定点迁移（结果冻结于 P4/P4b/P4c，不重新运行）。随后 `cot-transfer-followup-v0`（`docs/PREREG_COT_TRANSFER_FOLLOWUP.md`）作为**post-hoc exploratory follow-up**，在相同任务、相同固定 α 上追加一条 CoT 提示（`"Let's think step by step.\n"`，插入在各任务原有的最终格式指令之前），检验：(a) 显式 CoT 是否让原本未检出的固定点迁移重新出现；(b) 输出的回答形成模式是否随之改变。
+- Llama3.1-8B：`α=−6`
+- Qwen2.5-7B：`α=+8`
 
-**CoT 的六个比较组成独立的 Holm `m=6` 家族**（`logiqa2`、`bbh/object_counting`、`cruxeval` × `{llama3, qwen2.5}`），与 §5、§6.1、§6.2 的每一个 Holm 家族相互独立，不跨家族合并、不替代任何已冻结的 No-CoT 结果。CoT 条件下的 `α=0` 是与 CoT α=workpoint 配对的独立 baseline，不等同于 No-CoT 的 `α=0`。本节不引入外部官方 baseline——同协议下的 CoT `α=0` 是唯一在此可比的参照。
+No-CoT 结果来自已经冻结的 P4/P4b/P4c 实验。CoT 结果是看到 No-CoT 结果后开展的探索性补充，因此用于比较不同生成条件下的迁移模式，不构成确认性复现。CoT 的六项比较组成独立的 Holm `m=6` 家族。
 
-**Table 6.3. Fixed-workpoint transfer on exploratory boundary tasks, No-CoT vs. CoT**
+**Table 6.3. Fixed-workpoint transfer on exploratory boundary tasks**
 
-| Task | Model | Frozen α | No-CoT acc(0→α) | No-CoT Δ | No-CoT Holm p_adj | CoT acc(0→α) | CoT Δ | CoT Holm p_adj (m=6) | CoT 95% CI |
-|---|---|---:|---|---:|---:|---|---:|---:|---|
-| BBH object counting | Llama | −6 | .4160→.4080 | −0.80 pp | 1.000 | .4080→.5680 | **+16.00 pp** | **2.25×10⁻⁴** | [+8.80, +23.20] |
-| BBH object counting | Qwen | +8 | .5520→.5760 | +2.40 pp | 1.000 | .5280→.6680 | **+14.00 pp** | **2.25×10⁻⁴** | [+7.60, +20.40] |
-| CRUXEval-O | Llama | −6 | .3467→.3100 | −3.67 pp | .1352 | .3467→.3400 | −0.67 pp | .9656 | [−5.00, +3.67] |
-| CRUXEval-O | Qwen | +8 | .2933→.3767 | +8.33 pp | .0045 | .3467→.5400 | **+19.33 pp** | **2.63×10⁻⁹** | [+13.67, +25.00] |
-| LogiQA 2.0 | Llama | −6 | .5633→.5200 | −4.33 pp | .107 | .4633→.4400 | −2.33 pp | .9656 | [−8.00, +3.33] |
-| LogiQA 2.0 | Qwen | +8 | .6400→.6500 | +1.00 pp | .801 | .6633→.6100 | −5.33 pp | .1677 | [−10.67, −0.33] |
+| Task | Model | Frozen α | No-CoT result | CoT result |
+|---|---|---:|---|---|
+| BBH object counting | Llama | −6 | 41.60% → 40.80%<br>Δ=−0.80 pp, `p_adj=1.000` | 40.80% → 56.80%<br>**Δ=+16.00 pp**, **`p_adj=2.25×10⁻⁴`**<br>95% CI=[+8.80,+23.20] |
+| BBH object counting | Qwen | +8 | 55.20% → 57.60%<br>Δ=+2.40 pp, `p_adj=1.000` | 52.80% → 66.80%<br>**Δ=+14.00 pp**, **`p_adj=2.25×10⁻⁴`**<br>95% CI=[+7.60,+20.40] |
+| CRUXEval-O | Llama | −6 | 34.67% → 31.00%<br>Δ=−3.67 pp, `p_adj=.1352` | 34.67% → 34.00%<br>Δ=−0.67 pp, `p_adj=.9656`<br>95% CI=[−5.00,+3.67] |
+| CRUXEval-O | Qwen | +8 | 29.33% → 37.67%<br>**Δ=+8.33 pp**, **`p_adj=.0045`** | 34.67% → 54.00%<br>**Δ=+19.33 pp**, **`p_adj=2.63×10⁻⁹`**<br>95% CI=[+13.67,+25.00] |
+| LogiQA 2.0 | Llama | −6 | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>95% CI=[−8.00,+3.33] |
+| LogiQA 2.0 | Qwen | +8 | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>95% CI=[−10.67,−0.33] |
 
-No-CoT 数值为 P4/P4b/P4c 已冻结结果（FIRST/LAST 口径不变）；CoT 数值统一使用 `eval_cot_transfer_followup.py` 的主口径（BBH 与 LogiQA 为 LAST-marker，CRUXEval-O 为 FIRST-marker，与各任务已冻结的 No-CoT 主口径一致）。完整逐格数据见 `cot_followup_holm_combined.json` 与 `cot_followup_cell_metrics.csv`。
+准确率沿用各任务预先确定的主口径：LogiQA 2.0 使用 LAST，BBH 和 CRUXEval-O 使用 FIRST。No-CoT 与 CoT 的 `p_adj` 来自不同统计家族，不能直接比较；两种条件也各自使用独立的 `α=0` baseline，因此不能只比较表中的绝对准确率。
 
-#### BBH Object Counting：CoT 让固定点迁移重新出现
+**BBH object counting.** No-CoT 下两个模型均未检出固定点收益；加入显式 CoT 后，Llama 和 Qwen 分别提高 16.00 pp 和 14.00 pp，且均通过 Holm `m=6` 校正。这是唯一在 CoT 条件下同时获得双模型支持的边界任务。
 
-No-CoT 下两个模型均为 null（Table 6.1/6.3 已报告）。加入 CoT 后，Llama 从 40.8% 升至 56.8%（+16.00 pp），Qwen 从 52.8% 升至 66.8%（+14.00 pp），两者均通过 Holm `m=6` 校正（`p_adj=2.25×10⁻⁴`）。这是本节中唯一在两个模型上都恢复迁移的任务。
+**CRUXEval-O.** 结果呈现明显的模型差异。Qwen 在 No-CoT 下已经获得显著提升，CoT 下的增益点估计进一步扩大至 19.33 pp；Llama 在两种条件下均未检出收益。因此，CoT 并未消除该任务上的跨模型差异。这里的准确率采用 Python 字面量解析与对象相等判断，不等同于官方执行式 `pass@1`。
 
-配套的回答形成模式分析（复用冻结的 `earlycand-v1` 探测器，未重新调参）显示，CoT 下 `early_candidate_rate` 在两个模型上均下降，与 GSM8K 上"先推理、后提交"模式一致；但这是描述性、post-treatment 的观察，不构成因果中介证据。
+**LogiQA 2.0.** 两个模型在 No-CoT 和 CoT 下均未通过各自的多重比较校正。Qwen CoT 的未校正置信区间虽然位于零以下，但该比较未通过 Holm `m=6`，因此只能描述为负向点估计，不能作为稳定下降的证据。
 
-#### CRUXEval-O：效应具有明显模型差异
+总体而言，显式 CoT 既不是固定工作点迁移的必要条件，也不是充分条件：BBH 的收益只在 CoT 条件下被检出，Qwen CRUXEval-O 在没有 CoT 时已经有效，而 LogiQA 在两种条件下都没有稳定收益。更合适的结论是，**CoT 会以任务和模型相关的方式改变固定工作点的迁移结果，但不存在统一的跨任务规律。**
 
-Qwen 的固定点收益从 No-CoT 的 +8.33 pp（已通过 Holm）增强到 CoT 的 +19.33 pp（Holm `p_adj=2.63×10⁻⁹`），是本表中最大的正向效应。Llama 则在 No-CoT 和 CoT 下均未检出提升（CoT Δ=−0.67 pp，`p_adj=.9656`）。
-
-CRUXEval-O 使用预先规定的 FIRST-marker 口径评分（Python 字面量解析 + 对象相等，非官方 exec-based pass@1）。Llama 的输出在 No-CoT 下已存在 85–92% 的循环退化尾部；这一退化模式在 CoT 下是否被放大或缓解未在本节单独核验，因此 Llama 侧的 null 不能排除退化对模式可解释性的干扰——但两个条件下的准确率评分本身不受此影响。
-
-#### LogiQA 2.0：保持 null，回答模式无法用现有指标判断
-
-两个模型的固定点在 No-CoT 和 CoT 下均未通过 Holm 校正（CoT：Llama −2.33 pp `p_adj=.9656`；Qwen −5.33 pp `p_adj=.1677`，点估计为负但同样未通过）。
-
-`earlycand-v1` 探测器要求首行出现裸数字，结构上无法识别 LogiQA 的字母选项（A–D）作为"提前作答"信号，因此**无法判断 LogiQA 是否形成了类似 GSM8K 的 commitment shift**；但可以确定的是，无论 No-CoT 还是 CoT，准确率均未改善。若要评估 LogiQA 的回答形成时序，需要任务适配的指标（例如 `Final answer:` 标记前是否已出现推理文本、标记的 normalized position），这些指标本节未构建，留作后续工作。
-
-#### 小结
-
-三个探索任务中，CoT 只让 **BBH 在两个模型上**恢复迁移，并让 **CRUXEval-O 在 Qwen 上**进一步增强；Llama 在 CRUXEval-O 上、以及两个模型在 LogiQA 上均未检出收益。这种关系不是充分条件，也不具有跨任务普遍性——它是 task/model-specific 的 CoT–steering interaction，而非通用的 commitment-compatible transfer 规律。
-
-完整的运行配置、统计家族、reverse/neighbor 检验、解析器限制、哈希与输出行为诊断保留在 `CLAUDE.md`；CoT follow-up 的完整报告、逐格指标与协议见 `RoleAnswer/cot_followup_analysis/`。
-
-### 6.4 Conclusion
-
-1. **固定工作点在相近数学推理任务上具有有限迁移能力。** GSM-Hard 上两个模型在 No-CoT 和 CoT 下均获得提升；MATH 上只有 Llama 的固定点获得稳定支持。
-2. **工作点通常更适合解释为任务相关的近优区域。** Llama MATH 位于宽负向峰区，Qwen GSM-Hard 位于尚未闭合的正向平台；Llama GSM8K CoT 的 `−4` 则是条件特异的局部峰。
-3. **迁移不会自动扩展到所有任务，但显式 CoT 可以在部分任务、部分模型上重新打开迁移通道。** LogiQA 在 No-CoT 和 CoT 下均未检出稳定提升；BBH 的 No-CoT null 在两个模型上均被 CoT 恢复；CRUXEval-O 只在 Qwen 上、且只在 FIRST 主口径下得到正向结果并被 CoT 进一步放大，Llama 侧始终为 null。这一模式是 task/model-specific 的 CoT–steering interaction，不是通用的 commitment-compatible transfer 规律。
-4. **不存在跨模型、跨任务统一的最佳 α。** 冻结点仍用于原有迁移检验，near-optimal region 只用于描述已测剂量中的局部稳定性。
-5. **这些结果属于模型输出与准确率层面的证据。** 它们不证明生物多巴胺、通用 wanting 轴或因果中介机制。
+运行配置、统计家族、敏感性分析、输出行为诊断及解析细节保留在 `CLAUDE.md`。
 
 ## References
 
