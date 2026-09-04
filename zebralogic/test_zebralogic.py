@@ -278,7 +278,7 @@ def test_eval_zebralogic_formal_pipeline_end_to_end():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
-            "cuda_visible_devices": "0",
+            "cuda_visible_devices": "0", "hostname": "test-host",
         }
         return meta, rows
 
@@ -500,7 +500,7 @@ def test_workpoint_degradation_not_reported_as_qualifying():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
-            "cuda_visible_devices": "0",
+            "cuda_visible_devices": "0", "hostname": "test-host",
         }
         return meta, rows
 
@@ -595,7 +595,7 @@ def test_workpoint_pure_degradation_reports_no_workpoint():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
-            "cuda_visible_devices": "0",
+            "cuda_visible_devices": "0", "hostname": "test-host",
         }
         return meta, rows
 
@@ -674,7 +674,7 @@ def test_cmd_formal_missing_alpha_hard_stops():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
-            "cuda_visible_devices": "0",
+            "cuda_visible_devices": "0", "hostname": "test-host",
         }
         return meta, rows
 
@@ -754,7 +754,7 @@ def test_cmd_formal_mask_mismatch_hard_stops():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
-            "cuda_visible_devices": "0",
+            "cuda_visible_devices": "0", "hostname": "test-host",
             "mask_sha256": mask_sha, "max_new_tokens": 2048, "batch_size": 8,
         }
         return meta, rows
@@ -976,11 +976,14 @@ def test_cmd_formal_id_digest_mismatch_hard_stops():
         ez.load_private_gold = orig
 
 
-def test_cmd_formal_different_gpu_hard_stops():
-    """Review finding (2026-09-04): cmd_formal never checked that all four
-    alpha cells of one model shared cuda_visible_devices, even though prereg
-    S4 requires one physical card per model (paired per-item contrast, and
-    bf16 greedy is not byte-reproducible across GPUs)."""
+def test_cmd_formal_different_gpu_same_host_is_permitted_with_warning():
+    """Review finding (2026-09-04): a PRIOR version of this fix wrongly
+    hard-required identical cuda_visible_devices across a model's alpha
+    cells, which conflicts with prereg S4's actual rule ("Same machine...
+    Different physical GPUs are permitted"). Corrected: different
+    cuda_visible_devices on the SAME hostname must be PERMITTED (with a
+    printed warning pointing at the canary-check requirement), not a hard
+    stop."""
     import eval_zebralogic as ez
     import tempfile
 
@@ -991,10 +994,10 @@ def test_cmd_formal_different_gpu_hard_stops():
            for iid in ids}
 
     cells = {
-        0: _make_formal_cell(0, ids, gold, cvd="0"),
-        -6: _make_formal_cell(-6, ids, gold, cvd="0"),
-        -4: _make_formal_cell(-4, ids, gold, cvd="0"),
-        4: _make_formal_cell(4, ids, gold, cvd="1"),  # different card
+        0: _make_formal_cell(0, ids, gold, cvd="0", host="box-a"),
+        -6: _make_formal_cell(-6, ids, gold, cvd="0", host="box-a"),
+        -4: _make_formal_cell(-4, ids, gold, cvd="0", host="box-a"),
+        4: _make_formal_cell(4, ids, gold, cvd="1", host="box-a"),  # different card, SAME host
     }
     tmpdir = tempfile.mkdtemp()
     paths = _write_cells(cells, tmpdir)
@@ -1010,21 +1013,26 @@ def test_cmd_formal_different_gpu_hard_stops():
             allow_partial_alphas = False
         try:
             ez.cmd_formal(Args())
-            check("differing cuda_visible_devices across one model's alpha "
-                  "cells hard-stops formal scoring", False, "did not raise/exit")
-        except SystemExit:
-            check("differing cuda_visible_devices across one model's alpha "
-                  "cells hard-stops formal scoring", True)
+            check("differing cuda_visible_devices on the SAME host does NOT "
+                  "hard-stop formal scoring (prereg S4 permits different "
+                  "cards on one machine)", True)
+        except SystemExit as e:
+            check("differing cuda_visible_devices on the SAME host does NOT "
+                  "hard-stop formal scoring (prereg S4 permits different "
+                  "cards on one machine)", False, str(e))
+        result = json.load(open(os.path.join(tmpdir, "result.json")))
+        check("result records cross_gpu_within_machine=True",
+              result.get("cross_gpu_within_machine") is True)
     finally:
         ez.load_private_gold = orig
         ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
 
 
-def test_cmd_formal_missing_cuda_visible_devices_hard_stops():
-    """A cell with no cuda_visible_devices recorded must not be silently
-    treated as 'compatible with everything' -- that would defeat the whole
-    point of the same-GPU check by accepting exactly the unpinned-run case
-    it exists to catch."""
+def test_cmd_formal_different_hostname_hard_stops():
+    """Review finding (2026-09-04): prereg S4 requires SAME MACHINE, and
+    cuda_visible_devices alone cannot detect a different machine (two
+    different hosts can both report CUDA_VISIBLE_DEVICES=0). Fixed with a
+    hostname-based same-machine check."""
     import eval_zebralogic as ez
     import tempfile
 
@@ -1035,10 +1043,10 @@ def test_cmd_formal_missing_cuda_visible_devices_hard_stops():
            for iid in ids}
 
     cells = {
-        0: _make_formal_cell(0, ids, gold, cvd="0"),
-        -6: _make_formal_cell(-6, ids, gold, cvd="0"),
-        -4: _make_formal_cell(-4, ids, gold, cvd="0"),
-        4: _make_formal_cell(4, ids, gold, cvd=None),
+        0: _make_formal_cell(0, ids, gold, cvd="0", host="box-a"),
+        -6: _make_formal_cell(-6, ids, gold, cvd="0", host="box-a"),
+        -4: _make_formal_cell(-4, ids, gold, cvd="0", host="box-a"),
+        4: _make_formal_cell(4, ids, gold, cvd="0", host="box-b"),  # different machine
     }
     tmpdir = tempfile.mkdtemp()
     paths = _write_cells(cells, tmpdir)
@@ -1054,10 +1062,55 @@ def test_cmd_formal_missing_cuda_visible_devices_hard_stops():
             allow_partial_alphas = False
         try:
             ez.cmd_formal(Args())
-            check("a missing cuda_visible_devices hard-stops formal scoring",
+            check("differing hostname across one model's alpha cells "
+                  "hard-stops formal scoring", False, "did not raise/exit")
+        except SystemExit:
+            check("differing hostname across one model's alpha cells "
+                  "hard-stops formal scoring", True)
+    finally:
+        ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
+
+
+def test_cmd_formal_missing_hostname_hard_stops():
+    """A cell with no hostname recorded must not be silently treated as
+    'same machine as the others' -- that would defeat the whole point of the
+    same-machine check by accepting exactly the case (an old cell predating
+    the hostname field, or a run that failed to record it) it exists to
+    catch."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    cells = {
+        0: _make_formal_cell(0, ids, gold, host="box-a"),
+        -6: _make_formal_cell(-6, ids, gold, host="box-a"),
+        -4: _make_formal_cell(-4, ids, gold, host="box-a"),
+        4: _make_formal_cell(4, ids, gold, host=None),
+    }
+    tmpdir = tempfile.mkdtemp()
+    paths = _write_cells(cells, tmpdir)
+
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(Args())
+            check("a missing hostname hard-stops formal scoring",
                   False, "did not raise/exit")
         except SystemExit:
-            check("a missing cuda_visible_devices hard-stops formal scoring", True)
+            check("a missing hostname hard-stops formal scoring", True)
     finally:
         ez.load_private_gold = orig
         ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
@@ -1202,10 +1255,12 @@ def main():
     test_cmd_formal_sample_id_gap_hard_stops()
     print("== review fix: item-id digest mismatch hard-stops formal scoring ==")
     test_cmd_formal_id_digest_mismatch_hard_stops()
-    print("== review fix: different GPU across alpha cells hard-stops ==")
-    test_cmd_formal_different_gpu_hard_stops()
-    print("== review fix: missing cuda_visible_devices hard-stops ==")
-    test_cmd_formal_missing_cuda_visible_devices_hard_stops()
+    print("== review fix: different GPU, SAME host, is permitted (warning only) ==")
+    test_cmd_formal_different_gpu_same_host_is_permitted_with_warning()
+    print("== review fix: different hostname hard-stops (S4 = same machine) ==")
+    test_cmd_formal_different_hostname_hard_stops()
+    print("== review fix: missing hostname hard-stops ==")
+    test_cmd_formal_missing_hostname_hard_stops()
     print("== review fix: load_private_gold integrity guards ==")
     test_load_private_gold_integrity_guards()
 
