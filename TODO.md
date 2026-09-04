@@ -95,7 +95,7 @@ Agent5: Total Design (GPT)
 22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ✔ 
 23. CRUXEval Design ✔ 
 24. 优化文档GSM8K ✔
-25. 补充BBH CRUX LogiQA cot的结果 ⏸
+25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果哦 ✔
 25. 顺便丰富一下prediction的结果 ✔
 
 ---
@@ -106,7 +106,6 @@ Agent5: Total Design (GPT)
 
 | 优先级 | 任务 | 最能回答什么 | Llama3 表现 / 风险预期 |
 |---|---|---|---|
-| 3 | **CRUXEval output prediction** | 工作点能否迁移到程序状态追踪；可执行、确定性评分 | **中等**；会混入 Python/code-state 能力 |
 | 4 | **ZebraLogic** | 非选择题逻辑约束求解的更强测试 | **exact solve 偏低**；格式与能力地板风险高，cellwise 可较可读 |
 | 5 | **ProofWriter / RuleTaker** | 移除选项内容、保留离散答案空间的机制控制 | **中高**；规则推导相对适合 8B，但仍是标签提交 |
 | 6 | **FinQA** | 开放数值答案的跨数据域验证 | **中等**；表格读取与程序式计算是额外难点 |
