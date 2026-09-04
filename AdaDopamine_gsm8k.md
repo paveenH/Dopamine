@@ -1061,53 +1061,52 @@ Stability cell 与 α=0 的比较属于 Holm `m=7` 家族。表中的 neighbour 
 
 LogiQA 2.0、BBH object counting 和 CRUXEval-O 用于探索 fixed-workpoint transfer 的任务边界。它们改变了推理内容、答案空间或生成与评分接口，因此单独报告，不用于重新定义 GSM8K workpoint，也不与 MATH/GSM-Hard 合并为统一成功率。
 
-**Table 6.3. Fixed-workpoint transfer on exploratory boundary tasks**
+每个任务先在 No-CoT 下检验固定点迁移（结果冻结于 P4/P4b/P4c，不重新运行）。随后 `cot-transfer-followup-v0`（`docs/PREREG_COT_TRANSFER_FOLLOWUP.md`）作为**post-hoc exploratory follow-up**，在相同任务、相同固定 α 上追加一条 CoT 提示（`"Let's think step by step.\n"`，插入在各任务原有的最终格式指令之前），检验：(a) 显式 CoT 是否让原本未检出的固定点迁移重新出现；(b) 输出的回答形成模式是否随之改变。
 
-| Target and main metric | Model | Frozen α | acc(0) | acc(α) | Δ | Holm p_adj | 95% CI | Sensitivity |
-|---|---|---:|---:|---:|---:|---:|---|---|
-| LogiQA 2.0, LAST | Llama | −6 | .5633 | .5200 | −4.33 pp | .107 | [−8.33, −0.33] | FIRST: −3.33 pp |
-| LogiQA 2.0, LAST | Qwen | +8 | .6400 | .6500 | +1.00 pp | .801 | [−4.00, +6.33] | FIRST: +0.67 pp |
-| BBH object counting, FIRST | Llama | −6 | .4160 | .4080 | −0.80 pp | 1.000 | [−6.80, +5.20] | LAST: .412→.408 |
-| BBH object counting, FIRST | Qwen | +8 | .5520 | .5760 | +2.40 pp | 1.000 | [−4.00, +8.40] | LAST: .560→.564 |
-| CRUXEval-O, FIRST | Llama | −6 | .3467 | .3100 | −3.67 pp | .1352 | [−8.00, +0.67] | LAST: −2.33 pp |
-| CRUXEval-O, FIRST | Qwen | +8 | .2933 | .3767 | **+8.33 pp** | **.0045** | [+3.33, +13.67] | LAST: −6.00 pp |
+**CoT 的六个比较组成独立的 Holm `m=6` 家族**（`logiqa2`、`bbh/object_counting`、`cruxeval` × `{llama3, qwen2.5}`），与 §5、§6.1、§6.2 的每一个 Holm 家族相互独立，不跨家族合并、不替代任何已冻结的 No-CoT 结果。CoT 条件下的 `α=0` 是与 CoT α=workpoint 配对的独立 baseline，不等同于 No-CoT 的 `α=0`。本节不引入外部官方 baseline——同协议下的 CoT `α=0` 是唯一在此可比的参照。
 
-#### LogiQA 2.0
+**Table 6.3. Fixed-workpoint transfer on exploratory boundary tasks, No-CoT vs. CoT**
 
-两个模型的固定 workpoint 均未通过 Holm 校正，FIRST sensitivity 与 LAST 主结果方向一致。因此，该结果不能简单归因于 final-answer parser 或答案的后续修改。
+| Task | Model | Frozen α | No-CoT acc(0→α) | No-CoT Δ | No-CoT Holm p_adj | CoT acc(0→α) | CoT Δ | CoT Holm p_adj (m=6) | CoT 95% CI |
+|---|---|---:|---|---:|---:|---|---:|---:|---|
+| BBH object counting | Llama | −6 | .4160→.4080 | −0.80 pp | 1.000 | .4080→.5680 | **+16.00 pp** | **2.25×10⁻⁴** | [+8.80, +23.20] |
+| BBH object counting | Qwen | +8 | .5520→.5760 | +2.40 pp | 1.000 | .5280→.6680 | **+14.00 pp** | **2.25×10⁻⁴** | [+7.60, +20.40] |
+| CRUXEval-O | Llama | −6 | .3467→.3100 | −3.67 pp | .1352 | .3467→.3400 | −0.67 pp | .9656 | [−5.00, +3.67] |
+| CRUXEval-O | Qwen | +8 | .2933→.3767 | +8.33 pp | .0045 | .3467→.5400 | **+19.33 pp** | **2.63×10⁻⁹** | [+13.67, +25.00] |
+| LogiQA 2.0 | Llama | −6 | .5633→.5200 | −4.33 pp | .107 | .4633→.4400 | −2.33 pp | .9656 | [−8.00, +3.33] |
+| LogiQA 2.0 | Qwen | +8 | .6400→.6500 | +1.00 pp | .801 | .6633→.6100 | −5.33 pp | .1677 | [−10.67, −0.33] |
 
-LogiQA 同时改变了推理内容和答案接口，无法判断具体是哪一个因素限制了迁移。它只能说明 GSM8K workpoint 没有稳定迁移到当前的生成式多选逻辑推理设置。
+No-CoT 数值为 P4/P4b/P4c 已冻结结果（FIRST/LAST 口径不变）；CoT 数值统一使用 `eval_cot_transfer_followup.py` 的主口径（BBH 与 LogiQA 为 LAST-marker，CRUXEval-O 为 FIRST-marker，与各任务已冻结的 No-CoT 主口径一致）。完整逐格数据见 `cot_followup_holm_combined.json` 与 `cot_followup_cell_metrics.csv`。
 
-#### BBH Object Counting
+#### BBH Object Counting：CoT 让固定点迁移重新出现
 
-BBH 恢复了与 GSM8K 更接近的整数答案和 `####` 提交形式，但两个模型仍未检出准确率提升。恢复输出接口不足以恢复迁移，因此不能把 LogiQA 的 null 单独归因于多选题形式。
+No-CoT 下两个模型均为 null（Table 6.1/6.3 已报告）。加入 CoT 后，Llama 从 40.8% 升至 56.8%（+16.00 pp），Qwen 从 52.8% 升至 66.8%（+14.00 pp），两者均通过 Holm `m=6` 校正（`p_adj=2.25×10⁻⁴`）。这是本节中唯一在两个模型上都恢复迁移的任务。
 
-探索性 reverse-dose 结果也没有提供一致的剂量排序：
+配套的回答形成模式分析（复用冻结的 `earlycand-v1` 探测器，未重新调参）显示，CoT 下 `early_candidate_rate` 在两个模型上均下降，与 GSM8K 上"先推理、后提交"模式一致；但这是描述性、post-treatment 的观察，不构成因果中介证据。
 
-- Llama：`0 (.416) > −6 (.408) > +4 (.328)`；
-- Qwen：`+8 (.576) > −6 (.568) > 0 (.552)`。
+#### CRUXEval-O：效应具有明显模型差异
 
-Steering 确实改变了部分输出行为，但这些变化没有稳定转化为准确率提升，因此只支持行为 signature 的部分迁移，不支持跨任务机制已经得到验证。
+Qwen 的固定点收益从 No-CoT 的 +8.33 pp（已通过 Holm）增强到 CoT 的 +19.33 pp（Holm `p_adj=2.63×10⁻⁹`），是本表中最大的正向效应。Llama 则在 No-CoT 和 CoT 下均未检出提升（CoT Δ=−0.67 pp，`p_adj=.9656`）。
 
-#### CRUXEval-O
+CRUXEval-O 使用预先规定的 FIRST-marker 口径评分（Python 字面量解析 + 对象相等，非官方 exec-based pass@1）。Llama 的输出在 No-CoT 下已存在 85–92% 的循环退化尾部；这一退化模式在 CoT 下是否被放大或缓解未在本节单独核验，因此 Llama 侧的 null 不能排除退化对模式可解释性的干扰——但两个条件下的准确率评分本身不受此影响。
 
-CRUXEval-O 要求生成任意 Python 字面量。主结果使用预先规定的 FIRST marker，并通过 Python 字面量解析与对象相等进行评分，不等同于官方 exec-based pass@1。
+#### LogiQA 2.0：保持 null，回答模式无法用现有指标判断
 
-Llama 的固定 `−6` 未检出提升。其另外两个探索性剂量也接近 baseline：`−4=.3333`、`+4=.3367`，相较 `α=0` 的 `.3467` 均未形成稳定增益。
+两个模型的固定点在 No-CoT 和 CoT 下均未通过 Holm 校正（CoT：Llama −2.33 pp `p_adj=.9656`；Qwen −5.33 pp `p_adj=.1677`，点估计为负但同样未通过）。
 
-Qwen 在 FIRST 主口径下呈现完整的点估计排序：
+`earlycand-v1` 探测器要求首行出现裸数字，结构上无法识别 LogiQA 的字母选项（A–D）作为"提前作答"信号，因此**无法判断 LogiQA 是否形成了类似 GSM8K 的 commitment shift**；但可以确定的是，无论 No-CoT 还是 CoT，准确率均未改善。若要评估 LogiQA 的回答形成时序，需要任务适配的指标（例如 `Final answer:` 标记前是否已出现推理文本、标记的 normalized position），这些指标本节未构建，留作后续工作。
 
-`−6 (.2400) < 0 (.2933) < +6 (.3033) < +8 (.3767)`。
+#### 小结
 
-其中固定 `+8` 提高 8.33 pp，并通过 Holm 校正。不过，LAST sensitivity 从 `.2833` 降至 `.2233`，方向变为 −6.00 pp。这说明结果依赖预先规定的答案提交口径：它支持 FIRST marker 下的固定点迁移，但不能概括为不受解析方式影响的整体能力提升。
+三个探索任务中，CoT 只让 **BBH 在两个模型上**恢复迁移，并让 **CRUXEval-O 在 Qwen 上**进一步增强；Llama 在 CRUXEval-O 上、以及两个模型在 LogiQA 上均未检出收益。这种关系不是充分条件，也不具有跨任务普遍性——它是 task/model-specific 的 CoT–steering interaction，而非通用的 commitment-compatible transfer 规律。
 
-完整的运行配置、统计家族、reverse/neighbor 检验、解析器限制、哈希与输出行为诊断保留在 `CLAUDE.md`。
+完整的运行配置、统计家族、reverse/neighbor 检验、解析器限制、哈希与输出行为诊断保留在 `CLAUDE.md`；CoT follow-up 的完整报告、逐格指标与协议见 `RoleAnswer/cot_followup_analysis/`。
 
 ### 6.4 Conclusion
 
 1. **固定工作点在相近数学推理任务上具有有限迁移能力。** GSM-Hard 上两个模型在 No-CoT 和 CoT 下均获得提升；MATH 上只有 Llama 的固定点获得稳定支持。
 2. **工作点通常更适合解释为任务相关的近优区域。** Llama MATH 位于宽负向峰区，Qwen GSM-Hard 位于尚未闭合的正向平台；Llama GSM8K CoT 的 `−4` 则是条件特异的局部峰。
-3. **迁移不会自动扩展到所有任务。** LogiQA 和 BBH 均未检出稳定提升；CRUXEval-O 只在 Qwen 的 FIRST 主口径下得到正向结果，并对答案提交口径敏感。
+3. **迁移不会自动扩展到所有任务，但显式 CoT 可以在部分任务、部分模型上重新打开迁移通道。** LogiQA 在 No-CoT 和 CoT 下均未检出稳定提升；BBH 的 No-CoT null 在两个模型上均被 CoT 恢复；CRUXEval-O 只在 Qwen 上、且只在 FIRST 主口径下得到正向结果并被 CoT 进一步放大，Llama 侧始终为 null。这一模式是 task/model-specific 的 CoT–steering interaction，不是通用的 commitment-compatible transfer 规律。
 4. **不存在跨模型、跨任务统一的最佳 α。** 冻结点仍用于原有迁移检验，near-optimal region 只用于描述已测剂量中的局部稳定性。
 5. **这些结果属于模型输出与准确率层面的证据。** 它们不证明生物多巴胺、通用 wanting 轴或因果中介机制。
 
