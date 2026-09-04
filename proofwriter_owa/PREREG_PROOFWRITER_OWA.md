@@ -1,7 +1,38 @@
 # ProofWriter OWA multi-hop — task-specific workpoint exploration
 
 **Protocol id** `proofwriter-owa-v0`
-**Status** DESIGN COMPLETE, CODE COMPLETE, NO GPU CELL HAS BEEN RUN.
+**Status** **SUSPENDED 2026-09-04 at the alpha=0 feasibility gate.** Design and code
+are complete and an alpha=0 preflight was run; NO non-zero alpha cell has ever been
+run, and none may be until the gate below is cleared. See section 0.1.
+
+## 0.1 SUSPENSION (2026-09-04, human decision)
+
+**Do not run the canary, the pilot, or any alpha sweep.** The alpha=0 preflight shows
+the evaluation interface is not usable in this configuration:
+
+| model | parse_fail | trunc | overall acc |
+|---|---|---|---|
+| llama3 | 90.0% | 100% | 1/30 = 3.33% |
+| qwen2.5 | 73.3% | -- | 1/30 = 3.33% |
+
+At this parse-failure rate a dose search would compare output-format failure and
+loop degeneration against each other, not steering.
+
+**Two things this does NOT establish, and both are easy to get wrong:**
+
+1. It does NOT show that steering is ineffective on ProofWriter. No non-zero alpha
+   has been run. The only supportable statement is that **the explicit-CoT
+   configuration did not pass feasibility**.
+2. The preflight's `No effective workpoint` verdict is **VACUOUS and must not be
+   cited**. A workpoint verdict computed over a single dose has nothing to compare
+   against; the string is an artifact of running the evaluator on one cell.
+
+**Resumption condition.** Results are sealed as-is. If this line is revived, it starts
+with a SMALL balanced **3-shot** prompt feasibility test -- not a sweep. If parse
+failure is still high there, the task is formally TERMINATED rather than re-tuned
+again. (The v1 prompt revision was already one such response to a preflight; a second
+round of prompt tuning against the same symptom would be fitting the interface to the
+observation.)
 **Relation to the GSM8K/MATH/BBH/CRUXEval/LogiQA fixed-workpoint transfer line**
 NONE. This is not a transfer test and does not read the frozen GSM8K workpoint
 (llama `-6`, qwen `+8`). It is ProofWriter's **own** 4-point dose exploration
