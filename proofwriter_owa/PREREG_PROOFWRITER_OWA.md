@@ -245,9 +245,13 @@ Consequences, all explicit:
   diagnostic only records that the model did not follow the literal "last
   line" instruction, and this is reported for audit, not used to drop the
   sample.
-- **This is a ONE-TIME raise.** If material truncation is observed again at
-  `1024`, the run stops and is reported — the budget is never silently
-  raised past 1024.
+- **This is a ONE-TIME raise, enforced in code, not just by convention.**
+  `get_answer_proofwriter_owa.py` hard-rejects any `--max_new_tokens` value
+  other than the frozen `MAX_NEW_TOKENS_FROZEN = 1024` constant — the CLI
+  flag exists but is not a tunable knob. If material truncation is observed
+  again at `1024`, the run stops and is reported; raising the budget further
+  requires deliberately editing `MAX_NEW_TOKENS_FROZEN` in the generator
+  source AND this section, not passing a different CLI value.
 - Any report of results **must state explicitly**: llama3 shows a high rate
   of degenerate repetition loops on this task, so its generation-length and
   commitment-timing diagnostics (§9, e.g. `pre_answer_reasoning_tokens`,

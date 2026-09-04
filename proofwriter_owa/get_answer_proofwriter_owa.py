@@ -67,6 +67,11 @@ EXPECTED_CELLS = {
     "qwen2.5": {(-6, 16, 22), (0, 16, 22), (6, 16, 22), (8, 16, 22)},
 }
 
+# FROZEN 2026-09-04 (PREREG_PROOFWRITER_OWA.md S6). See the --max_new_tokens
+# argparse help text and the hard check in main() for why this is enforced,
+# not merely defaulted.
+MAX_NEW_TOKENS_FROZEN = 1024
+
 
 def die(msg):
     print(f"[FATAL] {msg}", file=sys.stderr)
@@ -85,17 +90,22 @@ def parse_args():
     p.add_argument("--configs", required=True, nargs="+",
                    help="e.g. 0-11-20 neg6-11-20 neg4-11-20 4-11-20")
     p.add_argument("--out_dir", required=True)
-    # Raised from the original default of 768 to 1024 (frozen 2026-09-04,
-    # PREREG_PROOFWRITER_OWA.md S6): the llama3 alpha=0 preflight (30 items)
-    # showed 30/30 truncation at 768. Manual inspection of five samples
-    # showed the truncation is NOT uniform in cause -- some are genuine
-    # multi-hop reasoning that simply needs more room, some are stable
-    # degenerate repetition loops (llama3-specific, known/expected, not a
-    # bug this budget change is meant to cure). Per the user's explicit
-    # decision: raise ONCE to 1024, do not chase it further upward, do not
-    # treat "loop eliminated" as a preflight gate, and record loop/
-    # truncation rates in every report rather than hiding them.
-    p.add_argument("--max_new_tokens", type=int, default=1024)
+    # FROZEN, not a tunable CLI knob (review finding, 2026-09-04): raised
+    # from the original default of 768 to 1024 after the llama3 alpha=0
+    # preflight (30 items) showed 30/30 truncation at 768. Manual inspection
+    # found the truncation is NOT uniform in cause -- some genuine multi-hop
+    # reasoning that simply needed more room, some stable degenerate
+    # repetition loops (llama3-specific, known/expected, not a bug this
+    # budget change is meant to cure). Per the user's explicit decision:
+    # raise ONCE to 1024, do not chase it further upward. A comment-only
+    # constraint left the value changeable from the command line with no
+    # enforcement, so this is now a hard CLI-level rejection of any other
+    # value (see MAX_NEW_TOKENS_FROZEN below and the check in main()) rather
+    # than a default that could silently be overridden.
+    p.add_argument("--max_new_tokens", type=int, default=MAX_NEW_TOKENS_FROZEN,
+                   help=f"FROZEN at {MAX_NEW_TOKENS_FROZEN} "
+                        "(PREREG_PROOFWRITER_OWA.md S6); any other value is "
+                        "rejected, not silently accepted.")
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--top_p", type=float, default=1.0)
     p.add_argument("--batch_size", type=int, default=8)
@@ -141,6 +151,19 @@ def load_exemplars(path, n_shot):
 
 def main():
     args = parse_args()
+    # HARD REJECTION, not just a default (review finding, 2026-09-04): a
+    # comment-only constraint on the argparse default left --max_new_tokens
+    # freely overridable from the command line with no enforcement, so the
+    # "raise once to 1024 and never again" decision was not actually
+    # binding. Any value other than the frozen one is refused outright.
+    if args.max_new_tokens != MAX_NEW_TOKENS_FROZEN:
+        die(f"--max_new_tokens={args.max_new_tokens} != the frozen value "
+            f"{MAX_NEW_TOKENS_FROZEN} (PREREG_PROOFWRITER_OWA.md S6). The "
+            "budget was raised from 768 to 1024 exactly once, by explicit "
+            "human decision, after the llama3 alpha=0 preflight; it is not "
+            "raised further without a new, equally explicit decision that "
+            "changes MAX_NEW_TOKENS_FROZEN in this file (and the matching "
+            "value in PREREG_PROOFWRITER_OWA.md S6), not a one-off CLI flag.")
     meta, samples = load_manifest(args.manifest)
 
     cfgs_raw = args.configs

@@ -492,30 +492,41 @@ def main():
                 "not pooled into the primary per-model Holm(m=3) family. "
                 "Commitment-extractor fields are descriptive co-occurrence "
                 "statistics only, never causal mediation evidence."),
-        "note_llama3_loop_rate": (
-            "Decided 2026-09-04 (PREREG_PROOFWRITER_OWA.md S6): llama3's "
+        # Renamed from "note_llama3_loop_rate" to a model-neutral name
+        # (review finding, 2026-09-04): this note is written into EVERY
+        # report regardless of which model(s) it covers, and the original
+        # name baked in an assumption -- "this is a llama3 thing" -- into a
+        # field that could equally appear next to a qwen2.5-only result.
+        # The interpretive rule it states applies uniformly to whichever
+        # model/alpha actually shows an elevated loop_rate; it does not
+        # presuppose llama3 is the (or the only) affected model.
+        "note_loop_interpretation": (
+            "Decided 2026-09-04 (PREREG_PROOFWRITER_OWA.md S6): the llama3 "
             "alpha=0 preflight (30 items) showed 100% truncation at the "
             "original max_new_tokens=768, with manual inspection finding a "
             "high, stable degenerate-repetition-loop tendency alongside "
             "genuine long-form reasoning. max_new_tokens was raised ONE "
-            "TIME to 1024 for both models; loop_rate/truncation_rate are "
-            "recorded per cell (see results[model].cells[alpha].loop_rate) "
-            "but were NOT used as a preflight gate. Consequence for reading "
-            "this report: on any model/alpha with an elevated loop_rate, "
-            "generation-length and commitment-timing diagnostics carry "
-            "weaker interpretive weight; parseable-answer accuracy is "
-            "scored identically to every other cell via the frozen parser "
-            "and is unaffected."),
+            "TIME to a frozen 1024 for both models; loop_rate/"
+            "truncation_rate are recorded per cell (see "
+            "results[model].cells[alpha].loop_rate) but were NOT used as a "
+            "preflight gate for either model. Consequence for reading this "
+            "report: on ANY model/alpha with an elevated loop_rate, "
+            "generation-length and commitment-timing diagnostics for that "
+            "cell carry weaker interpretive weight; parseable-answer "
+            "accuracy is scored identically to every other cell via the "
+            "frozen parser and is unaffected."),
     }
     json.dump(out, open(a.out, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 
     # A loop-rate threshold that prints a caveat, not a gate (frozen
-    # 2026-09-04, PREREG_PROOFWRITER_OWA.md S6): llama3's alpha=0 preflight
-    # showed a high, stable degenerate-repetition-loop tendency on this
-    # task. loop_rate is never used to filter, re-weight, or block anything
-    # -- this is purely so a reader of the terminal summary sees the caveat
-    # inline instead of having to separately notice it in the JSON's
-    # per-cell loop_rate field.
+    # 2026-09-04, PREREG_PROOFWRITER_OWA.md S6). Added after the llama3
+    # alpha=0 preflight showed a high, stable degenerate-repetition-loop
+    # tendency on this task, but the check itself is MODEL-NEUTRAL -- it
+    # runs for every model in `results`, not llama3 specifically, since
+    # nothing rules out the same pattern showing up elsewhere. loop_rate is
+    # never used to filter, re-weight, or block anything -- this is purely
+    # so a reader of the terminal summary sees the caveat inline instead of
+    # having to separately notice it in the JSON's per-cell loop_rate field.
     LOOP_RATE_CAVEAT_THRESHOLD = 0.10
 
     print(f"\n=== PROOFWRITER OWA — task-specific dose exploration ===")
