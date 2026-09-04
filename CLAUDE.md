@@ -2089,6 +2089,131 @@ python eval_cruxeval.py \
   --out docs/p4c_cruxeval_evaluation.json
 ```
 
+## `cot-transfer-followup-v0`: explicit-CoT exploratory follow-up on the three P4/P4b/P4c boundary tasks
+
+> **`AdaDopamine_gsm8k.md` §6.3 is the results document** (merged No-CoT/CoT table +
+> the Table 6.3b answer-mode diagnostic). This section is provenance and the
+> detailed per-cell diagnostics that §6.3 deliberately keeps out of the main text
+> to stay readable. **Status: post-hoc EXPLORATORY follow-up, not a confirmatory
+> replication or blind validation** — it was designed after seeing the P4/P4b/P4c
+> No-CoT nulls, on the same fixed workpoints (llama3 `−6`, qwen2.5 `+8`), never
+> re-selecting α. Protocol: `docs/PREREG_COT_TRANSFER_FOLLOWUP.md`. Evaluator:
+> `eval_cot_transfer_followup.py` (never edited by this line — reused as-is).
+> Holm combiner: `combine_cot_followup_holm.py` (fixed `m=6` family, withheld
+> entirely unless all 6 pre-registered (task,model) pairs are present). Analysis
+> workspace: `RoleAnswer/cot_followup_analysis/` (not in git).
+
+**The CoT cue is one inserted line, `"Let's think step by step.\n"`**, placed
+immediately before each task's existing final-format instruction (`####` /
+`Final answer: X` / the FIRST-marker Python-literal instruction); everything
+else — prompt skeleton, anchor token, steering injection site, generation
+budget — is byte-identical to the frozen No-CoT cell of the same task/model/α.
+
+**Table 6.3b's `ec` = `early_candidate_rate`, the frozen `earlycand-v1` detector
+imported unchanged** (first non-empty line ≤60 chars, contains a bare digit, is
+not a numbered reasoning opener or a bare heading). It was frozen on GSM8K and
+BBH-audited there; it was **not** re-validated or re-tuned for LogiQA or
+CRUXEval-O. Read every `ec` number together with its task's known detector
+limitation before citing it as a commitment-timing readout.
+
+### Per-cell diagnostics behind Table 6.3b (full numbers, `cot_followup_mode_comparison.csv`)
+
+| Task × Model | Condition | `ec` α=0→α | `naf` α=0→α | `pos` (marker position) α=0→α | `pre` (chars before marker, median) α=0→α | loop rate α=0→α |
+|---|---|---|---|---|---|---|
+| BBH × Llama | No-CoT | .952→.844 | .000→.004 | .063→.088 | 125→144 | .928→.884 |
+| BBH × Llama | CoT | .972→.632 | .000→.128 | .001→.001 | **2→2 (unchanged)** | **.984→.964 (both ≈96–98%)** |
+| BBH × Qwen | No-CoT | 1.000→.444 | .000→.012 | .757→.699 | 313→44 | .036→.048 |
+| BBH × Qwen | CoT | 1.000→.072 | .000→.000 | .323→.687 | 137.5→244.5 | .024→.008 |
+| CRUXEval-O × Llama | No-CoT | .480→.473 | .000→.303 | .005→.003 | 10→7 | .860→.887 |
+| CRUXEval-O × Llama | CoT | .430→.280 | .000→.143 | .005→.023 | 11→43 | **.923→.853 (both 85–92%)** |
+| CRUXEval-O × Qwen | No-CoT | .450→.190 | .167→.137 | .357→.470 | 8→31 | .033→.050 |
+| CRUXEval-O × Qwen | CoT | .360→.000 | .073→.000 | .324→.949 | 46→686 | .157→.147 |
+| LogiQA × Llama | No-CoT | .000→.133 | **.757→.330** | .000→.033 | 0→114 | .950→.863 |
+| LogiQA × Llama | CoT | .000→.043 | .000→.000 | .154→.203 | 549→663 | .907→.877 |
+| LogiQA × Qwen | No-CoT | .000→.000 | .000→.000 | .970→.867 | 1401→1370 | .133→.217 |
+| LogiQA × Qwen | CoT | .000→.000 | .000→.000 | .972→.973 | 1543.5→1625 | .060→.113 |
+
+**Read these together, not the `ec` column alone — three cells illustrate why.**
+
+- **BBH×Llama's `ec` drop (CoT Δ=−0.340) is real (manually spot-checked), but it
+  is NOT a "cleaner" case than BBH×Qwen or CRUXEval-O×Qwen.** Both BBH×Llama
+  cells sit at a **≈96–98% degenerate-loop rate** (α=0 CoT: .984, α=−6 CoT:
+  .964), and `pre_marker_chars_med` and `pos` barely move (`2→2`,
+  `.001→.001`) — the marker itself is emitted almost immediately in both
+  conditions; what changes is what happens in the loop-dominated text
+  afterward, not a shift toward later commitment. Do not describe this cell as
+  the cleanest example of a later-commitment shift.
+- **CRUXEval-O×Qwen is the cleanest cell in this batch**: `ec` reaches exactly
+  0, `pos` moves from mid-generation (.32) to near the very end (.95), and
+  `pre_marker_chars_med` grows 46→686 with a low, stable loop rate (.157→.147).
+  Call this the strongest observed **later-commitment shift**, not a "fully
+  opened control channel" — that phrasing overclaims a causal mechanism this
+  descriptive comparison cannot establish.
+- **CRUXEval-O×Llama's `ec` moves the same direction (CoT Δ=−0.150) but
+  accuracy does not follow (CoT ΔAcc=−0.67pp, Holm `p_adj=.9656`), and this cell
+  carries an 85–92% degenerate-loop rate in BOTH conditions.** So a directionally
+  consistent `ec` drop here is not by itself evidence of a cleaner commitment
+  signal — it may be partly an artifact of the same loop-dominated generation
+  that make the accuracy reading itself only reliable because the FIRST marker
+  lands before the loop starts. **Two separate claims, do not conflate them:**
+  accuracy scoring on this cell is reliable (the marker precedes the
+  degenerate tail); the mode/pattern reading on this same cell is
+  degeneration-confounded (the loop dominates the bulk of each generation) and
+  should not be cited with the same confidence as the accuracy number.
+
+**LogiQA's `ec` staying at .000 in every CoT cell is NOT evidence that
+commitment timing did not change — it is a ceiling artifact of the detector.**
+`earlycand-v1` requires a bare digit on a short first line; LogiQA's answer
+format is a letter choice (A–D), so the detector structurally cannot register
+"answered before reasoning" there, in either condition. The one indicator that
+DOES move under No-CoT is `naf` (`native_answer_first_rate`, a broader
+first-line-is-the-answer check): Llama's No-CoT `naf` drops sharply under
+steering (.757→.330), showing that a task-native commitment signal exists and
+does respond to α even though `ec` cannot see it. Under CoT this channel is
+already saturated at the floor (`naf`=.000 in both CoT cells for Llama, and
+in all four Qwen cells) — CoT's own reasoning requirement leaves no
+"answered immediately" behavior left for steering to suppress, so the absence
+of further movement is a ceiling effect, not proof that steering has no
+commitment-timing effect under CoT. **Correct statement: whether LogiQA forms a
+GSM8K-like commitment shift under CoT+steering cannot be determined from the
+metrics available here; what is established is that accuracy did not improve
+under either condition.** A task-adapted indicator (reasoning content present
+before `Final answer:`, normalized marker position restricted to non-loop
+cells) would be needed to test this properly and has not been built.
+
+**BBH's CoT `α=0` baseline does not exceed its No-CoT `α=0` baseline** (Llama
+41.60%→40.80%, Qwen essentially flat at 55.20%/52.80% — small cross-condition
+noise, not a CoT main effect). **The BBH accuracy gain is therefore attributable
+to the `CoT × steering` interaction specifically, not to CoT alone** — CoT by
+itself does not move the needle; only CoT combined with the fixed workpoint
+does. This is consistent with the `ec` pattern: `ec` at CoT `α=0` is *higher*
+than at No-CoT `α=0` for both models (Llama .952→.972, Qwen 1.000→1.000), so
+CoT alone does not suppress early-candidate answering here — steering has to be
+present too.
+
+**Cross-reference to the GSM8K reference row (`cot_followup_mode_comparison.csv`,
+`GSM8K_REFERENCE` rows): magnitude match matters, not just direction.**
+GSM8K-Qwen's CoT `ec` drop is `.973→.070` (Δ=−.903). **BBH×Qwen's CoT `ec` drop
+(Δ=−.928) is the one that lands at essentially the same near-zero endpoint as
+GSM8K-Qwen** (.072 vs .070) and is the closest magnitude match in this batch.
+**CRUXEval-O×Qwen's Δ is −.360 — smaller in magnitude than GSM8K-Qwen's −.903 —
+and should not be described as matching GSM8K's scale.** What CRUXEval-O×Qwen
+does share with GSM8K-Qwen is the *endpoint*: both end at (or very near) `ec`=0,
+even though CRUXEval-O's baseline was lower to begin with (.360 vs .973), so the
+absolute drop is smaller. Report "both converge to near-zero `ec`," not "both
+show a GSM8K-scale drop."
+
+**Frozen wording for citing Table 6.3b:** the three accuracy-positive Holm-passing
+cells (BBH×Llama, BBH×Qwen, CRUXEval-O×Qwen) show `ec` decreasing more sharply
+under CoT than under No-CoT for the same fixed α, **co-occurring with** the
+accuracy gain — this is a descriptive, post-treatment association (`ec` is
+itself an outcome of α and CoT), not evidence that a commitment-timing shift
+*causes* the accuracy gain. CRUXEval-O×Llama shows the same directional `ec`
+shift without an accuracy gain, and LogiQA's apparent absence of an `ec` shift
+cannot be distinguished from a detector ceiling — together these two cells are
+why the relationship is reported as "co-occurs with," never as "is a sufficient
+condition for" or "causally mediates," fixed-workpoint transfer recovery.
+
 ## Local checks (no GPU, no server)
 
 There is no pytest suite and no linter config. The tests that exist are standalone scripts that exit non-zero on failure, and they are the fast way to verify a change before touching the server. **Use `python3.10`** — plain `python3` on the analysis box has no numpy.
