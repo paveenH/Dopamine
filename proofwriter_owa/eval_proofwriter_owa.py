@@ -549,8 +549,10 @@ def main():
                   f"{high_loop_alphas} -- generation-length and "
                   "commitment-timing diagnostics for this model/alpha carry "
                   "weaker interpretive weight (known, stable degenerate-"
-                  "repetition tendency, not a scoring defect; parseable-"
-                  "answer accuracy is unaffected).")
+                  "repetition tendency, not a scoring defect). NOTE: the "
+                  "MAIN accuracy above IS affected -- its denominator is "
+                  "all items, so every parse failure scores incorrect. "
+                  "Read accuracy together with parse_fail, never alone.")
         print(f"  workpoint verdict: {r['workpoint']['verdict']}")
 
     print(f"\nwrote {a.out}")
