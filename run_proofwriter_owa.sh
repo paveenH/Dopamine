@@ -104,6 +104,25 @@ check_common_inputs() {
   fi
 }
 
+# ---------------------------------------------------------------- SUSPENSION
+# proofwriter-owa-v0 is SUSPENDED at the alpha=0 feasibility gate (2026-09-04).
+# Preflight measured llama parse_fail=90%/trunc=100%, qwen parse_fail=73.3%, both
+# models 1/30 = 3.33% overall -- a dose search here would compare format failure
+# and loop degeneration, not steering. Resuming requires a small balanced 3-shot
+# feasibility test FIRST (see PREREG_PROOFWRITER_OWA.md S0.1); if parse failure is
+# still high the task is TERMINATED rather than re-tuned. This guard is here so the
+# suspension is enforced by the launcher, not only recorded in a document.
+case "$STAGE" in
+  canary|pilot|llama-sweep|qwen-sweep)
+    echo "[proofwriter-owa] REFUSED: '$STAGE' is blocked -- the line is SUSPENDED" >&2
+    echo "    at its alpha=0 feasibility gate (2026-09-04). No non-zero alpha cell" >&2
+    echo "    may run until a balanced 3-shot feasibility test clears the gate." >&2
+    echo "    See proofwriter_owa/PREREG_PROOFWRITER_OWA.md S0.1." >&2
+    echo "    Deliberately overriding this means editing run_proofwriter_owa.sh." >&2
+    exit 2
+    ;;
+esac
+
 case "$STAGE" in
 
   # ---------------------------------------------------------------- 1
