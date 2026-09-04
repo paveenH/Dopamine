@@ -97,7 +97,7 @@ Agent5: Total Design (GPT)
 24. 优化文档GSM8K ✔
 25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
 25. 顺便丰富一下prediction的结果 ✔
-
+26. ZebraLogic WP测试 ⏸
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
