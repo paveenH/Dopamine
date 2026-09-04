@@ -120,7 +120,11 @@ def test_interrupted_download_leaves_only_a_part_file():
         threw = False
         try:
             dpo.download_archive(tmp, url=url, chunk_size=16)
-        except Exception:
+        except BaseException:
+            # BaseException, not Exception: die() raises SystemExit, which
+            # is NOT an Exception subclass -- an `except Exception` here
+            # would itself let SystemExit propagate uncaught and crash this
+            # test, silently reporting nothing rather than a failure.
             threw = True
         check("a truncated transfer raises rather than silently succeeding",
               threw)
