@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+FROZEN ProofWriter-native commitment extractor (PREREG_PROOFWRITER_OWA.md S9).
+
+Frozen BEFORE any non-zero-alpha result is examined. Analyzes ONLY the
+generated continuation. Keyed on the explicit "Answer:" marker
+(`answer_parser.find_all_markers` / `find_all_markers_loose`), never on
+informal true/false/unknown words in the reasoning body.
+
+Metrics:
+  answer_first_rate            fraction where the FIRST content on the first
+                                non-whitespace line is itself a strict
+                                "Answer: <Label>" marker (i.e. essentially no
+                                reasoning precedes any answer)
+  first_answer_marker_pos      normalized char position (0..1) of the first
+                                STRICT marker's start, within the continuation
+  pre_answer_reasoning_chars   chars before the first strict marker
+  pre_answer_reasoning_tokens  tokenizer-based token count before the first
+                                strict marker; None/omitted if no tokenizer
+                                is supplied -- never estimated by a chars/4
+                                heuristic
+  reason_before_answer_rate    1 - answer_first_rate, restated for readability
+  first_final_label_agreement  bool: does the FIRST strict marker's label
+                                equal the LAST strict marker's label
+  label_revision_rate          1 - mean(first_final_label_agreement), over
+                                samples with >=2 strict markers only (a
+                                single-marker sample cannot "revise")
+  multiple_answer_marker_rate  fraction with >1 LOOSE marker occurrence
+                                (diagnostic: the model restated/second-guessed
+                                its answer somewhere in the text)
+
+THESE ARE DESCRIPTIVE CO-OCCURRENCE STATISTICS ONLY. Never reported as causal
+mediation evidence for an accuracy effect -- if a commitment metric changes
+while accuracy does not, the only licensed conclusion is that submission
+behavior changed without converting into task benefit.
+
+Detector version: `commitment-v0` (2026-09-04, never re-tuned after seeing
+non-zero-alpha data; if a future re-tuning is ever needed it gets a new
+version string and both are reported side by side, matching the
+`earlycand-v1` convention elsewhere in this repo).
+"""
+
+from __future__ import annotations
+
+from answer_parser import find_all_markers, find_all_markers_loose
+
+DETECTOR_VERSION = "commitment-v0"
+
+
+def _first_nonblank_line(text: str) -> str:
+    for line in text.splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def first_strict_marker_start(text: str) -> int | None:
+    """Char offset of the first strict "Answer: <Label>" marker's start, or
+    None if no strict marker is present. Public (not underscore-prefixed):
+    get_answer_proofwriter_owa.py imports this directly to compute
+    pre_answer_reasoning_tokens with the real tokenizer at generation time,
+    where a real HF tokenizer is actually loaded -- see the module docstring
+    on pre_answer_reasoning_tokens for why this must be computed there
+    instead of estimated offline without a tokenizer."""
+    import re
+    m = re.search(r"(?im)^\s*answer\s*:\s*(true|false|unknown)\s*\.?\s*$", text)
+    return m.start() if m else None
+
+
+def per_sample_commitment(continuation: str, tokenizer=None,
+                          precomputed_tokens=None) -> dict:
+    """Compute all commitment fields for ONE sample's generated continuation.
+
+    tokenizer: optional object with an __call__ or .encode method compatible
+    with HF tokenizers (used only to count pre_answer_reasoning_tokens). If
+    None AND precomputed_tokens is also None, pre_answer_reasoning_tokens is
+    None -- never estimated by a chars/4 heuristic.
+
+    precomputed_tokens: optional int, the pre-answer token count already
+    computed elsewhere (get_answer_proofwriter_owa.py computes this at
+    generation time, where a real tokenizer is actually loaded, and stores it
+    per row as "pre_answer_reasoning_tokens" -- the offline evaluator has no
+    model/tokenizer loaded, so it passes that stored value through here
+    rather than silently recomputing None). Takes precedence over `tokenizer`
+    when both are supplied; passing both is not expected in practice but
+    precomputed_tokens winning is the more conservative choice (prefers the
+    value actually computed against the real generation-time tokenizer).
+    """
+    strict = find_all_markers(continuation)
+    loose = find_all_markers_loose(continuation)
+    first_line = _first_nonblank_line(continuation)
+    first_marker_start = first_strict_marker_start(continuation)
+
+    # answer_first: the FIRST non-blank line IS itself a strict marker line
+    answer_first = bool(strict) and bool(
+        __import__("re").match(
+            r"(?i)^\s*answer\s*:\s*(true|false|unknown)\s*\.?\s*$", first_line))
+
+    pre_chars = first_marker_start if first_marker_start is not None else None
+    pos_norm = (first_marker_start / len(continuation)
+                if (first_marker_start is not None and len(continuation) > 0)
+                else None)
+
+    if precomputed_tokens is not None:
+        pre_tokens = precomputed_tokens
+    else:
+        pre_tokens = None
+        if tokenizer is not None and pre_chars is not None:
+            prefix = continuation[:pre_chars]
+            try:
+                ids = tokenizer(prefix, add_special_tokens=False)["input_ids"]
+                pre_tokens = len(ids)
+            except Exception:
+                pre_tokens = None
+
+    first_final_agree = None
+    if len(strict) >= 1:
+        first_final_agree = (strict[0] == strict[-1])
+
+    return {
+        "n_strict_markers": len(strict),
+        "n_loose_markers": len(loose),
+        "has_marker": bool(strict),
+        "answer_first": answer_first,
+        "first_answer_marker_pos": pos_norm,
+        "pre_answer_reasoning_chars": pre_chars,
+        "pre_answer_reasoning_tokens": pre_tokens,
+        "reason_before_answer": (not answer_first) if strict else None,
+        "first_final_label_agreement": first_final_agree,
+        "multiple_answer_marker": len(loose) > 1,
+    }
+
+
+def aggregate_commitment(rows: list[dict]) -> dict:
+    """rows: list of per_sample_commitment() dicts. Returns dataset-level
+    summary statistics, each computed on its own well-defined denominator
+    (documented per field) rather than silently coercing None to 0."""
+
+    def mean_of(key, predicate=lambda r: True):
+        vals = [r[key] for r in rows if predicate(r) and r.get(key) is not None]
+        return (sum(vals) / len(vals), len(vals)) if vals else (None, 0)
+
+    n = len(rows)
+    n_with_marker = sum(1 for r in rows if r["has_marker"])
+
+    answer_first_rate, n_af = mean_of("answer_first", lambda r: r["has_marker"])
+    pos_mean, n_pos = mean_of("first_answer_marker_pos")
+    chars_mean, n_chars = mean_of("pre_answer_reasoning_chars")
+    tok_mean, n_tok = mean_of("pre_answer_reasoning_tokens")
+
+    revisable = [r for r in rows if r["n_strict_markers"] >= 2]
+    label_revision_rate = (
+        sum(1 for r in revisable if not r["first_final_label_agreement"]) / len(revisable)
+        if revisable else None)
+
+    multi_marker_rate = sum(1 for r in rows if r["multiple_answer_marker"]) / n if n else None
+
+    return {
+        "detector_version": DETECTOR_VERSION,
+        "n_samples": n,
+        "n_with_marker": n_with_marker,
+        "marker_coverage": n_with_marker / n if n else None,
+        "answer_first_rate": {"value": answer_first_rate, "n": n_af,
+                              "denominator": "samples with >=1 strict marker"},
+        "reason_before_answer_rate": {
+            "value": (1 - answer_first_rate) if answer_first_rate is not None else None,
+            "n": n_af, "denominator": "samples with >=1 strict marker"},
+        "first_answer_marker_pos_mean": {"value": pos_mean, "n": n_pos,
+                                         "denominator": "samples with >=1 strict marker"},
+        "pre_answer_reasoning_chars_mean": {"value": chars_mean, "n": n_chars,
+                                            "denominator": "samples with >=1 strict marker"},
+        "pre_answer_reasoning_tokens_mean": {"value": tok_mean, "n": n_tok,
+                                             "denominator": "samples with >=1 strict marker AND a tokenizer supplied"},
+        "label_revision_rate": {"value": label_revision_rate, "n": len(revisable),
+                                "denominator": "samples with >=2 strict markers"},
+        "multiple_answer_marker_rate": {"value": multi_marker_rate, "n": n,
+                                        "denominator": "all samples"},
+        "scope_note": ("descriptive co-occurrence statistics only; never "
+                       "causal mediation evidence for an accuracy effect"),
+    }
