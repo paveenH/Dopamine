@@ -128,30 +128,122 @@ def salted_key(*parts: str) -> str:
 
 # ───────────────────────── download ─────────────────────────
 
+def _verify_zip_integrity(path: str):
+    """zipfile.testzip() reads every member's CRC -- catches a truncated or
+    corrupted archive that would otherwise pass a bare os.path.exists()
+    check and only fail much later, deep inside _find_meta_files with a
+    confusing error. Returns the name of the first bad member, or None."""
+    with zipfile.ZipFile(path) as zf:
+        return zf.testzip()
+
+
 def download_archive(dest_dir: str, url: str = OFFICIAL_URL,
-                      expected_sha256: str | None = None) -> str:
+                      expected_sha256: str | None = None,
+                      chunk_size: int = 1 << 20,
+                      progress_every_bytes: int = 20 << 20) -> str:
     """Fetch the official archive to dest_dir. Network required. Not called by
     --report/--check/--build_manifest, which assume the archive already
-    exists locally (offline-safe once fetched once)."""
+    exists locally (offline-safe once fetched once).
+
+    Reviewed 2026-09-04: the previous implementation did `f.write(r.read())`
+    -- one blocking read of the ENTIRE response body with no progress output
+    (so a slow/stalled connection is indistinguishable from a hung process
+    for the whole duration) and no interrupt safety (a Ctrl-C mid-download
+    left a truncated file at the FINAL path; the next run's `os.path.exists`
+    check would then treat that truncated file as "already downloaded" and
+    never re-fetch it, since no integrity check ran on the cached-file path
+    either). Fixed by: (1) streaming reads in `chunk_size` blocks with
+    periodic progress printed to stdout, so activity is visible instead of
+    silent "fetching..."; (2) writing to a `.part` sibling file and only
+    os.replace()-ing it to the final path after the download completes AND
+    a zip-integrity check passes -- an interrupted download can never leave
+    a file at the final path; (3) verifying zip integrity (not just
+    presence) on the ALREADY-PRESENT-file fast path too, so a corrupt cached
+    archive from before this fix is caught here rather than surfacing later
+    inside _find_meta_files with a confusing "structure differs" error.
+    """
     os.makedirs(dest_dir, exist_ok=True)
     path = os.path.join(dest_dir, ARCHIVE_BASENAME)
+    part_path = path + ".part"
+
     if os.path.exists(path):
+        bad_member = _verify_zip_integrity(path)
+        if bad_member is not None:
+            die(f"{path} exists but failed zip integrity check (bad member: "
+                f"{bad_member}); this looks like a truncated/corrupted "
+                "download from before this script verified zip integrity on "
+                "the already-present-file path. Delete it and re-run to "
+                "re-download: rm " + path)
         got = sha256_file(path)
         if expected_sha256 and got != expected_sha256:
             die(f"{path} already exists but sha256={got} != expected "
                 f"{expected_sha256}; refusing to silently re-download over a "
                 "mismatched file. Delete it deliberately if this is intentional.")
-        print(f"[download] archive already present: {path} sha256={got}")
+        print(f"[download] archive already present and zip-integrity-verified: "
+              f"{path} sha256={got}")
         return path
+
+    if os.path.exists(part_path):
+        print(f"[download] found a stale partial download {part_path} "
+              "(likely from an interrupted previous run); removing it and "
+              "starting over rather than trying to resume it.")
+        os.remove(part_path)
+
     print(f"[download] fetching {url}")
-    with urllib.request.urlopen(url, timeout=300) as r, open(path, "wb") as f:
-        f.write(r.read())
-    got = sha256_file(path)
-    print(f"[download] wrote {path} sha256={got}")
+    with urllib.request.urlopen(url, timeout=300) as r:
+        total = r.getheader("Content-Length")
+        total = int(total) if total is not None else None
+        total_str = f"{total / (1 << 20):.1f} MB" if total else "unknown size"
+        print(f"[download] response opened, {total_str}")
+        written = 0
+        next_report = progress_every_bytes
+        try:
+            with open(part_path, "wb") as f:
+                while True:
+                    chunk = r.read(chunk_size)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    written += len(chunk)
+                    if written >= next_report:
+                        pct = f" ({100 * written / total:.1f}%)" if total else ""
+                        print(f"[download] {written / (1 << 20):.1f} MB "
+                              f"written{pct}")
+                        next_report += progress_every_bytes
+        except BaseException:
+            # covers Ctrl-C (KeyboardInterrupt) as well as any I/O error --
+            # in both cases the partial file must NOT be left where a future
+            # run's os.path.exists(path) check could mistake it for a
+            # complete download. It stays at `.part` so it is inspectable,
+            # but it is never renamed to the final path.
+            print(f"[download] interrupted/failed after {written} bytes; "
+                  f"left the incomplete file at {part_path} (NOT at the "
+                  "final path, so a future run will not mistake it for a "
+                  "complete download). Delete it manually if you want to "
+                  "clean up disk space before retrying.", file=sys.stderr)
+            raise
+    print(f"[download] download complete, {written} bytes written to "
+          f"{part_path}; verifying before making it the final artifact")
+
+    bad_member = _verify_zip_integrity(part_path)
+    if bad_member is not None:
+        die(f"downloaded file failed zip integrity check (bad member: "
+            f"{bad_member}); the download is corrupt or was truncated by a "
+            f"network issue. Left at {part_path} for inspection; delete it "
+            "and re-run to retry.")
+
+    got = sha256_file(part_path)
     if expected_sha256 and got != expected_sha256:
         die(f"downloaded sha256={got} != expected {expected_sha256}; the "
             "official archive content changed or the download is corrupt. "
-            "This is a hard stop, not a silent accept.")
+            f"This is a hard stop, not a silent accept. Left at {part_path} "
+            "for inspection.")
+
+    # Atomic rename: only now does a file appear at the FINAL path, so a
+    # concurrent or later run's os.path.exists(path) check can never see a
+    # partial/unverified file there.
+    os.replace(part_path, path)
+    print(f"[download] wrote {path} sha256={got}")
     return path
 
 

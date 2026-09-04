@@ -288,9 +288,28 @@ def main():
           "in zebralogic/eval_zebralogic.py.")
 
 
-def load_private_gold(ids, hf_name=HF_PRIVATE, revision=REVISION, split=SPLIT,
+def load_private_gold(ids, hf_name=HF_PRIVATE, revision=None, split=SPLIT,
                       config=CONFIG):
     """Load real gold for the given `ids` from the GATED private dataset.
+
+    `revision` defaults to None (HF's `main`/latest), NOT the module-level
+    `REVISION` constant -- that SHA was verified as a commit in the PUBLIC
+    repo (allenai/ZebraLogicBench)'s git history only. allenai/
+    ZebraLogicBench-private is a SEPARATE repo with its own independent
+    commit history; that SHA is very unlikely to exist there at all, so
+    passing it as --revision to load_dataset on the private repo would most
+    likely 404 before CHECK_ACCESS/load_private_gold ever got to the actual
+    gating check, misreporting a revision-not-found error as an access
+    failure. The prereg (docs/PREREG_ZEBRALOGIC_EASY.md section 1) never pins
+    a private-repo revision -- consistent with the official ZeroEval scorer,
+    which also loads the private split with no revision pin (see section 1).
+    Content integrity is instead verified per-call, per-id: every returned
+    solution's shape (header, house count) must agree with what the public,
+    revision-pinned split reported for the SAME id (checked by the caller via
+    solution_shape() comparison, or implicitly by score_one_item() failing to
+    match cell count against the frozen commitment/scoring machinery) -- so a
+    silent private-repo content drift is still not accepted quietly, without
+    requiring a revision pin that does not exist for this repo.
 
     Hard-stops with an explanatory message (never a silent fallback) if:
       - the `datasets` library cannot authenticate/access the private repo

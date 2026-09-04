@@ -230,6 +230,23 @@ def main():
                 return_metadata=True,
             ))
 
+        # HARD LENGTH CHECK (matches get_answer_proofwriter_owa.py's review
+        # finding #1 fix): zip(samples, gen) below silently truncates to the
+        # shorter sequence if a batch call ever returned fewer rows than it
+        # was given (a partial-batch bug, an OOM-recovery path returning a
+        # short list, etc.) -- the cell would then write fewer rows than
+        # samples with NO error, and the steering_fires check below only
+        # catches this by accident (a short `gen` still yields the SAME
+        # `len(samples)` used in `expect`, since `expect` is computed from
+        # `samples`, not from `gen`). Assert 1:1 length before doing anything
+        # else with `gen`.
+        if len(gen) != len(samples):
+            sys.exit(f"FAIL: generation returned {len(gen)} rows for "
+                     f"{len(samples)} prompts at alpha={alpha}; zip() would "
+                     f"silently drop {abs(len(gen) - len(samples))} sample(s). "
+                     "This must never happen under vc.regenerate's documented "
+                     "contract -- treat as a hard failure, not a partial result.")
+
         fires = vc.steering_fire_count()
         n_layers = len(utils.decoder_layer_range(ls, le))
         expect = 0 if alpha == 0 else n_layers * len(samples)

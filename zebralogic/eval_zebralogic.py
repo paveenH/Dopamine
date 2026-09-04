@@ -65,6 +65,19 @@ FROZEN_ALPHAS = {
     "qwen2.5": (-6, 0, 6, 8),
 }
 
+# meta fields that MUST be identical across every alpha cell of one model's
+# formal sweep: a config drift here (different mask, different token budget
+# from the S3 escalation rule applied inconsistently, different batch size)
+# would silently mix incomparable cells into one "dose curve", and nothing
+# downstream (McNemar/Holm/bootstrap consume only 0/1 solved vectors) could
+# tell. prompt_sha256 alone (the pre-existing check) does not catch a mask
+# swap or a token-budget mismatch -- those never enter the rendered prompt.
+CONSISTENCY_FIELDS = (
+    "model", "size", "layer_start", "layer_end", "L",
+    "mask_path", "mask_sha256", "max_new_tokens", "temperature", "top_p",
+    "batch_size", "prefill_tail_len", "chat_template",
+)
+
 
 def die(m):
     print(f"[FATAL] {m}", file=sys.stderr)
@@ -418,11 +431,49 @@ def cmd_formal(args):
 
     if 0 not in by_alpha:
         die(f"{model}: no alpha=0 cell supplied; it is required as the baseline")
+    # COMPLETENESS: a formal-scope score MUST see all four frozen alpha for
+    # this model, or Holm m=3 / the argmax-and-near-optimal-region workpoint
+    # rule (prereg S8) is not a well-defined family. The previous behavior --
+    # print a warning and score whichever subset was supplied -- let an
+    # incomplete sweep produce a plausible-looking but statistically
+    # meaningless "Holm m=3, INCOMPLETE" result (the cmd_formal body below
+    # already tests `len(stats) == len(frozen) - 1` to withhold Holm, but the
+    # near-optimal-region / argmax reporting still ran over a partial family,
+    # and nothing forced a human to notice the printed warning before citing
+    # the output). Hard-stop instead: an incomplete formal sweep is scored
+    # only via a deliberate, explicit override.
     missing = frozen - set(by_alpha)
-    if missing:
-        print(f"[!] {model}: missing alpha cell(s) {sorted(missing)} -- scoring "
-              f"only the {sorted(by_alpha)} cells present. Holm/argmax analysis "
-              "requires all four.")
+    if missing and not args.allow_partial_alphas:
+        die(f"{model}: missing alpha cell(s) {sorted(missing)} -- this "
+            f"protocol's Holm m=3 family and workpoint rule (prereg S8) "
+            f"require all four frozen alpha {sorted(frozen)}. Pass "
+            "--allow_partial_alphas only for a deliberate, human-invoked "
+            "partial score (e.g. inspecting one finished cell mid-sweep); "
+            "such a run's Holm/argmax/near-optimal-region output must NOT "
+            "be cited as the formal four-point result.")
+    if missing and args.allow_partial_alphas:
+        print(f"[eval] NOTE: {model} scored with alpha cell(s) {sorted(missing)} "
+              f"MISSING, under --allow_partial_alphas -- scoring only the "
+              f"{sorted(by_alpha)} cells present. This run's Holm/argmax/"
+              "near-optimal-region output must NOT be cited as the formal "
+              "four-point result.")
+
+    # CONSISTENCY: every cell of one model's formal sweep must be a
+    # genuinely comparable point on ONE dose curve -- same mask, same token
+    # budget, same batch size, same model/band. Only prompt_sha256 was
+    # checked above; a mask swap or an inconsistently-applied S3
+    # 2048->3072 token-budget escalation would otherwise pass silently.
+    metas_by_alpha = {al: v["meta"] for al, v in by_alpha.items()}
+    ref_al = sorted(metas_by_alpha)[0]
+    ref_meta = metas_by_alpha[ref_al]
+    for al, m in metas_by_alpha.items():
+        for field in CONSISTENCY_FIELDS:
+            if m.get(field) != ref_meta.get(field):
+                die(f"{model}: alpha={al} cell's {field!r}={m.get(field)!r} "
+                    f"differs from alpha={ref_al}'s {ref_meta.get(field)!r}; "
+                    "cells of one model's dose curve must share an identical "
+                    "configuration (mask/token-budget/batch-size/model), or "
+                    "they are not a comparable curve.")
 
     ids = ids_ref
     gold = load_private_gold(ids)
@@ -501,13 +552,20 @@ def cmd_formal(args):
         # ---- workpoint rule (frozen, prereg section 8)
         all_alphas = sorted(summaries)
         argmax_alpha = max(all_alphas, key=lambda a: (summaries[a]["puzzle_acc"], -abs(a)))
+        # rule 3 is written generally ("any point whose paired difference
+        # from the argmax is not detected") with no carve-out for alpha=0 --
+        # excluding alpha=0 unconditionally (the previous `or al == 0:
+        # continue`) meant baseline could never be reported as statistically
+        # indistinguishable from the argmax, which is exactly the wrong bias
+        # in the case rule 5 exists for: "no dose actually beats baseline".
+        # argmax_alpha itself is trivially indistinguishable from itself and
+        # is seeded into the set below without a redundant self-comparison.
         near_optimal = [argmax_alpha]
         for al in all_alphas:
-            if al == argmax_alpha or al == 0:
+            if al == argmax_alpha:
                 continue
             # "not detected vs the argmax": exploratory, NOT the Holm family
-            # above (that family is strictly alpha-vs-0). Computed only among
-            # non-zero alphas for the near-optimal region per the frozen rule.
+            # above (that family is strictly alpha-vs-0).
             a_argmax = [1 if x["solved"] else 0 for x in
                         sorted(scored_by_alpha[argmax_alpha], key=lambda r: r["sample_id"])]
             a_other = [1 if x["solved"] else 0 for x in
@@ -517,23 +575,37 @@ def cmd_formal(args):
             if p_vs_argmax > 0.05 or (lo <= 0 <= hi):
                 near_optimal.append(al)
 
-        holm_pass = adj is not None and any(adj[al] < 0.05 for al in adj)
-        if holm_pass:
+        # A dose only "clears Holm" toward a workpoint claim if it is BOTH
+        # Holm-significant AND an IMPROVEMENT over alpha=0 (dPuzzleAcc_pp >
+        # 0). The previous `holm_pass = any(adj[al] < 0.05 ...)` accepted a
+        # Holm-significant DEGRADATION just as readily as an improvement --
+        # so a dose that significantly HURT accuracy could make the verdict
+        # report the numerically-highest (but possibly non-significant, or
+        # even alpha=0 itself) point as an established "workpoint", which
+        # rule 5 exists specifically to forbid.
+        qualifying = [al for al in stats
+                     if adj is not None and adj[al] < 0.05
+                     and stats[al]["dPuzzleAcc_pp"] > 0]
+        if qualifying:
             verdict = (f"argmax alpha={argmax_alpha} (puzzle_acc="
                       f"{summaries[argmax_alpha]['puzzle_acc']:.4f}); "
+                      f"Holm-significant improving alpha(s) = {sorted(qualifying)}; "
                       f"near-optimal region (exploratory) = {sorted(set(near_optimal))}")
         else:
-            verdict = ("NO non-zero alpha cleared Holm vs alpha=0 -- per the "
-                      "frozen workpoint rule, the conclusion is 'no effective "
-                      "workpoint detected among the four sampled points'. The "
+            verdict = ("NO non-zero alpha cleared Holm as a SIGNIFICANT "
+                      "IMPROVEMENT vs alpha=0 -- per the frozen workpoint "
+                      "rule, the conclusion is 'no effective workpoint "
+                      "detected among the four sampled points'. The "
                       f"numerically highest point (alpha={argmax_alpha}) may "
-                      "NOT be reported as an established workpoint.")
+                      "NOT be reported as an established workpoint, even if "
+                      "some other alpha is a significant DEGRADATION.")
         print(f"\n=== WORKPOINT VERDICT ===\n{verdict}")
     else:
         holm_complete = False
         adj = None
         argmax_alpha = None
         near_optimal = []
+        qualifying = []
         verdict = "alpha=0 cell missing -- no paired analysis possible."
         print(f"\n{verdict}")
 
@@ -541,8 +613,14 @@ def cmd_formal(args):
         "protocol": PROTOCOL, "model": model, "n": len(ids),
         "alphas_present": sorted(summaries), "frozen_alphas": sorted(frozen),
         "summaries": summaries, "paired_vs_zero": stats,
-        "holm_family_m": 3, "holm_complete": holm_complete, "p_adj": adj,
-        "argmax_alpha": argmax_alpha, "near_optimal_region": sorted(set(near_optimal)),
+        # holm_family_m reflects the ACTUAL number of non-zero-alpha pairs
+        # scored (len(stats)), not a hardcoded 3 -- a hardcoded value would
+        # misdescribe an --allow_partial_alphas run's correction (which
+        # applies over fewer pairs) as if it were the full m=3 family.
+        "holm_family_m": len(stats), "holm_complete": holm_complete, "p_adj": adj,
+        "argmax_alpha": argmax_alpha,
+        "holm_significant_improvement_alphas": sorted(qualifying),
+        "near_optimal_region": sorted(set(near_optimal)),
         "verdict": verdict,
         "note": ("Four sampled points only; this is NOT a dose-response curve. "
                  "near_optimal_region is EXPLORATORY and excluded from the "
@@ -570,6 +648,14 @@ def main():
                     help="canary_check: 2+ --mode canary cell JSONs, different --device_tag")
     ap.add_argument("--preflight_check", action="store_true")
     ap.add_argument("--preflight_file", help="preflight_check: one --mode preflight cell JSON")
+    ap.add_argument("--allow_partial_alphas", action="store_true",
+                    help="formal mode: score a model with fewer than the "
+                         "frozen four alpha cells present. Only for a "
+                         "deliberate, human-invoked partial score (e.g. "
+                         "inspecting one finished cell mid-sweep) -- the "
+                         "formal launcher path must NEVER pass this, and "
+                         "such a run's Holm/argmax/near-optimal-region "
+                         "output must not be cited as the formal result.")
     a = ap.parse_args()
 
     if a.canary_check:

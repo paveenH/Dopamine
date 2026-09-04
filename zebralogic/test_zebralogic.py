@@ -357,6 +357,396 @@ def test_frozen_alpha_guard():
           gz.FROZEN_ALPHAS["qwen2.5"] == (-6, 0, 6, 8))
 
 
+def test_private_gold_revision_defaults_to_none():
+    """Review finding (2026-09-04): load_private_gold()'s default `revision`
+    used to be the module-level REVISION constant, which was verified as a
+    commit SHA in the PUBLIC repo's git history only. allenai/
+    ZebraLogicBench-private is a separate repo with its own history; passing
+    that SHA to load_dataset on the private repo would very likely 404 --
+    misreporting a revision-not-found failure as an access/gating failure and
+    making CHECK_ACCESS fail even with genuinely valid, granted access. The
+    fix: the default must be None (HF's main/latest), matching the fact that
+    the prereg never pins a private-repo revision at all."""
+    import inspect
+    import data_zebralogic as dz
+    sig = inspect.signature(dz.load_private_gold)
+    default = sig.parameters["revision"].default
+    check("load_private_gold's revision parameter defaults to None, "
+          "NOT the public-repo REVISION constant",
+          default is None, f"got {default!r}")
+    check("the module-level REVISION constant itself is unaffected "
+          "(still used for the PUBLIC dataset load in main())",
+          dz.REVISION == "2f94a445d7079f20146f5443e2606049de8543e0")
+
+
+def test_get_answer_zebralogic_hard_length_check():
+    """Review finding (2026-09-04): get_answer_zebralogic.py was missing the
+    len(gen) == len(samples) hard check that get_answer_proofwriter_owa.py
+    already has (its own earlier review finding #1) -- without it, a
+    partial-batch bug or an OOM-recovery path returning a short list would
+    make zip(samples, gen) silently drop rows with no error, writing fewer
+    rows than samples. Since the length check is unreachable without a real
+    vc.regenerate() call, this test verifies the check exists in the source
+    and is positioned correctly (before the zip loop it protects), rather
+    than driving the whole GPU pipeline."""
+    import get_answer_zebralogic as gz
+    import inspect
+    src = inspect.getsource(gz.main)
+    len_check_pos = src.find("len(gen) != len(samples)")
+    zip_pos = src.find("for s, g in zip(samples, gen):")
+    check("get_answer_zebralogic.py's main() checks len(gen) != len(samples)",
+          len_check_pos != -1)
+    check("the length check appears BEFORE the zip() loop it protects "
+          "(a check placed after would be too late)",
+          len_check_pos != -1 and zip_pos != -1 and len_check_pos < zip_pos,
+          f"len_check_pos={len_check_pos} zip_pos={zip_pos}")
+
+
+def test_preflight_launcher_uses_zero_config_only():
+    """Review finding (2026-09-04): run_zebralogic.sh's cmd_preflight was
+    passing `--configs $CONFIGS $SMOKE_CONFIG` (all FOUR frozen doses plus
+    the smoke config) instead of the prereg's `alpha=0 ONLY + smoke config`
+    (docs/PREREG_ZEBRALOGIC_EASY.md section 5: "5 items per model... run at
+    alpha=0 only"). Running three formal-dose cells at n=5 was never asked
+    for and the n=5 preflight scorer is not built to analyze a dose curve.
+    Statically checks the launcher source rather than actually invoking bash
+    with a GPU, since this fix is a pure text-substitution in the script."""
+    src = open(os.path.join(_HERE, "run_zebralogic.sh")).read()
+    pf_start = src.find("cmd_preflight() {")
+    pf_end = src.find("cmd_canary() {")
+    check("cmd_preflight() function is found in the launcher source",
+          pf_start != -1 and pf_end != -1 and pf_start < pf_end)
+    pf_body = src[pf_start:pf_end]
+    check("cmd_preflight's get_answer_zebralogic.py invocation uses "
+          "$ZERO_CONFIG (alpha=0 only), NOT $CONFIGS (all four frozen doses)",
+          "--configs $ZERO_CONFIG $SMOKE_CONFIG" in pf_body,
+          f"preflight body:\n{pf_body}")
+    check("cmd_preflight no longer passes the full $CONFIGS set",
+          "--configs $CONFIGS $SMOKE_CONFIG" not in pf_body)
+    # Sanity: cmd_formal (the ACTUAL four-point sweep) must still use the
+    # full $CONFIGS -- this fix must not have accidentally narrowed the
+    # formal stage too.
+    formal_start = src.find("cmd_formal() {")
+    formal_end = src.find("case \"$STEP\" in")
+    formal_body = src[formal_start:formal_end]
+    check("cmd_formal still sweeps the full $CONFIGS (all four frozen doses)",
+          "--configs $CONFIGS \\" in formal_body, formal_body)
+
+
+def test_workpoint_degradation_not_reported_as_qualifying():
+    """Review finding (2026-09-04): eval_zebralogic.py's workpoint verdict
+    used to accept ANY Holm-significant deviation (`holm_pass = any(adj[al] <
+    0.05 ...)`), including a significant DEGRADATION, and then reported
+    argmax_alpha (computed independently by raw accuracy) as if it were an
+    established finding. Fixed to require BOTH Holm significance AND
+    dPuzzleAcc_pp > 0 (prereg S8 rule 5's intent, matching the equivalent fix
+    already applied to eval_proofwriter_owa.py). This directly exercises the
+    scenario the existing end-to-end test's synthetic data already contains
+    (-6 = significant improvement, +4 = significant degradation) but asserts
+    on the machine-readable output dict fields rather than only visually on
+    the printed verdict string."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    def make_rows(alpha, correct_frac):
+        rows = []
+        for i, iid in enumerate(ids):
+            r = i / n
+            if r < (1 - correct_frac):
+                text = json.dumps({"reasoning": "x", "solution": {
+                    "House 1": {"Name": "WRONG"}, "House 2": {"Name": "Peter"}}})
+            else:
+                text = json.dumps({"reasoning": "x", "solution": {
+                    "House 1": {"Name": "Arnold"}, "House 2": {"Name": "Peter"}}})
+            rows.append({
+                "id": iid, "sample_id": i, "size": "2*2", "puzzle": "p",
+                "solution_shape": {"header": ["House", "Name"], "n_rows": 2},
+                "generated": text, "truncated": False, "generated_token_count": 50,
+            })
+        meta = {
+            "protocol": "zebralogic-easy-v0", "mode": "formal", "model": "llama3",
+            "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
+            "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
+            "prompt_sha256": "sameforall", "accuracy_computed": False,
+        }
+        return meta, rows
+
+    # Only alpha=-6 improves significantly; alpha=+4 DEGRADES significantly;
+    # alpha=-4 is unchanged. If the workpoint logic ever regresses back to
+    # accepting any significant deviation, +4 would leak into the qualifying
+    # set (or worse, the numerically-highest alpha=-6 would be reported even
+    # in a scenario where the ONLY significant dose is a degradation -- see
+    # the second scenario below).
+    cells = {0: make_rows(0, 0.50), -6: make_rows(-6, 0.90),
+            -4: make_rows(-4, 0.50), 4: make_rows(4, 0.10)}
+    tmpdir = tempfile.mkdtemp()
+    paths = []
+    for al, (meta, rows) in cells.items():
+        p = os.path.join(tmpdir, f"cell_{al}.json")
+        json.dump({"meta": meta, "data": rows}, open(p, "w"))
+        paths.append(p)
+
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        ez.cmd_formal(Args())
+    finally:
+        ez.load_private_gold = orig
+
+    result = json.load(open(os.path.join(tmpdir, "result.json")))
+    check("argmax_alpha is -6 (the numerically highest AND the only "
+          "significant improvement -- both agree here)",
+          result["argmax_alpha"] == -6, result["argmax_alpha"])
+    check("holm_significant_improvement_alphas contains ONLY -6, "
+          "never +4 (the significant DEGRADATION)",
+          result["holm_significant_improvement_alphas"] == [-6],
+          result["holm_significant_improvement_alphas"])
+    check("verdict names alpha=-6 as the argmax with a Holm-significant "
+          "improvement", "argmax alpha=-6" in result["verdict"]
+          and "Holm-significant improving alpha(s) = [-6]" in result["verdict"],
+          result["verdict"])
+    check("alpha=0 is a member of near_optimal_region "
+          "(it is NOT unconditionally excluded any more -- it legitimately "
+          "belongs whenever it is statistically indistinguishable from the "
+          "argmax; here it is not, since -6 significantly beats it, so "
+          "this checks the STRUCTURAL exclusion is gone, not that 0 always "
+          "appears)",
+          0 not in result["near_optimal_region"],
+          "0 correctly absent here since -6 significantly beats alpha=0 -- "
+          "see test_workpoint_degradation_scenario_no_qualifying_dose for "
+          "the case where 0 correctly APPEARS")
+
+
+def test_workpoint_pure_degradation_reports_no_workpoint():
+    """Every non-zero alpha DEGRADES vs alpha=0 (some Holm-significantly so).
+    The verdict must be 'no effective workpoint detected', never report any
+    alpha as a workpoint -- this is the pre-fix failure mode made concrete:
+    the OLD `holm_pass = any(adj[al] < 0.05 ...)` would have been True here
+    (some degradation IS Holm-significant), and would have reported
+    argmax_alpha (whichever non-zero alpha happens to have the LEAST-BAD
+    degradation, or even alpha=0 itself if all non-zero alpha score lower)
+    as if it were an established finding."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    def make_rows(alpha, correct_frac):
+        rows = []
+        for i, iid in enumerate(ids):
+            r = i / n
+            if r < (1 - correct_frac):
+                text = json.dumps({"reasoning": "x", "solution": {
+                    "House 1": {"Name": "WRONG"}, "House 2": {"Name": "Peter"}}})
+            else:
+                text = json.dumps({"reasoning": "x", "solution": {
+                    "House 1": {"Name": "Arnold"}, "House 2": {"Name": "Peter"}}})
+            rows.append({
+                "id": iid, "sample_id": i, "size": "2*2", "puzzle": "p",
+                "solution_shape": {"header": ["House", "Name"], "n_rows": 2},
+                "generated": text, "truncated": False, "generated_token_count": 50,
+            })
+        meta = {
+            "protocol": "zebralogic-easy-v0", "mode": "formal", "model": "llama3",
+            "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
+            "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
+            "prompt_sha256": "sameforall", "accuracy_computed": False,
+        }
+        return meta, rows
+
+    # alpha=0 is the best; every non-zero alpha is worse, -6 significantly so.
+    cells = {0: make_rows(0, 0.90), -6: make_rows(-6, 0.10),
+            -4: make_rows(-4, 0.85), 4: make_rows(4, 0.80)}
+    tmpdir = tempfile.mkdtemp()
+    paths = []
+    for al, (meta, rows) in cells.items():
+        p = os.path.join(tmpdir, f"cell_{al}.json")
+        json.dump({"meta": meta, "data": rows}, open(p, "w"))
+        paths.append(p)
+
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        ez.cmd_formal(Args())
+    finally:
+        ez.load_private_gold = orig
+
+    result = json.load(open(os.path.join(tmpdir, "result.json")))
+    check("no alpha qualifies as a Holm-significant improvement "
+          "when every non-zero dose degrades",
+          result["holm_significant_improvement_alphas"] == [],
+          result["holm_significant_improvement_alphas"])
+    check("verdict is the 'no effective workpoint detected' sentence, "
+          "NOT a reported argmax",
+          "no effective workpoint" in result["verdict"].lower()
+          or "NO non-zero alpha cleared Holm" in result["verdict"],
+          result["verdict"])
+    check("argmax_alpha is still recorded (it is alpha=0, the numerically "
+          "best point) but the verdict explicitly forbids citing it as an "
+          "established workpoint",
+          result["argmax_alpha"] == 0
+          and "NOT be reported as an established workpoint" in result["verdict"],
+          (result["argmax_alpha"], result["verdict"]))
+
+
+def test_cmd_formal_missing_alpha_hard_stops():
+    """Review finding (2026-09-04): eval_zebralogic.py's cmd_formal used to
+    print a warning and continue scoring whichever subset of the four frozen
+    alpha was supplied. Fixed to hard-stop unless --allow_partial_alphas is
+    explicitly passed."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    def make_rows(alpha, correct_frac):
+        rows = []
+        for i, iid in enumerate(ids):
+            r = i / n
+            text = (json.dumps({"reasoning": "x", "solution": {
+                       "House 1": {"Name": "Arnold"}, "House 2": {"Name": "Peter"}}})
+                   if r >= (1 - correct_frac) else
+                   json.dumps({"reasoning": "x", "solution": {
+                       "House 1": {"Name": "WRONG"}, "House 2": {"Name": "Peter"}}}))
+            rows.append({
+                "id": iid, "sample_id": i, "size": "2*2", "puzzle": "p",
+                "solution_shape": {"header": ["House", "Name"], "n_rows": 2},
+                "generated": text, "truncated": False, "generated_token_count": 50,
+            })
+        meta = {
+            "protocol": "zebralogic-easy-v0", "mode": "formal", "model": "llama3",
+            "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
+            "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
+            "prompt_sha256": "sameforall", "accuracy_computed": False,
+        }
+        return meta, rows
+
+    # Only 3 of the 4 frozen llama3 alpha (missing +4).
+    cells = {0: make_rows(0, 0.5), -6: make_rows(-6, 0.6), -4: make_rows(-4, 0.5)}
+    tmpdir = tempfile.mkdtemp()
+    paths = []
+    for al, (meta, rows) in cells.items():
+        p = os.path.join(tmpdir, f"cell_{al}.json")
+        json.dump({"meta": meta, "data": rows}, open(p, "w"))
+        paths.append(p)
+
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class ArgsStrict:
+            generations = paths
+            out = os.path.join(tmpdir, "result_strict.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(ArgsStrict())
+            check("missing-alpha formal scoring hard-stops WITHOUT "
+                  "--allow_partial_alphas", False, "did not raise/exit")
+        except SystemExit:
+            check("missing-alpha formal scoring hard-stops WITHOUT "
+                  "--allow_partial_alphas", True)
+
+        class ArgsAllowed:
+            generations = paths
+            out = os.path.join(tmpdir, "result_allowed.json")
+            allow_partial_alphas = True
+        ez.cmd_formal(ArgsAllowed())
+        result = json.load(open(os.path.join(tmpdir, "result_allowed.json")))
+        check("--allow_partial_alphas lets a 3-of-4 partial family score",
+              result["alphas_present"] == [-6, -4, 0])
+        check("holm_family_m reflects the REAL pair count (2 non-zero "
+              "alpha present), not a hardcoded 3",
+              result["holm_family_m"] == 2, result["holm_family_m"])
+    finally:
+        ez.load_private_gold = orig
+
+
+def test_cmd_formal_mask_mismatch_hard_stops():
+    """Review finding (2026-09-04): cmd_formal only checked prompt_sha256
+    across a model's alpha cells; a mask/token-budget/batch-size mismatch
+    (e.g. one cell accidentally generated against a different mask file, or
+    the S3 2048->3072 escalation applied to only some cells) passed
+    silently. Fixed with a CONSISTENCY_FIELDS check."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    def make_rows(alpha, correct_frac, mask_sha="samemask"):
+        rows = []
+        for i, iid in enumerate(ids):
+            r = i / n
+            text = (json.dumps({"reasoning": "x", "solution": {
+                       "House 1": {"Name": "Arnold"}, "House 2": {"Name": "Peter"}}})
+                   if r >= (1 - correct_frac) else
+                   json.dumps({"reasoning": "x", "solution": {
+                       "House 1": {"Name": "WRONG"}, "House 2": {"Name": "Peter"}}}))
+            rows.append({
+                "id": iid, "sample_id": i, "size": "2*2", "puzzle": "p",
+                "solution_shape": {"header": ["House", "Name"], "n_rows": 2},
+                "generated": text, "truncated": False, "generated_token_count": 50,
+            })
+        meta = {
+            "protocol": "zebralogic-easy-v0", "mode": "formal", "model": "llama3",
+            "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
+            "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
+            "prompt_sha256": "sameforall", "accuracy_computed": False,
+            "mask_sha256": mask_sha, "max_new_tokens": 2048, "batch_size": 8,
+        }
+        return meta, rows
+
+    cells = {0: make_rows(0, 0.5), -6: make_rows(-6, 0.6),
+            -4: make_rows(-4, 0.5), 4: make_rows(4, 0.5, mask_sha="DIFFERENT")}
+    tmpdir = tempfile.mkdtemp()
+    paths = []
+    for al, (meta, rows) in cells.items():
+        p = os.path.join(tmpdir, f"cell_{al}.json")
+        json.dump({"meta": meta, "data": rows}, open(p, "w"))
+        paths.append(p)
+
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(Args())
+            check("a mask_sha256 mismatch across one model's own alpha "
+                  "cells hard-stops", False, "did not raise/exit")
+        except SystemExit:
+            check("a mask_sha256 mismatch across one model's own alpha "
+                  "cells hard-stops", True)
+    finally:
+        ez.load_private_gold = orig
+
+
 def main():
     print("== template ==")
     test_template()
@@ -378,6 +768,20 @@ def main():
     test_frozen_alpha_guard()
     print("== eval_zebralogic formal pipeline (synthetic, mocked gold) ==")
     test_eval_zebralogic_formal_pipeline_end_to_end()
+    print("== review fix: load_private_gold revision defaults to None ==")
+    test_private_gold_revision_defaults_to_none()
+    print("== review fix: get_answer_zebralogic hard length check ==")
+    test_get_answer_zebralogic_hard_length_check()
+    print("== review fix: preflight launcher uses ZERO_CONFIG only ==")
+    test_preflight_launcher_uses_zero_config_only()
+    print("== review fix: workpoint degradation not reported as qualifying ==")
+    test_workpoint_degradation_not_reported_as_qualifying()
+    print("== review fix: pure degradation -> no workpoint ==")
+    test_workpoint_pure_degradation_reports_no_workpoint()
+    print("== review fix: missing alpha hard-stops formal scoring ==")
+    test_cmd_formal_missing_alpha_hard_stops()
+    print("== review fix: mask mismatch hard-stops formal scoring ==")
+    test_cmd_formal_mask_mismatch_hard_stops()
 
     print()
     if FAILURES:

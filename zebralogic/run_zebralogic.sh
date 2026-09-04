@@ -204,11 +204,17 @@ cmd_preflight() {
   local OUT="$OUT_ROOT/_preflight"
   mkdir -p "$OUT"
   echo "[zebralogic] PREFLIGHT model=$MODEL card=$CUDA_VISIBLE_DEVICES"
+  # prereg S5: preflight is alpha=0 ONLY (the 5 fixed items), plus the
+  # non-zero SMOKE_CONFIG purely for the steering_fires==L*N assertion --
+  # NOT the full four-point frozen sweep. Passing $CONFIGS here (all four
+  # frozen doses) would run three formal-dose cells at n=5, which the prereg
+  # never asks for and which the preflight scorer (n=5) is not built to
+  # analyze as a dose curve.
   cd "$WORK_DIR"
   "$PY" zebralogic/get_answer_zebralogic.py \
     --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR" \
     --items "$ITEMS" --mask_path "$MASK" \
-    --configs $CONFIGS $SMOKE_CONFIG \
+    --configs $ZERO_CONFIG $SMOKE_CONFIG \
     --out_dir "$OUT" --mode preflight \
     --max_new_tokens 2048 --batch_size 8
   echo "[zebralogic] PREFLIGHT generation done. Score it (requires private gold):"
