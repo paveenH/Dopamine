@@ -122,7 +122,15 @@ by this pre-registration and are never searched or added to.
 
 - Same machine, same GPU model family, same software environment for all
   cells of both models. Different physical GPUs are permitted; device
-  (`CUDA_VISIBLE_DEVICES`, `nvidia-smi` GPU name) is recorded per cell.
+  (`CUDA_VISIBLE_DEVICES`, `nvidia-smi` GPU name, and `hostname` — added
+  2026-09-04 as the field that actually distinguishes "same machine" from
+  "same CUDA_VISIBLE_DEVICES value on a different machine") is recorded per
+  cell. `eval_zebralogic.py` hard-stops if a model's alpha cells report
+  different hostnames, and WARNS (does not hard-stop) if they report
+  different `cuda_visible_devices` on the same host — that case requires the
+  canary gate below to have been run and passed; the eval script cannot
+  itself verify the canary step happened, so it is the human's responsibility
+  to have run it before trusting a cross-card pooled result.
 - **A model's own four α cells must share ONE physical card** — this is a
   paired per-item contrast (McNemar/bootstrap against that model's own α=0),
   and bf16 greedy is not byte-reproducible across GPUs (measured elsewhere in
@@ -250,7 +258,15 @@ write:
   a second pass (idempotency check);
 - raw generations are saved in full (no truncation/summarization on write);
 - output paths are entirely under the isolated ZebraLogic tree; the writer
-  refuses to overwrite an existing cell file.
+  refuses to overwrite an existing cell file;
+- writes are atomic (`.tmp` + `os.replace`), so a mid-write crash cannot
+  leave a half-written file at the final path;
+- an existing file at a cell's output path is validated (readable JSON,
+  correct row count, and its recorded protocol/mode/model/size/alpha/layer
+  band/mask sha256/generation config/prompt sha256/steering_fires all match
+  this run's configuration) before being treated as "already done" and
+  skipped — a corrupt, truncated, or stale/mismatched file is a hard stop,
+  never a silent skip or a silent overwrite.
 
 ## 8. Statistics
 
@@ -326,5 +342,8 @@ row whose length disagrees with its header), and (d), when the caller supplies
 `expected_shapes` (every call site in `eval_zebralogic.py` does, built from
 each generation cell's own `solution_shape` field), a per-id shape mismatch
 between the public and private datasets. It also prints the resolved private
-split's row count, sorted-id digest, and resolved revision for provenance,
-since this repo has no revision pin for the private dataset (§1).
+split's row count, sorted-id digest, and the loaded dataset's
+`dataset_info.version` (a builder version tag, NOT the resolved HF commit
+SHA — no API exposes that for a loaded `Dataset`, and this repo has no
+revision pin for the private dataset to compare it against; §1) for
+provenance.

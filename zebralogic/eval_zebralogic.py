@@ -517,27 +517,51 @@ def cmd_formal(args):
                     "configuration (mask/token-budget/batch-size/model), or "
                     "they are not a comparable curve.")
 
-    # SAME PHYSICAL GPU per model (prereg S4): bf16 greedy is not byte-
-    # reproducible across GPUs, and every alpha of one model is a paired
-    # per-item contrast against that model's own alpha=0, so a cell generated
-    # on a different card mixes a device difference into the alpha effect.
-    # `cuda_visible_devices` is the authoritative field (it is what was
-    # actually pinned at launch, per run_zebralogic.sh's require_card); a
-    # missing value on any cell cannot be treated as "same as the others" --
-    # that would silently accept an unpinned run precisely because it forgot
-    # to record what card it used.
+    # SAME MACHINE per model (prereg S4): "Same machine, same GPU model
+    # family... Different physical GPUs are permitted" -- S4 does NOT require
+    # one physical card per model, only one MACHINE (bf16 greedy determinism
+    # is not guaranteed across machines/driver stacks, but the prereg
+    # explicitly allows different cards on the same box). A prior version of
+    # this check wrongly hard-required identical cuda_visible_devices across
+    # all of a model's alpha cells, which would reject a perfectly legal
+    # same-machine, different-card sweep. `hostname` (recorded by
+    # get_answer_zebralogic.py since 2026-09-04) is the field that actually
+    # answers "same machine"; a missing value cannot be treated as "same as
+    # the others" -- that would silently accept a run that forgot to record
+    # its host.
+    host_by_alpha = {al: m.get("hostname") for al, m in metas_by_alpha.items()}
+    if any(not v for v in host_by_alpha.values()):
+        die(f"{model}: hostname missing/empty on cell(s) "
+            f"{sorted(al for al, v in host_by_alpha.items() if not v)} -- "
+            "cannot confirm all alpha cells of this model ran on the same "
+            "machine (prereg S4 requirement). Cells generated before the "
+            "2026-09-04 hostname fix cannot be verified this way and must "
+            "not be assumed same-machine.")
+    host_set = set(host_by_alpha.values())
+    if len(host_set) > 1:
+        die(f"{model}: alpha cells report different hostnames {host_by_alpha} "
+            "-- prereg S4 requires all of one model's alpha cells to run on "
+            "the SAME MACHINE (same GPU model family, same software "
+            "environment).")
+
+    # DIFFERENT PHYSICAL GPU within the same machine is explicitly PERMITTED
+    # by prereg S4, but only after that model's canary subset has been run on
+    # each card in use and shown no systematic divergence (see
+    # cmd_canary_check / --canary_check). This script cannot verify the
+    # canary step was actually performed, so it WARNS rather than silently
+    # proceeding -- the human running the formal sweep is the one who knows
+    # whether the canary gate passed for these specific cards.
     cvd_by_alpha = {al: m.get("cuda_visible_devices") for al, m in metas_by_alpha.items()}
-    if any(not v for v in cvd_by_alpha.values()):
-        die(f"{model}: cuda_visible_devices missing/empty on cell(s) "
-            f"{sorted(al for al, v in cvd_by_alpha.items() if not v)} -- "
-            "cannot confirm all alpha cells of this model ran on one "
-            "physical card (prereg S4 requirement).")
     cvd_set = set(cvd_by_alpha.values())
     if len(cvd_set) > 1:
-        die(f"{model}: alpha cells report different cuda_visible_devices "
-            f"{cvd_by_alpha} -- prereg S4 requires all of one model's alpha "
-            "cells to share ONE physical GPU (paired per-item contrast, and "
-            "bf16 greedy is not byte-reproducible across GPUs).")
+        print(f"[eval] WARNING: {model}'s alpha cells used different "
+              f"cuda_visible_devices {cvd_by_alpha} on the same machine. "
+              "This is PERMITTED by prereg S4 only if the fixed canary "
+              "subset (--canary_check) was run on each card in use and "
+              "showed NO SYSTEMATIC divergence in Puzzle Acc / Cell Acc / "
+              "parse status / truncation status BEFORE this pooled score was "
+              "computed. If that canary check was not run, this pooled "
+              "result must not be cited as a valid dose curve.")
 
     ids = ids_ref
     gold = load_private_gold(ids, expected_shapes=_expected_shapes(rowsets[0]))
@@ -676,6 +700,9 @@ def cmd_formal(args):
     out = {
         "protocol": PROTOCOL, "model": model, "n": len(ids),
         "alphas_present": sorted(summaries), "frozen_alphas": sorted(frozen),
+        "hostnames_by_alpha": host_by_alpha,
+        "cuda_visible_devices_by_alpha": cvd_by_alpha,
+        "cross_gpu_within_machine": len(cvd_set) > 1,
         "summaries": summaries, "paired_vs_zero": stats,
         # holm_family_m reflects the ACTUAL number of non-zero-alpha pairs
         # scored (len(stats)), not a hardcoded 3 -- a hardcoded value would

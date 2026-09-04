@@ -374,12 +374,22 @@ def load_private_gold(ids, hf_name=HF_PRIVATE, revision=None, split=SPLIT,
         sys.exit(f"FAIL: private gold dataset has {len(dups)} duplicate id(s), "
                  f"e.g. {dups[:5]}. Cannot resolve gold unambiguously.")
 
-    resolved_revision = getattr(priv, "info", None)
-    resolved_revision = getattr(resolved_revision, "version", None) if resolved_revision else None
+    # NOTE: `datasets`' loaded-dataset `.info.version` is the dataset
+    # BUILDER's own version tag (e.g. "0.0.0"), NOT the HF Hub commit SHA
+    # that was actually resolved for `revision=None` ("main"/latest). There
+    # is no API on a loaded `Dataset` that reports the resolved commit SHA,
+    # and this repo has no revision pin for the private dataset (see this
+    # function's docstring) to compare it against anyway -- so this is
+    # printed as `dataset_info_version` for provenance/debugging only, and
+    # must NOT be read as confirmation of which commit was actually loaded.
+    dataset_info_version = getattr(priv, "info", None)
+    dataset_info_version = (getattr(dataset_info_version, "version", None)
+                            if dataset_info_version else None)
     priv_digest = sha16("\n".join(sorted(all_priv_ids)))
     print(f"[load_private_gold] private split n={len(all_priv_ids)} "
           f"ids_sha256[:16]={priv_digest} "
-          f"resolved_revision={resolved_revision!r} "
+          f"dataset_info_version={dataset_info_version!r} "
+          f"(NOT the resolved HF commit SHA -- no pin exists for this repo) "
           f"requested_revision={revision!r}")
 
     by_id = {}

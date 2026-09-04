@@ -264,32 +264,56 @@ def _find_meta_files(zf: zipfile.ZipFile, depth_dirname: str, split: str):
     """Locate the OWA meta-<split>.jsonl for one depth family inside the zip.
 
     FAILS CLOSED: prints the actual paths under the depth folder and stops if
-    the expected OWA/meta-<split>.jsonl shape is not found, rather than
+    the expected .../OWA/meta-<split>.jsonl shape is not found, rather than
     guessing an alternate layout.
+
+    Fixed 2026-09-04 after a real run against the official archive: the real
+    layout is ".../OWA/depth-N/meta-<split>.jsonl" (OWA comes BEFORE the
+    depth folder, the reverse of what an earlier version of this function
+    assumed), and depth-3/depth-5 are NOT the only depth-N-prefixed folders
+    -- the archive also ships "depth-3ext" and "depth-3ext-NatLang" (longer
+    reasoning chains / a natural-language variant; same for depth-5).
+    Task 1 in scope here is the plain "depth-3"/"depth-5" folders only --
+    PREREG_PROOFWRITER_OWA.md restricts this loader to the official OWA D3/D5
+    Task 1 release, and the ext/ext-NatLang variants are a different task
+    family, not an alternate encoding of the same one. The previous
+    substring match (f"/{depth_dirname}" in n) matched "depth-3" as a
+    PREFIX of "depth-3ext" and "depth-3ext-NatLang" too, so all three
+    variants' meta-test.jsonl files were returned as ambiguous candidates
+    and the run hard-stopped (fail-closed did its job -- this was a
+    boundary bug, not silent misdata). Now split each path into segments
+    and require an EXACT segment match against depth_dirname, so
+    "depth-3ext" can never satisfy a request for "depth-3".
     """
     names = zf.namelist()
-    depth_matches = sorted({n for n in names
-                             if f"/{depth_dirname}" in n or n.startswith(depth_dirname)})
-    if not depth_matches:
-        die(f"no path under the archive matches depth folder {depth_dirname!r}. "
-            f"First 20 archive entries for inspection: {names[:20]}")
 
-    owa_candidates = sorted({n for n in depth_matches if "/OWA/" in n or "OWA/" in n})
+    def path_segments(n):
+        return [seg for seg in n.split("/") if seg]
+
+    depth_matches = sorted({n for n in names
+                             if depth_dirname in path_segments(n)})
+    if not depth_matches:
+        die(f"no path under the archive has {depth_dirname!r} as an exact "
+            f"path segment. First 20 archive entries for inspection: "
+            f"{names[:20]}")
+
+    owa_candidates = sorted({n for n in depth_matches if "OWA" in path_segments(n)})
     if not owa_candidates:
-        die(f"depth folder {depth_dirname!r} was found but no OWA subfolder "
-            f"inside it. Matches under that folder: {depth_matches[:20]}")
+        die(f"depth folder {depth_dirname!r} was found but no OWA path "
+            f"segment inside it. Matches under that folder: {depth_matches[:20]}")
 
     target_name = f"meta-{split}.jsonl"
     exact = [n for n in owa_candidates if n.endswith(target_name)]
     if len(exact) == 1:
         return exact[0]
     if len(exact) > 1:
-        die(f"multiple candidates for {depth_dirname}/OWA/{target_name}: {exact}. "
-            "Archive layout is ambiguous; refusing to silently pick one.")
-    die(f"expected a file ending in {target_name!r} under an OWA subfolder of "
-        f"{depth_dirname!r}; found instead: {owa_candidates[:20]}. The archive "
-        "schema differs from what this loader expects -- reporting the real "
-        "structure rather than guessing a mapping.")
+        die(f"multiple candidates for a path ending in OWA/.../{target_name} "
+            f"under exact segment {depth_dirname!r}: {exact}. Archive layout "
+            "is ambiguous; refusing to silently pick one.")
+    die(f"expected a file ending in {target_name!r} under an OWA path segment "
+        f"of {depth_dirname!r}; found instead: {owa_candidates[:20]}. The "
+        "archive schema differs from what this loader expects -- reporting "
+        "the real structure rather than guessing a mapping.")
 
 
 def _normalize_label(raw) -> str:

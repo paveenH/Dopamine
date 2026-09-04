@@ -851,7 +851,7 @@ def test_canary_indices_last_item_is_correct():
 
 def _make_formal_cell(alpha, ids, gold, correct_frac=0.5, cvd="0",
                       sample_ids=None, item_ids_sha256="sameorder",
-                      source_revision="rev-a"):
+                      source_revision="rev-a", host="test-host"):
     n = len(ids)
     if sample_ids is None:
         sample_ids = list(range(n))
@@ -875,7 +875,7 @@ def _make_formal_cell(alpha, ids, gold, correct_frac=0.5, cvd="0",
         "prompt_sha256": "sameforall", "accuracy_computed": False,
         "mask_sha256": "samemask", "max_new_tokens": 2048, "batch_size": 8,
         "item_ids_sha256": item_ids_sha256, "source_revision": source_revision,
-        "cuda_visible_devices": cvd,
+        "cuda_visible_devices": cvd, "hostname": host,
     }
     return meta, rows
 

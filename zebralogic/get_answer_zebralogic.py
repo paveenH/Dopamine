@@ -186,6 +186,40 @@ def gpu_name():
         return None
 
 
+def existing_cell_is_valid(path, expect):
+    """Before trusting an existing output file as 'already done' (the
+    `skip existing` path), verify it is actually a complete, valid cell
+    matching THIS run's configuration -- not just that a file happens to be
+    present at that path. A prior version skipped on bare `os.path.exists`,
+    so a truncated/corrupt file (an old pre-atomic-write crash artifact) or a
+    stale file from a DIFFERENT configuration (different alpha misfiled,
+    different mask, different token budget, different prompt) would be
+    silently accepted as finished forever.
+
+    `expect` is a dict of {meta_field: expected_value} to check. Returns
+    (True, None) if the file is a valid, matching, complete cell; (False,
+    reason) otherwise -- never raises, so the caller can log the reason and
+    regenerate rather than crash on a bad pre-existing file.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return False, f"unreadable/corrupt JSON ({type(e).__name__}: {e})"
+    if "meta" not in d or "data" not in d:
+        return False, "missing 'meta' or 'data' top-level key"
+    m = d["meta"]
+    if m.get("accuracy_computed") is not False:
+        return False, "meta.accuracy_computed is not False (unexpected schema)"
+    n_expect = expect.pop("n", None)
+    if n_expect is not None and len(d["data"]) != n_expect:
+        return False, f"n={len(d['data'])} != expected {n_expect}"
+    mismatches = [(k, m.get(k), v) for k, v in expect.items() if m.get(k) != v]
+    if mismatches:
+        return False, f"config mismatch: {mismatches}"
+    return True, None
+
+
 def hostname():
     """Best-effort machine identity for provenance; never fatal if
     unavailable. Prereg S4 requires SAME MACHINE (not same physical GPU) for
@@ -233,6 +267,7 @@ def main():
 
     device_env = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     gpu = gpu_name()
+    host = hostname()
 
     configs = utils.parse_configs(args.configs)
     if args.mode == "formal":
@@ -247,9 +282,32 @@ def main():
         tag = f"mdf_{alpha}".replace("-", "neg")
         out = os.path.join(args.out_dir, tag,
                            f"zebralogic_easy_{args.size}_{ls}_{le}.json")
+        n_layers = len(utils.decoder_layer_range(ls, le))
+        expect_fires = 0 if alpha == 0 else n_layers * len(samples)
         if os.path.exists(out):
-            print(f"skip existing {out}")
-            continue
+            # Verify the existing file is a genuinely complete, matching cell
+            # before trusting it as "already done" -- see
+            # existing_cell_is_valid()'s docstring for why a bare
+            # os.path.exists check is not enough (a truncated pre-atomic-
+            # write crash artifact, or a stale file from a different
+            # configuration, would otherwise be skipped forever).
+            ok, reason = existing_cell_is_valid(out, {
+                "n": len(samples),
+                "protocol": PROTOCOL, "mode": args.mode,
+                "model": args.model, "size": args.size, "alpha": alpha,
+                "layer_start": ls, "layer_end": le, "L": n_layers,
+                "mask_sha256": mask_sha, "max_new_tokens": args.max_new_tokens,
+                "temperature": args.temperature, "top_p": args.top_p,
+                "batch_size": args.batch_size, "prompt_sha256": prompt_hash,
+                "steering_fires": expect_fires,
+            })
+            if ok:
+                print(f"skip existing (validated) {out}")
+                continue
+            sys.exit(f"FAIL: existing output {out} is present but INVALID "
+                     f"({reason}). Refusing to silently regenerate over it "
+                     "or silently accept it -- delete it deliberately if it "
+                     "is a known-stale/corrupt artifact, then re-run.")
         os.makedirs(os.path.dirname(out), exist_ok=True)
 
         diff = raw_mask * alpha
@@ -286,10 +344,8 @@ def main():
                      "contract -- treat as a hard failure, not a partial result.")
 
         fires = vc.steering_fire_count()
-        n_layers = len(utils.decoder_layer_range(ls, le))
-        expect = 0 if alpha == 0 else n_layers * len(samples)
-        if fires != expect:
-            sys.exit(f"FAIL: steering_fires {fires} != {expect} "
+        if fires != expect_fires:
+            sys.exit(f"FAIL: steering_fires {fires} != {expect_fires} "
                      f"(L={n_layers}, n={len(samples)}, alpha={alpha}); "
                      "the intervention is unverified, so the cell is not usable.")
 
@@ -330,7 +386,7 @@ def main():
             "prompt_sha256": prompt_hash,
             "item_ids_sha256": hashlib.sha256(
                 "\n".join(s["id"] for s in samples).encode("utf-8")).hexdigest(),
-            "cuda_visible_devices": device_env, "gpu_name": gpu,
+            "cuda_visible_devices": device_env, "gpu_name": gpu, "hostname": host,
             "device_tag": args.device_tag,
             "n": len(rows), "n_indices": idx,
             "source_easy_ids_sha256": meta.get("easy_ids_sha256"),
