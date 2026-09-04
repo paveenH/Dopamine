@@ -829,6 +829,101 @@ def test_max_new_tokens_hard_guard():
     check("1024 is NOT allowed", 1024 not in gaz.ALLOWED_MAX_NEW_TOKENS)
 
 
+def test_existing_cell_is_valid_guards():
+    """Review finding (2026-09-04): get_answer_zebralogic.py's `skip existing`
+    path only checked os.path.exists(out) -- a truncated/corrupt file (e.g.
+    a pre-atomic-write crash artifact) or a stale file from a DIFFERENT
+    configuration (wrong alpha misfiled, different mask, different token
+    budget, different prompt) would be silently accepted as "already done"
+    forever. Fixed with existing_cell_is_valid(), which checks readability,
+    row count, and every relevant meta field before trusting the file."""
+    import get_answer_zebralogic as gaz
+    import tempfile
+
+    good_meta = {
+        "protocol": "zebralogic-easy-v0", "mode": "formal", "model": "llama3",
+        "size": "8B", "alpha": -6, "layer_start": 11, "layer_end": 20, "L": 9,
+        "mask_sha256": "maskabc", "max_new_tokens": 2048, "temperature": 0.0,
+        "top_p": 1.0, "batch_size": 8, "prompt_sha256": "promptxyz",
+        "steering_fires": 9 * 280, "accuracy_computed": False,
+    }
+    good_expect = {
+        "n": 3, "protocol": "zebralogic-easy-v0", "mode": "formal",
+        "model": "llama3", "size": "8B", "alpha": -6, "layer_start": 11,
+        "layer_end": 20, "L": 9, "mask_sha256": "maskabc",
+        "max_new_tokens": 2048, "temperature": 0.0, "top_p": 1.0,
+        "batch_size": 8, "prompt_sha256": "promptxyz",
+        "steering_fires": 9 * 280,
+    }
+    good_rows = [{"id": f"i{i}", "sample_id": i} for i in range(3)]
+
+    tmpdir = tempfile.mkdtemp()
+
+    def write(path, meta=None, rows=None, raw=None):
+        p = os.path.join(tmpdir, path)
+        if raw is not None:
+            open(p, "w").write(raw)
+        else:
+            json.dump({"meta": meta if meta is not None else good_meta,
+                      "data": rows if rows is not None else good_rows},
+                     open(p, "w"))
+        return p
+
+    # A genuinely valid, matching file.
+    p_good = write("good.json")
+    ok, reason = gaz.existing_cell_is_valid(p_good, dict(good_expect))
+    check("a valid, matching cell is accepted", ok is True, reason)
+
+    # Corrupt JSON.
+    p_corrupt = write("corrupt.json", raw="{not valid json")
+    ok, reason = gaz.existing_cell_is_valid(p_corrupt, dict(good_expect))
+    check("corrupt JSON is rejected", ok is False)
+
+    # Missing 'meta' key entirely (e.g. a totally different file format).
+    p_no_meta = write("no_meta.json", raw=json.dumps({"data": good_rows}))
+    ok, reason = gaz.existing_cell_is_valid(p_no_meta, dict(good_expect))
+    check("a file missing 'meta' is rejected", ok is False)
+
+    # Wrong row count (e.g. a partial-batch write, or truncated mid-write
+    # before the atomic-rename fix existed).
+    p_short = write("short.json", rows=good_rows[:1])
+    ok, reason = gaz.existing_cell_is_valid(p_short, dict(good_expect))
+    check("a file with the wrong row count is rejected", ok is False, reason)
+
+    # Wrong alpha (a stale file from a different configuration that happens
+    # to be well-formed and complete).
+    wrong_alpha_meta = dict(good_meta); wrong_alpha_meta["alpha"] = -4
+    p_wrong_alpha = write("wrong_alpha.json", meta=wrong_alpha_meta)
+    ok, reason = gaz.existing_cell_is_valid(p_wrong_alpha, dict(good_expect))
+    check("a file with a mismatched alpha is rejected", ok is False, reason)
+
+    # Wrong mask_sha256 (steered with a DIFFERENT mask than this run's).
+    wrong_mask_meta = dict(good_meta); wrong_mask_meta["mask_sha256"] = "DIFFERENT"
+    p_wrong_mask = write("wrong_mask.json", meta=wrong_mask_meta)
+    ok, reason = gaz.existing_cell_is_valid(p_wrong_mask, dict(good_expect))
+    check("a file with a mismatched mask_sha256 is rejected", ok is False, reason)
+
+    # Wrong max_new_tokens (e.g. a stale 2048 file being reused after the
+    # prereg S3 escalation to 3072 for this model).
+    wrong_budget_meta = dict(good_meta); wrong_budget_meta["max_new_tokens"] = 3072
+    p_wrong_budget = write("wrong_budget.json", meta=wrong_budget_meta)
+    ok, reason = gaz.existing_cell_is_valid(p_wrong_budget, dict(good_expect))
+    check("a file with a mismatched max_new_tokens is rejected", ok is False, reason)
+
+    # accuracy_computed not False (unexpected schema -- e.g. a file that was
+    # somehow post-processed).
+    bad_schema_meta = dict(good_meta); bad_schema_meta["accuracy_computed"] = True
+    p_bad_schema = write("bad_schema.json", meta=bad_schema_meta)
+    ok, reason = gaz.existing_cell_is_valid(p_bad_schema, dict(good_expect))
+    check("a file with accuracy_computed != False is rejected", ok is False, reason)
+
+    # Wrong steering_fires (intervention was not actually verified for this file).
+    wrong_fires_meta = dict(good_meta); wrong_fires_meta["steering_fires"] = 0
+    p_wrong_fires = write("wrong_fires.json", meta=wrong_fires_meta)
+    ok, reason = gaz.existing_cell_is_valid(p_wrong_fires, dict(good_expect))
+    check("a file with a mismatched steering_fires is rejected", ok is False, reason)
+
+
 def test_canary_indices_last_item_is_correct():
     """Review finding (2026-09-04): CANARY_INDICES's last element was
     hardcoded 239 -- the last item of size_rank 5's block (200..239), not
