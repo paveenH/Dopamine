@@ -492,19 +492,54 @@ def main():
                 "not pooled into the primary per-model Holm(m=3) family. "
                 "Commitment-extractor fields are descriptive co-occurrence "
                 "statistics only, never causal mediation evidence."),
+        "note_llama3_loop_rate": (
+            "Decided 2026-09-04 (PREREG_PROOFWRITER_OWA.md S6): llama3's "
+            "alpha=0 preflight (30 items) showed 100% truncation at the "
+            "original max_new_tokens=768, with manual inspection finding a "
+            "high, stable degenerate-repetition-loop tendency alongside "
+            "genuine long-form reasoning. max_new_tokens was raised ONE "
+            "TIME to 1024 for both models; loop_rate/truncation_rate are "
+            "recorded per cell (see results[model].cells[alpha].loop_rate) "
+            "but were NOT used as a preflight gate. Consequence for reading "
+            "this report: on any model/alpha with an elevated loop_rate, "
+            "generation-length and commitment-timing diagnostics carry "
+            "weaker interpretive weight; parseable-answer accuracy is "
+            "scored identically to every other cell via the frozen parser "
+            "and is unaffected."),
     }
     json.dump(out, open(a.out, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+
+    # A loop-rate threshold that prints a caveat, not a gate (frozen
+    # 2026-09-04, PREREG_PROOFWRITER_OWA.md S6): llama3's alpha=0 preflight
+    # showed a high, stable degenerate-repetition-loop tendency on this
+    # task. loop_rate is never used to filter, re-weight, or block anything
+    # -- this is purely so a reader of the terminal summary sees the caveat
+    # inline instead of having to separately notice it in the JSON's
+    # per-cell loop_rate field.
+    LOOP_RATE_CAVEAT_THRESHOLD = 0.10
 
     print(f"\n=== PROOFWRITER OWA — task-specific dose exploration ===")
     for mdl, r in sorted(results.items()):
         print(f"\n[{mdl}]  n_items={r['n_items']}  alphas={r['alphas_present']}")
+        high_loop_alphas = []
         for al in r["alphas_present"]:
             c = r["cells"][str(al)]
             print(f"  alpha={al:>3}  acc={c['accuracy']:.4f}  "
                   f"D3={c['by_dataset']['D3']['accuracy']}  "
                   f"D5={c['by_dataset']['D5']['accuracy']}  "
                   f"parse_fail={c['parse_failure_rate']:.3f}  "
+                  f"loop={c['loop_rate']}  "
                   f"trunc={c['truncation_rate']}")
+            if (c["loop_rate"] or 0) >= LOOP_RATE_CAVEAT_THRESHOLD:
+                high_loop_alphas.append(al)
+        if high_loop_alphas:
+            print(f"  CAVEAT: {mdl} shows loop_rate >= "
+                  f"{LOOP_RATE_CAVEAT_THRESHOLD:.0%} at alpha="
+                  f"{high_loop_alphas} -- generation-length and "
+                  "commitment-timing diagnostics for this model/alpha carry "
+                  "weaker interpretive weight (known, stable degenerate-"
+                  "repetition tendency, not a scoring defect; parseable-"
+                  "answer accuracy is unaffected).")
         print(f"  workpoint verdict: {r['workpoint']['verdict']}")
 
     print(f"\nwrote {a.out}")

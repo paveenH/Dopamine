@@ -85,7 +85,17 @@ def parse_args():
     p.add_argument("--configs", required=True, nargs="+",
                    help="e.g. 0-11-20 neg6-11-20 neg4-11-20 4-11-20")
     p.add_argument("--out_dir", required=True)
-    p.add_argument("--max_new_tokens", type=int, default=768)
+    # Raised from the original default of 768 to 1024 (frozen 2026-09-04,
+    # PREREG_PROOFWRITER_OWA.md S6): the llama3 alpha=0 preflight (30 items)
+    # showed 30/30 truncation at 768. Manual inspection of five samples
+    # showed the truncation is NOT uniform in cause -- some are genuine
+    # multi-hop reasoning that simply needs more room, some are stable
+    # degenerate repetition loops (llama3-specific, known/expected, not a
+    # bug this budget change is meant to cure). Per the user's explicit
+    # decision: raise ONCE to 1024, do not chase it further upward, do not
+    # treat "loop eliminated" as a preflight gate, and record loop/
+    # truncation rates in every report rather than hiding them.
+    p.add_argument("--max_new_tokens", type=int, default=1024)
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--top_p", type=float, default=1.0)
     p.add_argument("--batch_size", type=int, default=8)

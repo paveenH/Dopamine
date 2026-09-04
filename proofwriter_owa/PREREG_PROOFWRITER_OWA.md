@@ -200,23 +200,60 @@ labelled as such" convention as every other CoT runner in this repo
 | α | `{-6,-4,0,+4}` | `{-6,0,+6,+8}` |
 
 Common: prefill-only, `tail=1`, neutral (no persona), bare-string (no chat
-template), greedy (`temperature=0`), `batch_size=8`, `max_new_tokens=768`
-default (see §6 for the 1024 escalation rule). All α of one model use the
-**same batched `vc.regenerate()` call path** — α=0 is not silently routed
-through `vc.generate()` or any other path. On OOM the run **stops and
-reports**; it does not silently fall back to `batch_size=1`. One model's whole
-α curve runs on one machine; a cross-GPU comparison must first pass the
-outcome-level canary (§7).
+template), greedy (`temperature=0`), `batch_size=8`, `max_new_tokens=1024`
+default (see §6 — this was raised from an original default of 768, and is now
+FROZEN at 1024 for both models). All α of one model use the **same batched
+`vc.regenerate()` call path** — α=0 is not silently routed through
+`vc.generate()` or any other path. On OOM the run **stops and reports**; it
+does not silently fall back to `batch_size=1`. One model's whole α curve runs
+on one machine; a cross-GPU comparison must first pass the outcome-level
+canary (§7).
 
-## 6. Token budget escalation rule
+## 6. Token budget escalation rule (RESOLVED 2026-09-04)
 
-Default `max_new_tokens=768`. After the α=0 preflight (§7) on each model,
-if the **measured** truncation rate (generation reaches the token cap without
-a valid final `Answer:` line, or ends mid-sentence without ever emitting a
-line the parser can use) exceeds **1–2%**, the budget is raised to `1024` for
-that model's formal cells (both models independently). If truncation remains
-material at `1024`, the run **stops and reports** — the budget is not raised
-further without a human decision.
+Original default was `max_new_tokens=768`. The α=0 preflight (§7, 30 items)
+measured **100% truncation on llama3** (30/30) and **16.7% on qwen2.5**
+(5/30). Manual inspection of five llama3 samples found the truncation is
+**not uniform in cause**: some are genuine multi-hop reasoning that simply
+needed more room, at least one violated the "last line only" format
+instruction mid-generation (wrote `Answer: True` mid-text, then continued
+into unrelated Python code), and at least one was a stable **degenerate
+repetition loop** (`# Corrected output format.` repeated dozens of times) —
+a known, stable llama3 behavior on this task, not a bug this budget change is
+meant to cure.
+
+**Decision (human, 2026-09-04): raise `max_new_tokens` to `1024` for BOTH
+models, uniformly, ONE TIME, and do not chase it further upward.**
+Consequences, all explicit:
+
+- Loop and truncation rates continue to be measured and reported in every
+  result (`eval_proofwriter_owa.py`'s `loop_rate` / `truncation_rate` /
+  `is_true_last_line` diagnostics), but they are **not a preflight gate** —
+  llama3's degenerate-loop tendency on this task is treated as a known,
+  stable phenomenon to characterize, not an error condition that blocks the
+  sweep.
+- Scoring is unaffected: the frozen parser (`answer_parser.py`, last strict
+  `Answer:` marker, fail-closed) is applied exactly as designed. A sample
+  with a valid marker is scored normally regardless of truncation or looping
+  elsewhere in the text; a sample with no valid marker (including one
+  truncated before ever emitting one) is a parse failure / no-answer, exactly
+  per the existing rules in §8 — no special-casing for llama3.
+  **`is_true_last_line=false` does not disqualify a scored answer** — a
+  marker followed by trailing text (a format violation, e.g. sample_0's
+  `Answer: True` followed by unrelated Python code) is still scored on that
+  marker per the existing "prefer the last strict marker" rule; the
+  diagnostic only records that the model did not follow the literal "last
+  line" instruction, and this is reported for audit, not used to drop the
+  sample.
+- **This is a ONE-TIME raise.** If material truncation is observed again at
+  `1024`, the run stops and is reported — the budget is never silently
+  raised past 1024.
+- Any report of results **must state explicitly**: llama3 shows a high rate
+  of degenerate repetition loops on this task, so its generation-length and
+  commitment-timing diagnostics (§9, e.g. `pre_answer_reasoning_tokens`,
+  `first_answer_marker_pos`) carry weaker interpretive weight on this model;
+  its parseable-answer accuracy remains usable and is scored identically to
+  qwen2.5.
 
 ## 7. Preflight, pilot, canary — order and gates
 

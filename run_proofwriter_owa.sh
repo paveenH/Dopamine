@@ -268,14 +268,18 @@ case "$STAGE" in
     echo "[proofwriter-owa] $STAGE: FORMAL 4-point sweep on the full 300-item"
     echo "  manifest. This stage is launched manually AFTER the pilot has been"
     echo "  reviewed -- it does not run automatically from 'pilot'."
-    echo "  max_new_tokens defaults to 768; pass MAX_NEW_TOKENS=1024 if the"
-    echo "  preflight/pilot truncation rate exceeded 1-2% (see PREREG S6)."
+    echo "  max_new_tokens defaults to 1024 (frozen 2026-09-04 after the"
+    echo "  llama3 alpha=0 preflight showed 30/30 truncation at 768; see"
+    echo "  PREREG_PROOFWRITER_OWA.md S6). Do NOT raise further -- llama3's"
+    echo "  truncation is partly stable degenerate-repetition loops that a"
+    echo "  bigger budget will not cure, and loop/truncation rates are"
+    echo "  recorded and reported, never used to gate this stage."
     cd "$WORK_DIR"
     "$PY" proofwriter_owa/get_answer_proofwriter_owa.py \
       --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR" \
       --manifest "$MANIFEST" --mask_path "$MASK" \
       --configs $SWEEP_CONFIGS --out_dir "$OUT_ROOT/$MODEL/proofwriter_owa" \
-      --max_new_tokens "${MAX_NEW_TOKENS:-768}"
+      --max_new_tokens "${MAX_NEW_TOKENS:-1024}"
     echo "[proofwriter-owa] $STAGE done."
     echo "[proofwriter-owa] Alpha=0 file (baseline for every McNemar contrast): $A0FILE"
     ;;

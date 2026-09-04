@@ -1346,6 +1346,8 @@ def main():
     test_max_new_tokens_hard_guard()
     print("== review fix: canary indices last item is 279, not 239 ==")
     test_canary_indices_last_item_is_correct()
+    print("== review fix: existing_cell_is_valid guards (skip-existing safety) ==")
+    test_existing_cell_is_valid_guards()
     print("== review fix: sample_id gap/duplicate hard-stops formal scoring ==")
     test_cmd_formal_sample_id_gap_hard_stops()
     print("== review fix: item-id digest mismatch hard-stops formal scoring ==")
