@@ -1089,6 +1089,14 @@ No-CoT 结果来自已经冻结的 P4/P4b/P4c 实验。CoT 结果是看到 No-Co
 
 运行配置、统计家族、敏感性分析、输出行为诊断及解析细节保留在 `CLAUDE.md`。
 
+### 6.4 Conclusion
+
+1. **固定工作点在相近数学推理任务上具有有限迁移能力。** GSM-Hard 上两个模型在 No-CoT 和 CoT 下均获得提升；MATH 上只有 Llama 的固定点获得稳定支持。
+2. **工作点通常更适合解释为任务相关的近优区域。** Llama MATH 位于宽负向峰区，Qwen GSM-Hard 位于尚未闭合的正向平台；Llama GSM8K CoT 的 `−4` 则是条件特异的局部峰。
+3. **迁移不会自动扩展到所有任务，但显式 CoT 可以在部分任务、部分模型上重新打开迁移通道。** LogiQA 在 No-CoT 和 CoT 下均未检出稳定提升；BBH 的 No-CoT null 在两个模型上均被 CoT 恢复；CRUXEval-O 只在 Qwen 上、且只在 FIRST 主口径下得到正向结果并被 CoT 进一步放大，Llama 侧始终为 null。这一模式是 task/model-specific 的 CoT–steering interaction，不是通用的 commitment-compatible transfer 规律。
+4. **不存在跨模型、跨任务统一的最佳 α。** 冻结点仍用于原有迁移检验，near-optimal region 只用于描述已测剂量中的局部稳定性。
+5. **这些结果属于模型输出与准确率层面的证据。** 它们不证明生物多巴胺、通用 wanting 轴或因果中介机制。
+
 ## References
 
 **神经科学（次要旁证）：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.2 / §2.3 的机制**旁**锚。注意本项目主机制锚已改为 **VTA→NAcc wanting 过载 → 冲动 + 固著**，见 §0.2；下列 DA→anxiety 文献有通路特异性（VTA→IPN），列此仅表明 DA 亦有独立焦虑下游，但**非**本数据 +α 端的主要解释——我们观测到的是抢答 / 固著，而非回避 / freezing）
