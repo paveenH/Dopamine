@@ -18,6 +18,22 @@ Design constraints (PREREG_PROOFWRITER_OWA.md S4):
     not left to guess CWA-style "can't prove it -> False".
   - every alpha cell of one model uses the byte-identical template string.
   - optional few-shot exemplars are frozen TRAIN-split only, never test.
+
+v1 REVISION (2026-09-04, PREREG_PROOFWRITER_OWA.md S4/S6, human decision):
+v0's TASK_INSTRUCTIONS only asked the model to reason then end with a final
+line, with NO constraint on reasoning length or on stopping after the answer
+line. The llama3 alpha=0 preflight (1024-token budget) measured 100%
+truncation and 96.7% parse_failure_rate on 30 items -- manual inspection of
+eight generations found NONE reached a strict "Answer: <Label>" line within
+budget: some kept elaborating multi-hop reasoning indefinitely, one wrote
+Python code, at least two entered stable degenerate repetition loops
+("# Corrected output format." x dozens; "...use the rules to answer the
+question, and then use the rules to answer the negation..." cycling). This
+is a format/length-control gap, not a task-definition problem, so v1 changes
+ONLY TASK_INSTRUCTIONS: adds an explicit step budget ("at most 5 steps"), an
+explicit prohibition on code/restating-the-theory/repeating-previous-steps,
+and an explicit stop instruction after the answer line. SYSTEM_RULES (the
+OWA semantics) and the theory/question substitution are BYTE-UNCHANGED.
 """
 
 from __future__ import annotations
@@ -36,12 +52,14 @@ SYSTEM_RULES = (
 )
 
 TASK_INSTRUCTIONS = (
-    "First, reason step by step about whether the question or its negation "
-    "follows from the theory. Then, on the LAST line of your response, "
-    "output exactly one of the following (with no other text on that line):\n"
+    "Reason briefly in at most 5 steps.\n"
+    "Do not write code, restate the theory, or repeat previous steps.\n"
+    "After reasoning, output exactly one final line using one of these "
+    "three forms:\n"
     "Answer: True\n"
     "Answer: False\n"
     "Answer: Unknown\n"
+    "Stop immediately after that line.\n"
 )
 
 # {theory} and {question} are filled with the OFFICIAL, byte-unchanged
@@ -90,4 +108,4 @@ def build_prompt(theory: str, question: str, exemplars: list[dict] | None = None
     )
 
 
-PROMPT_TEMPLATE_ID = "proofwriter-owa-cot-v0"
+PROMPT_TEMPLATE_ID = "proofwriter-owa-cot-v1"
