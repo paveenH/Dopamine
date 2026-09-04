@@ -289,7 +289,7 @@ def main():
 
 
 def load_private_gold(ids, hf_name=HF_PRIVATE, revision=None, split=SPLIT,
-                      config=CONFIG):
+                      config=CONFIG, expected_shapes=None):
     """Load real gold for the given `ids` from the GATED private dataset.
 
     `revision` defaults to None (HF's `main`/latest), NOT the module-level
@@ -303,23 +303,30 @@ def load_private_gold(ids, hf_name=HF_PRIVATE, revision=None, split=SPLIT,
     failure. The prereg (docs/PREREG_ZEBRALOGIC_EASY.md section 1) never pins
     a private-repo revision -- consistent with the official ZeroEval scorer,
     which also loads the private split with no revision pin (see section 1).
-    Content integrity is instead verified per-call, per-id: every returned
-    solution's shape (header, house count) must agree with what the public,
-    revision-pinned split reported for the SAME id (checked by the caller via
-    solution_shape() comparison, or implicitly by score_one_item() failing to
-    match cell count against the frozen commitment/scoring machinery) -- so a
-    silent private-repo content drift is still not accepted quietly, without
-    requiring a revision pin that does not exist for this repo.
+    Content integrity is instead verified structurally on every call (see
+    below), plus per-id shape agreement against `expected_shapes` when the
+    caller supplies it (typically `{id: solution_shape(...)}` built from the
+    public, revision-pinned split for the SAME ids).
 
     Hard-stops with an explanatory message (never a silent fallback) if:
       - the `datasets` library cannot authenticate/access the private repo
         (missing/invalid HF_TOKEN, or the account has not been granted
         access -- both surface as a `datasets`/`huggingface_hub` exception,
         which is caught here and re-raised as a clear, actionable message);
+      - the private split does not have exactly N_FULL=1000 rows;
+      - the private split's `id` column has duplicates;
       - any requested id is missing from the private dataset;
-      - a returned solution's shape (header, house count) disagrees with what
-        the public split reported for the same id -- would mean the two
-        datasets have drifted out of sync with each other.
+      - a row's `solution` is missing the `header`/`rows` keys, `header[0]`
+        is not `"House"`, or a row's cell count disagrees with its own
+        header/row-count product -- catches a malformed or partially-loaded
+        private row before it silently scores as all-wrong cells downstream;
+      - `expected_shapes` is supplied and a returned solution's shape
+        (header, house count) disagrees with it for the same id -- would mean
+        the public and private datasets have drifted out of sync with each
+        other. Not checked when `expected_shapes` is None (e.g. a caller with
+        no public-side shape reference), so this hard stop is opt-in via the
+        argument, never silently skipped by an unset default when the caller
+        does pass shapes.
 
     Returns {id: solution_dict} for exactly the requested ids -- solution_dict
     has the real "header"/"rows" (rows containing actual cell values, not
@@ -350,13 +357,70 @@ def load_private_gold(ids, hf_name=HF_PRIVATE, revision=None, split=SPLIT,
             f"solver, or a relaxed parser when this fails -- see "
             f"docs/PREREG_ZEBRALOGIC_EASY.md section 9.")
 
-    by_id = {r["id"]: r["solution"] for r in priv}
+    # ---- STRUCTURAL integrity of the private split itself, before trusting
+    # any row content. Recorded via a resolved-revision digest so a silent
+    # upstream content change on `main` (no pin exists for this repo) is at
+    # least detectable after the fact, even though it cannot be prevented.
+    all_priv_ids = [r["id"] for r in priv]
+    if len(all_priv_ids) != N_FULL:
+        sys.exit(f"FAIL: private gold dataset has {len(all_priv_ids)} rows, "
+                 f"expected {N_FULL}. The private split's size has drifted "
+                 "from what this protocol assumes.")
+    dup_counts = {}
+    for i in all_priv_ids:
+        dup_counts[i] = dup_counts.get(i, 0) + 1
+    dups = sorted(i for i, c in dup_counts.items() if c > 1)
+    if dups:
+        sys.exit(f"FAIL: private gold dataset has {len(dups)} duplicate id(s), "
+                 f"e.g. {dups[:5]}. Cannot resolve gold unambiguously.")
+
+    resolved_revision = getattr(priv, "info", None)
+    resolved_revision = getattr(resolved_revision, "version", None) if resolved_revision else None
+    priv_digest = sha16("\n".join(sorted(all_priv_ids)))
+    print(f"[load_private_gold] private split n={len(all_priv_ids)} "
+          f"ids_sha256[:16]={priv_digest} "
+          f"resolved_revision={resolved_revision!r} "
+          f"requested_revision={revision!r}")
+
+    by_id = {}
+    for r in priv:
+        sol = r.get("solution")
+        if not isinstance(sol, dict) or "header" not in sol or "rows" not in sol:
+            sys.exit(f"FAIL: private row id={r.get('id')!r} has a malformed "
+                     "'solution' field (missing header/rows).")
+        header = sol["header"]
+        rows = sol["rows"]
+        if not header or header[0] != "House":
+            sys.exit(f"FAIL: private row id={r.get('id')!r} solution header "
+                     f"does not start with 'House': {header!r}")
+        bad_rows = [row for row in rows if len(row) != len(header)]
+        if bad_rows:
+            sys.exit(f"FAIL: private row id={r.get('id')!r} has row(s) whose "
+                     f"length disagrees with its header length {len(header)}.")
+        by_id[r["id"]] = sol
+
     ids = list(ids)
     missing = [i for i in ids if i not in by_id]
     if missing:
         sys.exit(f"FAIL: {len(missing)} id(s) missing from the private gold "
                  f"dataset, e.g. {missing[:5]}. The public and private splits "
                  "have drifted out of sync.")
+
+    if expected_shapes is not None:
+        mismatched = []
+        for i in ids:
+            if i not in expected_shapes:
+                continue
+            got = solution_shape(by_id[i])
+            want = expected_shapes[i]
+            if got != want:
+                mismatched.append((i, got, want))
+        if mismatched:
+            sys.exit(f"FAIL: {len(mismatched)} id(s) have a private-gold "
+                     f"solution shape disagreeing with the public split's "
+                     f"shape, e.g. {mismatched[:3]}. The public and private "
+                     "datasets have drifted out of sync with each other.")
+
     return {i: by_id[i] for i in ids}
 
 

@@ -151,6 +151,24 @@ def first_final_grid_agreement(first_solution, last_solution):
 
 
 _WS_TOKEN_RE = re.compile(r"\S+")
+# Matches the `"solution"` key inside the FIRST complete JSON object, so its
+# match START is the character offset of that key within the full text.
+# `\s*` between the quote and colon tolerates the model's own whitespace;
+# this is a KEY-LOCATION scan restricted to the already-located first-JSON
+# span (never applied to raw arbitrary text), so it cannot mismatch a
+# "solution" substring appearing inside a string value elsewhere.
+_SOLUTION_KEY_RE = re.compile(r'"solution"\s*:')
+
+
+def _find_solution_key_offset(text: str, first_start: int, first_end: int):
+    """Offset (within the FULL text) of the `"solution"` key inside the first
+    complete JSON object spanning [first_start, first_end). Returns None if
+    the object has no textual `"solution"` key in that span (should not
+    happen when the parsed object already has a "solution" entry, but a
+    caller-side scan is safer than assuming the parser's newline-stripped
+    view lines up 1:1 with the raw span)."""
+    m = _SOLUTION_KEY_RE.search(text, first_start, first_end)
+    return m.start() if m else None
 
 
 def compute_commitment_metrics(generated_text: str) -> dict:
@@ -158,6 +176,20 @@ def compute_commitment_metrics(generated_text: str) -> dict:
     metrics for one generation. Returns a flat dict; every field is always
     present (None where undefined, e.g. no complete JSON found at all) so
     downstream aggregation never has to special-case missing keys.
+
+    LOAD-BEARING: the official output format is a SINGLE JSON object
+    `{"reasoning": "...", "solution": {...}}` (official_zebra_grid_template),
+    so a model's CoT reasoning normally lives INSIDE the same JSON object,
+    before the "solution" key -- not as free text before the JSON's opening
+    brace. Measuring `pre_*`/`first_solution_pos` from the object's opening
+    `{` (the previous implementation) would therefore read near-0 in nearly
+    every case regardless of how much reasoning the model actually wrote,
+    since the object typically opens immediately. These metrics are anchored
+    on the `"solution"` KEY's position instead, so a long `"reasoning"` value
+    preceding it is correctly counted as pre-commitment content. Free text
+    genuinely preceding the JSON's opening brace (e.g. an introductory
+    sentence before the object starts) is also included, since the offset is
+    measured from the start of `generated_text`, not from `first_start`.
     """
     text = generated_text or ""
     n_chars = len(text)
@@ -169,19 +201,26 @@ def compute_commitment_metrics(generated_text: str) -> dict:
     solution_first = bool(has_first and grid_is_fully_specified(first_solution))
 
     if has_first and first_start is not None:
-        pre_chars = first_start
-        pre_tokens = len(_WS_TOKEN_RE.findall(text[:first_start]))
-        first_pos_norm = (first_start / n_chars) if n_chars > 0 else None
+        sol_key_offset = _find_solution_key_offset(text, first_start, first_end)
+        # Fall back to the object's opening brace only if the "solution" key
+        # cannot be located textually (defensive; the parsed object already
+        # has a "solution" entry whenever first_solution is not None) --
+        # never silently report None while has_first is True with a real
+        # solution present.
+        anchor = sol_key_offset if sol_key_offset is not None else first_start
+        pre_chars = anchor
+        pre_tokens = len(_WS_TOKEN_RE.findall(text[:anchor]))
+        first_pos_norm = (anchor / n_chars) if n_chars > 0 else None
     else:
         pre_chars = None
         pre_tokens = None
         first_pos_norm = None
 
-    # reason_before_solution: non-trivial free text precedes the first
-    # complete JSON object. Threshold of 20 chars separates "wrote the JSON
-    # object immediately" from "wrote at least a clause of reasoning first";
-    # frozen alongside the other thresholds in this module rather than left
-    # implicit.
+    # reason_before_solution: non-trivial content precedes the "solution" key
+    # (free text before the JSON, and/or a "reasoning" value inside it).
+    # Threshold of 20 chars separates "wrote the solution immediately" from
+    # "wrote at least a clause of reasoning first"; frozen alongside the
+    # other thresholds in this module rather than left implicit.
     reason_before_solution = bool(has_first and pre_chars is not None and pre_chars >= 20)
 
     return {

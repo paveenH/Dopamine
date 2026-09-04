@@ -200,10 +200,32 @@ def test_compute_commitment_metrics_end_to_end():
     check("pre_solution_chars > 0", m["pre_solution_chars"] > 0)
     check("first_solution_pos in (0,1)", 0 < m["first_solution_pos"] < 1)
 
+    # OFFICIAL_EXAMPLE_ANSWER_TEXT's JSON object opens immediately (no free
+    # text before "{"), but it carries a real "reasoning" value BEFORE the
+    # "solution" key -- exactly the official {"reasoning":..., "solution":...}
+    # shape. The anchor is the "solution" KEY, not the object's opening
+    # brace, so pre_solution_chars must be > 0 here (it counts the
+    # "reasoning" field's own content) even though there is no free text
+    # before the JSON object itself. This is the case the fix (2026-09-04)
+    # exists for: anchoring on the opening brace instead would wrongly read
+    # 0 here regardless of how much CoT reasoning the "reasoning" value held.
     immediate = OFFICIAL_EXAMPLE_ANSWER_TEXT
     m2 = compute_commitment_metrics(immediate)
-    check("immediate json: reason_before_solution false", m2["reason_before_solution"] is False)
-    check("immediate json: pre_solution_chars == 0", m2["pre_solution_chars"] == 0)
+    check("immediate-json-but-has-reasoning-field: reason_before_solution true",
+          m2["reason_before_solution"] is True)
+    check("immediate-json-but-has-reasoning-field: pre_solution_chars > 0",
+          m2["pre_solution_chars"] > 0)
+
+    # A JSON object with NO "reasoning" content before "solution" (the key
+    # appears essentially immediately) IS the true zero-pre-commitment case.
+    truly_immediate = json.dumps({"solution": {
+        "House 1": {"Name": "Arnold", "Drink": "tea"},
+    }})
+    m2b = compute_commitment_metrics(truly_immediate)
+    check("no preceding reasoning: reason_before_solution false",
+          m2b["reason_before_solution"] is False)
+    check("no preceding reasoning: pre_solution_chars small",
+          m2b["pre_solution_chars"] < 20)
 
     no_json = "I don't know how to solve this one."
     m3 = compute_commitment_metrics(no_json)
@@ -256,6 +278,7 @@ def test_eval_zebralogic_formal_pipeline_end_to_end():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
+            "cuda_visible_devices": "0",
         }
         return meta, rows
 
@@ -274,6 +297,8 @@ def test_eval_zebralogic_formal_pipeline_end_to_end():
         json.dump({"meta": meta, "data": rows}, open(p, "w"))
         paths.append(p)
 
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
     orig = ez.load_private_gold
     ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
     try:
@@ -283,6 +308,7 @@ def test_eval_zebralogic_formal_pipeline_end_to_end():
         ez.cmd_formal(Args())
     finally:
         ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
 
     # Re-run scoring math directly to assert exact numbers (cmd_formal only
     # prints; re-derive via the same functions it calls to check correctness,
@@ -474,6 +500,7 @@ def test_workpoint_degradation_not_reported_as_qualifying():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
+            "cuda_visible_devices": "0",
         }
         return meta, rows
 
@@ -492,6 +519,8 @@ def test_workpoint_degradation_not_reported_as_qualifying():
         json.dump({"meta": meta, "data": rows}, open(p, "w"))
         paths.append(p)
 
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
     orig = ez.load_private_gold
     ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
     try:
@@ -502,6 +531,7 @@ def test_workpoint_degradation_not_reported_as_qualifying():
         ez.cmd_formal(Args())
     finally:
         ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
 
     result = json.load(open(os.path.join(tmpdir, "result.json")))
     check("argmax_alpha is -6 (the numerically highest AND the only "
@@ -565,6 +595,7 @@ def test_workpoint_pure_degradation_reports_no_workpoint():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
+            "cuda_visible_devices": "0",
         }
         return meta, rows
 
@@ -578,6 +609,8 @@ def test_workpoint_pure_degradation_reports_no_workpoint():
         json.dump({"meta": meta, "data": rows}, open(p, "w"))
         paths.append(p)
 
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
     orig = ez.load_private_gold
     ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
     try:
@@ -588,6 +621,7 @@ def test_workpoint_pure_degradation_reports_no_workpoint():
         ez.cmd_formal(Args())
     finally:
         ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
 
     result = json.load(open(os.path.join(tmpdir, "result.json")))
     check("no alpha qualifies as a Holm-significant improvement "
@@ -640,6 +674,7 @@ def test_cmd_formal_missing_alpha_hard_stops():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
+            "cuda_visible_devices": "0",
         }
         return meta, rows
 
@@ -652,6 +687,8 @@ def test_cmd_formal_missing_alpha_hard_stops():
         json.dump({"meta": meta, "data": rows}, open(p, "w"))
         paths.append(p)
 
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
     orig = ez.load_private_gold
     ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
     try:
@@ -680,6 +717,7 @@ def test_cmd_formal_missing_alpha_hard_stops():
               result["holm_family_m"] == 2, result["holm_family_m"])
     finally:
         ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
 
 
 def test_cmd_formal_mask_mismatch_hard_stops():
@@ -716,6 +754,7 @@ def test_cmd_formal_mask_mismatch_hard_stops():
             "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
             "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
             "prompt_sha256": "sameforall", "accuracy_computed": False,
+            "cuda_visible_devices": "0",
             "mask_sha256": mask_sha, "max_new_tokens": 2048, "batch_size": 8,
         }
         return meta, rows
@@ -729,6 +768,8 @@ def test_cmd_formal_mask_mismatch_hard_stops():
         json.dump({"meta": meta, "data": rows}, open(p, "w"))
         paths.append(p)
 
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
     orig = ez.load_private_gold
     ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
     try:
@@ -745,6 +786,375 @@ def test_cmd_formal_mask_mismatch_hard_stops():
                   "cells hard-stops", True)
     finally:
         ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
+
+
+def test_preflight_indices_cover_all_sizes():
+    """Review finding (2026-09-04): the prereg's "5 items" language was
+    ambiguous/self-contradictory (a 5-item single-size subset vs. "35 items
+    total across both models"), and the ORIGINAL code took only the first 5
+    of the frozen 280-item order -- all 7 of which happen to fall in the
+    first easy size (2*2). Fixed: PREFLIGHT_INDICES must be 5 items PER SIZE
+    (35 total), spanning all 7 easy sizes, so the preflight format check
+    actually exercises every size's JSON template shape before the formal
+    sweep runs."""
+    import get_answer_zebralogic as gaz
+
+    check("PREFLIGHT_N is 35 (5 items x 7 sizes), not 5",
+          gaz.PREFLIGHT_N == 35, gaz.PREFLIGHT_N)
+    idx = sorted(gaz.PREFLIGHT_INDICES)
+    check("PREFLIGHT_INDICES has no duplicates",
+          len(set(idx)) == len(idx))
+    # Each easy size occupies a 40-item block (size_rank * 40 .. +39); the
+    # frozen preflight subset must include the first 5 indices of EVERY
+    # block, not just the first block.
+    for size_rank in range(7):
+        block_start = size_rank * 40
+        expected = list(range(block_start, block_start + 5))
+        got = [i for i in idx if block_start <= i < block_start + 40]
+        check(f"preflight covers size_rank={size_rank}'s first 5 indices",
+              got == expected, f"got {got}, expected {expected}")
+
+
+def test_max_new_tokens_hard_guard():
+    """Review finding (2026-09-04): prereg S3 says 2048 is default and 3072
+    is the ONLY allowed escalation (4096 explicitly out of scope), but
+    nothing enforced this beyond human discipline. Fixed with a hard
+    --max_new_tokens allowlist check in main()."""
+    import get_answer_zebralogic as gaz
+
+    check("2048 is allowed", 2048 in gaz.ALLOWED_MAX_NEW_TOKENS)
+    check("3072 is allowed", 3072 in gaz.ALLOWED_MAX_NEW_TOKENS)
+    check("4096 is NOT allowed", 4096 not in gaz.ALLOWED_MAX_NEW_TOKENS)
+    check("1024 is NOT allowed", 1024 not in gaz.ALLOWED_MAX_NEW_TOKENS)
+
+
+def test_canary_indices_last_item_is_correct():
+    """Review finding (2026-09-04): CANARY_INDICES's last element was
+    hardcoded 239 -- the last item of size_rank 5's block (200..239), not
+    "the last item of the largest easy size" as the comment claimed. The
+    largest easy size is size_rank 6 (indices 240..279), so its last item is
+    279 (6*40 + 39 == N_EASY - 1)."""
+    import get_answer_zebralogic as gaz
+
+    check("CANARY_INDICES has 8 items",
+          len(gaz.CANARY_INDICES) == 8, gaz.CANARY_INDICES)
+    check("CANARY_INDICES's first 7 items are the size-block starts "
+          "(0,40,...,240)",
+          gaz.CANARY_INDICES[:7] == tuple(i * 40 for i in range(7)))
+    check("CANARY_INDICES's last item is 279 (last item of the LARGEST "
+          "easy size's block), not 239",
+          gaz.CANARY_INDICES[-1] == 279, gaz.CANARY_INDICES[-1])
+    check("CANARY_INDICES's last item equals N_EASY - 1",
+          gaz.CANARY_INDICES[-1] == gaz.N_EASY - 1)
+
+
+def _make_formal_cell(alpha, ids, gold, correct_frac=0.5, cvd="0",
+                      sample_ids=None, item_ids_sha256="sameorder",
+                      source_revision="rev-a"):
+    n = len(ids)
+    if sample_ids is None:
+        sample_ids = list(range(n))
+    rows = []
+    for i, (iid, sid) in enumerate(zip(ids, sample_ids)):
+        r = i / n
+        text = (json.dumps({"reasoning": "x", "solution": {
+                   "House 1": {"Name": "Arnold"}, "House 2": {"Name": "Peter"}}})
+               if r >= (1 - correct_frac) else
+               json.dumps({"reasoning": "x", "solution": {
+                   "House 1": {"Name": "WRONG"}, "House 2": {"Name": "Peter"}}}))
+        rows.append({
+            "id": iid, "sample_id": sid, "size": "2*2", "puzzle": "p",
+            "solution_shape": {"header": ["House", "Name"], "n_rows": 2},
+            "generated": text, "truncated": False, "generated_token_count": 50,
+        })
+    meta = {
+        "protocol": "zebralogic-easy-v0", "mode": "formal", "model": "llama3",
+        "size": "8B", "alpha": alpha, "layer_start": 11, "layer_end": 20,
+        "L": 9, "steering_fires": (0 if alpha == 0 else 9 * n),
+        "prompt_sha256": "sameforall", "accuracy_computed": False,
+        "mask_sha256": "samemask", "max_new_tokens": 2048, "batch_size": 8,
+        "item_ids_sha256": item_ids_sha256, "source_revision": source_revision,
+        "cuda_visible_devices": cvd,
+    }
+    return meta, rows
+
+
+def _write_cells(cells, tmpdir):
+    import json as _json
+    paths = []
+    for al, (meta, rows) in cells.items():
+        p = os.path.join(tmpdir, f"cell_{al}.json")
+        _json.dump({"meta": meta, "data": rows}, open(p, "w"))
+        paths.append(p)
+    return paths
+
+
+def test_cmd_formal_sample_id_gap_hard_stops():
+    """Review finding (2026-09-04): cmd_formal never verified sample_id
+    covers 0..279 uniquely, only that id SETS agree across cells -- a
+    duplicated/missing sample_id (frozen-order corruption) would silently
+    misalign the sample_id-sorted pairing used by McNemar/bootstrap."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+    bad_sample_ids = list(range(n))
+    bad_sample_ids[1] = 0  # duplicate index 0, index 1 missing -> a gap
+
+    cells = {
+        0: _make_formal_cell(0, ids, gold),
+        -6: _make_formal_cell(-6, ids, gold, sample_ids=bad_sample_ids),
+        -4: _make_formal_cell(-4, ids, gold),
+        4: _make_formal_cell(4, ids, gold),
+    }
+    tmpdir = tempfile.mkdtemp()
+    paths = _write_cells(cells, tmpdir)
+
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(Args())
+            check("a sample_id gap/duplicate hard-stops formal scoring",
+                  False, "did not raise/exit")
+        except SystemExit:
+            check("a sample_id gap/duplicate hard-stops formal scoring", True)
+    finally:
+        ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
+
+
+def test_cmd_formal_id_digest_mismatch_hard_stops():
+    """Review finding (2026-09-04): cmd_formal checked internal consistency
+    of the id set across a model's own cells, but never cross-checked it
+    against the loader's frozen EXPECTED_EASY_IDS_SHA256 -- a self-consistent
+    but WRONG item set (e.g. from a stale blind file) would pass silently."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"not-the-frozen-set-{i}" for i in range(n)]  # deliberately wrong
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    cells = {
+        0: _make_formal_cell(0, ids, gold),
+        -6: _make_formal_cell(-6, ids, gold),
+        -4: _make_formal_cell(-4, ids, gold),
+        4: _make_formal_cell(4, ids, gold),
+    }
+    tmpdir = tempfile.mkdtemp()
+    paths = _write_cells(cells, tmpdir)
+
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(Args())
+            check("an item-id-set digest mismatch vs the frozen loader "
+                  "digest hard-stops formal scoring", False, "did not raise/exit")
+        except SystemExit:
+            check("an item-id-set digest mismatch vs the frozen loader "
+                  "digest hard-stops formal scoring", True)
+    finally:
+        ez.load_private_gold = orig
+
+
+def test_cmd_formal_different_gpu_hard_stops():
+    """Review finding (2026-09-04): cmd_formal never checked that all four
+    alpha cells of one model shared cuda_visible_devices, even though prereg
+    S4 requires one physical card per model (paired per-item contrast, and
+    bf16 greedy is not byte-reproducible across GPUs)."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    cells = {
+        0: _make_formal_cell(0, ids, gold, cvd="0"),
+        -6: _make_formal_cell(-6, ids, gold, cvd="0"),
+        -4: _make_formal_cell(-4, ids, gold, cvd="0"),
+        4: _make_formal_cell(4, ids, gold, cvd="1"),  # different card
+    }
+    tmpdir = tempfile.mkdtemp()
+    paths = _write_cells(cells, tmpdir)
+
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(Args())
+            check("differing cuda_visible_devices across one model's alpha "
+                  "cells hard-stops formal scoring", False, "did not raise/exit")
+        except SystemExit:
+            check("differing cuda_visible_devices across one model's alpha "
+                  "cells hard-stops formal scoring", True)
+    finally:
+        ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
+
+
+def test_cmd_formal_missing_cuda_visible_devices_hard_stops():
+    """A cell with no cuda_visible_devices recorded must not be silently
+    treated as 'compatible with everything' -- that would defeat the whole
+    point of the same-GPU check by accepting exactly the unpinned-run case
+    it exists to catch."""
+    import eval_zebralogic as ez
+    import tempfile
+
+    n = ez.N_EASY
+    ids = [f"fake-{i}" for i in range(n)]
+    gold = {iid: {"header": ["House", "Name"],
+                 "rows": [["1", "Arnold"], ["2", "Peter"]]}
+           for iid in ids}
+
+    cells = {
+        0: _make_formal_cell(0, ids, gold, cvd="0"),
+        -6: _make_formal_cell(-6, ids, gold, cvd="0"),
+        -4: _make_formal_cell(-4, ids, gold, cvd="0"),
+        4: _make_formal_cell(4, ids, gold, cvd=None),
+    }
+    tmpdir = tempfile.mkdtemp()
+    paths = _write_cells(cells, tmpdir)
+
+    orig_digest = ez.EXPECTED_EASY_IDS_SHA256
+    ez.EXPECTED_EASY_IDS_SHA256 = ez.sha16("\n".join(sorted(ids)))
+    orig = ez.load_private_gold
+    ez.load_private_gold = lambda ids_, **kw: {i: gold[i] for i in ids_}
+    try:
+        class Args:
+            generations = paths
+            out = os.path.join(tmpdir, "result.json")
+            allow_partial_alphas = False
+        try:
+            ez.cmd_formal(Args())
+            check("a missing cuda_visible_devices hard-stops formal scoring",
+                  False, "did not raise/exit")
+        except SystemExit:
+            check("a missing cuda_visible_devices hard-stops formal scoring", True)
+    finally:
+        ez.load_private_gold = orig
+        ez.EXPECTED_EASY_IDS_SHA256 = orig_digest
+
+
+def test_load_private_gold_integrity_guards():
+    """Review finding (2026-09-04): load_private_gold only checked that
+    requested ids resolved. Fixed to also hard-stop on: wrong total row
+    count, duplicate ids, malformed solution shape, and (when the caller
+    supplies expected_shapes) a public/private shape mismatch."""
+    import data_zebralogic as dz
+
+    good_rows = [
+        {"id": "a", "solution": {"header": ["House", "Name"],
+                                 "rows": [["1", "Arnold"], ["2", "Peter"]]}},
+        {"id": "b", "solution": {"header": ["House", "Name"],
+                                 "rows": [["1", "Eric"]]}},
+    ]
+
+    def _stub_load_dataset_factory(rows):
+        def _stub(*a, **kw):
+            return rows
+        return _stub
+
+    # Wrong total row count (N_FULL check).
+    orig_load_dataset = None
+    import datasets
+    orig_load_dataset = datasets.load_dataset
+    try:
+        datasets.load_dataset = _stub_load_dataset_factory(good_rows)
+        try:
+            dz.load_private_gold(["a", "b"])
+            check("wrong row count hard-stops load_private_gold", False,
+                  "did not raise/exit")
+        except SystemExit:
+            check("wrong row count hard-stops load_private_gold", True)
+
+        # Duplicate ids.
+        dup_rows = good_rows + [dict(good_rows[0])]
+        n_full_orig = dz.N_FULL
+        dz.N_FULL = len(dup_rows)
+        try:
+            datasets.load_dataset = _stub_load_dataset_factory(dup_rows)
+            try:
+                dz.load_private_gold(["a", "b"])
+                check("duplicate ids hard-stop load_private_gold", False,
+                      "did not raise/exit")
+            except SystemExit:
+                check("duplicate ids hard-stop load_private_gold", True)
+
+            # Malformed solution (header doesn't start with "House").
+            dz.N_FULL = len(good_rows)
+            bad_header_rows = [
+                {"id": "a", "solution": {"header": ["Position", "Name"],
+                                         "rows": [["1", "Arnold"]]}},
+                {"id": "b", "solution": {"header": ["House", "Name"],
+                                         "rows": [["1", "Eric"]]}},
+            ]
+            datasets.load_dataset = _stub_load_dataset_factory(bad_header_rows)
+            try:
+                dz.load_private_gold(["a", "b"])
+                check("malformed header hard-stops load_private_gold", False,
+                      "did not raise/exit")
+            except SystemExit:
+                check("malformed header hard-stops load_private_gold", True)
+
+            # Row/header length mismatch.
+            bad_row_len_rows = [
+                {"id": "a", "solution": {"header": ["House", "Name"],
+                                         "rows": [["1"]]}},  # too short
+                {"id": "b", "solution": {"header": ["House", "Name"],
+                                         "rows": [["1", "Eric"]]}},
+            ]
+            datasets.load_dataset = _stub_load_dataset_factory(bad_row_len_rows)
+            try:
+                dz.load_private_gold(["a", "b"])
+                check("row/header length mismatch hard-stops load_private_gold",
+                      False, "did not raise/exit")
+            except SystemExit:
+                check("row/header length mismatch hard-stops load_private_gold", True)
+
+            # Shape mismatch against expected_shapes.
+            datasets.load_dataset = _stub_load_dataset_factory(good_rows)
+            good = dz.load_private_gold(["a", "b"])
+            check("valid gold with matching shapes resolves fine",
+                  set(good) == {"a", "b"})
+            wrong_shapes = {"a": {"header": ["House", "Name"], "n_rows": 999}}
+            try:
+                dz.load_private_gold(["a", "b"], expected_shapes=wrong_shapes)
+                check("expected_shapes mismatch hard-stops load_private_gold",
+                      False, "did not raise/exit")
+            except SystemExit:
+                check("expected_shapes mismatch hard-stops load_private_gold", True)
+        finally:
+            dz.N_FULL = n_full_orig
+    finally:
+        datasets.load_dataset = orig_load_dataset
 
 
 def main():
@@ -782,6 +1192,22 @@ def main():
     test_cmd_formal_missing_alpha_hard_stops()
     print("== review fix: mask mismatch hard-stops formal scoring ==")
     test_cmd_formal_mask_mismatch_hard_stops()
+    print("== review fix: preflight indices cover all 7 sizes (35 items) ==")
+    test_preflight_indices_cover_all_sizes()
+    print("== review fix: max_new_tokens hard guard (2048/3072 only) ==")
+    test_max_new_tokens_hard_guard()
+    print("== review fix: canary indices last item is 279, not 239 ==")
+    test_canary_indices_last_item_is_correct()
+    print("== review fix: sample_id gap/duplicate hard-stops formal scoring ==")
+    test_cmd_formal_sample_id_gap_hard_stops()
+    print("== review fix: item-id digest mismatch hard-stops formal scoring ==")
+    test_cmd_formal_id_digest_mismatch_hard_stops()
+    print("== review fix: different GPU across alpha cells hard-stops ==")
+    test_cmd_formal_different_gpu_hard_stops()
+    print("== review fix: missing cuda_visible_devices hard-stops ==")
+    test_cmd_formal_missing_cuda_visible_devices_hard_stops()
+    print("== review fix: load_private_gold integrity guards ==")
+    test_load_private_gold_integrity_guards()
 
     print()
     if FAILURES:

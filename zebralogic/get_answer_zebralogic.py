@@ -67,12 +67,32 @@ from official_zebra_grid_template import apply_lgp_grid_template  # noqa: E402
 
 PROTOCOL = "zebralogic-easy-v0"
 N_EASY = 280
-PREFLIGHT_N = 5
+N_PER_SIZE = 40
+N_SIZES = 7
+PREFLIGHT_PER_SIZE = 5
+# Prereg S5 (corrected 2026-09-04): 5 items PER SIZE, not 5 items total from
+# one size. Frozen indices are the first 5 of each size's 40-item block in
+# the frozen sample_id order written by data_zebralogic.py --
+# {0..4, 40..44, 80..84, 120..124, 160..164, 200..204, 240..244}, 35 items.
+PREFLIGHT_INDICES = tuple(
+    size_rank * N_PER_SIZE + j
+    for size_rank in range(N_SIZES)
+    for j in range(PREFLIGHT_PER_SIZE)
+)
+PREFLIGHT_N = len(PREFLIGHT_INDICES)  # 35
 # Frozen small canary subset: first item of each of the 7 easy sizes (indices
 # are 0, 40, 80, 120, 160, 200, 240 in the frozen sample_id order written by
-# data_zebralogic.py, i.e. size_rank * N_PER_SIZE) plus the last item of the
-# largest easy size, for 8 items total -- deterministic, no RNG.
-CANARY_INDICES = tuple(i * 40 for i in range(7)) + (239,)
+# data_zebralogic.py, i.e. size_rank * N_PER_SIZE) plus the LAST item of the
+# largest easy size, for 8 items total -- deterministic, no RNG. The largest
+# easy size is size_rank 6 (last of the 7), whose block spans indices
+# 240..279, so its last item is index 279 (6*40 + 39), not 239 -- 239 was the
+# LAST item of size_rank 5's block, a wrong-block bug fixed 2026-09-04.
+CANARY_INDICES = tuple(i * N_PER_SIZE for i in range(N_SIZES)) + (N_EASY - 1,)
+
+# Prereg S3 (2026-09-04): 2048 is the default, 3072 is the ONLY allowed
+# escalation step, and 4096 is explicitly out of scope. Enforced structurally
+# so this cannot be silently bumped by a launcher typo or an ad-hoc override.
+ALLOWED_MAX_NEW_TOKENS = (2048, 3072)
 
 # Frozen four-point dose sets, read from docs/PREREG_ZEBRALOGIC_EASY.md
 # section 3 -- this script refuses any --configs alpha outside these sets in
@@ -166,12 +186,30 @@ def gpu_name():
         return None
 
 
+def hostname():
+    """Best-effort machine identity for provenance; never fatal if
+    unavailable. Prereg S4 requires SAME MACHINE (not same physical GPU) for
+    all of one model's alpha cells -- cuda_visible_devices alone cannot
+    confirm this (two different machines can both report "0"), so this is
+    what the eval-time same-machine check actually keys on."""
+    try:
+        import socket
+        return socket.gethostname()
+    except Exception:
+        return None
+
+
 def main():
     args = parse_args()
+    if args.max_new_tokens not in ALLOWED_MAX_NEW_TOKENS:
+        sys.exit(f"FAIL: --max_new_tokens={args.max_new_tokens} not in the "
+                 f"prereg-allowed set {ALLOWED_MAX_NEW_TOKENS} (docs/"
+                 "PREREG_ZEBRALOGIC_EASY.md section 3). 2048 is default, "
+                 "3072 is the ONLY allowed escalation, 4096 is out of scope.")
     meta, all_samples = load_items(args.items, args.model)
 
     if args.mode == "preflight":
-        idx = list(range(PREFLIGHT_N))
+        idx = list(PREFLIGHT_INDICES)
     elif args.mode == "canary":
         if not args.device_tag:
             sys.exit("FAIL: --mode canary requires --device_tag")
@@ -273,7 +311,12 @@ def main():
                 "truncated": stop_reason == "budget_exhausted",
             })
 
-        json.dump({"meta": {
+        # Write to a .tmp path and atomically rename into place only after a
+        # full, valid dump. Writing the final path directly means a crash or
+        # kill mid-write leaves a half-written file at `out`; the existence
+        # check above would then treat it as a finished cell and `skip` it
+        # forever on retry, silently losing that cell from the sweep.
+        payload = {"meta": {
             "protocol": PROTOCOL, "mode": args.mode,
             "model": args.model, "size": args.size, "alpha": alpha,
             "layer_start": ls, "layer_end": le, "L": n_layers,
@@ -293,8 +336,13 @@ def main():
             "source_easy_ids_sha256": meta.get("easy_ids_sha256"),
             "source_revision": meta.get("revision"),
             "contains_labels": False, "accuracy_computed": False,
-        }, "data": rows}, open(out, "w", encoding="utf-8"),
-                  ensure_ascii=False, indent=2)
+        }, "data": rows}
+        tmp_out = out + ".tmp"
+        with open(tmp_out, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_out, out)
         print(f"  wrote {out}  steering_fires={fires}  n={len(rows)}")
 
     print(f"\nGeneration complete (mode={args.mode}). NO accuracy was computed.")

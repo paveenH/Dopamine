@@ -55,7 +55,17 @@ from math import comb
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from official_zebra_grid_scorer import build_solution_table, score_one_item  # noqa: E402
 from commitment_metrics import compute_commitment_metrics, first_final_grid_agreement  # noqa: E402
-from data_zebralogic import load_private_gold  # noqa: E402
+from data_zebralogic import (  # noqa: E402
+    load_private_gold, solution_shape, sha16, EXPECTED_EASY_IDS_SHA256,
+)
+
+
+def _expected_shapes(rows):
+    """Build {id: solution_shape} from a generation cell's own
+    `solution_shape` field (written label-free by get_answer_zebralogic.py
+    from the public split), for load_private_gold()'s public/private
+    shape-agreement check."""
+    return {r["id"]: r["solution_shape"] for r in rows if "solution_shape" in r}
 
 PROTOCOL = "zebralogic-easy-v0"
 N_EASY = 280
@@ -300,7 +310,7 @@ def cmd_canary_check(args):
         if [r["id"] for r in rows] != ids:
             die(f"{p}: canary item set/order differs from {files[0]}")
 
-    gold = load_private_gold(ids)
+    gold = load_private_gold(ids, expected_shapes=_expected_shapes(rowsets[0]))
 
     summaries = []
     for m, rows in zip(metas, rowsets):
@@ -364,7 +374,7 @@ def cmd_preflight_check(args):
         die(f"{args.preflight_file}: preflight format check is alpha=0 only, "
             f"got {m.get('alpha')}")
     ids = [r["id"] for r in rows]
-    gold = load_private_gold(ids)
+    gold = load_private_gold(ids, expected_shapes=_expected_shapes(rows))
     scored = score_rows(rows, gold)
 
     print(f"\n=== PREFLIGHT (n={len(scored)}) model={m.get('model')} "
@@ -411,7 +421,30 @@ def cmd_formal(args):
         if sorted(r["id"] for r in rows) != ids_ref:
             die(f"{p}: item id set differs from {files[0]}")
 
+    # sample_id must be exactly 0..279, unique, per cell -- the frozen item
+    # order every downstream sample_id-based pairing (McNemar/bootstrap) and
+    # cross-check (item_ids_sha256) assumes. A gap or duplicate here would
+    # silently misalign the paired comparison against alpha=0.
+    for p, rows in zip(files, rowsets):
+        sids = sorted(r["sample_id"] for r in rows)
+        if sids != list(range(N_EASY)):
+            die(f"{p}: sample_id is not exactly 0..{N_EASY-1} with no gaps/"
+                "duplicates; the frozen item order is not intact.")
+
+    # Cross-check the item set against the loader's own frozen id digest
+    # (data_zebralogic.EXPECTED_EASY_IDS_SHA256), not just internal
+    # consistency across the supplied cells -- internal consistency alone
+    # would not catch every cell being generated from a stale/wrong blind
+    # file that happens to be self-consistent.
+    ids_digest = sha16("\n".join(ids_ref))
+    if ids_digest != EXPECTED_EASY_IDS_SHA256:
+        die(f"item id set digest {ids_digest} != frozen "
+            f"EXPECTED_EASY_IDS_SHA256 {EXPECTED_EASY_IDS_SHA256}; these "
+            "generations were not produced from the frozen easy-tier item set.")
+
     prompt_hash_ref = metas[0].get("prompt_sha256")
+    item_ids_sha_ref = metas[0].get("item_ids_sha256")
+    source_revision_ref = metas[0].get("source_revision")
     by_alpha = {}
     for m, rows in zip(metas, rowsets):
         al = m["alpha"]
@@ -423,6 +456,15 @@ def cmd_formal(args):
         if m.get("prompt_sha256") != prompt_hash_ref:
             die(f"alpha={al}: prompt_sha256 differs from alpha={metas[0]['alpha']}; "
                 "the rendered prompts are not identical across doses")
+        if m.get("item_ids_sha256") != item_ids_sha_ref:
+            die(f"alpha={al}: item_ids_sha256 differs from alpha={metas[0]['alpha']}; "
+                "the generated item ORDER differs across doses even if the id "
+                "set is the same -- sample_id-based pairing would misalign.")
+        if m.get("source_revision") != source_revision_ref:
+            die(f"alpha={al}: source_revision {m.get('source_revision')!r} "
+                f"differs from alpha={metas[0]['alpha']}'s "
+                f"{source_revision_ref!r}; the cells were generated from "
+                "different dataset revisions.")
         exp_fires = 0 if al == 0 else m["L"] * len(rows)
         if m.get("steering_fires") != exp_fires:
             die(f"alpha={al}: steering_fires {m.get('steering_fires')} != "
@@ -475,8 +517,30 @@ def cmd_formal(args):
                     "configuration (mask/token-budget/batch-size/model), or "
                     "they are not a comparable curve.")
 
+    # SAME PHYSICAL GPU per model (prereg S4): bf16 greedy is not byte-
+    # reproducible across GPUs, and every alpha of one model is a paired
+    # per-item contrast against that model's own alpha=0, so a cell generated
+    # on a different card mixes a device difference into the alpha effect.
+    # `cuda_visible_devices` is the authoritative field (it is what was
+    # actually pinned at launch, per run_zebralogic.sh's require_card); a
+    # missing value on any cell cannot be treated as "same as the others" --
+    # that would silently accept an unpinned run precisely because it forgot
+    # to record what card it used.
+    cvd_by_alpha = {al: m.get("cuda_visible_devices") for al, m in metas_by_alpha.items()}
+    if any(not v for v in cvd_by_alpha.values()):
+        die(f"{model}: cuda_visible_devices missing/empty on cell(s) "
+            f"{sorted(al for al, v in cvd_by_alpha.items() if not v)} -- "
+            "cannot confirm all alpha cells of this model ran on one "
+            "physical card (prereg S4 requirement).")
+    cvd_set = set(cvd_by_alpha.values())
+    if len(cvd_set) > 1:
+        die(f"{model}: alpha cells report different cuda_visible_devices "
+            f"{cvd_by_alpha} -- prereg S4 requires all of one model's alpha "
+            "cells to share ONE physical GPU (paired per-item contrast, and "
+            "bf16 greedy is not byte-reproducible across GPUs).")
+
     ids = ids_ref
-    gold = load_private_gold(ids)
+    gold = load_private_gold(ids, expected_shapes=_expected_shapes(rowsets[0]))
 
     sizes_order = ("2*2", "2*3", "2*4", "2*5", "2*6", "3*2", "3*3")
     scored_by_alpha = {}

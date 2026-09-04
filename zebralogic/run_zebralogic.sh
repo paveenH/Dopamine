@@ -128,6 +128,11 @@ cmd_check_access() {
   echo "[zebralogic] CHECK_ACCESS -- verifying allenai/ZebraLogicBench-private"
   if [[ -z "${HF_TOKEN:-}" && -z "${HUGGING_FACE_HUB_TOKEN:-}" ]]; then
     echo "[FATAL] neither HF_TOKEN nor HUGGING_FACE_HUB_TOKEN is set." >&2
+    echo "        NOTE: the accepted names are HF_TOKEN or HUGGING_FACE_HUB_TOKEN" >&2
+    echo "        (underscore between HUGGING and FACE). HUGGINGFACE_HUB_TOKEN" >&2
+    echo "        (no underscore, one word 'HUGGINGFACE') is NOT the same variable" >&2
+    echo "        and will not be picked up -- this has already caused one" >&2
+    echo "        false 'not set' failure on this server. Use HF_TOKEN." >&2
     echo "        Real ZebraLogic gold requires:" >&2
     echo "          1. An HF account with access GRANTED on" >&2
     echo "             https://huggingface.co/datasets/allenai/ZebraLogicBench-private" >&2

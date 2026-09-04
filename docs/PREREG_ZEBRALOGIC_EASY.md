@@ -99,7 +99,9 @@ dataset loader, or document (`AdaDopamine_gsm8k.md`, `CLAUDE.md` untouched).
   allowed step, and only if α=0 preflight truncation exceeds ~1-2%; the new
   budget applies uniformly to every α of that model, never per-cell.** If
   `3072` still shows material truncation, STOP and report — `4096` is
-  explicitly out of scope and may not be enabled unilaterally.
+  explicitly out of scope and may not be enabled unilaterally. **This is
+  enforced structurally, not by discipline alone: `get_answer_zebralogic.py`
+  hard-refuses any `--max_new_tokens` value other than 2048 or 3072.**
 - Prefill-only steering, `prefill_tail_len=1` (last prompt token only).
 - Tokenizer: `padding_side="left"` (already the `VicundaModel.__init__` global
   default — no override needed, verified in `llms.py:92`).
@@ -139,10 +141,15 @@ by this pre-registration and are never searched or added to.
 
 ## 5. α=0 preflight
 
-- 5 items per model, fixed by index (first 5 of the frozen 280-item order),
-  35 items total across both models — but note both models draw from the SAME
-  ZebraLogic item order, so it is the same 5 puzzles for each model, run at
-  α=0 only.
+- **5 items PER SIZE** (7 sizes x 5 = 35 items), fixed by index within each
+  size's block of 40 in the frozen 280-item order (the first 5 items of each
+  size, i.e. `sample_id`s `{0..4, 40..44, 80..84, 120..124, 160..164, 200..204,
+  240..244}`) — not 5 items total, and not all drawn from one size. Both
+  models share this SAME 35-item set (one frozen item order), run at α=0 only.
+  This corrects an earlier draft of this section that said "5 items... 35
+  items total across both models" while describing a single-size 5-item
+  subset — those two statements were contradictory; 35 items covering all
+  seven sizes is the frozen definition.
 - Preflight checks (all must pass before any formal cell runs):
   - official prompt renders correctly (worked example + target puzzle +
     per-item JSON template);
@@ -180,12 +187,21 @@ it does on LogiQA's letter-choice format).
   cells, i.e. the model emitted a fully-specified grid before any later
   revision. Distinguishes "committed a full grid early" from "still reasoning
   when the only JSON block appears".
-- `first_solution_pos` — normalized character offset of that first complete
-  JSON object's opening brace within the full generated text (0 = start, 1 =
-  end). Undefined (reported as coverage, not imputed) for texts with no
-  complete JSON object.
+- `first_solution_pos` — normalized character offset of the `"solution"` KEY
+  inside that first complete JSON object, within the full generated text (0 =
+  start, 1 = end) — **not** the object's opening brace. This matters because
+  the official output format is one JSON object,
+  `{"reasoning": "...", "solution": {...}}`: CoT reasoning normally lives
+  INSIDE the object, before the "solution" key, so anchoring on the opening
+  `{` would read near-zero regardless of reasoning length. Falls back to the
+  opening-brace offset only if the "solution" key cannot be located textually
+  within the object's span (defensive; should not occur when a "solution"
+  value was successfully parsed). Undefined (reported as coverage, not
+  imputed) for texts with no complete JSON object.
 - `pre_solution_chars` / `pre_solution_tokens` — characters / whitespace-token
-  count preceding that first complete JSON object.
+  count preceding that `"solution"` key (i.e. any free text before the JSON's
+  opening brace PLUS the "reasoning" value and surrounding JSON syntax up to
+  the "solution" key).
 - `reason_before_solution` — boolean: does non-trivial free text (more than a
   few characters) precede the first complete JSON object. Complements
   `solution_first_rate` for texts where the first JSON is partial/malformed.
@@ -301,3 +317,14 @@ dataset, a hand-built solver, or a relaxed parser.** This blocks the FORMAL
 run and the private-gold-dependent commitment metrics
 (`revision_wrong_to_right` / `revision_right_to_wrong`), not the label-free
 generation, preflight (format-only parts), or code preparation.
+
+**Private-gold integrity check (`load_private_gold`, hardened 2026-09-04):**
+beyond confirming requested ids resolve, it also hard-stops on (a) the private
+split not having exactly 1000 rows, (b) duplicate ids in the private split,
+(c) a malformed `solution` (missing header/rows, `header[0] != "House"`, or a
+row whose length disagrees with its header), and (d), when the caller supplies
+`expected_shapes` (every call site in `eval_zebralogic.py` does, built from
+each generation cell's own `solution_shape` field), a per-id shape mismatch
+between the public and private datasets. It also prints the resolved private
+split's row count, sorted-id digest, and resolved revision for provenance,
+since this repo has no revision pin for the private dataset (§1).
