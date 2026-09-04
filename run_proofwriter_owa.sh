@@ -26,10 +26,17 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: run_proofwriter_owa.sh validate-data|preflight|pilot|canary|llama-sweep|qwen-sweep|analyze [llama3|qwen2.5]" >&2
+  echo "usage: run_proofwriter_owa.sh validate-data|preflight|pilot|canary|llama-sweep|qwen-sweep|analyze [llama3|qwen2.5] [device_tag]" >&2
+  echo "  'canary' additionally takes a THIRD positional arg, device_tag, e.g.:" >&2
+  echo "    run_proofwriter_owa.sh canary llama3 card0" >&2
+  echo "    run_proofwriter_owa.sh canary llama3 card1" >&2
+  echo "  Each canary run on a DIFFERENT physical GPU needs its own device_tag" >&2
+  echo "  so the two runs write to different output paths and can be diffed --" >&2
+  echo "  a fixed tag would make the second run silently skip (existing-file" >&2
+  echo "  guard) rather than producing a second, comparable cell." >&2
   exit 1
 fi
-STAGE="$1"; MODEL="${2:-}"
+STAGE="$1"; MODEL="${2:-}"; DEVICE_TAG="${3:-}"
 
 PY="${PY:-python}"
 WORK_DIR="${WORK_DIR:-/data1/paveen/Dopamine}"
@@ -159,6 +166,14 @@ case "$STAGE" in
     need_model_arg
     model_cfg "$MODEL"
     need_gpu_pinned
+    if [[ -z "$DEVICE_TAG" ]]; then
+      echo "[FATAL] canary requires a THIRD positional arg, device_tag, e.g.:" >&2
+      echo "        run_proofwriter_owa.sh canary $MODEL card0" >&2
+      echo "        A fixed --tag would make a second canary run (on a" >&2
+      echo "        different GPU) silently skip via the existing-file guard" >&2
+      echo "        instead of producing a genuinely comparable second cell." >&2
+      exit 1
+    fi
     MANIFEST="$BENCH/manifest_blind.json"
     check_common_inputs
     PREFLIGHT_FILE="$BENCH/preflight_blind_${MODEL}.json"
@@ -166,22 +181,39 @@ case "$STAGE" in
       echo "[FATAL] $PREFLIGHT_FILE missing; run stage 'preflight' first." >&2
       exit 1; }
     case "$MODEL" in
-      llama3)  CANARY_ALPHA="$AN6" ;;
-      qwen2.5) CANARY_ALPHA="$AP8" ;;
+      llama3)  CANARY_ALPHA="$AN6"; CANARY_ALPHA_TAG="mdf_neg6" ;;
+      qwen2.5) CANARY_ALPHA="$AP8"; CANARY_ALPHA_TAG="mdf_8" ;;
     esac
+    # --tag includes device_tag so canary runs on DIFFERENT physical GPUs
+    # write to DIFFERENT paths (canary_<device_tag>_mdf_.../...) and can
+    # actually be diffed -- a fixed "preflight" tag here previously meant a
+    # second run always hit get_answer_proofwriter_owa.py's existing-file
+    # skip and produced nothing new for the second card. CANARY_ALPHA_TAG
+    # is hand-matched to get_answer_proofwriter_owa.py's own
+    # `tag = f"mdf_{alpha}".replace("-", "neg")` naming (alpha=-6 -> mdf_neg6,
+    # alpha=8 -> mdf_8) since only these two fixed alphas are ever used here.
+    CANARY_TAG="canary_${DEVICE_TAG}"
     echo "[proofwriter-owa] canary: non-zero alpha ($CANARY_ALPHA) fire-count"
-    echo "  check on the same 30-item preflight set. steering_fires must equal"
-    echo "  L * n_samples * 1 exactly (checked by the generator; a mismatch"
-    echo "  stops the run)."
+    echo "  check on the same 30-item preflight set. device_tag=$DEVICE_TAG"
+    echo "  steering_fires must equal L * n_samples * 1 exactly (checked by"
+    echo "  the generator; a mismatch stops the run)."
     cd "$WORK_DIR"
     "$PY" proofwriter_owa/get_answer_proofwriter_owa.py \
       --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR" \
       --manifest "$PREFLIGHT_FILE" --mask_path "$MASK" \
-      --configs "$CANARY_ALPHA" --out_dir "$OUT_ROOT/$MODEL/proofwriter_owa" --tag preflight
-    echo "[proofwriter-owa] canary done. If this model's alpha curve will ever"
-    echo "  span more than one GPU, re-run this same canary on the other card"
-    echo "  and diff the two outputs (outcome-level canary) before treating"
-    echo "  cross-GPU cells as comparable -- see PREREG_PROOFWRITER_OWA.md S7."
+      --configs "$CANARY_ALPHA" --out_dir "$OUT_ROOT/$MODEL/proofwriter_owa" \
+      --tag "$CANARY_TAG"
+    CANARY_OUT="$OUT_ROOT/$MODEL/proofwriter_owa/${CANARY_TAG}_${CANARY_ALPHA_TAG}/proofwriter_owa_${SIZE}_${BAND}.json"
+    echo "[proofwriter-owa] canary done: $CANARY_OUT"
+    echo "[proofwriter-owa] If this model's alpha curve will ever span more"
+    echo "  than one GPU, re-run this SAME command with a DIFFERENT"
+    echo "  device_tag on the other card, then run the real outcome-level"
+    echo "  comparator (not just a suggestion to 'diff the two outputs'):"
+    echo "    $PY proofwriter_owa/compare_canary.py \\"
+    echo "      --gold $BENCH/preflight_gold_${MODEL}.json \\"
+    echo "      --cell <card0 output> <card1 output> [...]"
+    echo "  See PREREG_PROOFWRITER_OWA.md S7 for the pass/fail criterion this"
+    echo "  compares against."
     ;;
 
   # ---------------------------------------------------------------- 4

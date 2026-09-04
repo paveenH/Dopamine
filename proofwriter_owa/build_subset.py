@@ -17,10 +17,20 @@ Modes
               first 5 of each label (True/False/Unknown); if a label has
               fewer than 5 available in the first pass, fill remaining slots
               from the next available items of that dataset in frozen order.
-  pilot       150 items: the first 75 D3 + first 75 D5 rows in frozen
-              manifest order (no label-balancing beyond what the manifest
-              itself already carries, since the manifest is already
-              near-50/50/50 within each dataset by construction).
+  pilot       150 items: 75 D3 + 75 D5, with each dataset's 75 built as 25
+              of each label (True/False/Unknown) in frozen manifest order,
+              filling shortfalls from the same dataset's leftover rows --
+              same pattern as select_preflight, scaled to per_label=25.
+              NOT a positional `rows[:75]` slice: the frozen manifest sort
+              key is (dataset, label_order["True"|"False"|"Unknown"],
+              hash) -- see data_proofwriter_owa.py's build_manifest -- so
+              within one dataset EVERY True row sorts before EVERY False
+              row, which sorts before EVERY Unknown row. A positional
+              slice of the first 75 rows of a 150-row dataset (50 True +
+              50 False + 50 Unknown) would take all 50 True + the first 25
+              False + ZERO Unknown -- the opposite of "near-50/50/50",
+              which an earlier version of this function incorrectly
+              assumed the manifest order provided for free.
 
 Usage
 -----
@@ -43,11 +53,19 @@ def die(msg):
     sys.exit(2)
 
 
-def select_preflight(gold_rows: list[dict], per_label: int = 5) -> list[int]:
-    """Returns sample_ids: per dataset, per_label of each label (frozen
-    manifest order), filling shortfalls from the same dataset's leftover
-    rows in order. Reports (does not silently hide) any dataset/label that
-    cannot reach per_label."""
+def _select_balanced(gold_rows: list[dict], per_label: int, stage_name: str) -> list[int]:
+    """Shared selection logic for both preflight and pilot: per dataset, take
+    the first `per_label` gold rows OF EACH LABEL in frozen manifest order,
+    then fill any shortfall from that dataset's remaining (already-label-
+    exhausted) rows in frozen order. Returns sample_ids.
+
+    Factored out of what were previously two independent, near-duplicate
+    implementations (select_preflight / select_pilot) after a review found
+    select_pilot had NOT been updated to this pattern and was still doing a
+    positional `rows[:75]` slice -- silently unbalanced under this manifest's
+    sort order (dataset, label True<False<Unknown, hash). Keeping one shared
+    implementation removes the chance of the two drifting apart again.
+    """
     chosen = []
     for ds in ("D3", "D5"):
         rows = [r for r in gold_rows if r["dataset"] == ds]
@@ -61,7 +79,7 @@ def select_preflight(gold_rows: list[dict], per_label: int = 5) -> list[int]:
                 picked_ids.add(r["sample_id"])
             if len(take) < per_label:
                 print(f"[build_subset] WARNING: {ds}/{lab} has only "
-                      f"{len(take)}/{per_label} available for preflight coverage.")
+                      f"{len(take)}/{per_label} available for {stage_name} coverage.")
         # fill shortfall from the same dataset's remaining rows, frozen order
         need = per_label * len(LABEL_ORDER) - len(picked_ids)
         if need > 0:
@@ -72,16 +90,17 @@ def select_preflight(gold_rows: list[dict], per_label: int = 5) -> list[int]:
     return chosen
 
 
-def select_pilot(gold_rows: list[dict], per_dataset: int = 75) -> list[int]:
-    chosen = []
-    for ds in ("D3", "D5"):
-        rows = [r for r in gold_rows if r["dataset"] == ds]
-        take = rows[:per_dataset]
-        if len(take) < per_dataset:
-            print(f"[build_subset] WARNING: {ds} has only {len(take)}/"
-                  f"{per_dataset} rows for the pilot subset.")
-        chosen.extend(r["sample_id"] for r in take)
-    return chosen
+def select_preflight(gold_rows: list[dict], per_label: int = 5) -> list[int]:
+    """30 items: 15 D3 + 15 D5, 5 of each label per dataset (frozen order,
+    shortfall-filled). See _select_balanced."""
+    return _select_balanced(gold_rows, per_label, "preflight")
+
+
+def select_pilot(gold_rows: list[dict], per_label: int = 25) -> list[int]:
+    """150 items: 75 D3 + 75 D5, 25 of each label per dataset (frozen order,
+    shortfall-filled). See _select_balanced and the module docstring for why
+    this must NOT be a positional `rows[:75]` slice."""
+    return _select_balanced(gold_rows, per_label, "pilot")
 
 
 def main():

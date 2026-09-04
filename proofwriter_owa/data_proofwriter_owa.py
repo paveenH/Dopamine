@@ -29,7 +29,7 @@ THAT question, not inferred from which depth-folder the theory came from. The
 loader prints the observed QDep distribution split by label BEFORE building
 any manifest, and refuses (hard stop, not silent reinterpretation) if the
 field is absent or non-integer on a material fraction of parsed questions --
-see `_assert_qdep_semantics`.
+see the QDep handling inside `parse_depth_split`.
 
 FAIL-CLOSED SCHEMA HANDLING (PREREG S1.4): every structural assumption below
 is asserted, and a violation prints the REAL structure found and stops, rather
