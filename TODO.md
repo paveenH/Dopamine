@@ -98,6 +98,7 @@ Agent5: Total Design (GPT)
 25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
 25. 顺便丰富一下prediction的结果 ✔
 26. ZebraLogic WP测试 ⏸
+27. multi-hop ProofWwiter OWA 
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
@@ -106,8 +107,6 @@ Agent5: Total Design (GPT)
 
 | 优先级 | 任务 | 最能回答什么 | Llama3 表现 / 风险预期 |
 |---|---|---|---|
-| 4 | **ZebraLogic** | 非选择题逻辑约束求解的更强测试 | **exact solve 偏低**；格式与能力地板风险高，cellwise 可较可读 |
-| 5 | **ProofWriter / RuleTaker** | 移除选项内容、保留离散答案空间的机制控制 | **中高**；规则推导相对适合 8B，但仍是标签提交 |
 | 6 | **FinQA** | 开放数值答案的跨数据域验证 | **中等**；表格读取与程序式计算是额外难点 |
 | 7 | **TruthfulQA-Gen** | 去除选项后的自由生成行为是否改变 | **不宜写单一 accuracy**；可生成，但要面对 judge 评分与 Llama 尾部 loop |
 | 8 | **FOLIO** | 自然语言逻辑 | **中低到中等**；三值判断、语义歧义，小样本 |
