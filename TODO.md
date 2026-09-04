@@ -55,8 +55,8 @@ Daily
 Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retrograde gain control.](https://doi.org/10.1038/s41586-026-10967-w) 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。
 
 ---
-Agent1: task coding (claude)
-Agent2: Task design & check (GPT)
+Task Agent: task coding (claude)
+Agent2: Task design & check (GPT) & write to claude when finishing 
 Agent3: claude.md mataining (claude)
 Agent4: Document (GPT)
 Agent5: Total Design (GPT)
@@ -97,8 +97,8 @@ Agent5: Total Design (GPT)
 24. 优化文档GSM8K ✔
 25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
 25. 顺便丰富一下prediction的结果 ✔
-26. ZebraLogic WP测试 ⏸
-27. multi-hop ProofWwiter OWA 
+26. ZebraLogic WP测试 
+27. multi-hop ProofWwiter OWA 无法得到有效的格式 ✖
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
