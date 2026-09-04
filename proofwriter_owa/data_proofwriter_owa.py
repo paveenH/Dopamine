@@ -128,13 +128,25 @@ def salted_key(*parts: str) -> str:
 
 # ───────────────────────── download ─────────────────────────
 
-def _verify_zip_integrity(path: str):
-    """zipfile.testzip() reads every member's CRC -- catches a truncated or
-    corrupted archive that would otherwise pass a bare os.path.exists()
-    check and only fail much later, deep inside _find_meta_files with a
-    confusing error. Returns the name of the first bad member, or None."""
-    with zipfile.ZipFile(path) as zf:
-        return zf.testzip()
+def _verify_zip_integrity(path: str) -> str | None:
+    """Returns None if `path` is a structurally valid zip with every
+    member's CRC intact; otherwise a short description of what failed.
+    Catches a truncated or corrupted archive that would otherwise pass a
+    bare os.path.exists() check and only fail much later, deep inside
+    _find_meta_files with a confusing error.
+
+    zipfile.ZipFile(path) itself raises zipfile.BadZipFile for a file that
+    is not a zip at all (e.g. an HTML error page saved by mistake, or a
+    transfer truncated so early the central directory record is missing) --
+    that must be caught here too, not just testzip()'s CRC-mismatch case
+    for a file that IS structurally a zip but has corrupted member data.
+    """
+    try:
+        with zipfile.ZipFile(path) as zf:
+            bad_member = zf.testzip()
+            return f"CRC mismatch in member {bad_member!r}" if bad_member else None
+    except zipfile.BadZipFile as e:
+        return f"not a valid zip file ({e})"
 
 
 def download_archive(dest_dir: str, url: str = OFFICIAL_URL,
@@ -167,13 +179,13 @@ def download_archive(dest_dir: str, url: str = OFFICIAL_URL,
     part_path = path + ".part"
 
     if os.path.exists(path):
-        bad_member = _verify_zip_integrity(path)
-        if bad_member is not None:
-            die(f"{path} exists but failed zip integrity check (bad member: "
-                f"{bad_member}); this looks like a truncated/corrupted "
-                "download from before this script verified zip integrity on "
-                "the already-present-file path. Delete it and re-run to "
-                "re-download: rm " + path)
+        integrity_error = _verify_zip_integrity(path)
+        if integrity_error is not None:
+            die(f"{path} exists but failed zip integrity check "
+                f"({integrity_error}); this looks like a truncated/"
+                "corrupted download from before this script verified zip "
+                "integrity on the already-present-file path. Delete it and "
+                "re-run to re-download: rm " + path)
         got = sha256_file(path)
         if expected_sha256 and got != expected_sha256:
             die(f"{path} already exists but sha256={got} != expected "
@@ -225,12 +237,11 @@ def download_archive(dest_dir: str, url: str = OFFICIAL_URL,
     print(f"[download] download complete, {written} bytes written to "
           f"{part_path}; verifying before making it the final artifact")
 
-    bad_member = _verify_zip_integrity(part_path)
-    if bad_member is not None:
-        die(f"downloaded file failed zip integrity check (bad member: "
-            f"{bad_member}); the download is corrupt or was truncated by a "
-            f"network issue. Left at {part_path} for inspection; delete it "
-            "and re-run to retry.")
+    integrity_error = _verify_zip_integrity(part_path)
+    if integrity_error is not None:
+        die(f"downloaded file failed zip integrity check ({integrity_error}); "
+            "the download is corrupt or was truncated by a network issue. "
+            f"Left at {part_path} for inspection; delete it and re-run to retry.")
 
     got = sha256_file(part_path)
     if expected_sha256 and got != expected_sha256:
