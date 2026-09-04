@@ -1064,7 +1064,9 @@ LogiQA 2.0、BBH object counting 和 CRUXEval-O 用于探索固定工作点的�
 - Llama3.1-8B：`α=−6`
 - Qwen2.5-7B：`α=+8`
 
-No-CoT 结果来自已经冻结的 P4/P4b/P4c 实验。CoT 结果是看到 No-CoT 结果后开展的探索性补充，因此用于比较不同生成条件下的迁移模式，不构成确认性复现。CoT 的六项比较组成独立的 Holm `m=6` 家族。
+No-CoT 结果来自已经冻结的 P4/P4b/P4c 实验。CoT 结果是在看到 No-CoT 结果后进行的探索性补充，因此只用于比较不同生成条件下的迁移模式，不构成确认性复现。CoT 的六项比较组成独立的 Holm `m=6` 家族。
+
+#### Accuracy Results
 
 **Table 6.3. Fixed-workpoint transfer on exploratory boundary tasks**
 
@@ -1077,36 +1079,42 @@ No-CoT 结果来自已经冻结的 P4/P4b/P4c 实验。CoT 结果是看到 No-Co
 | LogiQA 2.0 | Llama | −6 | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>95% CI=[−8.00,+3.33] |
 | LogiQA 2.0 | Qwen | +8 | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>95% CI=[−10.67,−0.33] |
 
-准确率沿用各任务预先确定的主口径：LogiQA 2.0 使用 LAST，BBH 和 CRUXEval-O 使用 FIRST。No-CoT 与 CoT 的 `p_adj` 来自不同统计家族，不能直接比较；两种条件也各自使用独立的 `α=0` baseline，因此不能只比较表中的绝对准确率。
+准确率沿用各任务预先确定的主口径：LogiQA 2.0 使用 LAST，BBH 和 CRUXEval-O 使用 FIRST。No-CoT 与 CoT 使用各自条件下独立的 `α=0` baseline。No-CoT 的 `p_adj` 来自各任务原有的统计家族，CoT 的 `p_adj` 来自新的 Holm `m=6` 家族，因此不能跨条件直接比较。表中的置信区间也未进行多重比较校正。
 
-**BBH object counting.** No-CoT 下两个模型均未检出固定点收益；加入显式 CoT 后，Llama 和 Qwen 分别提高 16.00 pp 和 14.00 pp，且均通过 Holm `m=6` 校正。这是唯一在 CoT 条件下同时获得双模型支持的边界任务。
+**BBH object counting.** No-CoT 下，两个模型均未检出固定工作点带来的收益；CoT 条件下，Llama 和 Qwen 分别提高 16.00 pp 和14.00 pp，且均通过 Holm 校正。BBH 是三个边界任务中唯一在 CoT 条件下获得双模型支持的任务。
 
-**CRUXEval-O.** 结果呈现明显的模型差异。Qwen 在 No-CoT 下已经获得显著提升，CoT 下的增益点估计进一步扩大至 19.33 pp；Llama 在两种条件下均未检出收益。因此，CoT 并未消除该任务上的跨模型差异。这里的准确率采用 Python 字面量解析与对象相等判断，不等同于官方执行式 `pass@1`。
+**CRUXEval-O.** 结果表现出明显的模型差异。Qwen 在 No-CoT 和 CoT 下均获得显著提升，CoT 下的增益点估计更大；Llama 在两种条件下均未检出收益。因此，显式 CoT 并未消除该任务上的跨模型差异。这里报告的是 Python 字面量解析准确率，不等同于官方执行式 `pass@1`。
 
-**LogiQA 2.0.** 两个模型在 No-CoT 和 CoT 下均未通过各自的多重比较校正。Qwen CoT 的未校正置信区间虽然位于零以下，但该比较未通过 Holm `m=6`，因此只能描述为负向点估计，不能作为稳定下降的证据。
+**LogiQA 2.0.** 两个模型在 No-CoT 和 CoT 下均未通过相应的多重比较校正。Qwen CoT 的未校正置信区间虽然位于零以下，但该比较没有通过 Holm `m=6`，因此只能描述为负向点估计，不能视为稳定下降。
 
-总体而言，显式 CoT 既不是固定工作点迁移的必要条件，也不是充分条件：BBH 的收益只在 CoT 条件下被检出，Qwen CRUXEval-O 在没有 CoT 时已经有效，而 LogiQA 在两种条件下都没有稳定收益。更合适的结论是，**CoT 会以任务和模型相关的方式改变固定工作点的迁移结果，但不存在统一的跨任务规律。**
+#### Exploratory Output-Pattern Diagnostics
 
-#### 回答模式诊断：commitment shift 是否与迁移恢复相伴
+为检查准确率变化是否伴随回答位置变化，我们使用冻结的 `earlycand-v1` 指标测量 `early_candidate_rate`（`ec`）。该指标只判断首行是否提前出现裸数字；`ec` 下降表示模型较少立即输出数字答案，不能直接等同于内部 commitment timing。
 
-上述准确率结果伴随着一致的回答模式变化。用冻结的 `earlycand-v1` 探测器（首行裸数字判定，未针对任何任务重新调参）测量 `early_candidate_rate`（下称 `ec`，越低代表越少"提前给出裸数字答案"），并对比 No-CoT 与 CoT 下同一固定 α 造成的 `ec` 原始值变化：
+| Task | Model | No-CoT ec (0→α) | CoT ec (0→α) | CoT accuracy Δ | Interpretation |
+|---|---|---|---|---:|---|
+| BBH object counting | Llama | 95.2% → 84.4% | 97.2% → 63.2% | **+16.00 pp** | `ec` 与准确率方向一致，但输出退化较高，需谨慎解释 |
+| BBH object counting | Qwen | 100.0% → 44.4% | 100.0% → 7.2% | **+14.00 pp** | `ec` 大幅下降，同时准确率提高 |
+| CRUXEval-O | Llama | 48.0% → 47.3% | 43.0% → 28.0% | −0.67 pp | `ec` 下降但准确率未改善，二者可以分离 |
+| CRUXEval-O | Qwen | 45.0% → 19.0% | 36.0% → 0.0% | **+19.33 pp** | `ec` 降至零，同时准确率大幅提高 |
+| LogiQA 2.0 | Llama | 0.0% → 13.3% | 0.0% → 4.3% | −2.33 pp | 指标不适用于字母选项，无法判断 |
+| LogiQA 2.0 | Qwen | 0.0% → 0.0% | 0.0% → 0.0% | −5.33 pp | 指标不适用于字母选项，无法判断 |
 
-**Table 6.3b. CoT 条件下 steering 对 early-candidate 的影响与准确率收益的伴随关系**
+在 CoT 条件下获得显著准确率收益的三个组合——BBH-Llama、BBH-Qwen 和 CRUXEval-O-Qwen——都同时出现了 `ec` 下降。其中，BBH-Qwen 和 CRUXEval-O-Qwen 的模式最清楚。然而，CRUXEval-O-Llama 同样出现 `ec` 下降，却没有准确率收益，说明这种输出变化并不是性能提升的充分条件。LogiQA 使用字母选项，现有指标无法判断其回答位置是否发生了类似变化。
 
-| Task × Model | No-CoT ec (0→α) | CoT ec (0→α) | CoT acc (0→α) | 证据等级 |
-|---|---|---|---|---|
-| BBH × Llama | 95.2%→84.4% | **97.2%→63.2%** | 40.80%→**56.80%** | 中：`ec` 明显下降，人工核验支持模式变化，但两侧 loop 退化率均 ≈96–98%，`pre_marker_chars` 与 marker 位置基本不动（`2→2`） |
-| BBH × Qwen | 100.0%→44.4% | **100.0%→7.2%** | 52.80%→**66.80%** | 强：`ec` 几乎清零，marker 位置后移，铺垫文本显著变长 |
-| CRUXEval-O × Qwen | 45.0%→19.0% | **36.0%→0.0%** | 34.67%→**54.00%** | 强，本表最清晰的一例：`ec` 降至 0，marker 位置从生成中段推至末尾（0.32→0.95），铺垫文本中位数 46→686 字符 |
-| CRUXEval-O × Llama | 48.0%→47.3% | 43.0%→28.0% | 34.67%→34.00%（null） | 弱：`ec` 有方向一致的下降，但准确率未跟随，且该 cell 循环退化率 85–92%，模式读数受退化污染 |
-| LogiQA 2.0 × Llama | 0.0%→13.3% | 0.0%→4.3% | 46.33%→44.00%（null） | 不可判定：`ec` 依赖裸数字，结构上无法识别 A–D 字母选项，不能读作"commitment 未变化" |
-| LogiQA 2.0 × Qwen | 0.0%→0.0% | 0.0%→0.0% | 66.33%→61.00%（null） | 不可判定：同上，`ec` 恒为 0 不代表探测器测到了真实的（无）变化 |
+因此，这些结果只能说明：**部分准确率收益伴随着更少的提前数字作答，但不能证明回答位置变化导致了性能提升。**
 
-\* BBH 的 CoT `α=0` baseline（40.80%）本身并不高于 No-CoT `α=0` baseline（41.60%）——**CoT 本身没有提高该任务的基线准确率**，两个模型的收益均来自 `CoT × steering` 的条件交互，而非 CoT 单独的效果。
+#### Summary
 
-三个准确率显著恢复/放大的组合（BBH×Llama、BBH×Qwen、CRUXEval-O×Qwen）中，`ec` 在 CoT 下降到的终值都明显低于 No-CoT 下同一固定 α 达到的终值（BBH×Qwen 与 CRUXEval-O×Qwen 甚至降至 0%），两者**协同出现、方向一致**。但这只是描述性的伴随关系（`ec` 本身是 α 与 CoT 的结果，属于 post-treatment 观测），不能证明是 commitment 时序的改变导致了准确率提升，也不满足充分条件：CRUXEval-O×Llama 表明 `ec` 下降可以脱钩于准确率收益（且该读数受高退化率干扰），LogiQA 则表明现有 `ec` 指标对字母选择格式不适配，其模式变化本身无法判定。
+显式 CoT 对固定工作点迁移的影响取决于任务和模型：
 
-`naf`（更宽的"文本首句即为答案"检测）、marker 归一化位置、铺垫字符数分布、各 cell 的循环退化率，以及 `earlycand-v1` 探测器在字母选择任务上的已知局限，完整数据保留在 `CLAUDE.md`。运行配置、统计家族、敏感性分析、解析细节同样保留在 `CLAUDE.md`。
+- BBH 的固定点收益只在 CoT 条件下被检出，并获得双模型支持。
+- Qwen 在 CRUXEval-O 的两种条件下均有收益，而 Llama 始终未检出提升。
+- LogiQA 在 No-CoT 和 CoT 下均没有稳定收益。
+
+因此，CoT 既不是固定工作点迁移的必要条件，也不是充分条件。更合适的结论是：**CoT 可以在部分任务中改变 steering 的效果，但不存在统一的跨任务规律。**
+
+运行配置、统计家族、敏感性分析、完整输出诊断及指标适用范围保留在 `CLAUDE.md`。
 
 ### 6.4 Conclusion
 
