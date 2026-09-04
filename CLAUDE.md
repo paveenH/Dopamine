@@ -140,19 +140,20 @@ Scope: every colour-logit diagnostic claim. -->
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
 | P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
 | P4b fixed-workpoint transfer (BBH numeric) | **COMPLETE — DOUBLE NULL** 2026-09-02 (`object_counting`, 6 cells) — neither model survives Holm m=2 (llama −6 −0.80 pp p_adj=1.000; qwen +8 +2.40 pp p_adj=1.000); reverse diagnostic BREAKS the ordering on both. Behaviour DOES move (qwen +8 bare-first-line 54.4→0.0%), so the frozen reading is **GSM8K 行为 signature 部分迁移**, never "mechanism transferred". Stage-0 gate PASSED (.4160/.5520) and the earlycand audit (29/29, α=0 at CEILING .952/1.000) stay as history. `bbh-p4b-v0` + `p4b-amend-01`; second task of the SAME P4 question, not a new phase |
-| P4c fixed-workpoint transfer (CRUXEval-O) | **PREPARED, PREFLIGHT PASSED, NOT RUN** 2026-09-03 — `docs/PREREG_P4C_CRUXEVAL.md` (`cruxeval-p4c-v0`) frozen before any cell existed; 8 cells (llama 0/−6/−4/+4, qwen 0/+8/+6/−6), 300 of 800 items. **THIRD task of the SAME P4 question**, not a new phase. Scoring is `ast.literal_eval` + Python object equality, **NOT** the official exec-based pass@1 — model output is never executed. Format-only preflight found and fixed two decoding artifacts (`p4c-amend-01`); two remaining non-parsing payloads were classified as MODEL FORMAT FAILURE and the parser was deliberately NOT widened (`p4c-amend-02`) |
+| P4c fixed-workpoint transfer (CRUXEval-O) | **COMPLETE — MODEL-SPECIFIC SPLIT** 2026-09-03 — `docs/p4c_cruxeval_evaluation.json` (`cruxeval-p4c-v0`), Holm m=2 complete: llama −6 −3.67 pp p_adj=.1352 (not detected), qwen +8 **+8.33 pp p_adj=.0045** (positive, survives Holm). `docs/PREREG_P4C_CRUXEVAL.md` frozen before any cell existed; 8 cells (llama 0/−6/−4/+4, qwen 0/+8/+6/−6), 300 of 800 items; reverse/neighbour diagnostics are EXPLORATORY, outside Holm, and do not redefine the workpoint. **THIRD task of the SAME P4 question**, not a new phase. Scoring is `ast.literal_eval` + Python object equality, **NOT** the official exec-based pass@1 — model output is never executed. Format-only preflight found and fixed two decoding artifacts (`p4c-amend-01`); two remaining non-parsing payloads were classified as MODEL FORMAT FAILURE and the parser was deliberately NOT widened (`p4c-amend-02`). No-CoT result is superseded in the joint CoT-vs-No-CoT view by the `cot-transfer-followup-v0` line below, where CoT strengthens Qwen's gain to +19.33 pp and Llama stays null |
 | Workpoint-stability supplement (wps-v0) | **COMPLETE + FROZEN** 2026-09-03 — 7 pre-registered neighbour cells scored in `docs/wps_evaluation.json`; own Holm **m=7**, with 4/7 new-vs-0 contrasts surviving. GSM8K CoT confirms a sharp llama `−4` local peak; Llama MATH has a broad `{−8,−6,−4}` region; GSM-Hard places llama `−6/−4` and qwen `+6/+8/+10` in near-optimal regions. **Not a dose search**; frozen workpoints are not redefined. Neighbour comparisons remain EXPLORATORY and outside Holm |
 | Paper integration (ACL ARR) | in progress — see `TODO.md` |
 
-<!-- Why: four fixed-workpoint transfer tests are now complete and each is written up
-in isolation, so the cumulative picture (2 transfers, 2 nulls) exists in no single place
-and a reader can cite one arm without the other.
+<!-- Why: five fixed-workpoint transfer tests are now complete and each is written up
+in isolation, so the cumulative picture (2 transfers, 2 double-nulls, 1 model-specific
+split) exists in no single place and a reader can cite one arm without the other.
 Evidence: docs/p3_result_20260830.json, p3_supp_result_20260830.json,
-p4_logiqa2_evaluation.json, bbh_p4b_object_counting_result.json.
+p4_logiqa2_evaluation.json, bbh_p4b_object_counting_result.json,
+p4c_cruxeval_evaluation.json.
 Scope: any claim about how far the GSM8K workpoint transfers. -->
-**FIXED-WORKPOINT TRANSFER SCOREBOARD (four tests COMPLETE, a fifth PREPARED but NOT
-RUN; α read from the frozen GSM8K record and NEVER re-searched — llama `−6`, qwen
-`+8`).** Report the four completed rows together:
+**FIXED-WORKPOINT TRANSFER SCOREBOARD (five tests COMPLETE; α read from the frozen
+GSM8K record and NEVER re-searched — llama `−6`, qwen `+8`).** Report all five rows
+together:
 
 | Task | Answer space | llama `−6` | qwen `+8` | Verdict |
 |---|---|---|---|---|
@@ -160,7 +161,7 @@ RUN; α read from the frozen GSM8K record and NEVER re-searched — llama `−6`
 | GSM-Hard CoT (P3-supp) | constructed integer | **+6.00 pp** p=.0039 | **+13.33 pp** p=9.4e−06 | both transfer |
 | LogiQA 2.0 (P4) | choose among 4 given | −4.33 pp p_adj=.107 | +1.00 pp p_adj=.801 | **DOUBLE NULL** |
 | BBH object_counting (P4b) | constructed integer | −0.80 pp p_adj=1.00 | +2.40 pp p_adj=1.00 | **DOUBLE NULL** |
-| CRUXEval-O (P4c) | constructed **Python literal** | — | — | **NOT RUN** — do not fill this row from anything but `docs/p4c_cruxeval_evaluation.json` |
+| CRUXEval-O (P4c) | constructed **Python literal** | −3.67 pp p_adj=.1352 | **+8.33 pp p_adj=.0045** | **MODEL-SPECIFIC SPLIT** — llama null, qwen transfers |
 
 **The frozen reading, and it is narrower than the table looks.** The workpoint transfers
 across *task difficulty and CoT* on GSM-Hard, and fails on **both** a changed answer space
@@ -170,11 +171,18 @@ and restoring the answer space and `####` submission did NOT restore transfer. S
 **"removing the option interface was not sufficient to restore transfer"** — never "the
 options caused the LogiQA null", and never "the workpoint transfers to numeric reasoning".
 Separating a choice-interface effect from a reasoning-type effect still needs a within-item
-with/without-options contrast, which has NOT been run. **P4c will not supply it either**:
+with/without-options contrast, which has NOT been run. **P4c does not supply it either**:
 CRUXEval-O is option-free but changes reasoning type AND answer space at once (a constructed
 integer becomes an arbitrary Python literal), so it is a third, harder point on the
 boundary, not a controlled single-factor manipulation — that limit is frozen in its
-pre-registration §1 rather than left to be discovered in its results.
+pre-registration §1 rather than left to be discovered in its results. **P4c's own result
+adds a new wrinkle rather than resolving the boundary question**: unlike LogiQA and P4b,
+which are DOUBLE nulls, P4c splits by model — qwen transfers (+8.33 pp, Holm-significant)
+while llama does not (−3.67 pp, not detected). This means "does the option-free,
+answer-space-changed task restore transfer" does not have a single yes/no answer; it is
+model-dependent, and CRUXEval-O's confound (reasoning type AND answer space changing
+together) means this split cannot be attributed to either factor alone. Do not average
+the two models' P4c results into one verdict.
 
 **Do not read the two nulls as one finding.** They differ in shape: LogiQA's llama arm is
 directionally NEGATIVE and near-significant raw (p=.0533), while P4b's is flat (−0.80 pp,
@@ -1959,8 +1967,10 @@ is already frozen; switch `--task`, no code change.
 
 > **`docs/PREREG_P4C_CRUXEVAL.md` is the protocol** (`cruxeval-p4c-v0`, frozen
 > 2026-09-03 before any cell existed), amended additively by
-> `docs/p4c_amendment_0{1,2}.json`. **Status: PREPARED, format-only preflight
-> PASSED, formal cells NOT RUN.** This section is provenance and the 口径 traps.
+> `docs/p4c_amendment_0{1,2}.json`. **Status: COMPLETE — MODEL-SPECIFIC SPLIT**
+> (`docs/p4c_cruxeval_evaluation.json`, Holm m=2): qwen transfers (+8.33 pp,
+> `p_adj=.0045`), llama does not (−3.67 pp, `p_adj=.1352`). See the RESULT block
+> at the end of this section. This section is provenance and the 口径 traps.
 
 **P4c IS NOT A NEW PHASE — it is the THIRD TASK of P4's question**, after LogiQA 2.0
 and BBH numeric. Do not renumber it P5.
@@ -2088,6 +2098,71 @@ python eval_cruxeval.py \
   --gold_file components/benchmark/cruxeval_p4c_formal.json \
   --out docs/p4c_cruxeval_evaluation.json
 ```
+
+### RESULT (2026-09-03, `docs/p4c_cruxeval_evaluation.json`)
+
+> **`AdaDopamine_gsm8k.md` §6.1/§6.3 is the results document** (Table 6.1's
+> CRUXEval-O rows). This block is provenance and the 口径 traps.
+
+**MODEL-SPECIFIC SPLIT, not a double null and not a double transfer.** Holm m=2
+complete: qwen `+8` transfers (34.67%→37.67% FIRST-marker, **+8.33 pp**, discordant
+44/19, `p_raw=.00223`, **`p_adj=.0045`**, CI `[+3.33, +13.67]`); llama `−6` does
+not (34.67%→31.00%, −3.67 pp, discordant 17/28, `p_raw=.1352`, `p_adj=.1352`, CI
+`[−8.00, +0.67]`). **This is the only one of the five completed fixed-workpoint
+transfer tests (P3, P3-supp, P4, P4b, P4c) where the two models land on opposite
+verdicts** — write "model-specific split", never round it to either "transfer" or
+"null" as a single word for the task.
+
+**LAST sensitivity DISAGREES WITH FIRST on both models, and this is expected, not
+a red flag.** Llama: FIRST −3.67 pp vs LAST −2.33 pp (34.67→31.00 vs 31.00→28.67
+— same sign, smaller magnitude, still not significant). Qwen: FIRST **+8.33 pp**
+vs LAST **−6.00 pp** (28.33%→22.33%) — **opposite sign**. This is the same 口径
+trap the P4c pre-registration flagged in advance: FIRST is MAIN because it is
+the frozen answer-submission convention (matches GSM8K/GSM-Hard/BBH production);
+LAST re-scores whatever marker comes last in a possibly-degenerate multi-marker
+tail, which is a different question ("did a later, possibly hallucinated, marker
+happen to match gold more or less often") — not a more honest re-check of the
+same one. **Do not average FIRST and LAST, and do not report Qwen's result as
+"fragile because LAST reverses it"** — the result is specifically about
+FIRST-marker submission behavior, which is what the frozen protocol scores.
+
+**Two diagnostic doses per model, both OUTSIDE Holm, unadjusted p, and neither
+may redefine the workpoint:**
+- Llama neighbour `−4`: 34.67%→33.33%, −1.33 pp, `p_raw=.557` — ordering does
+  not cleanly separate from `0` or `−6`.
+- Llama reverse `+4`: 34.67%→33.67%, −1.00 pp, `p_raw=.678` — the wrong-direction
+  dose does not clearly hurt either; ordering `continues=false` (point estimates:
+  workpoint .310 < zero .347 < reverse .337, not a monotone continuation).
+- Qwen neighbour `+6`: 29.33%→30.33%, +1.00 pp, `p_raw=.755` — flat.
+- Qwen reverse `−6`: 29.33%→24.00%, **−5.33 pp, `p_raw=.0293`** (unadjusted,
+  outside Holm) — the wrong-direction dose hurts, and ordering `continues=true`
+  (workpoint .377 > zero .293 > reverse .240, a monotone dose-ordered pattern
+  consistent with, but not proof of, a real α-dependent effect). Report as a
+  diagnostic only, never as a second confirmed result.
+
+**`nonliteral_rate` and `degenerate_tail_rate` explain WHY Llama's accuracy stays
+low across all four of its doses, not why it fails to transfer specifically.**
+Llama's `degenerate_tail_rate` is 86–89% in every cell (α=0: 86.0%; workpoint
+`−6`: 88.7%) — consistent with the FIXED-768-BUDGET ESTIMAND caveat above: the
+paired comparison is still valid, but none of Llama's four cells reflect
+unconstrained reasoning capability. Qwen's `degenerate_tail_rate` stays low
+throughout (3–8%), so its result is not subject to the same caveat.
+
+**This result does not resolve the LogiQA/P4b choice-interface question, and the
+pre-registration said in advance that it would not.** CRUXEval-O is option-free
+(like P4b) but changes BOTH reasoning type and answer space relative to GSM8K
+(unlike P4b, which changed neither and stayed a double null; unlike LogiQA,
+which changed the answer space alone). A model-specific split on a two-factor
+change cannot be attributed to either factor, and does not by itself indicate
+which factor drives Qwen's positive result or Llama's null.
+
+**POST-RESULT RULE, matching P3/P3-supp/P4/P4b: the P4c main analysis 口径 is
+CLOSED.** The predictor, features, marker convention (FIRST-main/LAST-sensitivity),
+workpoints and Holm family may not be changed in light of this result. Do not add
+doses, do not re-search α, do not promote a diagnostic cell to primary. Any
+further analysis is EXPLORATORY and must be labelled so. See the
+`cot-transfer-followup-v0` section immediately below for the separate,
+independently-registered CoT exploratory follow-up on this same task.
 
 ## `cot-transfer-followup-v0`: explicit-CoT exploratory follow-up on the three P4/P4b/P4c boundary tasks
 
