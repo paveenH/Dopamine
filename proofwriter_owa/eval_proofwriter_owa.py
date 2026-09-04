@@ -51,6 +51,32 @@ NO_WORKPOINT_SENTENCE = (
     "No effective ProofWriter OWA workpoint was detected in the sampled dose set."
 )
 
+# Mirrors get_answer_proofwriter_owa.py's EXPECTED_CELLS exactly (frozen per
+# PREREG_PROOFWRITER_OWA.md S5). A formal-run scoring call must see EXACTLY
+# these four alphas per model -- not "however many files happened to be
+# passed on the command line". Without this, a run missing one dose (or
+# carrying an extra, unauthorized one) would silently score whatever showed
+# up, report holm_family_m=3 in the output regardless, and nobody downstream
+# could tell the difference from a complete, correctly-configured run.
+EXPECTED_ALPHAS = {
+    "llama3": {-6, -4, 0, 4},
+    "qwen2.5": {-6, 0, 6, 8},
+}
+
+# meta fields that MUST be identical across every alpha cell of one model:
+# a config drift here (different mask, different prompt, different batch
+# size/token budget, different manifest) would silently mix incomparable
+# cells into one "dose curve" and no downstream statistic would catch it --
+# McNemar/Holm/bootstrap all just consume 0/1 accuracy vectors and have no
+# way to know the vectors came from mismatched runs.
+CONSISTENCY_FIELDS = (
+    "model", "size", "layer_start", "layer_end", "L",
+    "mask_path", "mask_sha256", "prompt_sha256", "prompt_template_id",
+    "manifest_sha256_16", "batch_size", "max_new_tokens", "temperature",
+    "top_p", "n_shot", "padding_side", "chat_template", "prefill_only",
+    "prefill_tail_len",
+)
+
 # A strict, GSM8K-loop-detector-style rule: the final 40-char block of the
 # continuation recurring >=4 times in the full text. Matches the convention
 # `analyze_loop_anxiety.py` / P4b's behaviour-panel note: a permissive n-gram
@@ -118,6 +144,7 @@ def score_cell(rows: list[dict], gold: dict):
             "parse_status": parsed.status,
             "n_strict_markers": parsed.n_strict_markers,
             "n_loose_markers": parsed.n_loose_markers,
+            "is_true_last_line": parsed.is_true_last_line,
             "truncated": r.get("truncated"),
             "generated_token_count": r.get("generated_token_count"),
             "loop": is_loop(text),
@@ -149,6 +176,13 @@ def summarize(scored: list[dict]):
     n_trunc = sum(1 for r in scored if r["truncated"])
     lens = sorted(r["generated_token_count"] for r in scored
                   if r["generated_token_count"] is not None)
+    # Diagnostic (review finding #5, 2026-09-04): among samples that DID
+    # parse (n_strict_markers>=1), what fraction actually put the scored
+    # marker on the true last line, per the frozen prompt's literal
+    # instruction. Denominator is parse-successful samples only -- a
+    # no-marker sample has no "last marker" to check in the first place.
+    ok_rows = [r for r in scored if r["parse_status"] == "ok"]
+    n_true_last_line = sum(1 for r in ok_rows if r["is_true_last_line"])
 
     return {
         "n": n, "accuracy": acc,
@@ -158,6 +192,8 @@ def summarize(scored: list[dict]):
         "invalid_or_multiple_marker_rate": n_multi / n if n else None,
         "loop_rate": n_loop / n if n else None,
         "truncation_rate": n_trunc / n if n else None,
+        "true_last_line_rate": (n_true_last_line / len(ok_rows)
+                                if ok_rows else None),
         "gen_token_len_median": lens[len(lens) // 2] if lens else None,
         "gen_token_len_mean": sum(lens) / len(lens) if lens else None,
     }
@@ -172,6 +208,15 @@ def main():
     ap.add_argument("--holm_m", type=int, default=3,
                     help="Holm family size per model (default 3 = the three "
                          "non-zero alpha in this task's own dose set)")
+    ap.add_argument("--allow_partial_alphas", action="store_true",
+                    help="Skip the frozen-dose-set completeness check. Only "
+                         "for scoring a preflight (alpha=0 only) or pilot "
+                         "(alpha=0 only) subset, where Holm/mcnemar-vs-alpha0 "
+                         "is not meaningful anyway. A FORMAL run (the "
+                         "300-item manifest, all four alpha per model) must "
+                         "NEVER pass this flag -- doing so would let an "
+                         "incomplete sweep silently get scored and reported "
+                         "under the same holm_family_m=3 label as a real one.")
     a = ap.parse_args()
 
     if os.path.exists(a.out):
@@ -223,6 +268,40 @@ def main():
         if 0 not in byalpha:
             die(f"{mdl}: no alpha=0 cell; it is the baseline for every "
                 "comparison in this evaluator")
+        # COMPLETENESS CHECK (review findings #6 and #8, 2026-09-04). Without
+        # this, a run missing one of the model's four frozen alpha (or
+        # carrying an extra, unauthorized one) would silently score whichever
+        # subset was passed on the command line, still label the Holm family
+        # holm_family_m=3 in the output, and nothing downstream could tell a
+        # complete formal sweep from a partial one.
+        #
+        # Two cases are legitimate WITHOUT any flag: (a) the PILOT's
+        # alpha=0-ONLY case -- run_proofwriter_owa.sh's pilot stage invokes
+        # this evaluator with exactly one alpha=0 cell and explicitly
+        # documents "no mcnemar_vs_alpha0 pairs -- that is expected", never
+        # passing --allow_partial_alphas, so requiring the flag there would
+        # silently break the launcher's own documented workflow; and (b) the
+        # FORMAL sweep's exact frozen 4-point family. Anything else --
+        # missing one dose, or an extra unauthorized one -- is a protocol
+        # violation and requires the human to explicitly acknowledge it via
+        # --allow_partial_alphas (intended for a deliberate partial score,
+        # e.g. inspecting one finished cell mid-sweep; never part of the
+        # pilot or formal launcher paths).
+        want = EXPECTED_ALPHAS[mdl]
+        have = set(byalpha)
+        if have != {0} and have != want and not a.allow_partial_alphas:
+            die(f"{mdl}: alpha set {sorted(have)} is neither the pilot's "
+                f"alpha=0-only case nor this model's frozen formal dose set "
+                f"{sorted(want)} (missing {sorted(want - have)}, extra "
+                f"{sorted(have - want)}). A formal-sweep scoring call must "
+                "see all four frozen alpha for this model, or Holm m=3 is "
+                "not a well-defined family. Pass --allow_partial_alphas only "
+                "for a deliberate, human-invoked partial score.")
+        if have != {0} and have != want and a.allow_partial_alphas:
+            print(f"[eval] NOTE: {mdl} scored with a partial alpha set "
+                  f"{sorted(have)} under --allow_partial_alphas; this run's "
+                  "mcnemar_vs_alpha0/Holm output must NOT be cited as the "
+                  "formal 4-point family.")
         # common sample_id set for THIS model across its own cells (formal
         # sweep uses the full manifest; preflight/pilot use a fixed subset --
         # either way every cell of one model must share exactly the same ids)
@@ -231,6 +310,28 @@ def main():
             die(f"{mdl}: cells do not all share the same sample_id set; "
                 "cannot pair them")
         ids_sorted = sorted(id_sets[0])
+
+        # ---- cross-alpha configuration consistency (review finding #8).
+        # Every cell of one model must be a genuinely comparable point on
+        # ONE dose curve: same mask, same rendered prompts, same manifest,
+        # same batch/token/sampling config, same model checkpoint. Nothing
+        # downstream (McNemar / Holm / bootstrap) can detect a config drift
+        # on its own -- they only ever see 0/1 accuracy vectors -- so a
+        # mismatched mask_sha256 or prompt_sha256 between two alpha cells
+        # would silently produce a "dose-response" that is actually an
+        # artifact of comparing two different experiments.
+        metas_by_alpha = {al: m for al, (m, _) in byalpha.items()}
+        ref_al = sorted(metas_by_alpha)[0]
+        ref_meta = metas_by_alpha[ref_al]
+        for al, m in metas_by_alpha.items():
+            for field in CONSISTENCY_FIELDS:
+                if m.get(field) != ref_meta.get(field):
+                    die(f"{mdl}: alpha={al} cell's {field!r}={m.get(field)!r} "
+                        f"differs from alpha={ref_al}'s {ref_meta.get(field)!r}; "
+                        "cells of one model's dose curve must share an "
+                        "identical configuration (mask/prompt/manifest/"
+                        "batch/token-budget/model), or they are not a "
+                        "comparable curve.")
 
         scored_by_alpha = {al: {r["sample_id"]: r for r in score_cell(rows, gold)}
                             for al, (_, rows) in byalpha.items()}
@@ -265,11 +366,32 @@ def main():
                 "discordant_0to1": b01, "discordant_1to0": b10,
                 "p_raw": p, "ci95_pp": [lo, hi],
             }
+        # holm() (scoring.py) always corrects over exactly len(holm_pairs) --
+        # it has no notion of a declared family size, it just uses however
+        # many (key, p) pairs it is handed. The PREVIOUS code stored
+        # `a.holm_m` (the CLI flag, default 3) as "holm_family_m" regardless
+        # of len(holm_pairs), so a run scored with only 2 of 3 non-zero doses
+        # would still claim "holm_family_m": 3 in the output even though the
+        # correction actually applied used m=2 -- an unadjusted-vs-formal
+        # family-size mismatch invisible to anyone reading the JSON. The
+        # completeness check above already guarantees len(non_zero) == 3 for
+        # any run that isn't the pilot's alpha=0-only case (which never
+        # reaches this branch: holm_pairs is empty when non_zero is empty),
+        # so this assert is a second, independent confirmation rather than a
+        # silent trust of the CLI default.
         holm_pairs = [(al, r["p_raw"]) for al, r in pair_results.items()]
         adj = holm(holm_pairs) if holm_pairs else {}
+        actual_m = len(holm_pairs)
+        if actual_m and actual_m != a.holm_m and not a.allow_partial_alphas:
+            die(f"{mdl}: Holm was computed over {actual_m} non-zero alpha "
+                f"{sorted(pair_results)}, but --holm_m={a.holm_m} was "
+                "declared; these must match or the reported holm_family_m "
+                "label would misdescribe the correction actually applied. "
+                "This should be unreachable given the alpha-completeness "
+                "check above -- if it fires, that check has a gap.")
         for al in pair_results:
             pair_results[al]["p_holm_adj"] = adj.get(al)
-            pair_results[al]["holm_family_m"] = a.holm_m
+            pair_results[al]["holm_family_m"] = actual_m
 
         model_res["mcnemar_vs_alpha0"] = {str(al): v for al, v in pair_results.items()}
 
@@ -357,7 +479,14 @@ def main():
         "n_gold_items": N,
         "labels": list(LABELS),
         "owa_semantics": gmeta.get("owa_semantics"),
-        "holm_family_m": a.holm_m,
+        "holm_family_m_declared": a.holm_m,
+        "note_holm_family_m": ("the authoritative per-model family size is "
+                               "results[model].mcnemar_vs_alpha0[*].holm_family_m "
+                               "(derived from the actual non-zero alpha count "
+                               "scored for that model); this top-level field "
+                               "is only the --holm_m CLI default and can "
+                               "legitimately differ for a pilot (0 non-zero "
+                               "alpha) or an --allow_partial_alphas run."),
         "results": results,
         "note": ("D3/D5 and per-label breakdowns are exploratory subgroups, "
                 "not pooled into the primary per-model Holm(m=3) family. "

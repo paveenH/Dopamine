@@ -246,11 +246,15 @@ case "$STAGE" in
     echo "    --generations $OUT_ROOT/$MODEL/proofwriter_owa/pilot_mdf_0/proofwriter_owa_${SIZE}_${BAND}.json \\"
     echo "    --out proofwriter_owa/results/pilot_${MODEL}.json"
     echo "  A human reviews this before 'llama-sweep' / 'qwen-sweep' is launched."
-    echo "  NOTE: eval_proofwriter_owa.py requires an alpha=0 cell to compute"
-    echo "  McNemar contrasts; the pilot is alpha=0-only, so a pilot-only run"
-    echo "  through eval_proofwriter_owa.py reports 'cells'/summarize() output"
-    echo "  (overall/D3/D5/per-label accuracy) but no mcnemar_vs_alpha0 pairs --"
-    echo "  that is expected: the pilot has nothing to contrast against yet."
+    echo "  NOTE: no --allow_partial_alphas flag is needed here -- the"
+    echo "  evaluator exempts the alpha=0-ONLY case unconditionally (it is"
+    echo "  the pilot's own documented shape), while still hard-stopping on"
+    echo "  any OTHER partial/extra alpha set that isn't the model's frozen"
+    echo "  4-point family. With alpha=0-only it reports 'cells'/summarize()"
+    echo "  output (overall/D3/D5/per-label accuracy) but no mcnemar_vs_alpha0"
+    echo "  pairs -- that is expected: the pilot has nothing to contrast"
+    echo "  against yet. NEVER pass --allow_partial_alphas to the 'analyze'"
+    echo "  stage's formal scoring call -- it must see all four frozen alpha."
     ;;
 
   # ---------------------------------------------------------------- 5 & 6

@@ -54,15 +54,27 @@ def find_all_markers_loose(continuation: str) -> list[str]:
 
 class ParseResult:
     __slots__ = ("label", "status", "n_strict_markers", "n_loose_markers",
-                 "all_strict_labels")
+                 "all_strict_labels", "is_true_last_line")
 
     def __init__(self, label, status, n_strict_markers, n_loose_markers,
-                 all_strict_labels):
+                 all_strict_labels, is_true_last_line):
         self.label = label                      # None on failure
         self.status = status                     # "ok" | "no_marker" | "" (reserved)
         self.n_strict_markers = n_strict_markers
         self.n_loose_markers = n_loose_markers
         self.all_strict_labels = all_strict_labels
+        # DIAGNOSTIC ONLY, does not affect scoring (see review finding #5,
+        # 2026-09-04): whether the authoritative (last strict) marker is
+        # ALSO the true last non-blank line of the continuation, i.e.
+        # whether the model actually followed the frozen prompt's literal
+        # instruction ("on the LAST line of your response, output exactly
+        # one of..."). False means the model wrote something after its
+        # scored answer (commentary, a restated theory line, a second
+        # attempt at reasoning, etc.) -- still scored (parse_final_answer's
+        # "prefer the last marker" rule is an intentional revision-tolerance
+        # choice, not a bug), but worth auditing separately from ordinary
+        # parse failures.
+        self.is_true_last_line = is_true_last_line
 
     @property
     def is_parse_failure(self) -> bool:
@@ -74,7 +86,19 @@ class ParseResult:
             "n_strict_markers": self.n_strict_markers,
             "n_loose_markers": self.n_loose_markers,
             "all_strict_labels": self.all_strict_labels,
+            "is_true_last_line": self.is_true_last_line,
         }
+
+
+def _last_marker_is_true_last_line(continuation: str) -> bool:
+    """True iff the LAST non-blank line of `continuation` is itself a strict
+    'Answer: <Label>' marker. Computed independently of which marker
+    parse_final_answer scores, purely to audit prompt-instruction adherence
+    ("on the LAST line of your response...")."""
+    lines = [ln for ln in continuation.splitlines() if ln.strip()]
+    if not lines:
+        return False
+    return bool(_MARKER_RE.match(lines[-1]))
 
 
 def parse_final_answer(continuation: str) -> ParseResult:
@@ -82,13 +106,16 @@ def parse_final_answer(continuation: str) -> ParseResult:
     one STRICT line-anchored 'Answer: <Label>' marker. When >=1 exist, the
     LAST one is authoritative -- this is a deliberate design choice (a model
     may revise its answer mid-reasoning and restate a corrected line last),
-    not an accident of regex ordering.
+    not an accident of regex ordering. Whether that marker is ALSO the
+    literal last line of the response (as the frozen prompt instructs) is
+    recorded separately in `is_true_last_line` and never changes `label`.
     """
     strict = find_all_markers(continuation)
     loose = find_all_markers_loose(continuation)
     if not strict:
-        return ParseResult(None, "no_marker", 0, len(loose), [])
-    return ParseResult(strict[-1], "ok", len(strict), len(loose), strict)
+        return ParseResult(None, "no_marker", 0, len(loose), [], False)
+    return ParseResult(strict[-1], "ok", len(strict), len(loose), strict,
+                       _last_marker_is_true_last_line(continuation))
 
 
 def normalize_label(x) -> str:

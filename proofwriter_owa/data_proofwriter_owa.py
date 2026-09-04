@@ -59,6 +59,7 @@ offline-safe once the archive is already on disk).
 from __future__ import annotations
 
 import argparse
+import collections
 import hashlib
 import io
 import json
@@ -395,7 +396,17 @@ def _pick_unknown_matched(recs: list[dict], n: int, true_false_pool: list[dict],
     return unk_sorted[:n], unk_sorted[n:]
 
 
-def build_manifest(records_by_dataset: dict[str, list[dict]], seed: int = 0):
+def build_manifest(records_by_dataset: dict[str, list[dict]], seed: int = 0,
+                    _assert_final_shape: bool = True):
+    """`_assert_final_shape` (default True, keyword-only in spirit -- kept
+    positional-callable only for existing test call sites): every REAL caller
+    must leave this True, which is what turns "the manifest silently came out
+    smaller than 300" into a hard stop (review finding #4, 2026-09-04). The
+    one legitimate reason to pass False is a unit test that deliberately
+    starves one dataset (e.g. an empty D5) to isolate the shortfall-refill
+    logic for ONE label in ONE dataset in ONE call, where reaching a full
+    300-row manifest is not the point of that test -- see
+    test_loader_fixture.py's test_build_manifest_shortfall_fix_regression."""
     manifest_rows = []
     shortfalls = []
 
@@ -475,6 +486,39 @@ def build_manifest(records_by_dataset: dict[str, list[dict]], seed: int = 0):
         r["sample_id"] = i
         r["key"] = salted_key(str(seed), r["dataset"], r["official_theory_id"], r["official_qid"])
         r["content_sha256"] = sha16(r["theory_text"] + "\x1f" + r["question_text"])
+
+    # HARD ASSERTION (review finding #4, 2026-09-04): the shortfall-refill
+    # logic above can legitimately under-fill a pool when the real data is
+    # short (that is what `shortfalls` reports), but nothing previously
+    # verified the manifest ACTUALLY reached its target shape before it was
+    # written to disk and frozen. A silent 280-item or 90/60/60-label
+    # manifest would pass through untouched, and the 300/150/100 numbers
+    # baked into the pre-registration and every downstream test would then
+    # be describing a manifest that does not exist. Fail closed rather than
+    # let a shortfall-heavy real run silently freeze a smaller manifest.
+    # Gated on `_assert_final_shape` only so a unit test isolating the
+    # per-label refill logic on a deliberately-starved dataset (e.g. an
+    # empty D5) can opt out; every real call site leaves this True.
+    if not _assert_final_shape:
+        return manifest_rows, shortfalls
+    if len(manifest_rows) != N_TOTAL:
+        raise SystemExit(
+            f"[FATAL] manifest has {len(manifest_rows)} rows, expected "
+            f"exactly {N_TOTAL}. shortfalls recorded: {shortfalls}")
+    by_ds = collections.Counter(r["dataset"] for r in manifest_rows)
+    for ds in ("D3", "D5"):
+        if by_ds.get(ds) != N_PER_DATASET:
+            raise SystemExit(
+                f"[FATAL] manifest dataset={ds} has {by_ds.get(ds, 0)} rows, "
+                f"expected exactly {N_PER_DATASET}. shortfalls: {shortfalls}")
+    by_ds_lab = collections.Counter((r["dataset"], r["answer"]) for r in manifest_rows)
+    for ds in ("D3", "D5"):
+        for lab in ("True", "False", "Unknown"):
+            n = by_ds_lab.get((ds, lab), 0)
+            if n != N_PER_LABEL:
+                raise SystemExit(
+                    f"[FATAL] manifest {ds}/{lab} has {n} rows, expected "
+                    f"exactly {N_PER_LABEL}. shortfalls: {shortfalls}")
 
     return manifest_rows, shortfalls
 

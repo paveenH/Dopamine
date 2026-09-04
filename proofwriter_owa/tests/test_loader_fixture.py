@@ -230,9 +230,13 @@ def test_build_manifest_shortfall_fix_regression():
     recs.extend(_synthetic_records_partial("D3", "Unknown", None, 100))
     recs.extend(_synthetic_records("D5", target_depth=5, n_per_label=60))
 
-    rows, shortfalls = dpo.build_manifest({"D3": recs, "D5": []}, seed=0)
-    # D5 is empty here on purpose to isolate the D3 shortfall path; build_manifest
-    # itself does not require D5 to be non-empty for this unit-level check.
+    # D5 is empty here on purpose to isolate the D3 shortfall path, so the
+    # manifest can never reach the real 300/150/50 shape -- opt out of the
+    # final-shape hard assertion (review finding #4) explicitly for this one
+    # isolation test; every other build_manifest() call in this file (and
+    # every real caller) leaves it enabled.
+    rows, shortfalls = dpo.build_manifest({"D3": recs, "D5": []}, seed=0,
+                                          _assert_final_shape=False)
     from collections import Counter
     by_label_d3 = Counter(r["answer"] for r in rows if r["dataset"] == "D3")
     check(by_label_d3["True"] == dpo.N_PER_LABEL,

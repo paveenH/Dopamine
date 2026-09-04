@@ -198,6 +198,22 @@ def main():
                 return_metadata=True,
             ))
 
+        # HARD LENGTH CHECK (review finding #1, 2026-09-04): zip(samples, gen)
+        # below silently truncates to the shorter sequence if a batch call
+        # ever returned fewer rows than it was given (a partial-batch bug, an
+        # OOM-recovery path returning a short list, etc.) -- the cell would
+        # then write fewer rows than samples with NO error, and every
+        # downstream consumer (steering_fires count, the evaluator's row-count
+        # check) would only catch the row-count half of this, not WHICH
+        # samples got dropped. Assert 1:1 length before doing anything else
+        # with `gen`.
+        if len(gen) != len(samples):
+            die(f"generation returned {len(gen)} rows for {len(samples)} "
+                f"prompts at alpha={alpha}; zip() would silently drop "
+                f"{abs(len(gen) - len(samples))} sample(s). This must never "
+                "happen under vc.regenerate's documented contract -- treat "
+                "as a hard failure, not a partial result.")
+
         fires = vc.steering_fire_count()
         n_layers = len(utils.decoder_layer_range(ls, le))
         expect = 0 if alpha == 0 else n_layers * len(samples)
