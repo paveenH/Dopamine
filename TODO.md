@@ -30,9 +30,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 Daily
-
-09.03 整理衣橱、选课
-09.04 Lab聚餐/ 爸爸生日
+09.04 Lab聚餐、整理衣橱、选课
 09.07 生理期推迟
 09.11 seminar
 09.19 台北-杭州萧山 机票 ✔
