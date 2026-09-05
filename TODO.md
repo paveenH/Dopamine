@@ -19,7 +19,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/llama3 /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/qwen2.5 /Users/paveenhuang/Downloads
 
 rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/benchmark/cruxeval_p4c_formal.json /Users/paveenhuang/Downloads
 
@@ -30,7 +30,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 Daily
-09.05 整理衣橱，定酒店，准备其余的物品，确认公证需要的材料
+09.05 定酒店✔ 准备其余的物品，确认公证需要的材料
 09.07 生理期推迟，網絡加退选开始，去实验室签字
 09.11 seminar
 09.19 台北-杭州萧山 机票 ✔
@@ -97,9 +97,9 @@ Agent5: Total Design (GPT)
 24. 优化文档GSM8K ✔
 25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
 25. 顺便丰富一下prediction的结果 ✔
-26. ZebraLogic WP测试 
-27. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
-28. one-shot multi-hop ProofWwiter OWA ⏸
+26. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
+27. ZebraLogic WP 测试 
+28. 1-shot multi-hop ProofWwiter OWA ⏸
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
