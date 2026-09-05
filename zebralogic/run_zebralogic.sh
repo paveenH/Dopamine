@@ -32,9 +32,10 @@
 #                           (see docs/PREREG_ZEBRALOGIC_EASY.md section 8b);
 #                           the instruction was to show and wait, not to skip
 #                           the wait because they match.
-#   4. PREFLIGHT <model>    5-item format/plumbing check, alpha=0 (+ one smoke
-#                           alpha for the firing-count assertion). Writes to
-#                           an isolated _preflight/ tree; does not gate on
+#   4. PREFLIGHT <model>    35-item (5 per size, all 7 easy sizes) format/
+#                           plumbing check, alpha=0 (+ one smoke alpha for
+#                           the firing-count assertion). Writes to an
+#                           isolated _preflight/ tree; does not gate on
 #                           accuracy.
 #   5. CANARY <model> <tag> alpha=0, 8-item deterministic subset, tagged by
 #                           physical GPU. Run once per card in use BEFORE
@@ -209,18 +210,23 @@ cmd_preflight() {
   local OUT="$OUT_ROOT/_preflight"
   mkdir -p "$OUT"
   echo "[zebralogic] PREFLIGHT model=$MODEL card=$CUDA_VISIBLE_DEVICES"
-  # prereg S5: preflight is alpha=0 ONLY (the 5 fixed items), plus the
-  # non-zero SMOKE_CONFIG purely for the steering_fires==L*N assertion --
-  # NOT the full four-point frozen sweep. Passing $CONFIGS here (all four
-  # frozen doses) would run three formal-dose cells at n=5, which the prereg
-  # never asks for and which the preflight scorer (n=5) is not built to
+  # prereg S5 (corrected 2026-09-04): preflight is alpha=0 ONLY, on the 35
+  # fixed items (5 PER SIZE across all 7 easy sizes, sample_ids {0..4,
+  # 40..44, 80..84, 120..124, 160..164, 200..204, 240..244} -- see
+  # get_answer_zebralogic.py's PREFLIGHT_INDICES), plus the non-zero
+  # SMOKE_CONFIG purely for the steering_fires==L*N assertion -- NOT the
+  # full four-point frozen sweep. Passing $CONFIGS here (all four frozen
+  # doses) would run three formal-dose cells at n=35, which the prereg
+  # never asks for and which the preflight scorer (n=35) is not built to
   # analyze as a dose curve.
   cd "$WORK_DIR"
   # ZEBRA_MAX_NEW_TOKENS/ZEBRA_BATCH_SIZE default to the prereg's 2048/8;
   # override explicitly (never silently) to re-run preflight at the S3
-  # 3072 escalation step, matching cmd_formal's own override convention.
-  # max_new_tokens is still hard-enforced to {2048,3072} inside
-  # get_answer_zebralogic.py regardless of what is passed here.
+  # 3072 escalation step, or (zebralogic-easy-amend-01,
+  # docs/zebralogic_easy_amendment_01.json) the newly-added 1024 budget,
+  # matching cmd_formal's own override convention. max_new_tokens is still
+  # hard-enforced to {1024,2048,3072} inside get_answer_zebralogic.py
+  # regardless of what is passed here.
   "$PY" zebralogic/get_answer_zebralogic.py \
     --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR" \
     --items "$ITEMS" --mask_path "$MASK" \

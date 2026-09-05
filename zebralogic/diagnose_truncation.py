@@ -95,6 +95,54 @@ def _loop_tail_span(text: str):
     return (first, first + _STRICT_LOOP_BLOCK)
 
 
+def _span_diagnostics(found, offsets, n_tok_retokenized, truncated, loop_span):
+    """Shared per-span diagnostics for one located JSON span (either the
+    generic-first-complete-JSON span or the first-ANSWER-JSON span). `found`
+    is (obj, start, end) as returned by find_first_complete_json /
+    find_first_answer_json. Returns (has, end_char, end_token,
+    trailing_tokens, completed_before_limit, loop_before, loop_after) -- kept
+    as one function so the two callers (generic vs answer) cannot silently
+    diverge in how "completed before the limit" or "loop before/after" is
+    computed."""
+    obj, start, end = found
+    has = obj is not None and isinstance(obj, dict)
+
+    end_token = None
+    trailing_tokens = None
+    completed_before_limit = None
+    if has and end is not None:
+        # First token whose span starts at or after the JSON's closing brace
+        # char offset (`end` is already "one past the brace").
+        end_token = next(
+            (i for i, (s, e) in enumerate(offsets) if s >= end),
+            n_tok_retokenized,
+        )
+        trailing_tokens = max(0, n_tok_retokenized - end_token)
+        # "Before the limit" means the model still had budget left when this
+        # JSON closed, OR it stopped naturally right after (either way, this
+        # JSON was not itself cut off by the cap). Read off the EXISTING
+        # truncated/stop_reason field, not a re-derived length threshold --
+        # a not-truncated row by definition never hit budget_exhausted, so
+        # any complete JSON in it was necessarily completed before any
+        # limit. For a truncated row, it is "completed before the limit" iff
+        # its closing brace appears before the LAST generated token (i.e.
+        # the model kept generating past it rather than being cut off
+        # mid-JSON).
+        completed_before_limit = True if not truncated else trailing_tokens > 0
+
+    loop_before = None
+    loop_after = None
+    if loop_span is not None:
+        loop_char_start = loop_span[0]
+        if has and end is not None:
+            loop_before = loop_char_start < end
+            loop_after = loop_char_start >= end
+        # else: no complete JSON of this kind at all -- the loop cannot be
+        # classified relative to a JSON that was never written; leave None.
+
+    return has, end, end_token, trailing_tokens, completed_before_limit, loop_before, loop_after
+
+
 def diagnose_row(row: dict, tokenizer) -> dict:
     text = row.get("raw_text") or row.get("generated") or ""
     truncated = bool(row.get("truncated"))
@@ -105,52 +153,29 @@ def diagnose_row(row: dict, tokenizer) -> dict:
     offsets = enc["offset_mapping"]
     n_tok_retokenized = len(offsets)
 
-    first_obj, first_start, first_end = find_first_complete_json(text)
-    has_solution = bool(
-        first_obj is not None and isinstance(first_obj, dict)
-        and "solution" in first_obj
-    )
-
-    first_solution_end_token = None
-    trailing_tokens_after_solution = None
-    solution_completed_before_limit = None
-    if has_solution and first_end is not None:
-        # First token whose span starts at or after the JSON's closing
-        # brace char offset (first_end is already "one past the brace").
-        end_tok = next(
-            (i for i, (s, e) in enumerate(offsets) if s >= first_end),
-            n_tok_retokenized,
-        )
-        first_solution_end_token = end_tok
-        trailing_tokens_after_solution = max(0, n_tok_retokenized - end_tok)
-        # "Before the limit" means the model still had budget left when the
-        # solution JSON closed, OR it stopped naturally right after (either
-        # way, the solution was not itself cut off by the cap). We read this
-        # off the EXISTING truncated/stop_reason field, not by re-deriving
-        # a length threshold here -- a not-truncated row by definition never
-        # hit budget_exhausted, so any complete solution JSON in it was
-        # necessarily completed before any limit. For a truncated row, the
-        # solution is "completed before the limit" iff the JSON's closing
-        # brace appears before the LAST generated token (i.e. the model kept
-        # generating past it rather than being cut off mid-JSON).
-        if not truncated:
-            solution_completed_before_limit = True
-        else:
-            solution_completed_before_limit = trailing_tokens_after_solution > 0
-
     loop_span = _loop_tail_span(text)
-    loop_before_solution = None
-    loop_after_solution = None
-    if loop_span is not None:
-        loop_char_start = loop_span[0]
-        if has_solution and first_end is not None:
-            loop_before_solution = loop_char_start < first_end
-            loop_after_solution = loop_char_start >= first_end
-        else:
-            # No complete solution JSON at all -- the loop cannot be
-            # classified relative to a solution that was never written.
-            loop_before_solution = None
-            loop_after_solution = None
+
+    # GENERIC: first syntactically complete JSON block, any content. Answers
+    # "where did the first JSON close", regardless of whether it is an
+    # answer -- this is what a raw truncation/loop diagnosis needs when the
+    # question is about JSON-writing behavior in general.
+    (has_first_json, first_json_end_char, first_json_end_token,
+     trailing_after_json, json_completed_before_limit,
+     loop_before_json, loop_after_json) = _span_diagnostics(
+        find_first_complete_json(text), offsets, n_tok_retokenized,
+        truncated, loop_span)
+
+    # ANSWER: first complete JSON carrying a non-empty dict "solution"
+    # (zebralogic-easy-amend-01's find_first_answer_json). Answers "was the
+    # puzzle actually answered before the limit" -- the question this
+    # diagnostic exists to answer, and DIFFERENT from has_first_json
+    # whenever the model emits some other JSON (e.g. a partial restatement)
+    # before its real answer.
+    (has_answer_json, first_answer_end_char, first_answer_end_token,
+     trailing_after_answer, answer_completed_before_limit,
+     loop_before_answer, loop_after_answer) = _span_diagnostics(
+        find_first_answer_json(text), offsets, n_tok_retokenized,
+        truncated, loop_span)
 
     return {
         "id": row.get("id"),
@@ -160,14 +185,23 @@ def diagnose_row(row: dict, tokenizer) -> dict:
         "stop_reason": stop_reason,
         "generated_token_count_stored": n_tok_generated,
         "generated_token_count_retokenized": n_tok_retokenized,
-        "has_solution_json": has_solution,
-        "solution_completed_before_limit": solution_completed_before_limit,
-        "first_solution_end_char": first_end,
-        "first_solution_end_token": first_solution_end_token,
-        "trailing_tokens_after_solution": trailing_tokens_after_solution,
+        # GENERIC (any complete JSON, regardless of content)
+        "has_first_json": has_first_json,
+        "first_json_end_char": first_json_end_char,
+        "first_json_end_token": first_json_end_token,
+        "trailing_tokens_after_json": trailing_after_json,
+        "json_completed_before_limit": json_completed_before_limit,
+        "loop_before_json": loop_before_json,
+        "loop_after_json": loop_after_json,
+        # ANSWER (first JSON carrying a non-empty dict "solution")
+        "has_answer_json": has_answer_json,
+        "first_answer_end_char": first_answer_end_char,
+        "first_answer_end_token": first_answer_end_token,
+        "trailing_tokens_after_answer": trailing_after_answer,
+        "answer_completed_before_limit": answer_completed_before_limit,
+        "loop_before_answer": loop_before_answer,
+        "loop_after_answer": loop_after_answer,
         "is_strict_loop": loop_span is not None,
-        "loop_before_solution": loop_before_solution,
-        "loop_after_solution": loop_after_solution,
     }
 
 
@@ -201,51 +235,66 @@ def main():
     n_truncated = sum(1 for x in diags if x["truncated"])
     n_not_truncated = n - n_truncated
 
-    def _bucket(has_sol, trunc):
-        return [x for x in diags if x["has_solution_json"] == has_sol and x["truncated"] == trunc]
+    def _bucket(field, has, trunc):
+        return [x for x in diags if x[field] == has and x["truncated"] == trunc]
 
-    parsed_truncated = _bucket(True, True)
-    unparsed_truncated = _bucket(False, True)
-    parsed_not_truncated = _bucket(True, False)
-    unparsed_not_truncated = _bucket(False, False)
+    # PRIMARY bucketing is on has_answer_json -- "was the puzzle answered",
+    # which is what this diagnostic exists to establish. has_first_json
+    # buckets are also printed so a divergence (some other JSON closed
+    # first, before the real answer) is visible.
+    ans_parsed_truncated = _bucket("has_answer_json", True, True)
+    ans_unparsed_truncated = _bucket("has_answer_json", False, True)
+    ans_parsed_not_truncated = _bucket("has_answer_json", True, False)
+    ans_unparsed_not_truncated = _bucket("has_answer_json", False, False)
+
+    json_parsed_truncated = _bucket("has_first_json", True, True)
+    json_unparsed_truncated = _bucket("has_first_json", False, True)
 
     print(f"\n=== TRUNCATION DIAGNOSIS: {args.generations} ===")
     print(f"model={meta.get('model')} size={meta.get('size')} "
           f"max_new_tokens={max_new_tokens} n={n}")
     print(f"\ntruncated_rate (real stop_reason==budget_exhausted): "
           f"{n_truncated}/{n} = {n_truncated/n:.3f}")
-    print(f"  parsed(has solution JSON)+truncated   : {len(parsed_truncated)}/{n}")
-    print(f"  unparsed(no solution JSON)+truncated  : {len(unparsed_truncated)}/{n}")
-    print(f"  parsed+NOT truncated                  : {len(parsed_not_truncated)}/{n}")
-    print(f"  unparsed+NOT truncated                : {len(unparsed_not_truncated)}/{n}")
+    print(f"[ANSWER JSON: first complete JSON carrying a non-empty solution]")
+    print(f"  answered+truncated     : {len(ans_parsed_truncated)}/{n}")
+    print(f"  unanswered+truncated   : {len(ans_unparsed_truncated)}/{n}")
+    print(f"  answered+NOT truncated : {len(ans_parsed_not_truncated)}/{n}")
+    print(f"  unanswered+NOT truncated: {len(ans_unparsed_not_truncated)}/{n}")
+    print(f"[GENERIC JSON: first syntactically complete JSON, any content]")
+    print(f"  has-json+truncated     : {len(json_parsed_truncated)}/{n}")
+    print(f"  no-json+truncated      : {len(json_unparsed_truncated)}/{n}")
+    n_divergent = sum(1 for x in diags if x["has_first_json"] != x["has_answer_json"])
+    print(f"  rows where first-JSON and first-ANSWER-JSON disagree (some "
+          f"other JSON closed before the real answer, or vice versa): "
+          f"{n_divergent}/{n}")
 
-    defined = [x for x in diags if x["has_solution_json"]]
-    completed_before_limit = [x for x in defined if x["solution_completed_before_limit"]]
-    print(f"\nsolution JSON present at all           : {len(defined)}/{n}")
-    if defined:
+    answered = [x for x in diags if x["has_answer_json"]]
+    ans_completed_before_limit = [x for x in answered if x["answer_completed_before_limit"]]
+    print(f"\nanswer JSON present at all              : {len(answered)}/{n}")
+    if answered:
         print(f"  of those, completed before token limit "
-              f"(i.e. not itself cut off): {len(completed_before_limit)}/{len(defined)} "
-              f"= {len(completed_before_limit)/len(defined):.3f}")
+              f"(i.e. not itself cut off): {len(ans_completed_before_limit)}/{len(answered)} "
+              f"= {len(ans_completed_before_limit)/len(answered):.3f}")
 
-    trailing = [x["trailing_tokens_after_solution"] for x in defined
-                if x["trailing_tokens_after_solution"] is not None]
+    trailing = [x["trailing_tokens_after_answer"] for x in answered
+                if x["trailing_tokens_after_answer"] is not None]
     if trailing:
         trailing_sorted = sorted(trailing)
         med = trailing_sorted[len(trailing_sorted) // 2]
-        print(f"  trailing_tokens_after_solution: min={min(trailing)} "
+        print(f"  trailing_tokens_after_answer: min={min(trailing)} "
               f"median={med} max={max(trailing)}")
 
     loop_rows = [x for x in diags if x["is_strict_loop"]]
-    loop_before = sum(1 for x in loop_rows if x["loop_before_solution"])
-    loop_after = sum(1 for x in loop_rows if x["loop_after_solution"])
+    loop_before = sum(1 for x in loop_rows if x["loop_before_answer"])
+    loop_after = sum(1 for x in loop_rows if x["loop_after_answer"])
     loop_undecidable = sum(
         1 for x in loop_rows
-        if x["loop_before_solution"] is None and x["loop_after_solution"] is None
+        if x["loop_before_answer"] is None and x["loop_after_answer"] is None
     )
     print(f"\nstrict-loop rows: {len(loop_rows)}/{n}")
-    print(f"  loop begins BEFORE first solution JSON closes : {loop_before}")
-    print(f"  loop begins AFTER  first solution JSON closes : {loop_after}")
-    print(f"  loop present but no solution JSON to compare  : {loop_undecidable}")
+    print(f"  loop begins BEFORE first ANSWER JSON closes : {loop_before}")
+    print(f"  loop begins AFTER  first ANSWER JSON closes : {loop_after}")
+    print(f"  loop present but no answer JSON to compare  : {loop_undecidable}")
 
     # Truncation-source sanity: confirm every truncated row's stop_reason is
     # genuinely budget_exhausted (not e.g. a missing field silently coerced
@@ -279,7 +328,7 @@ def main():
             text = row.get("raw_text") or row.get("generated") or ""
             tail = text[-args.tail_chars:]
             print(f"\n  id={x['id']} size={x['size']} "
-                  f"trailing_tokens_after_solution={x['trailing_tokens_after_solution']} "
+                  f"trailing_tokens_after_answer={x['trailing_tokens_after_answer']} "
                   f"is_strict_loop={x['is_strict_loop']} "
                   f"(showing last {len(tail)} chars of raw_text)")
             print("  " + "-" * 70)
@@ -287,30 +336,36 @@ def main():
                 print(f"  | {line}")
             print("  " + "-" * 70)
 
-    _show(parsed_truncated, "PARSED + TRUNCATED tails")
-    _show(unparsed_truncated, "UNPARSED + TRUNCATED tails")
+    _show(ans_parsed_truncated, "ANSWERED + TRUNCATED tails")
+    _show(ans_unparsed_truncated, "UNANSWERED + TRUNCATED tails")
 
     out = {
         "generations": args.generations,
         "model": meta.get("model"), "size": meta.get("size"),
         "max_new_tokens": max_new_tokens, "n": n,
         "truncated_rate": n_truncated / n,
-        "parsed_truncated_n": len(parsed_truncated),
-        "unparsed_truncated_n": len(unparsed_truncated),
-        "parsed_not_truncated_n": len(parsed_not_truncated),
-        "unparsed_not_truncated_n": len(unparsed_not_truncated),
-        "solution_present_n": len(defined),
-        "solution_completed_before_limit_n": len(completed_before_limit),
-        "solution_completed_before_limit_rate": (
-            len(completed_before_limit) / len(defined) if defined else None
+        # ANSWER JSON (primary): first complete JSON carrying a non-empty
+        # dict "solution" (zebralogic-easy-amend-01's find_first_answer_json)
+        "answered_truncated_n": len(ans_parsed_truncated),
+        "unanswered_truncated_n": len(ans_unparsed_truncated),
+        "answered_not_truncated_n": len(ans_parsed_not_truncated),
+        "unanswered_not_truncated_n": len(ans_unparsed_not_truncated),
+        "answer_present_n": len(answered),
+        "answer_completed_before_limit_n": len(ans_completed_before_limit),
+        "answer_completed_before_limit_rate": (
+            len(ans_completed_before_limit) / len(answered) if answered else None
         ),
-        "trailing_tokens_after_solution_med": (
+        "trailing_tokens_after_answer_med": (
             sorted(trailing)[len(trailing) // 2] if trailing else None
         ),
-        "strict_loop_n": len(loop_rows),
-        "loop_before_solution_n": loop_before,
-        "loop_after_solution_n": loop_after,
+        "loop_before_answer_n": loop_before,
+        "loop_after_answer_n": loop_after,
         "loop_undecidable_n": loop_undecidable,
+        # GENERIC JSON: first syntactically complete JSON, any content
+        "has_first_json_truncated_n": len(json_parsed_truncated),
+        "no_first_json_truncated_n": len(json_unparsed_truncated),
+        "first_json_vs_answer_json_divergent_n": n_divergent,
+        "strict_loop_n": len(loop_rows),
         "stop_reason_inconsistent_n": len(bad_reason),
         "per_row": diags,
     }
