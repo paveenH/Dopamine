@@ -1,0 +1,1175 @@
+{
+  "protocol": "proofwriter-owa-v0",
+  "not_a_transfer_test": true,
+  "gold_manifest_sha256_16": "a1360034862ceff5",
+  "n_gold_items": 300,
+  "labels": [
+    "True",
+    "False",
+    "Unknown"
+  ],
+  "owa_semantics": "query provable -> True; explicit negation of the query provable -> False; neither provable -> Unknown. Failing to prove the query does NOT by itself mean False.",
+  "holm_family_m_declared": 3,
+  "note_holm_family_m": "the authoritative per-model family size is results[model].mcnemar_vs_alpha0[*].holm_family_m (derived from the actual non-zero alpha count scored for that model); this top-level field is only the --holm_m CLI default and can legitimately differ for a pilot (0 non-zero alpha) or an --allow_partial_alphas run.",
+  "results": {
+    "llama3": {
+      "alphas_present": [
+        -6,
+        -4,
+        0,
+        4
+      ],
+      "n_items": 300,
+      "cells": {
+        "-6": {
+          "n": 300,
+          "accuracy": 0.14333333333333334,
+          "sensitivity_last_answer_accuracy": 0.10333333333333333,
+          "answered_only_accuracy": {
+            "value": 0.5512820512820513,
+            "n": 78,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.16666666666666666
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.12
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.21
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.18
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.04
+            }
+          },
+          "parse_failure_rate": 0.74,
+          "no_answer_rate": 0.74,
+          "invalid_or_multiple_marker_rate": 0.35,
+          "multiple_marker_rate": 0.21666666666666667,
+          "first_last_disagreement_rate": {
+            "value": 0.6153846153846154,
+            "n": 65,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.9333333333333333,
+          "truncation_rate": 1.0,
+          "true_last_line_rate": 0.44871794871794873,
+          "gen_token_len_median": 1024,
+          "gen_token_len_mean": 1024.0,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 78,
+            "marker_coverage": 0.26,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 78,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 78,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.13298233791688213,
+              "n": 78,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 525.1410256410256,
+              "n": 78,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 128.17948717948718,
+              "n": 78,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.6153846153846154,
+              "n": 65,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.35,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        },
+        "-4": {
+          "n": 300,
+          "accuracy": 0.12,
+          "sensitivity_last_answer_accuracy": 0.08666666666666667,
+          "answered_only_accuracy": {
+            "value": 0.5373134328358209,
+            "n": 67,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.12666666666666668
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.11333333333333333
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.23
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.07
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.06
+            }
+          },
+          "parse_failure_rate": 0.7766666666666666,
+          "no_answer_rate": 0.7766666666666666,
+          "invalid_or_multiple_marker_rate": 0.38,
+          "multiple_marker_rate": 0.19,
+          "first_last_disagreement_rate": {
+            "value": 0.5087719298245614,
+            "n": 57,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.9,
+          "truncation_rate": 1.0,
+          "true_last_line_rate": 0.417910447761194,
+          "gen_token_len_median": 1024,
+          "gen_token_len_mean": 1024.0,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 67,
+            "marker_coverage": 0.22333333333333333,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 67,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 67,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.17726449723494062,
+              "n": 67,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 720.5970149253732,
+              "n": 67,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 168.8507462686567,
+              "n": 67,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.5087719298245614,
+              "n": 57,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.38,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        },
+        "0": {
+          "n": 300,
+          "accuracy": 0.10333333333333333,
+          "sensitivity_last_answer_accuracy": 0.06,
+          "answered_only_accuracy": {
+            "value": 0.5,
+            "n": 62,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.14
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.06666666666666667
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.14
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.11
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.06
+            }
+          },
+          "parse_failure_rate": 0.7933333333333333,
+          "no_answer_rate": 0.7933333333333333,
+          "invalid_or_multiple_marker_rate": 0.41,
+          "multiple_marker_rate": 0.17666666666666667,
+          "first_last_disagreement_rate": {
+            "value": 0.39622641509433965,
+            "n": 53,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.9333333333333333,
+          "truncation_rate": 1.0,
+          "true_last_line_rate": 0.5645161290322581,
+          "gen_token_len_median": 1024,
+          "gen_token_len_mean": 1024.0,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 62,
+            "marker_coverage": 0.20666666666666667,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 62,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 62,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.2137073117854058,
+              "n": 62,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 868.8709677419355,
+              "n": 62,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 207.03225806451613,
+              "n": 62,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.39622641509433965,
+              "n": 53,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.41,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        },
+        "4": {
+          "n": 300,
+          "accuracy": 0.21666666666666667,
+          "sensitivity_last_answer_accuracy": 0.18666666666666668,
+          "answered_only_accuracy": {
+            "value": 0.5462184873949579,
+            "n": 119,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.26
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.17333333333333334
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.26
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.24
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.15
+            }
+          },
+          "parse_failure_rate": 0.6033333333333334,
+          "no_answer_rate": 0.6033333333333334,
+          "invalid_or_multiple_marker_rate": 0.44,
+          "multiple_marker_rate": 0.35333333333333333,
+          "first_last_disagreement_rate": {
+            "value": 0.4056603773584906,
+            "n": 106,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.95,
+          "truncation_rate": 1.0,
+          "true_last_line_rate": 0.5210084033613446,
+          "gen_token_len_median": 1024,
+          "gen_token_len_mean": 1024.0,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 119,
+            "marker_coverage": 0.39666666666666667,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 119,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 119,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.1903324108174936,
+              "n": 119,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 769.9495798319327,
+              "n": 119,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 180.27731092436974,
+              "n": 119,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.4056603773584906,
+              "n": 106,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.44,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        }
+      },
+      "mcnemar_vs_alpha0": {
+        "-4": {
+          "alpha": -4,
+          "acc_base": 0.10333333333333333,
+          "acc_alpha": 0.12,
+          "dAcc_pp": 1.6666666666666667,
+          "discordant_0to1": 26,
+          "discordant_1to0": 21,
+          "p_raw": 0.5600646295802107,
+          "ci95_pp": [
+            -3.0,
+            6.0
+          ],
+          "p_holm_adj": 0.5600646295802107,
+          "holm_family_m": 3
+        },
+        "-6": {
+          "alpha": -6,
+          "acc_base": 0.10333333333333333,
+          "acc_alpha": 0.14333333333333334,
+          "dAcc_pp": 4.0,
+          "discordant_0to1": 36,
+          "discordant_1to0": 24,
+          "p_raw": 0.1550019040032606,
+          "ci95_pp": [
+            -1.0,
+            9.0
+          ],
+          "p_holm_adj": 0.3100038080065212,
+          "holm_family_m": 3
+        },
+        "4": {
+          "alpha": 4,
+          "acc_base": 0.10333333333333333,
+          "acc_alpha": 0.21666666666666667,
+          "dAcc_pp": 11.333333333333332,
+          "discordant_0to1": 53,
+          "discordant_1to0": 19,
+          "p_raw": 7.555811484431396e-05,
+          "ci95_pp": [
+            6.0,
+            16.666666666666668
+          ],
+          "p_holm_adj": 0.0002266743445329419,
+          "holm_family_m": 3
+        }
+      },
+      "exploratory_subgroups": {
+        "-4": {
+          "D3": {
+            "n": 150,
+            "acc_base": 0.14,
+            "acc_alpha": 0.12666666666666668,
+            "p_raw": 0.8388197422027588,
+            "discordant_0to1": 11,
+            "discordant_1to0": 13,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "D5": {
+            "n": 150,
+            "acc_base": 0.06666666666666667,
+            "acc_alpha": 0.11333333333333333,
+            "p_raw": 0.21003961563110352,
+            "discordant_0to1": 15,
+            "discordant_1to0": 8,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_True": {
+            "n": 100,
+            "acc_base": 0.14,
+            "acc_alpha": 0.23,
+            "p_raw": 0.0931396484375,
+            "discordant_0to1": 16,
+            "discordant_1to0": 7,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_False": {
+            "n": 100,
+            "acc_base": 0.11,
+            "acc_alpha": 0.07,
+            "p_raw": 0.4239501953125,
+            "discordant_0to1": 5,
+            "discordant_1to0": 9,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_Unknown": {
+            "n": 100,
+            "acc_base": 0.06,
+            "acc_alpha": 0.06,
+            "p_raw": 1.0,
+            "discordant_0to1": 5,
+            "discordant_1to0": 5,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          }
+        },
+        "-6": {
+          "D3": {
+            "n": 150,
+            "acc_base": 0.14,
+            "acc_alpha": 0.16666666666666666,
+            "p_raw": 0.617719317029696,
+            "discordant_0to1": 20,
+            "discordant_1to0": 16,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "D5": {
+            "n": 150,
+            "acc_base": 0.06666666666666667,
+            "acc_alpha": 0.12,
+            "p_raw": 0.15158963203430176,
+            "discordant_0to1": 16,
+            "discordant_1to0": 8,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_True": {
+            "n": 100,
+            "acc_base": 0.14,
+            "acc_alpha": 0.21,
+            "p_raw": 0.26493089646101,
+            "discordant_0to1": 18,
+            "discordant_1to0": 11,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_False": {
+            "n": 100,
+            "acc_base": 0.11,
+            "acc_alpha": 0.18,
+            "p_raw": 0.18924713134765625,
+            "discordant_0to1": 14,
+            "discordant_1to0": 7,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_Unknown": {
+            "n": 100,
+            "acc_base": 0.06,
+            "acc_alpha": 0.04,
+            "p_raw": 0.75390625,
+            "discordant_0to1": 4,
+            "discordant_1to0": 6,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          }
+        },
+        "4": {
+          "D3": {
+            "n": 150,
+            "acc_base": 0.14,
+            "acc_alpha": 0.26,
+            "p_raw": 0.009559878856634896,
+            "discordant_0to1": 31,
+            "discordant_1to0": 13,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "D5": {
+            "n": 150,
+            "acc_base": 0.06666666666666667,
+            "acc_alpha": 0.17333333333333334,
+            "p_raw": 0.0037191659212112427,
+            "discordant_0to1": 22,
+            "discordant_1to0": 6,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_True": {
+            "n": 100,
+            "acc_base": 0.14,
+            "acc_alpha": 0.26,
+            "p_raw": 0.028959274291992188,
+            "discordant_0to1": 19,
+            "discordant_1to0": 7,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_False": {
+            "n": 100,
+            "acc_base": 0.11,
+            "acc_alpha": 0.24,
+            "p_raw": 0.029449373483657837,
+            "discordant_0to1": 22,
+            "discordant_1to0": 9,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_Unknown": {
+            "n": 100,
+            "acc_base": 0.06,
+            "acc_alpha": 0.15,
+            "p_raw": 0.03515625,
+            "discordant_0to1": 12,
+            "discordant_1to0": 3,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          }
+        }
+      },
+      "workpoint": {
+        "alpha_to_accuracy": {
+          "0": 0.10333333333333333,
+          "-4": 0.12,
+          "-6": 0.14333333333333334,
+          "4": 0.21666666666666667
+        },
+        "discrete_argmax_alpha": 4,
+        "near_optimal_region_exact_ties": [
+          4
+        ],
+        "any_dose_holm_significant_either_direction": true,
+        "holm_significant_improvement_alphas": [
+          4
+        ],
+        "workpoint_alpha": 4,
+        "verdict": "workpoint candidate alpha=4 (Holm-significant IMPROVEMENT vs this model's alpha=0; see mcnemar_vs_alpha0 for the full family)"
+      }
+    },
+    "qwen2.5": {
+      "alphas_present": [
+        -6,
+        0,
+        6,
+        8
+      ],
+      "n_items": 300,
+      "cells": {
+        "-6": {
+          "n": 300,
+          "accuracy": 0.49333333333333335,
+          "sensitivity_last_answer_accuracy": 0.49,
+          "answered_only_accuracy": {
+            "value": 0.5461254612546126,
+            "n": 271,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.5333333333333333
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.4533333333333333
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.39
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.41
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.68
+            }
+          },
+          "parse_failure_rate": 0.09666666666666666,
+          "no_answer_rate": 0.09666666666666666,
+          "invalid_or_multiple_marker_rate": 0.2633333333333333,
+          "multiple_marker_rate": 0.19666666666666666,
+          "first_last_disagreement_rate": {
+            "value": 0.01694915254237288,
+            "n": 59,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.14333333333333334,
+          "truncation_rate": 0.14666666666666667,
+          "true_last_line_rate": 0.06642066420664207,
+          "gen_token_len_median": 205,
+          "gen_token_len_mean": 310.73,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 271,
+            "marker_coverage": 0.9033333333333333,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 271,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 271,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.7786708932485372,
+              "n": 271,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 752.0073800738007,
+              "n": 271,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 182.0811808118081,
+              "n": 271,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.01694915254237288,
+              "n": 59,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.2633333333333333,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        },
+        "0": {
+          "n": 300,
+          "accuracy": 0.4633333333333333,
+          "sensitivity_last_answer_accuracy": 0.4633333333333333,
+          "answered_only_accuracy": {
+            "value": 0.46488294314381273,
+            "n": 299,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.5733333333333334
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.35333333333333333
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.26
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.22
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.91
+            }
+          },
+          "parse_failure_rate": 0.0033333333333333335,
+          "no_answer_rate": 0.0033333333333333335,
+          "invalid_or_multiple_marker_rate": 0.3566666666666667,
+          "multiple_marker_rate": 0.3466666666666667,
+          "first_last_disagreement_rate": {
+            "value": 0.0,
+            "n": 104,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.3433333333333333,
+          "truncation_rate": 0.3433333333333333,
+          "true_last_line_rate": 0.24749163879598662,
+          "gen_token_len_median": 131,
+          "gen_token_len_mean": 428.02,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 299,
+            "marker_coverage": 0.9966666666666667,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 299,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 299,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.6497528883859491,
+              "n": 299,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 492.67558528428094,
+              "n": 299,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 116.40468227424749,
+              "n": 299,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.0,
+              "n": 104,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.3566666666666667,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        },
+        "6": {
+          "n": 300,
+          "accuracy": 0.49666666666666665,
+          "sensitivity_last_answer_accuracy": 0.49666666666666665,
+          "answered_only_accuracy": {
+            "value": 0.49666666666666665,
+            "n": 300,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.6
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.3933333333333333
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.29
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.29
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.91
+            }
+          },
+          "parse_failure_rate": 0.0,
+          "no_answer_rate": 0.0,
+          "invalid_or_multiple_marker_rate": 0.3233333333333333,
+          "multiple_marker_rate": 0.32,
+          "first_last_disagreement_rate": {
+            "value": 0.0,
+            "n": 96,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.32,
+          "truncation_rate": 0.32,
+          "true_last_line_rate": 0.18333333333333332,
+          "gen_token_len_median": 137,
+          "gen_token_len_mean": 408.61333333333334,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 300,
+            "marker_coverage": 1.0,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.6829406618578693,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 519.8366666666667,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 121.06666666666666,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.0,
+              "n": 96,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.3233333333333333,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        },
+        "8": {
+          "n": 300,
+          "accuracy": 0.52,
+          "sensitivity_last_answer_accuracy": 0.52,
+          "answered_only_accuracy": {
+            "value": 0.52,
+            "n": 300,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 150,
+              "accuracy": 0.6
+            },
+            "D5": {
+              "n": 150,
+              "accuracy": 0.44
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 100,
+              "accuracy": 0.42
+            },
+            "False": {
+              "n": 100,
+              "accuracy": 0.32
+            },
+            "Unknown": {
+              "n": 100,
+              "accuracy": 0.82
+            }
+          },
+          "parse_failure_rate": 0.0,
+          "no_answer_rate": 0.0,
+          "invalid_or_multiple_marker_rate": 0.5066666666666667,
+          "multiple_marker_rate": 0.4866666666666667,
+          "first_last_disagreement_rate": {
+            "value": 0.0273972602739726,
+            "n": 146,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.47333333333333333,
+          "truncation_rate": 0.47333333333333333,
+          "true_last_line_rate": 0.2833333333333333,
+          "gen_token_len_median": 221,
+          "gen_token_len_mean": 550.7433333333333,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 300,
+            "n_with_marker": 300,
+            "marker_coverage": 1.0,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.5613192160173864,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 616.1966666666667,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 138.64333333333335,
+              "n": 300,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": 0.0273972602739726,
+              "n": 146,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.5066666666666667,
+              "n": 300,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        }
+      },
+      "mcnemar_vs_alpha0": {
+        "-6": {
+          "alpha": -6,
+          "acc_base": 0.4633333333333333,
+          "acc_alpha": 0.49333333333333335,
+          "dAcc_pp": 3.0,
+          "discordant_0to1": 59,
+          "discordant_1to0": 50,
+          "p_raw": 0.4436695012023485,
+          "ci95_pp": [
+            -4.0,
+            9.666666666666666
+          ],
+          "p_holm_adj": 0.4436695012023485,
+          "holm_family_m": 3
+        },
+        "6": {
+          "alpha": 6,
+          "acc_base": 0.4633333333333333,
+          "acc_alpha": 0.49666666666666665,
+          "dAcc_pp": 3.3333333333333335,
+          "discordant_0to1": 24,
+          "discordant_1to0": 14,
+          "p_raw": 0.14330665429588407,
+          "ci95_pp": [
+            -0.6666666666666666,
+            7.333333333333333
+          ],
+          "p_holm_adj": 0.28661330859176815,
+          "holm_family_m": 3
+        },
+        "8": {
+          "alpha": 8,
+          "acc_base": 0.4633333333333333,
+          "acc_alpha": 0.52,
+          "dAcc_pp": 5.666666666666666,
+          "discordant_0to1": 52,
+          "discordant_1to0": 35,
+          "p_raw": 0.08568897435916663,
+          "ci95_pp": [
+            -0.3333333333333333,
+            11.666666666666666
+          ],
+          "p_holm_adj": 0.2570669230774999,
+          "holm_family_m": 3
+        }
+      },
+      "exploratory_subgroups": {
+        "-6": {
+          "D3": {
+            "n": 150,
+            "acc_base": 0.5733333333333334,
+            "acc_alpha": 0.5333333333333333,
+            "p_raw": 0.5189580031896518,
+            "discordant_0to1": 27,
+            "discordant_1to0": 33,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "D5": {
+            "n": 150,
+            "acc_base": 0.35333333333333333,
+            "acc_alpha": 0.4533333333333333,
+            "p_raw": 0.04438416098714981,
+            "discordant_0to1": 32,
+            "discordant_1to0": 17,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_True": {
+            "n": 100,
+            "acc_base": 0.26,
+            "acc_alpha": 0.39,
+            "p_raw": 0.0241195447742939,
+            "discordant_0to1": 21,
+            "discordant_1to0": 8,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_False": {
+            "n": 100,
+            "acc_base": 0.22,
+            "acc_alpha": 0.41,
+            "p_raw": 0.00660882284228137,
+            "discordant_0to1": 32,
+            "discordant_1to0": 13,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_Unknown": {
+            "n": 100,
+            "acc_base": 0.91,
+            "acc_alpha": 0.68,
+            "p_raw": 0.0001168418675661087,
+            "discordant_0to1": 6,
+            "discordant_1to0": 29,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          }
+        },
+        "6": {
+          "D3": {
+            "n": 150,
+            "acc_base": 0.5733333333333334,
+            "acc_alpha": 0.6,
+            "p_raw": 0.5234670639038086,
+            "discordant_0to1": 13,
+            "discordant_1to0": 9,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "D5": {
+            "n": 150,
+            "acc_base": 0.35333333333333333,
+            "acc_alpha": 0.3933333333333333,
+            "p_raw": 0.210113525390625,
+            "discordant_0to1": 11,
+            "discordant_1to0": 5,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_True": {
+            "n": 100,
+            "acc_base": 0.26,
+            "acc_alpha": 0.29,
+            "p_raw": 0.5078125,
+            "discordant_0to1": 6,
+            "discordant_1to0": 3,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_False": {
+            "n": 100,
+            "acc_base": 0.22,
+            "acc_alpha": 0.29,
+            "p_raw": 0.18924713134765625,
+            "discordant_0to1": 14,
+            "discordant_1to0": 7,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_Unknown": {
+            "n": 100,
+            "acc_base": 0.91,
+            "acc_alpha": 0.91,
+            "p_raw": 1.0,
+            "discordant_0to1": 4,
+            "discordant_1to0": 4,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          }
+        },
+        "8": {
+          "D3": {
+            "n": 150,
+            "acc_base": 0.5733333333333334,
+            "acc_alpha": 0.6,
+            "p_raw": 0.651587827208914,
+            "discordant_0to1": 24,
+            "discordant_1to0": 20,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "D5": {
+            "n": 150,
+            "acc_base": 0.35333333333333333,
+            "acc_alpha": 0.44,
+            "p_raw": 0.0659940344557981,
+            "discordant_0to1": 28,
+            "discordant_1to0": 15,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_True": {
+            "n": 100,
+            "acc_base": 0.26,
+            "acc_alpha": 0.42,
+            "p_raw": 0.013852965261321515,
+            "discordant_0to1": 27,
+            "discordant_1to0": 11,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_False": {
+            "n": 100,
+            "acc_base": 0.22,
+            "acc_alpha": 0.32,
+            "p_raw": 0.08715855330228806,
+            "discordant_0to1": 19,
+            "discordant_1to0": 9,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          },
+          "label_Unknown": {
+            "n": 100,
+            "acc_base": 0.91,
+            "acc_alpha": 0.82,
+            "p_raw": 0.0783538818359375,
+            "discordant_0to1": 6,
+            "discordant_1to0": 15,
+            "scope": "exploratory subgroup, not in the primary Holm family"
+          }
+        }
+      },
+      "workpoint": {
+        "alpha_to_accuracy": {
+          "0": 0.4633333333333333,
+          "-6": 0.49333333333333335,
+          "6": 0.49666666666666665,
+          "8": 0.52
+        },
+        "discrete_argmax_alpha": 8,
+        "near_optimal_region_exact_ties": [
+          8
+        ],
+        "any_dose_holm_significant_either_direction": false,
+        "holm_significant_improvement_alphas": [],
+        "workpoint_alpha": null,
+        "verdict": "No effective ProofWriter OWA workpoint was detected in the sampled dose set."
+      }
+    }
+  },
+  "note": "D3/D5 and per-label breakdowns are exploratory subgroups, not pooled into the primary per-model Holm(m=3) family. Commitment-extractor fields are descriptive co-occurrence statistics only, never causal mediation evidence.",
+  "note_scoring_convention": "Human decision, 2026-09-05: MAIN accuracy (and everything derived from it -- McNemar, Holm, workpoint) scores the FIRST strict marker per sample (was the LAST strict marker before this date). A sample with zero strict markers is scored INCORRECT and stays in the denominator -- see per-cell no_answer_rate. `sensitivity_last_answer_accuracy` reports the pre-2026-09-05 last-marker convention alongside, never in place of, the FIRST-answer main metric. `answered_only_accuracy` restricts to samples with >=1 strict marker and is DIAGNOSTIC ONLY -- if a workpoint's accuracy gain is driven mainly by a lower no_answer_rate rather than a higher answered_only_accuracy, report it as an increase in the rate of a valid, scoreable submission, never as improved reasoning. answered_only_accuracy must NEVER be compared ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items (whichever samples that cell happened to produce a marker for), so a similar value across two cells (e.g. two models) does not mean comparable underlying reasoning; it compares two different, uncontrolled item subsets with no correction for selection bias. `multiple_marker_rate` (fraction with >=2 STRICT markers) is a narrower, DIFFERENT quantity from the pre-existing `invalid_or_multiple_marker_rate` (>1 strict OR >1 loose anywhere, kept unchanged for continuity) -- do not conflate the two. There is NO feasibility gate on either model: both run the full four-point sweep regardless of parse_failure_rate/loop_rate/no_answer_rate.",
+  "note_loop_interpretation": "Decided 2026-09-04 (PREREG_PROOFWRITER_OWA.md S6): the llama3 alpha=0 preflight (30 items) showed 100% truncation at the original max_new_tokens=768, with manual inspection finding a high, stable degenerate-repetition-loop tendency alongside genuine long-form reasoning. max_new_tokens was raised ONE TIME to a frozen 1024 for both models; loop_rate/truncation_rate are recorded per cell (see results[model].cells[alpha].loop_rate) but were NOT used as a gate for either model or either scoring stage (preflight or formal sweep) -- both run/are scored regardless of loop_rate (human decision, 2026-09-05, superseding any earlier feasibility-gate stance). Consequence for reading this report: on ANY model/alpha with an elevated loop_rate, generation-length and commitment-timing diagnostics for that cell carry weaker interpretive weight. EVERY cell is scored by the SAME fixed procedure -- the FIRST strict marker wins, and a sample with zero strict markers scores incorrect and stays in the denominator -- so the scoring RULE does not change with loop_rate. But a loop that prevents a strict marker from ever appearing DOES lower that cell's `accuracy` (via a higher `no_answer_rate`), and a loop that appends further marker-shaped text after a genuine answer does NOT change `accuracy` (the first, genuine marker is still scored) but does raise `multiple_marker_rate`/`first_last_disagreement_rate`. Read `no_answer_rate` and `answered_only_accuracy` alongside `accuracy` on any cell with an elevated loop_rate, never `accuracy` alone."
+}
