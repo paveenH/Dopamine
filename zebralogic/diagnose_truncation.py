@@ -4,29 +4,49 @@
 ZebraLogic-Easy 2048-token truncation diagnosis. READ-ONLY, NON-SCORING.
 
 This script does NOT change, call, or import anything that affects Puzzle
-Accuracy, Cell Accuracy, or JSON parsing. It reuses the already-frozen
-`find_first_complete_json` (commitment_metrics.py) purely to locate a
-character span, and reuses the already-generated, on-disk `truncated` /
-`stop_reason` field from get_answer_zebralogic.py's output (itself sourced
-from llms.py's real per-row terminator scan, not a padding/length heuristic
--- see llms.py:1046-1074) rather than recomputing it.
+Accuracy, Cell Accuracy, or JSON parsing. It reuses commitment_metrics.py's
+`find_first_complete_json` (first complete JSON block, ANY content) AND
+`find_first_answer_json` (first complete JSON carrying a non-empty dict
+"solution" -- zebralogic-easy-amend-01) purely to locate character spans,
+and reuses the already-generated, on-disk `truncated` / `stop_reason` field
+from get_answer_zebralogic.py's output (itself sourced from llms.py's real
+per-row terminator scan, not a padding/length heuristic -- see
+llms.py:1046-1074) rather than recomputing it.
 
-It answers five questions about the EXISTING max_new_tokens=2048 preflight
-cells, per CLAUDE.md's instruction not to touch prompt/parser/scorer while
-diagnosing truncation:
+BOTH JSON notions are reported, deliberately, as two separate field sets
+(`first_json_*` vs `first_answer_*`): a model can emit some OTHER complete
+JSON object (e.g. a partial restatement) before the one that actually
+carries "solution", in which case the two disagree. Reporting only
+`find_first_complete_json`-based fields would then describe "where the
+first JSON closed" while silently mislabeling it as "where the answer
+closed" whenever the two differ -- this is exactly the amend-01 fix applied
+to score_one_item_first and compute_commitment_metrics, and this diagnostic
+script needs the same distinction for its own truncation questions (was a
+graded ANSWER present before the limit, not merely was SOME JSON present).
 
-  1. parsed+truncated vs unparsed+truncated counts (does truncation always
-     coincide with a failure to parse, or does the model sometimes get cut
-     off AFTER a usable JSON was already written)
-  2. was a complete solution JSON present before the token budget was hit
-     (solution_completed_before_limit)
-  3. where (in tokens) did the first complete solution JSON end
-     (first_solution_end_token)
+It answers five questions about a preflight cell (originally written for the
+2048-token cells; equally applicable to any budget), per CLAUDE.md's
+instruction not to touch prompt/parser/scorer while diagnosing truncation.
+Each question is answered on the ANSWER-JSON fields (`first_answer_*` /
+`has_answer_json` / `answer_completed_before_limit`), which are what matters
+for "was the puzzle actually answered before the cap" -- the parallel
+GENERIC-JSON fields (`first_json_*` / `has_first_json`) are also reported so
+a divergence between the two (some other JSON closed first, then the real
+answer) is visible rather than silently absorbed into one number:
+
+  1. parsed+truncated vs unparsed+truncated counts, where "parsed" means
+     "has an ANSWER json" (does truncation always coincide with a failure to
+     produce an answer, or does the model sometimes get cut off AFTER a
+     usable answer was already written)
+  2. was a complete answer JSON present before the token budget was hit
+     (answer_completed_before_limit)
+  3. where (in tokens) did the first complete answer JSON end
+     (first_answer_end_token)
   4. how many tokens were generated AFTER that point
-     (trailing_tokens_after_solution)
+     (trailing_tokens_after_answer)
   5. does the strict-loop pattern (project-standard tail-recurrence
-     detector) occur before or after the first solution JSON
-     (loop_before_solution / loop_after_solution)
+     detector) occur before or after the first answer JSON
+     (loop_before_answer / loop_after_answer)
 
 Token positions are computed by re-tokenizing the row's own `raw_text` (the
 literal generated text as stored, special tokens included) with the SAME
@@ -54,7 +74,9 @@ _REPO_ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, _HERE)
 
-from commitment_metrics import find_first_complete_json, is_strict_loop  # noqa: E402
+from commitment_metrics import (  # noqa: E402
+    find_first_complete_json, find_first_answer_json, is_strict_loop,
+)
 
 _STRICT_LOOP_BLOCK = 40
 _STRICT_LOOP_MIN_REPEATS = 4
