@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "split": "train",
+    "source": "official AI2 ProofWriter release, V2020.12.3, OWA D5, train split",
+    "n_shot": 1,
+    "label_bias_note": "This is a SINGLE Unknown-labeled exemplar, not a True/False/Unknown-balanced few-shot set. It may bias the model toward answering Unknown more often; this must be reported alongside any v2 preflight/probe result, not silently absorbed into it.",
+    "reasoning_provenance": "The 'reasoning' field in the one row below is THIS PROJECT'S OWN CONSTRUCTION, written by hand from the official theory/question. It is NOT the official ProofWriter proof/explanation. The official proof_text for this item is a CWA-style deepest-failure trace ('[@0: Bob is red.[CWA. Example of deepest failure = (FAIL)]]'), which encodes CWA semantics (proof failure -> False) and would misrepresent this task's OWA semantics (proof failure alone does NOT mean False; both the query and its negation must be shown unprovable for Unknown) if quoted or paraphrased directly. The reasoning sentence was therefore derived independently from theory + question under explicit OWA semantics, not from official proof_text."
+  },
+  "data": [
+    {
+      "official_theory_id": "AttNoneg-OWA-D5-1249",
+      "official_qid": "Q16",
+      "selected_by": "human, from proofwriter_owa/list_unknown_exemplar_candidates.py output, 2026-09-05",
+      "theory": "Bob is nice. Dave is big. Dave is young. Gary is nice. Gary is red. Harry is blue. Harry is nice. If someone is cold then they are big. If someone is big then they are blue. All young, quiet people are cold. All young people are quiet. Nice people are young.",
+      "question": "Bob is red.",
+      "reasoning": "(Our own explanation, not the official proof.) The theory gives facts about Bob (nice), Dave (big, young), Gary (nice, red), and Harry (blue, nice), plus rules connecting cold, big, blue, quiet, young, nice, and smart. The color red never appears as the conclusion of any rule, and Bob is never stated to be red or not red. So neither \"Bob is red\" nor its negation \"Bob is not red\" can be proven from the given facts and rules.",
+      "answer": "Unknown"
+    }
+  ]
+}

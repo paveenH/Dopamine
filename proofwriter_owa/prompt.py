@@ -34,6 +34,33 @@ ONLY TASK_INSTRUCTIONS: adds an explicit step budget ("at most 5 steps"), an
 explicit prohibition on code/restating-the-theory/repeating-previous-steps,
 and an explicit stop instruction after the answer line. SYSTEM_RULES (the
 OWA semantics) and the theory/question substitution are BYTE-UNCHANGED.
+
+v2 REVISION (2026-09-05, human decision, CLAUDE.md ProofWriter-OWA row): v1
+did NOT fix the gate -- llama3 acc .0333 parse_fail .900 loop .800 trunc
+1.000; qwen2.5 acc .0333 parse_fail .733 (WORSE than its own v0 cell's .400).
+v2 makes two changes, both narrowly scoped to the SUSPENSION's authorized
+"one small ... feasibility probe":
+  (1) ONE fixed Unknown-labeled train-split exemplar is added (1-shot, not
+      the originally-planned True/False/Unknown-balanced probe -- this is a
+      recorded, not silent, scope narrowing; see CLAUDE.md's
+      "label_bias_note" wording and exemplar_unknown_v2.json's own
+      "label_bias_note" field for why this may bias toward Unknown). The
+      exemplar's theory/question/answer are the official train-split strings
+      verbatim; its one-sentence "reasoning" is THIS PROJECT'S OWN
+      CONSTRUCTION under OWA semantics, explicitly NOT the official proof
+      (see exemplar_unknown_v2.json's "reasoning_provenance" field for why
+      the official proof_text could not be used directly -- it is CWA-style
+      and would misstate this task's OWA semantics).
+  (2) The final-answer marker changes from a free-standing "Answer: <Label>"
+      line to a "#### <Label>" line (matching this repo's GSM8K/MATH/BBH/
+      LogiQA/CRUXEval-O "####"-marker convention), on the theory that a
+      terser, more familiar-to-the-model marker token may reduce the
+      elaboration/looping v1 still showed. TASK_INSTRUCTIONS is updated to
+      match; SYSTEM_RULES (the OWA semantics) is BYTE-UNCHANGED from v0/v1.
+The exemplar's own worked answer uses THIS SAME "#### <Label>" marker (not
+v1's "Answer:" form) -- render_exemplar's marker style now follows the
+active prompt version's ANSWER_MARKER_PREFIX, so the model never sees two
+different marker conventions inside one prompt.
 """
 
 from __future__ import annotations
@@ -51,7 +78,7 @@ SYSTEM_RULES = (
     "by itself make the answer False -- only a proof of the negation does.\n"
 )
 
-TASK_INSTRUCTIONS = (
+TASK_INSTRUCTIONS_V1 = (
     "Reason briefly in at most 5 steps.\n"
     "Do not write code, restate the theory, or repeat previous steps.\n"
     "After reasoning, output exactly one final line using one of these "
@@ -61,6 +88,26 @@ TASK_INSTRUCTIONS = (
     "Answer: Unknown\n"
     "Stop immediately after that line.\n"
 )
+
+# v2 (2026-09-05): the marker changes from "Answer: <Label>" to
+# "#### <Label>", matching this repo's GSM8K/MATH/BBH/LogiQA/CRUXEval-O
+# convention. Everything else in TASK_INSTRUCTIONS is unchanged from v1.
+TASK_INSTRUCTIONS_V2 = (
+    "Reason briefly in at most 5 steps.\n"
+    "Do not write code, restate the theory, or repeat previous steps.\n"
+    "After reasoning, output exactly one final line using one of these "
+    "three forms:\n"
+    "#### True\n"
+    "#### False\n"
+    "#### Unknown\n"
+    "Stop immediately after that line.\n"
+)
+
+# Kept as the un-suffixed name for backward compatibility with any existing
+# caller that imports TASK_INSTRUCTIONS directly; PROMPT_TEMPLATE_ID below is
+# v2's, so this alias also now points at v2's instructions. v1's exact text
+# remains available (byte-unchanged) as TASK_INSTRUCTIONS_V1.
+TASK_INSTRUCTIONS = TASK_INSTRUCTIONS_V2
 
 # {theory} and {question} are filled with the OFFICIAL, byte-unchanged
 # strings from the release. No exemplar block by default (n_shot=0).
@@ -73,25 +120,51 @@ BASE_TEMPLATE = (
     "Let's think step by step.\n"
 )
 
+# The marker prefix used both in TASK_INSTRUCTIONS and in the worked
+# exemplar's own answer line -- kept as ONE constant so the two can never
+# silently drift apart (the v1->v2 change is exactly this kind of drift risk:
+# TASK_INSTRUCTIONS says "####" while an exemplar still built with the old
+# render_exemplar default would have said "Answer:").
+ANSWER_MARKER_PREFIX_V1 = "Answer:"
+ANSWER_MARKER_PREFIX_V2 = "####"
+ANSWER_MARKER_PREFIX = ANSWER_MARKER_PREFIX_V2
 
-def render_exemplar(theory: str, question: str, answer: str, reasoning: str) -> str:
+
+def render_exemplar(theory: str, question: str, answer: str, reasoning: str,
+                     marker_prefix: str = ANSWER_MARKER_PREFIX) -> str:
     """One frozen few-shot exemplar block. `reasoning` is a short, fixed,
     hand-written justification -- never sampled from a model and never taken
-    from test-split proofs."""
+    from test-split proofs. `marker_prefix` must match whichever
+    TASK_INSTRUCTIONS variant is in use ("Answer:" for v1, "####" for v2),
+    so the exemplar's own worked answer uses the SAME marker convention the
+    model is being asked to produce -- passing a mismatched value here would
+    silently show the model two different final-answer conventions in one
+    prompt."""
     return (
         f"Theory: {theory}\n"
         f"Question: {question}\n"
         f"{reasoning}\n"
-        f"Answer: {answer}\n\n"
+        f"{marker_prefix} {answer}\n\n"
     )
 
 
-def build_prompt(theory: str, question: str, exemplars: list[dict] | None = None) -> str:
+def build_prompt(theory: str, question: str, exemplars: list[dict] | None = None,
+                  task_instructions: str = TASK_INSTRUCTIONS_V2,
+                  marker_prefix: str = ANSWER_MARKER_PREFIX) -> str:
     """exemplars: list of {"theory","question","answer","reasoning"} dicts,
-    frozen train-split items only. Default None/[] = zero-shot."""
+    frozen train-split items only. Default None/[] = zero-shot.
+    `task_instructions` / `marker_prefix` default to v2; a caller can pass
+    TASK_INSTRUCTIONS_V1 / ANSWER_MARKER_PREFIX_V1 to reproduce the v1
+    template byte-for-byte (e.g. for a comparison run), but PROMPT_TEMPLATE_ID
+    below always reflects THIS MODULE's active default (v2) -- a caller
+    overriding these two arguments is responsible for also overriding what it
+    records as its own prompt_template_id, exactly as get_answer_
+    proofwriter_owa.py already does by importing PROMPT_TEMPLATE_ID directly
+    rather than hardcoding a version string."""
     exemplar_block = ""
     if exemplars:
-        blocks = [render_exemplar(e["theory"], e["question"], e["answer"], e["reasoning"])
+        blocks = [render_exemplar(e["theory"], e["question"], e["answer"],
+                                  e["reasoning"], marker_prefix=marker_prefix)
                   for e in exemplars]
         exemplar_block = (
             "Here are worked examples using the same rules (these use "
@@ -103,9 +176,9 @@ def build_prompt(theory: str, question: str, exemplars: list[dict] | None = None
         system_rules=SYSTEM_RULES,
         theory=theory,
         question=question,
-        task_instructions=TASK_INSTRUCTIONS,
+        task_instructions=task_instructions,
         exemplar_block=exemplar_block,
     )
 
 
-PROMPT_TEMPLATE_ID = "proofwriter-owa-cot-v1"
+PROMPT_TEMPLATE_ID = "proofwriter-owa-cot-v2"
