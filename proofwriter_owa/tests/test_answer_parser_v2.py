@@ -34,12 +34,19 @@ def check(cond, msg):
     return bool(cond)
 
 
-def test_basic_last_marker_wins_v2():
+def test_basic_first_marker_wins_v2():
+    # Revised 2026-09-05 (human decision): MAIN scoring is FIRST-marker, not
+    # last -- Llama3's v2 preflight showed a genuine answer followed by a
+    # degenerate trailing loop, which "last wins" would have scored instead
+    # of the model's actual (first) answer.
     text = ("Step 1: X implies Y.\n#### True\nWait, reconsidering...\n"
             "#### False\n")
     r = parse_final_answer_v2(text)
-    check(r.label == "False", f"last marker should win, got {r.label!r}")
+    check(r.label == "True", f"first marker should win, got {r.label!r}")
     check(r.n_strict_markers == 2, f"expected 2 strict markers, got {r.n_strict_markers}")
+    check(r.all_strict_labels[-1] == "False",
+          "all_strict_labels[-1] must still recover the last-marker label "
+          "for the last-answer sensitivity analysis")
 
 
 def test_single_marker_v2():
@@ -116,9 +123,23 @@ def test_multiple_strict_markers_recorded_v2():
     text = "#### True\nreconsider...\n#### False\n#### Unknown\n"
     r = parse_final_answer_v2(text)
     check(r.n_strict_markers == 3, f"expected 3 strict markers recorded, got {r.n_strict_markers}")
-    check(r.label == "Unknown", f"last of 3 should win, got {r.label!r}")
+    check(r.label == "True", f"first of 3 should win, got {r.label!r}")
     check(r.all_strict_labels == ["True", "False", "Unknown"],
           f"expected all three recorded in order, got {r.all_strict_labels}")
+
+
+def test_degenerate_trailing_loop_does_not_overwrite_first_answer_v2():
+    # The exact failure pattern found in Llama3's v2 preflight: a genuine
+    # answer is submitted, then the model loops emitting further
+    # marker-shaped text (a repeated True/False/Unknown enumeration, or a
+    # repeated disclaimer) until the token budget is exhausted.
+    text = ("Step 1: reasoning...\n#### Unknown\n"
+            + "#### True\n#### False\n#### Unknown\n" * 50)
+    r = parse_final_answer_v2(text)
+    check(r.label == "Unknown",
+          f"a trailing degenerate loop must not overwrite the first, "
+          f"genuine answer, got {r.label!r}")
+    check(r.n_strict_markers == 151, f"expected 151 strict markers, got {r.n_strict_markers}")
 
 
 def test_is_true_last_line_v2():
@@ -139,9 +160,18 @@ def test_is_true_last_line_v2():
 
     revised_text = "#### True\nWait, reconsidering.\n#### False\n"
     r_revised = parse_final_answer_v2(revised_text)
-    check(r_revised.label == "False", f"got {r_revised.label!r}")
+    # Revised 2026-09-05: MAIN scoring takes the FIRST strict marker, so
+    # `label` is "True" here even though the model appears to revise to
+    # "False" -- is_true_last_line is a SEPARATE, purely descriptive check
+    # of whether the LAST strict marker (not necessarily the scored one)
+    # sits on the true last line; it is unaffected by which marker is
+    # scored and correctly still reads True here.
+    check(r_revised.label == "True", f"got {r_revised.label!r}")
+    check(r_revised.all_strict_labels[-1] == "False",
+          "the last marker is still recoverable via all_strict_labels[-1]")
     check(r_revised.is_true_last_line is True,
-          "the LAST marker here is also the true last line")
+          "the LAST marker here is also the true last line (this check is "
+          "independent of which marker was scored)")
 
 
 # ───────────────────── cross-family isolation ─────────────────────

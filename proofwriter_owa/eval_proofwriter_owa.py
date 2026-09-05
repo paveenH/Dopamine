@@ -4,28 +4,58 @@
 ProofWriter OWA scoring. The ONLY script that reads gold. Protocol
 `proofwriter-owa-v0`.
 
-PRIMARY METRIC: Exact Label Accuracy against official True/False/Unknown
-gold (proofwriter_owa/answer_parser.py, last-strict-marker, fail-closed).
+PRIMARY METRIC: Exact Label Accuracy against official True/False/Unknown gold
+(proofwriter_owa/answer_parser.py, FIRST-strict-marker, fail-closed; revised
+2026-09-05, human decision -- was last-strict-marker before this date). A
+sample with NO strict marker anywhere is scored as INCORRECT and stays in the
+denominator (never dropped) -- see `no_answer_rate` below.
 
 ALSO REPORTED: D3 accuracy, D5 accuracy, per-label accuracy, parse-failure
-rate, no-answer rate, invalid/multiple-final-answer rate, loop rate,
-truncation rate, generation token length.
+rate, no-answer rate (`no_answer_rate`), answered-only accuracy
+(`answered_only_accuracy`, DIAGNOSTIC ONLY -- restricted to samples with >=1
+strict marker, so it is NOT the primary metric and must never be cited as
+"the" accuracy; if a steering effect on overall accuracy is driven mainly by
+a drop in `no_answer_rate` rather than a rise in `answered_only_accuracy`,
+report it as "steering increased the rate of a valid, scoreable submission",
+never as "steering improved reasoning"), invalid/multiple-final-answer rate,
+first/last-marker disagreement rate, a LAST-ANSWER SENSITIVITY accuracy
+(scores `all_strict_labels[-1]` instead of `[0]`, i.e. the pre-2026-09-05
+convention, reported alongside -- never substituted for -- the FIRST-answer
+main metric), loop rate, truncation rate, generation token length.
 
 STATISTICS: each non-zero alpha vs that SAME model's own alpha=0. Exact
 two-sided McNemar; Holm correction with m=3 PER MODEL (three non-zero alpha).
-D3/D5 and per-label breakdowns are EXPLORATORY SUBGROUPS by default, reported
-in full but not pooled into the primary Holm family. Confidence intervals
-(when reported) are question-paired bootstrap. No dropping of unfavorable
-depths or labels anywhere in this script.
+McNemar/Holm/workpoint all consume the MAIN (FIRST-answer, no-marker-included)
+overall accuracy vector -- never `answered_only_accuracy` -- so a candidate
+workpoint's significance already reflects any change in `no_answer_rate`
+together with any change in per-answered correctness; it is not possible for
+a rise in the no-answer rate to be hidden from these statistics by scoring
+only answered samples. D3/D5 and per-label breakdowns are EXPLORATORY
+SUBGROUPS by default, reported in full but not pooled into the primary Holm
+family. Confidence intervals (when reported) are question-paired bootstrap.
+No dropping of unfavorable depths or labels anywhere in this script.
 
 WORKPOINT REPORTING: discrete argmax over the sampled alpha (ties -> smaller
 |alpha|); near-optimal region defined only over sampled points, kept separate
 from Holm significance. If no non-zero alpha survives Holm against alpha=0,
-the frozen sentence below is used verbatim and no workpoint is declared.
+the frozen sentence below is used verbatim and no workpoint is declared. If a
+declared workpoint's accuracy gain is driven mainly by a lower
+`no_answer_rate` rather than a higher `answered_only_accuracy`, that MUST be
+stated explicitly wherever the workpoint is reported (human decision,
+2026-09-05): "steering increased the rate of a valid, scoreable submission at
+this alpha", never "steering improved reasoning at this alpha" -- the two are
+different claims and this evaluator's output distinguishes them (compare
+`no_answer_rate` and `answered_only_accuracy` between alpha=0 and the
+candidate alpha) but does not automatically choose the wording.
 
 THIS IS PROOFWRITER'S OWN TASK-SPECIFIC DOSE EXPLORATION -- there is no
 "frozen GSM8K workpoint" being read here; every alpha in the sampled set is a
-candidate.
+candidate. There is NO feasibility gate on either model (human decision,
+2026-09-05, superseding the earlier stop-if-parse-failure-is-high stance):
+both models run the full four-point sweep regardless of parse_failure_rate or
+loop_rate; a model with a high `no_answer_rate`/`loop_rate` is reported with
+that caveat attached, never excluded from the sweep or silently marked
+infeasible.
 
 @author: proofwriter_owa task
 """
@@ -162,6 +192,14 @@ def score_cell(rows: list[dict], gold: dict, marker_family: str):
         text = r["generated"]
         parsed = parse_fn(text)
         correct = is_correct(parsed.label, g["answer"])
+        # LAST-ANSWER SENSITIVITY (kept, not deleted, per the 2026-09-05
+        # first-vs-last revision): all_strict_labels is the full ordered
+        # list regardless of which one parse_fn scored, so its last element
+        # recovers the pre-revision "last strict marker wins" label. Only
+        # meaningful when there IS at least one strict marker; None
+        # otherwise, same fail-closed convention as parsed.label.
+        last_label = parsed.all_strict_labels[-1] if parsed.all_strict_labels else None
+        correct_last = is_correct(last_label, g["answer"])
         # pre_answer_reasoning_tokens needs a real tokenizer; this evaluator
         # runs offline with none loaded. get_answer_proofwriter_owa.py
         # computes it at generation time (the tokenizer is already loaded
@@ -176,6 +214,7 @@ def score_cell(rows: list[dict], gold: dict, marker_family: str):
         out.append({
             "sample_id": sid, "dataset": g["dataset"], "gold": g["answer"],
             "pred": parsed.label, "correct": correct,
+            "pred_last": last_label, "correct_last": correct_last,
             "parse_status": parsed.status,
             "n_strict_markers": parsed.n_strict_markers,
             "n_loose_markers": parsed.n_loose_markers,
@@ -203,6 +242,19 @@ def get_marker_family_functions(marker_family: str):
 def summarize(scored: list[dict]):
     n = len(scored)
     acc = sum(1 for r in scored if r["correct"]) / n if n else None
+    # LAST-ANSWER SENSITIVITY (2026-09-05 revision): same denominator (all n
+    # items, no-marker still counted incorrect), scored against the LAST
+    # strict marker instead of the FIRST. Reported alongside, never in place
+    # of, the FIRST-answer main accuracy above.
+    acc_last = sum(1 for r in scored if r["correct_last"]) / n if n else None
+    # ANSWERED-ONLY accuracy (DIAGNOSTIC ONLY, human decision 2026-09-05):
+    # restricted to samples with >=1 strict marker. This number alone can
+    # look good even when no_answer_rate is high, so it must always be read
+    # together with no_answer_rate/parse_failure_rate, never cited by
+    # itself as "the" accuracy.
+    answered = [r for r in scored if r["n_strict_markers"] >= 1]
+    answered_only_acc = (sum(1 for r in answered if r["correct"]) / len(answered)
+                         if answered else None)
     by_ds = {}
     for ds in ("D3", "D5"):
         rs = [r for r in scored if r["dataset"] == ds]
@@ -219,6 +271,13 @@ def summarize(scored: list[dict]):
     n_no_answer = sum(1 for r in scored if r["n_strict_markers"] == 0)
     n_multi = sum(1 for r in scored if r["n_strict_markers"] > 1
                   or r["n_loose_markers"] > 1)
+    # first_last_disagreement: among samples with >=2 strict markers, how
+    # many have a DIFFERENT first vs. last label. Denominator is that
+    # multi-marker subset, not all n -- a single-marker sample cannot
+    # disagree with itself, and folding it into an all-n denominator would
+    # silently understate the rate among samples where it is even possible.
+    multi_strict = [r for r in scored if r["n_strict_markers"] >= 2]
+    n_disagree = sum(1 for r in multi_strict if r["pred"] != r["pred_last"])
     n_loop = sum(1 for r in scored if r["loop"])
     n_trunc = sum(1 for r in scored if r["truncated"])
     lens = sorted(r["generated_token_count"] for r in scored
@@ -233,10 +292,23 @@ def summarize(scored: list[dict]):
 
     return {
         "n": n, "accuracy": acc,
+        "sensitivity_last_answer_accuracy": acc_last,
+        "answered_only_accuracy": {
+            "value": answered_only_acc, "n": len(answered),
+            "scope": ("DIAGNOSTIC ONLY -- restricted to samples with >=1 "
+                     "strict marker; never cite alone, always alongside "
+                     "no_answer_rate/parse_failure_rate"),
+        },
         "by_dataset": by_ds, "by_label": by_label,
         "parse_failure_rate": n_parse_fail / n if n else None,
         "no_answer_rate": n_no_answer / n if n else None,
         "invalid_or_multiple_marker_rate": n_multi / n if n else None,
+        "multiple_marker_rate": n_multi / n if n else None,
+        "first_last_disagreement_rate": {
+            "value": (n_disagree / len(multi_strict) if multi_strict else None),
+            "n": len(multi_strict),
+            "denominator": "samples with >=2 strict markers",
+        },
         "loop_rate": n_loop / n if n else None,
         "truncation_rate": n_trunc / n if n else None,
         "true_last_line_rate": (n_true_last_line / len(ok_rows)
@@ -546,6 +618,23 @@ def main():
                 "not pooled into the primary per-model Holm(m=3) family. "
                 "Commitment-extractor fields are descriptive co-occurrence "
                 "statistics only, never causal mediation evidence."),
+        "note_scoring_convention": (
+            "Human decision, 2026-09-05: MAIN accuracy (and everything "
+            "derived from it -- McNemar, Holm, workpoint) scores the FIRST "
+            "strict marker per sample (was the LAST strict marker before "
+            "this date). A sample with zero strict markers is scored "
+            "INCORRECT and stays in the denominator -- see per-cell "
+            "no_answer_rate. `sensitivity_last_answer_accuracy` reports the "
+            "pre-2026-09-05 last-marker convention alongside, never in "
+            "place of, the FIRST-answer main metric. `answered_only_accuracy` "
+            "restricts to samples with >=1 strict marker and is DIAGNOSTIC "
+            "ONLY -- if a workpoint's accuracy gain is driven mainly by a "
+            "lower no_answer_rate rather than a higher "
+            "answered_only_accuracy, report it as an increase in the rate "
+            "of a valid, scoreable submission, never as improved reasoning. "
+            "There is NO feasibility gate on either model: both run the "
+            "full four-point sweep regardless of parse_failure_rate/"
+            "loop_rate/no_answer_rate."),
         # Renamed from "note_llama3_loop_rate" to a model-neutral name
         # (review finding, 2026-09-04): this note is written into EVERY
         # report regardless of which model(s) it covers, and the original
@@ -589,9 +678,12 @@ def main():
         high_loop_alphas = []
         for al in r["alphas_present"]:
             c = r["cells"][str(al)]
+            ans_only = c["answered_only_accuracy"]["value"]
             print(f"  alpha={al:>3}  acc={c['accuracy']:.4f}  "
                   f"D3={c['by_dataset']['D3']['accuracy']}  "
                   f"D5={c['by_dataset']['D5']['accuracy']}  "
+                  f"no_answer={c['no_answer_rate']:.3f}  "
+                  f"answered_only_acc={('%.4f' % ans_only) if ans_only is not None else None}  "
                   f"parse_fail={c['parse_failure_rate']:.3f}  "
                   f"loop={c['loop_rate']}  "
                   f"trunc={c['truncation_rate']}")

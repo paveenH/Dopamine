@@ -3,15 +3,32 @@
 """
 Final-label parser for ProofWriter OWA generations. FAIL-CLOSED.
 
-Rules (PREREG_PROOFWRITER_OWA.md S8), verbatim, apply to BOTH marker families
-below:
+Rules (PREREG_PROOFWRITER_OWA.md S8, REVISED 2026-09-05 human decision), apply
+to BOTH marker families below:
   - parses only the generated continuation, never the input context (callers
     must pass ONLY the model's continuation, not prompt+continuation)
-  - prefers the LAST valid strict marker
+  - MAIN scoring prefers the FIRST valid strict marker (revised 2026-09-05;
+    was "prefers the LAST" before this date -- see the note below)
   - does NOT treat an ordinary true/false/unknown word in the reasoning body
     as a final answer -- only an explicit marker line counts
   - if there is no unique legal final answer, it is a PARSE FAILURE
   - no LLM judge anywhere
+
+FIRST-vs-LAST (human decision, 2026-09-05): MAIN scoring was changed from
+"last strict marker wins" to "first strict marker wins". Rationale: this task
+studies the model's first COMMITMENT, and Llama3's v2 preflight showed a
+severe post-answer degenerate-repetition tendency (a model correctly emits
+"#### Unknown" after genuine reasoning, then loops emitting further marker-
+shaped text -- either a repeated disclaimer or a repeated True/False/Unknown
+enumeration -- until the token budget is exhausted). Under "last wins", that
+trailing loop noise, not the model's actual answer, was what got scored.
+`ParseResult.label` (the field every caller reads) is now the FIRST strict
+marker's label. `all_strict_labels` (unchanged) is still the full ordered
+list, so `all_strict_labels[-1]` recovers the last-marker label for the
+LAST-ANSWER SENSITIVITY analysis (`eval_proofwriter_owa.py`'s
+`answered_only_accuracy`-adjacent `sensitivity_last_answer` block) -- this
+sensitivity view is kept, not deleted, exactly so the two conventions stay
+comparable rather than the older one silently vanishing.
 
 TWO MARKER FAMILIES (v1 "Answer: <Label>", v2 "#### <Label>"), NEITHER
 REPLACES THE OTHER. v1's frozen preflight results (PREREG_PROOFWRITER_OWA.md
@@ -172,38 +189,46 @@ def _last_marker_is_true_last_line_v2(continuation: str) -> bool:
 def parse_final_answer(continuation: str) -> ParseResult:
     """v1 PARSER. Fail-closed: label is None (parse failure) unless there is
     at least one STRICT line-anchored 'Answer: <Label>' marker. When >=1
-    exist, the LAST one is authoritative -- this is a deliberate design
-    choice (a model may revise its answer mid-reasoning and restate a
-    corrected line last), not an accident of regex ordering. Whether that
-    marker is ALSO the literal last line of the response (as the frozen
-    prompt instructs) is recorded separately in `is_true_last_line` and
-    never changes `label`.
+    exist, the FIRST one is authoritative (revised 2026-09-05, human
+    decision: this task studies first commitment, and a trailing degenerate
+    loop must not overwrite an already-submitted answer). `all_strict_labels`
+    still records every strict marker in order, so `all_strict_labels[-1]`
+    recovers the pre-2026-09-05 last-marker convention for the last-answer
+    sensitivity analysis. Whether the SCORED (first) marker is ALSO the
+    literal last line of the response (as the frozen prompt instructs) is
+    recorded separately in `is_true_last_line` and never changes `label`.
     """
     strict = find_all_markers(continuation)
     loose = find_all_markers_loose(continuation)
     if not strict:
         return ParseResult(None, "no_marker", 0, len(loose), [], False)
-    return ParseResult(strict[-1], "ok", len(strict), len(loose), strict,
+    return ParseResult(strict[0], "ok", len(strict), len(loose), strict,
                        _last_marker_is_true_last_line(continuation))
 
 
 def parse_final_answer_v2(continuation: str) -> ParseResult:
-    """v2 PARSER (human decision, Q2, 2026-09-05): fail-closed, scores ONLY a
-    STRICT line-anchored '#### <Label>' marker -- a marker that appears
-    inline/mid-line ("...so #### True is my answer") is counted by the loose
-    detector for diagnostics only and is NEVER promoted to a scored answer,
-    even when it is the only marker-like text in the continuation. When >=1
-    strict markers exist, the LAST one is authoritative (same
-    revision-tolerance rationale as v1's parse_final_answer), and the total
-    count of strict markers is always recorded via n_strict_markers so
-    'multiple final markers' is visible per-sample regardless of which one
-    was scored.
+    """v2 PARSER (human decision, Q2 2026-09-05; FIRST-marker revision, human
+    decision, 2026-09-05): fail-closed, scores ONLY a STRICT line-anchored
+    '#### <Label>' marker -- a marker that appears inline/mid-line ("...so
+    #### True is my answer") is counted by the loose detector for
+    diagnostics only and is NEVER promoted to a scored answer, even when it
+    is the only marker-like text in the continuation. When >=1 strict
+    markers exist, the FIRST one is authoritative (this task studies first
+    commitment; a trailing degenerate loop -- e.g. a model correctly
+    emitting "#### Unknown" and then looping further marker-shaped text
+    until the token budget is exhausted -- must not overwrite an
+    already-submitted answer). The total count of strict markers is always
+    recorded via n_strict_markers, and the full ordered list via
+    `all_strict_labels`, so 'multiple final markers' and the last-marker
+    label (`all_strict_labels[-1]`, used only for the last-answer
+    sensitivity analysis) remain visible per-sample regardless of which one
+    is scored.
     """
     strict = find_all_markers_v2(continuation)
     loose = find_all_markers_loose_v2(continuation)
     if not strict:
         return ParseResult(None, "no_marker", 0, len(loose), [], False)
-    return ParseResult(strict[-1], "ok", len(strict), len(loose), strict,
+    return ParseResult(strict[0], "ok", len(strict), len(loose), strict,
                        _last_marker_is_true_last_line_v2(continuation))
 
 

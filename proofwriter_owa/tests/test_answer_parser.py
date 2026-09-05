@@ -28,12 +28,18 @@ def check(cond, msg):
     return bool(cond)
 
 
-def test_basic_last_marker_wins():
+def test_basic_first_marker_wins():
+    # Revised 2026-09-05 (human decision): MAIN scoring is FIRST-marker, not
+    # last -- this task studies first commitment, and a trailing degenerate
+    # loop must not overwrite an already-submitted answer.
     text = ("Step 1: X implies Y.\nAnswer: True\nWait, reconsidering...\n"
             "Answer: False\n")
     r = parse_final_answer(text)
-    check(r.label == "False", f"last marker should win, got {r.label!r}")
+    check(r.label == "True", f"first marker should win, got {r.label!r}")
     check(r.n_strict_markers == 2, f"expected 2 strict markers, got {r.n_strict_markers}")
+    check(r.all_strict_labels[-1] == "False",
+          "all_strict_labels[-1] must still recover the last-marker label "
+          "for the last-answer sensitivity analysis")
 
 
 def test_single_marker():
@@ -134,6 +140,19 @@ def test_multi_label_first_vs_last_are_distinguishable():
     r = parse_final_answer(text)
     check(r.all_strict_labels == ["True", "True"],
           f"expected two identical markers recorded, got {r.all_strict_labels}")
+
+
+def test_degenerate_trailing_loop_does_not_overwrite_first_answer():
+    # This is the exact failure pattern found in Llama3's v2 preflight: a
+    # genuine answer is submitted, then the model loops emitting further
+    # marker-shaped text until the token budget is exhausted. Scoring must
+    # take the FIRST (genuine) answer, not whatever the loop lands on last.
+    text = ("Step 1: reasoning...\nAnswer: Unknown\n" + "Answer: True\n" * 50)
+    r = parse_final_answer(text)
+    check(r.label == "Unknown",
+          f"a trailing degenerate loop must not overwrite the first, "
+          f"genuine answer, got {r.label!r}")
+    check(r.n_strict_markers == 51, f"expected 51 strict markers, got {r.n_strict_markers}")
 
 
 def main():
