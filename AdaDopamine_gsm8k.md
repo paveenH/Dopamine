@@ -1015,6 +1015,26 @@ ProofWriter-OWA 使用显式 CoT、固定的单个 Unknown 训练集示例和 fi
 
 Llama 的 `+4` 将整体准确率提高 **11.33 pp** 并通过 Holm 校正，但同时主要表现为无答案率下降，且所有剂量均伴随极高的循环和截断，因此更适合解释为 steering 提高了有效答案提交率，而非已经证明推理能力增强。Qwen 的最高观测点为 `+8`（+5.67 pp），但未通过 Holm 校正；这条探索至此结束，不继续扩展剂量或修改 prompt。
 
+
+### 5.5d ZebraLogic-Easy: No Positive Workpoint and a High-Dose Failure Boundary
+
+ZebraLogic-Easy 使用 280 题、1024-token 固定预算和 first-answer JSON 主评分；无完整答案计错，并在每个模型内对三个非零剂量执行 Holm 校正。
+
+**Table 5.5d. ZebraLogic-Easy task-specific four-point sweep**
+
+| Model | α | Puzzle Accuracy | Δ vs 0 | No answer | Raw p | Holm p_adj |
+|---|---:|---:|---:|---:|---:|---:|
+| Llama3.1-8B | 0 | **36.79%** | — | 25.4% | — | — |
+| Llama3.1-8B | −6 | 35.71% | −1.07 pp | 24.3% | .749 | .749 |
+| Llama3.1-8B | −4 | 33.93% | −2.86 pp | 25.0% | .256 | .512 |
+| Llama3.1-8B | +4 | 32.14% | −4.64 pp | 25.0% | .066 | .198 |
+| Qwen2.5-7B | 0 | 34.64% | — | 0.0% | — | — |
+| Qwen2.5-7B | −6 | 30.00% | −4.64 pp | 0.0% | .079 | .158 |
+| Qwen2.5-7B | +6 | **36.07%** | +1.43 pp | 0.4% | .678 | .678 |
+| Qwen2.5-7B | +8 | 23.93% | **−10.71 pp** | **60.7%** | **1.3e−4** | **4.0e−4** |
+
+两个模型均未检测到显著正向 workpoint：Llama 的四格在固定预算下均伴随 100% 截断和约 90%–95% 循环，而 Qwen `+8` 构成显著负向边界，主要表现为无答案率骤升；因此本实验到此结束，不将 Qwen `+6` 的数值最高点解释为已确立的 workpoint。
+
 ### 5.6 Conclusion
 
 Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH 和 GSM-Hard 提供有用的剂量排序信息。补充的后补剂量（MATH `−8/−6`、GSM8K CoT 扩展曲线、GSM-Hard 邻点）在多数情况下与 predictor 的原始排序保持一致，但这些补充分析均为回顾性的 post-hoc stress test，不构成新的盲测证据。BBH object counting 是一个反例：它与冻结 adapter 兼容，但其本身的 steering 效果是 null，predictor 的排序也未命中 observed best，说明 predictor 的有效性依赖于目标任务本身存在可检测的剂量效应。
