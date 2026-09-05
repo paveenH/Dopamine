@@ -22,10 +22,46 @@ function of (prediction_text, solution_table). The caller
 (zebralogic/eval_zebralogic.py) is responsible for sourcing `solution_table`
 from allenai/ZebraLogicBench-private and for refusing to run without it.
 
+zebralogic-easy-amend-01 (docs/zebralogic_easy_amendment_01.json): the MAIN
+score is now `score_one_item_first` (FIRST complete JSON, via
+commitment_metrics.find_first_complete_json), not `score_one_item`
+(official LAST-complete-JSON scoring). `score_one_item` /
+`extract_last_complete_json` are UNCHANGED and kept as the LAST-JSON
+sensitivity readout -- see eval_zebralogic.py's score_rows(). This module
+never decides which one is MAIN; that is eval_zebralogic.py's job.
+
 @author: paveenhuang
 """
 
 import json
+
+
+def score_prediction_table(prediction_table, solution_table):
+    """Cell/puzzle comparison logic shared by score_one_item (LAST, official)
+    and score_one_item_first (FIRST, amend-01 main). Ported from the same
+    upstream cell-comparison block inside eval_model()'s single-prediction
+    branch -- factored out so the two callers cannot silently diverge in how
+    a cell is compared (None/list/str handling, case-insensitive strip)."""
+    total_cells = sum(len(cols) for cols in solution_table.values())
+    correct_cells = 0
+    for house in solution_table:
+        for column in solution_table[house]:
+            if house in prediction_table and column in prediction_table[house]:
+                truth_cell = solution_table[house][column].lower().strip()
+                cell = prediction_table[house][column]
+                if cell is None:
+                    continue
+                if isinstance(cell, list):
+                    if not cell:
+                        continue
+                    predicted_cell = str(cell[0]).lower().strip()
+                elif isinstance(cell, str):
+                    predicted_cell = cell.lower().strip()
+                else:
+                    raise ValueError(f"Unknown cell value type: {type(cell)}")
+                if truth_cell == predicted_cell:
+                    correct_cells += 1
+    return correct_cells, total_cells
 
 
 def extract_last_complete_json(s: str):
@@ -118,28 +154,59 @@ def score_one_item(generated_text: str, solution_table: dict):
     prediction_table = parsed["solution"]
     reasoning = parsed.get("reasoning", "")
 
-    correct_cells = 0
-    for house in solution_table:
-        for column in solution_table[house]:
-            if house in prediction_table and column in prediction_table[house]:
-                truth_cell = solution_table[house][column].lower().strip()
-                cell = prediction_table[house][column]
-                # upstream handles None and list-valued cells defensively;
-                # ported verbatim rather than assuming a clean string.
-                if cell is None:
-                    continue
-                if isinstance(cell, list):
-                    if not cell:
-                        continue
-                    predicted_cell = str(cell[0]).lower().strip()
-                elif isinstance(cell, str):
-                    predicted_cell = cell.lower().strip()
-                else:
-                    # upstream raises ValueError on an unknown type; we do the
-                    # same rather than silently coercing an unexpected shape.
-                    raise ValueError(f"Unknown cell value type: {type(cell)}")
-                if truth_cell == predicted_cell:
-                    correct_cells += 1
+    # upstream handles None and list-valued cells defensively, and raises
+    # ValueError on an unknown cell type; score_prediction_table reproduces
+    # that behavior verbatim (factored out so score_one_item_first cannot
+    # silently diverge in how a cell is compared).
+    correct_cells, _ = score_prediction_table(prediction_table, solution_table)
+
+    return {
+        "parsed": True,
+        "correct_cells": correct_cells,
+        "total_cells": total_cells,
+        "solved": correct_cells == total_cells,
+        "prediction_table": prediction_table,
+        "reasoning": reasoning,
+    }
+
+
+def score_one_item_first(generated_text: str, solution_table: dict, find_first_complete_json):
+    """zebralogic-easy-amend-01 MAIN scoring: identical to score_one_item
+    (same no-answer handling, same cell-comparison rules via
+    score_prediction_table) except the JSON extractor is the FORWARD-scanning
+    `find_first_complete_json` (commitment_metrics.py) instead of the
+    official backward-scanning `extract_last_complete_json`.
+
+    `find_first_complete_json` is passed in rather than imported at module
+    level, to keep this module's only import a stdlib one and to make the
+    caller's choice of extractor explicit at the call site (this function is
+    the ONLY place in the codebase that scores FIRST-JSON puzzle/cell
+    accuracy -- it must never silently import a different extractor than the
+    one commitment_metrics.py itself uses to define `solution_first_rate` /
+    `first_solution_pos`, or the "first JSON" the accuracy number describes
+    and the "first JSON" the commitment metrics describe could drift apart).
+
+    Returns the same shape as score_one_item, i.e. a dict with parsed/
+    correct_cells/total_cells/solved/prediction_table/reasoning. No-answer
+    handling matches score_one_item exactly: extraction failure, a missing
+    "solution" key, or a None "solution" value all count as NOT parsed.
+    """
+    total_cells = sum(len(cols) for cols in solution_table.values())
+
+    parsed, _first_start, _first_end = find_first_complete_json(generated_text)
+    if parsed is None or "solution" not in parsed or parsed["solution"] is None:
+        return {
+            "parsed": False,
+            "correct_cells": 0,
+            "total_cells": total_cells,
+            "solved": False,
+            "prediction_table": None,
+            "reasoning": "",
+        }
+
+    prediction_table = parsed["solution"]
+    reasoning = parsed.get("reasoning", "")
+    correct_cells, _ = score_prediction_table(prediction_table, solution_table)
 
     return {
         "parsed": True,

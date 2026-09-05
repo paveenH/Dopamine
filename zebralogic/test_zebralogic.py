@@ -31,6 +31,7 @@ sys.path.insert(0, _REPO_ROOT)  # get_answer_zebralogic.py imports `llms` and
 from official_zebra_grid_template import apply_lgp_grid_template, ZEBRA_GRID
 from official_zebra_grid_scorer import (
     extract_last_complete_json, build_solution_table, score_one_item,
+    score_one_item_first,
 )
 from commitment_metrics import (
     find_first_complete_json, is_strict_loop, grid_is_fully_specified,
@@ -153,6 +154,43 @@ def test_official_scorer_on_official_example():
         '"Name": "Arnold"', '"Name": ["Arnold"]')
     sc6 = score_one_item(list_cell, table)
     check("list-valued cell scores correctly", sc6["correct_cells"] == 6)
+
+
+def test_score_one_item_first_vs_last():
+    """zebralogic-easy-amend-01: score_one_item_first (MAIN, FIRST-complete-
+    JSON) must (a) reproduce score_one_item exactly when there is only one
+    JSON object in the text (no drift on the common case), and (b) actually
+    diverge from score_one_item when the model revises its answer in a LATER
+    JSON block -- this is the whole point of the amendment, so it must be
+    covered by more than "does not crash"."""
+    table = build_solution_table(OFFICIAL_EXAMPLE_SOLUTION)
+
+    # (a) single JSON object: FIRST and LAST must agree exactly.
+    sc_first = score_one_item_first(OFFICIAL_EXAMPLE_ANSWER_TEXT, table, find_first_complete_json)
+    sc_last = score_one_item(OFFICIAL_EXAMPLE_ANSWER_TEXT, table)
+    check("single-JSON text: FIRST reproduces LAST's parsed/solved/cells",
+          (sc_first["parsed"], sc_first["solved"], sc_first["correct_cells"]) ==
+          (sc_last["parsed"], sc_last["solved"], sc_last["correct_cells"]))
+
+    # (b) two JSON objects, first wrong (5/6) then a later "revision" that is
+    # fully correct: FIRST must score the WRONG one, LAST must score the
+    # corrected one -- this divergence is the reason amend-01 exists.
+    wrong_first = OFFICIAL_EXAMPLE_ANSWER_TEXT.replace('"Drink": "tea"', '"Drink": "coffee"')
+    two_jsons = wrong_first + " Wait, let me reconsider. " + OFFICIAL_EXAMPLE_ANSWER_TEXT
+    sc_f = score_one_item_first(two_jsons, table, find_first_complete_json)
+    sc_l = score_one_item(two_jsons, table)
+    check("revision text: FIRST scores the wrong early answer (5/6, not solved)",
+          sc_f["correct_cells"] == 5 and sc_f["solved"] is False)
+    check("revision text: LAST scores the corrected later answer (6/6, solved)",
+          sc_l["correct_cells"] == 6 and sc_l["solved"] is True)
+
+    # no-answer / null-solution handling must match score_one_item exactly.
+    sc_none = score_one_item_first("I could not solve this puzzle.", table, find_first_complete_json)
+    check("FIRST: no-json text not parsed", sc_none["parsed"] is False)
+    check("FIRST: no-json text total_cells still reported", sc_none["total_cells"] == 6)
+    sc_null = score_one_item_first(
+        json.dumps({"reasoning": "x", "solution": None}), table, find_first_complete_json)
+    check("FIRST: null solution not parsed", sc_null["parsed"] is False)
 
 
 def test_commitment_metrics_first_json():
@@ -820,13 +858,21 @@ def test_max_new_tokens_hard_guard():
     """Review finding (2026-09-04): prereg S3 says 2048 is default and 3072
     is the ONLY allowed escalation (4096 explicitly out of scope), but
     nothing enforced this beyond human discipline. Fixed with a hard
-    --max_new_tokens allowlist check in main()."""
+    --max_new_tokens allowlist check in main().
+
+    zebralogic-easy-amend-01 (2026-09-05): 1024 was ADDED to the allowed set
+    after the 2048/3072 preflight diagnosis showed neither Llama's 12/35
+    unparsed rows (an answer-formation-time loop, unchanged 2048->3072) nor
+    any parsed row (all complete well under 400 tokens on both models)
+    benefits from a larger budget. 4096 stays out of scope; this amendment
+    only adds a smaller, faster allowed value.
+    """
     import get_answer_zebralogic as gaz
 
+    check("1024 is allowed", 1024 in gaz.ALLOWED_MAX_NEW_TOKENS)
     check("2048 is allowed", 2048 in gaz.ALLOWED_MAX_NEW_TOKENS)
     check("3072 is allowed", 3072 in gaz.ALLOWED_MAX_NEW_TOKENS)
     check("4096 is NOT allowed", 4096 not in gaz.ALLOWED_MAX_NEW_TOKENS)
-    check("1024 is NOT allowed", 1024 not in gaz.ALLOWED_MAX_NEW_TOKENS)
 
 
 def test_existing_cell_is_valid_guards():
@@ -1312,6 +1358,7 @@ def main():
     test_extract_last_complete_json()
     print("== official scorer on the official worked example ==")
     test_official_scorer_on_official_example()
+    test_score_one_item_first_vs_last()
     print("== commitment metrics: first-json ==")
     test_commitment_metrics_first_json()
     print("== commitment metrics: first/final agreement ==")

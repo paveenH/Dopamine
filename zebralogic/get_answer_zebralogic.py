@@ -3,7 +3,9 @@
 """
 ZebraLogic-Easy generation for the zebralogic-easy-v0 four-point workpoint
 exploration. LABEL-FREE (reads only the *_blind.json shape scaffold, never a
-real solution cell). Protocol: docs/PREREG_ZEBRALOGIC_EASY.md.
+real solution cell). Protocol: docs/PREREG_ZEBRALOGIC_EASY.md, amended by
+docs/zebralogic_easy_amendment_01.json (2026-09-05: 1024 added as an allowed
+--max_new_tokens; see ALLOWED_MAX_NEW_TOKENS below for why).
 
 Mirrors get_answer_bbh_numeric.py's structure and conventions:
   - alpha=0 passes a REAL all-zero diff matrix, unconditional. Hooks register
@@ -92,7 +94,17 @@ CANARY_INDICES = tuple(i * N_PER_SIZE for i in range(N_SIZES)) + (N_EASY - 1,)
 # Prereg S3 (2026-09-04): 2048 is the default, 3072 is the ONLY allowed
 # escalation step, and 4096 is explicitly out of scope. Enforced structurally
 # so this cannot be silently bumped by a launcher typo or an ad-hoc override.
-ALLOWED_MAX_NEW_TOKENS = (2048, 3072)
+#
+# zebralogic-easy-amend-01 (2026-09-05, docs/zebralogic_easy_amendment_01.json):
+# the 2048/3072 preflight diagnosis showed Llama's 12/35 unparsed+truncated
+# rows are an answer-formation-time loop (never reaches a JSON at all, not a
+# token-budget shortfall -- confirmed at 3072, unchanged from 2048), and the
+# 23 rows that DO parse complete their first JSON well under 1024 tokens
+# (Llama median first-JSON-end well under 350 tokens; Qwen under 400 on all
+# 35). So 1024 is added as a FASTER budget, not a replacement for 2048/3072:
+# more tokens cannot fix a pre-JSON loop, and no parsed row needs the extra
+# headroom. 4096 is still out of scope; nothing above 3072 is added.
+ALLOWED_MAX_NEW_TOKENS = (1024, 2048, 3072)
 
 # Frozen four-point dose sets, read from docs/PREREG_ZEBRALOGIC_EASY.md
 # section 3 -- this script refuses any --configs alpha outside these sets in
@@ -238,8 +250,9 @@ def main():
     if args.max_new_tokens not in ALLOWED_MAX_NEW_TOKENS:
         sys.exit(f"FAIL: --max_new_tokens={args.max_new_tokens} not in the "
                  f"prereg-allowed set {ALLOWED_MAX_NEW_TOKENS} (docs/"
-                 "PREREG_ZEBRALOGIC_EASY.md section 3). 2048 is default, "
-                 "3072 is the ONLY allowed escalation, 4096 is out of scope.")
+                 "PREREG_ZEBRALOGIC_EASY.md section 3 + zebralogic-easy-"
+                 "amend-01). 1024/2048/3072 are the only allowed budgets, "
+                 "4096 is out of scope.")
     meta, all_samples = load_items(args.items, args.model)
 
     if args.mode == "preflight":

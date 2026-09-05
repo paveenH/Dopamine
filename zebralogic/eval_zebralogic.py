@@ -2,7 +2,24 @@
 # -*- coding: utf-8 -*-
 """
 ZebraLogic-Easy scoring. The ONLY script that reads gold. Protocol
-zebralogic-easy-v0 (docs/PREREG_ZEBRALOGIC_EASY.md).
+zebralogic-easy-v0 (docs/PREREG_ZEBRALOGIC_EASY.md), amended by
+zebralogic-easy-amend-01 (docs/zebralogic_easy_amendment_01.json, 2026-09-05):
+
+  - MAIN scoring is now FIRST-complete-JSON (score_one_item_first, via
+    commitment_metrics.find_first_complete_json), not the official LAST-
+    complete-JSON scoring (score_one_item / extract_last_complete_json).
+    Rationale: an unanswered puzzle previously still had its LAST JSON (if
+    any late garbage happened to parse) graded; scoring the FIRST complete
+    JSON matches what "the model's answer" means for a commitment-timing
+    analysis and avoids crediting/blaming a post-answer revision. See the
+    amendment file for the full decision record.
+  - `score_one_item` / `extract_last_complete_json` are UNCHANGED and are
+    now a SENSITIVITY readout only (`*_last` fields below), quantifying
+    first/last drift -- never the primary claim.
+  - No answer parseable under FIRST counts as incorrect (`no_answer=True`),
+    same fail-closed convention as every other line in this repo (P3/P4/
+    P4b/P4c's frozen extractors). `no_answer_rate` is reported overall and
+    per size, not folded silently into puzzle_acc.
 
 THREE MODES:
 
@@ -54,8 +71,13 @@ import sys
 from math import comb
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from official_zebra_grid_scorer import build_solution_table, score_one_item  # noqa: E402
-from commitment_metrics import compute_commitment_metrics, first_final_grid_agreement  # noqa: E402
+from official_zebra_grid_scorer import (  # noqa: E402
+    build_solution_table, score_one_item, score_one_item_first,
+)
+from commitment_metrics import (  # noqa: E402
+    compute_commitment_metrics, first_final_grid_agreement,
+    find_first_complete_json,
+)
 from data_zebralogic import (  # noqa: E402
     load_private_gold, solution_shape, sha16, EXPECTED_EASY_IDS_SHA256,
 )
@@ -179,16 +201,24 @@ def load_cell(path):
 
 def score_rows(rows, gold_by_id):
     """Returns a list of per-row dicts: puzzle-level solved/correct_cells/
-    total_cells plus the gold-free commitment metrics plus (since gold is
-    available here) the two revision metrics."""
+    total_cells (zebralogic-easy-amend-01: FIRST-complete-JSON, MAIN) plus
+    the same fields computed against the LAST-complete-JSON (official
+    scoring, now a sensitivity readout only, `*_last` fields) plus the
+    gold-free commitment metrics plus (since gold is available here) the two
+    revision metrics."""
     out = []
     for r in rows:
         gold_solution = gold_by_id[r["id"]]
         table = build_solution_table(gold_solution)
-        sc = score_one_item(r["generated"], table)
+        sc = score_one_item_first(r["generated"], table, find_first_complete_json)
+        sc_last = score_one_item(r["generated"], table)
         cm = compute_commitment_metrics(r["generated"])
 
-        last_full = sc["prediction_table"] if sc["parsed"] else None
+        # first_final_grid_agreement always compares FIRST vs LAST regardless
+        # of which one is MAIN -- it is a revision-detection metric, not an
+        # accuracy readout, so it keeps reading sc_last's (official LAST)
+        # prediction table.
+        last_full = sc_last["prediction_table"] if sc_last["parsed"] else None
         agreement = first_final_grid_agreement(cm["_first_solution_grid"], last_full)
 
         rev_wrong_to_right = rev_right_to_wrong = None
@@ -220,10 +250,17 @@ def score_rows(rows, gold_by_id):
 
         out.append({
             "id": r["id"], "sample_id": r["sample_id"], "size": r["size"],
+            # MAIN (zebralogic-easy-amend-01): FIRST-complete-JSON scoring.
             "parsed": sc["parsed"], "solved": sc["solved"],
             "correct_cells": sc["correct_cells"], "total_cells": sc["total_cells"],
             "cell_rate": (sc["correct_cells"] / sc["total_cells"]) if sc["total_cells"] else None,
             "no_answer": not sc["parsed"],
+            # SENSITIVITY: official LAST-complete-JSON scoring, same puzzle,
+            # same gold. Quantifies first/last drift; never the primary claim.
+            "parsed_last": sc_last["parsed"], "solved_last": sc_last["solved"],
+            "correct_cells_last": sc_last["correct_cells"],
+            "cell_rate_last": (sc_last["correct_cells"] / sc_last["total_cells"]) if sc_last["total_cells"] else None,
+            "no_answer_last": not sc_last["parsed"],
             "truncated": bool(r.get("truncated")),
             "generated_token_count": r.get("generated_token_count"),
             "is_strict_loop": cm["is_strict_loop"],
@@ -256,16 +293,31 @@ def summarize(scored, sizes_order):
             "puzzle_acc": sum(1 for x in rows if x["solved"]) / len(rows),
             "cell_acc": (sum(x["correct_cells"] for x in rows) /
                         sum(x["total_cells"] for x in rows)),
+            # per-size no_answer_rate, requested explicitly: a probability
+            # that steering changes how often the model ever commits a
+            # complete first-JSON, not just whether that commitment is
+            # correct -- distinct from puzzle_acc, which folds no-answer
+            # into "not solved" without separating the two failure modes.
+            "no_answer_rate": sum(1 for x in rows if x["no_answer"]) / len(rows),
         }
 
     commit_defined = [x for x in scored if x["first_solution_pos"] is not None]
     n_tok = [x["generated_token_count"] for x in scored if x["generated_token_count"] is not None]
 
+    total_correct_cells_last = sum(x["correct_cells_last"] for x in scored)
+    total_cells_last = total_cells  # total_cells is gold-fixed, identical for first/last
+
     return {
         "n": n,
+        # MAIN (zebralogic-easy-amend-01): FIRST-complete-JSON scoring.
         "puzzle_acc": sum(solved) / n,
         "cell_acc": total_correct_cells / total_cells if total_cells else None,
         "no_answer_rate": sum(1 for x in scored if x["no_answer"]) / n,
+        # SENSITIVITY: official LAST-complete-JSON scoring, same rows/gold.
+        "puzzle_acc_last": sum(1 for x in scored if x["solved_last"]) / n,
+        "cell_acc_last": (total_correct_cells_last / total_cells_last
+                          if total_cells_last else None),
+        "no_answer_rate_last": sum(1 for x in scored if x["no_answer_last"]) / n,
         "truncated_rate": sum(1 for x in scored if x["truncated"]) / n,
         "strict_loop_rate": sum(1 for x in scored if x["is_strict_loop"]) / n,
         "solution_first_rate": sum(1 for x in scored if x["solution_first_rate"]) / n,
@@ -386,15 +438,21 @@ def cmd_preflight_check(args):
               f"truncated={x['truncated']!s:5} tokens={x['generated_token_count']}")
 
     n = len(scored)
-    print(f"\nno_answer_rate  : {sum(1 for x in scored if x['no_answer'])/n:.3f}")
+    print(f"\n[MAIN, FIRST-JSON]  no_answer_rate={sum(1 for x in scored if x['no_answer'])/n:.3f}  "
+          f"puzzle_acc={sum(1 for x in scored if x['solved'])/n:.3f}")
+    print(f"[sensitivity, LAST-JSON]  no_answer_rate={sum(1 for x in scored if x['no_answer_last'])/n:.3f}  "
+          f"puzzle_acc={sum(1 for x in scored if x['solved_last'])/n:.3f}")
     print(f"truncated_rate  : {sum(1 for x in scored if x['truncated'])/n:.3f}")
-    print(f"puzzle_acc      : {sum(1 for x in scored if x['solved'])/n:.3f}")
+    for sz in sorted(set(x["size"] for x in scored)):
+        rows = [x for x in scored if x["size"] == sz]
+        print(f"  size={sz:5s} n={len(rows):2d}  "
+              f"no_answer_rate={sum(1 for x in rows if x['no_answer'])/len(rows):.3f}")
     print(f"steering_fires  : {m.get('steering_fires')}  (expect 0 at alpha=0)")
     print(f"prompt_sha256   : {m.get('prompt_sha256')}")
     print(f"\nThis is a FORMAT/PLUMBING check only, {n} items, 5 per size. "
           "It must not be used to change the prompt, item set, doses, or "
           "scoring method based on accuracy -- see "
-          "docs/PREREG_ZEBRALOGIC_EASY.md section 5.")
+          "docs/PREREG_ZEBRALOGIC_EASY.md section 5 + zebralogic-easy-amend-01.")
 
 
 # ------------------------------------------------------------------ main ---
@@ -576,7 +634,7 @@ def cmd_formal(args):
 
     summaries = {al: summarize(sc, sizes_order) for al, sc in scored_by_alpha.items()}
 
-    print(f"\n=== FORMAL RESULTS  model={model}  n={len(ids)} ===")
+    print(f"\n=== FORMAL RESULTS [MAIN, FIRST-JSON]  model={model}  n={len(ids)} ===")
     print(f"{'alpha':>6} {'puzzle_acc':>10} {'cell_acc':>10} {'no_answer':>10} "
           f"{'truncated':>10} {'sol_first':>10} {'loop':>7} {'tok_med':>8}")
     for al in sorted(summaries):
@@ -586,14 +644,30 @@ def cmd_formal(args):
               f"{s['solution_first_rate']:10.4f} {s['strict_loop_rate']:7.3f} "
               f"{str(s['gen_tokens_med']):>8}")
 
+    print(f"\n=== [sensitivity, LAST-JSON, official scoring]  model={model} ===")
+    print(f"{'alpha':>6} {'puzzle_acc':>10} {'cell_acc':>10} {'no_answer':>10}")
+    for al in sorted(summaries):
+        s = summaries[al]
+        print(f"{al:>6} {s['puzzle_acc_last']:10.4f} {s['cell_acc_last']:10.4f} "
+              f"{s['no_answer_rate_last']:10.4f}")
+
     # ---- per-size breakdown
-    print(f"\n=== PER-SIZE Puzzle Accuracy (n=40 each; descriptive only, NOT "
-          f"independently significant) ===")
+    print(f"\n=== PER-SIZE Puzzle Accuracy [MAIN, FIRST-JSON] (n=40 each; "
+          f"descriptive only, NOT independently significant) ===")
     print(f"{'alpha':>6} " + " ".join(f"{sz:>7}" for sz in sizes_order))
     for al in sorted(summaries):
         row = summaries[al]["by_size"]
         print(f"{al:>6} " + " ".join(
             f"{row[sz]['puzzle_acc']:7.3f}" if sz in row else "     NA"
+            for sz in sizes_order))
+
+    print(f"\n=== PER-SIZE no_answer_rate [MAIN, FIRST-JSON] (n=40 each; "
+          f"descriptive only) ===")
+    print(f"{'alpha':>6} " + " ".join(f"{sz:>7}" for sz in sizes_order))
+    for al in sorted(summaries):
+        row = summaries[al]["by_size"]
+        print(f"{al:>6} " + " ".join(
+            f"{row[sz]['no_answer_rate']:7.3f}" if sz in row else "     NA"
             for sz in sizes_order))
 
     # ---- paired stats: each non-zero alpha vs alpha=0
@@ -700,7 +774,11 @@ def cmd_formal(args):
         print(f"\n{verdict}")
 
     out = {
-        "protocol": PROTOCOL, "model": model, "n": len(ids),
+        "protocol": PROTOCOL, "amendment": "zebralogic-easy-amend-01",
+        "scoring": "FIRST-complete-JSON (MAIN); LAST-complete-JSON kept as "
+                   "sensitivity fields (*_last) -- see "
+                   "docs/zebralogic_easy_amendment_01.json",
+        "model": model, "n": len(ids),
         "alphas_present": sorted(summaries), "frozen_alphas": sorted(frozen),
         "hostnames_by_alpha": host_by_alpha,
         "cuda_visible_devices_by_alpha": cvd_by_alpha,
