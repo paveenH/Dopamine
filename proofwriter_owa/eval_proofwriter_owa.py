@@ -693,12 +693,25 @@ def main():
             "TIME to a frozen 1024 for both models; loop_rate/"
             "truncation_rate are recorded per cell (see "
             "results[model].cells[alpha].loop_rate) but were NOT used as a "
-            "preflight gate for either model. Consequence for reading this "
-            "report: on ANY model/alpha with an elevated loop_rate, "
-            "generation-length and commitment-timing diagnostics for that "
-            "cell carry weaker interpretive weight; parseable-answer "
-            "accuracy is scored identically to every other cell via the "
-            "frozen parser and is unaffected."),
+            "gate for either model or either scoring stage (preflight or "
+            "formal sweep) -- both run/are scored regardless of loop_rate "
+            "(human decision, 2026-09-05, superseding any earlier "
+            "feasibility-gate stance). Consequence for reading this report: "
+            "on ANY model/alpha with an elevated loop_rate, generation-"
+            "length and commitment-timing diagnostics for that cell carry "
+            "weaker interpretive weight. EVERY cell is scored by the SAME "
+            "fixed procedure -- the FIRST strict marker wins, and a sample "
+            "with zero strict markers scores incorrect and stays in the "
+            "denominator -- so the scoring RULE does not change with "
+            "loop_rate. But a loop that prevents a strict marker from ever "
+            "appearing DOES lower that cell's `accuracy` (via a higher "
+            "`no_answer_rate`), and a loop that appends further marker-"
+            "shaped text after a genuine answer does NOT change `accuracy` "
+            "(the first, genuine marker is still scored) but does raise "
+            "`multiple_marker_rate`/`first_last_disagreement_rate`. Read "
+            "`no_answer_rate` and `answered_only_accuracy` alongside "
+            "`accuracy` on any cell with an elevated loop_rate, never "
+            "`accuracy` alone."),
     }
     json.dump(out, open(a.out, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 

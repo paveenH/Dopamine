@@ -73,14 +73,21 @@ LLAMA_SWEEP_CONFIGS="neg6-11-20 neg4-11-20 0-11-20 4-11-20"
 QWEN_SWEEP_CONFIGS="neg6-16-22 0-16-22 6-16-22 8-16-22"
 MANIFEST_BLIND="$BENCH/manifest_blind.json"
 MANIFEST_GOLD="$BENCH/manifest_gold.json"
-LLAMA_SWEEP_A0="$OUT_ROOT/llama3/proofwriter_owa/mdf_0/proofwriter_owa_8B_11_20.json"
-LLAMA_SWEEP_AN4="$OUT_ROOT/llama3/proofwriter_owa/mdf_neg4/proofwriter_owa_8B_11_20.json"
-LLAMA_SWEEP_AN6="$OUT_ROOT/llama3/proofwriter_owa/mdf_neg6/proofwriter_owa_8B_11_20.json"
-LLAMA_SWEEP_AP4="$OUT_ROOT/llama3/proofwriter_owa/mdf_4/proofwriter_owa_8B_11_20.json"
-QWEN_SWEEP_A0="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_0/proofwriter_owa_7B_16_22.json"
-QWEN_SWEEP_AN6="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_neg6/proofwriter_owa_7B_16_22.json"
-QWEN_SWEEP_AP6="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_6/proofwriter_owa_7B_16_22.json"
-QWEN_SWEEP_AP8="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_8/proofwriter_owa_7B_16_22.json"
+# --tag formal_v2 (below) prefixes the generator's output subdir to
+# formal_v2_mdf_<alpha>, keeping this v2/1-shot/#### sweep in a SEPARATE
+# directory tree from any v1 (Answer:/0-shot) run that may already exist
+# under the plain mdf_<alpha> path -- the generator's own skip-if-exists
+# check has no metadata cross-check (prompt_template_id/marker_family/
+# n_shot/manifest), so reusing the plain path risks silently scoring a
+# stale v1 file as if it were v2 (review finding, 2026-09-05).
+LLAMA_SWEEP_A0="$OUT_ROOT/llama3/proofwriter_owa/formal_v2_mdf_0/proofwriter_owa_8B_11_20.json"
+LLAMA_SWEEP_AN4="$OUT_ROOT/llama3/proofwriter_owa/formal_v2_mdf_neg4/proofwriter_owa_8B_11_20.json"
+LLAMA_SWEEP_AN6="$OUT_ROOT/llama3/proofwriter_owa/formal_v2_mdf_neg6/proofwriter_owa_8B_11_20.json"
+LLAMA_SWEEP_AP4="$OUT_ROOT/llama3/proofwriter_owa/formal_v2_mdf_4/proofwriter_owa_8B_11_20.json"
+QWEN_SWEEP_A0="$OUT_ROOT/qwen2.5/proofwriter_owa/formal_v2_mdf_0/proofwriter_owa_7B_16_22.json"
+QWEN_SWEEP_AN6="$OUT_ROOT/qwen2.5/proofwriter_owa/formal_v2_mdf_neg6/proofwriter_owa_7B_16_22.json"
+QWEN_SWEEP_AP6="$OUT_ROOT/qwen2.5/proofwriter_owa/formal_v2_mdf_6/proofwriter_owa_7B_16_22.json"
+QWEN_SWEEP_AP8="$OUT_ROOT/qwen2.5/proofwriter_owa/formal_v2_mdf_8/proofwriter_owa_7B_16_22.json"
 FORMAL_EVAL_OUT="$PW_DIR/results/formal_sweep_v2.json"
 
 # Filenames must match run_proofwriter_owa.sh's own convention EXACTLY:
@@ -235,7 +242,8 @@ case "$STAGE" in
           --manifest "$MANIFEST_BLIND" --mask_path "$LLAMA_MASK" \
           --configs $LLAMA_SWEEP_CONFIGS \
           --out_dir "$LLAMA_OUT_DIR" \
-          --n_shot 1 --exemplar_file "$EXEMPLAR_FILE"
+          --n_shot 1 --exemplar_file "$EXEMPLAR_FILE" \
+          --tag formal_v2
         echo "[proofwriter-owa v2] llama3 sweep done. Alpha=0 file:"
         echo "    $LLAMA_SWEEP_A0"
         ;;
@@ -247,7 +255,8 @@ case "$STAGE" in
           --manifest "$MANIFEST_BLIND" --mask_path "$QWEN_MASK" \
           --configs $QWEN_SWEEP_CONFIGS \
           --out_dir "$QWEN_OUT_DIR" \
-          --n_shot 1 --exemplar_file "$EXEMPLAR_FILE"
+          --n_shot 1 --exemplar_file "$EXEMPLAR_FILE" \
+          --tag formal_v2
         echo "[proofwriter-owa v2] qwen2.5 sweep done. Alpha=0 file:"
         echo "    $QWEN_SWEEP_A0"
         ;;
