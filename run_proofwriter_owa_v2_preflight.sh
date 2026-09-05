@@ -9,21 +9,27 @@
 # sweep -- alpha=0 only, both models, same 30-item preflight subset already
 # used for v0/v1 so results are directly comparable.
 #
-# Usage:
-#   bash run_proofwriter_owa_v2_preflight.sh generate   # runs both models
-#   bash run_proofwriter_owa_v2_preflight.sh eval        # scores both (reads gold)
+# GPU IS NOT PINNED BY THIS SCRIPT (matching zebralogic/run_zebralogic.sh's
+# convention) -- pass CUDA_VISIBLE_DEVICES on each invocation, one model per
+# call, e.g.:
 #
-# 'generate' launches BOTH models in the background (one physical GPU each,
-# via CUDA_VISIBLE_DEVICES set per-command below) and returns immediately;
-# check the two log files to see progress/completion. 'eval' must be run
-# AFTER both generate jobs have finished and requires no GPU.
+#   CUDA_VISIBLE_DEVICES=0 nohup bash run_proofwriter_owa_v2_preflight.sh \
+#     generate llama3 > proofwriter_owa_v2_preflight_llama3.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=3 nohup bash run_proofwriter_owa_v2_preflight.sh \
+#     generate qwen2.5 > proofwriter_owa_v2_preflight_qwen25.log 2>&1 &
+#
+#   python run_proofwriter_owa_v2_preflight.sh eval   # after BOTH finish, no GPU needed
+#
+# (the eval stage also works via `bash run_proofwriter_owa_v2_preflight.sh eval`)
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: run_proofwriter_owa_v2_preflight.sh generate|eval" >&2
+  echo "usage: run_proofwriter_owa_v2_preflight.sh generate <llama3|qwen2.5>" >&2
+  echo "       run_proofwriter_owa_v2_preflight.sh eval" >&2
   exit 1
 fi
 STAGE="$1"
+MODEL="${2:-}"
 
 PY="${PY:-python}"
 WORK_DIR="${WORK_DIR:-/data1/paveen/Dopamine}"
@@ -31,11 +37,6 @@ BASE_DIR="${BASE_DIR:-$WORK_DIR/components}"
 BENCH="${BENCH:-$BASE_DIR/benchmark/proofwriter_owa}"
 PW_DIR="$WORK_DIR/proofwriter_owa"
 OUT_ROOT="${OUT_ROOT:-$BASE_DIR}"
-LOG_DIR="${LOG_DIR:-$WORK_DIR/logs}"
-mkdir -p "$LOG_DIR"
-
-LLAMA_GPU="${LLAMA_GPU:-2}"
-QWEN_GPU="${QWEN_GPU:-1}"
 
 # a wrong PY exits 127 before anything runs and the nohup log looks empty
 "$PY" -c "import numpy, torch" >/dev/null 2>&1 || {
@@ -46,18 +47,15 @@ EXEMPLAR_FILE="$PW_DIR/exemplar_unknown_v2.json"
 [[ -f "$EXEMPLAR_FILE" ]] || {
   echo "[FATAL] $EXEMPLAR_FILE not found." >&2; exit 1; }
 
+# Filenames must match run_proofwriter_owa.sh's own convention EXACTLY:
+# PREFLIGHT_FILE="$BENCH/preflight_blind_${MODEL}.json" where $MODEL is the
+# literal string passed on that script's command line -- "qwen2.5", not
+# "qwen25". A mismatched filename here is a naming bug in THIS launcher, not
+# evidence the v0/v1 preflight subset was never built.
 LLAMA_PREFLIGHT="$BENCH/preflight_blind_llama3.json"
-QWEN_PREFLIGHT="$BENCH/preflight_blind_qwen25.json"
+QWEN_PREFLIGHT="$BENCH/preflight_blind_qwen2.5.json"
 LLAMA_GOLD="$BENCH/preflight_gold_llama3.json"
-QWEN_GOLD="$BENCH/preflight_gold_qwen25.json"
-for f in "$LLAMA_PREFLIGHT" "$QWEN_PREFLIGHT" "$LLAMA_GOLD" "$QWEN_GOLD"; do
-  [[ -f "$f" ]] || {
-    echo "[FATAL] $f not found; run the v0/v1 'preflight' stage of" >&2
-    echo "        run_proofwriter_owa.sh first (it builds this 30-item" >&2
-    echo "        subset from the frozen 300-item manifest) -- v2 reuses" >&2
-    echo "        the SAME subset so results are directly comparable." >&2
-    exit 1; }
-done
+QWEN_GOLD="$BENCH/preflight_gold_qwen2.5.json"
 
 LLAMA_OUT_DIR="$OUT_ROOT/llama3/proofwriter_owa"
 QWEN_OUT_DIR="$OUT_ROOT/qwen2.5/proofwriter_owa"
@@ -69,67 +67,82 @@ mkdir -p "$RESULTS_DIR"
 LLAMA_EVAL_OUT="$RESULTS_DIR/preflight_check_llama3_v2.json"
 QWEN_EVAL_OUT="$RESULTS_DIR/preflight_check_qwen25_v2.json"
 
+require_preflight_files() {
+  # $1 = model tag, $2 = blind file, $3 = gold file
+  [[ -f "$2" ]] || {
+    echo "[FATAL] $2 not found." >&2
+    echo "        If the v0/v1 'preflight' stage of run_proofwriter_owa.sh" >&2
+    echo "        was already run for $1, check for a filename mismatch" >&2
+    echo "        (this launcher expects EXACTLY 'preflight_blind_$1.json'" >&2
+    echo "        under $BENCH) before assuming the subset was never built." >&2
+    exit 1; }
+  [[ -f "$3" ]] || {
+    echo "[FATAL] $3 not found (see the note above)." >&2; exit 1; }
+}
+
 case "$STAGE" in
   generate)
-    LLAMA_LOG="$LOG_DIR/proofwriter_owa_v2_preflight_llama3.log"
-    QWEN_LOG="$LOG_DIR/proofwriter_owa_v2_preflight_qwen25.log"
-
-    echo "[proofwriter-owa v2] launching llama3 preflight in background"
-    echo "  GPU=$LLAMA_GPU  log=$LLAMA_LOG"
-    cd "$WORK_DIR"
-    CUDA_VISIBLE_DEVICES="$LLAMA_GPU" nohup "$PY" \
-      proofwriter_owa/get_answer_proofwriter_owa.py \
-      --model llama3 --size 8B \
-      --model_dir meta-llama/Llama-3.1-8B-Instruct \
-      --manifest "$LLAMA_PREFLIGHT" \
-      --mask_path "$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy" \
-      --configs 0-11-20 \
-      --out_dir "$LLAMA_OUT_DIR" \
-      --n_shot 1 \
-      --exemplar_file "$EXEMPLAR_FILE" \
-      --tag preflight_v2 \
-      > "$LLAMA_LOG" 2>&1 &
-    LLAMA_PID=$!
-    echo "  pid=$LLAMA_PID"
-
-    echo "[proofwriter-owa v2] launching qwen2.5 preflight in background"
-    echo "  GPU=$QWEN_GPU  log=$QWEN_LOG"
-    CUDA_VISIBLE_DEVICES="$QWEN_GPU" nohup "$PY" \
-      proofwriter_owa/get_answer_proofwriter_owa.py \
-      --model qwen2.5 --size 7B \
-      --model_dir Qwen/Qwen2.5-7B-Instruct \
-      --manifest "$QWEN_PREFLIGHT" \
-      --mask_path "$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy" \
-      --configs 0-16-22 \
-      --out_dir "$QWEN_OUT_DIR" \
-      --n_shot 1 \
-      --exemplar_file "$EXEMPLAR_FILE" \
-      --tag preflight_v2 \
-      > "$QWEN_LOG" 2>&1 &
-    QWEN_PID=$!
-    echo "  pid=$QWEN_PID"
-
+    if [[ -z "$MODEL" ]]; then
+      echo "[FATAL] 'generate' requires a model argument: llama3 or qwen2.5" >&2
+      exit 1
+    fi
+    if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+      echo "[FATAL] CUDA_VISIBLE_DEVICES must be set to exactly one card" >&2
+      echo "        (this script does not pick a GPU for you)." >&2
+      exit 1
+    fi
+    case "$MODEL" in
+      llama3)
+        require_preflight_files llama3 "$LLAMA_PREFLIGHT" "$LLAMA_GOLD"
+        echo "[proofwriter-owa v2] llama3 preflight, alpha=0, N=30"
+        cd "$WORK_DIR"
+        "$PY" proofwriter_owa/get_answer_proofwriter_owa.py \
+          --model llama3 --size 8B \
+          --model_dir meta-llama/Llama-3.1-8B-Instruct \
+          --manifest "$LLAMA_PREFLIGHT" \
+          --mask_path "$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy" \
+          --configs 0-11-20 \
+          --out_dir "$LLAMA_OUT_DIR" \
+          --n_shot 1 \
+          --exemplar_file "$EXEMPLAR_FILE" \
+          --tag preflight_v2
+        echo "[proofwriter-owa v2] wrote $LLAMA_GEN"
+        echo "  steering_fires must read 0 (alpha=0; checked by the"
+        echo "  generator itself -- a mismatch already stopped the run)."
+        ;;
+      qwen2.5)
+        require_preflight_files qwen2.5 "$QWEN_PREFLIGHT" "$QWEN_GOLD"
+        echo "[proofwriter-owa v2] qwen2.5 preflight, alpha=0, N=30"
+        cd "$WORK_DIR"
+        "$PY" proofwriter_owa/get_answer_proofwriter_owa.py \
+          --model qwen2.5 --size 7B \
+          --model_dir Qwen/Qwen2.5-7B-Instruct \
+          --manifest "$QWEN_PREFLIGHT" \
+          --mask_path "$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy" \
+          --configs 0-16-22 \
+          --out_dir "$QWEN_OUT_DIR" \
+          --n_shot 1 \
+          --exemplar_file "$EXEMPLAR_FILE" \
+          --tag preflight_v2
+        echo "[proofwriter-owa v2] wrote $QWEN_GEN"
+        echo "  steering_fires must read 0 (alpha=0; checked by the"
+        echo "  generator itself -- a mismatch already stopped the run)."
+        ;;
+      *)
+        echo "[FATAL] unknown model '$MODEL' (llama3 | qwen2.5)" >&2
+        exit 1
+        ;;
+    esac
     echo
-    echo "[proofwriter-owa v2] both jobs launched. Check logs IMMEDIATELY"
-    echo "  (a wrong PY / bad import exits fast and the log looks empty"
-    echo "  otherwise looks like it's just quiet):"
-    echo "    tail -f $LLAMA_LOG"
-    echo "    tail -f $QWEN_LOG"
-    echo
-    echo "[proofwriter-owa v2] when both finish, expected outputs:"
-    echo "    $LLAMA_GEN"
-    echo "    $QWEN_GEN"
-    echo "  steering_fires must read 0 for both (alpha=0)."
-    echo
-    echo "[proofwriter-owa v2] then run:"
+    echo "[proofwriter-owa v2] when BOTH models finish, run:"
     echo "    bash run_proofwriter_owa_v2_preflight.sh eval"
     ;;
 
   eval)
     for f in "$LLAMA_GEN" "$QWEN_GEN"; do
       [[ -f "$f" ]] || {
-        echo "[FATAL] $f not found; the 'generate' stage has not finished" >&2
-        echo "        (or has not been run) for this model yet." >&2
+        echo "[FATAL] $f not found; run 'generate' for both models first" >&2
+        echo "        (and wait for both background jobs to finish)." >&2
         exit 1; }
     done
     cd "$WORK_DIR"
