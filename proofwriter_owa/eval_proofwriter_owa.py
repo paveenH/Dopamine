@@ -14,14 +14,29 @@ ALSO REPORTED: D3 accuracy, D5 accuracy, per-label accuracy, parse-failure
 rate, no-answer rate (`no_answer_rate`), answered-only accuracy
 (`answered_only_accuracy`, DIAGNOSTIC ONLY -- restricted to samples with >=1
 strict marker, so it is NOT the primary metric and must never be cited as
-"the" accuracy; if a steering effect on overall accuracy is driven mainly by
-a drop in `no_answer_rate` rather than a rise in `answered_only_accuracy`,
-report it as "steering increased the rate of a valid, scoreable submission",
-never as "steering improved reasoning"), invalid/multiple-final-answer rate,
-first/last-marker disagreement rate, a LAST-ANSWER SENSITIVITY accuracy
-(scores `all_strict_labels[-1]` instead of `[0]`, i.e. the pre-2026-09-05
-convention, reported alongside -- never substituted for -- the FIRST-answer
-main metric), loop rate, truncation rate, generation token length.
+"the" accuracy, and must NEVER be compared ACROSS models/cells to infer
+relative reasoning quality: each cell's answered-only subset is a
+DIFFERENT, self-selected group of items (whichever samples that cell
+happened to produce a marker for), so e.g. cellA.answered_only_accuracy ==
+cellB.answered_only_accuracy does NOT mean "the two models/cells reason
+equally well" -- it compares two different, uncontrolled item subsets and
+selection bias is not accounted for. If a steering effect on overall
+accuracy is driven mainly by a drop in `no_answer_rate` rather than a rise
+in `answered_only_accuracy`, report it as "steering increased the rate of a
+valid, scoreable submission", never as "steering improved reasoning"; the
+correct within-cell wording for a low-`no_answer_rate`-but-low-`accuracy`
+cell is "conditional on submitting a strict answer, accuracy was X; overall
+accuracy is low mainly alongside a high no-answer rate, which does not by
+itself establish anything about the reasoning quality behind the answered
+subset"), invalid/multiple-final-answer rate (`invalid_or_multiple_marker_rate`,
+ORIGINAL definition: >1 strict OR >1 loose marker anywhere -- kept
+unchanged for continuity), a narrower `multiple_marker_rate` (fraction of
+samples with >=2 STRICT markers only, added 2026-09-05, the denominator
+`first_last_disagreement_rate` uses), first/last-marker disagreement rate,
+a LAST-ANSWER SENSITIVITY accuracy (scores `all_strict_labels[-1]` instead
+of `[0]`, i.e. the pre-2026-09-05 convention, reported alongside -- never
+substituted for -- the FIRST-answer main metric), loop rate, truncation
+rate, generation token length.
 
 STATISTICS: each non-zero alpha vs that SAME model's own alpha=0. Exact
 two-sided McNemar; Holm correction with m=3 PER MODEL (three non-zero alpha).
@@ -269,6 +284,14 @@ def summarize(scored: list[dict]):
                                       if rs else None)}
     n_parse_fail = sum(1 for r in scored if r["parse_status"] != "ok")
     n_no_answer = sum(1 for r in scored if r["n_strict_markers"] == 0)
+    # invalid_or_multiple_marker_rate keeps its ORIGINAL (pre-2026-09-05)
+    # definition: >1 strict OR >1 loose marker anywhere. multiple_marker_rate
+    # (added 2026-09-05) is a DIFFERENT, narrower quantity -- fraction with
+    # >=2 STRICT markers only, matching the "multiple final markers" count
+    # described alongside first_last_disagreement_rate. Review finding
+    # (2026-09-05): multiple_marker_rate was previously computed with the
+    # same (loose-inclusive) condition as invalid_or_multiple_marker_rate,
+    # which read .5333 instead of the intended strict-only .3667 (11/30).
     n_multi = sum(1 for r in scored if r["n_strict_markers"] > 1
                   or r["n_loose_markers"] > 1)
     # first_last_disagreement: among samples with >=2 strict markers, how
@@ -297,13 +320,19 @@ def summarize(scored: list[dict]):
             "value": answered_only_acc, "n": len(answered),
             "scope": ("DIAGNOSTIC ONLY -- restricted to samples with >=1 "
                      "strict marker; never cite alone, always alongside "
-                     "no_answer_rate/parse_failure_rate"),
+                     "no_answer_rate/parse_failure_rate. NEVER compare this "
+                     "value ACROSS models/cells to infer relative reasoning "
+                     "quality -- each cell's answered subset is a "
+                     "different, self-selected group of items, so a "
+                     "similar value across two cells does not mean "
+                     "comparable reasoning; it compares two different, "
+                     "uncontrolled subsets."),
         },
         "by_dataset": by_ds, "by_label": by_label,
         "parse_failure_rate": n_parse_fail / n if n else None,
         "no_answer_rate": n_no_answer / n if n else None,
         "invalid_or_multiple_marker_rate": n_multi / n if n else None,
-        "multiple_marker_rate": n_multi / n if n else None,
+        "multiple_marker_rate": len(multi_strict) / n if n else None,
         "first_last_disagreement_rate": {
             "value": (n_disagree / len(multi_strict) if multi_strict else None),
             "n": len(multi_strict),
