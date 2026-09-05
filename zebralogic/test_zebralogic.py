@@ -31,11 +31,12 @@ sys.path.insert(0, _REPO_ROOT)  # get_answer_zebralogic.py imports `llms` and
 from official_zebra_grid_template import apply_lgp_grid_template, ZEBRA_GRID
 from official_zebra_grid_scorer import (
     extract_last_complete_json, build_solution_table, score_one_item,
-    score_one_item_first,
 )
+from first_answer_scorer import score_one_item_first
 from commitment_metrics import (
-    find_first_complete_json, is_strict_loop, grid_is_fully_specified,
-    first_final_grid_agreement, compute_commitment_metrics,
+    find_first_complete_json, find_first_answer_json, is_strict_loop,
+    grid_is_fully_specified, first_final_grid_agreement,
+    compute_commitment_metrics,
 )
 
 FAILURES = []
@@ -157,16 +158,18 @@ def test_official_scorer_on_official_example():
 
 
 def test_score_one_item_first_vs_last():
-    """zebralogic-easy-amend-01: score_one_item_first (MAIN, FIRST-complete-
+    """zebralogic-easy-amend-01: score_one_item_first (MAIN, first-ANSWER
     JSON) must (a) reproduce score_one_item exactly when there is only one
-    JSON object in the text (no drift on the common case), and (b) actually
+    JSON object in the text (no drift on the common case), (b) actually
     diverge from score_one_item when the model revises its answer in a LATER
-    JSON block -- this is the whole point of the amendment, so it must be
-    covered by more than "does not crash"."""
+    JSON block, and (c) NOT be fooled by an answer-LESS JSON object appearing
+    before the real answer JSON -- (c) is the fix for the review finding
+    that find_first_complete_json (any complete JSON) is not the same thing
+    as "first answer"."""
     table = build_solution_table(OFFICIAL_EXAMPLE_SOLUTION)
 
     # (a) single JSON object: FIRST and LAST must agree exactly.
-    sc_first = score_one_item_first(OFFICIAL_EXAMPLE_ANSWER_TEXT, table, find_first_complete_json)
+    sc_first = score_one_item_first(OFFICIAL_EXAMPLE_ANSWER_TEXT, table)
     sc_last = score_one_item(OFFICIAL_EXAMPLE_ANSWER_TEXT, table)
     check("single-JSON text: FIRST reproduces LAST's parsed/solved/cells",
           (sc_first["parsed"], sc_first["solved"], sc_first["correct_cells"]) ==
@@ -177,20 +180,69 @@ def test_score_one_item_first_vs_last():
     # corrected one -- this divergence is the reason amend-01 exists.
     wrong_first = OFFICIAL_EXAMPLE_ANSWER_TEXT.replace('"Drink": "tea"', '"Drink": "coffee"')
     two_jsons = wrong_first + " Wait, let me reconsider. " + OFFICIAL_EXAMPLE_ANSWER_TEXT
-    sc_f = score_one_item_first(two_jsons, table, find_first_complete_json)
+    sc_f = score_one_item_first(two_jsons, table)
     sc_l = score_one_item(two_jsons, table)
     check("revision text: FIRST scores the wrong early answer (5/6, not solved)",
           sc_f["correct_cells"] == 5 and sc_f["solved"] is False)
     check("revision text: LAST scores the corrected later answer (6/6, solved)",
           sc_l["correct_cells"] == 6 and sc_l["solved"] is True)
 
+    # (c) an answer-LESS JSON object (no "solution" key at all) appears
+    # BEFORE the real answer JSON. The pre-fix find_first_complete_json-based
+    # scorer would anchor on the answer-less block and report "no answer";
+    # the fixed scorer (via find_first_answer_json) must skip it and score
+    # the real answer that follows.
+    answerless_then_answer = (
+        json.dumps({"note": "restating the puzzle", "houses": 3})
+        + " Now solving. "
+        + OFFICIAL_EXAMPLE_ANSWER_TEXT
+    )
+    sc_skip = score_one_item_first(answerless_then_answer, table)
+    check("answer-less JSON before the real answer: FIRST still finds and "
+          "scores the real answer (not 'no answer')",
+          sc_skip["parsed"] is True and sc_skip["solved"] is True,
+          f"got parsed={sc_skip['parsed']} solved={sc_skip['solved']}")
+
     # no-answer / null-solution handling must match score_one_item exactly.
-    sc_none = score_one_item_first("I could not solve this puzzle.", table, find_first_complete_json)
+    sc_none = score_one_item_first("I could not solve this puzzle.", table)
     check("FIRST: no-json text not parsed", sc_none["parsed"] is False)
     check("FIRST: no-json text total_cells still reported", sc_none["total_cells"] == 6)
     sc_null = score_one_item_first(
-        json.dumps({"reasoning": "x", "solution": None}), table, find_first_complete_json)
+        json.dumps({"reasoning": "x", "solution": None}), table)
     check("FIRST: null solution not parsed", sc_null["parsed"] is False)
+    # a JSON with solution present but an EMPTY dict must also be skipped as
+    # answer-less, not accepted as a (vacuously) parsed answer.
+    sc_empty_sol = score_one_item_first(
+        json.dumps({"reasoning": "x", "solution": {}}) + " " + OFFICIAL_EXAMPLE_ANSWER_TEXT,
+        table)
+    check("FIRST: empty-dict solution is skipped, real answer found after it",
+          sc_empty_sol["parsed"] is True and sc_empty_sol["solved"] is True)
+
+
+def test_find_first_answer_json():
+    """commitment_metrics.find_first_answer_json must differ from
+    find_first_complete_json exactly when an earlier complete JSON lacks a
+    non-empty dict "solution"."""
+    answerless = json.dumps({"note": "x"})
+    answer = json.dumps({"reasoning": "y", "solution": {"House 1": {"Name": "Arnold"}}})
+    text = answerless + " " + answer
+
+    fc_obj, _, _ = find_first_complete_json(text)
+    check("find_first_complete_json returns the FIRST complete JSON (answerless)",
+          fc_obj == {"note": "x"})
+
+    fa_obj, _, _ = find_first_answer_json(text)
+    check("find_first_answer_json skips the answerless JSON and returns the answer",
+          fa_obj == {"reasoning": "y", "solution": {"House 1": {"Name": "Arnold"}}})
+
+    check("find_first_answer_json returns None on no answer JSON at all",
+          find_first_answer_json("no json here")[0] is None)
+    check("find_first_answer_json returns None when solution is None",
+          find_first_answer_json(json.dumps({"solution": None}))[0] is None)
+    check("find_first_answer_json returns None when solution is an empty dict",
+          find_first_answer_json(json.dumps({"solution": {}}))[0] is None)
+    check("find_first_answer_json returns None when solution is not a dict",
+          find_first_answer_json(json.dumps({"solution": "not a dict"}))[0] is None)
 
 
 def test_commitment_metrics_first_json():
@@ -1359,6 +1411,7 @@ def main():
     print("== official scorer on the official worked example ==")
     test_official_scorer_on_official_example()
     test_score_one_item_first_vs_last()
+    test_find_first_answer_json()
     print("== commitment metrics: first-json ==")
     test_commitment_metrics_first_json()
     print("== commitment metrics: first/final agreement ==")

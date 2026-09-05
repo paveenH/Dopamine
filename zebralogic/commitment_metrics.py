@@ -21,6 +21,16 @@ require gold and are therefore computed only in the analysis/scoring script,
 never during label-free generation -- see zebralogic/eval_zebralogic.py.
 Everything else here is gold-free and can run on raw generations alone.
 
+zebralogic-easy-amend-01 (docs/zebralogic_easy_amendment_01.json, fixed
+2026-09-05): `find_first_answer_json` is the correct "first answer" scan --
+it skips any syntactically-complete JSON block that lacks a non-empty dict
+"solution" and returns the first one that has it. `find_first_complete_json`
+(kept, unchanged) returns the first syntactically complete JSON block
+regardless of content, which is NOT the same thing whenever a model emits
+some other JSON object before its actual answer. `compute_commitment_metrics`
+and the first-answer scorer (zebralogic/first_answer_scorer.py) both use
+`find_first_answer_json`.
+
 @author: paveenhuang
 """
 
@@ -28,13 +38,14 @@ import json
 import re
 
 
-def find_first_complete_json(s: str):
-    """Forward-scanning counterpart to official_zebra_grid_scorer's
-    extract_last_complete_json: returns the FIRST complete top-level {...}
-    block (as a parsed dict), or None. Deliberately a separate function
-    (not "just take the first element of a list of all JSON blocks") so its
-    scanning direction is explicit and auditable against the official
-    backward-scanning sibling.
+def _iter_complete_json_blocks(s: str):
+    """Yield (parsed_dict, start, end) for every complete top-level {...}
+    block in `s`, in the order they appear (left to right), skipping blocks
+    that fail to parse as JSON (matching upstream's `.replace("\\n", "")`
+    before `json.loads`, same as extract_last_complete_json /
+    find_first_complete_json). A syntactically-complete-but-invalid block is
+    skipped, not treated as a scan-terminating failure -- scanning continues
+    for the next brace-balanced span.
     """
     stack = []
     first_start = None
@@ -47,14 +58,59 @@ def find_first_complete_json(s: str):
             if stack:
                 stack.pop()
                 if not stack and first_start is not None:
-                    candidate = s[first_start:i + 1]
+                    start = first_start
+                    candidate = s[start:i + 1]
+                    first_start = None
                     try:
-                        return json.loads(candidate.replace("\n", "")), first_start, i + 1
+                        yield json.loads(candidate.replace("\n", "")), start, i + 1
                     except json.JSONDecodeError:
                         # not valid JSON -- keep scanning for a later,
                         # well-formed complete block rather than giving up
-                        first_start = None
                         continue
+
+
+def find_first_complete_json(s: str):
+    """Forward-scanning counterpart to official_zebra_grid_scorer's
+    extract_last_complete_json: returns the FIRST complete top-level {...}
+    block (as a parsed dict), or None. Deliberately a separate function
+    (not "just take the first element of a list of all JSON blocks") so its
+    scanning direction is explicit and auditable against the official
+    backward-scanning sibling.
+
+    NOTE: this returns the first SYNTACTICALLY complete JSON object, with no
+    check on its contents. It does NOT know whether that object is an
+    "answer" -- a model that emits some other JSON object before its answer
+    (e.g. restating part of the puzzle, or an intermediate structure) would
+    have THAT object returned here. Use find_first_answer_json (below) when
+    "first answer" specifically means "first JSON carrying a non-empty dict
+    solution", which is what commitment metrics and first-answer scoring
+    actually need.
+    """
+    for obj, start, end in _iter_complete_json_blocks(s):
+        return obj, start, end
+    return None, None, None
+
+
+def find_first_answer_json(s: str):
+    """Returns the FIRST complete top-level {...} block that carries a
+    non-empty, dict-valued "solution" key (parsed_dict, start, end), or
+    (None, None, None) if no such block exists. This is "first answer", not
+    merely "first complete JSON" -- a syntactically complete JSON object with
+    no "solution" key, a None "solution", or a non-dict "solution" (matching
+    grid_is_fully_specified's own type check) is skipped and scanning
+    continues to the next complete block, rather than being reported as "no
+    answer" while a real answer JSON follows later in the text.
+
+    Distinguishes: (a) the model's FIRST JSON object IS its answer (the
+    common case) vs (b) the model emits some other JSON first (partial
+    restatement, an intermediate structure) and only later emits the JSON
+    that actually carries "solution" -- (b) must not be scored as no-answer
+    just because it is not the syntactically-first JSON block.
+    """
+    for obj, start, end in _iter_complete_json_blocks(s):
+        sol = obj.get("solution") if isinstance(obj, dict) else None
+        if isinstance(sol, dict) and sol:
+            return obj, start, end
     return None, None, None
 
 
@@ -190,14 +246,30 @@ def compute_commitment_metrics(generated_text: str) -> dict:
     genuinely preceding the JSON's opening brace (e.g. an introductory
     sentence before the object starts) is also included, since the offset is
     measured from the start of `generated_text`, not from `first_start`.
+
+    LOAD-BEARING (fixed 2026-09-05): anchored on find_first_answer_json, NOT
+    find_first_complete_json. The first SYNTACTICALLY complete JSON block in
+    the text is not necessarily the first ANSWER -- a model that emits some
+    other complete JSON object before the one carrying "solution" (e.g. a
+    partial restatement, or an intermediate structure) would previously have
+    that earlier, answer-less block anchor these metrics, reading
+    has_first_json=True with first_solution=None and no defined
+    first_solution_pos, while a real answer JSON followed later in the same
+    text. find_first_answer_json skips any complete JSON lacking a non-empty
+    dict "solution" and returns the first one that has it, so "first answer"
+    means what it says.
     """
     text = generated_text or ""
     n_chars = len(text)
 
-    first_obj, first_start, first_end = find_first_complete_json(text)
+    first_obj, first_start, first_end = find_first_answer_json(text)
     has_first = first_obj is not None and isinstance(first_obj, dict)
     first_solution = first_obj.get("solution") if has_first else None
 
+    # grid_is_fully_specified re-checks fill status (find_first_answer_json
+    # only guarantees a non-empty dict "solution", not that every cell is
+    # filled) -- solution_first_rate is specifically "committed a FULLY
+    # SPECIFIED grid", a stricter condition than "found an answer JSON".
     solution_first = bool(has_first and grid_is_fully_specified(first_solution))
 
     if has_first and first_start is not None:
@@ -225,6 +297,11 @@ def compute_commitment_metrics(generated_text: str) -> dict:
 
     return {
         "n_chars": n_chars,
+        # NOTE: with find_first_answer_json anchoring (fixed 2026-09-05),
+        # has_first_json is now "found a JSON carrying a non-empty dict
+        # solution" (i.e. "found an answer"), not merely "found any complete
+        # JSON block" -- the field name is kept for schema stability with
+        # already-collected data, but its meaning narrowed.
         "has_first_json": has_first,
         "first_json_has_solution_key": bool(has_first and "solution" in first_obj),
         "solution_first_rate": solution_first,  # per-item boolean; caller averages

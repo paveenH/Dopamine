@@ -5,14 +5,25 @@ ZebraLogic-Easy scoring. The ONLY script that reads gold. Protocol
 zebralogic-easy-v0 (docs/PREREG_ZEBRALOGIC_EASY.md), amended by
 zebralogic-easy-amend-01 (docs/zebralogic_easy_amendment_01.json, 2026-09-05):
 
-  - MAIN scoring is now FIRST-complete-JSON (score_one_item_first, via
-    commitment_metrics.find_first_complete_json), not the official LAST-
-    complete-JSON scoring (score_one_item / extract_last_complete_json).
-    Rationale: an unanswered puzzle previously still had its LAST JSON (if
-    any late garbage happened to parse) graded; scoring the FIRST complete
-    JSON matches what "the model's answer" means for a commitment-timing
-    analysis and avoids crediting/blaming a post-answer revision. See the
-    amendment file for the full decision record.
+  - MAIN scoring is now FIRST-ANSWER JSON (score_one_item_first, in the
+    project's own zebralogic/first_answer_scorer.py, via
+    commitment_metrics.find_first_answer_json), not the official LAST-
+    complete-JSON scoring (score_one_item / extract_last_complete_json,
+    still in official_zebra_grid_scorer.py -- that file is a byte-for-byte
+    VERBATIM upstream port and is kept UNTOUCHED by this amendment; the new
+    first-answer logic lives in a separate file precisely so the official
+    port stays auditable against its upstream source with nothing else
+    mixed in). "First answer" means the first complete top-level JSON
+    object carrying a non-empty dict "solution" key -- NOT merely the first
+    syntactically complete JSON object (find_first_complete_json), which
+    would misjudge an answer-less JSON the model happens to emit earlier
+    (e.g. a partial restatement) as "no answer" while a real answer follows
+    later in the same text. Rationale: an unanswered puzzle previously still
+    had its LAST JSON (if any late garbage happened to parse) graded;
+    scoring the first ANSWER JSON matches what "the model's answer" means
+    for a commitment-timing analysis and avoids crediting/blaming a
+    post-answer revision. See the amendment file for the full decision
+    record.
   - `score_one_item` / `extract_last_complete_json` are UNCHANGED and are
     now a SENSITIVITY readout only (`*_last` fields below), quantifying
     first/last drift -- never the primary claim.
@@ -71,13 +82,9 @@ import sys
 from math import comb
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from official_zebra_grid_scorer import (  # noqa: E402
-    build_solution_table, score_one_item, score_one_item_first,
-)
-from commitment_metrics import (  # noqa: E402
-    compute_commitment_metrics, first_final_grid_agreement,
-    find_first_complete_json,
-)
+from official_zebra_grid_scorer import build_solution_table, score_one_item  # noqa: E402
+from first_answer_scorer import score_one_item_first  # noqa: E402
+from commitment_metrics import compute_commitment_metrics, first_final_grid_agreement  # noqa: E402
 from data_zebralogic import (  # noqa: E402
     load_private_gold, solution_shape, sha16, EXPECTED_EASY_IDS_SHA256,
 )
@@ -210,7 +217,7 @@ def score_rows(rows, gold_by_id):
     for r in rows:
         gold_solution = gold_by_id[r["id"]]
         table = build_solution_table(gold_solution)
-        sc = score_one_item_first(r["generated"], table, find_first_complete_json)
+        sc = score_one_item_first(r["generated"], table)
         sc_last = score_one_item(r["generated"], table)
         cm = compute_commitment_metrics(r["generated"])
 
