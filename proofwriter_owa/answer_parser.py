@@ -139,17 +139,21 @@ class ParseResult:
         self.n_strict_markers = n_strict_markers
         self.n_loose_markers = n_loose_markers
         self.all_strict_labels = all_strict_labels
-        # DIAGNOSTIC ONLY, does not affect scoring (see review finding #5,
-        # 2026-09-04): whether the authoritative (last strict) marker is
+        # DIAGNOSTIC ONLY, does not affect scoring, and INDEPENDENT of which
+        # marker `label` scores (see review finding #5, 2026-09-04, and the
+        # 2026-09-05 first-vs-last revision below): whether the LAST STRICT
+        # MARKER in the continuation -- not necessarily the one `label`
+        # scores, since 2026-09-05 that is the FIRST strict marker -- is
         # ALSO the true last non-blank line of the continuation, i.e.
-        # whether the model actually followed the frozen prompt's literal
-        # instruction ("on the LAST line of your response, output exactly
-        # one of..."). False means the model wrote something after its
-        # scored answer (commentary, a restated theory line, a second
-        # attempt at reasoning, etc.) -- still scored (parse_final_answer's
-        # "prefer the last marker" rule is an intentional revision-tolerance
-        # choice, not a bug), but worth auditing separately from ordinary
-        # parse failures.
+        # whether the model's final output followed the frozen prompt's
+        # literal instruction ("on the LAST line of your response, output
+        # exactly one of..."). False means the model wrote something after
+        # its LAST strict marker (commentary, a restated theory line, a
+        # second attempt at reasoning, etc.). This flag says nothing about
+        # whether the FIRST (scored) marker was followed by anything --
+        # for that, compare `label` against `all_strict_labels[-1]` (equal
+        # iff there was effectively no revision) and use
+        # eval_proofwriter_owa.py's `first_last_disagreement_rate`.
         self.is_true_last_line = is_true_last_line
 
     @property
@@ -194,9 +198,13 @@ def parse_final_answer(continuation: str) -> ParseResult:
     loop must not overwrite an already-submitted answer). `all_strict_labels`
     still records every strict marker in order, so `all_strict_labels[-1]`
     recovers the pre-2026-09-05 last-marker convention for the last-answer
-    sensitivity analysis. Whether the SCORED (first) marker is ALSO the
-    literal last line of the response (as the frozen prompt instructs) is
-    recorded separately in `is_true_last_line` and never changes `label`.
+    sensitivity analysis. `is_true_last_line` is a SEPARATE diagnostic about
+    the LAST strict marker (not the scored, first one): whether it is ALSO
+    the literal last line of the response (as the frozen prompt instructs).
+    It never changes `label`, and is not itself a statement about the
+    scored marker's position -- to check whether the FIRST (scored) marker
+    was followed by anything, compare `label` against
+    `all_strict_labels[-1]`.
     """
     strict = find_all_markers(continuation)
     loose = find_all_markers_loose(continuation)

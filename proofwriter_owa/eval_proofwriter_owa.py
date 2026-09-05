@@ -661,8 +661,20 @@ def main():
             "lower no_answer_rate rather than a higher "
             "answered_only_accuracy, report it as an increase in the rate "
             "of a valid, scoreable submission, never as improved reasoning. "
-            "There is NO feasibility gate on either model: both run the "
-            "full four-point sweep regardless of parse_failure_rate/"
+            "answered_only_accuracy must NEVER be compared ACROSS "
+            "models/cells to infer relative reasoning quality -- each "
+            "cell's answered subset is a different, self-selected group of "
+            "items (whichever samples that cell happened to produce a "
+            "marker for), so a similar value across two cells (e.g. two "
+            "models) does not mean comparable underlying reasoning; it "
+            "compares two different, uncontrolled item subsets with no "
+            "correction for selection bias. `multiple_marker_rate` "
+            "(fraction with >=2 STRICT markers) is a narrower, DIFFERENT "
+            "quantity from the pre-existing `invalid_or_multiple_marker_rate` "
+            "(>1 strict OR >1 loose anywhere, kept unchanged for "
+            "continuity) -- do not conflate the two. There is NO "
+            "feasibility gate on either model: both run the full "
+            "four-point sweep regardless of parse_failure_rate/"
             "loop_rate/no_answer_rate."),
         # Renamed from "note_llama3_loop_rate" to a model-neutral name
         # (review finding, 2026-09-04): this note is written into EVERY

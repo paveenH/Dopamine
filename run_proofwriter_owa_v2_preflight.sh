@@ -1,31 +1,48 @@
 #!/usr/bin/env bash
-# ProofWriter OWA v2 prompt -- alpha=0, N=30 feasibility preflight ONLY.
+# ProofWriter OWA v2 prompt -- feasibility preflight AND formal 4-point sweep.
 #
 # Separate, standalone launcher (does NOT touch run_proofwriter_owa.sh's
-# frozen v0/v1 stages): human decision, 2026-09-05, resuming the SUSPENDED
-# ProofWriter-OWA line (CLAUDE.md row) with a v2 prompt revision (fixed
-# 1-shot Unknown train-split exemplar + "#### <Label>" marker instead of
-# v1's "Answer: <Label>"). This is STILL A FEASIBILITY PROBE, not a steering
-# sweep -- alpha=0 only, both models, same 30-item preflight subset already
-# used for v0/v1 so results are directly comparable.
+# frozen v0/v1 stages, and does NOT carry that script's v1 suspension guard):
+# human decision, 2026-09-05, resuming the SUSPENDED ProofWriter-OWA line
+# (CLAUDE.md row) with a v2 prompt revision (fixed 1-shot Unknown train-split
+# exemplar + "#### <Label>" marker instead of v1's "Answer: <Label>") AND a
+# revised scoring convention (FIRST-strict-marker main scoring, no-answer
+# counted incorrect, answered-only accuracy as a diagnostic -- see
+# eval_proofwriter_owa.py's module docstring).
+#
+# Human decision, 2026-09-05: "两边都继续，不设置 feasibility gate" -- BOTH
+# models run the FULL four-point formal sweep regardless of the preflight's
+# parse_failure_rate/loop_rate/no_answer_rate. There is no pass/fail gate
+# anywhere in this script; a high no_answer_rate/loop_rate is reported as a
+# caveat alongside the result, never used to block a stage.
+#
+# FOUR stages:
+#   generate      <llama3|qwen2.5>   alpha=0, N=30 preflight subset (as before)
+#   eval                              scores BOTH models' preflight cells
+#   sweep         <llama3|qwen2.5>   FULL 300-item manifest, all 4 frozen alpha
+#   eval-formal                      scores BOTH models' formal sweep cells
 #
 # GPU IS NOT PINNED BY THIS SCRIPT (matching zebralogic/run_zebralogic.sh's
 # convention) -- pass CUDA_VISIBLE_DEVICES on each invocation, one model per
 # call, e.g.:
 #
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_proofwriter_owa_v2_preflight.sh \
-#     generate llama3 > proofwriter_owa_v2_preflight_llama3.log 2>&1 &
+#     sweep llama3 > proofwriter_owa_v2_sweep_llama3.log 2>&1 &
 #   CUDA_VISIBLE_DEVICES=3 nohup bash run_proofwriter_owa_v2_preflight.sh \
-#     generate qwen2.5 > proofwriter_owa_v2_preflight_qwen25.log 2>&1 &
+#     sweep qwen2.5 > proofwriter_owa_v2_sweep_qwen25.log 2>&1 &
 #
-#   python run_proofwriter_owa_v2_preflight.sh eval   # after BOTH finish, no GPU needed
+#   bash run_proofwriter_owa_v2_preflight.sh eval-formal   # after BOTH finish, no GPU needed
 #
-# (the eval stage also works via `bash run_proofwriter_owa_v2_preflight.sh eval`)
+# A model's own four alpha (one `sweep` call covers all four via --configs)
+# stay on ONE card, matching the project-wide bf16-reproducibility
+# convention; the two MODELS may run on two different cards.
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
   echo "usage: run_proofwriter_owa_v2_preflight.sh generate <llama3|qwen2.5>" >&2
   echo "       run_proofwriter_owa_v2_preflight.sh eval" >&2
+  echo "       run_proofwriter_owa_v2_preflight.sh sweep <llama3|qwen2.5>" >&2
+  echo "       run_proofwriter_owa_v2_preflight.sh eval-formal" >&2
   exit 1
 fi
 STAGE="$1"
@@ -46,6 +63,25 @@ OUT_ROOT="${OUT_ROOT:-$BASE_DIR}"
 EXEMPLAR_FILE="$PW_DIR/exemplar_unknown_v2.json"
 [[ -f "$EXEMPLAR_FILE" ]] || {
   echo "[FATAL] $EXEMPLAR_FILE not found." >&2; exit 1; }
+
+# Frozen per-model config, matching run_proofwriter_owa.sh's model_cfg() and
+# get_answer_proofwriter_owa.py's EXPECTED_CELLS exactly -- llama3 layers
+# [11,20) alpha in {-6,-4,0,+4}; qwen2.5 layers [16,22) alpha in {-6,0,+6,+8}.
+LLAMA_MASK="$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy"
+QWEN_MASK="$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy"
+LLAMA_SWEEP_CONFIGS="neg6-11-20 neg4-11-20 0-11-20 4-11-20"
+QWEN_SWEEP_CONFIGS="neg6-16-22 0-16-22 6-16-22 8-16-22"
+MANIFEST_BLIND="$BENCH/manifest_blind.json"
+MANIFEST_GOLD="$BENCH/manifest_gold.json"
+LLAMA_SWEEP_A0="$OUT_ROOT/llama3/proofwriter_owa/mdf_0/proofwriter_owa_8B_11_20.json"
+LLAMA_SWEEP_AN4="$OUT_ROOT/llama3/proofwriter_owa/mdf_neg4/proofwriter_owa_8B_11_20.json"
+LLAMA_SWEEP_AN6="$OUT_ROOT/llama3/proofwriter_owa/mdf_neg6/proofwriter_owa_8B_11_20.json"
+LLAMA_SWEEP_AP4="$OUT_ROOT/llama3/proofwriter_owa/mdf_4/proofwriter_owa_8B_11_20.json"
+QWEN_SWEEP_A0="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_0/proofwriter_owa_7B_16_22.json"
+QWEN_SWEEP_AN6="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_neg6/proofwriter_owa_7B_16_22.json"
+QWEN_SWEEP_AP6="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_6/proofwriter_owa_7B_16_22.json"
+QWEN_SWEEP_AP8="$OUT_ROOT/qwen2.5/proofwriter_owa/mdf_8/proofwriter_owa_7B_16_22.json"
+FORMAL_EVAL_OUT="$PW_DIR/results/formal_sweep_v2.json"
 
 # Filenames must match run_proofwriter_owa.sh's own convention EXACTLY:
 # PREFLIGHT_FILE="$BENCH/preflight_blind_${MODEL}.json" where $MODEL is the
@@ -164,8 +200,104 @@ case "$STAGE" in
     echo "  -- report but do not draw any steering/workpoint conclusion."
     ;;
 
+  sweep)
+    if [[ -z "$MODEL" ]]; then
+      echo "[FATAL] 'sweep' requires a model argument: llama3 or qwen2.5" >&2
+      exit 1
+    fi
+    if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+      echo "[FATAL] CUDA_VISIBLE_DEVICES must be set to exactly one card" >&2
+      echo "        (this model's whole 4-point alpha curve must stay on" >&2
+      echo "        one machine; an unpinned run risks mixing device" >&2
+      echo "        differences into the alpha effect)." >&2
+      exit 1
+    fi
+    [[ -f "$MANIFEST_BLIND" ]] || {
+      echo "[FATAL] $MANIFEST_BLIND not found; run the v0/v1" >&2
+      echo "        'validate-data' stage of run_proofwriter_owa.sh first" >&2
+      echo "        (it builds the full 300-item manifest_blind.json /" >&2
+      echo "        manifest_gold.json this launcher reuses unchanged --" >&2
+      echo "        v2 only changes the prompt/exemplar/marker, not the" >&2
+      echo "        item sample)." >&2
+      exit 1; }
+    echo "[proofwriter-owa v2] $MODEL: FORMAL 4-point sweep on the full"
+    echo "  300-item manifest. No feasibility gate (human decision,"
+    echo "  2026-09-05) -- this runs regardless of the preflight's"
+    echo "  parse_failure_rate/loop_rate/no_answer_rate."
+    echo "  max_new_tokens is FROZEN at 1024 (get_answer_proofwriter_owa.py"
+    echo "  hard-rejects any other value)."
+    case "$MODEL" in
+      llama3)
+        cd "$WORK_DIR"
+        "$PY" proofwriter_owa/get_answer_proofwriter_owa.py \
+          --model llama3 --size 8B \
+          --model_dir meta-llama/Llama-3.1-8B-Instruct \
+          --manifest "$MANIFEST_BLIND" --mask_path "$LLAMA_MASK" \
+          --configs $LLAMA_SWEEP_CONFIGS \
+          --out_dir "$LLAMA_OUT_DIR" \
+          --n_shot 1 --exemplar_file "$EXEMPLAR_FILE"
+        echo "[proofwriter-owa v2] llama3 sweep done. Alpha=0 file:"
+        echo "    $LLAMA_SWEEP_A0"
+        ;;
+      qwen2.5)
+        cd "$WORK_DIR"
+        "$PY" proofwriter_owa/get_answer_proofwriter_owa.py \
+          --model qwen2.5 --size 7B \
+          --model_dir Qwen/Qwen2.5-7B-Instruct \
+          --manifest "$MANIFEST_BLIND" --mask_path "$QWEN_MASK" \
+          --configs $QWEN_SWEEP_CONFIGS \
+          --out_dir "$QWEN_OUT_DIR" \
+          --n_shot 1 --exemplar_file "$EXEMPLAR_FILE"
+        echo "[proofwriter-owa v2] qwen2.5 sweep done. Alpha=0 file:"
+        echo "    $QWEN_SWEEP_A0"
+        ;;
+      *)
+        echo "[FATAL] unknown model '$MODEL' (llama3 | qwen2.5)" >&2
+        exit 1
+        ;;
+    esac
+    echo
+    echo "[proofwriter-owa v2] when BOTH models' sweeps finish, run:"
+    echo "    bash run_proofwriter_owa_v2_preflight.sh eval-formal"
+    ;;
+
+  eval-formal)
+    for f in "$LLAMA_SWEEP_A0" "$LLAMA_SWEEP_AN4" "$LLAMA_SWEEP_AN6" "$LLAMA_SWEEP_AP4" \
+             "$QWEN_SWEEP_A0" "$QWEN_SWEEP_AN6" "$QWEN_SWEEP_AP6" "$QWEN_SWEEP_AP8"; do
+      [[ -f "$f" ]] || {
+        echo "[FATAL] $f not found; run 'sweep' for both models first" >&2
+        echo "        (all four alpha per model, from ONE 'sweep' call" >&2
+        echo "        each -- --configs already lists all four)." >&2
+        exit 1; }
+    done
+    if [[ -f "$FORMAL_EVAL_OUT" ]]; then
+      echo "[FATAL] $FORMAL_EVAL_OUT exists; refusing to overwrite." >&2
+      echo "        (eval_proofwriter_owa.py itself also refuses --out" >&2
+      echo "        overwrite; this check just fails earlier/clearer.)" >&2
+      exit 1
+    fi
+    cd "$WORK_DIR"
+    echo "[proofwriter-owa v2] scoring BOTH models' formal 4-point sweeps"
+    echo "  (Holm(m=3) per model; no --allow_partial_alphas -- both models"
+    echo "  must show their full frozen 4-point family, or this hard-stops)."
+    "$PY" proofwriter_owa/eval_proofwriter_owa.py \
+      --gold "$MANIFEST_GOLD" \
+      --generations "$LLAMA_SWEEP_A0" "$LLAMA_SWEEP_AN4" "$LLAMA_SWEEP_AN6" "$LLAMA_SWEEP_AP4" \
+                    "$QWEN_SWEEP_A0" "$QWEN_SWEEP_AN6" "$QWEN_SWEEP_AP6" "$QWEN_SWEEP_AP8" \
+      --out "$FORMAL_EVAL_OUT"
+    echo
+    echo "[proofwriter-owa v2] wrote $FORMAL_EVAL_OUT"
+    echo "  Read results.<model>.cells.<alpha> for accuracy (FIRST-answer,"
+    echo "  main) / sensitivity_last_answer_accuracy / answered_only_accuracy"
+    echo "  (diagnostic, never compare across models/cells) / no_answer_rate"
+    echo "  / multiple_marker_rate / first_last_disagreement_rate / loop_rate"
+    echo "  / truncation_rate, and results.<model>.workpoint for the"
+    echo "  McNemar/Holm-based verdict (computed on the overall,"
+    echo "  no-answer-included accuracy)."
+    ;;
+
   *)
-    echo "[FATAL] unknown stage '$STAGE' (generate|eval)" >&2
+    echo "[FATAL] unknown stage '$STAGE' (generate|eval|sweep|eval-formal)" >&2
     exit 1
     ;;
 esac
