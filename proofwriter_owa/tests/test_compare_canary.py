@@ -58,6 +58,12 @@ def make_cell(path, n, alpha, host, cuda, agree=True):
     meta = {
         "protocol": "proofwriter-owa-v0", "alpha": alpha, "model": "llama3",
         "provenance": {"host": host, "cuda_visible_devices": cuda},
+        # marker_family/prompt_template_id required since compare_canary.py
+        # resolves the marker family per cell (2026-09-05 fix) rather than
+        # hardcoding v1's parser -- this fixture's rows use v1's "Answer:"
+        # marker (see the f-string below), so the meta must say so.
+        "prompt_template_id": "proofwriter-owa-cot-v1",
+        "marker_family": "v1",
     }
     write_json(path, {"meta": meta, "data": rows})
 

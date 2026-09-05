@@ -57,6 +57,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from prompt import build_prompt, PROMPT_TEMPLATE_ID  # noqa: E402
 from commitment import first_strict_marker_start  # noqa: E402
+from answer_parser import get_marker_family  # noqa: E402
+
+# Resolved ONCE, from THIS module's own PROMPT_TEMPLATE_ID -- never
+# hardcoded to "v1" or "v2" here. If a future prompt revision changes
+# PROMPT_TEMPLATE_ID without adding a matching entry to
+# answer_parser.MARKER_FAMILIES, this raises immediately at import time
+# rather than silently scoring/timing every generation against the wrong
+# marker family (the exact bug this fixes, found 2026-09-05: this script's
+# v2 prompt asked for "#### <Label>" while pre_answer_reasoning_tokens was
+# still computed against v1's "Answer:" regex, so it was None for every
+# sample under v2's prompt).
+MARKER_FAMILY = get_marker_family(PROMPT_TEMPLATE_ID)["marker_family"]
 
 PROTOCOL = "proofwriter-owa-v0"
 FORBIDDEN_KEYS = ("answer", "label", "gold", "gold_answer", "correct",
@@ -271,8 +283,11 @@ def main():
             # first_strict_marker_start (the SAME function
             # per_sample_commitment uses internally) so the pre-marker slice
             # tokenized here is defined identically to what the evaluator
-            # would derive char-wise.
-            marker_start = first_strict_marker_start(text)
+            # would derive char-wise. MARKER_FAMILY is resolved once above
+            # from THIS module's own PROMPT_TEMPLATE_ID -- passing it
+            # explicitly (not relying on a default) is what makes this
+            # marker-family-correct for whichever prompt version is active.
+            marker_start = first_strict_marker_start(text, MARKER_FAMILY)
             pre_answer_tokens = None
             if marker_start is not None:
                 try:
@@ -294,6 +309,7 @@ def main():
 
         json.dump({"meta": {
             "protocol": PROTOCOL, "prompt_template_id": PROMPT_TEMPLATE_ID,
+            "marker_family": MARKER_FAMILY,
             "model": args.model, "size": args.size,
             "alpha": alpha, "layer_start": ls, "layer_end": le, "L": n_layers,
             "mask_path": args.mask_path, "mask_sha256": mask_sha,

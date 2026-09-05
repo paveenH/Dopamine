@@ -36,7 +36,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from answer_parser import parse_final_answer, normalize_label, is_correct  # noqa: E402
+from answer_parser import normalize_label, is_correct, get_marker_family  # noqa: E402
 
 PROTOCOL = "proofwriter-owa-v0"
 
@@ -98,13 +98,37 @@ def main():
         die(f"--gold is missing {len(missing_gold)} sample_id(s) present in "
             f"the canary cells, e.g. {sorted(missing_gold)[:5]}")
 
-    def score(rows):
+    # marker_family is resolved PER CELL from that cell's own
+    # prompt_template_id (2026-09-05 fix) -- a cross-GPU canary always
+    # compares cells of the SAME model/alpha/prompt, but this must not be
+    # assumed silently: if two cells were accidentally generated under
+    # different prompt versions, that is itself exactly the kind of
+    # divergence this comparator exists to catch, so it is reported rather
+    # than crashed on or silently normalized away.
+    families = []
+    for m in metas:
+        tpl_id = m.get("prompt_template_id")
+        fam = get_marker_family(tpl_id)
+        families.append(fam)
+        if m.get("marker_family") not in (None, fam["marker_family"]):
+            die(f"cell records marker_family={m.get('marker_family')!r} but "
+                f"prompt_template_id={tpl_id!r} resolves to "
+                f"{fam['marker_family']!r}; refusing to guess which is "
+                "correct.")
+    if len({f["marker_family"] for f in families}) > 1:
+        die("canary cells do not all share the same marker_family "
+            f"({[f['marker_family'] for f in families]}); a cross-GPU "
+            "canary must compare cells generated under the SAME prompt "
+            "version, or an outcome divergence could be a prompt-version "
+            "difference rather than a GPU difference.")
+
+    def score(rows, parse_fn):
         by_id = {r["sample_id"]: r for r in rows}
         out = {}
         for sid in ids_ref:
             r = by_id[sid]
             text = r["generated"]
-            parsed = parse_final_answer(text)
+            parsed = parse_fn(text)
             correct = is_correct(parsed.label, gold[sid]["answer"])
             out[sid] = {
                 "correct": correct, "parse_status": parsed.status,
@@ -112,7 +136,8 @@ def main():
             }
         return out
 
-    scored = [score(rows) for rows in rowsets]
+    scored = [score(rows, fam["parse_final_answer"])
+             for rows, fam in zip(rowsets, families)]
 
     summaries = []
     for m, sc in zip(metas, scored):

@@ -62,11 +62,17 @@ def make_cell(path, model, alpha, layer_start, layer_end, L, correct_ids,
                     "truncated": False, "generated_token_count": 20,
                     "pre_answer_reasoning_tokens": 10})
     fires = 0 if alpha == 0 else L * len(rows)
+    # prompt_template_id must be a REAL registered id (answer_parser.
+    # MARKER_FAMILIES), since load_cell now derives marker_family from it
+    # and rejects anything unregistered -- the placeholder string "v1" used
+    # before the marker-family registry existed is no longer valid here.
     meta = {"protocol": "proofwriter-owa-v0", "model": model, "alpha": alpha,
            "layer_start": layer_start, "layer_end": layer_end, "L": L,
            "steering_fires": fires, "accuracy_computed": False,
            "mask_path": "/fake/mask.npy", "mask_sha256": "abc123",
-           "prompt_sha256": "prompt_hash_1", "prompt_template_id": "v1",
+           "prompt_sha256": "prompt_hash_1",
+           "prompt_template_id": "proofwriter-owa-cot-v1",
+           "marker_family": "v1",
            "manifest_sha256_16": "test", "batch_size": 8,
            "max_new_tokens": 768, "temperature": 0.0, "top_p": 1.0,
            "n_shot": 0, "padding_side": "left", "chat_template": False,

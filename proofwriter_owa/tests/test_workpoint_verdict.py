@@ -72,9 +72,15 @@ def make_cell(path, model, alpha, layer_start, layer_end, L, correct_ids,
     if duplicate_one and rows:
         rows.append(dict(rows[0]))  # inject a duplicate sample_id
     fires = 0 if alpha == 0 else L * len(rows)
+    # prompt_template_id/marker_family required since load_cell now derives
+    # and cross-checks marker_family from prompt_template_id (2026-09-05
+    # fix) -- this fixture's rows use v1's "Answer:" marker (see the
+    # f-string above), so meta must declare the matching v1 family.
     meta = {"protocol": "proofwriter-owa-v0", "model": model, "alpha": alpha,
            "layer_start": layer_start, "layer_end": layer_end, "L": L,
-           "steering_fires": fires, "accuracy_computed": False}
+           "steering_fires": fires, "accuracy_computed": False,
+           "prompt_template_id": "proofwriter-owa-cot-v1",
+           "marker_family": "v1"}
     json.dump({"meta": meta, "data": rows}, open(path, "w"))
 
 

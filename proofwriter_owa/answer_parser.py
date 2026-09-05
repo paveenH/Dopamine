@@ -207,6 +207,56 @@ def parse_final_answer_v2(continuation: str) -> ParseResult:
                        _last_marker_is_true_last_line_v2(continuation))
 
 
+# ───────────────── marker-family registry (single source of truth) ─────────────────
+#
+# Resolves a `prompt_template_id` (the exact string every generation cell's
+# meta already records) to the ONE marker family that must be used for BOTH
+# scoring and commitment-timing on that cell. This registry exists so
+# get_answer_proofwriter_owa.py, eval_proofwriter_owa.py, commitment.py, and
+# compare_canary.py all pick the marker family the SAME way -- by looking up
+# the id they already have, rather than four call sites separately hardcoding
+# "this script means v1" or "this script means v2" and drifting apart the
+# moment a fifth prompt version is ever added. A prompt_template_id with no
+# entry here is a hard stop (get_marker_family raises KeyError-with-context),
+# never a silent fallback to either family.
+MARKER_FAMILY_V1 = "v1"
+MARKER_FAMILY_V2 = "v2"
+
+MARKER_FAMILIES = {
+    "proofwriter-owa-cot-v1": {
+        "marker_family": MARKER_FAMILY_V1,
+        "marker_prefix": "Answer:",
+        "parse_final_answer": None,       # filled in below, after the fns exist
+        "find_all_markers": None,
+        "find_all_markers_loose": None,
+    },
+    "proofwriter-owa-cot-v2": {
+        "marker_family": MARKER_FAMILY_V2,
+        "marker_prefix": "####",
+        "parse_final_answer": None,
+        "find_all_markers": None,
+        "find_all_markers_loose": None,
+    },
+}
+
+
+def get_marker_family(prompt_template_id: str) -> dict:
+    """The single lookup point every consumer must use. Raises with a clear
+    message (not KeyError's bare traceback) on an unregistered
+    prompt_template_id -- fail closed, never guess a family for a prompt
+    version this module does not know about."""
+    fam = MARKER_FAMILIES.get(prompt_template_id)
+    if fam is None:
+        raise ValueError(
+            f"no marker family registered for prompt_template_id="
+            f"{prompt_template_id!r}. Known ids: "
+            f"{sorted(MARKER_FAMILIES)}. Register a new entry in "
+            "answer_parser.MARKER_FAMILIES before using a new prompt "
+            "version for scoring or commitment timing -- never assume a "
+            "default family for an unrecognized id.")
+    return fam
+
+
 def normalize_label(x) -> str:
     """Normalize a gold or predicted label to the canonical 3-value form."""
     if isinstance(x, bool):
@@ -226,3 +276,21 @@ def is_correct(pred_label: str | None, gold_label: str) -> bool:
     if pred_label is None:
         return False
     return normalize_label(pred_label) == normalize_label(gold_label)
+
+
+# Fill in MARKER_FAMILIES now that every function it references exists.
+# Done here (module-bottom) rather than inline in the dict literal above
+# because Python cannot reference a function defined later in the same
+# module inside an earlier dict literal -- keeping the dict declaration next
+# to the family constants (readable) and the population step here (correct
+# forward-reference order) is the standard pattern for this kind of registry.
+MARKER_FAMILIES["proofwriter-owa-cot-v1"].update({
+    "parse_final_answer": parse_final_answer,
+    "find_all_markers": find_all_markers,
+    "find_all_markers_loose": find_all_markers_loose,
+})
+MARKER_FAMILIES["proofwriter-owa-cot-v2"].update({
+    "parse_final_answer": parse_final_answer_v2,
+    "find_all_markers": find_all_markers_v2,
+    "find_all_markers_loose": find_all_markers_loose_v2,
+})

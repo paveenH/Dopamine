@@ -13,6 +13,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from commitment import (per_sample_commitment, aggregate_commitment,
                         first_strict_marker_start, DETECTOR_VERSION)
+from answer_parser import MARKER_FAMILY_V1
+
+# This file tests the v1 "Answer:" marker family exclusively (byte-identical
+# scenarios to before the marker_family argument was added, 2026-09-05 --
+# every call below now passes marker_family=MARKER_FAMILY_V1 explicitly
+# rather than relying on a removed default). v2 "####" coverage lives in
+# test_commitment_marker_family.py alongside the cross-family isolation
+# checks that motivated adding the argument in the first place.
+V1 = MARKER_FAMILY_V1
 
 FAILS = []
 N = 0
@@ -29,7 +38,7 @@ def check(cond, msg):
 
 def test_answer_first():
     text = "Answer: True\n"
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["answer_first"] is True, f"expected answer_first True, got {c}")
     check(c["pre_answer_reasoning_chars"] == 0,
           f"expected 0 pre-answer chars, got {c['pre_answer_reasoning_chars']}")
@@ -37,7 +46,7 @@ def test_answer_first():
 
 def test_reason_before_answer():
     text = "Fact1 and Fact2 imply Query.\nAnswer: True\n"
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["answer_first"] is False, f"expected answer_first False, got {c}")
     check(c["reason_before_answer"] is True, f"got {c}")
     check(c["pre_answer_reasoning_chars"] == len("Fact1 and Fact2 imply Query.\n"),
@@ -46,7 +55,7 @@ def test_reason_before_answer():
 
 def test_no_marker_fields_are_none():
     text = "I am not sure how to answer this."
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["has_marker"] is False, "no marker -> has_marker False")
     check(c["answer_first"] is False, "no marker -> answer_first False (no strict marker)")
     check(c["first_answer_marker_pos"] is None, "no marker -> position None")
@@ -57,7 +66,7 @@ def test_no_marker_fields_are_none():
 
 def test_label_revision_detected():
     text = "Answer: True\nWait, let me reconsider.\nAnswer: False\n"
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["n_strict_markers"] == 2, f"got {c['n_strict_markers']}")
     check(c["first_final_label_agreement"] is False,
           "first (True) != last (False) should be detected as disagreement")
@@ -65,14 +74,14 @@ def test_label_revision_detected():
 
 def test_label_no_revision_when_consistent():
     text = "Answer: True\nTo confirm: Answer: True\n"
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["first_final_label_agreement"] is True,
           "identical first/last labels should agree")
 
 
 def test_single_marker_agreement_is_trivially_true():
     text = "Answer: Unknown\n"
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["first_final_label_agreement"] is True,
           "a single marker trivially agrees with itself")
 
@@ -81,7 +90,7 @@ def test_multiple_answer_marker_flag_uses_loose_detector():
     # A loose (non-strict) second occurrence should still flip
     # multiple_answer_marker, even if it never becomes the scored answer.
     text = "Answer: True\nSo the Answer: True is confirmed once more inline."
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["multiple_answer_marker"] is True,
           f"expected multiple_answer_marker True, got {c}")
 
@@ -94,11 +103,11 @@ def test_precomputed_tokens_takes_precedence():
             # deliberately wrong count, to prove precomputed_tokens wins
             return {"input_ids": [0] * 999}
 
-    c_tok = per_sample_commitment(text, tokenizer=FakeTok())
+    c_tok = per_sample_commitment(text, V1, tokenizer=FakeTok())
     check(c_tok["pre_answer_reasoning_tokens"] == 999,
           f"tokenizer path should report 999, got {c_tok['pre_answer_reasoning_tokens']}")
 
-    c_pre = per_sample_commitment(text, tokenizer=FakeTok(), precomputed_tokens=7)
+    c_pre = per_sample_commitment(text, V1, tokenizer=FakeTok(), precomputed_tokens=7)
     check(c_pre["pre_answer_reasoning_tokens"] == 7,
           f"precomputed_tokens must take precedence over tokenizer, got "
           f"{c_pre['pre_answer_reasoning_tokens']}")
@@ -106,7 +115,7 @@ def test_precomputed_tokens_takes_precedence():
 
 def test_no_tokenizer_no_precomputed_is_none():
     text = "reasoning here\nAnswer: True\n"
-    c = per_sample_commitment(text)
+    c = per_sample_commitment(text, V1)
     check(c["pre_answer_reasoning_tokens"] is None,
           "with neither tokenizer nor precomputed_tokens, must be None -- "
           "never estimated by a chars/4 heuristic")
@@ -114,21 +123,21 @@ def test_no_tokenizer_no_precomputed_is_none():
 
 def test_first_strict_marker_start_matches_answer_first_logic():
     text = "Answer: True\n"
-    pos = first_strict_marker_start(text)
+    pos = first_strict_marker_start(text, V1)
     check(pos == 0, f"expected offset 0, got {pos}")
     text2 = "abc\nAnswer: False\n"
-    pos2 = first_strict_marker_start(text2)
+    pos2 = first_strict_marker_start(text2, V1)
     check(pos2 == 4, f"expected offset 4, got {pos2}")
     text3 = "no marker here"
-    check(first_strict_marker_start(text3) is None, "no marker -> None")
+    check(first_strict_marker_start(text3, V1) is None, "no marker -> None")
 
 
 def test_aggregate_denominators():
     rows = [
-        per_sample_commitment("Answer: True\n"),                       # answer_first
-        per_sample_commitment("reasoning\nAnswer: False\n"),           # reason_before
-        per_sample_commitment("no marker at all here"),                # no marker
-        per_sample_commitment("Answer: True\nAnswer: False\n"),        # revision
+        per_sample_commitment("Answer: True\n", V1),                       # answer_first
+        per_sample_commitment("reasoning\nAnswer: False\n", V1),           # reason_before
+        per_sample_commitment("no marker at all here", V1),                # no marker
+        per_sample_commitment("Answer: True\nAnswer: False\n", V1),        # revision
     ]
     agg = aggregate_commitment(rows)
     check(agg["detector_version"] == DETECTOR_VERSION, "version tag present")

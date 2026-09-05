@@ -40,7 +40,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from answer_parser import parse_final_answer, normalize_label, is_correct  # noqa: E402
+from answer_parser import (normalize_label, is_correct, get_marker_family,
+                           MARKER_FAMILIES)  # noqa: E402
 from commitment import per_sample_commitment, aggregate_commitment  # noqa: E402
 from scoring import mcnemar_exact, holm, question_paired_bootstrap_ci, \
     discrete_argmax, near_optimal_region  # noqa: E402
@@ -72,10 +73,20 @@ EXPECTED_ALPHAS = {
 CONSISTENCY_FIELDS = (
     "model", "size", "layer_start", "layer_end", "L",
     "mask_path", "mask_sha256", "prompt_sha256", "prompt_template_id",
+    "marker_family",
     "manifest_sha256_16", "batch_size", "max_new_tokens", "temperature",
     "top_p", "n_shot", "padding_side", "chat_template", "prefill_only",
     "prefill_tail_len",
 )
+# marker_family is DERIVABLE from prompt_template_id (answer_parser.
+# get_marker_family), so checking both looks redundant -- it is kept
+# deliberately as a second, independent field (review decision, 2026-09-05):
+# prompt_template_id catching a drift relies on the registry lookup being
+# correct and up to date; marker_family is what get_answer_proofwriter_owa.py
+# ACTUALLY resolved and stored at generation time, so a stale or hand-edited
+# meta.json with a mismatched pair (e.g. prompt_template_id says v2 but
+# marker_family was hand-set to "v1") is caught here rather than silently
+# trusted. Both fields must agree across every alpha cell of one model.
 
 # A strict, GSM8K-loop-detector-style rule: the final 40-char block of the
 # continuation recurring >=4 times in the full text. Matches the convention
@@ -116,12 +127,32 @@ def load_cell(path, protocol_expected=PROTOCOL):
         die(f"{path}: protocol {m.get('protocol')!r} != {protocol_expected!r}")
     if m.get("accuracy_computed") is not False:
         die(f"{path}: generation file claims accuracy was already computed")
+    # Resolve marker_family the SAME way get_answer_proofwriter_owa.py did
+    # (from prompt_template_id, via the shared registry) and require it to
+    # match what the cell's own meta already recorded. A mismatch means
+    # either the generator and this evaluator disagree about what
+    # prompt_template_id maps to (a registry drift), or the meta.json was
+    # hand-edited/corrupted -- either way, scoring must stop rather than
+    # silently pick one of the two disagreeing values.
+    tpl_id = m.get("prompt_template_id")
+    derived_family = get_marker_family(tpl_id)["marker_family"]
+    recorded_family = m.get("marker_family")
+    if recorded_family != derived_family:
+        die(f"{path}: meta.marker_family={recorded_family!r} does not match "
+            f"the family derived from prompt_template_id={tpl_id!r} "
+            f"({derived_family!r}). This cell's marker family is "
+            "ambiguous -- refusing to guess which one to score against.")
     return m, d["data"]
 
 
-def score_cell(rows: list[dict], gold: dict):
+def score_cell(rows: list[dict], gold: dict, marker_family: str):
     """Returns per-sample records with parsed label / correctness / commitment
-    fields, plus dataset-level summaries."""
+    fields, plus dataset-level summaries. `marker_family` ("v1" or "v2",
+    answer_parser.MARKER_FAMILY_V1/_V2) is resolved by the CALLER from this
+    cell's own prompt_template_id (see load_cell's cross-check above) and
+    applied uniformly to every row in `rows` -- there is no per-row family
+    guessing, and no default."""
+    parse_fn = get_marker_family_functions(marker_family)
     out = []
     for r in rows:
         sid = r["sample_id"]
@@ -129,15 +160,19 @@ def score_cell(rows: list[dict], gold: dict):
             die(f"sample_id {sid} in generation file has no gold entry")
         g = gold[sid]
         text = r["generated"]
-        parsed = parse_final_answer(text)
+        parsed = parse_fn(text)
         correct = is_correct(parsed.label, g["answer"])
         # pre_answer_reasoning_tokens needs a real tokenizer; this evaluator
         # runs offline with none loaded. get_answer_proofwriter_owa.py
         # computes it at generation time (the tokenizer is already loaded
         # there) and stores it per row as "pre_answer_reasoning_tokens" --
         # pass that through so the field is not silently None in every cell.
+        # marker_family is threaded through explicitly (2026-09-05 fix) so
+        # commitment timing is computed against the SAME family the marker
+        # was actually parsed against, never a hardcoded default.
         commit = per_sample_commitment(
-            text, precomputed_tokens=r.get("pre_answer_reasoning_tokens"))
+            text, marker_family,
+            precomputed_tokens=r.get("pre_answer_reasoning_tokens"))
         out.append({
             "sample_id": sid, "dataset": g["dataset"], "gold": g["answer"],
             "pred": parsed.label, "correct": correct,
@@ -151,6 +186,18 @@ def score_cell(rows: list[dict], gold: dict):
             "commit": commit,
         })
     return out
+
+
+def get_marker_family_functions(marker_family: str):
+    """Small local wrapper: return this family's parse_final_answer function
+    from the registry. Kept as a one-line named function (rather than an
+    inline dict lookup at each call site) purely so a future third family can
+    be added by editing answer_parser.MARKER_FAMILIES alone -- no call site
+    in this file needs to change."""
+    for fam in MARKER_FAMILIES.values():
+        if fam["marker_family"] == marker_family:
+            return fam["parse_final_answer"]
+    raise ValueError(f"no registered family has marker_family={marker_family!r}")
 
 
 def summarize(scored: list[dict]):
@@ -333,7 +380,14 @@ def main():
                         "batch/token-budget/model), or they are not a "
                         "comparable curve.")
 
-        scored_by_alpha = {al: {r["sample_id"]: r for r in score_cell(rows, gold)}
+        # marker_family is already guaranteed identical across every alpha
+        # cell of this model by the CONSISTENCY_FIELDS check just above, so
+        # it is safe to read it once here (from ref_meta) and apply it
+        # uniformly to every score_cell call below -- no per-alpha family
+        # resolution or guessing.
+        model_marker_family = ref_meta["marker_family"]
+        scored_by_alpha = {al: {r["sample_id"]: r
+                                for r in score_cell(rows, gold, model_marker_family)}
                             for al, (_, rows) in byalpha.items()}
 
         def acc_vec(al):
