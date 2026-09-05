@@ -263,7 +263,21 @@ def main():
     print(f"[GENERIC JSON: first syntactically complete JSON, any content]")
     print(f"  has-json+truncated     : {len(json_parsed_truncated)}/{n}")
     print(f"  no-json+truncated      : {len(json_unparsed_truncated)}/{n}")
-    n_divergent = sum(1 for x in diags if x["has_first_json"] != x["has_answer_json"])
+    # Divergent means EITHER "one found a JSON and the other didn't" OR
+    # "both found one, but at a different closing position" -- the second
+    # case is exactly "the first JSON is answer-less and a LATER JSON is the
+    # real answer", which is the scenario this diagnostic exists to catch,
+    # and comparing only has_first_json != has_answer_json would miss it
+    # entirely (both are True whenever an answer exists at all, regardless
+    # of whether it is the first JSON or a later one).
+    n_divergent = sum(
+        1 for x in diags
+        if x["has_first_json"] != x["has_answer_json"]
+        or (
+            x["has_first_json"] and x["has_answer_json"]
+            and x["first_json_end_char"] != x["first_answer_end_char"]
+        )
+    )
     print(f"  rows where first-JSON and first-ANSWER-JSON disagree (some "
           f"other JSON closed before the real answer, or vice versa): "
           f"{n_divergent}/{n}")

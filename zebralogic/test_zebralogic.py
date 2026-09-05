@@ -38,6 +38,7 @@ from commitment_metrics import (
     grid_is_fully_specified, first_final_grid_agreement,
     compute_commitment_metrics,
 )
+from diagnose_truncation import diagnose_row
 
 FAILURES = []
 
@@ -243,6 +244,77 @@ def test_find_first_answer_json():
           find_first_answer_json(json.dumps({"solution": {}}))[0] is None)
     check("find_first_answer_json returns None when solution is not a dict",
           find_first_answer_json(json.dumps({"solution": "not a dict"}))[0] is None)
+
+
+class _FakeCharTokenizer:
+    """1-char-per-token fake tokenizer for diagnose_truncation.py's token-
+    position logic -- no real HF tokenizer/model weights needed to exercise
+    it, only offset_mapping semantics."""
+    def __call__(self, text, return_offsets_mapping=True, add_special_tokens=False):
+        return {"offset_mapping": [(i, i + 1) for i in range(len(text))]}
+
+
+def test_diagnose_truncation_divergence():
+    """Review finding (2026-09-05): the divergence count between "first
+    complete JSON" and "first ANSWER JSON" must compare POSITION, not just
+    presence. An answer-less JSON followed by a real answer JSON has
+    has_first_json == has_answer_json == True in both cases, so a
+    presence-only comparison (has_first_json != has_answer_json) would
+    silently report "not divergent" for exactly the scenario this
+    diagnostic exists to catch. This mirrors the identical presence-vs-
+    position bug already fixed in score_one_item_first / compute_commitment_
+    metrics (find_first_answer_json), applied here to diagnose_truncation.py."""
+    tok = _FakeCharTokenizer()
+
+    def _is_divergent(d):
+        return (d["has_first_json"] != d["has_answer_json"]) or (
+            d["has_first_json"] and d["has_answer_json"]
+            and d["first_json_end_char"] != d["first_answer_end_char"]
+        )
+
+    # Divergent case: answer-less JSON, THEN the real answer JSON. Both
+    # has_first_json and has_answer_json are True -- only the END POSITIONS
+    # differ, which a presence-only check would miss entirely.
+    answerless = json.dumps({"note": "x"})
+    answer = json.dumps({"reasoning": "y", "solution": {"House 1": {"Name": "Arnold"}}})
+    text_divergent = answerless + " filler " + answer
+    row_divergent = {
+        "id": "d1", "sample_id": 0, "size": "2*2", "raw_text": text_divergent,
+        "truncated": True, "stop_reason": "budget_exhausted",
+        "generated_token_count": len(text_divergent),
+    }
+    d = diagnose_row(row_divergent, tok)
+    check("divergent case: has_first_json and has_answer_json both True",
+          d["has_first_json"] is True and d["has_answer_json"] is True)
+    check("divergent case: first_json_end_char != first_answer_end_char",
+          d["first_json_end_char"] != d["first_answer_end_char"],
+          f"got {d['first_json_end_char']} == {d['first_answer_end_char']}")
+    check("divergent case: presence-only check would have MISSED this "
+          "(has_first_json == has_answer_json)",
+          d["has_first_json"] == d["has_answer_json"])
+    check("divergent case: position-aware check correctly flags divergence",
+          _is_divergent(d) is True)
+
+    # Non-divergent control: the first (and only) JSON IS the answer JSON,
+    # so both presence AND position agree -- must NOT be flagged.
+    row_same = {
+        "id": "d2", "sample_id": 1, "size": "2*2", "raw_text": answer,
+        "truncated": False, "stop_reason": "eos",
+        "generated_token_count": len(answer),
+    }
+    d2 = diagnose_row(row_same, tok)
+    check("non-divergent control: first JSON == answer JSON, not flagged",
+          _is_divergent(d2) is False)
+
+    # No JSON at all: both False, not flagged.
+    row_none = {
+        "id": "d3", "sample_id": 2, "size": "2*2", "raw_text": "no json here",
+        "truncated": True, "stop_reason": "budget_exhausted",
+        "generated_token_count": 12,
+    }
+    d3 = diagnose_row(row_none, tok)
+    check("no-JSON control: neither found, not flagged",
+          _is_divergent(d3) is False)
 
 
 def test_commitment_metrics_first_json():
@@ -1412,6 +1484,7 @@ def main():
     test_official_scorer_on_official_example()
     test_score_one_item_first_vs_last()
     test_find_first_answer_json()
+    test_diagnose_truncation_divergence()
     print("== commitment metrics: first-json ==")
     test_commitment_metrics_first_json()
     print("== commitment metrics: first/final agreement ==")
