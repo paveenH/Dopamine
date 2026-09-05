@@ -17,10 +17,11 @@ THREE MODES:
                        before any cross-GPU cell is pooled into one paired
                        alpha-curve.
 
-  --preflight_check    Score the 5-item alpha=0 preflight cell against private
-                       gold and print format/parse/truncation diagnostics
-                       plus generation-length percentiles. Read-only sanity;
-                       computes no formal statistics (n=5 is far too few).
+  --preflight_check    Score the 35-item (5 per size) alpha=0 preflight cell
+                       against private gold and print format/parse/truncation
+                       diagnostics plus generation-length percentiles.
+                       Read-only sanity; computes no formal statistics
+                       (n=35 is far too few for the formal Holm/McNemar suite).
 
   --formal (default,   Score the full 280-item, four-alpha sweep for ONE
    via --generations)   model: Puzzle Accuracy, Cell Accuracy, per-item
@@ -390,9 +391,10 @@ def cmd_preflight_check(args):
     print(f"puzzle_acc      : {sum(1 for x in scored if x['solved'])/n:.3f}")
     print(f"steering_fires  : {m.get('steering_fires')}  (expect 0 at alpha=0)")
     print(f"prompt_sha256   : {m.get('prompt_sha256')}")
-    print("\nThis is a FORMAT/PLUMBING check only, n=5. It must not be used to "
-          "change the prompt, item set, doses, or scoring method based on "
-          "accuracy -- see docs/PREREG_ZEBRALOGIC_EASY.md section 5.")
+    print(f"\nThis is a FORMAT/PLUMBING check only, {n} items, 5 per size. "
+          "It must not be used to change the prompt, item set, doses, or "
+          "scoring method based on accuracy -- see "
+          "docs/PREREG_ZEBRALOGIC_EASY.md section 5.")
 
 
 # ------------------------------------------------------------------ main ---
