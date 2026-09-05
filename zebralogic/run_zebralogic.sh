@@ -216,12 +216,18 @@ cmd_preflight() {
   # never asks for and which the preflight scorer (n=5) is not built to
   # analyze as a dose curve.
   cd "$WORK_DIR"
+  # ZEBRA_MAX_NEW_TOKENS/ZEBRA_BATCH_SIZE default to the prereg's 2048/8;
+  # override explicitly (never silently) to re-run preflight at the S3
+  # 3072 escalation step, matching cmd_formal's own override convention.
+  # max_new_tokens is still hard-enforced to {2048,3072} inside
+  # get_answer_zebralogic.py regardless of what is passed here.
   "$PY" zebralogic/get_answer_zebralogic.py \
     --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR" \
     --items "$ITEMS" --mask_path "$MASK" \
     --configs $ZERO_CONFIG $SMOKE_CONFIG \
     --out_dir "$OUT" --mode preflight \
-    --max_new_tokens 2048 --batch_size 8
+    --max_new_tokens "${ZEBRA_MAX_NEW_TOKENS:-2048}" \
+    --batch_size "${ZEBRA_BATCH_SIZE:-8}"
   echo "[zebralogic] PREFLIGHT generation done. Score it (requires private gold):"
   echo "  $PY zebralogic/eval_zebralogic.py --preflight_check \\"
   echo "      --preflight_file $OUT/mdf_0/zebralogic_easy_${SIZE}_*.json"
