@@ -996,6 +996,25 @@ Llama 的九档曲线没有与 Qwen 完全相同的 frozen early-candidate 指�
 
 Predictor 在两个模型上都未选中 observed best：Llama 选择 `−6`，实际最高是 `0`（regret 0.8 pp）；Qwen 选择 `0`，实际最高是 `+8`（regret 2.4 pp）。但三个剂量之间的准确率本身没有被显著区分（§6.3），因此这里的 argmax 差异幅度很小，不应写成 predictor 的强预测失败，而应读作：**在一个 steering 本身检测不到效果的任务上，predictor 的剂量排序同样没有识别出真实最优点**——这是一个信息量有限但如实保留的边界案例，不是排序能力的正面证据，也不能被省略。
 
+### 5.5c ProofWriter-OWA: A Submission-Dominated Boundary Result
+
+ProofWriter-OWA 使用显式 CoT、固定的单个 Unknown 训练集示例和 first-answer 评分；未提交严格答案的样本计错。该实验是在目标任务上重新搜索剂量，并非 GSM8K fixed-workpoint transfer。
+
+**Table 5.5c. ProofWriter-OWA task-specific four-point sweep (N=300 per cell)**
+
+| Model | α | Accuracy (first) | Last-answer | Answered-only | No answer | Multiple markers | First ≠ last | Loop | Truncation | Holm vs 0 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| Llama3.1-8B | −6 | .1433 | .1033 | .5513 (n=78) | .740 | .2167 | .615 (n=65) | .933 | 1.000 | n.s. |
+| Llama3.1-8B | −4 | .1200 | .0867 | .5373 (n=67) | .777 | .1900 | .509 (n=57) | .900 | 1.000 | n.s. |
+| Llama3.1-8B | 0 | .1033 | .0600 | .5000 (n=62) | .793 | .1767 | .396 (n=53) | .933 | 1.000 | — |
+| Llama3.1-8B | **+4** | **.2167** | .1867 | .5462 (n=119) | **.603** | .3533 | .406 (n=106) | .950 | 1.000 | **p_adj=2.27e−4** |
+| Qwen2.5-7B | −6 | .4933 | .4900 | .5461 (n=271) | .097 | .1967 | .017 (n=59) | .143 | .147 | n.s. |
+| Qwen2.5-7B | 0 | .4633 | .4633 | .4649 (n=299) | .003 | .3467 | .000 (n=104) | .343 | .343 | — |
+| Qwen2.5-7B | +6 | .4967 | .4967 | .4967 (n=300) | .000 | .3200 | .000 (n=96) | .320 | .320 | n.s. |
+| Qwen2.5-7B | +8 | **.5200** | .5200 | .5200 (n=300) | .000 | .4867 | .027 (n=146) | .473 | .473 | p_adj=.257 |
+
+Llama 的 `+4` 将整体准确率提高 **11.33 pp** 并通过 Holm 校正，但同时主要表现为无答案率下降，且所有剂量均伴随极高的循环和截断，因此更适合解释为 steering 提高了有效答案提交率，而非已经证明推理能力增强。Qwen 的最高观测点为 `+8`（+5.67 pp），但未通过 Holm 校正；这条探索至此结束，不继续扩展剂量或修改 prompt。
+
 ### 5.6 Conclusion
 
 Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH 和 GSM-Hard 提供有用的剂量排序信息。补充的后补剂量（MATH `−8/−6`、GSM8K CoT 扩展曲线、GSM-Hard 邻点）在多数情况下与 predictor 的原始排序保持一致，但这些补充分析均为回顾性的 post-hoc stress test，不构成新的盲测证据。BBH object counting 是一个反例：它与冻结 adapter 兼容，但其本身的 steering 效果是 null，predictor 的排序也未命中 observed best，说明 predictor 的有效性依赖于目标任务本身存在可检测的剂量效应。
