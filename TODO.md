@@ -30,13 +30,14 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 Daily
-09.05 定酒店✔ 准备其余的物品，确认公证需要的材料
+09.06 准备买川西的物品（晚上8点），确认公证需要的材料
 09.07 生理期推迟，網絡加退选开始，去实验室签字
 09.11 seminar
 09.19 台北-杭州萧山 机票 ✔
 09.20 杭州逛逛
-09.21 回家 高铁*1 - Helene ⏸
-09.22、09.23、09.24 在家 需要去办理公证 + 爸妈护照
+09.21 杭州逛逛
+09.22 回家高铁*1 - Helene ⏸
+09.23、09.24 在家 需要去办理公证 + 爸妈护照
 09.24 全曜回家 高铁*1  ⏸
 09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
 10.02 丽江
@@ -98,8 +99,8 @@ Agent5: Total Design (GPT)
 25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
 25. 顺便丰富一下prediction的结果 ✔
 26. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
-27. ZebraLogic WP 测试 
-28. 1-shot multi-hop ProofWwiter OWA ⏸
+27. ZebraLogic WP 测试 ✖
+28. 1-shot multi-hop ProofWwiter OWA ✖
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
