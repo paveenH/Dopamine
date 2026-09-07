@@ -40,7 +40,7 @@
 # Only run this AFTER the preflight has been reviewed and approved.
 
 set -e
-MODEL="${1:?usage: run_gsm_symbolic_formal.sh {llama3|qwen2.5}}"
+MODEL="${1:?usage: run_gsm_symbolic_formal.sh llama3-or-qwen2.5}"
 
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"

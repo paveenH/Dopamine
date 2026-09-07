@@ -22,7 +22,7 @@
 # batch size than the rest of the run and than the formal sweep.
 
 set -e
-MODEL="${1:?usage: run_gsm_symbolic_preflight.sh {llama3|qwen2.5}}"
+MODEL="${1:?usage: run_gsm_symbolic_preflight.sh llama3-or-qwen2.5}"
 
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
