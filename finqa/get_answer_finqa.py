@@ -77,16 +77,29 @@ def load_samples(path, indices=None):
     return meta, data
 
 
+def sha256_file(path):
+    return hashlib.sha256(open(path, "rb").read()).hexdigest()[:16]
+
+
 def main():
     args = parse_args()
     meta, samples = load_samples(args.questions, args.indices)
-    q_sha = hashlib.sha256(
-        json.dumps([s["question"] for s in samples], ensure_ascii=False).encode()
-    ).hexdigest()[:16]
+    # The loader's own prompt-content digest (question + pre_text + post_text
+    # + table_linear over the FULL 300, from finqa_formal.json's manifest) is
+    # what cross-alpha and cross-model consistency is checked against -- a
+    # digest recomputed here from only `samples` (which may be the 30-item
+    # preflight restriction) would not be comparable across cells that used
+    # different --indices, and would not catch a table/report-text change the
+    # way the loader's own manifest digest does.
+    manifest_digest = meta.get("prompt_content_sha256_16")
+    if manifest_digest is None:
+        sys.exit(f"[FATAL] {args.questions}: meta has no prompt_content_sha256_16; "
+                  "regenerate it with the current data_finqa.py")
 
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
     raw_mask = np.load(args.mask_path)
+    mask_sha = sha256_file(args.mask_path)
     os.makedirs(args.out_dir, exist_ok=True)
 
     prompts = [build_finqa_prompt(s) for s in samples]
@@ -117,6 +130,11 @@ def main():
                 batch_size=args.batch_size,
                 return_metadata=True,
             )
+            if len(outs) != len(batch_samples):
+                sys.exit(f"[FATAL] batch at i={i}: regenerate returned "
+                          f"{len(outs)} outputs for {len(batch_samples)} "
+                          "prompts; a silent short-count would drop samples "
+                          "from the cell without any error.")
             for s, o in zip(batch_samples, outs):
                 diag = diagnostics_for_text(
                     o["text"], args.max_new_tokens, o["generated_token_count"])
@@ -142,7 +160,9 @@ def main():
             "meta": {
                 "protocol": PROTOCOL, "model": args.model, "size": args.size,
                 "alpha": alpha, "layer_start": ls, "layer_end": le, "L": n_layers,
-                "n_samples": len(samples), "questions_sha256_16": q_sha,
+                "n_samples": len(samples),
+                "prompt_content_sha256_16": manifest_digest,
+                "mask_sha256_16": mask_sha, "mask_path": args.mask_path,
                 "max_new_tokens": args.max_new_tokens, "temperature": 0.0,
                 "batch_size": args.batch_size, "role": "neutral", "cot": True,
                 "steering_fires": fires, "accuracy_computed": False,

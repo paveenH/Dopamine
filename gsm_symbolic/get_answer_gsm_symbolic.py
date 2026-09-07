@@ -19,11 +19,24 @@ Role is fixed to "neutral" only (no role sweep) -- this experiment is about
 numeric/template robustness under steering, not persona.
 
 Extra diagnostics beyond correct/incorrect (all computed from the SAME
-generated text, no LLM judge):
-  - no_answer: extract_gsm8k_answer found nothing parseable at all
+generated text, no LLM judge). Accuracy always uses the frozen
+extract_gsm8k_answer/is_correct_gsm8k pair unmodified; the fields below exist
+ONLY to describe the generation, not to change scoring:
+  - no_marker: the text contains no '####' at all (extract_gsm8k_answer then
+    falls back to "the answer is X" / \boxed{} / last-number-in-text, so a
+    no_marker sample can still score correct or have a non-empty pred_answer
+    -- this field is a FORMAT diagnostic, not "no answer was extracted")
+  - marker_unparsed: '####' is present but the digits after it did not parse
+    (extract_gsm8k_answer's primary regex found no match even though a '####'
+    substring exists -- e.g. "#### unclear")
+  - no_answer: extract_gsm8k_answer's full fallback chain (marker -> "the
+    answer is" -> \boxed{} -> last number in text) found NOTHING at all.
+    Distinct from no_marker/marker_unparsed: a no_marker sample is usually
+    NOT no_answer, because the fallback chain typically recovers a number.
   - multi_marker: more than one '####' marker in the output
   - first_last_disagree: first-#### vs last-#### extraction disagree
-    (both via the same regex family, just scanning from either end)
+    (both via the same regex family, just scanning from either end; only
+    meaningful when >=2 markers are present)
   - is_loop: strict tail-repetition loop detector (final 40-char block
     recurring >=4x), same convention as analyze_loop_anxiety.py's --mode loop
   - truncated: generated_token_count >= max_new_tokens - 1 (heuristic; exact
@@ -34,6 +47,7 @@ generated text, no LLM judge):
 import argparse
 import csv
 import gc
+import hashlib
 import json
 import os
 import re
@@ -53,7 +67,15 @@ if _REPO_ROOT not in sys.path:
 from llms import VicundaModel  # noqa: E402
 from template import select_templates_gsm8k  # noqa: E402
 import utils  # noqa: E402
-from utils import extract_gsm8k_answer, is_correct_gsm8k  # noqa: E402
+from utils import extract_gsm8k_answer, is_correct_gsm8k, decoder_layer_range  # noqa: E402
+
+
+def sha256_text(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def sha256_array(arr: np.ndarray) -> str:
+    return hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()
 
 
 def is_loop(text: str, tail_len: int = 40, min_repeats: int = 4) -> bool:
@@ -85,6 +107,14 @@ def count_hash_markers(text: str) -> int:
     return len(re.findall(r"####", text))
 
 
+def has_parseable_hash(text: str) -> bool:
+    """True iff at least one '#### <number>' marker parses -- the SAME regex
+    extract_gsm8k_answer's primary branch uses. Used only to distinguish
+    no_marker (no '####' substring at all) from marker_unparsed ('####'
+    present but never followed by parseable digits)."""
+    return re.search(r"####\s*([+-]?[\d,]+\.?\d*)", text) is not None
+
+
 def run_config(
     vc: VicundaModel,
     samples: List[dict],
@@ -108,7 +138,22 @@ def run_config(
             batch_size=batch_size,
             return_metadata=True,
         )
+        # Hard check: the model must return exactly one output per prompt in
+        # the batch. A silent length mismatch would misalign sample<->output
+        # for every row after the first short/long batch.
+        if len(batch_out) != len(batch_prompts):
+            raise RuntimeError(
+                f"regenerate() returned {len(batch_out)} outputs for "
+                f"{len(batch_prompts)} prompts (batch starting at index {i}) "
+                "-- output would silently misalign with samples."
+            )
         outs.extend(batch_out)
+
+    if len(outs) != len(samples):
+        raise RuntimeError(
+            f"total outputs ({len(outs)}) != total samples ({len(samples)}) "
+            "after all batches -- refusing to score a misaligned run."
+        )
 
     correct = 0
     for sample, meta in zip(samples, outs):
@@ -116,10 +161,16 @@ def run_config(
         gen_tok = meta.get("generated_token_count") if isinstance(meta, dict) else None
         pred_answer = extract_gsm8k_answer(generated)
         is_ok = is_correct_gsm8k(pred_answer, sample["answer"])
+        has_marker = "####" in generated
+        marker_parses = has_parseable_hash(generated)
         sample["generated"] = generated
         sample["pred_answer"] = pred_answer
         sample["correct"] = is_ok
+        # no_answer: the FULL fallback chain (marker -> "answer is" ->
+        # \boxed{} -> last number) found nothing. Distinct from no_marker.
         sample["no_answer"] = (pred_answer == "")
+        sample["no_marker"] = not has_marker
+        sample["marker_unparsed"] = has_marker and not marker_parses
         sample["n_hash_markers"] = count_hash_markers(generated)
         sample["multi_marker"] = sample["n_hash_markers"] > 1
         sample["first_last_agree"] = first_last_hash_agree(generated)

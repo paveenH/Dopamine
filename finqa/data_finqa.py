@@ -328,11 +328,20 @@ def build_dataset():
         [d["question"] for d in data], ensure_ascii=False))
     id_digest = sha256_short(json.dumps([d["id"] for d in data]))
     gold_digest = sha256_short(json.dumps([d["gold_raw"] for d in data]))
+    # FULL prompt-relevant content, not just the question: table and
+    # pre/post report text also feed the prompt, and questions_sha256_16
+    # alone would not notice a table or report-text change while the
+    # question wording stayed identical. Hashed per item then joined so a
+    # single differing item is still detectable (not swamped by 299 others).
+    prompt_digest = sha256_short(json.dumps(
+        [[d["question"], d["pre_text"], d["post_text"], d["table_linear"]]
+         for d in data], ensure_ascii=False))
     preflight_ids = preflight_indices_for(data)
 
     manifest = {
         "protocol": PROTOCOL,
         "hf_dataset": HF_NAME, "config": CONFIG, "split": SPLIT,
+        "revision": REVISION,
         "n_total_rows": len(rows),
         "n_eligible": len(eligible),
         "n_excluded": sum(exclusions.values()),
@@ -344,13 +353,18 @@ def build_dataset():
         "questions_sha256_16": q_digest,
         "ids_sha256_16": id_digest,
         "gold_sha256_16": gold_digest,
+        "prompt_content_sha256_16": prompt_digest,
         "preflight_indices": preflight_ids,
         "n_preflight": len(preflight_ids),
         "note": ("Numeric eligibility keeps $/%%/comma/unit-suffixed answers "
                  "(normalize_finqa_answer); excludes only empty, yes/no, and "
                  "text that does not reduce to one number. The 30-item "
                  "preflight is a fixed SUBSET of these 300 indices, not a "
-                 "separate draw -- see PREFLIGHT_INDICES."),
+                 "separate draw. prompt_content_sha256_16 covers question + "
+                 "pre_text + post_text + table_linear, so a table/report-text "
+                 "drift is caught even if question wording is unchanged; "
+                 "questions_sha256_16 is kept for compatibility with the "
+                 "convention used by the other tasks in this repo."),
     }
     return data, manifest
 
@@ -364,13 +378,15 @@ def main():
 
     data, manifest = build_dataset()
 
+    print(f"[finqa] revision={manifest['revision']}")
     print(f"[finqa] total={manifest['n_total_rows']} "
           f"eligible={manifest['n_eligible']} excluded={manifest['n_excluded']} "
           f"{manifest['exclusion_breakdown']}")
     print(f"[finqa] formal n={manifest['n_formal']}  "
           f"questions_sha256_16={manifest['questions_sha256_16']}  "
           f"ids_sha256_16={manifest['ids_sha256_16']}  "
-          f"gold_sha256_16={manifest['gold_sha256_16']}")
+          f"gold_sha256_16={manifest['gold_sha256_16']}  "
+          f"prompt_content_sha256_16={manifest['prompt_content_sha256_16']}")
     print(f"[finqa] strata pool sizes: {manifest['strata_pool_sizes']}")
     print(f"[finqa] strata allocation (of 300): {manifest['strata_allocation']}")
 

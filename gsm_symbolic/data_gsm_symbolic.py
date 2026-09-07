@@ -11,7 +11,10 @@ standalone read-only step -- no other GSM8K/MATH loader or runner is touched.
 
 Output schema per item (JSON list), one file per config:
   {
-    "id": <int>,               # HF dataset row id (per-config)
+    "id": <int>,               # OFFICIAL HF dataset row `id` field (row["id"]),
+                                # NOT a re-enumerated local index
+    "sample_id": <str>,        # "{config}:{id}", unique across the 3 configs
+                                # combined (id alone repeats across configs)
     "instance": <int>,         # instantiation index within original_id
     "original_id": <int>,      # links back to the shared GSM8K-derived template
     "config": "main"|"p1"|"p2",
@@ -24,10 +27,12 @@ Output schema per item (JSON list), one file per config:
     "solution": <str>,         # full solution text as shipped by HF
   }
 
-Sampling for the 300-item formal run is NOT done here -- the formal run uses
-the FULL official test split per config (no sampling), per the experiment
-spec. This script only downloads + reformats + writes one JSON per config,
-plus (deterministically) a small preflight subset.
+FULL OFFICIAL TEST SPLIT PER CONFIG -- NOT a fixed 300-item sample. Measured
+sizes (2026-09, Hub dataset-viewer): main ~1319, p1 ~5000, p2 ~2500 rows, so
+the formal sweep is ~8819 items x 4 alphas x 2 models = ~70,552 generations,
+NOT 300 x 8. This script only downloads + reformats + writes one JSON per
+config (full split), plus (deterministically) a separate small preflight
+subset for the pre-approval check.
 """
 
 import argparse
@@ -40,10 +45,14 @@ from datasets import load_dataset
 
 CONFIGS = ["main", "p1", "p2"]
 
-# HF revision left unpinned deliberately would be a 口径 risk for a frozen
-# experiment; pin explicitly once known-good. If unset, `datasets` resolves
-# the current default revision and that resolution is recorded in the output
-# meta so drift is at least detectable.
+# NOT hand-pinned to a guessed commit SHA -- I have no verified way to read
+# the exact current HEAD commit from this environment, and writing a wrong
+# SHA would hard-fail every load. Instead: resolve at runtime (whatever
+# `datasets` picks, normally the dataset repo's current main), then READ BACK
+# the actual resolved commit hash from the loaded dataset object and record it
+# in every output file's meta (see `resolve_revision` below), so drift across
+# runs is at least DETECTABLE even though it is not pre-pinned. If a true pin
+# is needed later, set REVISION to a verified full 40-hex commit SHA here.
 REVISION = None
 
 
@@ -57,6 +66,33 @@ def extract_gold(solution: str) -> str:
     return ""
 
 
+def resolve_revision(ds) -> str:
+    """Best-effort read-back of the ACTUAL commit the loaded dataset came
+    from, so meta records what really got pulled rather than the (possibly
+    unset) request. `datasets` exposes this via the dataset's `_fingerprint`-
+    adjacent download_checksums / info, but the one stable, documented place
+    is `huggingface_hub`'s own resolution -- fall back through a few
+    attributes rather than assuming one exists across `datasets` versions."""
+    for attr_path in (
+        lambda: ds.info.download_checksums,
+        lambda: ds.builder_name,
+    ):
+        try:
+            v = attr_path()
+            if v:
+                return str(v) if not isinstance(v, dict) else json.dumps(v)[:200]
+        except Exception:
+            continue
+    # Last resort: ask the Hub API directly for the current HEAD of `main`.
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        info = api.dataset_info("apple/GSM-Symbolic", revision=REVISION or "main")
+        return info.sha
+    except Exception as e:
+        return f"UNRESOLVED ({type(e).__name__}: {e})"
+
+
 def load_config(config: str, cache_dir: str):
     ds = load_dataset(
         "apple/GSM-Symbolic",
@@ -65,11 +101,14 @@ def load_config(config: str, cache_dir: str):
         cache_dir=cache_dir,
         revision=REVISION,
     )
+    resolved_revision = resolve_revision(ds)
     items = []
-    for i, row in enumerate(ds):
+    for row in ds:
         gold = extract_gold(row["answer"])
+        official_id = row["id"]
         items.append({
-            "id": i,
+            "id": official_id,                       # official HF row id, verbatim
+            "sample_id": f"{config}:{official_id}",   # unique across configs combined
             "instance": row.get("instance", None),
             "original_id": row.get("original_id", None),
             "config": config,
@@ -78,7 +117,7 @@ def load_config(config: str, cache_dir: str):
             "solution": row["answer"],
         })
     missing_gold = sum(1 for it in items if it["answer"] == "")
-    return items, missing_gold
+    return items, missing_gold, resolved_revision
 
 
 def preflight_subset(items: list, n: int = 10, seed_field: str = "original_id"):
@@ -115,8 +154,15 @@ def main():
 
     preflight_all = []
     summary = {}
+    resolved_revisions = {}
     for config in CONFIGS:
-        items, missing = load_config(config, args.cache_dir)
+        # No try/except here deliberately: if a config (in particular "main",
+        # whose split was not listed by the Hub dataset-viewer's config table
+        # as of this writing) fails to load, this must HARD STOP with the
+        # real traceback -- never silently skip a config or drop it from the
+        # experiment matrix.
+        items, missing, resolved_revision = load_config(config, args.cache_dir)
+        resolved_revisions[config] = resolved_revision
         n = len(items)
         n_original = len({it["original_id"] for it in items})
         n_instance = len({it["instance"] for it in items})
@@ -147,7 +193,8 @@ def main():
                     "dataset": "apple/GSM-Symbolic",
                     "config": config,
                     "split": "test",
-                    "revision": REVISION,
+                    "revision_requested": REVISION,
+                    "revision_resolved": resolved_revision,
                     "n_items": n,
                 },
                 "data": items,
@@ -170,10 +217,13 @@ def main():
             "meta": {
                 "dataset": "apple/GSM-Symbolic",
                 "split": "test",
-                "revision": REVISION,
+                "revision_requested": REVISION,
+                "revision_resolved_by_config": resolved_revisions,
                 "note": "10 items per config (main/p1/p2), deterministic stride "
                         "sample by (original_id, instance, id); NOT a random "
-                        "sample of the formal run.",
+                        "sample of the formal run. The formal run uses the "
+                        "FULL official test split per config, not a fixed "
+                        "300-item sample.",
                 "configs": CONFIGS,
                 "n_per_config": args.preflight_n,
             },

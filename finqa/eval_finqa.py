@@ -21,6 +21,22 @@ MAIN metric = first-legal-marker numeric accuracy (`first_acc`), using the
 same `is_correct` tolerance as the loader's numeric normalization. LAST is a
 tail-pollution sensitivity readout, never the headline.
 
+SCORING IS A CUSTOM DIRECT-NUMERIC-ANSWER EVALUATOR, NOT the official FinQA
+program/DSL execution-based scorer. The model is never asked to produce a
+program (`program_re`), and correctness is decided by parsing a '#### <value>'
+marker and comparing its normalized value to gold within a small relative
+tolerance -- not by executing an operation sequence. Every result this script
+writes carries this disclosure verbatim so numbers are not mistaken for
+official FinQA leaderboard accuracy.
+
+CROSS-ALPHA CONSISTENCY (formal mode). Every cell of one model must share:
+sample_id coverage (0..299), prompt_content_sha256_16 (the loader's full
+question+table+report-text digest -- catches drift the older question-only
+digest would miss), mask_sha256_16, layer band, max_new_tokens, batch_size,
+and steering_fires == L*300 (0 at alpha=0). The alpha set itself must match
+the frozen per-model set EXACTLY (REQUIRED_ALPHAS) -- a missing or extra dose
+is refused rather than silently computing Holm at a different m.
+
 @author: paveenhuang
 """
 
@@ -35,6 +51,16 @@ from finqa_scoring import first_legal_answer, last_legal_answer, is_correct  # n
 
 PROTOCOL = "finqa-v0"
 N_FORMAL = 300
+HOLM_M = 3
+# Frozen alpha sets per model (task-specific exploration on FinQA -- swept
+# fresh here, not read from the GSM8K record). Exactly these four cells (one
+# alpha=0 baseline + HOLM_M=3 steered doses) are required per model; a
+# missing or extra alpha is refused rather than silently producing a smaller
+# or larger Holm family under the m=3 label.
+REQUIRED_ALPHAS = {
+    "llama3": {-6, -4, 0, 4},
+    "qwen2.5": {-6, 0, 6, 8},
+}
 
 
 def die(msg):
@@ -54,9 +80,14 @@ def mcnemar_exact(a, b):
     return n01, n10, min(1.0, 2 * tail)
 
 
-def holm(pvals_by_key):
+def holm(pvals_by_key, m=HOLM_M):
+    """Holm-Bonferroni with a FIXED family size m (default HOLM_M=3), not
+    len(pvals_by_key) -- callers must pass exactly m p-values; a smaller or
+    larger dict would silently compute a different-m adjustment under the
+    m=3 label."""
     items = sorted(pvals_by_key.items(), key=lambda kv: kv[1])
-    m = len(items)
+    if len(items) != m:
+        die(f"holm(): got {len(items)} p-values, expected exactly m={m}")
     out, running = {}, 0.0
     for i, (k, p) in enumerate(items):
         adj = min(1.0, max(running, (m - i) * p))
@@ -127,23 +158,55 @@ def run_preflight(gen_paths, gold_by_id, preflight_ids):
               f"truncated_rate={n_trunc/n:.3f}")
 
 
-def run_formal(gen_paths, gold_by_id):
-    cells = {}
+def run_formal(gen_paths, gold_by_id, gold_meta):
+    cells, cmeta = {}, {}
     for path in gen_paths:
         meta, rows = load_cell(path)
         if len(rows) != N_FORMAL or sorted(rows) != list(range(N_FORMAL)):
             die(f"{path}: expected exactly sample_ids 0..{N_FORMAL-1}")
         mdl, al = meta["model"], meta["alpha"]
+        if mdl not in REQUIRED_ALPHAS:
+            die(f"{path}: unknown model {mdl!r}")
+        if al not in REQUIRED_ALPHAS[mdl]:
+            die(f"{path}: alpha {al} is not in {mdl}'s frozen set "
+                f"{sorted(REQUIRED_ALPHAS[mdl])}; this protocol does not "
+                "search doses beyond the four frozen per model")
+        if meta.get("prompt_content_sha256_16") != gold_meta.get("prompt_content_sha256_16"):
+            die(f"{path}: prompt_content_sha256_16 {meta.get('prompt_content_sha256_16')!r} "
+                f"!= gold file's {gold_meta.get('prompt_content_sha256_16')!r}; "
+                "this cell was generated from a different sample/table/report text")
         n_layers = meta["L"]
         expect_fires = 0 if al == 0 else n_layers * N_FORMAL
         if meta["steering_fires"] != expect_fires:
             die(f"{path}: steering_fires {meta['steering_fires']} != {expect_fires}")
+        if al in cells.get(mdl, {}):
+            die(f"{mdl} alpha={al} supplied twice")
         cells.setdefault(mdl, {})[al] = rows
+        cmeta.setdefault(mdl, {})[al] = meta
+
+    # cross-alpha consistency WITHIN each model: band, mask, batch size and
+    # token budget must all agree, or a dose difference could be confounded
+    # with a configuration difference rather than alpha itself.
+    for mdl, metas in cmeta.items():
+        ref_al = sorted(metas)[0]
+        ref = metas[ref_al]
+        for al, m in metas.items():
+            for field in ("layer_start", "layer_end", "L", "mask_sha256_16",
+                          "max_new_tokens", "batch_size", "size"):
+                if m.get(field) != ref.get(field):
+                    die(f"{mdl} alpha={al}: {field}={m.get(field)!r} differs "
+                        f"from alpha={ref_al}'s {ref.get(field)!r}; cells of "
+                        "one model must share band/mask/budget/batch_size")
+        missing = REQUIRED_ALPHAS[mdl] - set(metas)
+        extra = set(metas) - REQUIRED_ALPHAS[mdl]
+        if missing or extra:
+            die(f"{mdl}: alpha set {sorted(metas)} does not match the "
+                f"required {sorted(REQUIRED_ALPHAS[mdl])} "
+                f"(missing={sorted(missing)}, extra={sorted(extra)}); "
+                "Holm m=3 requires exactly the frozen four cells")
 
     results = {}
     for mdl, byalpha in sorted(cells.items()):
-        if 0 not in byalpha:
-            die(f"{mdl}: no alpha=0 cell")
         scored = {al: [score_row(byalpha[al][i], gold_by_id[i]) for i in range(N_FORMAL)]
                    for al in byalpha}
         acc0 = [s["first_correct"] for s in scored[0]]
@@ -161,7 +224,7 @@ def run_formal(gen_paths, gold_by_id):
                 "gen_chars_med": sorted(x["gen_chars"] for x in s)[n // 2],
             }
         steered = [al for al in byalpha if al != 0]
-        if len(steered) > 3:
+        if len(steered) != HOLM_M:
             die(f"{mdl}: {len(steered)} non-zero alphas supplied; Holm family is m=3")
         pvals, deltas = {}, {}
         for al in steered:
@@ -172,8 +235,8 @@ def run_formal(gen_paths, gold_by_id):
                 "dAcc_pp": (sum(accA) - sum(acc0)) / N_FORMAL * 100,
                 "discordant_0to1": n01, "discordant_1to0": n10, "p_raw": p,
             }
-        adj = holm(pvals) if pvals else {}
-        r["holm_family_m"] = len(pvals)
+        adj = holm(pvals)
+        r["holm_family_m"] = HOLM_M
         r["transfer"] = {}
         for al in steered:
             improved = deltas[al]["dAcc_pp"] > 0
@@ -185,6 +248,8 @@ def run_formal(gen_paths, gold_by_id):
         results[mdl] = r
 
     print(f"\n=== FINQA FORMAL SWEEP (n={N_FORMAL} per cell) ===")
+    print("    [scoring: custom direct-numeric-answer evaluator, NOT the "
+          "official FinQA program/DSL scorer]")
     for mdl, r in sorted(results.items()):
         print(f"\n--- {mdl} ---")
         print(f"{'alpha':>6} {'first_acc':>10} {'last_acc':>9} {'no_ans':>7} "
@@ -227,15 +292,26 @@ def main():
         run_preflight(a.generations, gold_by_id, preflight_ids)
         json.dump({"protocol": PROTOCOL, "mode": "preflight",
                     "preflight_indices": preflight_ids,
-                    "note": "no statistics computed in preflight mode"},
+                    "note": ("no statistics computed in preflight mode; "
+                              "scoring is a CUSTOM direct-numeric-answer "
+                              "evaluator, NOT the official FinQA program/DSL "
+                              "execution-based scorer")},
                    open(a.out, "w", encoding="utf-8"), indent=2)
     else:
-        results = run_formal(a.generations, gold_by_id)
+        results = run_formal(a.generations, gold_by_id, gblob["meta"])
         json.dump({"protocol": PROTOCOL, "mode": "formal",
-                    "n_formal": N_FORMAL, "results": results,
+                    "n_formal": N_FORMAL, "holm_family_m": HOLM_M,
+                    "required_alphas": {k: sorted(v) for k, v in REQUIRED_ALPHAS.items()},
+                    "results": results,
                     "note": ("task-specific exploration on FinQA, not a GSM8K "
                               "fixed-workpoint transfer test; alpha swept "
-                              "fresh per model, Holm m=3 within model")},
+                              "fresh per model, Holm m=3 within model. Scoring "
+                              "is a CUSTOM direct-numeric-answer evaluator "
+                              "(marker '#### <value>' + numeric normalization "
+                              "+ relative-tolerance match), NOT the official "
+                              "FinQA program/DSL execution-based scorer -- "
+                              "numbers here are not directly comparable to "
+                              "official FinQA leaderboard accuracy.")},
                    open(a.out, "w", encoding="utf-8"), indent=2)
     print(f"\nwrote {a.out}")
 
