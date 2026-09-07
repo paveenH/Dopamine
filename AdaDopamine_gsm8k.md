@@ -1100,9 +1100,6 @@ MATH 则表现出模型差异。Llama 的固定 `−6` 在 No-CoT 和 CoT 下均
 
 ### 6.2 From Fixed Points to Near-Optimal Regions
 
-七个预先声明的 workpoint-stability 补充格共同组成独立的 Holm `m=7` 家族。下表同时保留新增剂量的主要结果，以及用于描述局部区域的邻点比较。
-### 6.2 From Fixed Points to Near-Optimal Regions
-
 七个预先声明的 workpoint-stability 补充格共同组成独立的 Holm `m=7` 家族。其中，Llama GSM8K CoT 的 `α=−2` 属于来源任务检查，已在 §1.2 报告；本节只汇总 MATH 和 GSM-Hard 上的六个目标任务补充格。
 
 Qwen GSM8K 的 near-optimal regions 已在 §5.4 报告。Qwen MATH 没有新增 workpoint-stability 剂量：固定 `+8` 的迁移结果保留在 Table 6.1，而目标任务重新选择的 `+6` 属于 §5 的 workpoint selection，不与本表合并。
