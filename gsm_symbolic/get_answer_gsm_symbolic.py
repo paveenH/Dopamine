@@ -248,7 +248,10 @@ def main():
         mask_path = os.path.join(mask_dir, mask_name)
         mask = np.load(mask_path)
         diff_mtx = mask * alpha
-        print(f"\n=== gsm_config={args.gsm_config} alpha={alpha} layers={st}-{en} ===")
+        mask_sha256 = sha256_array(mask)
+        n_layers_band = len(list(decoder_layer_range(st, en)))
+        print(f"\n=== gsm_config={args.gsm_config} alpha={alpha} layers={st}-{en} "
+              f"(L={n_layers_band}) mask_sha256={mask_sha256[:12]}... ===")
 
         vc.steering_fire_count(reset=True)
 
@@ -263,7 +266,22 @@ def main():
                 top_p=args.top_p,
             )
         fires = vc.steering_fire_count()
-        print(f"steering_fires: {fires}")
+        n_samples = len(updated)
+        # Hard check: prefill-only, tail=1 -> expected fires = 0 at alpha=0
+        # (an all-zero diff never satisfies _layer_is_steered), else
+        # L_band * n_samples * tail_len (tail_len=1, not exposed on this
+        # driver's regenerate() call so it is fixed at 1 here).
+        tail_len = 1
+        expected_fires = 0 if alpha == 0 else n_layers_band * n_samples * tail_len
+        print(f"steering_fires: {fires}  (expected {expected_fires})")
+        if fires != expected_fires:
+            raise RuntimeError(
+                f"steering_fires mismatch at alpha={alpha}, layers={st}-{en}: "
+                f"got {fires}, expected {expected_fires} "
+                f"(L_band={n_layers_band} x n_samples={n_samples} x tail_len={tail_len}). "
+                "This means the injection did not fire on the expected sites -- "
+                "stop and inspect before trusting this cell's accuracy."
+            )
 
         out_dir = os.path.join(save_root, f"mdf_{alpha}")
         os.makedirs(out_dir, exist_ok=True)
@@ -280,14 +298,22 @@ def main():
                     "alpha": alpha,
                     "layer_start": st,
                     "layer_end": en,
+                    "n_layers_band": n_layers_band,
+                    "mask_path": mask_path,
+                    "mask_sha256": mask_sha256,
                     "prompt_template": prompt_template,
+                    "prompt_template_sha256": sha256_text(prompt_template),
                     "cot": True,
                     "role": "neutral",
                     "max_new_tokens": args.max_new_tokens,
                     "temperature": args.temperature,
                     "batch_size": args.batch_size,
+                    "prefill_only": True,
+                    "prefill_tail_len": tail_len,
                     "steering_fires": fires,
+                    "steering_fires_expected": expected_fires,
                     "n_samples": len(updated),
+                    "sample_ids": [s.get("sample_id") for s in updated],
                     "accuracy": accuracy,
                     "preflight": bool(args.preflight),
                 },
@@ -300,8 +326,8 @@ def main():
             writer = csv.DictWriter(f, fieldnames=[
                 "model", "size", "gsm_config", "alpha", "start", "end",
                 "correct", "total", "accuracy_percentage", "steering_fires",
-                "no_answer", "multi_marker", "first_last_disagree", "loop",
-                "truncated",
+                "no_marker", "marker_unparsed", "no_answer", "multi_marker",
+                "first_last_disagree", "loop", "truncated",
             ])
             writer.writeheader()
             writer.writerow({
@@ -310,6 +336,8 @@ def main():
                 "correct": accuracy["correct"], "total": accuracy["total"],
                 "accuracy_percentage": accuracy["accuracy_percentage"],
                 "steering_fires": fires,
+                "no_marker": sum(1 for s in updated if s["no_marker"]),
+                "marker_unparsed": sum(1 for s in updated if s["marker_unparsed"]),
                 "no_answer": sum(1 for s in updated if s["no_answer"]),
                 "multi_marker": sum(1 for s in updated if s["multi_marker"]),
                 "first_last_disagree": sum(1 for s in updated if not s["first_last_agree"]),

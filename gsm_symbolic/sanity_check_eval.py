@@ -9,7 +9,10 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from eval_gsm_symbolic import exact_mcnemar, holm_correct, score_cell, per_instance_breakdown
+from eval_gsm_symbolic import (
+    exact_mcnemar, holm_correct, score_cell, per_instance_breakdown,
+    check_cell_consistency,
+)
 
 # ---- exact McNemar sanity: b=c=0 -> p=1.0; asymmetric discordant pairs ----
 assert exact_mcnemar(0, 0) == 1.0
@@ -42,27 +45,31 @@ print(f"[ok] holm_correct monotonicity holds: {raw2} -> {adj2}")
 # ---- score_cell + per_instance_breakdown sanity using the frozen extractor ----
 fake_payload = {
     "data": [
-        {"id": 0, "original_id": 100, "instance": 0, "answer": "42",
+        {"id": 0, "sample_id": "main:0", "original_id": 100, "instance": 0, "answer": "42",
          "generated": "Let's think. 40+2=42. #### 42",
          "multi_marker": False, "first_last_agree": True, "is_loop": False,
-         "truncated": False},
-        {"id": 1, "original_id": 100, "instance": 1, "answer": "50",
+         "truncated": False, "no_marker": False, "marker_unparsed": False},
+        {"id": 1, "sample_id": "main:1", "original_id": 100, "instance": 1, "answer": "50",
          "generated": "Reasoning here. #### 42",  # wrong answer
          "multi_marker": False, "first_last_agree": True, "is_loop": False,
-         "truncated": False},
-        {"id": 2, "original_id": 200, "instance": 0, "answer": "7",
+         "truncated": False, "no_marker": False, "marker_unparsed": False},
+        {"id": 2, "sample_id": "main:2", "original_id": 200, "instance": 0, "answer": "7",
          "generated": "No marker at all, just rambling text with no number really wait 7",
          "multi_marker": False, "first_last_agree": True, "is_loop": False,
-         "truncated": False},
+         "truncated": False, "no_marker": True, "marker_unparsed": False},
     ]
 }
 rows = score_cell(fake_payload)
-assert rows[0]["correct"] is True
-assert rows[1]["correct"] is False
+assert rows["main:0"]["correct"] is True
+assert rows["main:1"]["correct"] is False
 # row 2 has no '####' -> falls to fallback chain in extract_gsm8k_answer;
 # "7" is the last number in the text, so it will parse as "7" and score correct.
-assert rows[2]["no_answer"] is False
-assert rows[2]["correct"] is True
+# no_marker is True (format diagnostic) even though the fallback recovered an
+# answer -- no_answer (did the FULL chain find nothing) is a separate, False,
+# field. This is exactly the distinction the two fields exist to preserve.
+assert rows["main:2"]["no_marker"] is True
+assert rows["main:2"]["no_answer"] is False
+assert rows["main:2"]["correct"] is True
 print(f"[ok] score_cell via frozen extractor: {[(k, v['correct']) for k, v in rows.items()]}")
 
 pib = per_instance_breakdown(rows)
@@ -72,5 +79,65 @@ pib = per_instance_breakdown(rows)
 assert pib["n_original_ids"] == 2
 assert abs(pib["mean_pct"] - 75.0) < 1e-6
 print(f"[ok] per_instance_breakdown: {pib}")
+
+# ---- check_cell_consistency: must PASS on matching meta, FAIL on drift ----
+def make_meta(**overrides):
+    base = {
+        "model": "llama3", "model_dir": "meta-llama/Llama-3.1-8B-Instruct",
+        "size": "8B", "prompt_template": "TPL", "prompt_template_sha256": "abc",
+        "cot": True, "role": "neutral", "max_new_tokens": 768, "temperature": 0.0,
+        "batch_size": 24, "prefill_only": True, "prefill_tail_len": 1,
+        "n_layers_band": 9, "gsm_config": "main", "alpha": 0,
+        "steering_fires": 0, "steering_fires_expected": 0, "mask_sha256": "m0",
+    }
+    base.update(overrides)
+    return base
+
+good_payloads = {
+    ("main", 0): {"meta": make_meta(gsm_config="main", alpha=0), "data": [{"sample_id": "main:0"}]},
+    ("main", 4): {"meta": make_meta(gsm_config="main", alpha=4, steering_fires=9,
+                                     steering_fires_expected=9, mask_sha256="mX"),
+                  "data": [{"sample_id": "main:0"}]},
+}
+check_cell_consistency("llama3", good_payloads)  # must not raise
+print("[ok] check_cell_consistency passes on consistent meta")
+
+bad_prompt = dict(good_payloads)
+bad_payload_key = ("main", 4)
+bad_payloads = dict(good_payloads)
+bad_payloads[bad_payload_key] = {
+    "meta": make_meta(gsm_config="main", alpha=4, prompt_template="DIFFERENT",
+                       steering_fires=9, steering_fires_expected=9, mask_sha256="mX"),
+    "data": [{"sample_id": "main:0"}],
+}
+try:
+    check_cell_consistency("llama3", bad_payloads)
+    raise AssertionError("check_cell_consistency should have raised on prompt_template drift")
+except ValueError as e:
+    print(f"[ok] check_cell_consistency correctly rejects prompt drift: {e}")
+
+fires_bad = dict(good_payloads)
+fires_bad[("main", 4)] = {
+    "meta": make_meta(gsm_config="main", alpha=4, steering_fires=5,
+                       steering_fires_expected=9, mask_sha256="mX"),
+    "data": [{"sample_id": "main:0"}],
+}
+try:
+    check_cell_consistency("llama3", fires_bad)
+    raise AssertionError("check_cell_consistency should have raised on fires mismatch")
+except ValueError as e:
+    print(f"[ok] check_cell_consistency correctly rejects fires mismatch: {e}")
+
+id_mismatch = dict(good_payloads)
+id_mismatch[("main", 4)] = {
+    "meta": make_meta(gsm_config="main", alpha=4, steering_fires=9,
+                       steering_fires_expected=9, mask_sha256="mX"),
+    "data": [{"sample_id": "main:999"}],  # different sample set than alpha=0
+}
+try:
+    check_cell_consistency("llama3", id_mismatch)
+    raise AssertionError("check_cell_consistency should have raised on sample_id set mismatch")
+except ValueError as e:
+    print(f"[ok] check_cell_consistency correctly rejects sample_id drift: {e}")
 
 print("\nALL SANITY CHECKS PASSED")

@@ -13,6 +13,13 @@
 # (components/benchmark/gsm_symbolic/gsm_symbolic_preflight_30.json), built by
 # data_gsm_symbolic.py -- so "same samples for both models" is a data-file
 # property, not something this launcher has to enforce.
+#
+# BATCH_SIZE matches the formal sweep's default (24) -- kept as ONE shared
+# knob for this whole script, not per-config. If a config OOMs, lower
+# BATCH_SIZE here (or via the env var) for the WHOLE model and re-run the
+# FULL preflight (all 3 configs) again -- never drop it only for the
+# offending config, which would leave the preflight testing a different
+# batch size than the rest of the run and than the formal sweep.
 
 set -e
 MODEL="${1:?usage: run_gsm_symbolic_preflight.sh {llama3|qwen2.5}}"
@@ -20,6 +27,7 @@ MODEL="${1:?usage: run_gsm_symbolic_preflight.sh {llama3|qwen2.5}}"
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 PY="${PY:-python}"
+BATCH_SIZE="${BATCH_SIZE:-24}"
 cd "${WORK_DIR}/gsm_symbolic" || { echo "[✗] cannot cd ${WORK_DIR}/gsm_symbolic"; exit 1; }
 
 case "${MODEL}" in
@@ -43,6 +51,7 @@ DATA_FILE="benchmark/gsm_symbolic/gsm_symbolic_preflight_30.json"
 echo "=================================================="
 echo "GSM-Symbolic PREFLIGHT | ${MODEL} (${SIZE}) | layers ${LS}-${LE} | alpha=0"
 echo "data: ${BASE_DIR}/${DATA_FILE}"
+echo "batch_size: ${BATCH_SIZE} (same knob as the formal sweep)"
 echo "CUDA_VISIBLE_DEVICES = ${CUDA_VISIBLE_DEVICES:-(unset)}"
 echo "Start: $(date)"
 echo "=================================================="
@@ -66,7 +75,7 @@ for CFG in main p1 p2; do
       --ans_root   "answer_gsm_symbolic_preflight" \
       --max_new_tokens 768 \
       --temperature    0.0 \
-      --batch_size     8
+      --batch_size     "${BATCH_SIZE}"
 done
 
 echo ""
