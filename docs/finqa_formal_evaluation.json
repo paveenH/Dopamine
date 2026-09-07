@@ -1,0 +1,217 @@
+{
+  "protocol": "finqa-v0",
+  "mode": "formal",
+  "n_formal": 300,
+  "holm_family_m": 3,
+  "required_alphas": {
+    "llama3": [
+      -6,
+      -4,
+      0,
+      4
+    ],
+    "qwen2.5": [
+      -6,
+      0,
+      6,
+      8
+    ]
+  },
+  "results": {
+    "llama3": {
+      "alphas": [
+        -6,
+        -4,
+        0,
+        4
+      ],
+      "per_alpha": {
+        "-6": {
+          "first_acc": 0.08666666666666667,
+          "last_acc": 0.08,
+          "no_answer_rate": 0.0033333333333333335,
+          "answer_rate": 0.9966666666666667,
+          "answered_acc": 0.08695652173913043,
+          "n_answered": 299,
+          "multi_answer_rate": 0.10333333333333333,
+          "loop_rate": 0.9333333333333333,
+          "truncated_rate": 1.0,
+          "gen_chars_med": 873
+        },
+        "-4": {
+          "first_acc": 0.09,
+          "last_acc": 0.07666666666666666,
+          "no_answer_rate": 0.006666666666666667,
+          "answer_rate": 0.9933333333333333,
+          "answered_acc": 0.09060402684563758,
+          "n_answered": 298,
+          "multi_answer_rate": 0.19666666666666666,
+          "loop_rate": 0.9533333333333334,
+          "truncated_rate": 1.0,
+          "gen_chars_med": 870
+        },
+        "0": {
+          "first_acc": 0.14333333333333334,
+          "last_acc": 0.12666666666666668,
+          "no_answer_rate": 0.0033333333333333335,
+          "answer_rate": 0.9966666666666667,
+          "answered_acc": 0.14381270903010032,
+          "n_answered": 299,
+          "multi_answer_rate": 0.21666666666666667,
+          "loop_rate": 0.9666666666666667,
+          "truncated_rate": 1.0,
+          "gen_chars_med": 852
+        },
+        "4": {
+          "first_acc": 0.15333333333333332,
+          "last_acc": 0.13666666666666666,
+          "no_answer_rate": 0.05333333333333334,
+          "answer_rate": 0.9466666666666667,
+          "answered_acc": 0.1619718309859155,
+          "n_answered": 284,
+          "multi_answer_rate": 0.30666666666666664,
+          "loop_rate": 0.9333333333333333,
+          "truncated_rate": 1.0,
+          "gen_chars_med": 892
+        }
+      },
+      "holm_family_m": 3,
+      "transfer": {
+        "-6": {
+          "dAcc_pp": -5.666666666666666,
+          "discordant_0to1": 11,
+          "discordant_1to0": 28,
+          "p_raw": 0.009475304279476404,
+          "p_adj": 0.01895060855895281,
+          "effective_workpoint": false,
+          "attribution": {
+            "d_answer_rate_pp": 0.0,
+            "d_answered_acc_pp": -5.685618729096989
+          }
+        },
+        "-4": {
+          "dAcc_pp": -5.333333333333334,
+          "discordant_0to1": 6,
+          "discordant_1to0": 22,
+          "p_raw": 0.0037191659212112427,
+          "p_adj": 0.011157497763633728,
+          "effective_workpoint": false,
+          "attribution": {
+            "d_answer_rate_pp": -0.33333333333334103,
+            "d_answered_acc_pp": -5.320868218446274
+          }
+        },
+        "4": {
+          "dAcc_pp": 1.0,
+          "discordant_0to1": 22,
+          "discordant_1to0": 19,
+          "p_raw": 0.755228657504631,
+          "p_adj": 0.755228657504631,
+          "effective_workpoint": false,
+          "attribution": {
+            "d_answer_rate_pp": -5.000000000000004,
+            "d_answered_acc_pp": 1.8159121955815176
+          }
+        }
+      }
+    },
+    "qwen2.5": {
+      "alphas": [
+        -6,
+        0,
+        6,
+        8
+      ],
+      "per_alpha": {
+        "-6": {
+          "first_acc": 0.1,
+          "last_acc": 0.09666666666666666,
+          "no_answer_rate": 0.08333333333333333,
+          "answer_rate": 0.9166666666666666,
+          "answered_acc": 0.10909090909090909,
+          "n_answered": 275,
+          "multi_answer_rate": 0.4266666666666667,
+          "loop_rate": 0.19,
+          "truncated_rate": 0.2866666666666667,
+          "gen_chars_med": 749
+        },
+        "0": {
+          "first_acc": 0.20666666666666667,
+          "last_acc": 0.20666666666666667,
+          "no_answer_rate": 0.07333333333333333,
+          "answer_rate": 0.9266666666666666,
+          "answered_acc": 0.22302158273381295,
+          "n_answered": 278,
+          "multi_answer_rate": 0.36333333333333334,
+          "loop_rate": 0.15333333333333332,
+          "truncated_rate": 0.20666666666666667,
+          "gen_chars_med": 517
+        },
+        "6": {
+          "first_acc": 0.20666666666666667,
+          "last_acc": 0.20333333333333334,
+          "no_answer_rate": 0.03333333333333333,
+          "answer_rate": 0.9666666666666667,
+          "answered_acc": 0.21379310344827587,
+          "n_answered": 290,
+          "multi_answer_rate": 0.3433333333333333,
+          "loop_rate": 0.14,
+          "truncated_rate": 0.18333333333333332,
+          "gen_chars_med": 518
+        },
+        "8": {
+          "first_acc": 0.25666666666666665,
+          "last_acc": 0.24333333333333335,
+          "no_answer_rate": 0.023333333333333334,
+          "answer_rate": 0.9766666666666667,
+          "answered_acc": 0.2627986348122867,
+          "n_answered": 293,
+          "multi_answer_rate": 0.4866666666666667,
+          "loop_rate": 0.12333333333333334,
+          "truncated_rate": 0.16666666666666666,
+          "gen_chars_med": 555
+        }
+      },
+      "holm_family_m": 3,
+      "transfer": {
+        "-6": {
+          "dAcc_pp": -10.666666666666668,
+          "discordant_0to1": 6,
+          "discordant_1to0": 38,
+          "p_raw": 9.430375484953402e-07,
+          "p_adj": 2.8291126454860205e-06,
+          "effective_workpoint": false,
+          "attribution": {
+            "d_answer_rate_pp": -1.0000000000000009,
+            "d_answered_acc_pp": -11.393067364290387
+          }
+        },
+        "6": {
+          "dAcc_pp": 0.0,
+          "discordant_0to1": 34,
+          "discordant_1to0": 34,
+          "p_raw": 1.0,
+          "p_adj": 1.0,
+          "effective_workpoint": false,
+          "attribution": {
+            "d_answer_rate_pp": 4.0000000000000036,
+            "d_answered_acc_pp": -0.9228479285537078
+          }
+        },
+        "8": {
+          "dAcc_pp": 5.0,
+          "discordant_0to1": 39,
+          "discordant_1to0": 24,
+          "p_raw": 0.07692583360960925,
+          "p_adj": 0.1538516672192185,
+          "effective_workpoint": false,
+          "attribution": {
+            "d_answer_rate_pp": 5.000000000000004,
+            "d_answered_acc_pp": 3.977705207847376
+          }
+        }
+      }
+    }
+  },
+  "note": "task-specific exploration on FinQA, not a GSM8K fixed-workpoint transfer test; alpha swept fresh per model, Holm m=3 within model. Scoring is a CUSTOM direct-numeric-answer evaluator (marker '#### <value>' + numeric normalization + relative-tolerance match), NOT the official FinQA program/DSL execution-based scorer -- numbers here are not directly comparable to official FinQA leaderboard accuracy."
+}
