@@ -1035,6 +1035,29 @@ ZebraLogic-Easy 使用 280 题、1024-token 固定预算和 first-answer JSON �
 
 两个模型均未检测到显著正向 workpoint：Llama 的四格在固定预算下均伴随 100% 截断和约 90%–95% 循环，而 Qwen `+8` 构成显著负向边界，主要表现为无答案率骤升；因此本实验到此结束，不将 Qwen `+6` 的数值最高点解释为已确立的 workpoint。
 
+### 5.5e GSM-Symbolic CoT: Strong Qwen Transfer but No Llama Improvement
+
+GSM-Symbolic 使用与 GSM8K 一致的显式 CoT prompt、每个 config 300 题和 first-marker/fallback 评分。统计推断以 `original_id` 为 cluster，并对 `main`、`p1`、`p2` 等权；这是目标任务上的四点剂量探索，后续 No-CoT 结果将作为主结果。
+
+**Table 5.5e. GSM-Symbolic CoT task-specific four-point sweep**
+
+| Model | α | Main | P1 | P2 | Row-pooled accuracy† | Primary Δ | Holm p_adj |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Llama3.1-8B | 0 | 62.67% | 58.67% | 45.33% | **55.56%** | — | — |
+| Llama3.1-8B | −6 | 64.00% | 59.00% | 47.00% | 56.67% | +1.11 pp | .527 |
+| Llama3.1-8B | −4 | 70.67% | 63.67% | 41.33% | 58.56% | +3.00 pp | .122 |
+| Llama3.1-8B | +4 | 54.00% | 41.33% | 25.33% | 40.22% | **−15.33 pp** | **.0003** |
+| Qwen2.5-7B | 0 | 63.33% | 56.33% | 39.00% | **52.89%** | — | — |
+| Qwen2.5-7B | −6 | 66.00% | 64.33% | 39.00% | 56.44% | **+3.56 pp** | **.044** |
+| Qwen2.5-7B | +6 | 79.33% | 68.33% | 47.67% | 65.11% | **+12.22 pp** | **.0003** |
+| Qwen2.5-7B | +8 | 81.67% | 66.67% | 46.67% | 65.00% | **+12.11 pp** | **.0003** |
+
+† Row-pooled accuracy 仅用于直观展示；正式推断采用 config 等权的 paired cluster bootstrap，并在每个模型内对三个非零剂量执行 Holm 校正。
+
+Llama 的 `−6/−4` 均未显著改善，`+4` 显著降低准确率；Qwen 的三个非零剂量均显著改善，其中 GSM8K 冻结点 `+8` 同样产生显著正向效果（约 +12.1 pp）。该结果暂作为 CoT 补充证据，不能替代后续独立统计的 No-CoT 主实验。
+
+
+
 ### 5.6 Conclusion
 
 Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH 和 GSM-Hard 提供有用的剂量排序信息。补充的后补剂量（MATH `−8/−6`、GSM8K CoT 扩展曲线、GSM-Hard 邻点）在多数情况下与 predictor 的原始排序保持一致，但这些补充分析均为回顾性的 post-hoc stress test，不构成新的盲测证据。BBH object counting 是一个反例：它与冻结 adapter 兼容，但其本身的 steering 效果是 null，predictor 的排序也未命中 observed best，说明 predictor 的有效性依赖于目标任务本身存在可检测的剂量效应。
