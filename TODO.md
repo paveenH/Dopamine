@@ -113,7 +113,7 @@ Agent4: Document (GPT)
 27. ZebraLogic WP 测试 ✖
 28. 1-shot multi-hop ProofWwiter OWA ✖
 29. FinQA ✖
-30. GSM-Symbolic ⏸
+30. GSM-Symbolic cot & non-cot ⏸
 31. 考虑一下不同的neurons之间有什么差异
 
 ---
