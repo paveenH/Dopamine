@@ -12,9 +12,16 @@ standalone read-only step -- no other GSM8K/MATH loader or runner is touched.
 Output schema per item (JSON list), one file per config:
   {
     "id": <int>,               # OFFICIAL HF dataset row `id` field (row["id"]),
-                                # NOT a re-enumerated local index
-    "sample_id": <str>,        # "{config}:{id}", unique across the 3 configs
-                                # combined (id alone repeats across configs)
+                                # NOT a re-enumerated local index. IMPORTANT:
+                                # verified 2026-09 that GSM-Symbolic's `id`
+                                # field equals `original_id` (i.e. it is a
+                                # CLUSTER id, not a per-row id) -- every
+                                # instance of one original_id shares the SAME
+                                # `id`. Do NOT use `id` alone as a row key.
+    "sample_id": <str>,        # "{config}:{original_id}:{instance}", unique
+                                # PER ROW within a config (id alone is NOT
+                                # row-unique -- see above). A KeyError is
+                                # raised at load time if this is not unique.
     "instance": <int>,         # instantiation index within original_id
     "original_id": <int>,      # links back to the shared GSM8K-derived template
     "config": "main"|"p1"|"p2",
@@ -26,6 +33,22 @@ Output schema per item (JSON list), one file per config:
                                 # no torch/heavy import)
     "solution": <str>,         # full solution text as shipped by HF
   }
+
+*** FIXED 2026-09: sample_id WAS "{config}:{id}", WRONG ***
+GSM-Symbolic's `id` field is NOT a per-row unique id -- it equals
+`original_id` (verified: unique(id) == unique(original_id) in all 3 configs
+of a real formal run). The old `sample_id = f"{config}:{id}"` therefore
+collided across every instance of one original_id, so a dict keyed by
+sample_id (score_cell, check_cell_consistency) silently kept only ONE of
+several rows per original_id -- e.g. main's formal 300-row sample collapsed
+to 100 unique sample_id (= 100 unique original_id), each really holding 3
+DIFFERENT questions (different instance, different text) under one key.
+Generation itself was NOT affected (prompts are built from the full
+`question` string, and all 300 distinct questions per config really were
+generated) -- only sample_id-keyed downstream analysis was corrupted. Fixed
+by keying on `f"{config}:{original_id}:{instance}"` instead, with a hard
+uniqueness assertion at load time (see `load_config`) so a similar collision
+can never again pass silently.
 
 FORMAL SAMPLE = 300 items PER CONFIG (900 total, NOT one pooled 300 and NOT
 the full ~8819-row split). Selection is CLUSTER-BALANCED by original_id, not
@@ -111,6 +134,26 @@ def resolve_revision(ds) -> str:
         return f"UNRESOLVED ({type(e).__name__}: {e})"
 
 
+def assert_unique_sample_ids(items: list, config: str) -> None:
+    """Hard uniqueness check on sample_id -- this is exactly the assumption
+    that silently broke once already (HF's `id` field equals `original_id`,
+    NOT a per-row id, so the old `sample_id=f"{config}:{id}"` collided across
+    every instance of one original_id). Never let a similar collision pass
+    silently again. Pulled out as its own function so it is unit-testable
+    without needing a real `datasets` load."""
+    sids = [it["sample_id"] for it in items]
+    if len(set(sids)) != len(sids):
+        from collections import Counter
+        dupes = {k: v for k, v in Counter(sids).items() if v > 1}
+        raise ValueError(
+            f"config={config}: sample_id is NOT unique per row -- "
+            f"{len(dupes)} duplicated keys (e.g. {list(dupes.items())[:3]}). "
+            "This means (original_id, instance) does not uniquely identify a "
+            "row either; the key scheme needs revisiting before this data can "
+            "be used for anything downstream."
+        )
+
+
 def load_config(config: str, cache_dir: str):
     ds = load_dataset(
         "apple/GSM-Symbolic",
@@ -124,17 +167,22 @@ def load_config(config: str, cache_dir: str):
     for row in ds:
         gold = extract_gold(row["answer"])
         official_id = row["id"]
+        original_id = row.get("original_id", None)
+        instance = row.get("instance", None)
         items.append({
-            "id": official_id,                       # official HF row id, verbatim
-            "sample_id": f"{config}:{official_id}",   # unique across configs combined
-            "instance": row.get("instance", None),
-            "original_id": row.get("original_id", None),
+            "id": official_id,      # official HF row id, verbatim -- NOTE:
+                                     # this equals original_id, NOT a per-row
+                                     # id; never use it alone as a row key.
+            "sample_id": f"{config}:{original_id}:{instance}",
+            "instance": instance,
+            "original_id": original_id,
             "config": config,
             "question": row["question"],
             "answer": gold,
             "solution": row["answer"],
         })
     missing_gold = sum(1 for it in items if it["answer"] == "")
+    assert_unique_sample_ids(items, config)
     return items, missing_gold, resolved_revision
 
 

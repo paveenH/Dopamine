@@ -127,9 +127,15 @@ def holm_correct(pvals):
 
 # ─────────────────────── loading / scoring ───────────────────────
 
-def load_cell(base_dir, model, gsm_config, alpha, size, layers):
+def load_cell(base_dir, model, gsm_config, alpha, size, layers, ans_root="answer_gsm_symbolic"):
+    """ans_root MUST match whatever --ans_root the generation launcher
+    actually used (default answer_gsm_symbolic; the run this repo's
+    launchers currently write wrote to plain "gsm_symbolic" instead --
+    pass --ans_root explicitly rather than silently trying multiple
+    candidate directories, so it stays visible which directory a cited
+    result actually came from)."""
     st, en = layers
-    out_dir = os.path.join(base_dir, model, "answer_gsm_symbolic", gsm_config, f"mdf_{alpha}")
+    out_dir = os.path.join(base_dir, model, ans_root, gsm_config, f"mdf_{alpha}")
     path = os.path.join(out_dir, f"gsm_symbolic_{gsm_config}_{size}_{st}_{en}.json")
     if not os.path.exists(path):
         raise FileNotFoundError(f"missing cell: {path}")
@@ -431,7 +437,7 @@ def check_cell_consistency(model, payloads: dict):
                 )
 
 
-def evaluate_model(model, base_dir, size, n_bootstrap, seed):
+def evaluate_model(model, base_dir, size, n_bootstrap, seed, ans_root="answer_gsm_symbolic"):
     alphas = ALPHAS[model]
     layers = LAYERS[model]
     assert alphas[alphas.index(0)] == 0
@@ -441,7 +447,7 @@ def evaluate_model(model, base_dir, size, n_bootstrap, seed):
     payloads = {}
     for cfg in CONFIGS:
         for a in alphas:
-            payloads[(cfg, a)] = load_cell(base_dir, model, cfg, a, size, layers)
+            payloads[(cfg, a)] = load_cell(base_dir, model, cfg, a, size, layers, ans_root=ans_root)
 
     check_cell_consistency(model, payloads)
 
@@ -574,13 +580,21 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--n_bootstrap", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--ans_root", default="answer_gsm_symbolic",
+                     help="Must match whatever --ans_root the generation "
+                          "launcher actually used. Default matches "
+                          "run_gsm_symbolic_formal.sh's own default; pass "
+                          "explicitly if a run used a different one (e.g. "
+                          "the on-disk dirs are literally 'gsm_symbolic' "
+                          "for this project's synced results).")
     args = ap.parse_args()
 
     size = args.size or ("8B" if args.model == "llama3" else "7B")
     if os.path.exists(args.out):
         raise FileExistsError(f"{args.out} already exists -- refusing to overwrite.")
 
-    result = evaluate_model(args.model, args.base_dir, size, args.n_bootstrap, args.seed)
+    result = evaluate_model(args.model, args.base_dir, size, args.n_bootstrap,
+                             args.seed, ans_root=args.ans_root)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"Wrote {args.out}")

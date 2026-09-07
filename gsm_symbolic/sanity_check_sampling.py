@@ -7,7 +7,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from data_gsm_symbolic import select_sample, salted_hash, N_PER_CONFIG
+from data_gsm_symbolic import select_sample, salted_hash, N_PER_CONFIG, assert_unique_sample_ids
 
 
 def make_items(config: str, n_clusters: int, instances_per_cluster):
@@ -121,5 +121,30 @@ print(f"[ok] salted_hash is deterministic sha256: {h1[:16]}...")
 # ---- N_PER_CONFIG default sanity ----
 assert N_PER_CONFIG == 300
 print(f"[ok] N_PER_CONFIG default = {N_PER_CONFIG}")
+
+# ---- REGRESSION: assert_unique_sample_ids must PASS when sample_id is
+#      genuinely unique per (original_id, instance), and FAIL when the OLD
+#      bug's collision pattern recurs (multiple instances sharing one id/
+#      sample_id, exactly what happened when id==original_id was used alone
+#      as the key) ----
+good_items = [
+    {"sample_id": f"cfg:{oid}:{inst}"}
+    for oid in range(5) for inst in range(3)
+]
+assert_unique_sample_ids(good_items, "cfg")  # must not raise
+print("[ok] assert_unique_sample_ids passes on genuinely unique (original_id, instance) keys")
+
+# reproduce the EXACT old bug: id equals original_id, so a sample_id built
+# from id alone (ignoring instance) collides across every instance sharing
+# one original_id -- this is what corrupted the real main/p1/p2 formal runs.
+bad_items = [
+    {"sample_id": f"cfg:{oid}"}  # note: no instance in the key -- the bug
+    for oid in range(5) for _inst in range(3)
+]
+try:
+    assert_unique_sample_ids(bad_items, "cfg")
+    raise AssertionError("assert_unique_sample_ids should have raised on the old bug's collision pattern")
+except ValueError as e:
+    print(f"[ok] assert_unique_sample_ids correctly rejects the id-only collision bug: {e}")
 
 print("\nALL SAMPLING SANITY CHECKS PASSED")
