@@ -217,7 +217,12 @@ def main():
             "artifact, not a resumable sweep cell).")
     os.makedirs(out_dir, exist_ok=True)
 
-    diff = raw_mask[args.layer_start:args.layer_end] * 0  # alpha=0, all-zero
+    # regenerate() requires one diff row per decoder layer in the WHOLE model
+    # (matches get_answer_proofwriter_owa.py exactly: `diff = raw_mask *
+    # alpha`) -- raw_mask is already full-length (32 rows for Llama3-8B) with
+    # zero rows outside [layer_start, layer_end); slicing it to the band here
+    # was wrong and raised "diff_matrices length (9) != layers (32)".
+    diff = raw_mask * 0  # alpha=0, all-zero
     vc.steering_fire_count(reset=True)
 
     gen = []
