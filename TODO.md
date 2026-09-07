@@ -1,3 +1,17 @@
+现在我们的目标是将Dopamine写成一篇conference paper 或者journal 
+RSN最初的内容已经发表，来源是RSNpaper，具体内容在/Users/paveenhuang/Downloads/Dopamine/ACLARR
+现在我们的目标是想要论证，这一套机制类似人体的Dopamine系统机制
+AdaDopamine.md记录了一些行为学实验
+AdaDopamine_gsm8k.md是推理任务上的表现，gsm8k & math
+AdaptiveThinking.md 这里是对内部的thinking Curve的一些观察 原本是计划找到一些类似激素水平变化的曲线，但是目前没有显著的效果
+AdaManifold.md这里是和Manifold有关的一些研究，是AdaptiveThinking的一些拓展
+其余是一些辅助文件：
+AdaBandit.md 专门记录了Bandit实验（主线在AdaDopamine.md），但是没有找到合适的结果
+AdaLogitsLens.md 对应RSNpaper时候做的一下研究
+TODO是接下来的一些执行计划
+
+---
+
 #### Tmux
 conda activate dopamine
 conda activate roleplaying
@@ -30,7 +44,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 Daily
-09.07 周一 生理期推迟，網絡加退选开始，去实验室签字，确认公证需要的材料
+09.07 周一 生理期推迟，确认公证需要的材料
 09.08 周二
 09.09 周三 组会（11:30）
 09.11 seminar
@@ -47,9 +61,6 @@ Daily
 10.04-10.10 Home
 10.11 Flight Taipei
 
-办理公证需要的下料
-成都的住宿（10.03）
-购买徒步需要携带的东西
 准备多益考试
 看完瑜伽视频
 看完徐玉兰视频
@@ -61,7 +72,6 @@ Task Agent: task coding (claude)
 Agent2: Task design & check (GPT) & write to claude when finishing 
 Agent3: claude.md mataining (claude)
 Agent4: Document (GPT)
-Agent5: Total Design (GPT)
 ---
 组会内容（08.31）：
 1）弄清楚neurons的差异：confident & unconfident // thinking & answer directly (先推理再提交、先提交再推理)
@@ -102,20 +112,13 @@ Agent5: Total Design (GPT)
 26. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
 27. ZebraLogic WP 测试 ✖
 28. 1-shot multi-hop ProofWwiter OWA ✖
-29. FinQA 
-30. GSM-Symbolic 
----
+29. FinQA ⏸
+30. GSM-Symbolic ⏸
+31. 考虑一下不同的neurons之间有什么差异
 
+---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
-
----
-
-| 优先级 | 任务 | 最能回答什么 | Llama3 表现 / 风险预期 |
-|---|---|---|---|
-| 6 | **FinQA** | 开放数值答案的跨数据域验证 | **中等**；表格读取与程序式计算是额外难点 |
-| 7 | **TruthfulQA-Gen** | 去除选项后的自由生成行为是否改变 | **不宜写单一 accuracy**；可生成，但要面对 judge 评分与 Llama 尾部 loop |
-| 9 | **GSM-Symbolic** | GSM8K 接口鲁棒性 | **中高**；最接近 GSM8K，因此独立性弱 |
 
 ---
 
@@ -124,161 +127,12 @@ Agent5: Total Design (GPT)
 - [ ] 构造与 RSN 匹配 norm、sparsity 和注入层的 random directions。
 - [ ] 构造 orthogonal-to-RSN directions。
 - [ ] 实际注入模型，比较 accuracy、commitment 与 Thinking Curve。
-
 这一步回答的是“效果是否来自 RSN 方向本身”；现有 remask 只能支持 readout specificity。
 
-### P3. 整理 Behaviour evidence
-
-- [ ] Betting：作为稳定正向证据。
-- [ ] CGT/IGT：保留有效结果与 construct boundary。
-- [ ] Bandit：作为 recognition–action dissociation 的边界证据。
-- [ ] 不重跑 Qwen 高剂量 CGT/IGT。
-- [ ] 如需跨模型行为确认，只选择一个预先确定、已有稳定效应的任务。
-
-目标是整理证据层级，不再增加大量行为任务。
-
-### P4. 增加一个外部 reasoning task
-
-- [ ] 首选 GSM-Hard。
-- [ ] Llama 检验负向 working region 是否迁移。
-- [ ] Qwen 检验 `+6～+8` commitment 转折是否迁移。
-- [ ] 固定少量、事先确定的剂量，不重新搜索最佳 α。
-- [ ] 只有 GSM-Hard 给出明确价值时，才考虑 SVAMP/ASDiv。
-
-措辞使用“迁移性检验”，不预设两个模型必须一致。
-
-### P5. 同步推进论文
-
-主线固定为：
-
-`RSN discovery → GSM8K calibration → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
-
-同步完成：
-
-- [ ] 论文 section skeleton
-- [ ] 跨模型 Thinking Curve 主图
-- [ ] causal control 图
-- [ ] behaviour evidence 汇总表
-- [ ] limitations 与 evidence boundary
-- [ ] reproducibility / protocol appendix
-
-总体优先顺序：
-
-> **Manifold 收尾 → Thinking Curve → causal control → Behaviour 整理 → GSM-Hard → 论文整合**
-
-其中论文结构和主图不必等实验全部结束，可以与 Thinking Curve 同步推进。
 ---
-### 从 AdaptiveThinking.md §5.8 Open items 迁出（2026-08-28）
-
-- [ ] **§5.6 逐层口径扩展到 −8 与 CoT**（原 Open 3，范围已收窄）
-      AdaManifold.md §3.9 的 cross-layer 已在「位移幅度 + 方向余弦」尺度覆盖全部 15 个
-      layer slot（含 Qwen −8 与 CoT），但 §5.6 的 **scalar-compression residual /
-      null specificity** 是另一套口径，仍只跑过正臂高剂量。HS 已采集，属分析工作。
-
-- [ ] **因果方向控制：真正注入 random / orthogonal directions**（原 Open 4 → 即 P2）
-      §5.6.3 的 null 是 remask（对同一批 hidden states 重投影），只能支持
-      readout specificity。要主张 steering direction 有因果特异性，必须实际注入并
-      重新采集。与 P2 第 53–55 行、ACL ARR 清单第 3 项是同一件事，勿重复列。
-
-- [ ] **Llama 五格 H5 provenance 验收**（非阻塞）
-      九点剂量曲线依赖的 nocot_aneg4/aneg2/a2/a4/a8 从未过 check_hs_llama.py。
-      只读，全量 probe 十几到几十分钟。不做则 supplement 措辞须写
-      「四格经全量验收；其余五格未单独验收，但 stored accuracy 与离线重算完全一致」。
-
-- [ ] **commit-aligned s_t/Z_t 与 post-commit release 的跨模型对称比较**（supplementary，
-      结构性受限，非工作量缺口）
-      Qwen 可读队列由操纵结果选出（α=0 覆盖率 4.0%，n=12），加样本也造不出匹配参照。
-
----
-1. **收尾并关闭 Manifold**
-   - 完成 `k=5/10/20` inside-ratio sensitivity。
-   - 完成 Llama–Qwen 几何总结图。
-   - 冻结结论：entry geometry 平滑且近似 piecewise scalar，但不能单独解释 Llama peak 与 Qwen plateau。
-   - 不再扩展 prediction、UMAP/TLE 或复杂 decode manifold。
-
-2. **完成跨模型 Thinking Curve 与 boundary-state comparison**
-   - 不比较 raw `α`，全部转换为模型内部标准化指标。
-   - 比较：
-     - Llama：`0 → −6 → −8`
-     - Qwen：`0 → +6 → +8/+12`
-   - 统一分析 `Z_prefill`、`decode[0]` 回弹、early candidate、commit position、`s_t/Z_t`、confidence、entropy、margin、长度、loop 和 post-commit release。
-   - 判断两模型是到达相似 working state，还是仅表现出相似功能但内部状态不同。
-
-3. **做 blind held-out working-state matching**
-   - 用训练题定义 Llama `−6` 的目标状态。
-   - 不查看 Qwen accuracy，仅根据内部与输出指标选择最接近的 Qwen 剂量。
-   - 在 held-out questions 检验 accuracy、commitment 和 stopping。
-   - 若无法对齐，就接受“共同 commitment-calibration 功能、不同模型实现”的结论。
-   - CCA/Procrustes 只在这一步出现明确对齐信号后再考虑。
-
-4. **增加一个外部 reasoning benchmark**
-   - 首选 GSM-Hard。
-   - 固定少量预先确定的剂量，不重新搜索最优 α。
-   - Llama 检验负向 working region 是否迁移；Qwen 棧验 `+6～+8` commitment 转折是否迁移。
-   - 重点报告 accuracy、early candidate、commit timing、长度、loop 和格式稳定性。
-   - 目标是证明 reasoning-task transfer 和实际应用潜力；只有结果明确时才考虑 SVAMP/ASDiv。
-
-5. **补 causal direction control**
-   - 构造 norm、sparsity 和注入层匹配的 random directions。
-   - 构造 orthogonal-to-RSN directions。
-   - 实际注入代表性条件，比较 accuracy、commitment 与 Thinking Curve。
-   - 回答效果是否具有 RSN 方向特异性，而不只是任意 hidden-state 扰动。
-
-6. **整理 Behaviour evidence**
-   - Betting：稳定正向证据。
-   - CGT/IGT：重新按 `evidence → recognition → utilization → commitment → outcome` 梳理。
-   - Bandit：作为 recognition–action dissociation 和能力边界证据。
-   - 不重跑 Qwen 高剂量 CGT/IGT，也不继续增加大量行为任务。
-   - 如需跨模型确认，只选择一个已有稳定效应的行为任务。
-
-7. **同步推进论文与主图**
-   - 主线固定为：  
-     `RSN discovery → GSM8K calibration → reasoning transfer → behavioural generality/boundary → Thinking Curve mechanism → cross-model difference`
-   - 同步完成 Thinking Curve 主图、GSM-Hard 迁移图、causal control 图、Behaviour 汇总表及 limitations。
-   - 不必等所有实验结束才开始写作。
-
-8. **暂缓扩张**
-   - 暂不加入第三个模型。
-   - 暂不大规模增加 reasoning benchmarks。
-   - 暂不重开复杂 manifold。
-   - 第三个模型仅作为论文初稿完成后的审稿风险储备。
-
-总体顺序：
-
-> **Manifold 收尾 → Thinking Curve/状态对齐 → held-out matching → GSM-Hard → causal control → Behaviour 整理 → 论文定稿**
 ---
 
 ## TO DO — ACL ARR
-
-### 2. Cross-Model Positive-Result Replication
-
-**目标：** 验证至少一个稳定的 RSN 行为效应不局限于 Llama3-8B，而不是复制全部 benchmark。
-
-- [ ] 在第 1 步完成后选择一个最稳定的正结果任务。
-- [ ] 重新验证 Qwen 的 tokenizer、anchor、candidate IDs、mask 与 steering fires。
-- [ ] 使用模型自身定位的 direction 与校准后的 α / `ΔG_prefill`，不直接搬用 Llama 的 mask 或 raw dose。
-- [ ] 复现该任务的主指标、方向性与必要的 validity checks。
-- [ ] 若无法复现，将跨模型主张明确限定为当前模型范围；不以 Bandit 负结果作为跨模型 gate。
-
-### 3. Direct Causal-Specificity Control
-
-**目标：** 区分 RSN direction 的效应与一般 hidden-state perturbation。
-
-- [ ] 整理 Thinking Curve 已有 random / orthogonal controls 及其可支持的结论。
-- [ ] 选择与第 2 步相同或同等稳定的代表性行为任务。
-- [ ] 构造在范数、层、support 与 α 上匹配的 random / orthogonal direction control。
-- [ ] 比较行为主指标并冻结 direction-specificity 的判定口径。
-
-### 4. Paper Positioning and Preparation（与实验并行）
-
-- [ ] 将主贡献定位为 `role-conditioned behavioral gain control`。
-- [ ] 将 dopamine 定位为 `selective dopamine-like functional analogy`，明确不声称 RSN 实现完整 dopamine / RPE 系统。
-- [x] 将 Bandit 定位为 directed exploration 的边界证据，不用于估计第三个 working point。
-- [ ] 整理社会角色—dopamine、wanting 与 decision policy 文献。
-- [ ] 制作统一主结果图与机制示意图。
-- [ ] 汇总模型、seed、prompt、steering 与统计规格。
-- [ ] 完成 Limitations、Responsible NLP 与可复现性清单。
-- [ ] 撰写 ACL ARR 长文初稿。
 
 
 ---
