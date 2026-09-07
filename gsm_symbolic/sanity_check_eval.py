@@ -11,8 +11,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from eval_gsm_symbolic import (
     exact_mcnemar, holm_correct, score_cell, per_instance_breakdown,
-    check_cell_consistency,
+    check_cell_consistency, build_clusters, config_equal_weighted_delta,
+    cluster_bootstrap_vs_base,
 )
+import random
 
 # ---- exact McNemar sanity: b=c=0 -> p=1.0; asymmetric discordant pairs ----
 assert exact_mcnemar(0, 0) == 1.0
@@ -139,5 +141,73 @@ try:
     raise AssertionError("check_cell_consistency should have raised on sample_id set mismatch")
 except ValueError as e:
     print(f"[ok] check_cell_consistency correctly rejects sample_id drift: {e}")
+
+# ---- cluster bootstrap: config-equal weighting must NOT let a
+#      many-row/many-cluster config dominate a few-row config's signal ----
+# Construct two configs directly (build the base/steer dicts by hand for
+# full control over cluster sizes):
+#   "small": 2 original_id clusters, 1 row each. base all wrong, steer all
+#            correct -> a full effect but tiny row count.
+#   "big":   100 original_id clusters, 10 instances each (1000 rows). base
+#            and steer identical (no effect) -> should pull a NAIVE row-
+#            weighted pooled number toward "no effect" if it dominated, but
+#            must NOT suppress config_equal_weighted_delta, which weights
+#            "small" and "big" equally regardless of their 2-vs-1000 rows.
+base_rows, steer_rows, config_of = {}, {}, {}
+for i in range(2):
+    sid = f"small:{i}"
+    base_rows[sid] = {"correct": False, "original_id": f"small_oid_{i}"}
+    steer_rows[sid] = {"correct": True, "original_id": f"small_oid_{i}"}
+    config_of[sid] = "small"
+for oid in range(100):
+    for inst in range(10):
+        sid = f"big:{oid}:{inst}"
+        base_rows[sid] = {"correct": True, "original_id": f"big_oid_{oid}"}
+        steer_rows[sid] = {"correct": True, "original_id": f"big_oid_{oid}"}  # no effect
+        config_of[sid] = "big"
+
+clusters = build_clusters(base_rows, steer_rows, config_of)
+assert set(clusters.keys()) == {"small", "big"}
+assert len(clusters["small"]) == 2   # 2 original_id clusters
+assert len(clusters["big"]) == 100   # 100 original_id clusters, 1000 rows total
+
+equal_weighted = config_equal_weighted_delta(clusters)
+# "small" contributes delta=+1.0 (0%% -> 100%%), "big" contributes delta=0.0;
+# equal weighting -> mean = 0.5, REGARDLESS of "big" having 500x the rows.
+assert abs(equal_weighted - 0.5) < 1e-9, equal_weighted
+print(f"[ok] config_equal_weighted_delta ignores row-count imbalance: {equal_weighted} (expected 0.5)")
+
+# naive row-weighted delta would be swamped by "big"'s 1000 no-effect rows:
+# (2*1.0 + 1000*0.0) / 1002 ~= 0.002, nowhere near 0.5 -- confirms the
+# contrast the equal-weighting design exists to prevent.
+n_total = 2 + 1000
+naive_row_weighted = (2 * 1.0 + 1000 * 0.0) / n_total
+assert naive_row_weighted < 0.01, naive_row_weighted
+print(f"[ok] naive row-weighted delta would be swamped by 'big': {naive_row_weighted:.4g} (would misreport as ~no effect)")
+
+# Full cluster_bootstrap_vs_base: point estimate must match the hand check,
+# and the CI must exclude 0 given "small" is a deterministic full-flip effect
+# (every bootstrap draw of "small"'s 2 clusters still shows the same 0->1 flip
+# since both underlying original_id clusters are identical in effect).
+rng = random.Random(0)
+cb = cluster_bootstrap_vs_base(base_rows, steer_rows, config_of, n_bootstrap=2000, rng=rng)
+assert abs(cb["delta_pp_config_equal_weighted"] - 50.0) < 1e-6, cb
+assert cb["delta_pp_naive_row_weighted"] < 1.0, cb  # naive number stays near 0
+lo, hi = cb["delta_pp_ci95_equal_weighted"]
+assert lo > 0, cb  # CI should exclude 0 -- config_equal_weighted effect is deterministic here
+print(f"[ok] cluster_bootstrap_vs_base: equal-weighted delta={cb['delta_pp_config_equal_weighted']}pp "
+      f"CI95={cb['delta_pp_ci95_equal_weighted']}  naive_row_weighted={cb['delta_pp_naive_row_weighted']}pp  "
+      f"p_boot={cb['p_bootstrap']:.4g}")
+
+# ---- null case: base==steer everywhere -> equal-weighted delta must be 0
+#      and the CI must straddle 0 (no significance) ----
+null_base = {sid: dict(r) for sid, r in base_rows.items()}
+null_steer = {sid: dict(r) for sid, r in base_rows.items()}  # identical to base
+rng2 = random.Random(1)
+cb_null = cluster_bootstrap_vs_base(null_base, null_steer, config_of, n_bootstrap=2000, rng=rng2)
+assert cb_null["delta_pp_config_equal_weighted"] == 0.0, cb_null
+lo_n, hi_n = cb_null["delta_pp_ci95_equal_weighted"]
+assert lo_n <= 0.0 <= hi_n, cb_null
+print(f"[ok] null case (base==steer): delta=0, CI95={cb_null['delta_pp_ci95_equal_weighted']} straddles 0")
 
 print("\nALL SANITY CHECKS PASSED")

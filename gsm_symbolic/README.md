@@ -56,20 +56,36 @@ runner, loader, or launcher is modified.
   `steering_fires` must equal its own `steering_fires_expected`; and every
   config's 4 α cells must cover the identical `sample_id` set. Any mismatch
   is a hard stop.
-  **Statistics design (tightened per review): pooled (main+p1+p2
-  concatenated) is the ONE PRIMARY confirmatory family** — paired exact
-  McNemar (stdlib binomial CDF, no scipy dependency) per non-zero α vs. that
-  model's own α=0, Holm `m=3` (the model's three non-zero doses), and only
-  this pooled family gets an `established_workpoint` verdict. The three
-  per-config (main/p1/p2) breakdowns are reported with **raw p only,
-  explicitly labeled descriptive/exploratory, no Holm adjustment and no
-  significance verdict** — running Holm separately on main/p1/p2/pooled would
-  be four overlapping, non-independent test families sharing the same α=0
-  baseline. Also reports per-`original_id` accuracy mean/std (so a config's
-  headline number isn't read off one instantiation) and diagnostics
-  (`no_marker`, `marker_unparsed`, `no_answer`, multi-marker, first/last
-  disagreement, loop, truncation, generation length — see the no_answer vs
-  no_marker note below).
+  **Statistics design (revised — clustered, not row-level):** `p1`/`p2` each
+  re-instantiate the SAME `original_id` multiple times with different
+  symbolic values (p1 ~5000 rows over far fewer distinct `original_id`, p2
+  ~2500 similarly), so rows sharing an `original_id` are correlated
+  re-samples of one underlying template, not independent trials. Treating
+  all ~8819 pooled rows as independent Bernoulli draws (what exact McNemar
+  assumes) manufactures pseudo-replication and inflates significance, and a
+  plain row-weighted pool lets `p1` (the largest config by row count)
+  dominate a result meant to summarize three configs equally. Fixed as
+  follows:
+  - **PRIMARY**: a paired **cluster bootstrap** resampling `original_id`
+    clusters *within* each config (main/p1/p2 never mixed during
+    resampling), then combining the three configs' deltas with **equal
+    weight per replicate** — so `p1`'s row count cannot dominate. Reports a
+    95% percentile CI (the primary evidence) plus a two-sided bootstrap
+    p-value, Holm `m=3` over the model's three non-zero doses. Only this
+    family (`pooled_main_p1_p2_PRIMARY_cluster_bootstrap`) gets an
+    `established_workpoint` verdict.
+  - **SENSITIVITY, not primary evidence**: the naive per-row exact McNemar
+    (stdlib binomial CDF, no scipy dependency) on the pooled rows, reported
+    explicitly labeled `SENSITIVITY_ONLY`, to see whether the cluster-aware
+    and naive-row verdicts diverge — never cited as the significance result
+    on its own.
+  - **DESCRIPTIVE per (model, config)**: accuracy at each α plus the same
+    row-level McNemar (own block, no Holm, no significance verdict) and
+    per-`original_id` accuracy mean/std, so a config's headline number isn't
+    read off one instantiation.
+  Also reports diagnostics (`no_marker`, `marker_unparsed`, `no_answer`,
+  multi-marker, first/last disagreement, loop, truncation, generation
+  length — see the no_answer vs no_marker note below).
 - `run_gsm_symbolic_preflight.sh` — α=0 only, 30-item preflight, one model per
   invocation. `BATCH_SIZE` (env-overridable, default 24, same value as the
   formal sweep) is ONE shared knob for the whole script.
