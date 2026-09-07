@@ -19,7 +19,18 @@ Two modes, chosen by which generation files are supplied:
 
 MAIN metric = first-legal-marker numeric accuracy (`first_acc`), using the
 same `is_correct` tolerance as the loader's numeric normalization. LAST is a
-tail-pollution sensitivity readout, never the headline.
+tail-pollution sensitivity readout, never the headline. `first_acc`'s
+denominator is ALWAYS all 300 items -- a missing/unparseable marker scores
+incorrect, per the frozen protocol.
+
+`answered_acc` is a DIAGNOSTIC ONLY: first_acc restricted to the subset with
+a legal first marker (denominator = n_answered, not 300). It exists to
+separate two different ways alpha could move `first_acc`: a higher
+`answer_rate` (more items submit a legal marker at all) vs a higher
+`answered_acc` (submitted answers are more often correct). Neither is the
+primary metric; both are reported alongside `first_acc` so a `first_acc`
+change can be attributed to submission-rate vs answer-quality rather than
+left unexplained.
 
 SCORING IS A CUSTOM DIRECT-NUMERIC-ANSWER EVALUATOR, NOT the official FinQA
 program/DSL execution-based scorer. The model is never asked to produce a
@@ -214,10 +225,16 @@ def run_formal(gen_paths, gold_by_id, gold_meta):
         for al in sorted(byalpha):
             s = scored[al]
             n = N_FORMAL
+            answered = [x for x in s if not x["no_answer"]]
+            n_ans = len(answered)
             r["per_alpha"][al] = {
                 "first_acc": sum(x["first_correct"] for x in s) / n,
                 "last_acc": sum(x["last_correct"] for x in s) / n,
                 "no_answer_rate": sum(x["no_answer"] for x in s) / n,
+                "answer_rate": n_ans / n,
+                "answered_acc": (sum(x["first_correct"] for x in answered) / n_ans
+                                  if n_ans else None),
+                "n_answered": n_ans,
                 "multi_answer_rate": sum(x["multi_answer"] for x in s) / n,
                 "loop_rate": sum(x["loop"] for x in s) / n,
                 "truncated_rate": sum(x["truncated"] for x in s) / n,
@@ -238,12 +255,27 @@ def run_formal(gen_paths, gold_by_id, gold_meta):
         adj = holm(pvals)
         r["holm_family_m"] = HOLM_M
         r["transfer"] = {}
+        p0 = r["per_alpha"][0]
         for al in steered:
             improved = deltas[al]["dAcc_pp"] > 0
             sig = adj.get(al, 1.0) < 0.05
+            pA = r["per_alpha"][al]
+            # ATTRIBUTION, descriptive only (not part of the Holm-tested
+            # claim): does a first_acc change track a change in answer_rate
+            # (more items submit a legal marker) or in answered_acc (submitted
+            # answers are more often right)? Both deltas are reported so an
+            # improvement is not left unattributed between the two.
+            attribution = {
+                "d_answer_rate_pp": (pA["answer_rate"] - p0["answer_rate"]) * 100,
+                "d_answered_acc_pp": (
+                    (pA["answered_acc"] - p0["answered_acc"]) * 100
+                    if pA["answered_acc"] is not None and p0["answered_acc"] is not None
+                    else None),
+            }
             r["transfer"][al] = {
                 **deltas[al], "p_adj": adj.get(al, 1.0),
                 "effective_workpoint": bool(improved and sig),
+                "attribution": attribution,
             }
         results[mdl] = r
 
@@ -253,22 +285,36 @@ def run_formal(gen_paths, gold_by_id, gold_meta):
     for mdl, r in sorted(results.items()):
         print(f"\n--- {mdl} ---")
         print(f"{'alpha':>6} {'first_acc':>10} {'last_acc':>9} {'no_ans':>7} "
-              f"{'multi':>6} {'loop':>6} {'trunc':>6} {'chars':>6}")
+              f"{'ans_rate':>9} {'ans_acc':>8} {'multi':>6} {'loop':>6} "
+              f"{'trunc':>6} {'chars':>6}")
         for al in r["alphas"]:
             p = r["per_alpha"][al]
+            aa = f"{p['answered_acc']:.4f}" if p["answered_acc"] is not None else "   n/a"
             print(f"{al:6d} {p['first_acc']:10.4f} {p['last_acc']:9.4f} "
-                  f"{p['no_answer_rate']:7.3f} {p['multi_answer_rate']:6.3f} "
+                  f"{p['no_answer_rate']:7.3f} {p['answer_rate']:9.3f} {aa:>8} "
+                  f"{p['multi_answer_rate']:6.3f} "
                   f"{p['loop_rate']:6.3f} {p['truncated_rate']:6.3f} "
                   f"{p['gen_chars_med']:6d}")
         if r["transfer"]:
             print(f"\n  Holm m={r['holm_family_m']} (per-model family)")
             print(f"  {'alpha':>6} {'dAcc_pp':>9} {'0to1':>5} {'1to0':>5} "
-                  f"{'p_raw':>9} {'p_adj':>9}  workpoint?")
+                  f"{'p_raw':>9} {'p_adj':>9}  workpoint?  "
+                  f"d_ans_rate_pp  d_ans_acc_pp")
             for al, t in sorted(r["transfer"].items()):
+                at = t["attribution"]
+                daa = (f"{at['d_answered_acc_pp']:+.2f}"
+                       if at["d_answered_acc_pp"] is not None else "n/a")
                 print(f"  {al:6d} {t['dAcc_pp']:+9.2f} {t['discordant_0to1']:5d} "
                       f"{t['discordant_1to0']:5d} {t['p_raw']:9.4f} "
                       f"{t['p_adj']:9.4f}  "
-                      f"{'YES' if t['effective_workpoint'] else 'no'}")
+                      f"{'YES' if t['effective_workpoint'] else 'no':>9}  "
+                      f"{at['d_answer_rate_pp']:+13.2f}  {daa:>12}")
+            print("  (attribution is DESCRIPTIVE only, not part of the Holm "
+                  "test: d_ans_rate_pp = change in the fraction submitting a "
+                  "legal marker; d_ans_acc_pp = change in accuracy AMONG "
+                  "those that did. A first_acc gain riding mostly on "
+                  "d_ans_rate_pp is a submission-rate effect, not necessarily "
+                  "a reasoning-quality effect.)")
     return results
 
 
