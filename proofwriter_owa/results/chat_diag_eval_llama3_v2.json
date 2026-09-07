@@ -1,0 +1,132 @@
+{
+  "protocol": "proofwriter-owa-v0",
+  "not_a_transfer_test": true,
+  "gold_manifest_sha256_16": "a1360034862ceff5",
+  "n_gold_items": 30,
+  "labels": [
+    "True",
+    "False",
+    "Unknown"
+  ],
+  "owa_semantics": "query provable -> True; explicit negation of the query provable -> False; neither provable -> Unknown. Failing to prove the query does NOT by itself mean False.",
+  "holm_family_m_declared": 3,
+  "note_holm_family_m": "the authoritative per-model family size is results[model].mcnemar_vs_alpha0[*].holm_family_m (derived from the actual non-zero alpha count scored for that model); this top-level field is only the --holm_m CLI default and can legitimately differ for a pilot (0 non-zero alpha) or an --allow_partial_alphas run.",
+  "results": {
+    "llama3": {
+      "alphas_present": [
+        0
+      ],
+      "n_items": 30,
+      "cells": {
+        "0": {
+          "n": 30,
+          "accuracy": 0.3333333333333333,
+          "sensitivity_last_answer_accuracy": 0.3333333333333333,
+          "answered_only_accuracy": {
+            "value": 0.5,
+            "n": 20,
+            "scope": "DIAGNOSTIC ONLY -- restricted to samples with >=1 strict marker; never cite alone, always alongside no_answer_rate/parse_failure_rate. NEVER compare this value ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items, so a similar value across two cells does not mean comparable reasoning; it compares two different, uncontrolled subsets."
+          },
+          "by_dataset": {
+            "D3": {
+              "n": 15,
+              "accuracy": 0.4
+            },
+            "D5": {
+              "n": 15,
+              "accuracy": 0.26666666666666666
+            }
+          },
+          "by_label": {
+            "True": {
+              "n": 10,
+              "accuracy": 0.2
+            },
+            "False": {
+              "n": 10,
+              "accuracy": 0.5
+            },
+            "Unknown": {
+              "n": 10,
+              "accuracy": 0.3
+            }
+          },
+          "parse_failure_rate": 0.3333333333333333,
+          "no_answer_rate": 0.3333333333333333,
+          "invalid_or_multiple_marker_rate": 0.0,
+          "multiple_marker_rate": 0.0,
+          "first_last_disagreement_rate": {
+            "value": null,
+            "n": 0,
+            "denominator": "samples with >=2 strict markers"
+          },
+          "loop_rate": 0.13333333333333333,
+          "truncation_rate": 0.16666666666666666,
+          "true_last_line_rate": 1.0,
+          "gen_token_len_median": 244,
+          "gen_token_len_mean": 364.9,
+          "commitment": {
+            "detector_version": "commitment-v0",
+            "n_samples": 30,
+            "n_with_marker": 20,
+            "marker_coverage": 0.6666666666666666,
+            "answer_first_rate": {
+              "value": 0.0,
+              "n": 20,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "reason_before_answer_rate": {
+              "value": 1.0,
+              "n": 20,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "first_answer_marker_pos_mean": {
+              "value": 0.9873183913999071,
+              "n": 20,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_chars_mean": {
+              "value": 1061.8,
+              "n": 20,
+              "denominator": "samples with >=1 strict marker"
+            },
+            "pre_answer_reasoning_tokens_mean": {
+              "value": 247.4,
+              "n": 20,
+              "denominator": "samples with >=1 strict marker AND a tokenizer supplied"
+            },
+            "label_revision_rate": {
+              "value": null,
+              "n": 0,
+              "denominator": "samples with >=2 strict markers"
+            },
+            "multiple_answer_marker_rate": {
+              "value": 0.0,
+              "n": 30,
+              "denominator": "all samples"
+            },
+            "scope_note": "descriptive co-occurrence statistics only; never causal mediation evidence for an accuracy effect"
+          }
+        }
+      },
+      "mcnemar_vs_alpha0": {},
+      "exploratory_subgroups": {},
+      "workpoint": {
+        "alpha_to_accuracy": {
+          "0": 0.3333333333333333
+        },
+        "discrete_argmax_alpha": 0,
+        "near_optimal_region_exact_ties": [
+          0
+        ],
+        "any_dose_holm_significant_either_direction": false,
+        "holm_significant_improvement_alphas": [],
+        "workpoint_alpha": null,
+        "verdict": "No effective ProofWriter OWA workpoint was detected in the sampled dose set."
+      }
+    }
+  },
+  "note": "D3/D5 and per-label breakdowns are exploratory subgroups, not pooled into the primary per-model Holm(m=3) family. Commitment-extractor fields are descriptive co-occurrence statistics only, never causal mediation evidence.",
+  "note_scoring_convention": "Human decision, 2026-09-05: MAIN accuracy (and everything derived from it -- McNemar, Holm, workpoint) scores the FIRST strict marker per sample (was the LAST strict marker before this date). A sample with zero strict markers is scored INCORRECT and stays in the denominator -- see per-cell no_answer_rate. `sensitivity_last_answer_accuracy` reports the pre-2026-09-05 last-marker convention alongside, never in place of, the FIRST-answer main metric. `answered_only_accuracy` restricts to samples with >=1 strict marker and is DIAGNOSTIC ONLY -- if a workpoint's accuracy gain is driven mainly by a lower no_answer_rate rather than a higher answered_only_accuracy, report it as an increase in the rate of a valid, scoreable submission, never as improved reasoning. answered_only_accuracy must NEVER be compared ACROSS models/cells to infer relative reasoning quality -- each cell's answered subset is a different, self-selected group of items (whichever samples that cell happened to produce a marker for), so a similar value across two cells (e.g. two models) does not mean comparable underlying reasoning; it compares two different, uncontrolled item subsets with no correction for selection bias. `multiple_marker_rate` (fraction with >=2 STRICT markers) is a narrower, DIFFERENT quantity from the pre-existing `invalid_or_multiple_marker_rate` (>1 strict OR >1 loose anywhere, kept unchanged for continuity) -- do not conflate the two. There is NO feasibility gate on either model: both run the full four-point sweep regardless of parse_failure_rate/loop_rate/no_answer_rate.",
+  "note_loop_interpretation": "Decided 2026-09-04 (PREREG_PROOFWRITER_OWA.md S6): the llama3 alpha=0 preflight (30 items) showed 100% truncation at the original max_new_tokens=768, with manual inspection finding a high, stable degenerate-repetition-loop tendency alongside genuine long-form reasoning. max_new_tokens was raised ONE TIME to a frozen 1024 for both models; loop_rate/truncation_rate are recorded per cell (see results[model].cells[alpha].loop_rate) but were NOT used as a gate for either model or either scoring stage (preflight or formal sweep) -- both run/are scored regardless of loop_rate (human decision, 2026-09-05, superseding any earlier feasibility-gate stance). Consequence for reading this report: on ANY model/alpha with an elevated loop_rate, generation-length and commitment-timing diagnostics for that cell carry weaker interpretive weight. EVERY cell is scored by the SAME fixed procedure -- the FIRST strict marker wins, and a sample with zero strict markers scores incorrect and stays in the denominator -- so the scoring RULE does not change with loop_rate. But a loop that prevents a strict marker from ever appearing DOES lower that cell's `accuracy` (via a higher `no_answer_rate`), and a loop that appends further marker-shaped text after a genuine answer does NOT change `accuracy` (the first, genuine marker is still scored) but does raise `multiple_marker_rate`/`first_last_disagreement_rate`. Read `no_answer_rate` and `answered_only_accuracy` alongside `accuracy` on any cell with an elevated loop_rate, never `accuracy` alone."
+}

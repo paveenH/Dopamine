@@ -122,6 +122,16 @@ CONSISTENCY_FIELDS = (
     "manifest_sha256_16", "batch_size", "max_new_tokens", "temperature",
     "top_p", "n_shot", "padding_side", "chat_template", "prefill_only",
     "prefill_tail_len",
+    # Chat-interface diagnostic fields (2026-09-05): a cell may not carry
+    # these at all (bare-string cells simply lack the key, and .get()
+    # returns None on both sides of the comparison, which is a no-op match).
+    # When a cell DOES carry them (any proofwriter-owa-chat-v1 cell), they
+    # must be identical across every alpha of that model -- a drifting
+    # prompt_wrapper_id or chat_template_hash between alpha cells would mean
+    # the chat wrapping itself changed mid-curve, silently invalidating the
+    # "prompt wrapping is the only variable" premise the chat interface
+    # condition depends on.
+    "prompt_wrapper_id", "chat_template_applied", "chat_template_hash",
 )
 # marker_family is DERIVABLE from prompt_template_id (answer_parser.
 # get_marker_family), so checking both looks redundant -- it is kept
@@ -365,6 +375,18 @@ def main():
                          "NEVER pass this flag -- doing so would let an "
                          "incomplete sweep silently get scored and reported "
                          "under the same holm_family_m=3 label as a real one.")
+    ap.add_argument("--protocol", default=PROTOCOL,
+                    help=f"Expected meta.protocol on every generation cell "
+                         f"(default {PROTOCOL!r}, the bare-string sweep). "
+                         "Pass a different value (e.g. "
+                         "'proofwriter-owa-chat-v1') to score a cell family "
+                         "generated under a different interface condition -- "
+                         "this changes ONLY which protocol string load_cell() "
+                         "accepts; parser, marker family, statistics and "
+                         "every other scoring rule are unchanged. A single "
+                         "run must not mix cells from two different "
+                         "protocols (load_cell rejects any cell whose own "
+                         "meta.protocol disagrees with this value).")
     a = ap.parse_args()
 
     if os.path.exists(a.out):
@@ -375,7 +397,7 @@ def main():
 
     cells = {}   # model -> alpha -> (meta, rows)
     for p in a.generations:
-        m, rows = load_cell(p)
+        m, rows = load_cell(p, protocol_expected=a.protocol)
         mdl, al = m["model"], m["alpha"]
         # A cell's row count must equal N == len(gold) EXACTLY. This is not a
         # formal-vs-preflight distinction: N is whatever --gold file was
