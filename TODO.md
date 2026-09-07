@@ -102,7 +102,10 @@ Agent5: Total Design (GPT)
 26. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
 27. ZebraLogic WP 测试 ✖
 28. 1-shot multi-hop ProofWwiter OWA ✖
+29. FinQA 
+30. GSM-Symbolic 
 ---
+
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 
@@ -112,9 +115,7 @@ Agent5: Total Design (GPT)
 |---|---|---|---|
 | 6 | **FinQA** | 开放数值答案的跨数据域验证 | **中等**；表格读取与程序式计算是额外难点 |
 | 7 | **TruthfulQA-Gen** | 去除选项后的自由生成行为是否改变 | **不宜写单一 accuracy**；可生成，但要面对 judge 评分与 Llama 尾部 loop |
-| 8 | **FOLIO** | 自然语言逻辑 | **中低到中等**；三值判断、语义歧义，小样本 |
 | 9 | **GSM-Symbolic** | GSM8K 接口鲁棒性 | **中高**；最接近 GSM8K，因此独立性弱 |
-| 10 | **LiveCodeBench output prediction** | 程序输出预测 | **偏低到中等**；题目版本、代码能力与执行环境成本较高 |
 
 ---
 
