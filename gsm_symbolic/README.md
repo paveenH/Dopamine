@@ -8,30 +8,56 @@ cross-domain transfer test** — GSM-Symbolic is generated from GSM8K's own
 reasoning templates, re-instantiated with different symbolic values (`main`)
 plus one (`p1`) or two (`p2`) extra clauses.
 
-**Scale: this runs the FULL official test split per config, NOT a fixed
-300-item sample.** Measured (Hub dataset-viewer, 2026-09): `main` ~1319,
-`p1` ~5000, `p2` ~2500 rows → ~8819 items × 4 alphas = ~35,276 generations per
-model, ~70,552 for both models combined. Budget GPU time accordingly.
+**Scale: 300 items PER CONFIG (main/p1/p2), 900 TOTAL — NOT the full
+~8819-row split, and NOT one pooled 300 across all three configs.** Each
+config's 300 is a **cluster-balanced sample by `original_id`**, not a plain
+row sample: GSM-Symbolic's own README defines `original_id` as the GSM8K
+problem a row is instantiated from, and `p1`/`p2` each re-instantiate one
+`original_id` many times (`p1` ~5000 rows over far fewer distinct
+`original_id`, `p2` ~2500 similarly), so a plain per-row sample would
+silently over-represent whichever `original_id` happens to have more
+instances. Selection rule (`select_sample` in `data_gsm_symbolic.py`,
+deterministic salted SHA-256 throughout — never Python's process-salted
+`hash()`, never model output or difficulty):
+- `main`: 300 distinct `original_id`, 1 instance each (main has 1
+  instance/`original_id` already).
+- `p1`/`p2`: every `original_id` cluster gets a base quota of
+  `300 // n_clusters` instances; the `300 % n_clusters` remainder is
+  distributed to specific clusters chosen by salted hash (not by which
+  clusters sort first or have the most instances).
+- Instance selection *within* a cluster, and the final row order, are both
+  by salted hash — reproducible across machines/runs, and identical for
+  both models (both must see the same 900-item sample in the same order).
+
+900 items × 4 alphas = 3600 generations per model, 7200 for both models
+combined — much lighter than the full split's ~70,552.
 
 Self-contained under `gsm_symbolic/`; no existing GSM8K/MATH/other-task
 runner, loader, or launcher is modified.
 
 ## Files
 
-- `data_gsm_symbolic.py` — loader. Downloads all 3 official test-split configs
-  (`main`, `p1`, `p2`, FULL split each) from `apple/GSM-Symbolic`, writes one
-  JSON per config plus a combined 30-item preflight subset (10/config,
-  deterministic stride sample by `(original_id, instance, id)`). Preserves the
-  **official HF row `id`** verbatim (not a re-enumerated local index) and adds
-  `sample_id = "{config}:{id}"` (unique across all 3 configs combined, since
-  raw `id` repeats across configs). Gold is extracted via the same
-  `#### <number>` convention `utils.extract_gsm8k_answer` uses (kept local so
-  the loader has no torch/heavy import). Records both `revision_requested`
-  (unpinned, `None`, since no verified commit SHA was available to hand-pin)
-  and `revision_resolved` (best-effort read-back of what was actually
-  fetched) in every output file's meta. `--check` validates schema and writes
-  nothing; a load failure (e.g. if `main` turns out not to load) is a HARD
-  STOP with the real traceback — it is never caught and silently skipped.
+- `data_gsm_symbolic.py` — loader + sampler. Downloads all 3 official
+  test-split configs (`main`, `p1`, `p2`, FULL split each — kept as
+  `gsm_symbolic_{config}_full.json` for provenance/audit only). For each
+  config, draws a **300-item cluster-balanced-by-`original_id` sample**
+  (`select_sample`, see the Scale section above) and writes it to
+  `gsm_symbolic_{config}_sample.json` — **this sample file is what the formal
+  sweep actually runs on**, not the full split. Also writes a combined
+  30-item preflight subset (10/config, itself a cluster-balanced sub-sample
+  *of* the 300-item formal sample, via the same `select_sample` machinery at
+  a smaller target size — so preflight is a true subset of exactly what the
+  formal sweep will run). Preserves the **official HF row `id`** verbatim
+  (not a re-enumerated local index) and adds `sample_id = "{config}:{id}"`
+  (unique across all 3 configs combined, since raw `id` repeats across
+  configs). Gold is extracted via the same `#### <number>` convention
+  `utils.extract_gsm8k_answer` uses (kept local so the loader has no
+  torch/heavy import). Records both `revision_requested` (unpinned, `None`,
+  since no verified commit SHA was available to hand-pin) and
+  `revision_resolved` (best-effort read-back of what was actually fetched) in
+  every output file's meta. `--check` validates schema and writes nothing; a
+  load failure (e.g. if `main` turns out not to load) is a HARD STOP with the
+  real traceback — it is never caught and silently skipped.
 - `get_answer_gsm_symbolic.py` — generation + scoring driver. Fork of
   `get_answer_regenerate_gsm8k.py`; imports `utils.extract_gsm8k_answer`,
   `utils.is_correct_gsm8k`, `utils.parse_configs`, `utils.decoder_layer_range`,
@@ -89,16 +115,24 @@ runner, loader, or launcher is modified.
 - `run_gsm_symbolic_preflight.sh` — α=0 only, 30-item preflight, one model per
   invocation. `BATCH_SIZE` (env-overridable, default 24, same value as the
   formal sweep) is ONE shared knob for the whole script.
-- `run_gsm_symbolic_formal.sh` — full 4-point sweep over the complete official
-  test split of all 3 configs, one model, one GPU, sequential. Same
-  `BATCH_SIZE` convention: if a cell OOMs, lower it for the WHOLE model and
-  re-run that model's full sweep — never drop it for one config/α only.
+- `run_gsm_symbolic_formal.sh` — 4-point sweep over the 300-item
+  cluster-balanced sample of each config (`gsm_symbolic_{config}_sample.json`,
+  900 items total), one model, one GPU, sequential. Same `BATCH_SIZE`
+  convention: if a cell OOMs, lower it for the WHOLE model and re-run that
+  model's full sweep — never drop it for one config/α only.
 - `sanity_check_eval.py` — offline sanity check (exact McNemar edge cases,
   Holm monotonicity, `score_cell`/`per_instance_breakdown` against hand-built
-  generations run through the real frozen extractor, and
-  `check_cell_consistency` verified to both pass on matching meta and reject
-  prompt drift / fires mismatch / sample_id drift). No model, no server, no
-  network. Run with `python3.10 sanity_check_eval.py`.
+  generations run through the real frozen extractor, `check_cell_consistency`
+  verified to both pass on matching meta and reject prompt drift / fires
+  mismatch / sample_id drift, and the cluster bootstrap's config-equal
+  weighting verified to ignore row-count imbalance between configs). No
+  model, no server, no network. Run with `python3.10 sanity_check_eval.py`.
+- `sanity_check_sampling.py` — offline sanity check for `select_sample`
+  (main-like: N distinct clusters, 1 instance each; p1/p2-like: exact
+  division, remainder distribution, and a shortfall case where one cluster
+  has fewer instances than its quota; determinism across input row order;
+  `salted_hash` stability). No model, no server, no network. Run with
+  `python3.10 sanity_check_sampling.py`.
 
 ## `no_answer` vs `no_marker` vs `marker_unparsed`
 
@@ -144,16 +178,19 @@ answer":
 
 ```
 benchmark/gsm_symbolic/
-  gsm_symbolic_main_test.json    # FULL test split, main config
-  gsm_symbolic_p1_test.json      # FULL test split, p1 config
-  gsm_symbolic_p2_test.json      # FULL test split, p2 config
-  gsm_symbolic_preflight_30.json # 10 items/config, deterministic subset
+  gsm_symbolic_main_full.json    # FULL test split, main config (provenance/audit only)
+  gsm_symbolic_p1_full.json      # FULL test split, p1 config (provenance/audit only)
+  gsm_symbolic_p2_full.json      # FULL test split, p2 config (provenance/audit only)
+  gsm_symbolic_main_sample.json  # 300 items, cluster-balanced -- USED BY THE FORMAL SWEEP
+  gsm_symbolic_p1_sample.json    # 300 items, cluster-balanced -- USED BY THE FORMAL SWEEP
+  gsm_symbolic_p2_sample.json    # 300 items, cluster-balanced -- USED BY THE FORMAL SWEEP
+  gsm_symbolic_preflight_30.json # 10 items/config, subset OF the *_sample.json files
 
 {model}/answer_gsm_symbolic_preflight/{main,p1,p2}/mdf_0/
   gsm_symbolic_{cfg}_{size}_{ls}_{le}.json      # preflight, alpha=0 only
 
 {model}/answer_gsm_symbolic/{main,p1,p2}/mdf_{alpha}/
-  gsm_symbolic_{cfg}_{size}_{ls}_{le}.json      # formal sweep
+  gsm_symbolic_{cfg}_{size}_{ls}_{le}.json      # formal sweep (300/config)
   summary_gsm_symbolic_{model}_{size}_{ls}_{le}.csv
 ```
 
@@ -169,9 +206,20 @@ benchmark/gsm_symbolic/
    If any config fails to load, this stops with a real traceback — it is
    never silently dropped from the experiment matrix.
 
-2. **Preflight (alpha=0 only, 30 items, both models on the same file)**:
+2. **Build the formal sample + preflight (both models read the SAME files)**:
    ```bash
-   python data_gsm_symbolic.py --out_dir components/benchmark/gsm_symbolic --preflight_n 10
+   python data_gsm_symbolic.py --out_dir components/benchmark/gsm_symbolic \
+       --n_per_config 300 --preflight_n 10
+   ```
+   Writes, per config: the full split (`_full.json`, audit only), the
+   300-item cluster-balanced sample (`_sample.json`, what the formal sweep
+   actually runs), plus the combined 30-item preflight subset. Check the
+   printed summary for `n_unique_original_id_in_sample` per config — this is
+   how you confirm the cluster balancing actually spread across many
+   `original_id`, not just a handful.
+
+3. **Preflight (alpha=0 only, 30 items, both models on the same file)**:
+   ```bash
    CUDA_VISIBLE_DEVICES=0 bash run_gsm_symbolic_preflight.sh llama3
    CUDA_VISIBLE_DEVICES=1 bash run_gsm_symbolic_preflight.sh qwen2.5
    ```
@@ -180,7 +228,7 @@ benchmark/gsm_symbolic/
    `truncated`, and a few raw `generated` strings per config before running
    the formal sweep.
 
-3. **Formal sweep (after approval)**:
+4. **Formal sweep (after approval)**:
    ```bash
    CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm_symbolic_formal.sh llama3  > gsms_llama.log 2>&1 &
    CUDA_VISIBLE_DEVICES=1 nohup bash run_gsm_symbolic_formal.sh qwen2.5 > gsms_qwen.log  2>&1 &

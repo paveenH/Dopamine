@@ -27,15 +27,31 @@ Output schema per item (JSON list), one file per config:
     "solution": <str>,         # full solution text as shipped by HF
   }
 
-FULL OFFICIAL TEST SPLIT PER CONFIG -- NOT a fixed 300-item sample. Measured
-sizes (2026-09, Hub dataset-viewer): main ~1319, p1 ~5000, p2 ~2500 rows, so
-the formal sweep is ~8819 items x 4 alphas x 2 models = ~70,552 generations,
-NOT 300 x 8. This script only downloads + reformats + writes one JSON per
-config (full split), plus (deterministically) a separate small preflight
-subset for the pre-approval check.
+FORMAL SAMPLE = 300 items PER CONFIG (900 total, NOT one pooled 300 and NOT
+the full ~8819-row split). Selection is CLUSTER-BALANCED by original_id, not
+a plain row sample -- GSM-Symbolic's own README defines original_id as the
+GSM8K problem a row is instantiated from, and p1/p2 each re-instantiate one
+original_id many times (p1 ~5000 rows over far fewer distinct original_id;
+p2 similarly), so a plain 300-row sample would silently over-represent
+whichever original_id happens to have more instances. See `select_sample`
+below for the exact deterministic rule (salted SHA-256 throughout, never
+Python's process-salted `hash()`):
+  - main: 300 DISTINCT original_id, 1 instance each (main has 1
+    instance/original_id already, per the dataset's own structure).
+  - p1/p2: n_original_ids clusters, 300 // n_original_ids instances per
+    cluster as the base quota, with the 300 % n_original_ids remainder
+    distributed to specific clusters (chosen by salted hash, not by which
+    clusters happen to sort first) getting one extra instance each.
+  - Instance selection WITHIN a cluster is also by salted hash of
+    (config, original_id, instance) -- never by model output, difficulty, or
+    dataset order.
+This script only downloads + reformats + writes one JSON per config (the
+FULL split, for provenance/audit) plus the 300/config formal sample plus a
+separate small preflight subset for the pre-approval check.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -44,6 +60,8 @@ from pathlib import Path
 from datasets import load_dataset
 
 CONFIGS = ["main", "p1", "p2"]
+SAMPLE_SALT = "gsm_symbolic_v1"
+N_PER_CONFIG = 300
 
 # NOT hand-pinned to a guessed commit SHA -- I have no verified way to read
 # the exact current HEAD commit from this environment, and writing a wrong
@@ -120,29 +138,125 @@ def load_config(config: str, cache_dir: str):
     return items, missing_gold, resolved_revision
 
 
-def preflight_subset(items: list, n: int = 10, seed_field: str = "original_id"):
-    """Deterministic 10-item subset per config: sort by (original_id, instance,
-    id) and take an evenly spaced stride so distinct original_id/instance
-    values are covered rather than clustering on the first few rows."""
-    ordered = sorted(items, key=lambda x: (x.get(seed_field) if x.get(seed_field) is not None else x["id"], x.get("instance") or 0, x["id"]))
-    if len(ordered) <= n:
-        return ordered
-    stride = len(ordered) / n
+def salted_hash(*parts: object) -> str:
+    """Deterministic, non-process-salted hash for selection decisions.
+    Python's built-in hash() is process-salted for str (PYTHONHASHSEED),
+    so it gives a DIFFERENT ranking on every run -- salted SHA-256 is the
+    only thing that reproduces across machines/runs/interpreters."""
+    key = SAMPLE_SALT + ":" + ":".join(str(p) for p in parts)
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def select_sample(items: list, config: str, n_target: int = N_PER_CONFIG) -> list:
+    """Cluster-balanced deterministic sample of n_target items, balanced by
+    original_id (never a plain row sample -- see the module docstring for
+    why). All tie-breaking / selection decisions use salted_hash, so the
+    result is: (a) reproducible across machines and Python versions, (b)
+    identical for every model that calls this with the same `items` (both
+    models must see the SAME 300/config sample and order), (c) independent
+    of dataset row order or any model/difficulty signal.
+    """
+    by_original = {}
+    for it in items:
+        by_original.setdefault(it["original_id"], []).append(it)
+
+    original_ids = sorted(by_original.keys())  # sort by value first (stable
+                                                # base ordering), tie-breaks
+                                                # below use the hash, not
+                                                # this sort's incidental order
+    n_clusters = len(original_ids)
+
+    if n_clusters == 0:
+        raise ValueError(f"config={config}: no original_id groups found -- cannot sample.")
+
+    if n_clusters >= n_target:
+        # main-like case: more (or exactly as many) clusters than the target
+        # sample size -- pick n_target DISTINCT clusters, 1 instance each.
+        ranked = sorted(original_ids, key=lambda oid: salted_hash(config, "cluster_select", oid))
+        chosen_clusters = ranked[:n_target]
+        picked = []
+        for oid in chosen_clusters:
+            group = by_original[oid]
+            # 1 instance per cluster: pick deterministically by hash even
+            # when a cluster happens to have >1 instance (main is expected
+            # to have exactly 1, but this branch must not assume it).
+            group_ranked = sorted(group, key=lambda it: salted_hash(config, "instance_select", oid, it["instance"], it["id"]))
+            picked.append(group_ranked[0])
+        return finalize_order(picked, config)
+
+    # p1/p2-like case: fewer clusters than the target -- give every cluster a
+    # base quota, then distribute the remainder to specific clusters chosen
+    # by hash (never "whichever clusters sort first" or "whichever have the
+    # most instances", which would let dataset structure bias the sample).
+    base_quota = n_target // n_clusters
+    remainder = n_target % n_clusters
+
+    ranked_for_remainder = sorted(original_ids, key=lambda oid: salted_hash(config, "remainder_select", oid))
+    extra_one = set(ranked_for_remainder[:remainder])
+
     picked = []
-    seen_ids = set()
-    for k in range(n):
-        idx = int(k * stride)
-        while idx in seen_ids and idx < len(ordered) - 1:
-            idx += 1
-        seen_ids.add(idx)
-        picked.append(ordered[idx])
-    return picked
+    shortfall = {}  # cluster -> how many fewer instances it had than its quota
+    for oid in original_ids:
+        quota = base_quota + (1 if oid in extra_one else 0)
+        group = by_original[oid]
+        group_ranked = sorted(group, key=lambda it: salted_hash(config, "instance_select", oid, it["instance"], it["id"]))
+        take = group_ranked[:quota]
+        picked.extend(take)
+        if len(take) < quota:
+            shortfall[oid] = quota - len(take)
+
+    total_shortfall = sum(shortfall.values())
+    if total_shortfall > 0:
+        # A cluster had fewer instances than its quota (e.g. an uneven p2
+        # split). Redistribute the shortfall to OTHER clusters' unused
+        # instances, again choosing deterministically by hash, so the
+        # sample still totals exactly n_target rather than silently coming
+        # up short.
+        picked_ids = {it["sample_id"] for it in picked}
+        leftover_by_cluster = {
+            oid: [it for it in by_original[oid] if it["sample_id"] not in picked_ids]
+            for oid in original_ids if oid not in shortfall
+        }
+        pool = [(oid, it) for oid, its in leftover_by_cluster.items() for it in its]
+        pool_ranked = sorted(pool, key=lambda pair: salted_hash(config, "shortfall_fill", pair[0], pair[1]["instance"], pair[1]["id"]))
+        picked.extend(it for _, it in pool_ranked[:total_shortfall])
+
+    if len(picked) != n_target:
+        raise RuntimeError(
+            f"config={config}: cluster-balanced sample produced {len(picked)} "
+            f"items, expected {n_target} -- {n_clusters} clusters, base_quota="
+            f"{base_quota}, remainder={remainder}, total_shortfall={total_shortfall}."
+        )
+    return finalize_order(picked, config)
+
+
+def finalize_order(picked: list, config: str) -> list:
+    """Fix the final row order deterministically (salted hash of sample_id),
+    independent of dict/insertion order or any earlier tie-break ordering --
+    both models must iterate the SAME 300/config sample in the SAME order,
+    and that order must not depend on incidental Python dict iteration."""
+    return sorted(picked, key=lambda it: salted_hash(config, "final_order", it["sample_id"]))
+
+
+def preflight_subset(sample: list, config: str, n: int = 10):
+    """Deterministic n-item subset OF THE FORMAL 300/config SAMPLE (never of
+    the full split) -- so preflight exercises a true subset of exactly the
+    items the formal sweep will run, same original_id-balance logic
+    included. Selection is by the same salted_hash convention, evenly
+    spread by re-using select_sample's cluster-balance rule at a smaller
+    target size."""
+    if len(sample) <= n:
+        return sample
+    return select_sample(sample, config=f"{config}_preflight", n_target=n)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out_dir", default="components/benchmark/gsm_symbolic")
     ap.add_argument("--cache_dir", default=None)
+    ap.add_argument("--n_per_config", type=int, default=N_PER_CONFIG,
+                     help="Formal sample size PER CONFIG (default 300; total "
+                          "= 3x this across main/p1/p2, NOT this many total).")
     ap.add_argument("--preflight_n", type=int, default=10)
     ap.add_argument("--check", action="store_true",
                      help="Load + validate schema only, print counts, write nothing.")
@@ -163,16 +277,16 @@ def main():
         # experiment matrix.
         items, missing, resolved_revision = load_config(config, args.cache_dir)
         resolved_revisions[config] = resolved_revision
-        n = len(items)
+        n_full = len(items)
         n_original = len({it["original_id"] for it in items})
         n_instance = len({it["instance"] for it in items})
         summary[config] = {
-            "n_items": n,
+            "n_items_full_split": n_full,
             "n_unique_original_id": n_original,
             "n_unique_instance": n_instance,
             "n_missing_gold": missing,
         }
-        print(f"[{config}] n={n}  unique original_id={n_original}  "
+        print(f"[{config}] full_split_n={n_full}  unique original_id={n_original}  "
               f"unique instance={n_instance}  missing_gold={missing}")
         if missing:
             print(f"  [WARN] {missing} items in {config} have no parseable gold "
@@ -181,13 +295,13 @@ def main():
         if args.check:
             continue
 
-        out_path = out_dir / f"gsm_symbolic_{config}_test.json"
-        if out_path.exists():
+        full_path = out_dir / f"gsm_symbolic_{config}_full.json"
+        if full_path.exists():
             raise FileExistsError(
-                f"{out_path} already exists -- refusing to overwrite. "
+                f"{full_path} already exists -- refusing to overwrite. "
                 "Delete it deliberately if you intend to regenerate."
             )
-        with open(out_path, "w", encoding="utf-8") as f:
+        with open(full_path, "w", encoding="utf-8") as f:
             json.dump({
                 "meta": {
                     "dataset": "apple/GSM-Symbolic",
@@ -195,13 +309,57 @@ def main():
                     "split": "test",
                     "revision_requested": REVISION,
                     "revision_resolved": resolved_revision,
-                    "n_items": n,
+                    "n_items": n_full,
+                    "note": "FULL official test split, kept for provenance/audit "
+                            "only. The formal sweep uses gsm_symbolic_{config}"
+                            "_sample.json (300/config, cluster-balanced by "
+                            "original_id), NOT this file.",
                 },
                 "data": items,
             }, f, ensure_ascii=False, indent=2)
-        print(f"  -> wrote {out_path}")
+        print(f"  -> wrote FULL split -> {full_path}")
 
-        pf = preflight_subset(items, n=args.preflight_n)
+        sample = select_sample(items, config=config, n_target=args.n_per_config)
+        n_sample_original = len({it["original_id"] for it in sample})
+        summary[config]["n_items_formal_sample"] = len(sample)
+        summary[config]["n_unique_original_id_in_sample"] = n_sample_original
+        print(f"  cluster-balanced sample: n={len(sample)}  "
+              f"unique original_id in sample={n_sample_original}")
+
+        sample_path = out_dir / f"gsm_symbolic_{config}_sample.json"
+        if sample_path.exists():
+            raise FileExistsError(
+                f"{sample_path} already exists -- refusing to overwrite. "
+                "Delete it deliberately if you intend to regenerate."
+            )
+        with open(sample_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "meta": {
+                    "dataset": "apple/GSM-Symbolic",
+                    "config": config,
+                    "split": "test",
+                    "revision_requested": REVISION,
+                    "revision_resolved": resolved_revision,
+                    "n_items": len(sample),
+                    "n_unique_original_id": n_sample_original,
+                    "sample_salt": SAMPLE_SALT,
+                    "sampling_method": (
+                        "cluster-balanced by original_id: if n_original_id "
+                        ">= n_target, n_target distinct clusters chosen by "
+                        "salted hash, 1 instance/cluster; else every cluster "
+                        "gets floor(n_target/n_clusters) instances, with the "
+                        "remainder distributed to clusters chosen by salted "
+                        "hash. Instance selection within a cluster and the "
+                        "final row order are both by salted hash. THIS IS THE "
+                        "FORMAL SAMPLE the run_gsm_symbolic_formal.sh sweep "
+                        "actually uses -- NOT the full split."
+                    ),
+                },
+                "data": sample,
+            }, f, ensure_ascii=False, indent=2)
+        print(f"  -> wrote FORMAL sample ({len(sample)} items) -> {sample_path}")
+
+        pf = preflight_subset(sample, config=config, n=args.preflight_n)
         for it in pf:
             preflight_all.append(it)
 
@@ -209,6 +367,7 @@ def main():
         print("\n[check] OK -- schema validated for all 3 configs, nothing written.")
         return
 
+    n_total_formal = 3 * args.n_per_config
     pf_path = out_dir / "gsm_symbolic_preflight_30.json"
     if pf_path.exists():
         raise FileExistsError(f"{pf_path} already exists -- refusing to overwrite.")
@@ -219,18 +378,21 @@ def main():
                 "split": "test",
                 "revision_requested": REVISION,
                 "revision_resolved_by_config": resolved_revisions,
-                "note": "10 items per config (main/p1/p2), deterministic stride "
-                        "sample by (original_id, instance, id); NOT a random "
-                        "sample of the formal run. The formal run uses the "
-                        "FULL official test split per config, not a fixed "
-                        "300-item sample.",
+                "note": f"{args.preflight_n} items per config (main/p1/p2), "
+                        "deterministic subset OF the formal cluster-balanced "
+                        f"{args.n_per_config}/config sample (NOT of the full "
+                        "split). The formal run uses "
+                        f"{args.n_per_config}/config = {n_total_formal} total "
+                        "items, cluster-balanced by original_id -- NOT the "
+                        "full ~8819-row split and NOT one pooled 300.",
                 "configs": CONFIGS,
                 "n_per_config": args.preflight_n,
             },
             "data": preflight_all,
         }, f, ensure_ascii=False, indent=2)
     print(f"\n-> wrote preflight subset ({len(preflight_all)} items) -> {pf_path}")
-    print("\nSummary:", json.dumps(summary, indent=2))
+    print(f"\nFormal sample = {args.n_per_config}/config x 3 configs = {n_total_formal} total")
+    print("Summary:", json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":

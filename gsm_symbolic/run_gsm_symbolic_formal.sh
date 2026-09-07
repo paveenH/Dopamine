@@ -1,14 +1,27 @@
 #!/bin/bash
 # ==================== GSM-Symbolic formal sweep ================================
-# FULL OFFICIAL test split of all 3 configs (main/p1/p2) -- NOT a fixed
-# 300-item sample. Measured sizes (Hub dataset-viewer, 2026-09): main ~1319,
-# p1 ~5000, p2 ~2500 rows -> ~8819 items x 4 alphas = ~35,276 generations for
-# ONE model, ~70,552 for both. This is a real cost, not a rounding difference
-# from "300 x 8" -- budget GPU time accordingly before launching.
+# 300 items PER CONFIG (main/p1/p2), 900 TOTAL -- NOT the full ~8819-row
+# split, and NOT one pooled 300 across all three configs. Each config's 300
+# is a CLUSTER-BALANCED sample by original_id, built by
+# data_gsm_symbolic.py::select_sample (deterministic salted-hash selection,
+# never random or difficulty/model-dependent) and written to
+# gsm_symbolic_{config}_sample.json. Reasoning: p1/p2 each re-instantiate the
+# SAME original_id many times with different symbolic values, so a plain
+# per-row sample would silently over-represent whichever original_id has
+# more instances in the raw split; cluster-balancing keeps main/p1/p2's
+# instantiation structure intact within the smaller sample.
+#
+# 900 items x 4 alphas = 3600 generations for ONE model, 7200 for both --
+# much lighter than the full split's ~70,552, while still giving 3 full
+# 300-item configs (not one 300-item pool).
 #
 # 4-point alpha sweep, one model, ONE GPU, sequential -- so the whole
 # per-model curve is byte-comparable (bf16 greedy is not reproducible across
-# GPUs/cards).
+# GPUs/cards). Both models MUST read gsm_symbolic_{config}_sample.json built
+# from ONE data_gsm_symbolic.py run (the sampling is deterministic given the
+# same downloaded rows, so re-running the loader independently for each
+# model would still give the same sample -- but running it once and sharing
+# the file removes any doubt).
 #
 # alpha grid (fixed, read from the frozen GSM8K record -- NOT re-searched):
 #   llama3   : -6 -4 0 +4   (band 11-20)
@@ -67,7 +80,7 @@ echo "Start: $(date)"
 echo "=================================================="
 
 for CFG in main p1 p2; do
-  DATA_FILE="benchmark/gsm_symbolic/gsm_symbolic_${CFG}_test.json"
+  DATA_FILE="benchmark/gsm_symbolic/gsm_symbolic_${CFG}_sample.json"
   echo ""
   echo "########## gsm_config=${CFG} (data: ${DATA_FILE}) ##########"
   ${PY} get_answer_gsm_symbolic.py \
