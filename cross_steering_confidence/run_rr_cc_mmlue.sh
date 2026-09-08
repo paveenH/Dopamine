@@ -32,7 +32,7 @@ set -euo pipefail
 #   bash run_rr_cc_mmlue.sh RR         # alpha -4,-2,2,4, using the Role mask
 #   bash run_rr_cc_mmlue.sh CC         # alpha -4,-2,2,4, using the Confidence mask
 
-CONDITION="${1:?usage: bash run_rr_cc_mmlue.sh {baseline|RR|CC}}"
+CONDITION="${1:?usage: bash run_rr_cc_mmlue.sh baseline-or-RR-or-CC}"
 
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
 SIZE="8B"

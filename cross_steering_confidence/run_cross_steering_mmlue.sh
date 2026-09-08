@@ -44,7 +44,7 @@ set -euo pipefail
 #   bash run_cross_steering_mmlue.sh RRand
 #   bash run_cross_steering_mmlue.sh CRand
 
-CONDITION="${1:?usage: bash run_cross_steering_mmlue.sh {baseline|RR|RC|CR|CC|RRand|CRand}}"
+CONDITION="${1:?usage: bash run_cross_steering_mmlue.sh baseline-or-RR-or-RC-or-CR-or-CC-or-RRand-or-CRand}"
 
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
 SIZE="8B"
