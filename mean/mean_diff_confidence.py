@@ -19,8 +19,10 @@ Does NOT filter/select neurons, build an NMD mask, or do any steering --
 this only computes and saves the raw per-layer mean-difference matrix, plus a
 per-task/aggregate summary of how many divergent samples were used.
 
-Usage:
-  python3.10 mean/mean_diff_confidence.py \
+Usage (run on the SERVER, in the project's conda env -- the server interpreter
+is `python`, NOT `python3.10`; `python3.10` is the local analysis-box
+convention only and does not exist on the server):
+  python mean/mean_diff_confidence.py \
       --hs_dir /data1/paveen/Dopamine/components/hidden_states/llama3/mmlue_confidence \
       --ans_dir /data1/paveen/Dopamine/components/answer/llama3_confidence \
       --size 8B \
