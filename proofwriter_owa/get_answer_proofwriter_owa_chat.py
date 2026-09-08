@@ -2,15 +2,23 @@
 # -*- coding: utf-8 -*-
 """
 get_answer_proofwriter_owa_chat.py -- ProofWriter OWA v2, FORMAL four-point
-interface-condition sweep under the HF chat template. Two models, each its
-own protocol string:
-    llama3    -> protocol "proofwriter-owa-chat-v1"
-    qwen2.5   -> protocol "proofwriter-owa-chat-v11"
+interface-condition sweep under the HF chat template. Two models, SAME
+protocol string, distinguished by meta.prompt_wrapper_id (and by
+meta.model/meta.size):
+    llama3    -> protocol "proofwriter-owa-chat-v1", prompt_wrapper_id
+                 "llama3-chat-template-v1"
+    qwen2.5   -> protocol "proofwriter-owa-chat-v1", prompt_wrapper_id
+                 "qwen2.5-chat-template-v1"
 (Qwen support added 2026-09-08 by parameterizing this SAME script over
 --model/--size, rather than forking a second copy -- see the --model
 argument below. Llama3's call path, output filenames, protocol string and
 EXPECTED_CELLS are UNCHANGED from the original llama3-only version; every
-existing llama3 invocation of this script is byte-identical in behavior.)
+existing llama3 invocation of this script is byte-identical in behavior. An
+earlier draft of this script used a SEPARATE protocol string
+"proofwriter-owa-chat-v11" for Qwen -- that was a typo/naming mistake,
+corrected 2026-09-08: BOTH models share ONE chat-interface protocol,
+"proofwriter-owa-chat-v1"; model identity is carried by prompt_wrapper_id,
+not by the protocol string.)
 
 THIS IS AN INDEPENDENT INTERFACE-CONDITION EXPERIMENT, NOT A NEW WORKPOINT
 SEARCH AND NOT A REPLACEMENT for either model's frozen bare-string result
@@ -61,34 +69,37 @@ model-agnostic (Qwen's tokenizer has no BOS token at all -- bos_token is None
 same "double-BOS cannot occur here" fact already recorded in this repo's
 Qwen GSM8K/CGT-seq check scripts).
 
-Output is written to a SEPARATE directory tree and under a SEPARATE protocol
-string PER MODEL, so neither model's bare formal sweep, nor llama3's 30-item
-chat diagnostic, nor the other model's chat sweep is ever touched or
-ambiguous with this run:
+Output is written to a SEPARATE directory tree PER MODEL (the model's own
+components/<model>/proofwriter_owa/ subtree), so neither model's bare formal
+sweep, nor llama3's 30-item chat diagnostic, nor the other model's chat
+sweep is ever touched or ambiguous with this run:
     components/<model_dir>/proofwriter_owa/formal_chat_v1_mdf_<alpha>/
         proofwriter_owa_<size>_<ls>_<le>.json
-meta.protocol = "proofwriter-owa-chat-v1" (llama3) / "proofwriter-owa-chat-v11"
-(qwen2.5) -- NOT either model's bare-sweep protocol ("proofwriter-owa-v0").
-meta.prompt_template_id / marker_family stay "proofwriter-owa-cot-v2" / "v2"
-UNCHANGED for both models (the prompt body and marker convention did not
-change, only the wrapping). Additional fields record the wrapping condition
-explicitly and are cross-checked for consistency across alpha (of the SAME
-model) by eval_proofwriter_owa.py's CONSISTENCY_FIELDS:
+meta.protocol = "proofwriter-owa-chat-v1" for BOTH models -- NOT either
+model's bare-sweep protocol ("proofwriter-owa-v0"), and NOT two different
+chat protocol strings: model identity within this ONE chat protocol is
+carried by meta.prompt_wrapper_id (and meta.model/meta.size), not by the
+protocol string. meta.prompt_template_id / marker_family stay
+"proofwriter-owa-cot-v2" / "v2" UNCHANGED for both models (the prompt body
+and marker convention did not change, only the wrapping). Additional fields
+record the wrapping condition explicitly and are cross-checked for
+consistency across alpha (of the SAME model) by eval_proofwriter_owa.py's
+CONSISTENCY_FIELDS:
     meta.prompt_wrapper_id     = "llama3-chat-template-v1" / "qwen2.5-chat-template-v1"
     meta.chat_template_applied = true
     meta.chat_template_hash    = sha256 of tokenizer.chat_template's own
                                   string (attests WHICH chat template was
                                   used, not just that some template was used)
 
-Because meta.protocol differs from either model's bare sweep, each model's
-cell family must be scored with its own --protocol value:
-    python eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v1  ...   # llama3
-    python eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v11 ...   # qwen2.5
+Both models' cell families are scored with the SAME --protocol value:
+    python eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v1 ...
 (eval_proofwriter_owa.py's --protocol flag, added for the llama3 run and
-reused unchanged here; parser/scoring/statistics are unchanged. A single eval
-call must not mix the two models' chat cells -- load_cell rejects any cell
-whose own meta.protocol disagrees with the passed --protocol value, and the
-two models also carry different protocol strings by design.)
+reused unchanged here; parser/scoring/statistics are unchanged. A single
+eval call must still not mix the two models' chat cells together --
+load_cell groups cells by meta.model, and the launcher's `eval` stage scores
+one model's four cells per invocation, writing to that model's own output
+file: formal_sweep_chat_v1.json for llama3 [UNCHANGED name/path from the
+original llama3-only script], formal_sweep_chat_v1_qwen25.json for qwen2.5.)
 
 No steering-dose search beyond each model's own frozen four-point set.
 
