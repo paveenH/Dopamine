@@ -991,7 +991,7 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 | CRUXEval-O | Fixed transfer | CoT | 34.67% → 34.00%<br>Δ=−0.67 pp, `p_adj=.9656`<br>CI=[−5.00,+3.67] | 34.67% → 54.00%<br>**Δ=+19.33 pp**, `p_adj=2.63×10⁻⁹`<br>CI=[+13.67,+25.00] | Qwen only |
 | LogiQA 2.0 | Fixed transfer | No-CoT | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | Neither |
 | LogiQA 2.0 | Fixed transfer | CoT | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>CI=[−8.00,+3.33] | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>CI=[−10.67,−0.33] | Neither |
-| GSM-Symbolic | Task-specific sweep / same-family robustness | No-CoT | 49.00% → 59.33%<br>**Δ=+10.33 pp**, `p_adj=.012`<br>CI=[+3.33,+17.33] | 54.33% → 64.00%<br>**Δ=+9.67 pp**, `p_adj=.0432`<br>CI=[+1.67,+17.33] | Both models |
+| GSM-Symbolic | Task-specific sweep / same-family robustness | No-CoT | 48.11% → 57.56%<br>**Δ=+9.44 pp**, `p_adj=.0003`<br>CI=[+5.78,+13.11] | 53.33% → 66.89%<br>**Δ=+13.56 pp**, `p_adj=.0003`<br>CI=[+8.44,+18.56] | Both models |
 | GSM-Symbolic | Task-specific sweep / same-family robustness | CoT | 55.56% → 56.67%<br>Δ=+1.11 pp, `p_adj=.527`<br>CI=[−2.44,+4.56] | 52.89% → 65.00%<br>**Δ=+12.11 pp**, `p_adj=.0003`<br>CI=[+7.11,+17.11] | Qwen only |
 | ProofWriter-OWA | Task-specific sweep | CoT, Bare | 10.33% → 14.33%<br>Δ=+4.00 pp, `p_adj=.3100`<br>CI=[−1.00,+9.00] | 46.33% → 52.00%<br>Δ=+5.67 pp, `p_adj=.2571`<br>CI=[−0.33,+11.67] | Neither at `−6/+8` |
 | ProofWriter-OWA | Task-specific sweep | CoT, Chat | 33.00% → 39.33%<br>Δ=+6.33 pp, `p_adj=.2441`<br>CI=[−0.33,+13.00] | 41.00% → 47.67%<br>**Δ=+6.67 pp**, `p_adj=.0303`<br>CI=[+1.67,+11.67] | Qwen only |
@@ -1010,30 +1010,32 @@ GSM-Symbolic 在 `main`、`p1`、`p2` 各使用 300 题，并沿用 GSM8K 的 fi
 
 **Table 6.2. GSM-Symbolic No-CoT and CoT dose sweeps**
 
-| Condition | Model | α | Main | P1 | P2 | Row-pooled accuracy† | Primary Δ | 95% CI | Holm `p_adj` |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **No-CoT** | Llama3.1-8B | 0 | 48.00% | 57.00% | 42.00% | **49.00%** | — | — | — |
-| **No-CoT** | Llama3.1-8B | −6 | 73.00% | 59.00% | 46.00% | **59.33%** | **+10.33 pp** | [+3.33,+17.33] | **.012** |
-| **No-CoT** | Llama3.1-8B | −4 | 59.00% | 52.00% | 46.00% | 52.33% | +3.33 pp | [−3.00,+10.00] | .307 |
-| **No-CoT** | Llama3.1-8B | +4 | 48.00% | 42.00% | 28.00% | 39.33% | **−9.67 pp** | [−16.67,−2.67] | **.012** |
-| **No-CoT** | Qwen2.5-7B | 0 | 67.00% | 58.00% | 38.00% | **54.33%** | — | — | — |
-| **No-CoT** | Qwen2.5-7B | −6 | 60.00% | 56.00% | 36.00% | 50.67% | −3.67 pp | [−11.00,+3.33] | .613 |
-| **No-CoT** | Qwen2.5-7B | +6 | 70.00% | 58.00% | 38.00% | 55.33% | +1.00 pp | [−5.33,+7.33] | .754 |
-| **No-CoT** | Qwen2.5-7B | +8 | 75.00% | 71.00% | 46.00% | **64.00%** | **+9.67 pp** | [+1.67,+17.33] | **.0432** |
-| CoT | Llama3.1-8B | 0 | 62.67% | 58.67% | 45.33% | **55.56%** | — | — | — |
-| CoT | Llama3.1-8B | −6 | 64.00% | 59.00% | 47.00% | 56.67% | +1.11 pp | [−2.44,+4.56] | .527 |
-| CoT | Llama3.1-8B | −4 | 70.67% | 63.67% | 41.33% | 58.56% | +3.00 pp | [−0.11,+6.22] | .122 |
-| CoT | Llama3.1-8B | +4 | 54.00% | 41.33% | 25.33% | 40.22% | **−15.33 pp** | [−20.00,−10.90] | **.0003** |
-| CoT | Qwen2.5-7B | 0 | 63.33% | 56.33% | 39.00% | **52.89%** | — | — | — |
-| CoT | Qwen2.5-7B | −6 | 66.00% | 64.33% | 39.00% | 56.44% | **+3.56 pp** | [+0.11,+6.89] | **.044** |
-| CoT | Qwen2.5-7B | +6 | 79.33% | 68.33% | 47.67% | **65.11%** | **+12.22 pp** | [+8.11,+16.33] | **.0003** |
-| CoT | Qwen2.5-7B | +8 | 81.67% | 66.67% | 46.67% | **65.00%** | **+12.11 pp** | [+7.11,+17.11] | **.0003** |
+每个 config（`main`/`p1`/`p2`）使用 300 个实例；Main/P1/P2 三列各自的准确率。正式推断（Primary Δ / 95% CI / Holm `p_adj`）以 `original_id` 为 cluster 做 paired cluster bootstrap，对 `main`/`p1`/`p2` 三个 config 等权（不按行数加权），并在每个模型、每种 CoT 条件内对三个非零剂量分别执行 Holm `m=3` 校正。
 
-† Row-pooled accuracy 仅用于展示。正式推断以 `original_id` 为 cluster，对三个 config 等权，并在每个模型和条件内对三个非零剂量执行 Holm 校正。
+| Condition | Model | α | Main | P1 | P2 | Primary Δ | 95% CI | Holm `p_adj` | Verdict |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| **No-CoT** | Llama3.1-8B | 0 | 57.33% | 53.33% | 33.67% | — | — | — | baseline |
+| **No-CoT** | Llama3.1-8B | −6 | 71.00% | 60.67% | 41.00% | **+9.44 pp** | [+5.78,+13.11] | **.0003** | **positive** |
+| **No-CoT** | Llama3.1-8B | −4 | 62.67% | 56.67% | 37.67% | **+4.22 pp** | [+0.78,+7.78] | **.0164** | **positive** |
+| **No-CoT** | Llama3.1-8B | +4 | 50.67% | 39.33% | 26.67% | **−9.22 pp** | [−13.00,−5.56] | **.0003** | significant degradation |
+| **No-CoT** | Qwen2.5-7B | 0 | 65.33% | 56.33% | 38.33% | — | — | — | baseline |
+| **No-CoT** | Qwen2.5-7B | −6 | 59.33% | 54.67% | 36.67% | −3.11 pp | [−6.56,+0.44] | .0802 | not significant |
+| **No-CoT** | Qwen2.5-7B | +6 | 73.00% | 64.00% | 45.00% | **+7.33 pp** | [+3.56,+11.33] | **.0003** | **positive** |
+| **No-CoT** | Qwen2.5-7B | +8 | 78.00% | 71.67% | 51.00% | **+13.56 pp** | [+8.44,+18.56] | **.0003** | **positive** |
+| CoT | Llama3.1-8B | 0 | 62.67% | 58.67% | 45.33% | — | — | — | baseline |
+| CoT | Llama3.1-8B | −6 | 64.00% | 59.00% | 47.00% | +1.11 pp | [−2.44,+4.56] | .527 | not significant |
+| CoT | Llama3.1-8B | −4 | 70.67% | 63.67% | 41.33% | +3.00 pp | [−0.11,+6.22] | .122 | not significant |
+| CoT | Llama3.1-8B | +4 | 54.00% | 41.33% | 25.33% | **−15.33 pp** | [−20.00,−10.90] | **.0003** | significant degradation |
+| CoT | Qwen2.5-7B | 0 | 63.33% | 56.33% | 39.00% | — | — | — | baseline |
+| CoT | Qwen2.5-7B | −6 | 66.00% | 64.33% | 39.00% | **+3.56 pp** | [+0.11,+6.89] | **.044** | **positive** |
+| CoT | Qwen2.5-7B | +6 | 79.33% | 68.33% | 47.67% | **+12.22 pp** | [+8.11,+16.33] | **.0003** | **positive** |
+| CoT | Qwen2.5-7B | +8 | 81.67% | 66.67% | 46.67% | **+12.11 pp** | [+7.11,+17.11] | **.0003** | **positive** |
 
-No-CoT 下，两个模型的 GSM8K 冻结工作点都显著提高准确率：Llama `−6` 提升 10.33 pp，Qwen `+8` 提升 9.67 pp。
+**No-CoT 结果已修复 sample_id 冲突后重新计算。** 早期版本的 No-CoT 统计使用了冲突的 `sample_id`（`"{config}:{id}"`，其中官方 `id` 字段实为 cluster 级别的 `original_id`，导致每个 300 题的 config 在按 `sample_id` 去重时只保留了 100（`main`/`p1`）或 50（`p2`）行），据此计算的准确率、cluster、CI 和 Holm 判定均已作废。唯一有效的 `sample_id` 为 `{config}:{original_id}:{instance}`；本表 No-CoT 部分为修复后的正式结果。CoT 部分自始至终使用正确的复合 ID，数字未变。
 
-CoT 下只有 Qwen 获得稳定正向结果；Llama 的负向剂量没有显著收益，而 `+4` 明显降低表现。说明同一任务家族内的迁移仍然依赖模型与提示条件。
+No-CoT 下，Llama `−6` 和 `−4` 均显著提高准确率（`−6`：+9.44 pp；`−4`：+4.22 pp），`+4` 显著降低准确率；Qwen `+6` 和 `+8` 均显著提高准确率（`+6`：+7.33 pp；`+8`：+13.56 pp），`−6` 未达到显著。
+
+CoT 下，Qwen 的 `−6/+6/+8` 三个非零剂量均显著提高准确率；Llama 没有任何正向显著结果（`−6/−4` 均未显著，`+4` 显著降低表现）。说明同一任务家族内的迁移仍然依赖模型与提示条件。
 
 #### 6.2.2 ProofWriter-OWA
 
@@ -1154,6 +1156,20 @@ BBH-Llama、BBH-Qwen 和 CRUXEval-O-Qwen 的 CoT 准确率收益都伴随 `ec` �
 
 LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是否发生类似变化。总体上，这些结果只能说明部分准确率收益伴随着更少的提前数字作答，不能证明回答位置变化导致了性能提升。
 
+**Table 6.9. GSM-Symbolic commitment / answer-formation timing on key dose comparisons**
+
+主要 commitment 指标是 `early_candidate_rate`（`ec`）和 `reason_first_rate`；两者均为探索性描述统计，不进入 GSM-Symbolic 准确率的 Holm family。`posN`（首个可解析 `####` 标记的归一化字符位置）仅作为辅助格式指标，不要求与准确率同方向——它锚定在 `####` 这一格式事件上，而非答案候选值本身首次出现的位置。`no_answer=0`（本文所有 GSM-Symbolic cell 均如此）只说明冻结 fallback scorer 总能从生成文本中提取出某个可比较的数值，不代表模型都产生了规范的 `####` 提交；是否规范提交需分别参考 `no_marker_rate` 与 `marker_unparsed_rate`。
+
+| Comparison | Accuracy (0→α) | `ec` (0→α) | `reason_first` (0→α) | `posN` (0→α, 辅助) |
+|---|---:|---:|---:|---:|
+| Llama No-CoT `0→−6` | .4811→.5756 | .2522→**.1789** | .3118→**.6007** | .3093→.3337 |
+| Qwen No-CoT `0→+8` | .5333→.6633 | .9622→**.0656** | .0000→**.9844** | .8661→.8287 |
+| Qwen CoT `0→+6` | .5289→.6878 | .9911→**.4378** | .0000→**.6389** | .9092→.8801 |
+| Qwen CoT `0→+8` | .5289→.6822 | .9911→**.0644** | .0000→**.9633** | .9092→.8549 |
+| Llama CoT `0→−6`（反例，`Δ=+1.11 pp`, `p_adj=.527`） | .5556→.5667 | .2833→**.1644** | .5926→**.7929** | .3865→.3294 |
+
+显著改善通常伴随 `ec` 下降和 `reason_first` 上升，Qwen 上变化幅度尤其大；但 Llama CoT 是重要反例——commitment 时序发生了同方向的变化，准确率却没有显著提升。因此，commitment 改变与有效 steering 经常共现，但不是准确率提升的充分条件，这些指标是相关机制证据，而不是因果中介证明。
+
 ### 6.5 Cross-Benchmark Summary
 
 **Table 6.8. Where effective workpoints were detected**
@@ -1162,7 +1178,7 @@ LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是�
 |---|---|---|---|---|
 | MATH | Fixed transfer + dose selection | Fixed `−6` supported | Fixed `+8` not detected; task-selected `+6` performs better | Model-specific |
 | GSM-Hard | Fixed transfer | No-CoT and CoT supported | No-CoT and CoT supported | Strongest transfer result |
-| GSM-Symbolic | Full dose / same-family robustness | No-CoT `−6` supported | No-CoT `+8`; CoT `+6/+8` supported | Same-family robustness |
+| GSM-Symbolic | Full dose / same-family robustness | No-CoT `−6/−4` supported; CoT not detected | No-CoT `+6/+8` and CoT `−6/+6/+8` supported | Same-family robustness |
 | BBH object counting | Fixed transfer | CoT only | CoT only | CoT-dependent |
 | CRUXEval-O | Fixed transfer | Not detected | No-CoT and CoT supported | Model-specific |
 | LogiQA 2.0 | Fixed transfer | Not detected | Not detected | Double null |
