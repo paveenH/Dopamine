@@ -266,10 +266,11 @@ def main():
             "expected 'left'.")
 
     raw_mask = np.load(args.mask_path)
-    if raw_mask.shape[0] < 32:
-        die(f"mask has {raw_mask.shape[0]} rows; expected the FULL 32-row "
-            "mask, not a band-sliced one -- injection range is controlled "
-            "by the layer band, not by pre-slicing the mask.")
+    if raw_mask.shape[0] != 32:
+        die(f"mask has {raw_mask.shape[0]} rows; expected EXACTLY the FULL "
+            "32-row mask, not a band-sliced or otherwise reshaped one -- "
+            "injection range is controlled by the layer band, not by "
+            "pre-slicing the mask.")
     mask_sha = hashlib.sha256(open(args.mask_path, "rb").read()).hexdigest()
     os.makedirs(args.out_dir, exist_ok=True)
 
@@ -279,6 +280,11 @@ def main():
 
     device_note = {"host": platform.node(),
                     "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES")}
+    # model_dir is not fixed by argparse default alone (a caller can pass a
+    # different --model_dir), so it must be RECORDED so the scorer can assert
+    # every cell in a family used the SAME model -- otherwise a resumed run
+    # that silently switched --model_dir would still score.
+    model_dir_used = args.model_dir
 
     bare_prompts = [cfg["build_prompt"](s) for s in samples]
     chat_prompts = []
@@ -364,6 +370,7 @@ def main():
                             "base_protocol": cfg["base_protocol"],
                             "task": "cruxeval_o",
                             "model": "llama3", "size": args.size,
+                            "model_dir": model_dir_used,
                             "alpha": alpha, "layer_start": ls, "layer_end": le,
                             "L": n_layers,
                             "role": "sweep_point",

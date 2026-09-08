@@ -71,6 +71,19 @@ PROTOCOLS = {
 EXPECTED_ALPHAS = {0, -6, -4, 4}
 BAND = (11, 20)
 
+# Fields that MUST be byte-identical across all four cells of one sweep. A
+# resumed run that silently drifted the mask, prompt wrapping, model, or
+# decoding config between alpha cells would otherwise pass every per-file
+# check above (each is checked independently) and still be scored -- these
+# fields make that a hard stop instead. Mirrors the
+# eval_proofwriter_owa.py CONSISTENCY_FIELDS precedent.
+CONSISTENCY_FIELDS = (
+    "model_dir", "mask_sha256", "rendered_prompt_sha256",
+    "bare_prompt_sha256", "chat_template_hash", "prompt_wrapper_id",
+    "max_new_tokens", "batch_size", "temperature", "top_p", "padding_side",
+    "questions_sha256", "revision", "prefill_only", "prefill_tail_len",
+)
+
 
 def contrast(acc0, accA):
     b01, b10, p = mcnemar_exact(acc0, accA)
@@ -177,6 +190,26 @@ def main():
         die(f"protocol {a.protocol!r} requires EXACTLY alpha set "
             f"{sorted(EXPECTED_ALPHAS)}; got {sorted(byalpha)} "
             f"(missing {sorted(missing)}, extra {sorted(extra)})")
+
+    # CROSS-CELL CONFIGURATION CONSISTENCY. Each cell above was checked
+    # independently; a resumed run that silently changed --model_dir, the
+    # mask, the rendered chat prompt, the chat template, or the decoding
+    # config between alpha cells would pass every one of those per-file
+    # checks and still be scored as one coherent sweep. This is the hard
+    # stop that catches that: the SAME value must appear on all four cells
+    # for every field in CONSISTENCY_FIELDS.
+    ref_al = min(byalpha)  # deterministic, arbitrary reference cell
+    ref_m = cmeta[ref_al]
+    for field in CONSISTENCY_FIELDS:
+        ref_val = ref_m.get(field)
+        for al in sorted(byalpha):
+            got_val = cmeta[al].get(field)
+            if got_val != ref_val:
+                die(f"cross-cell config mismatch on {field!r}: alpha={al} "
+                    f"has {got_val!r}, alpha={ref_al} has {ref_val!r} -- "
+                    "the four cells were not generated under the same "
+                    "config (mask/prompt/model/decoding). Refusing to "
+                    "score a sweep that may have drifted mid-run.")
 
     def score(al, which):
         return [correct(extract(byalpha[al][i]["generated"], which), gold[i])
