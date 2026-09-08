@@ -977,53 +977,28 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 ### 6.1 Fixed-Workpoint Transfer Across Tasks
 
 **Table 6.1. GSM8K-derived fixed-workpoint transfer**
+原表只覆盖严格的 fixed-workpoint transfer。下面补入 GSM-Symbolic、ProofWriter、ZebraLogic 和 FinQA，并增加 `Evaluation type`，避免把完整剂量扫描误写成预先冻结的迁移检验。
 
-| Task | Condition | Llama `−6` | Qwen `+8` | Verdict |
-|---|---|---|---|---|
-| MATH | No-CoT | 36.67% → 43.33%<br>**Δ=+6.67 pp**, `p_adj=.0489`<br>CI=[+1.00,+12.33] | 60.67% → 63.33%<br>Δ=+2.67 pp, `p_adj=.3581`<br>CI=[−2.33,+7.67] | Llama only |
-| MATH | CoT | 42.00% → 49.00%<br>**Δ=+7.00 pp**, `p_adj=.0225` | 63.00% → 64.00%<br>Δ=+1.00 pp, `p_adj=1.000` | Llama only |
-| GSM-Hard | No-CoT | 18.00% → 24.33%<br>**Δ=+6.33 pp**, raw `p=.00661` | 34.00% → 50.33%<br>**Δ=+16.33 pp**, raw `p=1.41×10⁻⁸` | Both models |
-| GSM-Hard | CoT | 20.00% → 26.00%<br>**Δ=+6.00 pp**, `p_adj=.00393`<br>CI=[+2.33,+10.00] | 38.00% → 51.33%<br>**Δ=+13.33 pp**, `p_adj=9.42×10⁻⁶`<br>CI=[+8.00,+19.00] | Both models |
-| BBH object counting | No-CoT | 41.60% → 40.80%<br>Δ=−0.80 pp, `p_adj=1.000` | 55.20% → 57.60%<br>Δ=+2.40 pp, `p_adj=1.000` | Neither |
-| BBH object counting | CoT | 40.80% → 56.80%<br>**Δ=+16.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+8.80,+23.20] | 52.80% → 66.80%<br>**Δ=+14.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+7.60,+20.40] | Both models |
-| CRUXEval-O | No-CoT | 34.67% → 31.00%<br>Δ=−3.67 pp, `p_adj=.1352` | 29.33% → 37.67%<br>**Δ=+8.33 pp**, `p_adj=.0045` | Qwen only |
-| CRUXEval-O | CoT | 34.67% → 34.00%<br>Δ=−0.67 pp, `p_adj=.9656`<br>CI=[−5.00,+3.67] | 34.67% → 54.00%<br>**Δ=+19.33 pp**, `p_adj=2.63×10⁻⁹`<br>CI=[+13.67,+25.00] | Qwen only |
-| LogiQA 2.0 | No-CoT | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | Neither |
-| LogiQA 2.0 | CoT | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>CI=[−8.00,+3.33] | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>CI=[−10.67,−0.33] | Neither |
+| Task | Evaluation type | Condition | Llama `−6` | Qwen `+8` | Verdict |
+|---|---|---|---|---|---|
+| MATH | Fixed transfer | No-CoT | 36.67% → 43.33%<br>**Δ=+6.67 pp**, `p_adj=.0489`<br>CI=[+1.00,+12.33] | 60.67% → 63.33%<br>Δ=+2.67 pp, `p_adj=.3581`<br>CI=[−2.33,+7.67] | Llama only |
+| MATH | Fixed transfer | CoT | 42.00% → 49.00%<br>**Δ=+7.00 pp**, `p_adj=.0225` | 63.00% → 64.00%<br>Δ=+1.00 pp, `p_adj=1.000` | Llama only |
+| GSM-Hard | Fixed transfer | No-CoT | 18.00% → 24.33%<br>**Δ=+6.33 pp**, raw `p=.00661` | 34.00% → 50.33%<br>**Δ=+16.33 pp**, raw `p=1.41×10⁻⁸` | Both models |
+| GSM-Hard | Fixed transfer | CoT | 20.00% → 26.00%<br>**Δ=+6.00 pp**, `p_adj=.00393`<br>CI=[+2.33,+10.00] | 38.00% → 51.33%<br>**Δ=+13.33 pp**, `p_adj=9.42×10⁻⁶`<br>CI=[+8.00,+19.00] | Both models |
+| BBH object counting | Fixed transfer | No-CoT | 41.60% → 40.80%<br>Δ=−0.80 pp, `p_adj=1.000` | 55.20% → 57.60%<br>Δ=+2.40 pp, `p_adj=1.000` | Neither |
+| BBH object counting | Fixed transfer | CoT | 40.80% → 56.80%<br>**Δ=+16.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+8.80,+23.20] | 52.80% → 66.80%<br>**Δ=+14.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+7.60,+20.40] | Both models |
+| CRUXEval-O | Fixed transfer | No-CoT | 34.67% → 31.00%<br>Δ=−3.67 pp, `p_adj=.1352` | 29.33% → 37.67%<br>**Δ=+8.33 pp**, `p_adj=.0045` | Qwen only |
+| CRUXEval-O | Fixed transfer | CoT | 34.67% → 34.00%<br>Δ=−0.67 pp, `p_adj=.9656`<br>CI=[−5.00,+3.67] | 34.67% → 54.00%<br>**Δ=+19.33 pp**, `p_adj=2.63×10⁻⁹`<br>CI=[+13.67,+25.00] | Qwen only |
+| LogiQA 2.0 | Fixed transfer | No-CoT | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | Neither |
+| LogiQA 2.0 | Fixed transfer | CoT | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>CI=[−8.00,+3.33] | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>CI=[−10.67,−0.33] | Neither |
+| GSM-Symbolic | Task-specific sweep / same-family robustness | No-CoT | 49.00% → 59.33%<br>**Δ=+10.33 pp**, `p_adj=.012`<br>CI=[+3.33,+17.33] | 54.33% → 64.00%<br>**Δ=+9.67 pp**, `p_adj=.0432`<br>CI=[+1.67,+17.33] | Both models |
+| GSM-Symbolic | Task-specific sweep / same-family robustness | CoT | 55.56% → 56.67%<br>Δ=+1.11 pp, `p_adj=.527`<br>CI=[−2.44,+4.56] | 52.89% → 65.00%<br>**Δ=+12.11 pp**, `p_adj=.0003`<br>CI=[+7.11,+17.11] | Qwen only |
+| ProofWriter-OWA | Task-specific sweep | CoT, Bare | 10.33% → 14.33%<br>Δ=+4.00 pp, `p_adj=.3100`<br>CI=[−1.00,+9.00] | 46.33% → 52.00%<br>Δ=+5.67 pp, `p_adj=.2571`<br>CI=[−0.33,+11.67] | Neither at `−6/+8` |
+| ProofWriter-OWA | Task-specific sweep | CoT, Chat | 33.00% → 39.33%<br>Δ=+6.33 pp, `p_adj=.2441`<br>CI=[−0.33,+13.00] | 41.00% → 47.67%<br>**Δ=+6.67 pp**, `p_adj=.0303`<br>CI=[+1.67,+11.67] | Qwen only |
+| ZebraLogic-Easy | Task-specific sweep | Task prompt | 36.79% → 35.71%<br>Δ=−1.07 pp, `p_adj=.749` | 34.64% → 23.93%<br>**Δ=−10.71 pp**, `p_adj=.0004` | No positive effect; Qwen `+8` harmful |
+| FinQA | Task-specific sweep | CoT | 14.33% → 8.67%<br>**Δ=−5.67 pp**, `p_adj=.0190` | 20.67% → 25.67%<br>Δ=+5.00 pp, `p_adj=.1539` | No positive effect; Llama `−6` harmful |
 
-不同实验的 p 值来自各自预先定义的统计家族，不能跨行直接比较。No-CoT 与 CoT 也分别使用各自条件下的 `α=0` baseline。
-
-准确率沿用各任务冻结的主口径：LogiQA 2.0 使用 LAST，其他任务使用 FIRST。
-
-#### MATH
-
-Llama 的固定 `−6` 在 No-CoT 和 CoT 下均获得支持。Qwen 的固定 `+8` 在两个条件下都只有较小的正向点估计，且均未被检出。
-
-这与 §5 的结果并不冲突：Qwen predictor 在目标任务完整曲线上选中的是 `+6`，而本表检验的是不重新选择剂量时，GSM8K 的固定 `+8` 能否直接迁移。
-
-#### GSM-Hard
-
-GSM-Hard 提供了最稳定的固定点迁移结果。两个模型在 No-CoT 和 CoT 条件下均获得准确率提升。
-
-其中，No-CoT 结果同时承担 §5 的前瞻性 workpoint-selection 验证，因此不能被计作两项相互独立的证据。
-
-#### BBH Object Counting
-
-No-CoT 下两个模型均未检出固定点收益；CoT 条件下，Llama 和 Qwen 分别提高 16.00 pp 和 14.00 pp，并通过 Holm 校正。
-
-因此，BBH 的结果依赖生成条件。移除选项式答案接口本身不足以恢复 No-CoT 迁移，而显式 CoT 条件下出现了双模型正向结果。
-
-#### CRUXEval-O
-
-Qwen 在 No-CoT 和 CoT 下均获得显著提升，且 CoT 下的增益点估计更大。Llama 在两种条件下均未检出收益，说明该任务存在明显的模型差异。
-
-这里报告的是 Python 字面量解析与对象相等准确率，不等同于官方执行式 `pass@1`。
-
-#### LogiQA 2.0
-
-两个模型在 No-CoT 和 CoT 下均未通过相应的多重比较校正。
-
-Qwen CoT 的未校正置信区间虽然位于零以下，但该比较没有通过 Holm `m=6`，因此只能描述为负向点估计，不能视为稳定下降。
+> **Reading note.** `Fixed transfer` 表示 `−6/+8` 在查看目标任务结果前已经由 GSM8K 冻结。`Task-specific sweep` 表示目标任务测试了完整剂量曲线；表中这里只抽取其中的 `−6/+8` 方便横向比较，不能将这些行重新解释为预先注册的 fixed-workpoint transfer。ProofWriter Bare 中另有 Llama `+4` 的显著结果，但该提升主要伴随有效答案提交增加；ProofWriter Chat 中只有 Qwen `+8` 建立了显著正向 workpoint。
 
 ### 6.2 Task-Specific Dose Sweeps
 
