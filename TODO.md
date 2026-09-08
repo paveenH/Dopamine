@@ -116,7 +116,40 @@ Agent4: Document (GPT)
 31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat趋势ok ✔
 32. 也修改一下CRUXEval的chat版本 cot & non-cot ✔
 33. GSM-Symbolic行为学特征统计 ✔
-34. 考虑一下不同的neurons之间有什么差异 ⏸
+34. Confidence neurons ⏸
+
+---
+1. **逐层方向关系**
+   - cosine similarity（主指标）
+   - Pearson correlation（辅助）
+   - 两个方向的 L2 norm
+   - 重点报告注入层 `11–19`
+
+2. **四种 mean 的关系**
+   - Expert、Non-Expert、Confident、Unconfident 做逐层相关/距离矩阵。
+   - 观察 Expert 是否更接近 Confident、Non-Expert 是否更接近 Unconfident。
+   - 但 raw mean 会受到共同模型状态影响，所以只能作为辅助；核心仍是两个 difference direction 的比较。
+
+3. **主结果与 divergent sensitivity**
+   - 比较 all-paired confidence direction 与 divergent-only direction。
+   - 目前 divergent 为 `13711/14042 ≈ 97.6%`，所以预计两者非常接近，主要用于证明结论不依赖筛选口径。
+
+4. **之后才提取 confidence neurons**
+   - 严格复用论文 NMD：每层 top `0.5%`，相同层区间。
+   - 与 Role RSN 比较 Jaccard、随机期望以上的 overlap、符号一致性和 cross-projection。
+   - 静态分析完成后再决定 cross-steering；只有“低重叠但功能相似”时，Manifold 才真正值得重开。
+
+有一个文件口径必须固定：
+
+- Confidence 主结果使用 `confidence_diff_8B.npy`
+- 不要使用 `diff_mean_confidence_8B.npy`，它是较早的 divergent-only 文件。
+- 旧 Role direction 建议由 `llama3_logits/diff_mean_8B.npy - none_diff_mean_8B.npy` 现场重建，或使用与之匹配的 `llama3_logits_8B_diff.npy`。
+- 不建议直接使用 `llama3_8B_diff.npy`；我检查到它与上述旧均值之差并不一致，可能来自另一版本。
+
+因此第一份正式产物应该是一张逐层 cosine/norm 图和一份数值表，用来先回答：
+
+> Confidence direction 和原 Role direction 是同一方向、局部共享，还是基本独立？
+
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
@@ -135,13 +168,6 @@ SAE ?
    - Jaccard、排名相关、方向 cosine 和 manifold/subspace angle 只能说明结构是否相似。
    - 最关键的是做 **cross-steering matrix**：方法 A 找到的 neurons 能否改变方法 B 对应的行为，以及是否同时影响 confidence 和 commitment。功能可互换性比静态 overlap 更重要。
 
----
-看过 RSN paper 后，我认为这个方向值得做，而且问题比原先更清楚了：
-
-RSN paper 中的 neurons 实际是用 **Expert − Non-Expert** 的 divergent pairs 找到的，并不是用 **Confident − Unconfident** 找到的。Confident/Unconfident 只作为外部验证：注入 Expert–Non-Expert RSN 后，两种 prompt 下的 MSP 都上升，同时减少弃答、提高 verbalized confidence。这说明 role RSN 能控制显式 confidence，但尚未证明二者是同一组 neurons。[main.tex](/Users/paveenhuang/Downloads/Dopamine/ACLARR/main.tex:143)
-
-因此建议按这个顺序：
-
 1. 先比较 `Expert − Non-Expert` 与 `Confident − Unconfident`
    - 相同问题、层、token position 和 sparsity；
    - 比较 neuron overlap、方向 cosine、cross-projection；
@@ -153,13 +179,6 @@ RSN paper 中的 neurons 实际是用 **Expert − Non-Expert** 的 divergent pa
    - cross-steering 同时观察 commit position、accuracy 和 confidence。
 
 3. 只有出现“neurons 重叠很低，但功能可以互换”后，再做 manifold/subspace 分析，研究不同稀疏方向是否汇聚到相同下游状态。
-
-所以最近的最小实验应该是：
-
-> **先用现有 MMLU hidden states，建立 Role × Explicit Confidence 的方向与 cross-steering matrix。**
-
-它能先回答一个 RSN paper 尚未回答、但成本较低的问题；commitment neurons 放到第二阶段会更稳妥。
-
 ---
 
 ### P2. 补 causal direction control
