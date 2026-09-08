@@ -242,6 +242,9 @@ def main():
             f"{cfg['budget']}/{cfg['batch_size']}; got {budget}/{batch_size}")
     if args.temperature != 0.0:
         die("temperature is frozen at 0.0 (greedy)")
+    if args.top_p != 1.0:
+        die("top_p is frozen at 1.0 (greedy decoding must not be diluted by "
+            "nucleus sampling)")
 
     tag_prefix = args.tag if args.tag is not None else cfg["tag_prefix"]
 
