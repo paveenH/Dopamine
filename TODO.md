@@ -44,8 +44,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 Daily
-09.08 周二 确认公证需要的材料，买药
-09.09 周三 组会（11:30）
+09.09 周三 组会（13:30），确认公证需要的材料，买药
 09.11 seminar
 09.19 台北-杭州萧山 机票 ✔
 09.20 杭州逛逛
@@ -66,11 +65,11 @@ Daily
 ---
 Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retrograde gain control.](https://doi.org/10.1038/s41586-026-10967-w) 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。
 
----
 Task Agent: task coding (claude)
 Agent2: Task design & check (GPT) & write to claude when finishing 
 Agent3: claude.md mataining (claude)
 Agent4: Document (GPT)
+
 ---
 组会内容（08.31）：
 1）弄清楚neurons的差异：confident & unconfident // thinking & answer directly (先推理再提交、先提交再推理)
@@ -122,10 +121,30 @@ Agent4: Document (GPT)
    3. overlap：band 内仅共享 46/180=25.6%，Jaccard 为 0.14；但是是显著高于随机
    4. shared-top 的单位贡献大约是 role-only/confidence-only 的 8 倍；是 neither-top 的 74 倍。
    5. overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
-   6. cross-steering
+35. cross-steering: MMLUE ⏸
+36. cross-steering: GSM8K ⏸
+
 
 ---
 Role/Confidence cross-steering
+建议测试的任务
+第一阶段：MMLU-E
+首先补齐上述 cross-steering matrix，继续测量：
+- E-option rate；
+- accuracy；
+- 各学科类别结果；
+- 正负 steering 的变化方向。
+已有表格可以作为 Role direction × Role mask 的参照；如果原实验配置完全一致，就不需要重复运行。
+第二阶段：GSM8K
+如果不同组合在 MMLU-E 上具有相似功能，再迁移到 GSM8K，测量：
+- commitment position；
+- early-candidate rate；
+- reasoning length；
+- answer switching；
+- accuracy。
+MMLU-E 回答“是否都能调节 confidence”，GSM8K则回答“这种功能等价性是否能够迁移为相似的 reasoning commitment 效果”。
+MATH 和其他任务暂时不需要加入。先完成 MMLU-E → GSM8K 两级验证，已经足够形成清晰的证据链。
+
 Shared-only 与 exclusive-neuron 因果拆分
 最后才考虑 Manifold
 
