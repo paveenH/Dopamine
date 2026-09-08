@@ -122,6 +122,7 @@ Agent4: Document (GPT)
    3. overlap：band 内仅共享 46/180=25.6%，Jaccard 为 0.14；但是是显著高于随机
    4. shared-top 的单位贡献大约是 role-only/confidence-only 的 8 倍；是 neither-top 的 74 倍。
    5. overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
+   6. cross-steering
 
 ---
 Role/Confidence cross-steering
