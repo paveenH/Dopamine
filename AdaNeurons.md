@@ -146,3 +146,22 @@ MMLU-E 上的结果表明：
 > **Role 与 Confidence 共享一个方向一致、贡献高度集中的稀疏核心，同时伴随更广泛的分布式表征对齐。**
 
 这些结果目前证明的是结构上的关联。两组 neurons 是否具有可互换的功能，仍需通过后续 cross-steering 实验验证。
+
+---
+
+## MMLU-E 上的 Confidence Prompt 与 RSN Steering 结果
+
+该实验使用 `confident/unconfident` prompt，但 steering mask 仍然来自原始 RSN，即 `expert/non-expert` 条件筛选出的 role neurons。
+
+| Condition | STEM Acc. | STEM E-rate | Humanities Acc. | Humanities E-rate | Social Sciences Acc. | Social Sciences E-rate | Other Acc. | Other E-rate | Task-average Acc. | Task-average E-rate |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Confident | 55.03% | 2.72% | 68.16% | 3.34% | 73.65% | 1.60% | 69.06% | 1.54% | 65.14% | 2.36% |
+| 3 [11,19] | 56.17% | 0.40% | 69.39% | 0.93% | 74.10% | 0.85% | 68.93% | 0.59% | **65.87%** | 0.66% |
+| 3 [11,19], t4 | 55.70% | 0.23% | **69.81%** | 0.39% | **74.01%** | 0.61% | 68.69% | 0.34% | 65.74% | 0.37% |
+| 4 [11,19] | 55.14% | **0.09%** | 69.38% | **0.34%** | 73.68% | **0.54%** | 68.70% | **0.27%** | 65.38% | **0.28%** |
+
+其中，`E-rate` 表示模型选择“不确定”选项 E 的比例。使用 RSN mask 进行干预后，平均 E-rate 从 **2.36%** 降至 **0.66%、0.37% 和 0.28%**，而平均准确率维持在 **65.38%–65.87%**，没有明显下降。
+
+这说明：
+
+> 即使输入使用显式 confident/unconfident prompt，原 RSN role neurons 仍能显著降低模型表达不确定性的倾向，并且基本不损害任务准确率。
