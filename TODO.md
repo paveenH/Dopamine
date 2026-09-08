@@ -117,7 +117,6 @@ Agent4: Document (GPT)
 32. 也修改一下CRUXEval的chat版本 cot & non-cot ✔
 33. GSM-Symbolic行为学特征统计 ✔
 34. 考虑一下不同的neurons之间有什么差异 ⏸
-
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
