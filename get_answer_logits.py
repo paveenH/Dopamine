@@ -167,6 +167,10 @@ if __name__ == "__main__":
                              "If not set, falls back to {base}/hidden_states_{type}/{model}/{task_name}/")
     parser.add_argument("--task_name", type=str, default="mmlu",
                         help="Task name for hidden states subdirectory (default: mmlu)")
+    parser.add_argument("--mmlu_dir", type=str, default=None,
+                        help="Directory containing per-task MMLU JSON files "
+                             "(e.g. /data1/paveen/RolePlaying/components/mmlu). "
+                             "If not set, falls back to {base_dir}/mmlu (unchanged default behavior).")
 
     args = parser.parse_args()
 
@@ -178,7 +182,7 @@ if __name__ == "__main__":
     else:
         BASE = Path(f"/{args.data}/paveen/RolePlaying/components")
 
-    MMLU_DIR = BASE / "mmlu"
+    MMLU_DIR = Path(args.mmlu_dir) if args.mmlu_dir else BASE / "mmlu"
     ANS_DIR = BASE / args.model / args.ans_file
     if args.hs_dir:
         HS_DIR = Path(args.hs_dir) / args.model / args.task_name
