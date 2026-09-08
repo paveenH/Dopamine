@@ -817,6 +817,8 @@ In simple terms:
 2. This reordering helps until it begins to compress the computation needed for difficult MATH problems.
 3. The analysis framework transfers across models, but the optimal direction and dose-response remain model- and task-specific.
 4. These results support a computational commitment-gain interpretation, not literal biological dopamine or a universal wanting axis.
+
+
 ## 5. Commitment-Based Prediction and Workpoint Selection
 
 本节检验两个问题：
@@ -996,24 +998,32 @@ Llama 的九档曲线没有与 Qwen 完全相同的 frozen early-candidate 指�
 
 Predictor 在两个模型上都未选中 observed best：Llama 选择 `−6`，实际最高是 `0`（regret 0.8 pp）；Qwen 选择 `0`，实际最高是 `+8`（regret 2.4 pp）。但三个剂量之间的准确率本身没有被显著区分（§6.3），因此这里的 argmax 差异幅度很小，不应写成 predictor 的强预测失败，而应读作：**在一个 steering 本身检测不到效果的任务上，predictor 的剂量排序同样没有识别出真实最优点**——这是一个信息量有限但如实保留的边界案例，不是排序能力的正面证据，也不能被省略。
 
-### 5.5c ProofWriter-OWA: A Submission-Dominated Boundary Result
+### 5.5c ProofWriter-OWA: Interface-Dependent Submission and Steering Effects
 
-ProofWriter-OWA 使用显式 CoT、固定的单个 Unknown 训练集示例和 first-answer 评分；未提交严格答案的样本计错。该实验是在目标任务上重新搜索剂量，并非 GSM8K fixed-workpoint transfer。
+ProofWriter-OWA 使用显式 CoT、固定的单个 Unknown 训练集示例和 first-answer 评分；未提交严格答案的样本计错。Bare 与 Chat 使用相同题目、评分和 steering 配置，区别仅为是否应用模型官方 chat template。该实验是在目标任务上重新搜索剂量，并非 GSM8K fixed-workpoint transfer。表中 Bare 和 Chat 的所有 ProofWriter-OWA 结果都是同一个 one-shot 设置。
 
-**Table 5.5c. ProofWriter-OWA task-specific four-point sweep (N=300 per cell)**
+**Table 5.5c. ProofWriter-OWA task-specific four-point sweeps (N=300 per cell)**
 
-| Model | α | Accuracy (first) | Last-answer | Answered-only | No answer | Multiple markers | First ≠ last | Loop | Truncation | Holm vs 0 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| Llama3.1-8B | −6 | .1433 | .1033 | .5513 (n=78) | .740 | .2167 | .615 (n=65) | .933 | 1.000 | n.s. |
-| Llama3.1-8B | −4 | .1200 | .0867 | .5373 (n=67) | .777 | .1900 | .509 (n=57) | .900 | 1.000 | n.s. |
-| Llama3.1-8B | 0 | .1033 | .0600 | .5000 (n=62) | .793 | .1767 | .396 (n=53) | .933 | 1.000 | — |
-| Llama3.1-8B | **+4** | **.2167** | .1867 | .5462 (n=119) | **.603** | .3533 | .406 (n=106) | .950 | 1.000 | **p_adj=2.27e−4** |
-| Qwen2.5-7B | −6 | .4933 | .4900 | .5461 (n=271) | .097 | .1967 | .017 (n=59) | .143 | .147 | n.s. |
-| Qwen2.5-7B | 0 | .4633 | .4633 | .4649 (n=299) | .003 | .3467 | .000 (n=104) | .343 | .343 | — |
-| Qwen2.5-7B | +6 | .4967 | .4967 | .4967 (n=300) | .000 | .3200 | .000 (n=96) | .320 | .320 | n.s. |
-| Qwen2.5-7B | +8 | **.5200** | .5200 | .5200 (n=300) | .000 | .4867 | .027 (n=146) | .473 | .473 | p_adj=.257 |
+| Interface | Model | α | Accuracy (first) | Last-answer | Answered-only | No answer | Multiple markers | First ≠ last | Loop | Truncation | Δ vs 0 | Holm p_adj |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Bare | Llama3.1-8B | −6 | .1433 | .1033 | .5513 (n=78) | .740 | .2167 | .615 (n=65) | .933 | 1.000 | +4.00 pp | n.s. |
+| Bare | Llama3.1-8B | −4 | .1200 | .0867 | .5373 (n=67) | .777 | .1900 | .509 (n=57) | .900 | 1.000 | +1.67 pp | n.s. |
+| Bare | Llama3.1-8B | 0 | .1033 | .0600 | .5000 (n=62) | .793 | .1767 | .396 (n=53) | .933 | 1.000 | — | — |
+| Bare | Llama3.1-8B | +4 | **.2167** | .1867 | .5462 (n=119) | .603 | .3533 | .406 (n=106) | .950 | 1.000 | **+11.33 pp** | **2.27e−4** |
+| Chat | Llama3.1-8B | −6 | **.3933** | .3933 | .5339 (n=221) | .263 | .000 | N/A | .170 | .210 | +6.33 pp | .244 |
+| Chat | Llama3.1-8B | −4 | .3400 | .3400 | .5730 (n=178) | .407 | .000 | N/A | .267 | .297 | +1.00 pp | 1.000 |
+| Chat | Llama3.1-8B | 0 | .3300 | .3300 | .5470 (n=181) | .397 | .000 | N/A | .257 | .297 | — | — |
+| Chat | Llama3.1-8B | +4 | .3167 | .3167 | .5723 (n=166) | .447 | .000 | N/A | .267 | .290 | −1.33 pp | 1.000 |
+| Bare | Qwen2.5-7B | −6 | .4933 | .4900 | .5461 (n=271) | .097 | .1967 | .017 (n=59) | .143 | .147 | +3.00 pp | n.s. |
+| Bare | Qwen2.5-7B | 0 | .4633 | .4633 | .4649 (n=299) | .003 | .3467 | .000 (n=104) | .343 | .343 | — | — |
+| Bare | Qwen2.5-7B | +6 | .4967 | .4967 | .4967 (n=300) | .000 | .3200 | .000 (n=96) | .320 | .320 | +3.34 pp | n.s. |
+| Bare | Qwen2.5-7B | +8 | **.5200** | .5200 | .5200 (n=300) | .000 | .4867 | .027 (n=146) | .473 | .473 | +5.67 pp | .257 |
+| Chat | Qwen2.5-7B | −6 | .0067 | .0067 | .6667 (n=3) | .990 | .000 | N/A | .000 | .000 | **−40.33 pp** | **2.26e−36** |
+| Chat | Qwen2.5-7B | 0 | .4100 | .4100 | .4100 (n=300) | .000 | .007 | .000 (n=2) | .000 | .000 | — | — |
+| Chat | Qwen2.5-7B | +6 | .3900 | .3900 | .3913 (n=299) | .003 | .000 | N/A | .000 | .000 | −2.00 pp | 1.000 |
+| Chat | Qwen2.5-7B | +8 | **.4767** | .4767 | .4783 (n=299) | .003 | .000 | N/A | .000 | .000 | **+6.67 pp** | **.0303** |
 
-Llama 的 `+4` 将整体准确率提高 **11.33 pp** 并通过 Holm 校正，但同时主要表现为无答案率下降，且所有剂量均伴随极高的循环和截断，因此更适合解释为 steering 提高了有效答案提交率，而非已经证明推理能力增强。Qwen 的最高观测点为 `+8`（+5.67 pp），但未通过 Holm 校正；这条探索至此结束，不继续扩展剂量或修改 prompt。
+Chat template 大幅减少了两种模型的循环、截断和多答案问题，说明 bare 条件下的部分低分来自接口与提交失败。清理这些噪声后，Llama 未检测到显著 workpoint；Qwen 的 `+8` 显著提高准确率，而 `−6` 几乎完全退化为不带规定 marker 的裸标签输出，表明 steering 效果高度依赖模型与提示接口。
 
 
 ### 5.5d ZebraLogic-Easy: No Positive Workpoint and a High-Dose Failure Boundary
