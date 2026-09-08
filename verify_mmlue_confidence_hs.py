@@ -23,8 +23,10 @@ checking every other task and reports full detail at the end.
 Exit code is 1 if all_ok is False, 0 otherwise, so the check can gate a
 pipeline step.
 
-Usage:
-  python3.10 verify_mmlue_confidence_hs.py \
+Usage (run on the SERVER, in the project's conda env -- the server interpreter
+is `python`, NOT `python3.10`; `python3.10` is the local analysis-box
+convention only and does not exist on the server):
+  python verify_mmlue_confidence_hs.py \
       --hs_dir /data1/paveen/ConfSteer/HiddenStates/llama3/mmlue_confidence \
       --ans_dir /data1/paveen/Dopamine/components/llama3/answer_hs_mmlue_confidence \
       --size 8B \
