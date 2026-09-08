@@ -112,14 +112,15 @@ Agent4: Document (GPT)
 27. ZebraLogic WP 测试 ✖
 28. 1-shot multi-hop ProofWwiter OWA ✖
 29. FinQA ✖
-30. GSM-Symbolic cot & non-cot ⏸
-31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 ⏸
-
+30. GSM-Symbolic cot & non-cot ✔
+31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat之后趋势就对了
 31. 考虑一下不同的neurons之间有什么差异
 
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
+SAE ?
+
 
 ---
 
