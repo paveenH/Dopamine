@@ -369,6 +369,22 @@ def main():
                 "gen_chars_med": med([len(t) for t in texts]),
                 "provenance": cmeta[mdl][al].get("provenance"),
             }
+            # generation-time metadata (regenerate return_metadata=True):
+            # only present on cells written with that flag (e.g. the chat
+            # follow-up); older cruxeval-p4c-v0 / cot-transfer-followup-v0
+            # generation files predate it, so this is populated only when
+            # every row actually carries the fields, never inferred or
+            # defaulted.
+            has_meta = all("generated_token_count" in byalpha[al][i]
+                           and "truncated" in byalpha[al][i]
+                           for i in range(N))
+            if has_meta:
+                toks = [byalpha[al][i]["generated_token_count"]
+                        for i in range(N)]
+                n_trunc = sum(1 for i in range(N)
+                             if byalpha[al][i]["truncated"])
+                r["cells"][str(al)]["truncation_rate"] = n_trunc / N
+                r["cells"][str(al)]["gen_tokens_med"] = med(toks)
 
         wp = WORKPOINT[mdl] if use_default_alphas else \
             (next(iter(x for x in alpha_override[mdl] if x != 0), None))

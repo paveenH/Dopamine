@@ -73,15 +73,19 @@ need_baseline() {
 
 case "$STEP" in
   PREFLIGHT)
+    # alpha=0 ONLY: the preflight's sole purpose is to check the chat
+    # template / marker parser / budget at the trivial no-op steering case,
+    # so its own printed "steering_fires=0" line is a real assertion about
+    # what ran, not a mismatch against a second, steered cell.
     echo "[cot-chat] PREFLIGHT: format only -- chat template applied, marker /"
-    echo "      literal parser / budget / steering_fires=0. Accuracy is NOT"
-    echo "      computed and must not be sought."
+    echo "      literal parser / budget / steering_fires=0 (alpha=0 ONLY)."
+    echo "      Accuracy is NOT computed and must not be sought."
     mkdir -p "$OUT_ROOT/_preflight_chat"
     cd "$WORK_DIR"
     exec "$PY" get_answer_cruxeval_cot_chat.py \
       --model_dir "$MODEL_DIR" --size "$SIZE" \
       --questions "$QFILE" --mask_path "$MASK" \
-      --configs $A0 $AWP --out_dir "$OUT_ROOT/_preflight_chat" --preflight
+      --configs $A0 --out_dir "$OUT_ROOT/_preflight_chat" --preflight
     ;;
   BASELINE)  CONFIGS="$A0" ;;
   WORKPOINT) need_baseline; CONFIGS="$AWP" ;;

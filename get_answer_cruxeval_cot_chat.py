@@ -350,6 +350,9 @@ def main():
                             "provenance": device_note,
                             "contains_labels": False,
                             "accuracy_computed": False,
+                            "n_truncated": n_truncated,
+                            "truncation_rate": (n_truncated / len(rows)
+                                               if rows else None),
                             "preflight": args.preflight,
                             "exploratory_followup": True,
                             "interface_condition": {
@@ -380,7 +383,8 @@ def main():
                    "data": rows}, open(out, "w", encoding="utf-8"),
                   ensure_ascii=False, indent=2)
         print(f"  wrote {out}  steering_fires={fires}  marker_rate="
-              f"{n_marker / len(rows):.3f}")
+              f"{n_marker / len(rows):.3f}  truncation_rate="
+              f"{n_truncated / len(rows):.3f}")
 
     print("\nGeneration complete. NO accuracy was computed -- by construction.")
     print("This is a chat-template INTERFACE-CONDITION diagnostic; it does "
