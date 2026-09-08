@@ -31,12 +31,11 @@ DATA="data1"
 WORK_DIR="/data1/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
 
-# MMLU per-task JSON files. Dopamine components has no mmlu/ yet as of writing;
-# point at the existing RolePlaying tree (read-only, not copied/rewritten).
-MMLU_DIR="${MMLU_DIR:-/data1/paveen/RolePlaying/components/mmlu}"
+# MMLU per-task JSON files (confirmed present under Dopamine components).
+MMLU_DIR="${MMLU_DIR:-${BASE_DIR}/mmlu}"
 
 # Confidence-specific, independent output dirs (per task instructions).
-HS_DIR="/data1/paveen/ConfSteer/HiddenStates"
+HS_DIR="${BASE_DIR}/hidden_states"
 TASK_NAME="mmlue_confidence"
 ANS_FILE="answer_hs_mmlue_confidence"
 
