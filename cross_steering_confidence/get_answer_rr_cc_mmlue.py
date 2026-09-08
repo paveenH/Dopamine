@@ -44,13 +44,19 @@ refusal, not a silent resume). An incomplete cell has only its missing tasks
 completed; complete tasks are never touched.
 
 Usage (on the SERVER, in the project's conda env; interpreter is `python`,
-NOT `python3.10`). Pass negative alpha lists as --alphas="..." (with '='):
+NOT `python3.10`). This script itself is dose-set-agnostic -- --alphas takes
+whatever comma-separated list is passed, no hardcoded doses; the REVISED
+2026-09-08 round only runs CC at 2,4,6 (see run_rr_cc_mmlue.sh):
   python get_answer_rr_cc_mmlue.py \
       --model_dir meta-llama/Llama-3.1-8B-Instruct --size 8B \
       --mask_dir /data1/paveen/Dopamine/components/mask/llama3_non_logits \
       --mmlu_dir /data1/paveen/Dopamine/components/mmlu \
       --out_root /data1/paveen/Dopamine/components/llama3_confidence/rr_cc_mmlue/results \
-      --condition RR --alphas="-4,-2,2,4"
+      --condition CC --alphas="2,4,6"
+
+Negative alpha lists (if RR or a bidirectional CC check is run later) must
+still be passed as --alphas="..." (with '=') so argparse does not treat a
+leading '-' as a new flag, e.g. --alphas="-4,-2,2,4".
 """
 import argparse
 import gc
