@@ -1,11 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-# ==================== Role self-steering (RR) / Confidence self-steering (CC) MMLU-E ====================
-# SIMPLIFIED experiment: only RR (existing Role NMD mask) and CC (new
-# Confidence NMD mask), each used AS-IS with no direction/support
-# decomposition. NO RC, NO CR, NO random-support control, NO norm-matching
-# in this stage.
+# ==================== Confidence self-steering (CC) MMLU-E ====================
+# RSN-paper-style MMLU-E confidence-enhancement replication: baseline alpha=0
+# vs POSITIVE-DOSE-ONLY steering alpha=+2,+4,+6.
+#
+# RR IS DELIBERATELY NOT RUN IN THIS SCRIPT (as of 2026-09-08). No verified,
+# protocol-matching RR result exists to reuse -- the only locatable historical
+# artifact (RoleAnswer/llama3/mmlue/logits_mdf_*) has ZERO E options in any
+# rendered prompt, a null template field, invalid rates up to 71%, and no
+# alpha=+6 cell at all, so it cannot be cited as "RR 0/2/4/6". Per explicit
+# user decision (2026-09-08), this stage runs ONLY CC; RR is skipped rather
+# than fabricated, and any RR column in the downstream analysis will be
+# empty until RR is separately run or a verified matching result is
+# supplied. Do NOT pass "RR" to this launcher -- it refuses.
+#
+# SIMPLIFIED experiment (still in force): CC uses the new Confidence NMD mask
+# AS-IS, no direction/support decomposition, no norm-matching, no RC/CR, no
+# random-support control.
 #
 # STANDALONE: does NOT touch run_hidden_mmlue_confidence_hs.sh,
 # run_mmlue_qwen25.sh, get_answer_regenerate_logits.py, the existing Role
@@ -15,12 +27,16 @@ set -euo pipefail
 # locally (build_confidence_nmd_mask_for_steering.py) and synced to
 # ${MASK_DIR} on the server BEFORE this launcher is run.
 #
-# FORMAL DOSE SET: alpha in {-4, -2, 0, +2, +4}. Baseline (alpha=0) is run
-# ONCE via `bash run_rr_cc_mmlue.sh baseline` and shared between RR and CC.
-# Each non-baseline condition runs the four nonzero doses -4,-2,2,4.
+# FORMAL DOSE SET (revised 2026-09-08): alpha in {0, +2, +4, +6}. NEGATIVE
+# doses (-2, -4) are deliberately NOT run this round -- they are for
+# verifying bidirectional control, not needed for this round's positive-
+# effect RSN-paper-style comparison. Baseline (alpha=0) is run ONCE via
+# `bash run_rr_cc_mmlue.sh baseline`.
 #
-# NEGATIVE ALPHA LIST: passed as --alphas="-4,-2,2,4" (the '=' form) so
-# argparse does not mistake the leading '-' for a new flag.
+# NEGATIVE ALPHA LIST (not used this round, kept for reference): would be
+# passed as --alphas="-4,-2,2,4" (the '=' form) so argparse does not mistake
+# a leading '-' for a new flag. This round's doses are all non-negative, so
+# the '=' form is not strictly required, but is used anyway for consistency.
 #
 # RESUME: get_answer_rr_cc_mmlue.py checks completeness itself (57 tasks
 # present, correct sample counts, full confident/unconfident fields, matching
@@ -29,10 +45,19 @@ set -euo pipefail
 #
 # Usage:
 #   bash run_rr_cc_mmlue.sh baseline   # alpha=0 only
-#   bash run_rr_cc_mmlue.sh RR         # alpha -4,-2,2,4, using the Role mask
-#   bash run_rr_cc_mmlue.sh CC         # alpha -4,-2,2,4, using the Confidence mask
+#   bash run_rr_cc_mmlue.sh CC         # alpha 2,4,6, using the Confidence mask
 
-CONDITION="${1:?usage: bash run_rr_cc_mmlue.sh baseline-or-RR-or-CC}"
+CONDITION="${1:?usage: bash run_rr_cc_mmlue.sh baseline-or-CC}"
+
+if [ "${CONDITION}" == "RR" ]; then
+    echo "[REFUSE] RR is not run by this launcher this round."
+    echo "No verified, protocol-matching RR (alpha=0/2/4/6, MMLU-E) result exists to reuse"
+    echo "(the only historical candidate has no E option, a null template, and no alpha=+6"
+    echo "cell). Per explicit decision, RR is skipped rather than fabricated. If RR is"
+    echo "needed later, run it as its own condition on this same script's underlying"
+    echo "get_answer_rr_cc_mmlue.py, which still supports --condition RR."
+    exit 1
+fi
 
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
 SIZE="8B"
@@ -48,12 +73,15 @@ cd "${WORK_DIR}"
 
 if [ "${CONDITION}" == "baseline" ]; then
     ALPHAS="0"
+elif [ "${CONDITION}" == "CC" ]; then
+    ALPHAS="2,4,6"
 else
-    ALPHAS="-4,-2,2,4"
+    echo "[REFUSE] Unknown condition: ${CONDITION} (expected baseline or CC)"
+    exit 1
 fi
 
 echo "=================================================="
-echo "RR/CC MMLU-E | condition=${CONDITION} | alphas=${ALPHAS}"
+echo "CC MMLU-E | condition=${CONDITION} | alphas=${ALPHAS}"
 echo "Mask dir : ${MASK_DIR}"
 echo "MMLU dir : ${MMLU_DIR}"
 echo "Out root : ${OUT_ROOT}"
