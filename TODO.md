@@ -114,14 +114,50 @@ Agent4: Document (GPT)
 29. FinQA ✖
 30. GSM-Symbolic cot & non-cot ✔
 31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat趋势ok ✔
-32. 也修改一下CRUXEval的chat版本 会不会有结果
+32. 也修改一下CRUXEval的chat版本 cot & non-cot
 31. 考虑一下不同的neurons之间有什么差异
-
 ---
 16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 SAE ?
+---
+建议把研究拆成两个相互独立的问题：
 
+1. **功能差异**
+   - confidence：confident vs unconfident
+   - commitment：先推理再提交 vs 先提交再推理
+   - 最好构造一个 `2×2` 分组，避免把“自信”误当成“提前提交”。
+   - 控制正确性、题目难度、输出长度和任务，先在 GSM8K 做干净分析，再用 ProofWriter-Chat 检查跨领域保持性。
+
+2. **不同 neuron discovery 方法的差异**
+   - 在相同层、相同 neuron 数量和相同向量范数下比较 NMD、KL、LR、PCA 等方法。
+   - Jaccard、排名相关、方向 cosine 和 manifold/subspace angle 只能说明结构是否相似。
+   - 最关键的是做 **cross-steering matrix**：方法 A 找到的 neurons 能否改变方法 B 对应的行为，以及是否同时影响 confidence 和 commitment。功能可互换性比静态 overlap 更重要。
+
+---
+看过 RSN paper 后，我认为这个方向值得做，而且问题比原先更清楚了：
+
+RSN paper 中的 neurons 实际是用 **Expert − Non-Expert** 的 divergent pairs 找到的，并不是用 **Confident − Unconfident** 找到的。Confident/Unconfident 只作为外部验证：注入 Expert–Non-Expert RSN 后，两种 prompt 下的 MSP 都上升，同时减少弃答、提高 verbalized confidence。这说明 role RSN 能控制显式 confidence，但尚未证明二者是同一组 neurons。[main.tex](/Users/paveenhuang/Downloads/Dopamine/ACLARR/main.tex:143)
+
+因此建议按这个顺序：
+
+1. 先比较 `Expert − Non-Expert` 与 `Confident − Unconfident`
+   - 相同问题、层、token position 和 sparsity；
+   - 比较 neuron overlap、方向 cosine、cross-projection；
+   - 最重要的是做双向 cross-steering，看两个方向能否相互控制 MSP 和 abstention。
+
+2. 再加入 `late commitment − early commitment`
+   - 在 GSM8K 中匹配正确性、难度和长度；
+   - 比较它与前两个方向；
+   - cross-steering 同时观察 commit position、accuracy 和 confidence。
+
+3. 只有出现“neurons 重叠很低，但功能可以互换”后，再做 manifold/subspace 分析，研究不同稀疏方向是否汇聚到相同下游状态。
+
+所以最近的最小实验应该是：
+
+> **先用现有 MMLU hidden states，建立 Role × Explicit Confidence 的方向与 cross-steering matrix。**
+
+它能先回答一个 RSN paper 尚未回答、但成本较低的问题；commitment neurons 放到第二阶段会更稳妥。
 
 ---
 
