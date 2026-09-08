@@ -133,18 +133,20 @@ FORBIDDEN_KEYS = ("answer", "label", "gold", "gold_answer", "correct",
 
 # Per-model config: own frozen dose set (SAME four alpha as that model's
 # bare sweep, same band -- this is the SAME dose family, wrapped
-# differently, not a new search), own protocol string, own prompt-wrapper
-# id. Mirrors get_answer_proofwriter_owa.py's EXPECTED_CELLS / model-keyed
-# structure exactly, so an out-of-family alpha is rejected rather than
-# silently run.
+# differently, not a new search), own prompt-wrapper id. Both models share
+# ONE protocol string ("proofwriter-owa-chat-v1") -- model identity is
+# carried by prompt_wrapper_id, not by the protocol. Mirrors
+# get_answer_proofwriter_owa.py's EXPECTED_CELLS / model-keyed structure
+# exactly, so an out-of-family alpha is rejected rather than silently run.
+CHAT_PROTOCOL = "proofwriter-owa-chat-v1"
 MODEL_CONFIG = {
     "llama3": {
-        "protocol": "proofwriter-owa-chat-v1",
+        "protocol": CHAT_PROTOCOL,
         "prompt_wrapper_id": "llama3-chat-template-v1",
         "expected_cells": {(-6, 11, 20), (-4, 11, 20), (0, 11, 20), (4, 11, 20)},
     },
     "qwen2.5": {
-        "protocol": "proofwriter-owa-chat-v11",
+        "protocol": CHAT_PROTOCOL,
         "prompt_wrapper_id": "qwen2.5-chat-template-v1",
         "expected_cells": {(-6, 16, 22), (0, 16, 22), (6, 16, 22), (8, 16, 22)},
     },

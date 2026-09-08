@@ -278,8 +278,12 @@ def main():
         if m.get("questions_sha256") != gmeta["questions_sha256"]:
             die(f"{p}: questions_sha256 differs from the gold file; the cell "
                 "was generated from a different sample")
-        if m.get("cot") is not False or m.get("few_shot") is not False:
-            die(f"{p}: cot/few_shot must both be False in this protocol")
+        if m.get("few_shot") is not False:
+            die(f"{p}: few_shot must be False in this protocol")
+        expected_cot = True if a.protocol == "cruxeval-o-cot-chat-v1" else False
+        if m.get("cot") is not expected_cot:
+            die(f"{p}: cot={m.get('cot')!r}, expected {expected_cot!r} for "
+                f"protocol {a.protocol!r}")
         rows = d["data"]
         if len(rows) != N:
             die(f"{p}: {len(rows)} rows, expected {N}")
@@ -308,6 +312,26 @@ def main():
             die(f"{mdl} alpha={al} supplied twice")
         cells.setdefault(mdl, {})[al] = {r["sample_id"]: r for r in rows}
         cmeta.setdefault(mdl, {})[al] = m
+
+    if not use_default_alphas:
+        # This protocol runs exactly one pre-specified model with exactly one
+        # pre-specified alpha set. Missing a cell silently degrades m=1 into
+        # a single-cell report with no contrast; an extra alpha would be a
+        # dose search this protocol does not run. Both are hard stops, not
+        # membership checks.
+        expected_models = set(alpha_override)
+        got_models = set(cells)
+        if got_models != expected_models:
+            die(f"protocol {a.protocol!r} requires exactly the models "
+                f"{sorted(expected_models)}; got {sorted(got_models)}")
+        for mdl, want_alphas in alpha_override.items():
+            got_alphas = set(cells.get(mdl, {}))
+            if got_alphas != want_alphas:
+                die(f"protocol {a.protocol!r} requires {mdl} to supply "
+                    f"EXACTLY alpha set {sorted(want_alphas)}; got "
+                    f"{sorted(got_alphas)} (missing "
+                    f"{sorted(want_alphas - got_alphas)}, extra "
+                    f"{sorted(got_alphas - want_alphas)})")
 
     res = {}
     for mdl, byalpha in sorted(cells.items()):
@@ -471,24 +495,31 @@ def main():
                          f"0:{o_['acc_zero']:.3f} wp:{o_['acc_workpoint']:.3f}")
             print(line)
 
-    json.dump({"protocol": PROTOCOL, "task": "cruxeval_o", "n": N,
+    note = ("CRUXEval gold is public; this is fixed-workpoint transfer, not "
+            "blind validation. alpha comes from the frozen GSM8K record. P4c "
+            "changes reasoning type AND answer space at once, so it cannot "
+            "isolate which decides the outcome.") if use_default_alphas else (
+            "chat-template interface-condition diagnostic for the bare "
+            "cruxeval-o-cot follow-up (cot-transfer-followup-v0): the only "
+            "variable is the prompt wrapper (bare string vs "
+            "apply_chat_template). alpha=-6 is llama3's own frozen GSM8K "
+            "workpoint; this is a SINGLE pre-specified comparison (m=1, "
+            "unadjusted exact McNemar), not a Holm family, and does not "
+            "replace or supersede any bare cruxeval result.")
+    json.dump({"protocol": a.protocol, "task": "cruxeval_o", "n": N,
                "gold_sha256": gmeta["gold_sha256"],
                "questions_sha256": gmeta["questions_sha256"],
                "revision": gmeta["revision"],
                "majority_class_rate": gmeta["majority_class_rate"],
                "accuracy_gate": None,
-               "holm_family_m": 2, "holm_complete": holm_complete,
+               "holm_family_m": holm_m, "holm_complete": holm_complete,
                "p_adj": adj, "results": res,
                "blind_validation": False,
                "scoring": ("ast.literal_eval both sides, Python object "
                            "equality. NOT the official exec-based pass@1; see "
                            "nonliteral_rate for the size of the gap. Model "
                            "output is never executed."),
-               "note": ("CRUXEval gold is public; this is fixed-workpoint "
-                        "transfer, not blind validation. alpha comes from the "
-                        "frozen GSM8K record. P4c changes reasoning type AND "
-                        "answer space at once, so it cannot isolate which "
-                        "decides the outcome.")},
+               "note": note},
               open(a.out, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     print(f"\nwrote {a.out}")
 

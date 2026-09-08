@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # ProofWriter OWA, {llama3|qwen2.5}: FORMAL four-point steering sweep under
-# the HF chat-template interface condition.
-#   llama3   -> protocol proofwriter-owa-chat-v1
-#   qwen2.5  -> protocol proofwriter-owa-chat-v11
-# (Qwen support added 2026-09-08 by parameterizing this launcher over an
-# optional <model> argument; `sweep`/`eval` with NO model argument default
-# to llama3 and are byte-identical to this launcher's original behavior.)
+# the HF chat-template interface condition. BOTH models share ONE protocol
+# string, "proofwriter-owa-chat-v1" -- model identity is carried by
+# meta.prompt_wrapper_id (llama3-chat-template-v1 / qwen2.5-chat-template-v1),
+# not by the protocol string. (Qwen support added 2026-09-08 by
+# parameterizing this launcher over an optional <model> argument;
+# `sweep`/`eval` with NO model argument default to llama3 and are
+# byte-identical to this launcher's original behavior.)
 #
 # INDEPENDENT INTERFACE-CONDITION EXPERIMENT -- does NOT redefine either
 # model's ProofWriter-OWA workpoint (bare-string sweep, COMPLETE + CLOSED
@@ -37,10 +38,11 @@
 #                            curve's four cells must be directly comparable)
 #   eval  [llama3|qwen2.5]   score that model's four cells (the ONLY script
 #                            that reads gold), via eval_proofwriter_owa.py
-#                            --protocol <that model's chat protocol> (the
-#                            one flag added to that script for this purpose;
-#                            parser/scoring/statistics are otherwise
-#                            unchanged)
+#                            --protocol proofwriter-owa-chat-v1 (the one
+#                            flag added to that script for this purpose;
+#                            SAME protocol string for both models, model
+#                            identity is in prompt_wrapper_id; parser/
+#                            scoring/statistics are otherwise unchanged)
 #
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_proofwriter_owa_chat_v1.sh sweep llama3 \
 #     > proofwriter_owa_chat_v1_sweep_llama3.log 2>&1 &
@@ -78,8 +80,15 @@ EXEMPLAR_FILE="$PW_DIR/exemplar_unknown_v2.json"
 MANIFEST_BLIND="$BENCH/manifest_blind.json"
 MANIFEST_GOLD="$BENCH/manifest_gold.json"
 
-# Per-model config: SAME mask/band/alpha-set/protocol as that model's own
-# bare formal sweep -- deliberately not re-derived here.
+# Per-model config: SAME mask/band/alpha-set as that model's own bare formal
+# sweep -- deliberately not re-derived here. BOTH models use the SAME
+# protocol string (proofwriter-owa-chat-v1); model identity is carried by
+# prompt_wrapper_id inside the generation cells, not by the protocol.
+# CELL_FILES is built EXPLICITLY per alpha, per model -- no file path
+# variable is shared across the two branches, which is what let Qwen
+# silently reuse llama3's mdf_4 cell in an earlier draft (Qwen has no mdf_4
+# cell at all; its fourth alpha is +8).
+PROTOCOL="proofwriter-owa-chat-v1"
 case "$MODEL" in
   llama3)
     MODEL_DIR_HF="meta-llama/Llama-3.1-8B-Instruct"
@@ -87,8 +96,15 @@ case "$MODEL" in
     MASK="$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy"
     SWEEP_CONFIGS="neg6-11-20 neg4-11-20 0-11-20 4-11-20"
     LAYERS_SUFFIX="11_20"
-    PROTOCOL="proofwriter-owa-chat-v1"
     OUT_DIR="$OUT_ROOT/llama3/proofwriter_owa"
+    CELL_FILES=(
+      "$OUT_DIR/formal_chat_v1_mdf_neg6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+      "$OUT_DIR/formal_chat_v1_mdf_neg4/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+      "$OUT_DIR/formal_chat_v1_mdf_0/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+      "$OUT_DIR/formal_chat_v1_mdf_4/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+    )
+    # UNCHANGED name/path from the original llama3-only script.
+    CHAT_EVAL_OUT="$PW_DIR/results/formal_sweep_chat_v1.json"
     ;;
   qwen2.5)
     MODEL_DIR_HF="Qwen/Qwen2.5-7B-Instruct"
@@ -96,27 +112,21 @@ case "$MODEL" in
     MASK="$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy"
     SWEEP_CONFIGS="neg6-16-22 0-16-22 6-16-22 8-16-22"
     LAYERS_SUFFIX="16_22"
-    PROTOCOL="proofwriter-owa-chat-v11"
     OUT_DIR="$OUT_ROOT/qwen2.5/proofwriter_owa"
+    CELL_FILES=(
+      "$OUT_DIR/formal_chat_v1_mdf_neg6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+      "$OUT_DIR/formal_chat_v1_mdf_0/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+      "$OUT_DIR/formal_chat_v1_mdf_6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+      "$OUT_DIR/formal_chat_v1_mdf_8/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+    )
+    CHAT_EVAL_OUT="$PW_DIR/results/formal_sweep_chat_v1_qwen25.json"
     ;;
   *)
     echo "[FATAL] unknown model '$MODEL' (llama3 | qwen2.5)" >&2
     exit 1
     ;;
 esac
-
 CHAT_A0="$OUT_DIR/formal_chat_v1_mdf_0/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
-CHAT_AP="$OUT_DIR/formal_chat_v1_mdf_4/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
-CHAT_AN="$OUT_DIR/formal_chat_v1_mdf_neg6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
-if [[ "$MODEL" == "llama3" ]]; then
-  CHAT_AN2="$OUT_DIR/formal_chat_v1_mdf_neg4/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
-  CELL_FILES=("$CHAT_A0" "$CHAT_AN2" "$CHAT_AN" "$CHAT_AP")
-else
-  CHAT_AP2="$OUT_DIR/formal_chat_v1_mdf_6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
-  CELL_FILES=("$CHAT_A0" "$CHAT_AN" "$CHAT_AP2" "$CHAT_AP")
-fi
-MODEL_TAG="${MODEL/./}"
-CHAT_EVAL_OUT="$PW_DIR/results/formal_sweep_chat_v1_${MODEL_TAG}.json"
 
 case "$STAGE" in
   sweep)
