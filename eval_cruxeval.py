@@ -71,6 +71,17 @@ WORKPOINT = {"llama3": -6, "qwen2.5": 8}
 NEIGHBOUR = {"llama3": -4, "qwen2.5": 6}
 REVERSE = {"llama3": 4, "qwen2.5": -6}
 
+# Chat-template interface-condition follow-up (llama3 ONLY). This is NOT a
+# new dose search: it reuses llama3's own frozen workpoint (-6). Its frozen
+# alpha set is EXACTLY {0, -6} -- no neighbour, no reverse cell exists for
+# this protocol, and none may be added by relaxing this dict. Adding a
+# protocol key here does not touch PROTOCOL/WORKPOINT/NEIGHBOUR/REVERSE above,
+# which stay the sole source of truth for cruxeval-p4c-v0.
+PROTOCOL_ALPHAS = {
+    "cruxeval-p4c-v0": None,  # None => use WORKPOINT/NEIGHBOUR/REVERSE below
+    "cruxeval-o-cot-chat-v1": {"llama3": {0, -6}},
+}
+
 MARKER_RE = re.compile(r"####[ \t]*(.*)")
 
 # Special tokens that a decoder may leave in the returned text. They are a
@@ -210,7 +221,22 @@ def main():
     ap.add_argument("--gold_file", required=True,
                     help="the gold-bearing cruxeval_p4c_formal.json")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--protocol", default=PROTOCOL,
+                    help=f"generation-file meta.protocol to require. Default "
+                         f"{PROTOCOL!r} (the frozen No-CoT bare P4c result, "
+                         "WORKPOINT/NEIGHBOUR/REVERSE, Holm m=2 -- unchanged "
+                         "behaviour). Any other value must be a key of "
+                         "PROTOCOL_ALPHAS, which fixes that protocol's own "
+                         "alpha set explicitly rather than relaxing this "
+                         "script's frozen dose tables.")
     a = ap.parse_args()
+
+    if a.protocol not in PROTOCOL_ALPHAS:
+        die(f"--protocol {a.protocol!r} is not registered in PROTOCOL_ALPHAS; "
+            "add its frozen alpha set there rather than passing an arbitrary "
+            "string")
+    use_default_alphas = (PROTOCOL_ALPHAS[a.protocol] is None)
+    alpha_override = None if use_default_alphas else PROTOCOL_ALPHAS[a.protocol]
 
     if os.path.exists(a.out):
         die(f"{a.out} exists; refusing to overwrite")
@@ -218,7 +244,9 @@ def main():
     gblob = json.load(open(a.gold_file, encoding="utf-8"))
     gmeta = gblob["meta"]
     if gmeta.get("protocol") != PROTOCOL:
-        die(f"gold file protocol {gmeta.get('protocol')!r} != {PROTOCOL!r}")
+        die(f"gold file protocol {gmeta.get('protocol')!r} != {PROTOCOL!r} "
+            "(the gold file's OWN protocol tag never changes -- only "
+            "generation-file meta.protocol is selected by --protocol)")
     if sorted(r["sample_id"] for r in gblob["data"]) != list(range(N)):
         die(f"gold does not cover 0..{N-1}")
 
@@ -238,8 +266,8 @@ def main():
     for p in a.generations:
         d = json.load(open(p, encoding="utf-8"))
         m = d["meta"]
-        if m.get("protocol") != PROTOCOL:
-            die(f"{p}: protocol {m.get('protocol')!r} != {PROTOCOL!r}")
+        if m.get("protocol") != a.protocol:
+            die(f"{p}: protocol {m.get('protocol')!r} != {a.protocol!r}")
         if m.get("accuracy_computed") is not False:
             die(f"{p}: generation file claims accuracy was already computed")
         # A preflight cell is FORMAT ONLY (8 items). Scoring one would turn a
@@ -262,12 +290,20 @@ def main():
             die(f"{p}: steering_fires {m.get('steering_fires')} != {exp}; "
                 "intervention unverified")
         mdl, al = m["model"], m["alpha"]
-        if mdl not in WORKPOINT:
-            die(f"{p}: unknown model {mdl!r}")
-        frozen = {0, WORKPOINT[mdl], NEIGHBOUR[mdl], REVERSE[mdl]}
+        if use_default_alphas:
+            if mdl not in WORKPOINT:
+                die(f"{p}: unknown model {mdl!r}")
+            frozen = {0, WORKPOINT[mdl], NEIGHBOUR[mdl], REVERSE[mdl]}
+        else:
+            if mdl not in alpha_override:
+                die(f"{p}: model {mdl!r} has no frozen alpha set under "
+                    f"--protocol {a.protocol!r} ({sorted(alpha_override)} "
+                    "only)")
+            frozen = alpha_override[mdl]
         if al not in frozen:
             die(f"{p}: alpha {al} is not in {mdl}'s frozen matrix "
-                f"{sorted(frozen)}; this protocol does not search doses")
+                f"{sorted(frozen)} for protocol {a.protocol!r}; this "
+                "protocol does not search doses")
         if al in cells.get(mdl, {}):
             die(f"{mdl} alpha={al} supplied twice")
         cells.setdefault(mdl, {})[al] = {r["sample_id"]: r for r in rows}
@@ -310,8 +346,9 @@ def main():
                 "provenance": cmeta[mdl][al].get("provenance"),
             }
 
-        wp = WORKPOINT[mdl]
-        if wp in byalpha:
+        wp = WORKPOINT[mdl] if use_default_alphas else \
+            (next(iter(x for x in alpha_override[mdl] if x != 0), None))
+        if wp is not None and wp in byalpha:
             t = contrast(acc[0], acc[wp])
             t.update({"alpha": wp,
                       "alpha_source": "frozen GSM8K workpoint, not searched",
@@ -321,22 +358,23 @@ def main():
                           "dAcc_pp": (sum(accL[wp]) - sum(accL[0])) / N * 100}})
             r["transfer"] = t
 
-        for kind, table in (("neighbour", NEIGHBOUR), ("reverse", REVERSE)):
-            al = table[mdl]
-            if al in byalpha:
-                d_ = contrast(acc[0], acc[al])
-                d_["alpha"] = al
-                d_["scope"] = (
-                    f"{kind} DIAGNOSTIC. Outside the Holm family; p is "
-                    "UNADJUSTED. It MUST NOT redefine the workpoint, which "
-                    "stays read from the frozen GSM8K record. Four sampled "
-                    "doses are not a dose-response curve: they can show an "
-                    "ordering continues or breaks, but cannot locate a peak, "
-                    "establish an inverted-U, or license calling any dose an "
-                    "overshoot point.")
-                r[f"{kind}_diagnostic"] = d_
+        if use_default_alphas:
+            for kind, table in (("neighbour", NEIGHBOUR), ("reverse", REVERSE)):
+                al = table[mdl]
+                if al in byalpha:
+                    d_ = contrast(acc[0], acc[al])
+                    d_["alpha"] = al
+                    d_["scope"] = (
+                        f"{kind} DIAGNOSTIC. Outside the Holm family; p is "
+                        "UNADJUSTED. It MUST NOT redefine the workpoint, "
+                        "which stays read from the frozen GSM8K record. Four "
+                        "sampled doses are not a dose-response curve: they "
+                        "can show an ordering continues or breaks, but "
+                        "cannot locate a peak, establish an inverted-U, or "
+                        "license calling any dose an overshoot point.")
+                    r[f"{kind}_diagnostic"] = d_
 
-        if "transfer" in r and "reverse_diagnostic" in r:
+        if use_default_alphas and "transfer" in r and "reverse_diagnostic" in r:
             a0 = sum(acc[0]) / N
             aw = r["transfer"]["acc_steer"]
             ar = r["reverse_diagnostic"]["acc_steer"]
@@ -371,12 +409,22 @@ def main():
           "correctly-evaluating expression.")
 
     have = {m: r for m, r in res.items() if "transfer" in r}
-    holm_complete = len(have) == 2
-    adj = holm([(m, r["transfer"]["p_raw"]) for m, r in have.items()]) \
-        if holm_complete else None
+    if use_default_alphas:
+        holm_complete = len(have) == 2
+        adj = holm([(m, r["transfer"]["p_raw"]) for m, r in have.items()]) \
+            if holm_complete else None
+        holm_m = 2
+    else:
+        # Chat-template interface follow-up: a SINGLE pre-specified
+        # comparison (llama3 -6 vs 0), m=1, exact McNemar, no adjustment and
+        # no Holm family -- do not borrow the bare CoT protocol's m=2/m=6
+        # families here.
+        holm_complete = False
+        adj = None
+        holm_m = 1
     if have:
         print(f"\n=== FIXED-WORKPOINT TRANSFER  "
-              f"({'Holm m=2' if holm_complete else 'SINGLE-MODEL EXPLORATORY'})")
+              f"({'Holm m=2' if (use_default_alphas and holm_complete) else 'SINGLE COMPARISON (m=1, unadjusted)' if not use_default_alphas else 'SINGLE-MODEL EXPLORATORY'})")
         print(f"{'model':9s} {'a':>3} {'acc0':>7} {'acc_a':>7} {'dAcc':>8} "
               f"{'0>1':>4} {'1>0':>4} {'p':>9} {'p_adj':>9}  CI95")
         for m, r in sorted(have.items()):
@@ -387,14 +435,21 @@ def main():
                   f"{t['discordant_0to1']:4d} {t['discordant_1to0']:4d} "
                   f"{t['p_raw']:9.4f} {pa}  "
                   f"[{t['ci95_pp'][0]:+.2f}, {t['ci95_pp'][1]:+.2f}]")
-        if not holm_complete:
+        if use_default_alphas and not holm_complete:
             print("\n[!] only one model has a workpoint cell. This is "
                   "PRE-SPECIFIED SINGLE-MODEL EXPLORATORY TRANSFER: the raw p "
                   "is UNADJUSTED and must not be cited as corrected, and this "
                   "is not the two-model panel.")
+        if not use_default_alphas:
+            print("\n[!] SINGLE pre-specified comparison under "
+                  f"--protocol {a.protocol!r} (m=1): the raw p is the report, "
+                  "no Holm adjustment applies, and this is not comparable to "
+                  "the bare cruxeval-p4c-v0 Holm m=2 panel above.")
 
     for kind, title in (("neighbour", "NEIGHBOUR (workpoint local stability)"),
                         ("reverse", "REVERSE (direction ordering)")):
+        if not use_default_alphas:
+            break
         blk = {m: r for m, r in res.items() if f"{kind}_diagnostic" in r}
         if not blk:
             continue

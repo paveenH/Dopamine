@@ -1,48 +1,63 @@
 #!/usr/bin/env bash
-# ProofWriter OWA, Llama3.1-8B ONLY: FORMAL four-point steering sweep under
-# the HF chat-template interface condition. Protocol `proofwriter-owa-chat-v1`.
+# ProofWriter OWA, {llama3|qwen2.5}: FORMAL four-point steering sweep under
+# the HF chat-template interface condition.
+#   llama3   -> protocol proofwriter-owa-chat-v1
+#   qwen2.5  -> protocol proofwriter-owa-chat-v11
+# (Qwen support added 2026-09-08 by parameterizing this launcher over an
+# optional <model> argument; `sweep`/`eval` with NO model argument default
+# to llama3 and are byte-identical to this launcher's original behavior.)
 #
-# INDEPENDENT INTERFACE-CONDITION EXPERIMENT -- does NOT redefine the
-# ProofWriter-OWA workpoint (bare-string sweep, COMPLETE + CLOSED 2026-09-05,
-# proofwriter_owa/results/formal_sweep_v2.json) and does NOT overwrite or
-# reuse any bare v2 result. The 30-item alpha=0 diagnostic (chat_v2_mdf_0,
-# see diag_chat_template.py) showed HF chat-template wrapping sharply
-# reduces llama3's no_answer_rate/loop_rate/truncation_rate vs bare-string
-# at alpha=0; this sweep asks whether steering (alpha in {-6,-4,0,+4}) then
-# produces a stable, Holm-significant accuracy/submission-rate change once
-# that interface confound is controlled for.
+# INDEPENDENT INTERFACE-CONDITION EXPERIMENT -- does NOT redefine either
+# model's ProofWriter-OWA workpoint (bare-string sweep, COMPLETE + CLOSED
+# 2026-09-05, proofwriter_owa/results/formal_sweep_v2.json) and does NOT
+# overwrite or reuse any bare v2 result. Llama3's 30-item alpha=0 diagnostic
+# (chat_v2_mdf_0, see diag_chat_template.py) and formal 4-point chat sweep
+# (formal_sweep_chat_v1.json) showed HF chat-template wrapping sharply
+# reduces llama3's no_answer_rate/loop_rate/truncation_rate, but no
+# Holm-significant workpoint after that interface confound is controlled
+# for. Qwen's bare-string sweep did not show llama3's severe pathology; this
+# Qwen chat sweep asks the same narrower question under Qwen's own chat
+# template and dose set.
 #
-# Held IDENTICAL to the bare formal sweep: the SAME 300-item manifest and
-# order, the SAME v2 1-shot Unknown exemplar, the SAME prompt body and
-# "#### <Label>" marker convention, the SAME mask file (band [11,20)), the
-# SAME alpha set {-6,-4,0,+4}, greedy/temperature=0, max_new_tokens=1024,
+# Held IDENTICAL to each model's own bare formal sweep: the SAME 300-item
+# manifest and order, the SAME v2 1-shot Unknown exemplar, the SAME prompt
+# body and "#### <Label>" marker convention, the SAME mask file and band,
+# the SAME alpha set, greedy/temperature=0, max_new_tokens=1024,
 # batch_size=8, prefill-only tail=1. The ONLY variable held across all four
-# alpha is the prompt wrapping (bare-string vs apply_chat_template).
+# alpha of one model is the prompt wrapping (bare-string vs
+# apply_chat_template).
 #
-# Llama3.1-8B ONLY. No Qwen, no other benchmark, no steering-search beyond
-# the frozen four-point set.
+# No other benchmark, no steering-search beyond each model's own frozen
+# four-point set.
 #
-# TWO stages:
-#   sweep    run all four alpha (one call, all four via --configs), on ONE
-#            GPU (bf16 greedy is not byte-reproducible across cards, and
-#            this curve's four cells must be directly comparable)
-#   eval     score the four cells (the ONLY script that reads gold), via
-#            eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v1
-#            (the one flag added to that script for this purpose; parser/
-#            scoring/statistics are otherwise unchanged)
+# TWO stages, each taking an optional model argument (default llama3):
+#   sweep [llama3|qwen2.5]   run all four alpha (one call, all four via
+#                            --configs), on ONE GPU (bf16 greedy is not
+#                            byte-reproducible across cards, and this
+#                            curve's four cells must be directly comparable)
+#   eval  [llama3|qwen2.5]   score that model's four cells (the ONLY script
+#                            that reads gold), via eval_proofwriter_owa.py
+#                            --protocol <that model's chat protocol> (the
+#                            one flag added to that script for this purpose;
+#                            parser/scoring/statistics are otherwise
+#                            unchanged)
 #
-#   CUDA_VISIBLE_DEVICES=0 nohup bash run_proofwriter_owa_chat_v1.sh sweep \
-#     > proofwriter_owa_chat_v1_sweep.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=0 nohup bash run_proofwriter_owa_chat_v1.sh sweep llama3 \
+#     > proofwriter_owa_chat_v1_sweep_llama3.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=1 nohup bash run_proofwriter_owa_chat_v1.sh sweep qwen2.5 \
+#     > proofwriter_owa_chat_v1_sweep_qwen25.log 2>&1 &
 #
-#   bash run_proofwriter_owa_chat_v1.sh eval   # after sweep finishes, no GPU needed
+#   bash run_proofwriter_owa_chat_v1.sh eval llama3   # after that model's sweep finishes
+#   bash run_proofwriter_owa_chat_v1.sh eval qwen2.5  # no GPU needed for eval
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: run_proofwriter_owa_chat_v1.sh sweep" >&2
-  echo "       run_proofwriter_owa_chat_v1.sh eval" >&2
+  echo "usage: run_proofwriter_owa_chat_v1.sh sweep [llama3|qwen2.5]" >&2
+  echo "       run_proofwriter_owa_chat_v1.sh eval  [llama3|qwen2.5]" >&2
   exit 1
 fi
 STAGE="$1"
+MODEL="${2:-llama3}"
 
 PY="${PY:-python}"
 WORK_DIR="${WORK_DIR:-/data1/paveen/Dopamine}"
@@ -60,19 +75,48 @@ EXEMPLAR_FILE="$PW_DIR/exemplar_unknown_v2.json"
 [[ -f "$EXEMPLAR_FILE" ]] || {
   echo "[FATAL] $EXEMPLAR_FILE not found." >&2; exit 1; }
 
-# SAME mask and SAME alpha set as the bare formal sweep (llama3 row of
-# run_proofwriter_owa_v2_preflight.sh) -- deliberately not re-derived here.
-LLAMA_MASK="$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy"
-LLAMA_SWEEP_CONFIGS="neg6-11-20 neg4-11-20 0-11-20 4-11-20"
 MANIFEST_BLIND="$BENCH/manifest_blind.json"
 MANIFEST_GOLD="$BENCH/manifest_gold.json"
 
-LLAMA_OUT_DIR="$OUT_ROOT/llama3/proofwriter_owa"
-CHAT_A0="$LLAMA_OUT_DIR/formal_chat_v1_mdf_0/proofwriter_owa_8B_11_20.json"
-CHAT_AN4="$LLAMA_OUT_DIR/formal_chat_v1_mdf_neg4/proofwriter_owa_8B_11_20.json"
-CHAT_AN6="$LLAMA_OUT_DIR/formal_chat_v1_mdf_neg6/proofwriter_owa_8B_11_20.json"
-CHAT_AP4="$LLAMA_OUT_DIR/formal_chat_v1_mdf_4/proofwriter_owa_8B_11_20.json"
-CHAT_EVAL_OUT="$PW_DIR/results/formal_sweep_chat_v1.json"
+# Per-model config: SAME mask/band/alpha-set/protocol as that model's own
+# bare formal sweep -- deliberately not re-derived here.
+case "$MODEL" in
+  llama3)
+    MODEL_DIR_HF="meta-llama/Llama-3.1-8B-Instruct"
+    SIZE="8B"
+    MASK="$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy"
+    SWEEP_CONFIGS="neg6-11-20 neg4-11-20 0-11-20 4-11-20"
+    LAYERS_SUFFIX="11_20"
+    PROTOCOL="proofwriter-owa-chat-v1"
+    OUT_DIR="$OUT_ROOT/llama3/proofwriter_owa"
+    ;;
+  qwen2.5)
+    MODEL_DIR_HF="Qwen/Qwen2.5-7B-Instruct"
+    SIZE="7B"
+    MASK="$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy"
+    SWEEP_CONFIGS="neg6-16-22 0-16-22 6-16-22 8-16-22"
+    LAYERS_SUFFIX="16_22"
+    PROTOCOL="proofwriter-owa-chat-v11"
+    OUT_DIR="$OUT_ROOT/qwen2.5/proofwriter_owa"
+    ;;
+  *)
+    echo "[FATAL] unknown model '$MODEL' (llama3 | qwen2.5)" >&2
+    exit 1
+    ;;
+esac
+
+CHAT_A0="$OUT_DIR/formal_chat_v1_mdf_0/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+CHAT_AP="$OUT_DIR/formal_chat_v1_mdf_4/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+CHAT_AN="$OUT_DIR/formal_chat_v1_mdf_neg6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+if [[ "$MODEL" == "llama3" ]]; then
+  CHAT_AN2="$OUT_DIR/formal_chat_v1_mdf_neg4/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+  CELL_FILES=("$CHAT_A0" "$CHAT_AN2" "$CHAT_AN" "$CHAT_AP")
+else
+  CHAT_AP2="$OUT_DIR/formal_chat_v1_mdf_6/proofwriter_owa_${SIZE}_${LAYERS_SUFFIX}.json"
+  CELL_FILES=("$CHAT_A0" "$CHAT_AN" "$CHAT_AP2" "$CHAT_AP")
+fi
+MODEL_TAG="${MODEL/./}"
+CHAT_EVAL_OUT="$PW_DIR/results/formal_sweep_chat_v1_${MODEL_TAG}.json"
 
 case "$STAGE" in
   sweep)
@@ -89,32 +133,32 @@ case "$STAGE" in
       echo "        (it builds the full 300-item manifest_blind.json /" >&2
       echo "        manifest_gold.json this launcher reuses unchanged)." >&2
       exit 1; }
-    echo "[proofwriter-owa-chat-v1] llama3: FORMAL 4-point sweep on the"
-    echo "  full 300-item manifest, under the HF chat-template interface"
-    echo "  condition. max_new_tokens is FROZEN at 1024 (imported from"
-    echo "  get_answer_proofwriter_owa.py's MAX_NEW_TOKENS_FROZEN, never a"
-    echo "  separately hardcoded literal)."
+    echo "[proofwriter-owa-chat] $MODEL: FORMAL 4-point sweep on the full"
+    echo "  300-item manifest, under the HF chat-template interface"
+    echo "  condition (protocol $PROTOCOL). max_new_tokens is FROZEN at"
+    echo "  1024 (imported from get_answer_proofwriter_owa.py's"
+    echo "  MAX_NEW_TOKENS_FROZEN, never a separately hardcoded literal)."
     cd "$WORK_DIR"
     "$PY" proofwriter_owa/get_answer_proofwriter_owa_chat.py \
-      --model_dir meta-llama/Llama-3.1-8B-Instruct \
-      --manifest "$MANIFEST_BLIND" --mask_path "$LLAMA_MASK" \
-      --configs $LLAMA_SWEEP_CONFIGS \
-      --out_dir "$LLAMA_OUT_DIR" \
+      --model "$MODEL" --size "$SIZE" --model_dir "$MODEL_DIR_HF" \
+      --manifest "$MANIFEST_BLIND" --mask_path "$MASK" \
+      --configs $SWEEP_CONFIGS \
+      --out_dir "$OUT_DIR" \
       --exemplar_file "$EXEMPLAR_FILE" \
       --batch_size 8
-    echo "[proofwriter-owa-chat-v1] sweep done. Alpha=0 file:"
+    echo "[proofwriter-owa-chat] $MODEL sweep done. Alpha=0 file:"
     echo "    $CHAT_A0"
     echo
-    echo "[proofwriter-owa-chat-v1] next:"
-    echo "    bash run_proofwriter_owa_chat_v1.sh eval"
+    echo "[proofwriter-owa-chat] next:"
+    echo "    bash run_proofwriter_owa_chat_v1.sh eval $MODEL"
     ;;
 
   eval)
-    for f in "$CHAT_A0" "$CHAT_AN4" "$CHAT_AN6" "$CHAT_AP4"; do
+    for f in "${CELL_FILES[@]}"; do
       [[ -f "$f" ]] || {
-        echo "[FATAL] $f not found; run 'sweep' first (all four alpha" >&2
-        echo "        come from ONE 'sweep' call -- --configs already" >&2
-        echo "        lists all four)." >&2
+        echo "[FATAL] $f not found; run 'sweep $MODEL' first (all four" >&2
+        echo "        alpha come from ONE 'sweep' call -- --configs" >&2
+        echo "        already lists all four)." >&2
         exit 1; }
     done
     if [[ -f "$CHAT_EVAL_OUT" ]]; then
@@ -124,23 +168,24 @@ case "$STAGE" in
       exit 1
     fi
     cd "$WORK_DIR"
-    echo "[proofwriter-owa-chat-v1] scoring the 4-point chat-interface sweep"
-    echo "  (Holm(m=3), llama3's own alpha=0 as baseline; no comparison to"
-    echo "  the bare sweep is computed here -- that is a separate,"
-    echo "  descriptive side-by-side table, not a paired significance test)."
+    echo "[proofwriter-owa-chat] scoring $MODEL's 4-point chat-interface"
+    echo "  sweep (protocol $PROTOCOL; Holm(m=3), $MODEL's own alpha=0 as"
+    echo "  baseline; no comparison to the bare sweep or to the other"
+    echo "  model is computed here -- that is a separate, descriptive"
+    echo "  side-by-side table, not a paired significance test)."
     "$PY" proofwriter_owa/eval_proofwriter_owa.py \
-      --protocol proofwriter-owa-chat-v1 \
+      --protocol "$PROTOCOL" \
       --gold "$MANIFEST_GOLD" \
-      --generations "$CHAT_A0" "$CHAT_AN4" "$CHAT_AN6" "$CHAT_AP4" \
+      --generations "${CELL_FILES[@]}" \
       --out "$CHAT_EVAL_OUT"
     echo
-    echo "[proofwriter-owa-chat-v1] wrote $CHAT_EVAL_OUT"
-    echo "  Read results.llama3.cells.<alpha> for accuracy (FIRST-answer,"
+    echo "[proofwriter-owa-chat] wrote $CHAT_EVAL_OUT"
+    echo "  Read results.$MODEL.cells.<alpha> for accuracy (FIRST-answer,"
     echo "  main) / sensitivity_last_answer_accuracy / answered_only_accuracy"
-    echo "  (diagnostic, never compare across cells/protocols) /"
+    echo "  (diagnostic, never compare across cells/protocols/models) /"
     echo "  no_answer_rate / multiple_marker_rate /"
     echo "  first_last_disagreement_rate / loop_rate / truncation_rate, and"
-    echo "  results.llama3.workpoint for the McNemar/Holm-based verdict"
+    echo "  results.$MODEL.workpoint for the McNemar/Holm-based verdict"
     echo "  (computed on the overall, no-answer-included accuracy)."
     ;;
 

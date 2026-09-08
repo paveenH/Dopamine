@@ -1,28 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-get_answer_proofwriter_owa_chat.py -- ProofWriter OWA v2, Llama3.1-8B ONLY,
-FORMAL four-point interface-condition sweep under the HF chat template.
-Protocol `proofwriter-owa-chat-v1`.
+get_answer_proofwriter_owa_chat.py -- ProofWriter OWA v2, FORMAL four-point
+interface-condition sweep under the HF chat template. Two models, each its
+own protocol string:
+    llama3    -> protocol "proofwriter-owa-chat-v1"
+    qwen2.5   -> protocol "proofwriter-owa-chat-v11"
+(Qwen support added 2026-09-08 by parameterizing this SAME script over
+--model/--size, rather than forking a second copy -- see the --model
+argument below. Llama3's call path, output filenames, protocol string and
+EXPECTED_CELLS are UNCHANGED from the original llama3-only version; every
+existing llama3 invocation of this script is byte-identical in behavior.)
 
 THIS IS AN INDEPENDENT INTERFACE-CONDITION EXPERIMENT, NOT A NEW WORKPOINT
-SEARCH AND NOT A REPLACEMENT for the frozen bare-string result
+SEARCH AND NOT A REPLACEMENT for either model's frozen bare-string result
 (proofwriter_owa/results/formal_sweep_v2.json, COMPLETE + CLOSED 2026-09-05).
-The 30-item diagnostic (chat_v2_mdf_0, see diag_chat_template.py) showed HF
-chat-template wrapping sharply reduces llama3's no_answer_rate/loop_rate/
-truncation_rate at alpha=0. This script asks: once that interface confound is
-controlled for, does steering (alpha in {-6,-4,0,+4}) produce a stable,
-Holm-significant accuracy or submission-rate change?
+The 30-item llama3 diagnostic (chat_v2_mdf_0, see diag_chat_template.py)
+showed HF chat-template wrapping sharply reduces llama3's
+no_answer_rate/loop_rate/truncation_rate at alpha=0, and the llama3 formal
+4-point chat sweep confirmed this at N=300 (no Holm-significant workpoint
+after the interface confound was controlled for; see
+results/formal_sweep_chat_v1.json). Qwen's own bare-string sweep did NOT show
+llama3's severe no-answer/loop pathology (see formal_sweep_v2.json's qwen2.5
+row), so this Qwen run answers a narrower version of the same interface
+question: under Qwen's own chat template, does steering (alpha in
+{-6,0,+6,+8}) produce a stable, Holm-significant accuracy change?
 
-WHAT IS HELD IDENTICAL to the bare formal sweep
-(get_answer_proofwriter_owa.py, components/llama3/proofwriter_owa/mdf_*/):
+WHAT IS HELD IDENTICAL to each model's own bare formal sweep
+(get_answer_proofwriter_owa.py, components/<model>/proofwriter_owa/mdf_*/):
   - the SAME 300-item formal manifest, SAME sample_id order (manifest_blind.json)
   - the SAME v2 1-shot Unknown exemplar (exemplar_unknown_v2.json)
   - the SAME prompt BODY and "#### <Label>" marker convention
     (prompt.build_prompt, PROMPT_TEMPLATE_ID = proofwriter-owa-cot-v2 --
     UNCHANGED: only the wrapping around this exact string differs)
-  - the SAME mask file (mask/llama3_non_logits/nmd_0.5_11_20_8B.npy),
-    band [11,20), alpha in {-6,-4,0,+4}
+  - the SAME mask file and band as that model's bare sweep:
+      llama3   mask/llama3_non_logits/nmd_0.5_11_20_8B.npy    band [11,20)
+               alpha in {-6,-4,0,+4}
+      qwen2.5  mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy   band [16,22)
+               alpha in {-6,0,+6,+8}
   - temperature=0.0 (greedy), max_new_tokens=1024 (MAX_NEW_TOKENS_FROZEN,
     imported from the bare generator, never a separately hardcoded literal)
   - batch_size=8, prefill_only=True, prefill_tail_len=1
@@ -33,42 +48,49 @@ WHAT IS HELD IDENTICAL to the bare formal sweep
     main scoring, no-marker counted incorrect); this script does not score
     anything, it only writes generation cells
 
-THE ONLY EXPERIMENTAL VARIABLE, held constant across all four alpha, is how
-the identical prompt STRING is wrapped before tokenization: each rendered
-build_prompt(...) string is placed as the sole user-turn content in
-tokenizer.apply_chat_template([{"role": "user", "content": prompt}],
-tokenize=False, add_generation_prompt=True), with a duplicated leading BOS
-stripped before vc.regenerate() tokenizes it (add_special_tokens=True
-internally) -- reusing bandit_pv6_episode.py's _strip_leading_bos /
-double-BOS-hazard pattern rather than reinventing it. This is byte-identical
-wrapping logic to diag_chat_template.py; this script differs from it only by
-running the full 300-item manifest across all four frozen alpha instead of
-30 items at alpha=0 only.
+THE ONLY EXPERIMENTAL VARIABLE, held constant across all four alpha of one
+model, is how the identical prompt STRING is wrapped before tokenization:
+each rendered build_prompt(...) string is placed as the sole user-turn
+content in tokenizer.apply_chat_template([{"role": "user", "content":
+prompt}], tokenize=False, add_generation_prompt=True), with a duplicated
+leading BOS stripped before vc.regenerate() tokenizes it (add_special_tokens
+=True internally) -- reusing bandit_pv6_episode.py's _strip_leading_bos /
+double-BOS-hazard pattern rather than reinventing it. This wrapping logic is
+model-agnostic (Qwen's tokenizer has no BOS token at all -- bos_token is None
+-- so strip_leading_bos / assert_no_double_bos are simply no-ops for it, the
+same "double-BOS cannot occur here" fact already recorded in this repo's
+Qwen GSM8K/CGT-seq check scripts).
 
 Output is written to a SEPARATE directory tree and under a SEPARATE protocol
-string, so neither the bare v2 formal sweep nor the 30-item chat diagnostic
-is ever touched or ambiguous with this run:
-    components/llama3/proofwriter_owa/formal_chat_v1_mdf_<alpha>/
-        proofwriter_owa_8B_11_20.json
-meta.protocol = "proofwriter-owa-chat-v1" (NOT the bare sweep's
-"proofwriter-owa-v0"); meta.prompt_template_id / marker_family stay
-"proofwriter-owa-cot-v2" / "v2" UNCHANGED (the prompt body and marker
-convention did not change, only the wrapping). Two additional fields record
-the wrapping condition explicitly and are cross-checked for consistency
-across alpha by eval_proofwriter_owa.py's CONSISTENCY_FIELDS:
-    meta.prompt_wrapper_id     = "llama3-chat-template-v1"
+string PER MODEL, so neither model's bare formal sweep, nor llama3's 30-item
+chat diagnostic, nor the other model's chat sweep is ever touched or
+ambiguous with this run:
+    components/<model_dir>/proofwriter_owa/formal_chat_v1_mdf_<alpha>/
+        proofwriter_owa_<size>_<ls>_<le>.json
+meta.protocol = "proofwriter-owa-chat-v1" (llama3) / "proofwriter-owa-chat-v11"
+(qwen2.5) -- NOT either model's bare-sweep protocol ("proofwriter-owa-v0").
+meta.prompt_template_id / marker_family stay "proofwriter-owa-cot-v2" / "v2"
+UNCHANGED for both models (the prompt body and marker convention did not
+change, only the wrapping). Additional fields record the wrapping condition
+explicitly and are cross-checked for consistency across alpha (of the SAME
+model) by eval_proofwriter_owa.py's CONSISTENCY_FIELDS:
+    meta.prompt_wrapper_id     = "llama3-chat-template-v1" / "qwen2.5-chat-template-v1"
     meta.chat_template_applied = true
     meta.chat_template_hash    = sha256 of tokenizer.chat_template's own
                                   string (attests WHICH chat template was
                                   used, not just that some template was used)
 
-Because meta.protocol differs from the bare sweep's, this cell family must be
-scored with:
-    python eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v1 ...
-(eval_proofwriter_owa.py's --protocol flag, added alongside this script --
-the only change made to that file; parser/scoring/statistics are unchanged).
+Because meta.protocol differs from either model's bare sweep, each model's
+cell family must be scored with its own --protocol value:
+    python eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v1  ...   # llama3
+    python eval_proofwriter_owa.py --protocol proofwriter-owa-chat-v11 ...   # qwen2.5
+(eval_proofwriter_owa.py's --protocol flag, added for the llama3 run and
+reused unchanged here; parser/scoring/statistics are unchanged. A single eval
+call must not mix the two models' chat cells -- load_cell rejects any cell
+whose own meta.protocol disagrees with the passed --protocol value, and the
+two models also carry different protocol strings by design.)
 
-No Qwen, no other benchmark. Llama3.1-8B only, four alpha, one sweep.
+No steering-dose search beyond each model's own frozen four-point set.
 
 @author: proofwriter_owa task (chat-template formal sweep)
 """
@@ -94,18 +116,28 @@ from answer_parser import get_marker_family  # noqa: E402
 from get_answer_proofwriter_owa import MAX_NEW_TOKENS_FROZEN  # noqa: E402
 
 MARKER_FAMILY = get_marker_family(PROMPT_TEMPLATE_ID)["marker_family"]
-PROTOCOL = "proofwriter-owa-chat-v1"
-PROMPT_WRAPPER_ID = "llama3-chat-template-v1"
-
-# Own frozen dose set: SAME four alpha as the bare sweep's llama3 row, same
-# band. This is the SAME dose family, wrapped differently -- not a new
-# search. Kept as an explicit constant (mirroring
-# get_answer_proofwriter_owa.py's EXPECTED_CELLS) so an out-of-family alpha
-# is rejected rather than silently run.
-EXPECTED_CELLS = {(-6, 11, 20), (-4, 11, 20), (0, 11, 20), (4, 11, 20)}
 
 FORBIDDEN_KEYS = ("answer", "label", "gold", "gold_answer", "correct",
                   "accuracy", "proof", "proofs", "target")
+
+# Per-model config: own frozen dose set (SAME four alpha as that model's
+# bare sweep, same band -- this is the SAME dose family, wrapped
+# differently, not a new search), own protocol string, own prompt-wrapper
+# id. Mirrors get_answer_proofwriter_owa.py's EXPECTED_CELLS / model-keyed
+# structure exactly, so an out-of-family alpha is rejected rather than
+# silently run.
+MODEL_CONFIG = {
+    "llama3": {
+        "protocol": "proofwriter-owa-chat-v1",
+        "prompt_wrapper_id": "llama3-chat-template-v1",
+        "expected_cells": {(-6, 11, 20), (-4, 11, 20), (0, 11, 20), (4, 11, 20)},
+    },
+    "qwen2.5": {
+        "protocol": "proofwriter-owa-chat-v11",
+        "prompt_wrapper_id": "qwen2.5-chat-template-v1",
+        "expected_cells": {(-6, 16, 22), (0, 16, 22), (6, 16, 22), (8, 16, 22)},
+    },
+}
 
 
 def die(msg):
@@ -115,23 +147,41 @@ def die(msg):
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--model_dir", default="meta-llama/Llama-3.1-8B-Instruct")
+    p.add_argument("--model", default="llama3", choices=list(MODEL_CONFIG),
+                   help="default 'llama3' preserves this script's original "
+                        "call signature and output paths byte-for-byte; "
+                        "pass 'qwen2.5' for the Qwen chat sweep (added "
+                        "2026-09-08).")
+    p.add_argument("--size", default="8B",
+                   help="record-only label used in the output filename and "
+                        "meta.size, matching the bare generator's "
+                        "convention (llama3->8B, qwen2.5->7B). Not "
+                        "cross-checked against the actual model weights.")
+    p.add_argument("--model_dir", default="meta-llama/Llama-3.1-8B-Instruct",
+                   help="Hugging Face repo id (never a local path unless "
+                        "the caller explicitly overrides this). Default is "
+                        "llama3's; pass --model_dir Qwen/Qwen2.5-7B-Instruct "
+                        "together with --model qwen2.5.")
     p.add_argument("--manifest", required=True,
                    help="manifest_blind.json -- the full 300-item formal "
-                        "manifest, SAME file the bare formal sweep used")
+                        "manifest, SAME file that model's bare formal sweep "
+                        "used")
     p.add_argument("--mask_path", required=True,
-                   help="SAME mask file as the bare formal sweep "
-                        "(mask/llama3_non_logits/nmd_0.5_11_20_8B.npy)")
+                   help="SAME mask file as that model's own bare formal "
+                        "sweep (llama3: mask/llama3_non_logits/"
+                        "nmd_0.5_11_20_8B.npy; qwen2.5: mask/"
+                        "qwen2.5_non_logits/nmd_0.5_16_22_7B.npy)")
     p.add_argument("--configs", required=True, nargs="+",
-                   help="e.g. 0-11-20 neg6-11-20 neg4-11-20 4-11-20")
+                   help="e.g. 0-11-20 neg6-11-20 neg4-11-20 4-11-20 (llama3) "
+                        "or 0-16-22 neg6-16-22 6-16-22 8-16-22 (qwen2.5)")
     p.add_argument("--out_dir", required=True)
     p.add_argument("--exemplar_file", required=True)
     p.add_argument("--batch_size", type=int, default=8)
     p.add_argument("--tag", default="formal_chat_v1",
                    help="output subdir prefix; default keeps this run in "
                         "its own formal_chat_v1_mdf_<alpha> tree, isolated "
-                        "from the bare mdf_<alpha> tree and the 30-item "
-                        "chat_v2_mdf_0 diagnostic")
+                        "from the bare mdf_<alpha> tree and (for llama3) "
+                        "the 30-item chat_v2_mdf_0 diagnostic")
     return p.parse_args()
 
 
@@ -165,9 +215,12 @@ def strip_leading_bos(vc, text: str) -> str:
 
     Byte-identical logic to diag_chat_template.py's strip_leading_bos /
     bandit_pv6_episode.py's _strip_leading_bos -- see either docstring for
-    why this is required (not cosmetic): vc.regenerate's
-    _regenerate_prefill_only tokenizes with add_special_tokens=True, so an
-    un-stripped chat-templated string yields two leading BOS ids."""
+    why this is required (not cosmetic) on a model with a BOS token: vc.
+    regenerate's _regenerate_prefill_only tokenizes with
+    add_special_tokens=True, so an un-stripped chat-templated string yields
+    two leading BOS ids. On Qwen2.5 (bos_token is None) this is a no-op --
+    the same "double-BOS cannot occur here" fact this repo's Qwen GSM8K/
+    CGT-seq check scripts already record."""
     bos = getattr(vc.tokenizer, "bos_token", None)
     if bos and text.startswith(bos):
         return text[len(bos):]
@@ -178,7 +231,7 @@ def assert_no_double_bos(vc, text: str, label: str) -> None:
     """Hard invariant, same check as diag_chat_template.py /
     check_cgt_seq_qwen.py: tokenize with add_special_tokens=True (the same
     call vc.regenerate makes internally) and refuse if the first two ids are
-    both BOS."""
+    both BOS. A no-op (never fires) on a tokenizer with bos_token_id=None."""
     bos_id = getattr(vc.tokenizer, "bos_token_id", None)
     ids = vc.tokenizer(text, add_special_tokens=True)["input_ids"]
     if bos_id is not None and len(ids) >= 2 and ids[:2] == [bos_id, bos_id]:
@@ -189,6 +242,11 @@ def assert_no_double_bos(vc, text: str, label: str) -> None:
 
 def main():
     args = parse_args()
+    cfg = MODEL_CONFIG[args.model]
+    protocol = cfg["protocol"]
+    prompt_wrapper_id = cfg["prompt_wrapper_id"]
+    expected_cells = cfg["expected_cells"]
+
     meta, samples = load_manifest(args.manifest)
     exemplars = load_exemplars(args.exemplar_file)
 
@@ -196,11 +254,11 @@ def main():
     cfgs_raw = args.configs
     cfgs = utils.parse_configs(cfgs_raw)
     got = {(al, ls, le) for al, (ls, le) in cfgs}
-    if not got.issubset(EXPECTED_CELLS):
-        die(f"cells {sorted(got)} are outside this script's OWN frozen dose "
-            f"set {sorted(EXPECTED_CELLS)}. This is the SAME dose family as "
-            "the bare formal sweep, wrapped differently -- it does not "
-            "search new alpha.")
+    if not got.issubset(expected_cells):
+        die(f"{args.model}: cells {sorted(got)} are outside this script's "
+            f"OWN frozen dose set for this model {sorted(expected_cells)}. "
+            "This is the SAME dose family as that model's bare formal "
+            "sweep, wrapped differently -- it does not search new alpha.")
 
     from llms import VicundaModel  # noqa: E402
 
@@ -247,24 +305,25 @@ def main():
         tag = f"mdf_{alpha}".replace("-", "neg")
         subdir = f"{args.tag}_{tag}"
         out = os.path.join(args.out_dir, subdir,
-                           f"proofwriter_owa_8B_{ls}_{le}.json")
+                           f"proofwriter_owa_{args.size}_{ls}_{le}.json")
         if os.path.exists(out):
             print(f"skip existing {out}")
             continue
         os.makedirs(os.path.dirname(out), exist_ok=True)
 
         # regenerate() requires one diff row per decoder layer in the WHOLE
-        # model (32 for Llama3-8B). raw_mask is already full-length with
-        # zero rows outside [layer_start, layer_end) -- slicing it to the
-        # band here is the exact bug the 30-item diagnostic hit and fixed
-        # ("diff_matrices length (9) != layers (32)"); `raw_mask * alpha`
-        # matches get_answer_proofwriter_owa.py's convention exactly.
+        # model (32 for Llama3-8B, 28 for Qwen2.5-7B). raw_mask is already
+        # full-length with zero rows outside [layer_start, layer_end) --
+        # slicing it to the band here is the exact bug the 30-item
+        # diagnostic hit and fixed ("diff_matrices length (9) != layers
+        # (32)"); `raw_mask * alpha` matches get_answer_proofwriter_owa.py's
+        # convention exactly for both models.
         diff = raw_mask * alpha
         vc.steering_fire_count(reset=True)
 
         gen = []
         for i in tqdm(range(0, len(chat_prompts), args.batch_size),
-                      desc=f"proofwriter-owa-chat a={alpha}"):
+                      desc=f"proofwriter-owa-chat[{args.model}] a={alpha}"):
             batch = chat_prompts[i: i + args.batch_size]
             gen.extend(vc.regenerate(
                 batch,
@@ -321,9 +380,9 @@ def main():
             })
 
         json.dump({"meta": {
-            "protocol": PROTOCOL, "prompt_template_id": PROMPT_TEMPLATE_ID,
+            "protocol": protocol, "prompt_template_id": PROMPT_TEMPLATE_ID,
             "marker_family": MARKER_FAMILY,
-            "model": "llama3", "size": "8B",
+            "model": args.model, "size": args.size,
             "alpha": alpha, "layer_start": ls, "layer_end": le, "L": n_layers,
             "mask_path": args.mask_path, "mask_sha256": mask_sha,
             "max_new_tokens": MAX_NEW_TOKENS_FROZEN,
@@ -333,7 +392,7 @@ def main():
             "cot": True, "cot_note": ("own construction, NOT an official "
                                       "ProofWriter LLM prompt"),
             "chat_template": True, "prefill_only": True, "prefill_tail_len": 1,
-            "prompt_wrapper_id": PROMPT_WRAPPER_ID,
+            "prompt_wrapper_id": prompt_wrapper_id,
             "chat_template_applied": True,
             "chat_template_hash": chat_template_hash,
             "steering_fires": fires,
@@ -349,18 +408,15 @@ def main():
             "not_a_transfer_test": True,
             "interface_condition": {
                 "purpose": ("formal four-point steering sweep under the "
-                           "chat-template interface condition, following up "
-                           "the 30-item alpha=0 diagnostic that showed "
-                           "chat-template wrapping sharply reduces "
-                           "no_answer_rate/loop_rate/truncation_rate on the "
-                           "bare-string v2 prompt. Independent interface "
-                           "condition, NOT a redefinition of the "
+                           "chat-template interface condition. Independent "
+                           "interface condition, NOT a redefinition of the "
                            "ProofWriter-OWA workpoint (CLOSED 2026-09-05) "
-                           "and NEVER a replacement for "
-                           "formal_sweep_v2.json."),
-                "compares_against": ("components/llama3/proofwriter_owa/"
-                                     "mdf_<alpha>/proofwriter_owa_8B_11_20."
-                                     "json (the bare formal sweep)"),
+                           "and NEVER a replacement for that model's own "
+                           "formal_sweep_v2.json bare-string cells."),
+                "compares_against": (f"components/{args.model}/proofwriter_owa/"
+                                     f"mdf_<alpha>/proofwriter_owa_{args.size}_"
+                                     f"{ls}_{le}.json (that model's bare "
+                                     "formal sweep)"),
                 "same_300_items": True, "same_order": True,
                 "same_exemplar": True, "same_marker_convention": True,
                 "same_mask": True, "same_alpha_set": True,
@@ -373,9 +429,8 @@ def main():
               f"truncation_rate={n_truncated}/{len(rows)}")
 
     print("\nGeneration complete. NO accuracy was computed -- by construction.")
-    print("Next: python proofwriter_owa/eval_proofwriter_owa.py "
-          "--protocol proofwriter-owa-chat-v1 "
-          "(the only script that reads gold)")
+    print(f"Next: python proofwriter_owa/eval_proofwriter_owa.py "
+          f"--protocol {protocol} (the only script that reads gold)")
 
 
 if __name__ == "__main__":
