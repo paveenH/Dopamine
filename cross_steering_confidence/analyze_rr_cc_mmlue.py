@@ -2,15 +2,24 @@
 # -*- coding: utf-8 -*-
 """
 Analysis for the SIMPLIFIED Role self-steering (RR) / Confidence
-self-steering (CC) MMLU-E experiment, formal dose set alpha in {-4,-2,0,2,4}.
+self-steering (CC) MMLU-E experiment, REVISED 2026-09-08 formal dose set
+alpha in {0, +2, +4, +6} (RSN-paper-style positive-dose-only comparison;
+negative doses -2/-4 are not run this round -- they verify bidirectional
+control and are not needed for this round's positive-effect comparison).
 
-Only RR and CC are analyzed here -- NO RC/CR, NO random control, NO
-cross-steering internal comparisons (that matrix is deferred to a later
-stage). This script answers exactly the two questions this stage asks:
+Only RR and CC are IN SCOPE conceptually here -- NO RC/CR, NO random control,
+NO cross-steering internal comparisons (that matrix is deferred to a later
+stage). As of 2026-09-08, RR is NOT ACTUALLY RUN this round (no verified,
+protocol-matching historical RR result exists to reuse), so the RR columns
+in this analysis's output will be EMPTY/absent unless RR cells are separately
+generated later with get_answer_rr_cc_mmlue.py --condition RR. This script
+still supports analyzing RR if/when those cells exist -- it does not
+hardcode CC-only. This script answers exactly the two questions this stage
+asks (the second one only once RR data exists):
   1. Does the original Role mask (RR) reproduce a stable, directionally
-     consistent MMLU-E steering effect?
+     consistent MMLU-E steering effect? (PENDING -- RR not run this round)
   2. Does the new Confidence mask (CC) ALSO produce an independent, causal
-     effect on confident/unconfident behavior?
+     effect on confident/unconfident behavior? (this round's actual scope)
 
 It explicitly does NOT compare RR's and CC's effect MAGNITUDES at the same
 raw alpha as a strength claim -- the two masks' raw norms differ and are not
@@ -55,7 +64,9 @@ from mmlu_category_map import TASK_TO_CATEGORY, CATEGORIES  # noqa: E402
 CONDITIONS = ["baseline", "RR", "CC"]
 ROLES = ["confident", "unconfident"]
 LABELS = ["A", "B", "C", "D", "E"]
-ALPHAS_FORMAL = [-4.0, -2.0, 0.0, 2.0, 4.0]
+ALPHAS_FORMAL = [0.0, 2.0, 4.0, 6.0]  # revised 2026-09-08: RSN-paper-style
+                                       # positive-dose comparison. Negative
+                                       # doses (-2, -4) are not run this round.
 N_BOOTSTRAP = 10000
 BOOTSTRAP_SEED = 20260908
 
