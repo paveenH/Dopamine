@@ -989,6 +989,7 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 | BBH object counting | Fixed transfer | CoT | 40.80% → 56.80%<br>**Δ=+16.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+8.80,+23.20] | 52.80% → 66.80%<br>**Δ=+14.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+7.60,+20.40] | Both models |
 | CRUXEval-O | Fixed transfer | No-CoT | 34.67% → 31.00%<br>Δ=−3.67 pp, `p_adj=.1352` | 29.33% → 37.67%<br>**Δ=+8.33 pp**, `p_adj=.0045` | Qwen only |
 | CRUXEval-O | Fixed transfer | CoT | 34.67% → 34.00%<br>Δ=−0.67 pp, `p_adj=.9656`<br>CI=[−5.00,+3.67] | 34.67% → 54.00%<br>**Δ=+19.33 pp**, `p_adj=2.63×10⁻⁹`<br>CI=[+13.67,+25.00] | Qwen only |
+| CRUXEval-O | Task-specific sweep / Chat | No-CoT / CoT | No-CoT: 45.67% → 46.67% (`−6`), Δ=+1.00 pp, `p_adj=.7111`; CoT: 52.00% → 51.33% (`−6`), Δ=−0.67 pp, `p_adj=1.000` | — | Llama: neither condition |
 | LogiQA 2.0 | Fixed transfer | No-CoT | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | Neither |
 | LogiQA 2.0 | Fixed transfer | CoT | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>CI=[−8.00,+3.33] | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>CI=[−10.67,−0.33] | Neither |
 | GSM-Symbolic | Task-specific sweep / same-family robustness | No-CoT | 48.11% → 57.56%<br>**Δ=+9.44 pp**, `p_adj=.0003`<br>CI=[+5.78,+13.11] | 53.33% → 66.89%<br>**Δ=+13.56 pp**, `p_adj=.0003`<br>CI=[+8.44,+18.56] | Both models |
@@ -998,7 +999,7 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 | ZebraLogic-Easy | Task-specific sweep | Task prompt | 36.79% → 35.71%<br>Δ=−1.07 pp, `p_adj=.749` | 34.64% → 23.93%<br>**Δ=−10.71 pp**, `p_adj=.0004` | No positive effect; Qwen `+8` harmful |
 | FinQA | Task-specific sweep | CoT | 14.33% → 8.67%<br>**Δ=−5.67 pp**, `p_adj=.0190` | 20.67% → 25.67%<br>Δ=+5.00 pp, `p_adj=.1539` | No positive effect; Llama `−6` harmful |
 
-> **Reading note.** `Fixed transfer` 表示 `−6/+8` 在查看目标任务结果前已经由 GSM8K 冻结。`Task-specific sweep` 表示目标任务测试了完整剂量曲线；表中这里只抽取其中的 `−6/+8` 方便横向比较，不能将这些行重新解释为预先注册的 fixed-workpoint transfer。ProofWriter Bare 中另有 Llama `+4` 的显著结果，但该提升主要伴随有效答案提交增加；ProofWriter Chat 中只有 Qwen `+8` 建立了显著正向 workpoint。
+> **Reading note.** `Fixed transfer` 表示 `−6/+8` 在查看目标任务结果前已经由 GSM8K 冻结。`Task-specific sweep` 表示目标任务测试了完整剂量曲线；表中这里只抽取其中的 `−6/+8` 方便横向比较，不能将这些行重新解释为预先注册的 fixed-workpoint transfer。ProofWriter Bare 中另有 Llama `+4` 的显著结果，但该提升主要伴随有效答案提交增加；ProofWriter Chat 中只有 Qwen `+8` 建立了显著正向 workpoint。CRUXEval-O Chat 行是 Llama-only 的目标任务四点扫描；Qwen 没有运行 Chat 对照，因此不能把空缺解释为 null。
 
 ### 6.2 Task-Specific Dose Sweeps
 
@@ -1112,13 +1113,33 @@ FinQA 使用显式 CoT 和直接数字答案评分，在每个模型内对三个
 
 Llama 各剂量都存在严重的生成循环与截断，因此其结果需要谨慎解释。不过，主指标取第一次合法答案，尾部循环不会改写已经提交的 first answer。
 
+#### 6.2.5 CRUXEval-O Chat Interface
+
+CRUXEval-O Chat 实验只改变 Llama3 的 prompt wrapper，并分别在 CoT 与 No-CoT 下运行相同的四点剂量 `{−6,−4,0,+4}`。两种条件各自在模型内部以 `α=0` 为基线执行 McNemar 检验和 Holm `m=3` 校正。
+
+**Table 6.6. CRUXEval-O Chat No-CoT and CoT dose sweeps (N=300 per cell)**
+
+| Condition | α | First / last accuracy | No marker | Nonliteral | Degenerate | Truncation | Median chars / tokens | Δ vs 0 | Holm `p_adj` | 95% CI |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| No-CoT | 0 | 45.67% / 45.67% | 1.7% | 1.3% | 1.7% | 2.0% | 458 / 132 | — | — | — |
+| No-CoT | −6 | 46.67% / 46.67% | 1.0% | 1.3% | 0.7% | 1.3% | 468 / 135 | +1.00 pp | .7111 | [−2.67,+4.33] |
+| No-CoT | −4 | 43.33% / 43.33% | 2.0% | 1.0% | 1.7% | 2.0% | 486 / 134 | −2.33 pp | .5299 | [−6.00,+1.00] |
+| No-CoT | +4 | 41.00% / 41.00% | 2.7% | 0.3% | 2.3% | 2.7% | 207 / 70 | −4.67 pp | .2939 | [−10.00,+0.67] |
+| CoT | 0 | 52.00% / 52.00% | 2.3% | 0.0% | 1.3% | 2.3% | 1005 / 283 | — | — | — |
+| CoT | −6 | 51.33% / 51.33% | 3.0% | 0.7% | 3.0% | 3.0% | 1003 / 295 | −0.67 pp | 1.0000 | [−5.00,+3.67] |
+| CoT | −4 | 49.33% / 49.33% | 2.7% | 0.0% | 1.7% | 2.7% | 1024 / 289 | −2.67 pp | .9667 | [−7.33,+2.00] |
+| CoT | +4 | 50.33% / 50.33% | 2.7% | 0.3% | 1.3% | 3.0% | 711 / 199 | −1.67 pp | 1.0000 | [−6.33,+3.00] |
+
+1. Chat 接口下，两种条件的格式与可评分性都保持健康，但所有非零剂量均未显著优于各自的 `α=0`，因此没有检测到有效 workpoint。
+2. `+4` 在 CoT 和 No-CoT 下都明显缩短生成，却没有提高准确率，说明输出缩短不等于推理改善。CoT 的 `α=0` 点估计高于 No-CoT（52.00% vs 45.67%），但未进行跨条件检验，只作描述。
+
 ### 6.3 Local Stability and Near-Optimal Regions
 
 单一 argmax 容易把抽样波动误写成精确的最佳剂量。本文所称的 near-optimal region，是指在已测离散剂量中，与 observed best 未被显著区分的集合。它不是连续区间，也不代表这些剂量已经被证明统计等效。
 
 后补邻点只用于检查固定工作点附近的稳定性，不能重新定义原有 workpoint。
 
-**Table 6.6. Observed near-optimal regions and local stability**
+**Table 6.7. Observed near-optimal regions and local stability**
 
 | Curve | Reference point | Added stability cell(s) | Observed near-optimal region | Key neighbour comparison |
 |---|---|---|---|---|
@@ -1141,7 +1162,7 @@ Llama 各剂量都存在严重的生成循环与截断，因此其结果需要�
 
 为检查准确率变化是否伴随回答位置变化，我们使用 `early_candidate_rate`（`ec`）进行描述性分析。该指标判断首行是否提前出现裸数字；`ec` 下降只表示模型较少立即输出数字答案，不能直接等同于内部 commitment timing。
 
-**Table 6.7. Output-pattern changes on boundary tasks**
+**Table 6.8. Output-pattern changes on boundary tasks**
 
 | Task | Model | No-CoT ec (0→α) | CoT ec (0→α) | CoT accuracy Δ | Interpretation |
 |---|---|---|---|---:|---|
@@ -1155,6 +1176,8 @@ Llama 各剂量都存在严重的生成循环与截断，因此其结果需要�
 BBH-Llama、BBH-Qwen 和 CRUXEval-O-Qwen 的 CoT 准确率收益都伴随 `ec` 下降。然而，CRUXEval-O-Llama 同样出现 `ec` 下降，却没有准确率收益，说明这种输出变化不是性能提升的充分条件。
 
 LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是否发生类似变化。总体上，这些结果只能说明部分准确率收益伴随着更少的提前数字作答，不能证明回答位置变化导致了性能提升。
+
+Llama 的 Chat 四点扫描进一步排除了严重循环与截断作为主要混淆因素：输出已经可以稳定评分，但 CoT 与 No-CoT 均未出现准确率收益，因此该模型上的 CRUXEval-O null 不能仅用 Bare 接口失效解释。
 
 **Table 6.9. GSM-Symbolic commitment / answer-formation timing on key dose comparisons**
 
@@ -1172,7 +1195,7 @@ LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是�
 
 ### 6.5 Cross-Benchmark Summary
 
-**Table 6.8. Where effective workpoints were detected**
+**Table 6.10. Where effective workpoints were detected**
 
 | Benchmark | Evaluation type | Llama | Qwen | Main conclusion |
 |---|---|---|---|---|
@@ -1180,7 +1203,7 @@ LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是�
 | GSM-Hard | Fixed transfer | No-CoT and CoT supported | No-CoT and CoT supported | Strongest transfer result |
 | GSM-Symbolic | Full dose / same-family robustness | No-CoT `−6/−4` supported; CoT not detected | No-CoT `+6/+8` and CoT `−6/+6/+8` supported | Same-family robustness |
 | BBH object counting | Fixed transfer | CoT only | CoT only | CoT-dependent |
-| CRUXEval-O | Fixed transfer | Not detected | No-CoT and CoT supported | Model-specific |
+| CRUXEval-O | Fixed transfer + Chat interface check | Bare 和 Chat 均未检测到有效 workpoint | Bare No-CoT 和 CoT fixed workpoint supported；Chat 未运行 | Model-specific; fixing the interface did not rescue Llama steering |
 | LogiQA 2.0 | Fixed transfer | Not detected | Not detected | Double null |
 | ProofWriter-OWA | Full dose / interface comparison | Chat `−6` trend only; Bare result submission-sensitive | Chat `+8` supported | Interface-dependent |
 | ZebraLogic-Easy | Full dose | No positive workpoint | No positive workpoint; `+8` harmful | High-dose failure boundary |
@@ -1189,7 +1212,7 @@ LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是�
 整体结果可以归纳为三点：
 
 1. **固定工作点可以迁移，但范围有限。** GSM-Hard 的证据最稳定；MATH、BBH 和 CRUXEval-O 均表现出模型或提示条件差异。
-2. **完整剂量曲线揭示了更多条件性结果。** GSM-Symbolic 支持同任务家族鲁棒性，ProofWriter 显示接口依赖；ZebraLogic 和 FinQA 没有找到有效的正向 workpoint。
+2. **完整剂量曲线揭示了更多条件性结果。** GSM-Symbolic 支持同任务家族鲁棒性，ProofWriter 显示接口依赖；ZebraLogic 和 FinQA 没有找到有效的正向 workpoint。CRUXEval-O 展示模型特异性迁移：Qwen 在 Bare fixed-workpoint 条件下有效，Llama 即使使用健康的 Chat 接口仍为 null。不应据此写成"chat template 没有价值"；它改善的是生成稳定性和可评分性，但没有使 steering accuracy effect 出现。
 3. **不存在跨模型、跨任务统一的最佳 α。** 更合理的目标是识别每个模型和任务中的有效方向、近优区域与失败边界。
 
 这些结果属于模型输出和准确率层面的证据，不证明生物多巴胺、通用 wanting 轴或 commitment timing 的因果中介机制。完整协议、运行配置、统计家族、敏感性分析和输出诊断保留在 `CLAUDE.md`。
