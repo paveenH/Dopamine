@@ -113,7 +113,8 @@ Agent4: Document (GPT)
 28. 1-shot multi-hop ProofWwiter OWA ✖
 29. FinQA ✖
 30. GSM-Symbolic cot & non-cot ✔
-31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat之后趋势就对了
+31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat趋势ok ✔
+32. 也修改一下CRUXEval的chat版本 会不会有结果
 31. 考虑一下不同的neurons之间有什么差异
 
 ---
