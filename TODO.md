@@ -117,14 +117,11 @@ Agent4: Document (GPT)
 32. 也修改一下CRUXEval的chat版本 cot & non-cot ✔
 33. GSM-Symbolic行为学特征统计 ✔
 34. Confidence neurons ⏸
+   1. 相关性分析：role neurons & confidence neurons; 相关性在11-19层上升 -> 实际上相关性非常的高
+   2. confident & unconfident相关性分析：相关性在11-19最低，类似RSN
+   3. overlap
 
 ---
-1. **逐层方向关系**
-   - cosine similarity（主指标）
-   - Pearson correlation（辅助）
-   - 两个方向的 L2 norm
-   - 重点报告注入层 `11–19`
-
 2. **四种 mean 的关系**
    - Expert、Non-Expert、Confident、Unconfident 做逐层相关/距离矩阵。
    - 观察 Expert 是否更接近 Confident、Non-Expert 是否更接近 Unconfident。
