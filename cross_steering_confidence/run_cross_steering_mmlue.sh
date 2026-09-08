@@ -13,23 +13,36 @@ set -euo pipefail
 # to the server via build_cross_steering_vectors.py (local, no GPU) BEFORE
 # this launcher is run -- this script does not build them.
 #
-# PILOT DESIGN (per task instructions): a single symmetric nonzero dose
-# alpha=+-1 first (the vectors are already norm-matched to RR at alpha=1;
-# alpha=-1 is the mirror-direction dose, same magnitude). alpha=0 (baseline)
-# is written ONCE, shared across all six conditions.
+# FORMAL DOSE SET: alpha in {-4, -2, 0, +2, +4}. Baseline (alpha=0) is run
+# ONCE via `bash run_cross_steering_mmlue.sh baseline` and shared across all
+# six vector conditions. Each non-baseline condition runs the four nonzero
+# doses -4,-2,2,4 in one invocation.
+#
+# NEGATIVE ALPHA LIST: passed to the Python script as --alphas="-4,-2,2,4"
+# (the '=' form) so argparse does not mistake the leading '-' for a new flag.
+#
+# RECOMMENDED RUN ORDER (per task instructions): baseline -> RR -> CC -> RC
+# -> CR -> RRand -> CRand. This launcher does not enforce the order itself
+# (each condition is independent and resumable); run them in this sequence
+# manually / via separate nohup invocations.
+#
+# RESUME: get_answer_cross_steering_mmlue.py checks completeness itself (57
+# tasks present, correct sample counts, full confident/unconfident fields,
+# matching run_meta). A COMPLETE cell is skipped; a PARTIAL cell has only its
+# missing/incomplete tasks re-run; a cell whose stored metadata does not match
+# the current invocation's config is a FATAL refusal (protocol mismatch), not
+# a silent resume. So re-running this launcher on an already-complete
+# condition is a safe no-op, and re-running it after an interruption completes
+# only what is missing.
 #
 # Usage:
-#   bash run_cross_steering_mmlue.sh baseline          # alpha=0 only, run ONCE
-#   bash run_cross_steering_mmlue.sh RR                # alpha -1,0,1 (0 reused if present)
+#   bash run_cross_steering_mmlue.sh baseline          # alpha=0 only
+#   bash run_cross_steering_mmlue.sh RR                # alpha -4,-2,2,4
+#   bash run_cross_steering_mmlue.sh CC
 #   bash run_cross_steering_mmlue.sh RC
 #   bash run_cross_steering_mmlue.sh CR
-#   bash run_cross_steering_mmlue.sh CC
 #   bash run_cross_steering_mmlue.sh RRand
 #   bash run_cross_steering_mmlue.sh CRand
-#
-# Each condition writes to its OWN alpha_{a} subdirectory; the script itself
-# is fail-closed against overwriting a non-empty output dir (no --allow_overwrite
-# passed here, matching the "no cross-writes between conditions" requirement).
 
 CONDITION="${1:?usage: bash run_cross_steering_mmlue.sh {baseline|RR|RC|CR|CC|RRand|CRand}}"
 
@@ -48,14 +61,7 @@ cd "${WORK_DIR}"
 if [ "${CONDITION}" == "baseline" ]; then
     ALPHAS="0"
 else
-    ALPHAS="-1,0,1"
-    # If the shared baseline (alpha=0) already exists, skip re-running it by
-    # requesting only the nonzero doses -- alpha=0 is condition-independent
-    # (all-zero diff matrix regardless of which vector alpha=0 would multiply).
-    if [ -d "${OUT_ROOT}/baseline/alpha_0" ] && [ -n "$(ls -A "${OUT_ROOT}/baseline/alpha_0" 2>/dev/null)" ]; then
-        echo "[info] baseline/alpha_0 already exists and is non-empty -- requesting only -1,1"
-        ALPHAS="-1,1"
-    fi
+    ALPHAS="-4,-2,2,4"
 fi
 
 echo "=================================================="
@@ -73,7 +79,7 @@ python cross_steering_confidence/get_answer_cross_steering_mmlue.py \
     --mmlu_dir "${MMLU_DIR}" \
     --out_root "${OUT_ROOT}" \
     --condition "${CONDITION}" \
-    --alphas "${ALPHAS}"
+    --alphas="${ALPHAS}"
 
 echo ""
 echo "[Done] condition=${CONDITION} — $(date)"
