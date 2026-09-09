@@ -11,7 +11,7 @@
 9. 重新梳理一下AdaptiveThinking的文档 ✔
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
-11. manifold llama3 实验以及结果整理 ✔
+11. manifold llama3 实验以及结果整理 
 11. manifold 补齐 Llama 全 α 曲线 ✔
 12. manifold Qwen25 实验以及结果整理 ✔
 13. manifold sentiity ✔
@@ -48,4 +48,5 @@
 36. cross-steering: GSM8K ✔
 ---
 37. 统一各个任务的行为统计指标
+
 38. 再确认一下Loop的问题
