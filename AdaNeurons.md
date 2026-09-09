@@ -165,3 +165,41 @@ MMLU-E 上的结果表明：
 这说明：
 
 > 即使输入使用显式 confident/unconfident prompt，原 RSN role neurons 仍能显著降低模型表达不确定性的倾向，并且基本不损害任务准确率。
+
+---
+### Confident Prompt 下的 RSN 与 CSN Steering
+
+| Steering | α | Mean_acc | Δ Mean_acc | E-ratio | Δ E-ratio |
+|---|---:|---:|---:|---:|---:|
+| Baseline（RSN） | 0 | 65.14% | — | 2.36% | — |
+| RSN | +3 | 65.87% | +0.73 pp | 0.66% | −1.70 pp |
+| RSN | +4 | 65.38% | +0.24 pp | 0.28% | −2.08 pp |
+| Baseline（CSN） | 0 | 65.20% | — | 2.31% | — |
+| CSN | +2 | 57.00% | −8.20 pp | 1.51% | −0.80 pp |
+| CSN | +4 | 32.40% | −32.80 pp | 0.02% | −2.29 pp |
+
+在 confident prompt 下，两次实验的基线结果基本一致。RSN steering能够显著降低模型选择“不确定”（E选项）的比例，同时保持原有准确率；CSN steering同样降低了E-ratio，但准确率随剂量增加而明显下降，说明其不仅增强回答倾向，还扰动了A–D答案之间的选择。
+
+需要注意，两种mask尚未进行norm matching，因此相同的raw α不代表相同的实际干预强度。
+
+### Confidence Neuron Steering on GSM8K
+
+**Setup.** Llama3.1-8B-Instruct，GSM8K 300题，plain No-CoT prompt，greedy decoding。使用Confidence Neuron（CSN）mask在decoder layer 11–19进行steering。准确率统一采用offline `first_acc`；`last_acc`仅用于观察后续答案修改。
+
+| Metric | −4 | −2 | 0 | +2 | +4 |
+|---|---:|---:|---:|---:|---:|
+| **First accuracy** | 51.00% | **60.33%** | **60.33%** | 55.67% | 46.33% |
+| Last accuracy | 49.67% | 56.33% | 55.67% | 53.33% | 46.00% |
+| Commit rate | 36.7% | 55.0% | **62.0%** | 53.3% | 57.3% |
+| Early-candidate rate | **70.0%** | 59.7% | **47.3%** | 50.7% | 67.0% |
+| Median commit position (`posN`) | 0.1995 | 0.2013 | 0.1787 | 0.1680 | 0.1777 |
+| Loop rate | 92.0% | 91.0% | 91.7% | 89.0% | 91.3% |
+| Median generation length | 2,292 | 2,122 | 2,171 | 2,230 | 2,273 |
+
+CSN steering呈现以 `α=0/−2` 为最高点的倒U形准确率曲线，但没有出现超过baseline的性能增益。相较之下，RSN steering在同一模型和任务上于 `α=−6` 达到78.0%，相比baseline提高18.0 pp；因此，CSN没有复现RSN的有效负向工作点。
+
+在正向剂量上，CSN对正式提交指标的影响相对较小：从 `α=0` 到 `+4`，commit rate仅由62.0%降至57.3%（−4.7 pp），median `posN` 也基本不变（0.1787→0.1777）。作为参照，RSN在相同区间内的commit rate由62.7%降至49.0%（−13.7 pp）。因此，**CSN对正式commit rate和commit position的改变弱于RSN**。
+
+不过，CSN仍明显改变了答案形成顺序：early-candidate rate从baseline的47.3%上升至两端的70.0%和67.0%。因此，更准确的表述是：
+
+> CSN对正式答案标记的提交率和位置影响较小，但较强的双向干预都会增加提前出现答案候选的比例，并伴随准确率下降。它更像是在扰动答案形成的稳定性，而没有复现RSN对推理工作点和正式提交过程的系统性调节。
