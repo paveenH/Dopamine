@@ -184,22 +184,89 @@ MMLU-E 上的结果表明：
 
 ### Confidence Neuron Steering on GSM8K
 
-**Setup.** Llama3.1-8B-Instruct，GSM8K 300题，plain No-CoT prompt，greedy decoding。使用Confidence Neuron（CSN）mask在decoder layer 11–19进行steering。准确率统一采用offline `first_acc`；`last_acc`仅用于观察后续答案修改。
+**Setup.** 本实验使用Llama3.1-8B-Instruct，在GSM8K的300道题上测试Confidence Neuron（CSN）steering。所有条件均采用neutral、plain No-CoT prompt和greedy decoding；steering作用于decoder layer 11–19。准确率采用offline `first_acc`，并与inline accuracy逐剂量核对一致；`last_acc`仅用于检查后续答案修改。
+
+行为指标严格复用RSN §2.1的分析口径。`Premature, either rule`定义为：输出以裸数字开始，或首次`####`出现在全文前2%以内。该指标不同于后续冻结的`earlycand-v1`，两者不能混用。
+
+#### Dose-Dependent Output Behavior
 
 | Metric | −4 | −2 | 0 | +2 | +4 |
 |---|---:|---:|---:|---:|---:|
-| **First accuracy** | 51.00% | **60.33%** | **60.33%** | 55.67% | 46.33% |
-| Last accuracy | 49.67% | 56.33% | 55.67% | 53.33% | 46.00% |
+| **First accuracy** | 51.0% | **60.3%** | **60.3%** | 55.7% | 46.3% |
+| Last accuracy | 49.7% | 56.3% | 55.7% | 53.3% | 46.0% |
+| **Committed accuracy** | 63.6% | 61.2% | **66.7%** | 63.8% | 48.3% |
 | Commit rate | 36.7% | 55.0% | **62.0%** | 53.3% | 57.3% |
-| Early-candidate rate | **70.0%** | 59.7% | **47.3%** | 50.7% | 67.0% |
-| Median commit position (`posN`) | 0.1995 | 0.2013 | 0.1787 | 0.1680 | 0.1777 |
-| Loop rate | 92.0% | 91.0% | 91.7% | 89.0% | 91.3% |
-| Median generation length | 2,292 | 2,122 | 2,171 | 2,230 | 2,273 |
+| Median `####` position | 20% | 20% | 18% | 17% | 18% |
+| Mean `####` position | 25% | 24% | 24% | 25% | 21% |
+| Premature, leading digit | 266 | 167 | 199 | 133 | 188 |
+| **Premature, either rule** | **266 (88.7%)** | 196 (65.3%) | 206 (68.7%) | **139 (46.3%)** | 220 (73.3%) |
+| `####` at text start | 8 | 31 | 23 | 9 | 58 |
+| At least two answer switches | 14 | 21 | 10 | 10 | 12 |
+| At least three candidate values | 3 | 7 | 5 | 7 | 3 |
+| Median generation length | 2,289 | 2,118 | 2,163 | 2,229 | 2,273 |
+| Loop samples | 212 | 231 | 227 | 222 | 226 |
+| At least two `Step` markers | 26 | 55 | 23 | 36 | 24 |
+| Stuck loops | 15 | 16 | 27 | 27 | 36 |
+| Median equation count | 4.0 | 4.0 | 4.0 | 4.0 | 3.0 |
+| **Full-text compulsive repetition** | **104** | 59 | 73 | 75 | **102** |
 
-CSN steering呈现以 `α=0/−2` 为最高点的倒U形准确率曲线，但没有出现超过baseline的性能增益。相较之下，RSN steering在同一模型和任务上于 `α=−6` 达到78.0%，相比baseline提高18.0 pp；因此，CSN没有复现RSN的有效负向工作点。
+`Committed accuracy`只在产生可解析`#### <number>`的样本中计算，不能替代总体accuracy。`####` position同样只在已提交样本中定义。Generation length以字符数计算；其余计数的分母均为300题。
 
-在正向剂量上，CSN对正式提交指标的影响相对较小：从 `α=0` 到 `+4`，commit rate仅由62.0%降至57.3%（−4.7 pp），median `posN` 也基本不变（0.1787→0.1777）。作为参照，RSN在相同区间内的commit rate由62.7%降至49.0%（−13.7 pp）。因此，**CSN对正式commit rate和commit position的改变弱于RSN**。
+#### Performance Curve
 
-不过，CSN仍明显改变了答案形成顺序：early-candidate rate从baseline的47.3%上升至两端的70.0%和67.0%。因此，更准确的表述是：
+CSN的accuracy呈现一个以 `α=−2/0` 为最高点的有限工作区间，但没有观察到超过baseline的性能增益：
 
-> CSN对正式答案标记的提交率和位置影响较小，但较强的双向干预都会增加提前出现答案候选的比例，并伴随准确率下降。它更像是在扰动答案形成的稳定性，而没有复现RSN对推理工作点和正式提交过程的系统性调节。
+\[
+51.0\% \rightarrow 60.3\% \rightarrow 60.3\%
+\rightarrow 55.7\% \rightarrow 46.3\%.
+\]
+
+正负方向的较强干预都会降低准确率，其中 `α=+4` 相比baseline下降14.0 pp，`α=−4`下降9.3 pp。因此，这条曲线更接近“baseline附近稳定、两端受损”，而不是RSN中“适度负向干预带来增益”的非对称峰形。
+
+First与last accuracy的差异均不超过4.7 pp，且多数剂量下first accuracy更高。这说明后续答案修改通常没有改善整体表现，但不能据此判断答案在模型内部形成的具体时间。
+
+#### Commitment-Related Behavior
+
+CSN对正式commit指标的改变相对有限且缺乏一致的剂量方向：
+
+- Median `####` position始终位于全文17%–20%，基本保持稳定。
+- 正向区间内，commit rate从baseline的62.0%降至+2的53.3%，随后在+4回升至57.3%，并非单调变化。
+- `α=−4`是主要例外，其commit rate降至36.7%，说明较强负向干预会明显破坏规范答案提交。
+
+与此同时，premature output发生了明显但非单调的变化。`Premature, either rule`在baseline为206例，在 `α=+2` 降至139例，但准确率同时从60.3%下降至55.7%。继续增加到 `α=+4` 后，premature output回升至220例，准确率进一步降至46.3%。
+
+因此，减少premature output本身不足以提高准确率。CSN确实会改变答案出现顺序，但这种变化没有形成与性能提升一致的commitment工作点。
+
+#### Repetition and Submission Quality
+
+Full-text compulsive repetition在两个较强端点明显升高：
+
+- `α=−4`：104例；
+- `α=0`：73例；
+- `α=+4`：102例。
+
+这一形态与两端准确率下降大致对应，但不构成因果证明。普通loop样本始终维持在212–231例，缺乏清晰的剂量趋势，因此不能将总体loop rate解释为CSN特异的perseveration效应。
+
+高正向剂量还显著降低了提交质量。Committed accuracy从baseline的66.7%降至 `α=+4` 的48.3%，同时stuck loops从27例增加到36例。这说明+4不仅改变模型是否提交，还使已经正式提交的答案变得更不可靠。
+
+#### Comparison with RSN Steering
+
+RSN与CSN均在neutral、plain No-CoT条件下测试，且baseline基本一致，因此可以描述性比较曲线形态。
+
+| α | RSN first_acc | CSN first_acc | RSN commit rate | CSN commit rate | RSN premature | CSN premature |
+|---:|---:|---:|---:|---:|---:|---:|
+| −4 | **73.0%** | 51.0% | 58.3% | 36.7% | 195 | 266 |
+| −2 | **69.0%** | 60.3% | 63.0% | 55.0% | 223 | 196 |
+| 0 | 60.0% | 60.3% | 62.7% | 62.0% | 206 | 206 |
+| +2 | 57.0% | 55.7% | 53.0% | 53.3% | 215 | 139 |
+| +4 | **55.3%** | 46.3% | 49.0% | 57.3% | 232 | 220 |
+
+RSN在负向剂量下明显提高准确率，并在完整曲线的 `α=−6` 达到78.0%；此时premature output降至94例，committed accuracy达到79.7%。CSN则没有产生高于baseline的剂量点，也没有复现RSN在 `α=−6` 附近的低premature、高提交质量工作状态。
+
+在正向区间 `0→+4`，RSN的commit rate由62.7%降至49.0%，而CSN仅由62.0%降至57.3%。因此，CSN对正式commit rate和commit position的系统性调节弱于RSN，但其对准确率的破坏更明显。
+
+需要注意，两种mask尚未进行norm matching，因此相同raw α不能解释为相同的实际干预强度。上述比较主要用于区分曲线形态和行为签名，而不是比较两组neurons的绝对效应强弱。
+
+#### Summary
+
+> Confidence-neuron steering能够改变premature output、规范提交率和重复行为，但没有复现RSN的有效推理工作区间。其对正式commit位置的影响较小，行为变化也缺乏一致的剂量方向；较强的双向干预主要表现为答案形成不稳定、重复增加和准确率下降。该结果说明，Confidence neurons与RSN虽然具有方向相关和显著的neuron overlap，但两者并不因此具有相同的功能作用。
