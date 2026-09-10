@@ -1,28 +1,4 @@
 
-## 第一优先：统一跨模型核心指标
-
-这些都是数字答案任务，最适合在 Llama/Qwen 上统一重算：
-
-1. **GSM8K**
-   - Llama：No-CoT、CoT
-   - Qwen：No-CoT、CoT
-   - 指标：`first_acc`、`last_acc`、`early_candidate_rate`、`reason_first_rate`、`pre/post_candidate_chars`、valid submission
-
-2. **MATH**
-   - Llama：No-CoT、CoT
-   - Qwen：No-CoT、CoT
-   - 同上，但不要把 `boxed position` 当主要 commitment 指标。
-
-3. **GSM-Hard**
-   - 两个模型、No-CoT/CoT
-   - 与 GSM8K 使用完全相同的指标，适合检验跨难度迁移。
-
-4. **GSM-Symbolic**
-   - 两个模型、No-CoT/CoT
-   - 当前已有 `ec`、`reason_first`、`posN`，需要与 GSM8K/MATH 统一命名、分母和统计方式。
-
-这是最重要的一组，完成后就能形成真正一致的 Llama–Qwen 主行为分析。
-
 ## 第二优先：可以整理，但要保留任务特性
 
 5. **BBH Object Counting**
@@ -206,3 +182,144 @@
 | +4 | 300 | 63.00% | 59.00% | 98.67% | 63.85% | 58.33% | 24.83% | 0 | 1393 | 0.9727 | 21.00% |
 | +6 | 300 | 66.00% | 65.67% | 99.67% | 66.22% | 29.67% | 62.50% | 164 | 970 | 0.9677 | 22.67% |
 | +8 | 300 | 64.00% | 64.33% | 99.67% | 64.21% | 10.33% | 85.96% | 252 | 816 | 0.9640 | 27.67% |
+
+## Llama3.1-8B-Instruct — GSM-Hard
+
+### No-CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -8 | 300 | 11.00% | 11.33% | 67.67% | 6.40% | 66.00% | 27.10% | 5 | 2162 | 0.0000 | 10.33% | prospective_blind_selection |
+| -6 | 300 | 24.33% | 23.67% | 54.67% | 20.73% | 28.67% | 61.82% | 204 | 1877 | 0.2740 | 13.67% | prospective_blind_selection |
+| -4 | 300 | 24.00% | 23.00% | 53.00% | 28.30% | 28.00% | 38.19% | 0 | 1920 | 0.2351 | 15.67% | prospective_blind_selection |
+| +0 | 300 | 18.00% | 17.33% | 54.33% | 20.25% | 45.67% | 26.64% | 0 | 1952 | 0.2161 | 13.33% | prospective_blind_selection |
+| +4 | 300 | 17.00% | 17.33% | 44.67% | 19.40% | 60.00% | 15.79% | 0 | 1990 | 0.1274 | 11.33% | prospective_blind_selection |
+
+### CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 300 | 26.00% | 27.00% | 52.00% | 17.95% | 30.33% | 63.74% | 234 | 1928 | 0.0000 | 17.00% | condition_transfer_supplement |
+| -4 | 300 | 30.00% | 29.67% | 45.67% | 27.01% | 19.00% | 74.63% | 292 | 1864 | 0.3294 | 11.67% | post_hoc_local_stability |
+| +0 | 300 | 20.00% | 20.67% | 41.33% | 19.35% | 43.67% | 41.29% | 0 | 1930 | 0.2810 | 11.00% | condition_transfer_supplement |
+
+## Qwen2.5-7B-Instruct — GSM-Hard
+
+### No-CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -4 | 300 | 34.33% | 36.67% | 79.33% | 34.03% | 94.67% | 0.00% | 0 | 1321 | 0.8062 | 35.00% | prospective_blind_selection |
+| +0 | 300 | 34.00% | 34.67% | 72.67% | 36.24% | 93.67% | 0.00% | 0 | 1266 | 0.7680 | 29.00% | prospective_blind_selection |
+| +4 | 300 | 34.67% | 36.00% | 78.00% | 35.90% | 92.00% | 0.67% | 0 | 1264 | 0.6791 | 39.33% | prospective_blind_selection |
+| +6 | 300 | 40.33% | 40.33% | 86.33% | 42.47% | 58.67% | 33.67% | 0 | 1057 | 0.5969 | 39.33% | prospective_blind_selection |
+| +8 | 300 | 50.33% | 48.33% | 98.33% | 50.51% | 6.00% | 98.00% | 204 | 614 | 0.7765 | 34.00% | prospective_blind_selection |
+| +10 | 300 | 50.33% | 46.33% | 98.33% | 51.19% | 4.67% | 98.00% | 238 | 698 | 0.7987 | 32.33% | post_hoc_local_stability |
+
+### CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| +0 | 300 | 38.00% | 36.67% | 72.00% | 37.96% | 96.00% | 0.33% | 0 | 1456 | 0.8611 | 30.67% | condition_transfer_supplement |
+| +6 | 300 | 49.00% | 47.33% | 91.00% | 50.92% | 48.00% | 59.33% | 108 | 812 | 0.8359 | 34.33% | post_hoc_local_stability |
+| +8 | 300 | 51.33% | 50.33% | 98.67% | 52.03% | 8.33% | 97.33% | 226 | 582 | 0.8286 | 31.00% | condition_transfer_supplement |
+| +10 | 300 | 50.33% | 49.33% | 98.67% | 51.01% | 2.67% | 98.33% | 228 | 580 | 0.8251 | 30.00% | post_hoc_local_stability |
+
+
+## Llama3.1-8B-Instruct — GSM-Symbolic No-CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 900 | 57.56% | 55.56% | 50.89% | 53.98% | 17.89% | 60.07% | 167 | 1906 | 0.0751 | 0.3429 | 15.33% |
+| -4 | 900 | 52.34% | 50.33% | 55.44% | 52.81% | 19.78% | 27.92% | 0 | 1908 | 0.0000 | 0.3042 | 18.00% |
+| +0 | 900 | 48.11% | 45.78% | 61.67% | 54.04% | 25.22% | 31.18% | 0 | 1891 | 0.0000 | 0.2988 | 18.66% |
+| +4 | 900 | 38.89% | 38.00% | 47.00% | 44.25% | 49.67% | 13.72% | 0 | 2012 | 0.0000 | 0.2088 | 14.78% |
+
+## Llama3.1-8B-Instruct — GSM-Symbolic CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 900 | 56.67% | 58.89% | 35.11% | 43.76% | 16.45% | 79.29% | 291 | 1895 | 0.1356 | 0.3204 | 13.11% |
+| -4 | 900 | 58.56% | 59.33% | 31.00% | 50.05% | 14.00% | 70.35% | 272 | 1899 | 0.1267 | 0.3756 | 10.67% |
+| +0 | 900 | 55.56% | 55.56% | 34.78% | 51.84% | 28.33% | 59.26% | 209 | 1917 | 0.0951 | 0.3835 | 12.67% |
+| +4 | 900 | 40.22% | 39.11% | 28.67% | 45.52% | 71.66% | 11.38% | 0 | 2186 | 0.0000 | 0.2092 | 7.56% |
+
+## Qwen2.5-7B-Instruct — GSM-Symbolic No-CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 900 | 50.22% | 54.22% | 73.78% | 46.43% | 97.22% | 0.00% | 0 | 1593 | 0.0000 | 0.8368 | 34.33% |
+| +0 | 900 | 53.33% | 56.11% | 69.11% | 51.23% | 96.22% | 0.00% | 0 | 1599 | 0.0000 | 0.8624 | 28.67% |
+| +6 | 900 | 60.67% | 60.89% | 83.11% | 63.06% | 53.44% | 46.22% | 0 | 1036 | 0.0000 | 0.8226 | 25.11% |
+| +8 | 900 | 66.89% | 65.33% | 98.33% | 67.49% | 6.56% | 98.44% | 170 | 706 | 0.1753 | 0.8318 | 27.22% |
+
+## Qwen2.5-7B-Instruct — GSM-Symbolic CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 900 | 56.44% | 57.78% | 79.89% | 55.37% | 99.33% | 0.00% | 0 | 1626 | 0.0000 | 0.9007 | 38.67% |
+| +0 | 900 | 52.89% | 53.11% | 85.22% | 52.52% | 99.11% | 0.00% | 0 | 1606 | 0.0000 | 0.9113 | 38.56% |
+| +6 | 900 | 65.11% | 64.22% | 92.56% | 66.57% | 43.78% | 63.89% | 114 | 918 | 0.1216 | 0.8793 | 31.45% |
+| +8 | 900 | 65.00% | 64.56% | 98.89% | 64.99% | 6.44% | 96.33% | 112 | 556 | 0.1859 | 0.8534 | 28.11% |
+
+## Per-config accuracy audit (main/p1/p2)
+
+Pooled `first_acc` here is the SAME equal-weighted mean used in the main tables; shown per-config to make cross-perturbation spread visible.
+
+| model | condition | α | main first_acc | p1 first_acc | p2 first_acc | pooled first_acc (equal-weight) |
+|---|---|---|---|---|---|---|
+| llama3 | CoT | -6 | 64.00% | 59.00% | 47.00% | 56.67% |
+| llama3 | CoT | -4 | 70.67% | 63.67% | 41.33% | 58.56% |
+| llama3 | CoT | +0 | 62.67% | 58.67% | 45.33% | 55.56% |
+| llama3 | CoT | +4 | 54.00% | 41.33% | 25.33% | 40.22% |
+| llama3 | No-CoT | -6 | 71.00% | 60.67% | 41.00% | 57.56% |
+| llama3 | No-CoT | -4 | 62.67% | 56.67% | 37.67% | 52.34% |
+| llama3 | No-CoT | +0 | 57.33% | 53.33% | 33.67% | 48.11% |
+| llama3 | No-CoT | +4 | 50.67% | 39.33% | 26.67% | 38.89% |
+| qwen2.5 | CoT | -6 | 66.00% | 64.33% | 39.00% | 56.44% |
+| qwen2.5 | CoT | +0 | 63.33% | 56.33% | 39.00% | 52.89% |
+| qwen2.5 | CoT | +6 | 79.33% | 68.33% | 47.67% | 65.11% |
+| qwen2.5 | CoT | +8 | 81.67% | 66.67% | 46.67% | 65.00% |
+| qwen2.5 | No-CoT | -6 | 59.33% | 54.67% | 36.67% | 50.22% |
+| qwen2.5 | No-CoT | +0 | 65.33% | 56.33% | 38.33% | 53.33% |
+| qwen2.5 | No-CoT | +6 | 73.00% | 64.00% | 45.00% | 60.67% |
+| qwen2.5 | No-CoT | +8 | 78.00% | 71.67% | 51.00% | 66.89% |
+
+## Llama3.1-8B-Instruct — BBH object_counting
+
+### No-CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | no_marker_rate | marker_unparsed_rate | degenerate_tail_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 250 | 40.80% | 40.80% | 82.00% | 47.80% | 84.40% | 9.20% | 0 | 1922 | 0.0875 | 51.60% | 10.40% | 7.60% | 6.00% |
+| +0 | 250 | 41.60% | 41.20% | 86.80% | 46.54% | 95.20% | 2.00% | 0 | 1983 | 0.0633 | 63.60% | 9.20% | 4.00% | 3.60% |
+| +4 | 250 | 32.80% | 32.80% | 83.60% | 35.89% | 99.20% | 0.00% | 0 | 2002 | 0.0963 | 58.00% | 10.80% | 5.60% | 4.00% |
+
+### CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | no_marker_rate | marker_unparsed_rate | degenerate_tail_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 250 | 56.80% | 56.80% | 92.00% | 54.35% | 63.20% | 39.92% | 5 | 1790 | 0.0011 | 52.00% | 0.40% | 7.60% | 4.00% |
+| -4 | 250 | 44.80% | 44.80% | 97.20% | 43.62% | 88.00% | 8.80% | 0 | 1790 | 0.0011 | 77.20% | 0.40% | 2.40% | 1.20% |
+| +0 | 250 | 40.80% | 40.80% | 95.60% | 39.33% | 97.20% | 1.60% | 0 | 1790 | 0.0011 | 80.80% | 0.00% | 4.40% | 2.80% |
+| +4 | 250 | 32.00% | 32.00% | 90.00% | 30.67% | 99.20% | 0.00% | 0 | 1790 | 0.0011 | 78.00% | 0.00% | 10.00% | 4.80% |
+
+## Qwen2.5-7B-Instruct — BBH object_counting
+
+### No-CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | no_marker_rate | marker_unparsed_rate | degenerate_tail_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 250 | 56.80% | 57.60% | 86.40% | 53.24% | 100.00% | 0.00% | 0 | 418 | 0.7428 | 20.00% | 0.00% | 13.60% | 2.80% |
+| +0 | 250 | 55.20% | 56.00% | 86.80% | 52.53% | 100.00% | 0.00% | 0 | 422 | 0.7568 | 15.60% | 0.00% | 13.20% | 1.20% |
+| +8 | 250 | 57.60% | 56.40% | 97.20% | 56.38% | 44.40% | 37.40% | 50 | 150 | 0.6986 | 30.80% | 0.00% | 2.80% | 0.40% |
+
+### CoT
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | no_marker_rate | marker_unparsed_rate | degenerate_tail_rate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| -6 | 250 | 45.60% | 46.00% | 43.20% | 62.04% | 100.00% | 0.00% | 0 | 20 | 0.6497 | 8.80% | 0.00% | 56.80% | 0.00% |
+| +0 | 250 | 52.80% | 54.00% | 38.40% | 62.50% | 100.00% | 0.00% | 0 | 18 | 0.3227 | 8.40% | 0.00% | 61.60% | 0.00% |
+| +6 | 250 | 43.20% | 44.00% | 52.40% | 53.44% | 96.80% | 3.20% | 0 | 89 | 0.6673 | 23.60% | 0.00% | 47.60% | 0.00% |
+| +8 | 250 | 66.80% | 66.40% | 97.60% | 68.44% | 7.20% | 80.32% | 211 | 143 | 0.6868 | 23.60% | 0.00% | 2.40% | 0.40% |
+
