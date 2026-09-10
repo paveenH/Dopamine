@@ -2,14 +2,6 @@
 
 ### 0.1 Prompt Template Symmetrization
 
-| | 舊 No-CoT | 舊 CoT |
-|---|---|---|
-| 標題 | `Solve the following math problem.` | `Solve the following math problem **step by step**.` |
-| 格式指示 | `Provide your final numeric answer after '####'.` | （無） |
-| 推理提示 | （無） | `Let's think step by step.` |
-
-修正後（對稱）——`####` 指示在 No-CoT / CoT 都保留，唯一變量是 `Let's think step by step.` 一行：
-
 ```
 No-CoT:  Solve the following math problem.
          Question: {context}
@@ -24,19 +16,6 @@ CoT:     Solve the following math problem.
 ```
 
 **`####` 措辞 = "Provide your final numeric answer after '####'."（中性）**。一个更催促的变体 `"Give your final answer as a single number after '####'."`（pushy）会诱导**抢答**，被保留为**正向对照（positive control）**——见 §2。
-
-### 0.2 Dopamine Prior Knowledge
-
-行为学先验：多巴胺不是单纯的"快乐分子"，更准确地说是**驱动力 / incentive salience / "wanting"** 递质，调控动机、期待、奖赏趋近与行动阈值。本研究把 α 看作在这一 wanting 轴上双向移动工作点：α 正向对应 **over-wanting / 过度唤起**，α 极端负向对应 **under-wanting / 唤起不足**；整体框架是 Yerkes–Dodson 倒 U——过高过低都有害，最优落在中间偏负（本数据 α=−6）。
-
-- **过高 DA / over-wanting（对应 α→正向）**：行为上表现为**冲动性抢答（impulsivity）+ 认知僵化 / 强迫性反复（compulsivity / perseveration）**——急于扑向"给出答案"这个目标而跳过必要推导，以及拿到答案后仍反复复查、纠结格式、卡在格式死循环里。**注意这更贴合冲动 / 强迫，而非焦虑**：数据中 +α 端**没有**焦虑典型的回避 / freezing / 犹豫（抢答率随 +α 单调上升，见 §2.2），呈现的是"急着 commit"；而 `#### N #### N` 死循环是认知神经科学意义上的**固著（perseveration）**,不是焦虑的发散灾难化担忧。功能上这**与 mesolimbic incentive-salience overload（VTA→NAcc 型 wanting 过载）及执行控制失效相容**：极高的诱因显著性使主体不计成本扑向目标（冲动），同时灵活切换 / 抑制已启动反应的能力下降（固著）——这在行为上更近强迫性 over-checking 与冲动特征，而非焦虑综合征。**注意目前只有行为同构，尚未定位实际脑区对应关系**，故这里说"相容"而非"落在"某一回路。这个签名对应 §2.2「正向端：答案已经出现，但仍无法停止」：α+4 trace 中常见"把已经算对的答案当可疑"（Q100、Q16）和答完仍寻找 "more efficient way"（Q68）。
-- **过低 DA / under-wanting（对应 α→极端负向）**：行为上对应动力不足、快感缺失、退缩、bradykinesia 式的行动迟缓；在本任务中的可观测类比不是"写得短 / 不想答"，而是**commitment-formation failure**。§2.2 文本核验否定了两个更直观假设：α=−8 并非大量出现 "I am done / 不答了" 的词汇性退缩（跨 α 平坦，多为礼貌 loop 尾），也不是敷衍短答（长度 / 等式数平坦）；真正失败模式是 **answer-candidate oscillation**——锁不住答案，在两个候选值之间来回切，导致 committed_acc 崩到 23.6%。
-
-> **主机制表述（本项目采用）**：+α 端 = **over-wanting → 冲动（impulsivity, 抢答）+ 认知僵化 / 强迫性反复（compulsivity / perseveration, loop）**，功能上与 **mesolimbic incentive-salience overload（VTA→NAcc 型）+ 执行控制失效**相容（只声称行为同构，非脑区定位）；−α 极端端 = **under-wanting → commitment-formation failure**。这比"焦虑"框架**机制契合度更高、论述负担更小**：冲动与固著都在我们已有的 wanting / incentive-salience 主线内，无需另起 threat/freeze 回路。
->
-> **限定**：1. 本实验只声称行为同构，**α steering ≠ 生物多巴胺**，也不证明 LLM 有生理或主观状态；2. 不做 mania / hypomania 类比——躁狂是跨情绪+精力+睡眠的综合征，我们只有"冲动+固著"两个窄行为，撑不起该诊断类比；3. 脚本 `analyze_loop_anxiety.py` / `ANXIETY_PATTERNS` 沿用 "anxiety" 命名（改名成本高、破坏 U 形复现），但其命中的四子类（self-doubt / format-fixation / persona-reassurance / over-precision）**实测对应的是强迫性 over-checking，不是临床焦虑**——阅读表格时按"强迫/固著"解读。
->
-> **次要旁证（不作主锚，DA→焦虑另有通路特异性）**：DA 亦有一条独立的焦虑通路证据，最强因果来自 **VTA→IPN（D1）**，机制是威胁高估 / 过度警觉——但这**不是**本数据的主要解释（我们没观测到回避 / freezing），仅作为 DA 多下游效应的旁注列出。来源：[PMC7687288 (VTA→IPN dopamine promotes anxiety)](https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/) · [MIT News 2018 (dopamine vigilance & anxiety)](https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107) · [Frontiers Neurosci 2020 (dopaminergic alteration in anxiety/compulsive disorders)](https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full) · [J. Neurosci 2019 (dopaminergic mechanisms of trait anxiety)](https://www.jneurosci.org/content/39/14/2735)
 
 
 ## 1. Llama on GSM8K: Performance Summary
@@ -483,9 +462,7 @@ CoT 在五个剂量下的点估计都提高约 5–6 pp。原始四剂量的 CoT
 
 #### CoT × Steering Interaction
 
-交互量定义为：
-
-`[Acc(CoT, α) − Acc(CoT, 0)] − [Acc(No-CoT, α) − Acc(No-CoT, 0)]`
+交互量定义为：`[Acc(CoT, α) − Acc(CoT, 0)] − [Acc(No-CoT, α) − Acc(No-CoT, 0)]`
 
 | α | Interaction | Bootstrap 95% CI |
 |---:|---:|---:|
@@ -494,73 +471,56 @@ CoT 在五个剂量下的点估计都提高约 5–6 pp。原始四剂量的 CoT
 | −4 | −0.33 pp | [−6.67, +6.00] |
 | +4 | +0.33 pp | [−6.67, +7.33] |
 
-`−8` 的描述性点估计也接近 0，与原有三个点的近似平行形状一致。原有三个 CI 均跨 0，且约覆盖 ±7 pp，因此当前结果只能说明：
-
-> 未检出 CoT 明显改变 steering 效应的证据。
+`−8` 的描述性点估计也接近 0，与原有三个点的近似平行形状一致。原有三个 CI 均跨 0，且约覆盖 ±7 pp，因此当前结果只能说明：未检出 CoT 明显改变 steering 效应的证据。
 
 这不是等价性证明，也不能证明 CoT 与 steering 机制独立、严格可加或作用于不同内部过程。该交互分析属于 descriptive / exploratory analysis。
 
-### 3.2 Output Behavior
+### 3.2 Dose-Dependent Output Behavior
 
-| Metric | −6 No-CoT | −4 No-CoT | 0 No-CoT | +4 No-CoT | −6 CoT | −4 CoT | 0 CoT | +4 CoT |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Accuracy** | **43.3%** | 40.0% | 36.7% | 33.0% | **49.0%** | 45.0% | 42.0% | 38.7% |
-| **Committed accuracy** | **46.4%** | 45.8% | 42.2% | 37.9% | **53.1%** | 48.7% | 45.3% | 44.1% |
-| **Commit rate** | **92.7%** | 87.3% | 86.0% | 85.3% | 92.3% | 92.3% | 92.7% | 87.0% |
-| Median boxed position | 31% | 21% | 14% | 16% | 34% | 33% | 23% | 28% |
-| Mean boxed position | 50% | 40% | 26% | 33% | 54% | 52% | 36% | 46% |
-| Premature, leading boxed | 14 | 7 | 17 | 8 | 3 | 3 | 19 | 11 |
-| Premature, either rule | 16 | 13 | 29 | 26 | 3 | 6 | 25 | 26 |
-| **Median generation length** | **3,804** | 4,798 | 5,557 | **5,719** | 3,820 | 3,864 | 5,141 | 4,123 |
-| Loop samples | 73 | 76 | 120 | 99 | 73 | 79 | 130 | 102 |
-| At least two `Step` markers | 239 | 168 | 131 | 177 | **292** | 273 | 217 | 185 |
-| Stuck loops | 12 | 10 | 18 | 4 | 12 | 11 | 21 | 15 |
-| Median equation count | 7 | 10 | 10 | 10 | 8 | 7 | 8 | 8 |
-| **Compulsive repetition, full text** | 42 | **40** | 68 | **82** | **12** | 26 | 31 | 49 |
-| Compulsive repetition in loops | 16 / 73 | 15 / 76 | 23 / 120 | 36 / 99 | 8 / 73 | 18 / 79 | 31 / 130 | 23 / 102 |
+本节使用统一口径分析 MATH 输出。`first_acc` 是主要性能指标；`early_cand_rate`、`reason_first_rate` 和 candidate 前后字符数用于描述答案候选与可见推理的先后顺序。`posN_med` 只表示正式 `\boxed{}` marker 的位置，与第一个 answer candidate 不是同一事件。
 
-这里最稳定的行为变化有三项。
+所有条件均包含 300 个样本。`cond_acc` 只在存在有效正式答案 marker 的样本中计算，不替代总体 `first_acc`。
 
-第一，No-CoT 下随着 α 从 `−6` 增加到 `+4`，四个剂量上有三项严格单调：
+**Table 3.5. Llama MATH performance and output behavior**
 
-- committed accuracy 从 46.4% 降至 37.9%；
-- median generation length 从 3,804 增至 5,719 characters；
-- commit rate 从 92.7% 降至 85.3%。
+| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| No-CoT | −8 | 39.33% | 41.00% | 90.67% | 42.65% | 15.33% | 79.86% | 344 | 4308 | 0.2776 | 69.00% |
+| No-CoT | −6 | **43.33%** | **44.00%** | 92.67% | **46.40%** | **6.33%** | 79.44% | **360** | **3449** | 0.3142 | 68.67% |
+| No-CoT | −4 | 40.00% | 39.67% | 87.33% | 45.80% | 10.33% | 53.79% | 68 | 4646 | 0.2140 | 66.00% |
+| No-CoT | 0 | 36.67% | 36.00% | 86.00% | 42.25% | 26.67% | 47.18% | 7 | 5306 | 0.1467 | 63.00% |
+| No-CoT | +4 | 33.00% | 34.00% | 85.33% | 37.89% | 58.33% | 30.11% | 0 | 5596 | 0.1561 | 68.67% |
+| CoT | −8 | 45.33% | 44.67% | 94.33% | 48.06% | 3.33% | 94.96% | 462 | 3061 | 0.4477 | 63.33% |
+| CoT | −6 | **49.00%** | **48.00%** | 92.33% | **53.07%** | **1.00%** | **97.85%** | **493** | 3306 | 0.3413 | 62.00% |
+| CoT | −4 | 45.00% | 44.00% | 92.33% | 48.74% | 2.33% | 92.47% | 443 | 3486 | 0.3257 | 63.33% |
+| CoT | 0 | 42.00% | 41.00% | 92.67% | 45.32% | 12.00% | 79.36% | 290 | 4815 | 0.2330 | 66.33% |
+| CoT | +4 | 38.67% | 38.00% | 87.00% | 44.06% | 45.67% | 44.04% | 0 | 3733 | 0.2791 | 66.00% |
 
-也就是说，正向 α 并没有让模型更快完成答案，而是伴随更长的输出和更少完整收口，同时提交质量下降。补上 `α=−6` 后 commit rate 才显出方向：只看 `−4/0/+4` 时它是 87.3/86.0/85.3，接近持平。
+#### Dose-Dependent Candidate Ordering
 
-第二，CoT 提高了分步结构。至少两个 `Step` marker 的样本数由 No-CoT 的 131–239 增加到 CoT 的 185–292。CoT 条件下 generation length 在 `α=0` 和 `α=+4` 上明显更短（5,557→5,141、5,719→4,123），但在低 α 端几乎不变（`−6`：3,804→3,820；`−4`：4,798→3,864）——低 α 的输出本来就短，压缩空间有限。
+No-CoT 下，负向 α 通常对应更晚出现的 answer candidate 和更多 candidate 前推理。`α=−6` 的 `early_cand_rate` 最低（6.33%），candidate 前字符数中位数为 360，同时取得最高 `first_acc`（43.33%）。当 α 增加至 `+4` 时，`early_cand_rate` 升至 58.33%，`reason_first_rate` 降至 30.11%，candidate 前字符数降至 0，准确率也降至 33.00%。
 
-第三，CoT 在每个共有剂量上都减少了 full-text compulsive repetition：
+candidate 更早出现并不意味着回答更快结束。No-CoT 的 `post_cand_chars_med` 从 `−6` 的 3449 增至 `+4` 的 5596，说明正向 α 更常表现为先出现答案候选、随后继续生成大量内容，而不是立即完成回答。
 
-- `α=−6`：42 → 12
-- `α=−4`：40 → 26
-- `α=0`：68 → 31
-- `α=+4`：82 → 49
+`−8` 没有延续 `−6` 的准确率提升：虽然其 `reason_first_rate` 和 candidate 前文本仍处于较高水平，但 `first_acc` 降至 39.33%。这与 §3.1 的结论一致——负向端更适合描述为 `{−8,−6,−4}` 的宽近优区域，而不是越负越好。
 
-`α=−6 + CoT` 的 12/300 是全表最低。因此，CoT 的主要行为作用更像是增加推理结构并减少无效反复，而不是改变 α 的整体方向。
+#### Effect of CoT on Output Organization
 
-两项指标不作为主要证据。**Premature output** 在 MATH 上数量很少（No-CoT 仅 13–29 / 300，GSM8K 是 195–232），且并不单调：`−6/−4/0/+4` 为 16/13/29/26，`−6` 略高于 `−4`；在这个量级上 3 例差异不承载方向结论。**Boxed position** 只反映输出书写位置：`\boxed{}` 按 LaTeX 惯例本就靠近文末，§4.3 已将 MATH 的 boxed position 定为阴性对照（九档 α 只有 1.0× 动态范围），真正的承诺读数是 early-candidate rate。两者都不能用来判断答案在内部何时形成。
+CoT 在所有共有剂量下都降低了 `early_cand_rate`，并提高了 `reason_first_rate`。变化在负向条件下最明显：
 
-#### Performance by Difficulty
+- `α=−6`：`early_cand_rate` 从 6.33% 降至 1.00%，`reason_first_rate` 从 79.44% 升至 97.85%；
+- `α=−4`：`early_cand_rate` 从 10.33% 降至 2.33%，`reason_first_rate` 从 53.79% 升至 92.47%；
+- `α=0`：`early_cand_rate` 从 26.67% 降至 12.00%，`reason_first_rate` 从 47.18% 升至 79.36%。
 
-| Level | n | α=−6 | α=−4 | α=0 | α=+4 |
-|---|---:|---:|---:|---:|---:|
-| L1 | 21 | 18 (86%) | 16 (76%) | 15 (71%) | 15 (71%) |
-| L2 | 55 | 36 (65%) | 40 (73%) | 35 (64%) | 32 (58%) |
-| L3 | 60 | 35 (58%) | 27 (45%) | 24 (40%) | 25 (42%) |
-| L4 | 75 | 23 (31%) | 22 (29%) | 21 (28%) | 16 (21%) |
-| L5 | 89 | 18 (20%) | 15 (17%) | 15 (17%) | 11 (12%) |
-| **All** | **300** | **43.3%** | **40.0%** | **36.7%** | **33.0%** |
+但 CoT 没有改变整体剂量方向。CoT 下仍是 `−6` 表现最好，而 `+4` 同时具有最高的 `early_cand_rate` 和最低的准确率。CoT 因此主要改善输出组织，而不是消除 α 对 candidate ordering 的影响。
 
-五个难度层都满足 `α=−6 ≥ α=0 ≥ α=+4`，说明总体方向并非由单一难度层造成。`α=−6` 在 L1/L3/L4/L5 上是该层最高，仅 L2 例外（65% vs `−4` 的 73%）。
+#### Submission and Marker Behavior
 
-较大的差异出现在 L2 和 L3：
+`valid_sub_rate` 在 No-CoT 下为 85.33%–92.67%，CoT 下为 87.00%–94.33%；`cond_acc` 与总体准确率呈现相似排序。因此，主要曲线不能简单归因于某个剂量无法生成正式答案。
 
-- L3：`α=−6` 相比 `α=0` 提高 18 pp，是所有层级中最大的增益。
-- L2：`α=−6` 反而略低于 `α=−4`（65% vs 73%）。
+`multi_marker_rate` 在全部条件下都较高（62.00%–69.00%），但没有随准确率呈现一致变化。`posN_med` 同样不与性能稳定对应。这两项更适合作为输出格式和答案修订的辅助指标，不能单独判断答案在内部何时形成。
 
-分层后每层仅 21–89 题，单元格计数低至 11–40。这些层级差异只用于说明总体方向不是由某一层驱动，**不宜逐层作统计推断**；`α=−6` 在 L2 的回落尤其应视为小样本波动，而非剂量效应在该难度上反转。
+**Conclusion.** Llama MATH 的较好表现与适度负向 α、较少 early candidate 和更多 candidate 前推理同时出现；正向 α 则更常先形成 candidate，再继续生成较长文本。CoT 能改善输出结构，但不会改变这一总体剂量方向。这些结果属于干预后的输出关联，不构成因果中介证据。
 
 ### 3.3 Repetition Content and Persona Effects
 
@@ -723,28 +683,29 @@ MATH 则在 `+6` 后出现回落。No-CoT 的 `first_acc` 从 68.33% 降至 63.3
 
 **Conclusion.** Qwen 的高剂量边界具有任务依赖性：GSM8K 表现为平台，MATH 则出现回落。相同方向的 output reordering 可以对应不同的性能结果。
 
-### 4.4 Cross-Model Summary
+### 4.3 Cross-Model Summary
 
-**Table 4.8. Behavioral comparison between Llama and Qwen**
+Llama3.1-8B 与 Qwen2.5-7B 使用相同的分析框架，但二者的有效 α 方向和剂量曲线并不相同。由于模型使用不同的 mask、层带和激活尺度，raw α 不能作为跨模型的共同剂量；可比较的是 performance curve 和 output behavior 的变化形态。
+
+**Table 4.4. Behavioral comparison between Llama and Qwen**
 
 | Dimension | Llama3.1-8B | Qwen2.5-7B |
-|---|---|---|
-| GSM8K curve | Asymmetric peak at moderate negative α | Rises at positive α and saturates through `+12` |
-| MATH curve | Best performance near moderate negative α | Peaks near `+6`, then declines at `+8` |
-| Main output change | Positive α is associated with earlier commitment and repetition; extreme negative α produces a separate failure mode | Positive α suppresses early candidates and moves computation before the first formal answer |
-| CoT | Improves structure and can delay commitment at moderate doses | Improves low-dose accuracy, but ordering changes mainly near `+6` |
-| Cross-model interpretation | Model-specific response | Model-specific response |
+| --- | --- | --- |
+| GSM8K performance curve | No-CoT 在负向区域表现较好；CoT 的 `−4` 是清晰的局部峰 | No-CoT 在 `+8～+12` 进入平台；CoT 的近优区域为 `{+6,+8}` |
+| MATH performance curve | `{−8,−6,−4}` 构成宽的负向近优区域 | No-CoT 在 `+6` 达到较高点，`+8` 出现回落；CoT 剂量差异较弱 |
+| Main output change | 适度负向 α 通常减少 early candidate、增加 reason-first output；正向 α 更常伴随提前回答和较长的 post-candidate generation | 正向 α 通常减少 early candidate、增加 reason-first output，并压缩 post-candidate generation |
+| High-dose boundary | GSM8K 的极端负向 `−8` 形成独立失败模式；正向 α 整体降低表现 | GSM8K 在高剂量饱和，MATH 则在 ordering change 继续增强时出现准确率回落 |
+| Effect of CoT | 增加 step structure、减少 repetition，并提高答案稳定性，但不会消除 dose dependence | 改善部分条件的输出结构和准确率，但主要 transition 仍集中在正向区域 |
+| Near-optimal region | GSM8K 与 MATH 的有效区域均位于负向 α，但具体范围依任务和 CoT 而变 | GSM8K 的有效区域位于正向高剂量；MATH 的有效范围更窄 |
+| Cross-model interpretation | 模型特定的负向响应 | 模型特定的正向响应 |
 
-The same analysis framework identifies commitment-related behavior in both models, but the behavioral dose-response does not replicate point by point. Llama shows an asymmetric peak, whereas Qwen shows a GSM8K high-dose plateau and a task-specific MATH decline.
+两个模型在 raw α 上呈现相反方向，但这不表示它们的 baseline 位于相反的内部状态，也不表示各自最佳剂量到达了同一个内部工作点。因此，这里属于 **cross-model analysis**，不能描述为逐点 replication。
 
-The two models also respond in opposite raw-α directions. This does not establish that their baselines occupy opposite internal states or that their best doses reach the same working state. Cross-model comparison should therefore focus on the shape of the behavioral transition, not on matching α values.
+尽管剂量方向不同，两种模型在较高表现区域中呈现一个共同的 behavioral signature：第一个 answer candidate 通常更晚出现，candidate 之前包含更多可见推理，candidate 之后的无效延伸相对减少。换句话说，有效工作点通常减少“先报答案、再补过程”的输出模式。
 
-In simple terms:
+但这一关系不是充分条件。Qwen MATH 在 `+8` 时，`early_cand_rate` 继续下降、`reason_first_rate` 继续上升，准确率却从 `+6` 的较高点回落；Llama 的极端负向条件也表明，进一步推迟或改变答案提交并不一定继续改善表现。output reordering 可以描述较优状态，但不能单独预测准确率。
 
-1. Qwen’s improvement is associated with moving calculation before the first formal answer, rather than producing more text.
-2. This reordering helps until it begins to compress the computation needed for difficult MATH problems.
-3. The analysis framework transfers across models, but the optimal direction and dose-response remain model- and task-specific.
-4. These results support a computational commitment-gain interpretation, not literal biological dopamine or a universal wanting axis.
+**Conclusion.** RSN steering 可以在不同模型中重组 reasoning text 与 answer candidate 的输出顺序，但有效方向、近优范围和高剂量边界都依赖模型与任务。共同之处不是某个固定 α，而是较优工作点通常更少出现过早的 answer candidate；这一现象仍是干预后的行为读数，不能直接解释为内部推理机制或因果中介。
 
 ## 5. Commitment-Based Prediction and Workpoint Selection
 
