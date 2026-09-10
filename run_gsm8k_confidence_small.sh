@@ -22,17 +22,20 @@
 #
 # Output: components/llama3/answer_mdf_gsm8k_confidence/mdf_{alpha}/
 #   New cells: mdf_-1, mdf_-0.5, mdf_0.5, mdf_1
-#   (same ANS_FILE tree as the existing 5-dose pilot — the four new cells sit
-#   alongside mdf_-4/-2/0/2/4 in that tree; get_answer_regenerate_gsm8k.py's
-#   own per-config directory (`mdf_{alpha}`) already fails closed against
-#   silently overwriting a different alpha's data, since each alpha gets its
-#   own subdirectory name.)
+#
+# OVERWRITE GUARD (load-bearing — get_answer_regenerate_gsm8k.py has NONE of
+# its own): it writes every output file via plain `open(..., "w")`, so
+# `os.makedirs(out_dir, exist_ok=True)` at line 149 is the ONLY thing standing
+# between a rerun and silently clobbering an existing cell's JSON/CSV. This
+# launcher therefore checks, BEFORE calling the script, that none of the four
+# target mdf_* directories already contain that config's output file, and
+# refuses to run if any do.
 #
 # Run all 4 new doses on ONE machine / ONE GPU model (bf16 greedy is not
-# byte-reproducible across GPUs — see CLAUDE.md's cross-machine rule), and
-# ideally the SAME machine/GPU model as the original 5-dose pilot for the
-# fullest dose-response comparability (not required for correctness, since
-# each alpha is independently valid, but recommended).
+# byte-reproducible across GPUs — see CLAUDE.md's cross-machine rule), and on
+# the SAME machine/GPU model as the original 5-dose pilot — required for a
+# strict dose-response comparison across all nine points, not merely
+# recommended.
 #
 # Usage: bash run_gsm8k_confidence_small.sh
 # ================================================================================
@@ -66,6 +69,35 @@ BASE_DIR="${WORK_DIR}/components"
 ANS_FILE="answer_mdf_gsm8k_confidence"
 
 cd "${WORK_DIR}"
+
+# ==================== Overwrite guard (fail BEFORE any generation) ====================
+# get_answer_regenerate_gsm8k.py has no overwrite protection of its own — its
+# output path is deterministic (SAVE_ROOT/mdf_{alpha}/gsm8k_{size}_answers_{TOP}_{st}_{en}.json),
+# so refuse to launch if any of the four new-dose target files already exist.
+TOP=$(python3 -c "print(max(1, int(${PERCENTAGE} / 100 * 4096)))" 2>/dev/null || python -c "print(max(1, int(${PERCENTAGE} / 100 * 4096)))")
+SAVE_ROOT="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}"
+NEW_ALPHAS=(neg1 neg0.5 0.5 1)
+BLOCKED=0
+for a in "${NEW_ALPHAS[@]}"; do
+    # translate the config token (e.g. "neg0.5") to the mdf_{alpha} dirname
+    # (e.g. "mdf_-0.5"), matching utils.parse_configs + f"mdf_{alpha}" exactly.
+    if [[ "${a}" == neg* ]]; then
+        DIRALPHA="-${a#neg}"
+    else
+        DIRALPHA="${a}"
+    fi
+    TARGET="${SAVE_ROOT}/mdf_${DIRALPHA}/gsm8k_${MODEL_SIZE}_answers_${TOP}_${LAYER_START}_${LAYER_END}.json"
+    if [ -f "${TARGET}" ]; then
+        echo "[REFUSE] existing output found, will not overwrite: ${TARGET}"
+        BLOCKED=1
+    fi
+done
+if [ "${BLOCKED}" -eq 1 ]; then
+    echo "One or more target cells already exist. Aborting before any generation."
+    echo "Delete the conflicting file(s) deliberately first if a rerun is truly intended."
+    exit 1
+fi
+echo "[OK] no existing output at any of: mdf_{-1,-0.5,0.5,1} — safe to proceed."
 
 echo "=================================================="
 echo "GSM8K Confidence-neuron steering — SMALL-DOSE supplement | ${MODEL_NAME} (${MODEL_SIZE})"
