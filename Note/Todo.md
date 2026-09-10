@@ -47,6 +47,6 @@
 35. cross-steering: MMLUE ✔
 36. cross-steering: GSM8K ✔
 ---
-37. 统一各个任务的行为统计指标
+37. 统一各个任务的行为统计指标 ⏸
 
 38. 再确认一下Loop的问题
