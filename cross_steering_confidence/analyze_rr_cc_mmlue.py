@@ -609,11 +609,25 @@ def main():
         "formal_dose_set": ALPHAS_FORMAL,
         "roles": ROLES,
         "categories": CATEGORIES,
-        "primary_summary": "task_macro (matches the historical 'Average of Tasks' convention). "
-                            "sample_micro is supplementary.",
+        "primary_summary": "task_macro (matches the historical 'Average of Tasks' convention) "
+                            "for accuracy/E-rate/wrong_non_E-rate. sample_micro is supplementary "
+                            "for those metrics. For CONDITIONAL ACCURACY specifically, "
+                            "summary_pooled_conditional_accuracy.csv (pooled over all samples "
+                            "across all 57 tasks) is PRIMARY -- the task-macro conditional "
+                            "accuracy in summary_task_macro.csv is SUPPLEMENTARY, because on "
+                            "the unconfident role individual tasks can be 100% E at low alpha "
+                            "(conditional accuracy undefined -> NaN -> dropped from that task's "
+                            "macro average), which can silently change the effective task set "
+                            "across doses if read as primary.",
         "field_naming": "'wrong_non_E' replaces the old 'invalid' name.",
         "bootstrap": {
-            "method": "task-clustered (resample the 57 tasks with replacement), percentile 95% CI",
+            "method": "task-clustered (resample the 57 tasks with replacement), percentile 95% "
+                      "CI, for accuracy/E-rate/wrong_non_E-rate and the SUPPLEMENTARY "
+                      "task-macro conditional accuracy. The PRIMARY pooled conditional "
+                      "accuracy and its paired difference use a SAMPLE-level bootstrap "
+                      "(resample individual question-role pairs / common question keys "
+                      "with replacement), NOT task-clustered, since pooling already "
+                      "operates at the sample level.",
             "n_bootstrap": args.n_bootstrap, "seed": BOOTSTRAP_SEED,
         },
         "scope_note": "SIMPLIFIED stage: RR and CC only, no RC/CR, no random control, no "
