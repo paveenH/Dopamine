@@ -385,24 +385,45 @@ def option_token_ids(vc, LABELS):
     return ids
 
 
+def _parse_alpha_token(raw: str):
+    """
+    Parse one alpha token as int first; only on int-parse failure fall back to
+    float (e.g. "0.5" / "1.0"). This keeps every existing integer config's
+    return value and `mdf_{alpha}` directory name byte-identical — a float
+    branch is only reached for genuinely fractional doses. A float that is
+    numerically whole (e.g. "1.0") is normalized back to int so it can never
+    produce "mdf_1.0" instead of "mdf_1".
+    """
+    try:
+        return int(raw)
+    except ValueError:
+        value = float(raw)  # raises ValueError on non-numeric input, same as int() above
+        if not np.isfinite(value):
+            raise ValueError(f"alpha token '{raw}' is not finite")
+        return int(value) if value.is_integer() else value
+
+
 def parse_configs(configs: list[str]):
     """
     Convert ['4-16-22', '1-1-29', 'neg1-11-20']
     → [[4, (16, 22)], [1, (1, 29)], [-1, (11, 20)]]
+
+    Alpha accepts int OR float tokens (e.g. '0.5-11-20', 'neg0.5-11-20'); see
+    `_parse_alpha_token`. Integer inputs are completely unaffected.
     """
     parsed = []
     for cfg in configs:
         try:
             parts = cfg.strip().split("-")
             if parts[0].startswith("neg"):
-                alpha = -int(parts[0][3:])
+                alpha = -_parse_alpha_token(parts[0][3:])
                 start, end = map(int, parts[1:])
             else:
-                alpha = int(parts[0])
+                alpha = _parse_alpha_token(parts[0])
                 start, end = map(int, parts[1:])
             parsed.append([alpha, (start, end)])
         except Exception:
-            raise ValueError(f"Invalid config format: '{cfg}', should be alpha-start-end (e.g., 4-16-22 or neg1-11-20)")
+            raise ValueError(f"Invalid config format: '{cfg}', should be alpha-start-end (e.g., 4-16-22, neg1-11-20, 0.5-11-20, or neg0.5-11-20)")
     return parsed
 
 
