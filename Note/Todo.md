@@ -48,5 +48,6 @@
 36. cross-steering: GSM8K ✔
 ---
 37. 统一各个任务的行为统计指标 ⏸
-
+38. 缩小confidence alpha MMLUE ⏸
+39. 缩小confidence alpha GSM8K ⏸
 38. 再确认一下Loop的问题
