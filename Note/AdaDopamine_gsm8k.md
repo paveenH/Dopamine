@@ -630,9 +630,9 @@ MATH 上的主要结果可以概括为：
 
 ### 4.1 Performance and Dose-Dependent Output Behavior
 
-本节统一使用 `first_acc` 作为主要性能指标，`last_acc` 用于观察后续答案修订。`early_cand_rate` 和 `reason_first_rate` 描述第一个 answer candidate 前后的可见输出顺序；`posN_med` 则表示正式答案 marker 在全文中的位置。candidate 与 marker 不是同一事件，相关指标均为干预后的描述性读数。
+本节使用 `first_acc` 作为主要性能指标，`last_acc` 用于观察后续答案修订。`early_cand_rate` 和 `reason_first_rate` 描述第一个 answer candidate 前后的可见输出顺序；`posN_med` 表示正式答案 marker 在全文中的位置。candidate 与 marker 不是同一事件，相关指标均为干预后的描述性读数。
 
-所有条件均包含 300 个样本。`cond_acc` 只在存在有效正式答案 marker 的样本中计算，因此用于检查输出格式和条件准确率，不替代总体 `first_acc`。
+所有条件均包含 300 个样本。`cond_acc` 只在存在有效正式答案 marker 的样本中计算，因此用于检查输出格式和条件准确率，不替代总体 `first_acc`。raw α 只表示对应实验中的干预强度，不应视为跨模型或跨任务的等效剂量。
 
 #### GSM8K
 
@@ -661,13 +661,9 @@ MATH 上的主要结果可以概括为：
 | CoT | +6 | **88.33%** | **89.00%** | 93.00% | **89.61%** | 34.33% | 69.33% | 136 | 626 | 0.8458 | 30.33% |
 | CoT | +8 | 86.00% | 84.00% | 100.00% | 86.00% | 7.00% | 93.33% | 173 | 450 | 0.8255 | 25.00% |
 
-GSM8K 的主要变化集中在 `+6` 至 `+8`。在 No-CoT 下，`early_cand_rate` 从 α=0 的 96.33% 降至 `+8` 的 5.00%，`reason_first_rate` 从 0.00% 升至 98.00%，同时 `first_acc` 从 68.00% 提高到 86.00%。继续增加至 `+10/+12` 后，准确率只小幅提高至 88.33%–88.67%，说明当前观察到的是上升后的高剂量平台，而不是明确的单点峰值。
+GSM8K 的主要性能变化集中在 `+6/+8`。No-CoT 中，`+6`（Holm `p_adj=.016`）和 `+8`（`p_adj<1e−4`）显著高于 α=0，其余原始剂量未通过校正。继续增加至探索性的 `+10/+12` 后，`first_acc` 仅从 86.00% 小幅升至 88.33%–88.67%，因此当前结果更接近高剂量平台，而不是明确的单点峰值。
 
-原九档 No-CoT 检验中，`+6`（Holm `p_adj=.016`）和 `+8`（`p_adj<1e−4`）显著高于 α=0；其余剂量未通过校正。`+10/+12` 是观察原九档结果后追加的探索性剂量，不属于该 Holm family，因此主要用于判断平台是否延续。
-
-CoT 下也在 `+6/+8` 出现明显的 candidate-ordering transition。`+6` 的 `first_acc` 为 88.33%，`+8` 为 86.00%，二者的探索性配对比较不显著（`p=.371`），因此更适合将其描述为 `{+6,+8}` 的近优区域。相对 α=0，`+6`（Holm `p_adj=.0002`）和 `+8`（`p_adj=.0030`）均显著提高准确率。
-
-需要注意的是，`posN_med` 与 candidate 指标并不完全同步。例如，No-CoT 从 α=0 到 `+8` 时，`early_cand_rate` 大幅下降，但正式 marker 的位置只从 0.8077 变为 0.7632。这说明正向 α 主要改变的是第一个 answer candidate 之前的输出顺序，不能仅凭正式 marker 的位置判断答案何时形成。
+CoT 的最高准确率出现在 `+6`，相对 α=0 的 Holm `p_adj=.0002`；`+8` 同样显著（`p_adj=.0030`）。但 `+6` 与 `+8` 没有显著差异（探索性 `p=.371`），因此更适合将 `{+6,+8}` 视为近优区域。
 
 #### MATH
 
@@ -694,15 +690,9 @@ CoT 下也在 `+6/+8` 出现明显的 candidate-ordering transition。`+6` 的 `
 | CoT | +6 | **66.00%** | **65.67%** | 99.67% | **66.22%** | 29.67% | 62.50% | 164 | 970 | 0.9677 | 22.67% |
 | CoT | +8 | 64.00% | 64.33% | 99.67% | 64.21% | 10.33% | 85.96% | 252 | 816 | 0.9640 | 27.67% |
 
-MATH 也表现出清晰的 output-ordering transition。No-CoT 的 `early_cand_rate` 从 α=0 的 67.33% 降至 `+6` 的 19.33% 和 `+8` 的 10.33%，`reason_first_rate` 则从 11.11% 升至 77.59% 和 86.16%。但是，`first_acc` 在 `+6` 达到 68.33% 后，于 `+8` 回落至 63.33%。因此，减少 early candidate 并不保证准确率持续提高。
+MATH No-CoT 的最高准确率出现在 `+6`，相对 α=0 提高 7.67 pp，并通过 Holm 校正（`p_adj=.0087`）。继续增加至 `+8` 后，准确率回落至 63.33%；`+6` 与 `+8` 的探索性配对比较为 `p=.040`，形成描述性的高剂量右臂。
 
-No-CoT 中只有 `+6` 相对 α=0 通过 Holm 校正（`p_adj=.0087`）；`+6` 与 `+8` 的探索性配对比较为 `p=.040`。这支持一个描述性的右臂：适度推迟 candidate 与准确率提升同时出现，但进一步增加剂量后，输出顺序继续变化，性能却开始下降。
-
-CoT 下呈现相似但更弱的曲线：`first_acc` 从 α=0 的 63.00% 升至 `+6` 的 66.00%，随后在 `+8` 降至 64.00%。各剂量相对 α=0 的比较均为 Holm `p_adj=1.000`。逐剂量比较 CoT 与 No-CoT 时，也没有结果通过校正；最大差异出现在 `α=−4`（+7.00 pp，raw `p=.0065`，Holm `p_adj=.0581`）。
-
-MATH 的 `valid_sub_rate` 始终约为 97%–100%，所以 `cond_acc` 与总体准确率接近。与此同时，`posN_med` 在所有条件下都接近 1，说明正式的 `\boxed{}` marker 几乎总在输出末尾。相较之下，candidate-based 指标能够更清楚地显示剂量变化，因此 MATH 的 answer ordering 应主要依据 `early_cand_rate`、`reason_first_rate` 和 `pre_cand_chars_med` 判断。
-
-**Conclusion.** Qwen 在 GSM8K 与 MATH 上都出现了由正向 α 驱动的 output-ordering transition，但性能曲线不同：GSM8K 在高剂量进入平台，MATH 则在 `+6` 后出现回落。由此可见，推迟 answer candidate 与增加 reason-first output 可以伴随准确率提升，但不能单独保证更好的任务表现。
+CoT 的曲线更平缓：`first_acc` 从 α=0 的 63.00% 升至 `+6` 的 66.00%，随后在 `+8` 变为 64.00%。各剂量相对 α=0 的比较均为 Holm `p_adj=1.000`。逐剂量比较 CoT 与 No-CoT 时，也没有结果通过校正；最大差异为 `α=−4` 的 +7.00 pp（raw `p=.0065`，Holm `p_adj=.0581`）。
 
 **Table 4.3. Output reordering from baseline to the main workpoint**
 
@@ -715,57 +705,23 @@ MATH 的 `valid_sub_rate` 始终约为 97%–100%，所以 `cond_acc` 与总体�
 
 #### Commitment Reordering across Tasks
 
-GSM8K 与 MATH 都出现了明显的 output reordering：随着正向 α 增加，`early_cand_rate` 下降，`reason_first_rate` 上升，更多可见推理被移到第一个 candidate 之前。
+GSM8K 与 MATH 都出现了明显的 output reordering：随着正向 α 增加，`early_cand_rate` 下降，`reason_first_rate` 上升，更多可见推理出现在第一个 candidate 之前。
 
-但这种变化与准确率的关系因任务而异。GSM8K 的 reordering 与性能提升同时出现，并在 `+6/+8` 附近进入近优平台；MATH 的准确率在 `+6` 达到较高点后回落，而 candidate ordering 在 `+8` 仍继续变化。这说明减少 early candidate 可能与更好的输出状态相关，但不是提高准确率的充分条件。
+但 reordering 与准确率的关系因任务而异。GSM8K 中，输出顺序变化与性能提升同时出现，并在 `+6/+8` 附近进入近优平台；MATH 中，准确率在 `+6` 达到较高点后回落，但 candidate ordering 在 `+8` 仍继续变化。因此，减少 early candidate 可能与更好的输出状态相关，但不是提高准确率的充分条件。
 
-MATH 的 `\boxed{}` 通常位于输出末尾，因此 `posN_med` 难以区分答案形成顺序。本节主要依据 candidate-based metrics 描述 output ordering。所有指标均为干预后的输出读数，不能作为因果中介证据。
+MATH 的正式 `\boxed{}` marker 通常位于输出末尾，因此 `posN_med` 难以区分答案形成顺序。本节主要依据 candidate-based metrics 描述 output ordering。所有相关指标均为干预后的输出读数，不能作为因果中介证据。
 
-### 4.3 Task-Dependent High-Dose Behavior
+**Conclusion.** 正向 α 会系统性改变 Qwen 的输出顺序，但性能结果具有明显的任务边界：GSM8K 在高剂量进入平台，MATH 则在 `+6` 后出现回落。
 
-GSM8K 和 MATH 在 commitment transition 之后呈现不同的高剂量结果。
+### 4.2 High-Dose Boundary Checks
 
-**Table 4.5. Task-dependent response after the main transition**
+GSM8K 与 MATH 在主要 output-ordering transition 后呈现不同结果。GSM8K No-CoT 的准确率从 `+8` 到 `+12` 保持在 86.00%–88.67%，形成高剂量平台。完整性检查显示，这些条件没有空输出，截断率不超过 1.0%，clean subset accuracy 仍为 84%–88%，因此平台不能简单归因于生成失败或极端 marker 重复。
 
-| Condition | Main transition | High-dose pattern | Interpretation |
-|---|---|---|---|
-| GSM8K No-CoT | Accuracy and commitment ordering change around `+6/+8` | Accuracy remains at 86.00%–88.67% through `+12` | Rise followed by saturation; no observed right arm |
-| GSM8K CoT | Transition occurs near `+6` | `+6` and `+8` are not statistically separated | Right arm not established |
-| MATH No-CoT | Accuracy peaks at `+6` | Falls from 68.33% to 63.33% at `+8` | Descriptive right arm |
-| MATH CoT | Low-dose performance improves | Peaks near `+6`, with weaker dose separation | CoT compresses the observed dose effect |
+MATH 则在 `+6` 后出现回落。No-CoT 的 `first_acc` 从 68.33% 降至 63.33%，下降主要集中在 Level 5：准确率由 47.2% 降至 36.0%；CoT 的 Level 5 准确率也由 43.8% 降至 36.0%。与此同时，`early_cand_rate` 仍继续下降，说明 candidate 更晚出现并不一定带来更高准确率。
 
-#### GSM8K high-dose integrity
+少量极端 `\boxed{}` 重复主要影响 `last_acc`，不改变以 `first_acc` 为主的结论。完整性检查、post-treatment 分组和 marker repetition 明细记录于 `CLAUDE.md`。
 
-**Table 4.6. GSM8K No-CoT high-dose integrity checks**
-
-| α | contamination% | empty% | truncated% | clean n | clean acc | `####` count p99 |
-|---:|---:|---:|---:|---:|---:|---:|
-| 0 | 17.7 | 0.0 | 1.7 | 247 | 70.85 | 61 |
-| +6 | 44.7 | 0.0 | 0.7 | 166 | 78.31 | 29 |
-| +8 | 60.3 | 0.0 | 0.7 | 119 | 84.03 | 18 |
-| +10 | 58.7 | 0.0 | 1.0 | 124 | 87.90 | 21 |
-| +12 | 59.7 | 0.0 | 1.0 | 121 | 84.30 | 7 |
-
-高剂量下没有空生成，截断率始终不超过1.0%，干净子集准确率也维持在84%–88%。因此，GSM8K 的平台不能简单归因于空输出、截断或极端 marker 重复。由于干净子集是根据干预后的输出行为筛选，只用于完整性检查，不用于估计跨剂量因果效应。
-
-#### MATH gain and high-dose decline
-
-**Table 4.7. Post-treatment early-candidate transitions from α=0 to α=+6**
-
-| Transition | n | acc@0 | acc@+6 | Δ |
-|---|---:|---:|---:|---:|
-| Early candidate removed (`y→n`) | 149 | 51.7 | 66.4 | **+14.8pp** |
-| Early candidate retained (`y→y`) | 53 | 54.7 | 56.6 | +1.9pp |
-| Absent in both cells (`n→n`) | 93 | 78.5 | 79.6 | +1.1pp |
-| Early candidate newly appears (`n→y`) | 5 | 60.0 | 40.0 | −20.0pp |
-
-准确率提升主要集中在 early candidate 被抑制的 `y→n` 样本，而原本就没有 early candidate 的 `n→n` 样本变化很小。不过，这些组别由干预后的输出定义，因此只能说明准确率提升与 ordering change 相关，不能证明后者是因果中介。
-
-MATH 的高剂量回落主要集中在困难题。Level 5 的 No-CoT 准确率为40.4%→47.2%→36.0%，CoT 为38.2%→43.8%→36.0%（α=0/+6/+8）。与此同时，No-CoT 提交前字符由1029降至828，而提交后字符始终约为27–34，截断率接近0%。
-
-因此，`+8` 的回落更符合难题所需的提交前计算被进一步压缩，而不是提交后的修改失控。early-candidate 越少并不一定越好；有效表现需要在延迟提交与保留足够计算之间取得平衡。
-
-MATH 还存在少量极端 `\boxed{}` 重复。No-CoT 下该现象随正向剂量下降，但 CoT 的 marker-count p99 在 α=0/+6/+8 仍为106/121/113。它高度集中于少数样本——CoT `+8` 只有8/300个样本出现至少20次 marker——并且主要影响 `last_acc`，不改变以第一次答案计算的 `first_acc` 主结论。
+**Conclusion.** Qwen 的高剂量边界具有任务依赖性：GSM8K 表现为平台，MATH 则出现回落。相同方向的 output reordering 可以对应不同的性能结果。
 
 ### 4.4 Cross-Model Summary
 
@@ -789,10 +745,6 @@ In simple terms:
 2. This reordering helps until it begins to compress the computation needed for difficult MATH problems.
 3. The analysis framework transfers across models, but the optimal direction and dose-response remain model- and task-specific.
 4. These results support a computational commitment-gain interpretation, not literal biological dopamine or a universal wanting axis.
-
-下面内容可直接替换现有第 5、6 节。
-
----
 
 ## 5. Commitment-Based Prediction and Workpoint Selection
 
