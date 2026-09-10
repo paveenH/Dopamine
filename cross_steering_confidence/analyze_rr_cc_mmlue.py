@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Analysis for the SIMPLIFIED Role self-steering (RR) / Confidence
-self-steering (CC) MMLU-E experiment, REVISED 2026-09-08 formal dose set
-alpha in {0, +2, +4, +6} (RSN-paper-style positive-dose-only comparison;
-negative doses -2/-4 are not run this round -- they verify bidirectional
-control and are not needed for this round's positive-effect comparison).
+self-steering (CC) MMLU-E experiment, REVISED 2026-09-10 formal dose set
+alpha in {0, +0.5, +1, +2, +4} (small-dose CC supplement merged into the
+existing 0/2/4 cells; +6 was never run and is EXCLUDED from ALPHAS_FORMAL --
+negative doses -2/-4 are also not part of this formal set; they verify
+bidirectional control and are not needed for this round's positive-effect
+comparison).
 
 Only RR and CC are IN SCOPE conceptually here -- NO RC/CR, NO random control,
 NO cross-steering internal comparisons (that matrix is deferred to a later
@@ -35,10 +37,28 @@ Reports, per (condition, alpha, role):
   - sample-level MICRO accuracy / E-rate / wrong_non_E-rate
   - task-level MACRO-average accuracy / E-rate (PRIMARY, matches the
     historical "Average of Tasks" convention; micro is SUPPLEMENTARY)
+  - POOLED conditional accuracy = accuracy / (1 - E-rate), pooling ALL
+    samples across all 57 tasks before dividing (PRIMARY for conditional
+    accuracy, summary_pooled_conditional_accuracy.csv). This is
+    deliberately NOT a task-macro average: on the unconfident role many
+    individual tasks can be 100% E at low alpha, which would make a
+    per-task conditional accuracy NaN and silently drop that task from a
+    macro average -- possibly a DIFFERENT set of tasks at each alpha, which
+    would make "task-macro conditional accuracy" incomparable across doses.
+    Task-macro conditional accuracy is still reported (summary_task_macro.csv)
+    as a SUPPLEMENTARY view, always alongside its effective task count
+    (n_tasks / n_tasks_supplementary), never as the primary cross-dose
+    comparison.
   - four-domain (STEM/Humanities/Social Sciences/Other) micro + macro
   - paired question-level change vs the shared alpha=0 baseline (exact sign
     test, sample-level) + task-clustered bootstrap 95% CI on the macro
-    metric (resampling 57 tasks with replacement, B=10000)
+    metric (resampling 57 tasks with replacement, B=10000), plus a POOLED
+    (non-task-clustered) paired bootstrap CI on the conditional-accuracy
+    difference, resampling the COMMON (task, idx) question keys between the
+    two cells being compared -- this is the PRIMARY conditional-accuracy
+    paired comparison; the task-clustered version is reported alongside as
+    supplementary, restricted to tasks with a defined (non-NaN) conditional
+    accuracy on BOTH sides.
 
 Does NOT modify get_answer_rr_cc_mmlue.py, any mask, mean, or result file.
 Read-only analysis.
@@ -64,9 +84,15 @@ from mmlu_category_map import TASK_TO_CATEGORY, CATEGORIES  # noqa: E402
 CONDITIONS = ["baseline", "RR", "CC"]
 ROLES = ["confident", "unconfident"]
 LABELS = ["A", "B", "C", "D", "E"]
-ALPHAS_FORMAL = [0.0, 2.0, 4.0, 6.0]  # revised 2026-09-08: RSN-paper-style
-                                       # positive-dose comparison. Negative
-                                       # doses (-2, -4) are not run this round.
+ALPHAS_FORMAL = [0.0, 0.5, 1.0, 2.0, 4.0]  # revised 2026-09-10: small-dose CC
+                                       # supplement (0.5, 1) merged with the
+                                       # existing 0/2/4 cells. alpha=6 was
+                                       # never run (no CC/alpha_6 cell exists)
+                                       # and is deliberately excluded here --
+                                       # it is not silently dropped, it was
+                                       # never part of this formal set.
+                                       # Negative doses (-2, -4) are not run
+                                       # this round either.
 N_BOOTSTRAP = 10000
 BOOTSTRAP_SEED = 20260908
 
@@ -133,11 +159,22 @@ def micro_rates(records: dict) -> dict:
     correct = sum(1 for p, t in records.values() if flag_correct(p, t))
     e_count = sum(1 for p, t in records.values() if flag_e(p, t))
     wrong_non_e = sum(1 for p, t in records.values() if flag_wrong_non_e(p, t))
+    accuracy = correct / n if n else float("nan")
+    e_rate = e_count / n if n else float("nan")
+    # Conditional accuracy = accuracy / (1 - E-rate): accuracy AMONG samples
+    # that did not abstain via E. Undefined (nan) when e_rate == 1 (every
+    # sample abstained -- division by zero) or n == 0.
+    non_e_denom = 1.0 - e_rate if not np.isnan(e_rate) else float("nan")
+    conditional_accuracy = (
+        accuracy / non_e_denom if non_e_denom not in (0.0,) and not np.isnan(non_e_denom)
+        else float("nan")
+    )
     return {
         "n": n, "correct": correct, "e_count": e_count, "wrong_non_e": wrong_non_e,
-        "accuracy": correct / n if n else float("nan"),
-        "e_rate": e_count / n if n else float("nan"),
+        "accuracy": accuracy,
+        "e_rate": e_rate,
         "wrong_non_e_rate": wrong_non_e / n if n else float("nan"),
+        "conditional_accuracy": conditional_accuracy,
     }
 
 
@@ -151,6 +188,79 @@ def per_task_rates(records: dict, tasks: list) -> dict:
 def macro_average(per_task: dict, metric: str) -> float:
     vals = [v[metric] for v in per_task.values() if not np.isnan(v[metric])]
     return float(np.mean(vals)) if vals else float("nan")
+
+
+def pooled_conditional_accuracy_ci(records: dict, n_boot: int, rng: np.random.Generator) -> dict:
+    """Sample-level (not task-clustered) bootstrap CI for POOLED conditional
+    accuracy = correct / (1 - E-rate), resampling individual (task, idx)
+    question-role pairs with replacement. This is the PRIMARY conditional-
+    accuracy readout: it pools every sample across all 57 tasks before
+    dividing, so it needs no task to individually have a non-E answer and is
+    never undefined merely because some tasks are 100% E for a given
+    condition/role (which the task-macro average would otherwise silently
+    exclude, changing the effective task set across doses).
+    """
+    keys = list(records.keys())
+    n = len(keys)
+    if n == 0:
+        return {"point": float("nan"), "ci_lo": float("nan"), "ci_hi": float("nan"), "n": 0}
+    correct_flags = np.array([1.0 if flag_correct(*records[k]) else 0.0 for k in keys])
+    e_flags = np.array([1.0 if flag_e(*records[k]) else 0.0 for k in keys])
+
+    def cond_acc(c_sum, e_sum, n_):
+        e_rate = e_sum / n_
+        denom = 1.0 - e_rate
+        return c_sum / n_ / denom if denom > 0 else float("nan")
+
+    point = cond_acc(correct_flags.sum(), e_flags.sum(), n)
+    boot_vals = np.empty(n_boot)
+    for b in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        boot_vals[b] = cond_acc(correct_flags[idx].sum(), e_flags[idx].sum(), n)
+    valid_boot = boot_vals[~np.isnan(boot_vals)]
+    if len(valid_boot) == 0:
+        ci_lo, ci_hi = float("nan"), float("nan")
+    else:
+        ci_lo, ci_hi = np.percentile(valid_boot, [2.5, 97.5])
+    return {"point": point, "ci_lo": float(ci_lo), "ci_hi": float(ci_hi), "n": n}
+
+
+def pooled_conditional_accuracy_paired_diff_ci(records_a: dict, records_b: dict,
+                                                n_boot: int, rng: np.random.Generator) -> dict:
+    """Paired bootstrap CI for the DIFFERENCE in pooled conditional accuracy
+    between two cells, resampling the COMMON (task, idx) keys (paired by
+    question identity, same convention as the sign test / task-clustered
+    diff elsewhere in this script).
+    """
+    common = sorted(set(records_a) & set(records_b))
+    n = len(common)
+    if n == 0:
+        return {"point_diff": float("nan"), "ci_lo": float("nan"), "ci_hi": float("nan"), "n": 0}
+    ca = np.array([1.0 if flag_correct(*records_a[k]) else 0.0 for k in common])
+    ea = np.array([1.0 if flag_e(*records_a[k]) else 0.0 for k in common])
+    cb = np.array([1.0 if flag_correct(*records_b[k]) else 0.0 for k in common])
+    eb = np.array([1.0 if flag_e(*records_b[k]) else 0.0 for k in common])
+
+    def cond_acc(c_sum, e_sum, n_):
+        denom = 1.0 - e_sum / n_
+        return c_sum / n_ / denom if denom > 0 else float("nan")
+
+    point_a = cond_acc(ca.sum(), ea.sum(), n)
+    point_b = cond_acc(cb.sum(), eb.sum(), n)
+    point_diff = point_a - point_b if not (np.isnan(point_a) or np.isnan(point_b)) else float("nan")
+
+    boot_diffs = np.empty(n_boot)
+    for b in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        va = cond_acc(ca[idx].sum(), ea[idx].sum(), n)
+        vb = cond_acc(cb[idx].sum(), eb[idx].sum(), n)
+        boot_diffs[b] = va - vb
+    valid_boot = boot_diffs[~np.isnan(boot_diffs)]
+    if len(valid_boot) == 0:
+        ci_lo, ci_hi = float("nan"), float("nan")
+    else:
+        ci_lo, ci_hi = np.percentile(valid_boot, [2.5, 97.5])
+    return {"point_diff": point_diff, "ci_lo": float(ci_lo), "ci_hi": float(ci_hi), "n": n}
 
 
 def cluster_bootstrap_macro_ci(per_task: dict, metric: str, tasks: list,
@@ -229,6 +339,7 @@ def main():
 
     paths = {
         "sample_micro": out_dir / "summary_sample_micro.csv",
+        "pooled_conditional_accuracy": out_dir / "summary_pooled_conditional_accuracy.csv",
         "task_macro": out_dir / "summary_task_macro.csv",
         "domain": out_dir / "summary_domain.csv",
         "vs_baseline": out_dir / "paired_vs_baseline.csv",
@@ -285,16 +396,48 @@ def main():
         for r in micro_rows:
             w.writerow(r)
 
-    # ---- 2. task-macro (PRIMARY) + cluster bootstrap ----
+    # ---- 1b. POOLED conditional accuracy (PRIMARY for conditional accuracy) ----
+    # Pooled over all samples across all 57 tasks before dividing by (1 -
+    # E-rate), so it is never undefined merely because some individual tasks
+    # are 100% E for a given condition/role -- unlike a task-macro average of
+    # per-task conditional accuracy, which silently drops any task where the
+    # denominator is 0 and can therefore average over a DIFFERENT effective
+    # task set at different alpha. Task-macro conditional accuracy is still
+    # reported below (see summary_task_macro.csv) as a SUPPLEMENTARY view,
+    # together with its effective task count (n_tasks), never as the primary
+    # comparison across doses.
+    pooled_cacc_rows = []
+    for (condition, alpha, role), records in cell_records.items():
+        ci = pooled_conditional_accuracy_ci(records, args.n_bootstrap, rng)
+        pooled_cacc_rows.append({
+            "condition": condition, "alpha": alpha, "role": role,
+            "n_samples": ci["n"],
+            "pooled_conditional_accuracy": ci["point"],
+            "pooled_conditional_accuracy_ci_lo": ci["ci_lo"],
+            "pooled_conditional_accuracy_ci_hi": ci["ci_hi"],
+        })
+    with open(paths["pooled_conditional_accuracy"], "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(pooled_cacc_rows[0].keys()))
+        w.writeheader()
+        for r in pooled_cacc_rows:
+            w.writerow(r)
+
+    # ---- 2. task-macro (PRIMARY for accuracy/E-rate; conditional accuracy here
+    # is SUPPLEMENTARY -- see summary_pooled_conditional_accuracy.csv above) +
+    # cluster bootstrap ----
     macro_rows = []
     for (condition, alpha, role), per_task in cell_per_task.items():
         acc_ci = cluster_bootstrap_macro_ci(per_task, "accuracy", tasks, args.n_bootstrap, rng)
         e_ci = cluster_bootstrap_macro_ci(per_task, "e_rate", tasks, args.n_bootstrap, rng)
         wne_ci = cluster_bootstrap_macro_ci(per_task, "wrong_non_e_rate", tasks, args.n_bootstrap, rng)
+        cacc_ci = cluster_bootstrap_macro_ci(per_task, "conditional_accuracy", tasks, args.n_bootstrap, rng)
         macro_rows.append({
             "condition": condition, "alpha": alpha, "role": role,
             "macro_accuracy": acc_ci["point"], "macro_accuracy_ci_lo": acc_ci["ci_lo"],
             "macro_accuracy_ci_hi": acc_ci["ci_hi"],
+            "macro_conditional_accuracy": cacc_ci["point"],
+            "macro_conditional_accuracy_ci_lo": cacc_ci["ci_lo"],
+            "macro_conditional_accuracy_ci_hi": cacc_ci["ci_hi"],
             "macro_e_rate": e_ci["point"], "macro_e_rate_ci_lo": e_ci["ci_lo"],
             "macro_e_rate_ci_hi": e_ci["ci_hi"],
             "macro_wrong_non_e_rate": wne_ci["point"], "macro_wrong_non_e_rate_ci_lo": wne_ci["ci_lo"],
@@ -345,6 +488,19 @@ def main():
             per_task = cell_per_task[(condition, alpha, role)]
             acc_boot = cluster_bootstrap_paired_diff_ci(per_task, base_per_task, "accuracy",
                                                          tasks, args.n_bootstrap, rng)
+            # Task-macro conditional-accuracy diff: cluster_bootstrap_paired_diff_ci
+            # already restricts to tasks valid (non-NaN) on BOTH sides, i.e. the
+            # common tasks where both this cell and baseline have >=1 non-E
+            # answer -- SUPPLEMENTARY view, its n_tasks is reported explicitly.
+            cacc_boot = cluster_bootstrap_paired_diff_ci(per_task, base_per_task, "conditional_accuracy",
+                                                          tasks, args.n_bootstrap, rng)
+            # Pooled conditional-accuracy diff (PRIMARY): pools all paired
+            # (task, idx) samples across all 57 tasks before dividing, so it
+            # does not depend on which individual tasks happen to have a
+            # non-E answer.
+            pooled_cacc_boot = pooled_conditional_accuracy_paired_diff_ci(
+                records, base_records, args.n_bootstrap, rng
+            )
             e_boot = cluster_bootstrap_paired_diff_ci(per_task, base_per_task, "e_rate",
                                                        tasks, args.n_bootstrap, rng)
             acc_sign = exact_sign_test(records, base_records, flag_correct)
@@ -354,6 +510,14 @@ def main():
                 "macro_accuracy_diff": acc_boot["point_diff"],
                 "macro_accuracy_diff_ci_lo": acc_boot["ci_lo"],
                 "macro_accuracy_diff_ci_hi": acc_boot["ci_hi"],
+                "pooled_conditional_accuracy_diff": pooled_cacc_boot["point_diff"],
+                "pooled_conditional_accuracy_diff_ci_lo": pooled_cacc_boot["ci_lo"],
+                "pooled_conditional_accuracy_diff_ci_hi": pooled_cacc_boot["ci_hi"],
+                "pooled_conditional_accuracy_diff_n_samples": pooled_cacc_boot["n"],
+                "macro_conditional_accuracy_diff_supplementary": cacc_boot["point_diff"],
+                "macro_conditional_accuracy_diff_ci_lo_supplementary": cacc_boot["ci_lo"],
+                "macro_conditional_accuracy_diff_ci_hi_supplementary": cacc_boot["ci_hi"],
+                "macro_conditional_accuracy_diff_n_tasks_supplementary": cacc_boot["n_tasks"],
                 "macro_e_rate_diff": e_boot["point_diff"],
                 "macro_e_rate_diff_ci_lo": e_boot["ci_lo"],
                 "macro_e_rate_diff_ci_hi": e_boot["ci_hi"],
