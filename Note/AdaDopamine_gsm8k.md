@@ -322,77 +322,30 @@ Valid submission rate 仅为 29.00%–40.67%，且没有随准确率同步变化
 
 ### 2.3 How CoT Changes the Output Pattern
 
-下表比较 neutral 条件下 `−4/0/+4 × No-CoT/CoT`。Accuracy 与 §1 相同，在此作为行为变化的参照。
+CoT 的主要作用不是单纯延长回答，而是改变输出的组织方式。为避免与 §2.1 重复，本节只比较 No-CoT 与 CoT 共有的 `α=−4、0、+4` 条件，重点观察 candidate timing、step structure、repetition 和 answer revision。每个条件均包含 300 个样本。:codex-annotation{index="1"}
 
-| Metric | −4 No-CoT | 0 No-CoT | +4 No-CoT | −4 CoT | 0 CoT | +4 CoT |
-|---|---:|---:|---:|---:|---:|---:|
-| **Accuracy** | 73.0% | 60.0% | 55.3% | **85.0%** | 69.0% | 59.7% |
-| Last accuracy | 68.3% | 55.3% | 52.7% | 84.7% | 68.3% | 59.0% |
-| First–last gap | +4.7 pp | +4.7 pp | +2.7 pp | +0.3 pp | +0.7 pp | +0.7 pp |
-| **Committed accuracy** | 78.3% | 68.6% | 63.9% | **81.1%** | 67.3% | 59.8% |
-| `####` commit rate | 58.3% | 62.7% | 49.0% | 31.7% | 37.7% | 29.0% |
-| Median `####` position | 25% | 18% | 16% | 37% | 36% | 41% |
-| Mean `####` position | 28% | 22% | 26% | 37% | 35% | 37% |
-| Premature, leading digit | 195 | 199 | 229 | 48 | 121 | 237 |
-| **Premature, either rule** | **195** | 206 | 232 | **63** | 151 | 242 |
-| Median generation length | 2,044 | 2,107 | 2,228 | 2,113 | 2,091 | 2,078 |
-| Loop samples | 242 | 232 | 220 | 284 | 254 | 250 |
-| **At least two `Step` markers** | 73 | 25 | 31 | **261** | 220 | 227 |
-| Stuck loops | 27 | 25 | 20 | **12** | 28 | 42 |
-| Median equation count | 3 | 3 | 3 | 3 | 4 | 3 |
-| **Compulsive repetition, full text** | **34** | 77 | 91 | **8** | 36 | 52 |
-| Compulsive repetition in loops | 27 / 242 | 46 / 232 | 59 / 220 | 18 / 284 | 19 / 254 | 23 / 250 |
+| Metric | `−4`: No-CoT → CoT | `0`: No-CoT → CoT | `+4`: No-CoT → CoT |
+| --- | ---: | ---: | ---: |
+| First accuracy | 73.00% → **85.00%** | 60.00% → **69.00%** | 55.33% → **59.67%** |
+| Early candidate rate | 30.33% → **19.00%** | 48.00% → 50.00% | 71.00% → **90.33%** |
+| Reason-first rate | 32.07% → **75.77%** | 30.85% → **46.04%** | 18.44% → 13.09% |
+| Pre-candidate chars, median | 0 → **236** | 0 → 5 | 0 → 0 |
+| Post-candidate chars, median | 1899 → 1834 | 1989 → 1862 | 2126 → 2040 |
+| Outputs with ≥2 step markers | 73 → **261** | 25 → **220** | 31 → **227** |
+| Outputs with full-text repetition | 34 → **8** | 77 → **36** | 91 → **52** |
+| First–last accuracy gap | +4.67 → **+0.33 pp** | +4.67 → **+0.67 pp** | +2.66 → **+0.67 pp** |
 
-#### CoT Changes the Negative-Side Ordering
+CoT 在三个剂量下都明显增加了 step structure，同时减少 full-text repetition，并缩小 first–last accuracy gap。这说明加入 CoT 后，回答通常更有组织，后续内容也较少改坏第一次提交的答案。
 
-加入 `α=−6` 后，CoT 不再只是整体提高准确率，也改变了负向剂量的最佳位置。
+但 CoT 对 candidate timing 的影响取决于剂量：
 
-| α (CoT) | First accuracy | Last accuracy | Commit rate | Answer-first among committed |
-|---:|---:|---:|---:|---:|
-| −6 | 75.3% | 78.0% | 37.7% | **40.7%** |
-| −4 | **85.0%** | 84.7% | 31.7% | 15.8% |
-| 0 | 69.0% | 68.3% | 37.7% | 19.5% |
-| +4 | 59.7% | 59.0% | 29.0% | 0.0% |
+- 在 `α=−4` 下，early candidate rate 从 30.33% 降至 19.00%，reason-first rate 从 32.07% 升至 75.77%，first accuracy 同时提高 12.00 pp。这是 CoT 改善输出组织最明显的条件。
+- 在 `α=0` 下，CoT 增加了可见的分步推理并提高准确率，但 candidate timing 基本不变。
+- 在 `α=+4` 下，虽然 step markers 明显增加、full-text repetition 减少，但 early candidate rate 反而从 71.00% 升至 90.33%。因此，表面上存在分步推理，并不代表模型避免了过早形成答案。
 
-`α=−6 + CoT` 的 answer-first rate 达到 40.7%（46/113 committed），明显高于 `−4` 和 baseline。部分输出会先给出一个错误的 `####` 答案，再在后续步骤中推导出正确答案；由于主指标读取第一个 `####`，这些样本仍记为错误。这与 `−6` 的 last accuracy 高于 first accuracy 2.7 pp 相一致。
+`α=−6` 是一个补充性的异常点：其 first accuracy 为 75.33%，last accuracy 为 78.00%。在包含有效正式答案的 113 个输出中，有 46 个（40.7%）先提交答案、再展开推理；部分样本会先给出错误的 `####` 答案，随后推导出正确结果。该现象与 `−6` 的 first accuracy 低于 last accuracy 相符，但它只是干预后的输出特征，不能单独作为准确率变化的因果解释。
 
-不过，answer-first 是 α 干预后的输出行为，而且 `α=+4` 在 answer-first 为零时准确率仍然较低。因此，它只能作为 `−6 + CoT` 回落的相符线索，不能作为普遍的准确率中介或因果解释。
-
-#### CoT Adds Stepwise Structure
-
-至少两个 `Step` marker 的样本数明显增加：
-
-- `α=−4`：73 → 261
-- `α=0`：25 → 220
-- `α=+4`：31 → 227
-
-Generation length 和 equation count 则基本稳定。因此，CoT 最清楚的输出变化是增加显式分步结构，而不是简单让模型写得更长或使用更多等式。
-
-#### CoT Reduces Semantic Repetition
-
-Full-text compulsive repetition 在三个剂量下都减少：
-
-- `α=−4`：34 → 8，减少 26
-- `α=0`：77 → 36，减少 41
-- `α=+4`：91 → 52，减少 39
-
-总 loop 数并没有减少，CoT 条件下甚至更高。这说明 CoT 没有解决所有机械性重复，但明显减少了带有自我怀疑、格式纠结和反复确认的语义性固著。
-
-First–last gap 也从 No-CoT 的 2.7–4.7 pp 缩小到 CoT 的 0.3–0.7 pp，说明 CoT 条件下，后续文本较少破坏首个答案。
-
-#### CoT Does Not Uniformly Suppress Premature Output
-
-CoT 对 premature output 的影响取决于 α：
-
-- `α=−4`：195 → 63
-- `α=0`：206 → 151
-- `α=+4`：232 → 242
-
-因此，CoT 在 `−4/0` 下减少了过早输出，但在 `+4` 下没有产生同样作用。正向 steering 较强时，即使加入 step-by-step 提示，模型仍常在推理前输出答案。
-
-`α=−4 + CoT` 同时伴随更多 Step 结构、更少 premature output、更少语义性反复和更高 accuracy。这些变化彼此一致，但当前数据不能确定它们各自的因果贡献，也不能称为两个“正交杠杆”。
-
-CoT 下较低的 `####` commit rate 主要反映答案格式出口发生变化，不应直接解释为模型更不愿意提交。
+**结论：**CoT 通常能增加 step structure、减少 repetition 并提高答案稳定性，但不能在所有剂量下阻止 candidate 过早出现。它在适中的负向剂量下最有帮助；在正向剂量下，模型仍可能先形成答案，再补充大量推理。
 
 ### 2.4 Persona Shapes the Content of Repetition
 
