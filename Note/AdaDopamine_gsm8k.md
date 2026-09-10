@@ -704,36 +704,22 @@ MATH 的 `valid_sub_rate` 始终约为 97%–100%，所以 `cond_acc` 与总体�
 
 **Conclusion.** Qwen 在 GSM8K 与 MATH 上都出现了由正向 α 驱动的 output-ordering transition，但性能曲线不同：GSM8K 在高剂量进入平台，MATH 则在 `+6` 后出现回落。由此可见，推迟 answer candidate 与增加 reason-first output 可以伴随准确率提升，但不能单独保证更好的任务表现。
 
-### 4.2 Commitment Reordering across GSM8K and MATH
+**Table 4.3. Output reordering from baseline to the main workpoint**
 
-Qwen 在两个任务上都表现出明显的 early-candidate transition，但两个任务需要不同的承诺指标。
+| Task | Condition | Dose comparison | first_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| GSM8K | No-CoT | `0 → +8` | 68.00% → **86.00%** | 96.33% → **5.00%** | 0.00% → **98.00%** | 0 → 140 | 1130 → 452 |
+| GSM8K | CoT | `0 → +6` | 76.33% → **88.33%** | 97.33% → **34.33%** | 1.00% → **69.33%** | 0 → 136 | 1152 → 626 |
+| MATH | No-CoT | `0 → +6 → +8` | 60.67% → **68.33%** → 63.33% | 67.33% → 19.33% → **10.33%** | 11.11% → 77.59% → **86.16%** | 0 → 224 → 230 | 1438 → 860 → 727 |
+| MATH | CoT | `0 → +6 → +8` | 63.00% → **66.00%** → 64.00% | 71.33% → 29.67% → **10.33%** | 5.05% → 62.50% → **85.96%** | 0 → 164 → 252 | 1567 → 970 → 816 |
 
-**Table 4.3. Main commitment changes at baseline and high-performing doses**
+#### Commitment Reordering across Tasks
 
-| Condition | Compared doses | early-candidate% | Pre-commit chars | posN or marker position | Accuracy |
-|---|---|---:|---:|---:|---:|
-| GSM8K No-CoT | 0 → +8 | 96.3 → 5.0 | 3 → 324 | .003 → .754 | 68.00 → 86.00 |
-| GSM8K CoT | 0 → +6 | 97.3 → 34.3 | 3 → 517 | .003 → .809 | 76.33 → 88.33 |
-| MATH No-CoT | 0 → +6 → +8 | 67.3 → 19.3 → 10.3 | 1356 → 1029 → 828 | `.977 → .969 → .960` | 60.67 → 68.33 → 63.33 |
-| MATH CoT | 0 → +6 → +8 | 71.3 → 29.7 → 10.3 | 1344 → 1116 → 1002 | `.969 → .968 → .964` | 63.00 → 66.00 → 64.00 |
+GSM8K 与 MATH 都出现了明显的 output reordering：随着正向 α 增加，`early_cand_rate` 下降，`reason_first_rate` 上升，更多可见推理被移到第一个 candidate 之前。
 
-在 GSM8K 中，`####` 是正式答案标记，因此 `posN` 可以反映首次提交的位置。α=0 时，模型通常先给答案，再在后文检查或修正；到 `+6/+8`，更多计算被移到第一次正式提交之前。
+但这种变化与准确率的关系因任务而异。GSM8K 的 reordering 与性能提升同时出现，并在 `+6/+8` 附近进入近优平台；MATH 的准确率在 `+6` 达到较高点后回落，而 candidate ordering 在 `+8` 仍继续变化。这说明减少 early candidate 可能与更好的输出状态相关，但不是提高准确率的充分条件。
 
-**Table 4.4. GSM8K effort reallocation from α=0 to α=+8**
-
-| Measure | α=0 median | +8 median | Median Δ | p |
-|---|---:|---:|---:|---:|
-| Pre-commit characters | 3 | 324 | **+302** | 7.6e−50 |
-| Post-commit characters | 1116 | 120 | **−862** | 2.0e−33 |
-| Total characters | 1130 | 700 | **−430** | 1.2e−14 |
-| Pre-commit equations | 0 | 2 | **+2** | 8.2e−35 |
-| Post-commit equations | 1 | 0 | −0 | 3.7e−19 |
-
-总输出长度下降，但提交前计算增加、提交后内容减少。因此，这一变化更适合描述为计算位置和停止行为的重新组织，而不是推理量简单增加。
-
-MATH 的 `\boxed{}` 几乎始终位于文末，`posN` 只在 .960–.978 之间变化，不能有效区分答案何时形成。MATH 更合适的指标是开头是否先出现未加框的答案候选。正向 α 降低了 early-candidate 比例，但没有明显移动文末的 `\boxed{}`。
-
-冻结的 early-candidate detector 在180条盲法审核中达到 precision 1.000、recall .976、一致率 .983。三条假阴性均来自 MATH `+8` 的首行长句，因此高剂量的 early-candidate 比例应视为下界，不能把10.3%直接解释为其余89.7%的样本都完成了“先推理、后形成答案”。
+MATH 的 `\boxed{}` 通常位于输出末尾，因此 `posN_med` 难以区分答案形成顺序。本节主要依据 candidate-based metrics 描述 output ordering。所有指标均为干预后的输出读数，不能作为因果中介证据。
 
 ### 4.3 Task-Dependent High-Dose Behavior
 
