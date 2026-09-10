@@ -744,6 +744,48 @@ Evidence: md5 of all 8 math_2048 JSON identical to math_eot; math_1024 mdf_0 acc
 
 The offline analysis workspace was renamed `RoleAnswer_non/` → **`RoleAnswer/`**, now at **`/Users/paveenhuang/Documents/RSNResult/RoleAnswer/`** (relocated 2026-07-16 from `~/Downloads/RSNResult/`). Scripts there (e.g. `analyze_multi_metric.py`) and older doc references that still say `RoleAnswer_non/` or the Downloads path are stale — use the Documents path. The **superseded** `signal_eot/` tree (dated 5/30, old layer-offset mask + noisy prompts) has been replaced by the current **`llama3/dopamine/signal/`** set: output-side prefill steering, correct layer alignment, α-dose + roles + CoT, three file classes (see the workspace section above). Cite `signal/`, not `signal_eot/`.
 
+### Unified cross-task behavioural summaries (2026-09-10)
+
+Standalone `unified_behavior_*.py` scripts in the same external, non-git
+`RoleAnswer/` workspace, run with `python3.10`. Each reads already-collected
+generation output only (no model re-run) and writes a same-named `.csv` +
+`.md`:
+
+- `unified_behavior_gsm8k_math.py` — GSM8K + MATH
+- `unified_behavior_gsm_hard.py` — GSM-Hard
+- `unified_behavior_gsm_symbolic.py` — GSM-Symbolic (plus a
+  `unified_behavior_gsm_symbolic_by_config.csv` breakdown)
+- `unified_behavior_bbh.py` — BBH `object_counting`
+- `unified_behavior_cruxeval.py` — CRUXEval-O
+- `unified_behavior_finqa.py` — FinQA
+- `unified_behavior_proofwriter_owa.py` — ProofWriter-OWA
+- `unified_behavior_zebralogic.py` — ZebraLogic-Easy
+
+Shared conventions across all of them: every table is descriptive/post-hoc
+output-behaviour statistics only — no new significance testing, and none
+supersedes a task's existing formal evaluation. Accuracy always reuses or
+exactly reproduces that task's own frozen scorer, with `first_acc` as MAIN
+and `last_acc` as a revision/sensitivity readout only. The behavioural
+commitment metric is native to each task's own answer format rather than
+forced onto one shared detector (numeric-candidate timing for GSM-family
+tasks, Python-literal parsing for CRUXEval-O, the strict `#### True|False|
+Unknown` marker for ProofWriter-OWA, FIRST/LAST answer-JSON + the
+`"solution"` key for ZebraLogic). Any `posN`/candidate-position/
+marker-position field is an output-TEXT position, never internal model
+commitment or causal-mediation evidence. Candidate-covered, valid-submission,
+marker-covered and revision-eligible metrics each carry their own explicit
+denominator — never assume a shared one. `loop_rate`/`truncated_rate`/
+generation length are QC/explanatory only; under high loop or truncation,
+length and position readouts do not reflect natural reasoning length. Raw α
+is never compared across models or tasks. Every script is fail-closed on
+cell count, sample alignment, metadata, value ranges, and reproduction
+against the task's frozen result — a failed check exits without writing any
+partial output.
+
+`unified_behavior_zebralogic.py` is gold-free: it never calls the gated
+private-gold loader, and its accuracy columns are copied verbatim from the
+existing frozen result JSON as background context only, not recomputed.
+
 ## Server / data layout
 
 Current GSM8K re-runs run on `/data1/paveen/Dopamine/` (server). Only code is in git; `components/`, `benchmark/`, `llama3/dopamine/`, H5 hidden states, and JSON answer dumps are not. Older experiments still have hard-coded `WORK_DIR=/data1/paveen/RolePlaying`; migrate them only when re-running that experiment family.
