@@ -97,8 +97,11 @@ Role/Confidence cross-steering
 MMLU-E 回答“是否都能调节 confidence”，GSM8K则回答“这种功能等价性是否能够迁移为相似的 reasoning commitment 效果”。
 MATH 和其他任务暂时不需要加入。先完成 MMLU-E → GSM8K 两级验证，已经足够形成清晰的证据链。
 
+---
+
 Shared-only 与 exclusive-neuron 因果拆分
 最后才考虑 Manifold
+
 
 2. **四种 mean 的关系**
    - Expert、Non-Expert、Confident、Unconfident 做逐层相关/距离矩阵。
