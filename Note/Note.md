@@ -1,21 +1,3 @@
-#### Description
-
-现在我们的目标是将Dopamine写成一篇conference paper 或者journal 
-RSN最初的内容已经发表，来源是RSNpaper，具体内容在/Users/paveenhuang/Downloads/Dopamine/ACLARR
-现在我们的目标是想要论证，这一套机制类似人体的Dopamine系统机制
-
-AdaDopamine.md记录了一些行为学实验
-AdaDopamine_gsm8k.md是推理任务上的表现，gsm8k & math
-AdaptiveThinking.md 这里是对内部的thinking Curve的一些观察 原本是计划找到一些类似激素水平变化的曲线，但是目前没有显著的效果
-AdaManifold.md这里是和Manifold有关的一些研究，是AdaptiveThinking的一些拓展
-AdaNeurons.md 这里是最新的confidence neurons的结果（于RSN的交互）
-
-其余是一些辅助文件：
-AdaBandit.md 专门记录了Bandit实验（主线在AdaDopamine.md），但是没有找到合适的结果
-AdaLogitsLens.md 对应RSNpaper时候做的一下研究
-TODO是接下来的一些执行计划
-
----
 
 #### Tmux
 conda activate dopamine
@@ -49,7 +31,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 Daily
-09.09 週三 确认公证需要的材料，买药
+09.10 週四 确认公证需要的材料，买药
 09.11 週五 上午11：00和學弟開會；下午：seminar
 09.19 台北-杭州萧山 机票 ✔
 09.20 杭州逛逛
