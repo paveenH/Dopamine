@@ -195,7 +195,15 @@ Llama 在 GSM8K 上的性能结果可以概括为：
 
 ### 2.1 Dose-Dependent Output Behavior
 
-下表使用统一的 candidate/marker 检测口径，汇总 neutral、plain、No-CoT 条件下的九点剂量曲线。每个条件均包含 300 题，`first_acc` 仅作为行为变化的性能参照。
+本节使用统一的 candidate/marker 检测口径，比较 α 对答案候选出现顺序、正式提交和后续生成的影响。每个条件均包含 300 题，`first_acc` 仅作为行为变化的性能参照。
+
+“答案候选（candidate）”与“正式答案标记（marker）”是两个不同事件。Candidate 是输出中最早出现的答案形态数值或表达式，可能是最终答案，也可能只是中间结果；marker 则是 `####` 等正式提交格式。因此：
+
+- `Early candidate`、`Reason first` 和 candidate 前后字符数描述答案候选的出现顺序。
+- `Marker position` 描述正式答案标记在全文中的位置，不代表答案在模型内部形成的时间。
+- `Conditional acc` 只在存在有效正式答案标记的样本中计算，不能替代总体准确率。
+
+#### No-CoT Condition
 
 | α | First acc | Valid submission | Conditional acc | Early candidate | Reason first | Pre-candidate chars | Post-candidate chars | Marker position | Multiple markers |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -209,90 +217,108 @@ Llama 在 GSM8K 上的性能结果可以概括为：
 | +6 | 55.00% | 45.33% | 62.50% | 75.67% | 16.79% | 0 | 2,172 | 0.1121 | 16.00% |
 | +8 | 53.67% | 53.00% | 58.49% | 70.67% | 27.27% | 0 | 2,167 | 0.1204 | 21.33% |
 
-`Conditional acc` 只在存在可解析正式答案标记的样本中计算，不能替代总体准确率。Candidate 是最早出现的答案形态数值或表达式，marker 则是正式的 `####` 提交；两者不是同一事件。因此，`Early candidate`、`Reason first` 和 candidate 前后字符数用于描述输出顺序，`Marker position` 只描述正式答案标记在全文中的位置。
+`α=−6` 同时具有最高总体准确率和最高 conditional accuracy。它的 early-candidate rate 只有 18.67%，reason-first rate 为 66.55%，首个候选答案之前的字符数中位数为 175，说明该剂量更常在答案候选出现前生成可见的推理文本。
 
-#### Submission Quality
+从 `α=0` 向正向移动时，early-candidate rate 整体由 48.00% 上升至 70% 以上，reason-first rate 则整体下降。与此同时，候选答案后的字符数由 1,989 增加至约 2,100–2,200。因此，正向 α 的典型输出模式不是更快完成，而是：
 
-在 `α=−6 → +8` 区间内，conditional accuracy 从 79.67% 整体下降至 58.49%。这说明即使只观察具有正式答案标记的样本，提交答案的质量也会随着剂量向正侧移动而降低。
+> 答案候选更早出现，但候选出现后仍继续生成较长文本。
 
-Valid submission rate 并不单调：它从 `−6` 的 60.67% 降至 `+6` 的 45.33%，随后在 `+8` 回升至 53.00%。因此，总体准确率变化不能简单归因于模型是否使用了规定的答案格式。
+在 `α=−6 → +8` 区间内，conditional accuracy 从 79.67% 逐步下降至 58.49%。Valid submission rate 和 multiple-marker rate 则没有相同的单调趋势，因此总体准确率变化不能简单归因于答案格式是否有效或 marker 数量。
 
-#### Candidate Ordering and Continued Generation
+`α=−8` 是一个不同的边界：early-candidate rate 达到 76.67%，marker position 的中位数为 0，但 conditional accuracy 只有 23.63%。其具体的答案切换与提交不稳定将在 §2.2 讨论。
 
-`α=−6` 的 early-candidate rate 只有 18.67%，reason-first rate 为 66.55%，首个候选答案之前的字符数中位数为 175。相比之下，从 `α=0` 向正向移动时，early-candidate rate 整体由 48.00% 上升至 70% 以上，而多数条件的首个候选答案直接出现在输出开头。
+#### CoT Condition
 
-但更早出现答案候选并没有使输出更快结束。Post-candidate characters 从 `α=−6` 的 1,875 增加到 `+4/+6/+8` 的 2,126–2,172。正向 α 的典型输出模式因此不是“更快完成”，而是：
+| α | First acc | Valid submission | Conditional acc | Early candidate | Reason first | Pre-candidate chars | Post-candidate chars | Marker position | Multiple markers |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| −6 | 75.33% | 37.67% | 57.52% | **18.67%** | **79.45%** | 228 | 1,861 | 0.2291 | 15.33% |
+| **−4** | **85.00%** | 31.67% | **81.05%** | 19.00% | 75.77% | **236** | 1,834 | 0.2732 | 11.67% |
+| −2 | 74.00% | **40.67%** | 71.31% | 31.67% | 60.92% | 190 | 1,842 | 0.2878 | 13.67% |
+| 0 | 69.00% | 37.67% | 67.26% | 50.00% | 46.04% | 5 | 1,862 | 0.2461 | 12.33% |
+| +4 | 59.67% | 29.00% | 59.77% | **90.33%** | **13.09%** | 0 | **2,040** | 0.1952 | 13.00% |
 
-> 更早出现答案候选，但在候选出现后继续生成更长的文本。
+CoT 下，`α=−4` 的准确率最高。该条件只有 19.00% 的输出较早出现答案候选，75.77% 在候选前已经出现推理文本，候选前字符数中位数为 236。
 
-正式 marker 的位置也整体向前移动，从 `−6` 的 0.2613 降至 `+6/+8` 的约 0.11–0.12，但相邻剂量并不严格单调。因此，它只能作为正式提交位置的描述，不能被解释为内部答案形成时间。
+`α=−6` 的 early-candidate rate 和 reason-first rate与 `−4` 接近，但总体准确率和 conditional accuracy都更低。这说明减少提前回答、增加候选前推理通常与较好表现同时出现，却不足以单独解释 `−4` 与 `−6` 的性能差异。
 
-#### Extreme Negative Boundary
+从 `α=0` 移动到 `+4` 时：
 
-`α=−8` 与正向高剂量的失败模式不同。它的 early-candidate rate 高达 76.67%，正式 marker 的位置中位数为 0，但 conditional accuracy 只有 23.63%。这表明许多输出在开头就出现候选答案或正式提交，但提交质量很低。
+- Early-candidate rate：50.00% → 90.33%
+- Reason-first rate：46.04% → 13.09%
+- Pre-candidate characters：5 → 0
+- Post-candidate characters：1,862 → 2,040
+- First accuracy：69.00% → 59.67%
 
-因此，准确率曲线两端虽然都会失效，却不能用同一种“过早回答”机制概括。`α=−8` 的候选切换与提交不稳定，以及正向 α 的提交后持续生成，将在下一节进一步比较。
+因此，CoT 没有消除正向 α 下的提前回答模式。`α=+4` 更常在推理文本之前出现答案候选，并在候选出现后继续生成较长内容。
+
+Valid submission rate 仅为 29.00%–40.67%，且没有随准确率同步变化。Marker position 和 multiple-marker rate 同样没有呈现清晰的性能曲线。相比之下，candidate ordering 更稳定地反映了 α 对可见输出顺序的影响。
+
+总体而言，负向有效区域通常伴随更少的提前答案候选和更多候选前推理，正向 α 则呈现相反方向。但这些指标都是干预后的输出行为，只能作为相关证据，不能证明答案出现顺序是准确率变化的因果中介。
 
 ### 2.2 Two Distinct Failure Regimes
 
-准确率曲线两端都会失效，但输出形态不同。
+准确率曲线两端都会失效，但统一指标显示，它们对应两种不同的输出模式。正向高剂量主要表现为答案候选提前出现后仍持续生成；`α=−8` 则更常在开头正式提交答案，随后在多个候选值之间切换。
 
-| Regime | Opening pattern | Representative metrics | Behavior after the first answer |
-|---|---|---|---|
-| **Positive α** | 常以裸数字开头 | Leading digit：`229/231/206` at `+4/+6/+8`；full-text repetition：`91/94/88` | 提交后继续检查、重算、确认或重复 |
-| **α=−8** | 常以 `#### N` 开头 | Marker at start：171；answer switches：41；committed accuracy：23.6% | 在多个答案候选之间切换，提交值不稳定 |
-| **α=−6/−4** | 较少在开头直接提交 | Full-text repetition：23/34；answer switches：3/4 | 更常在形成答案后结束 |
+下表将统一的 candidate 指标与答案切换、marker-first 和语义重复诊断合并。所有计数的分母均为 300；同一个样本可能同时属于多个重复类型。
 
-这说明正向高剂量与 `α=−8` 不能视为同一种失败。
+| α | Early candidate | Post-candidate chars | Marker at start | ≥2 answer switches | Any repetition | Self-doubt | Format fixation |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| **−8** | **76.67%** | **2,259** | **171** | **41** | **115** | **99** | **58** |
+| **−6** | **18.67%** | 1,875 | 17 | **3** | **23** | **14** | **13** |
+| −4 | 30.33% | 1,899 | 9 | 4 | 34 | 24 | 19 |
+| −2 | 41.33% | 1,963 | 18 | 10 | 61 | 51 | 28 |
+| 0 | 48.00% | 1,989 | 20 | 9 | 77 | 61 | 33 |
+| +2 | 59.67% | 1,992 | 19 | 6 | 82 | 72 | 38 |
+| +4 | 71.00% | 2,126 | 12 | 6 | 91 | 75 | 46 |
+| +6 | **75.67%** | **2,172** | 19 | 12 | **94** | **85** | **54** |
+| +8 | 70.67% | 2,167 | 20 | 10 | 88 | 73 | **54** |
 
-- 正向端更接近“答案已经出现，但仍无法停止”。
-- `α=−8` 更接近“过早正式提交，随后无法稳定保持一个候选值”。
+`Marker at start` 是一个比 early candidate 更窄的指标：它只统计去除空白后直接以正式 `####` 标记开头的输出。`Self-doubt` 和 `Format fixation` 是基于生成文本的表面模式分类，可以重叠；它们表示反复推翻答案或纠结提交格式，不对应临床焦虑或强迫症诊断。
 
-这些是生成文本中的行为模式。仅凭文本无法确定其内部原因，也不能判断答案振荡来自计算失败、候选竞争还是其他生成动力学。
+#### Positive α: Early Candidate Without Stopping
 
-#### Compulsive-Repetition Subtypes
+在 `α=+4/+6/+8` 下，70%以上的输出较早出现答案候选，但候选之后仍继续生成约 2,100–2,200 个字符。语义重复也由 baseline 的 77 个样本增加至 88–94 个，其中 self-doubt 和 format fixation 是主要类型。
 
-历史脚本使用 `anxiety` 字段名，但这些指标实际测量的是**强迫性反复确认和行为固著**，不是临床焦虑。
+这一模式并不是简单的“快速回答”。更准确的描述是：
 
-Loop 口径只统计已经进入退化重复的样本，分母随剂量变化；full-text 口径在全部 300 题中检测重复语义，是本节的主要读数。
+> 模型较早给出一个答案候选，但没有随之结束，而是继续检查、重算、推翻或重复提交。
 
-| Metric | −8 | **−6** | −4 | −2 | 0 | +2 | +4 | +6 | +8 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Any, loop** | 73 | 29 | **27** | 44 | 46 | 54 | 59 | 58 | 57 |
-| Self-doubt, loop | 55 | 13 | 13 | 30 | 31 | 40 | 43 | 51 | 46 |
-| Format fixation, loop | 32 | 18 | 15 | 19 | 23 | 25 | 37 | 36 | 32 |
-| Persona reassurance, loop | 11 | 7 | 7 | 11 | 15 | 13 | 13 | 6 | 6 |
-| Over-precision, loop | 4 | 2 | 1 | 5 | 7 | 5 | 5 | 3 | 3 |
-| **Any, full text** | **115** | **23** | 34 | 61 | 77 | 82 | 91 | 94 | 88 |
-| Self-doubt, full text | 99 | 14 | 24 | 51 | 61 | 72 | 75 | 85 | 73 |
-| Format fixation, full text | 58 | 13 | 19 | 28 | 33 | 38 | 46 | 54 | 54 |
-| Persona reassurance, full text | 6 | 6 | 5 | 10 | 17 | 12 | 10 | 7 | 6 |
-| Over-precision, full text | 6 | 0 | 1 | 8 | 4 | 4 | 5 | 1 | 3 |
+正向端的 marker-at-start 只有 12–20 个样本，至少两次答案切换的样本为 6–12 个。因此，它的主要特征不是频繁在多个答案之间振荡，而是答案候选出现后仍无法及时停止。
 
-两种口径得到的主要结论一致：
+#### Extreme Negative α: Premature Submission and Candidate Instability
 
-- 强迫性反复在 `α=−6/−4` 附近最低。
-- 从 `α=0` 向正侧移动时，full-text repetition 从 77 增至 91、94，随后在 +8 略降至 88。
-- Self-doubt 是数量最大、剂量变化最清楚的子类。
-- Format fixation 也随正向剂量整体增加。
-- Persona reassurance 和 over-precision 没有稳定的单调趋势。
+`α=−8` 同样具有很高的 early-candidate rate，但其具体形态明显不同：
 
-`α=−8` 同样具有很高的重复数量，但它同时伴随大量 marker-first 输出和答案候选振荡，因此不能直接归入正向端的“提交后持续检查”。
+- 171/300 个输出直接以正式 `####` 答案开头；
+- 41 个输出发生至少两次答案切换；
+- Conditional accuracy 只有 23.63%；
+- 候选答案之后仍继续生成 2,259 个字符；
+- 115 个样本出现语义重复。
 
-#### Representative Cases
+因此，`α=−8` 不是单纯的短答、拒答或动力不足。它更接近：
 
-| Condition | Case | Observed output trajectory | Interpretation |
-|---|---|---|---|
-| `α=+4` | Q10, gold=5 | 输出一个答案后不断用 “however” 推翻，再次回答后继续推翻 | Self-doubt repetition |
-| `α=+4` | Q15, gold=17 | 已得到正确答案，随后持续纠结 `####` 格式 | Format fixation |
-| `α=+4` | Q58, gold=15 | 首个答案正确，随后反复请求确认 | Persona reassurance |
-| `α=+4` | Q17, gold=36 | 过早提交 40，之后持续进行无意义近似 | Over-precision |
-| `α=−8` | Q31, gold=40 | `#### 55` → 正文算出 40 → 在 55 与 40 之间切换 | Correct candidate appears but is not retained |
-| `α=−8` | Q112, gold=45 | `#### 70` → 算出 45 → 又漂移至 75 | Multiple candidates without convergence |
+> 过早正式提交一个答案，但随后无法稳定保持该候选值。
 
-这些案例用于说明聚合指标对应的文本形态，不构成独立统计证据。
+例如，一个输出可能先提交 `#### 55`，随后在正文中算出正确答案 40，之后又在 55 和 40 之间反复切换。正确候选有时已经出现，但没有被稳定保留为最终提交。
 
-“I made a mistake” 一类词汇在 `−8/0/+8` 都会出现，因此自我怀疑措辞本身不能区分失败模式。真正有区分力的是后续答案轨迹：是否完成一次有效修正，是否固守同一个答案，或者是否持续在多个候选值之间切换。
+#### Near-Optimal Negative Region
+
+`α=−6/−4` 的输出模式与两端都不同：
+
+- Early-candidate rate 较低；
+- Conditional accuracy 较高；
+- 答案切换只有 3–4 个样本；
+- Full-text repetition 只有 23–34 个样本。
+
+其中 `α=−6` 的重复、答案切换和提前候选均处于低位，与其最高准确率一致。`α=−4` 的结果略弱，但仍明显优于 baseline 和正向高剂量。
+
+总体而言，两端失效不能统一概括为“答案出现得太早”：
+
+1. **正向高剂量**：答案候选提前出现，但之后仍持续检查和重复。
+2. **极端负向剂量 `−8`**：正式答案过早提交，随后在多个候选之间振荡。
+3. **`−6/−4` 区域**：候选前推理更多，答案切换和语义重复更少。
+
+这些结论描述的是生成文本中的可观测行为，不能确定其内部计算原因，也不能证明这些行为是准确率变化的因果中介。更细的 loop-conditioned 统计、稀有重复子类型和完整案例记录保留在 `CLAUDE.md`。
 
 ### 2.3 How CoT Changes the Output Pattern
 
