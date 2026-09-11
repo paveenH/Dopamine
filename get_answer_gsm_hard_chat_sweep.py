@@ -481,7 +481,10 @@ def main():
 
     print("\nAll GSM-Hard chat-sweep cells finished. "
           "NO accuracy was computed -- by construction.")
-    print("Next: python3.10 RoleAnswer/analyze_gsm_hard_chat_sweep.py")
+    print("Next: sync this OUT DIR to the offline analysis workspace "
+          "~/Documents/RSNResult/RoleAnswer/ -- which is NOT part of this "
+          "repo and is NOT present on the server -- then, FROM THAT BOX:")
+    print("      python3.10 analyze_gsm_hard_chat_sweep.py")
 
 
 if __name__ == "__main__":
