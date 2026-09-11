@@ -16,6 +16,13 @@ AdaLogitsLens.md 对应RSNpaper时候做的一下研究
 TODO是接下来的一些执行计划
 
 ---
+### Document writing
+我们的要求是： 1）细节部分放到Claude.md不要在文档中出现 2）数据尽量保持完整 3）尽量合并表格（但是不要勉强，可以合并的合并） 4）内容和章节都可以重构或者合并 5）结论简洁 通俗易懂 目标是提升可读性 6）标题和表格写英文
+
+给我md版本的文字就好 我会自己去替换
+尽量不要删除原始数据，可以合并
+
+---
 ### Note
 Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retrograde gain control.](https://doi.org/10.1038/s41586-026-10967-w) 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。
 
@@ -52,8 +59,7 @@ rsync -avzh --partial --info=progress2 \
 ---
 ### Daily
 
-09.10 週四 确认公证需要的材料，买药
-09.11 週五 上午11：00和學弟開會；下午：seminar
+09.12 周六 确认公证需要的材料，买药，取戒指
 09.19 台北-杭州萧山 机票 ✔
 09.20 杭州逛逛
 09.21 杭州逛逛
@@ -100,8 +106,8 @@ rsync -avzh --partial --info=progress2 \
 35. cross-steering: MMLUE ✔
 36. cross-steering: GSM8K ✔
 ---
-37. 统一各个任务的行为统计指标 ⏸
-38. 缩小confidence alpha MMLUE: ACC + Behaivour ⏸
+37. 统一各个任务的行为统计指标 ✔
+38. 缩小confidence alpha MMLUE: ACC + Behaivour ✔
 39. 缩小confidence alpha GSM8K: : ACC + Behaivour ⏸
 38. 再确认一下Loop的问题
 
