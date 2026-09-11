@@ -955,7 +955,158 @@ GSM-Hard 是 fixed-workpoint transfer 最稳定的正向结果：Llama 的负向
 
 ### 6.2 GSM-Symbolic
 
+GSM-Symbolic 汇总 `main`、`p1` 和 `p2` 三个配置，每个配置包含 300 个实例，因此每个剂量共有 900 个样本。它与 GSM8K 属于同一任务家族，主要用于检验 arithmetic workpoint 对题目扰动的稳健性，不构成独立的跨领域迁移证据。
+
+推断统计以 `original_id` 为 cluster，对三个配置等权，并在每个模型和 CoT 条件内执行 Holm `m=3` 校正。完整的数据修复、cluster bootstrap 和校验记录于 `CLAUDE.md`。
+
+`candidate_posN_med` 表示第一个 answer candidate 的归一化位置，`posN_med` 表示正式答案 marker 的位置。前者更直接描述 output ordering；两者均为干预后的输出读数。
+
+
+#### Llama3.1-8B
+
+##### No-CoT
+**Table 6.5. Llama GSM-Symbolic No-CoT performance and output behavior**
+
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 900 | **57.56%** | 71.00% | 60.67% | 41.00% | 55.56% | 50.89% | 53.98% | 17.89% | 60.07% | 167 | 1906 | 0.0751 | 0.3429 | 15.33% |
+| −4 | 900 | 52.34% | 62.67% | 56.67% | 37.67% | 50.33% | 55.44% | 52.81% | 19.78% | 27.92% | 0 | 1908 | 0.0000 | 0.3042 | 18.00% |
+| 0 | 900 | 48.11% | 57.33% | 53.33% | 33.67% | 45.78% | 61.67% | 54.04% | 25.22% | 31.18% | 0 | 1891 | 0.0000 | 0.2988 | 18.66% |
+| +4 | 900 | 38.89% | 50.67% | 39.33% | 26.67% | 38.00% | 47.00% | 44.25% | 49.67% | 13.72% | 0 | 2012 | 0.0000 | 0.2088 | 14.78% |
+
+##### CoT
+
+**Table 6.6. Llama GSM-Symbolic CoT performance and output behavior**
+
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 900 | 56.67% | 64.00% | 59.00% | 47.00% | 58.89% | 35.11% | 43.76% | 16.45% | 79.29% | 291 | 1895 | 0.1356 | 0.3204 | 13.11% |
+| −4 | 900 | **58.56%** | 70.67% | 63.67% | 41.33% | 59.33% | 31.00% | 50.05% | 14.00% | 70.35% | 272 | 1899 | 0.1267 | 0.3756 | 10.67% |
+| 0 | 900 | 55.56% | 62.67% | 58.67% | 45.33% | 55.56% | 34.78% | 51.84% | 28.33% | 59.26% | 209 | 1917 | 0.0951 | 0.3835 | 12.67% |
+| +4 | 900 | 40.22% | 54.00% | 41.33% | 25.33% | 39.11% | 28.67% | 45.52% | 71.66% | 11.38% | 0 | 2186 | 0.0000 | 0.2092 | 7.56% |
+
+No-CoT 下，`−6` 将 `first_acc` 从 48.11% 提高至 57.56%（Δ=+9.44 pp，95% CI=[+5.78,+13.11]，Holm `p_adj=.0003`）；`−4` 同样显著提高表现（Δ=+4.22 pp，95% CI=[+0.78,+7.78]，`p_adj=.0164`）。相反，`+4` 使准确率下降 9.22 pp（95% CI=[−13.00,−5.56]，`p_adj=.0003`）。
+
+`−6` 的提升伴随 output reordering：相对 α=0，`early_cand_rate` 从 25.22% 降至 17.89%，`reason_first_rate` 从 31.18% 升至 60.07%，candidate 前字符数从 0 墠至 167。`−4` 虽然也提高准确率，但其 `reason_first_rate` 和 candidate position 变化较弱，说明单一行为指标不能解释全部性能增益。
+
+CoT 下，`−6` 和 `−4` 的点估计分别提高 1.11 pp 和 3.00 pp，但均未通过 Holm 校正（`p_adj=.527/.122`）。二者仍表现出更少的 early candidate 和更多 reason-first output，说明 output reordering 可以在没有显著准确率提升时出现。`+4` 则使准确率下降 15.33 pp（95% CI=[−20.00,−10.90]，`p_adj=.0003`），同时 `early_cand_rate` 升至 71.66%。
+
+因此，Llama 的 GSM8K 固定工作点 `−6` 只在 GSM-Symbolic No-CoT 下建立了显著正向迁移；CoT 下未检测到相同增益。正向 `+4` 在两种条件下均形成明确的失败方向。
+
+#### Qwen2.5-7B
+
+##### No-CoT
+
+**Table 6.7. Qwen GSM-Symbolic No-CoT performance and output behavior**
+
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 900 | 50.22% | 59.33% | 54.67% | 36.67% | 54.22% | 73.78% | 46.43% | 97.22% | 0.00% | 0 | 1593 | 0.0000 | 0.8368 | 34.33% |
+| 0 | 900 | 53.33% | 65.33% | 56.33% | 38.33% | 56.11% | 69.11% | 51.23% | 96.22% | 0.00% | 0 | 1599 | 0.0000 | 0.8624 | 28.67% |
+| +6 | 900 | 60.67% | 73.00% | 64.00% | 45.00% | 60.89% | 83.11% | 63.06% | 53.44% | 46.22% | 0 | 1036 | 0.0000 | 0.8226 | 25.11% |
+| +8 | 900 | **66.89%** | 78.00% | 71.67% | 51.00% | 65.33% | 98.33% | 67.49% | 6.56% | 98.44% | 170 | 706 | 0.1753 | 0.8318 | 27.22% |
+
+##### CoT
+
+**Table 6.8. Qwen GSM-Symbolic CoT performance and output behavior**
+
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 900 | 56.44% | 66.00% | 64.33% | 39.00% | 57.78% | 79.89% | 55.37% | 99.33% | 0.00% | 0 | 1626 | 0.0000 | 0.9007 | 38.67% |
+| 0 | 900 | 52.89% | 63.33% | 56.33% | 39.00% | 53.11% | 85.22% | 52.52% | 99.11% | 0.00% | 0 | 1606 | 0.0000 | 0.9113 | 38.56% |
+| +6 | 900 | **65.11%** | 79.33% | 68.33% | 47.67% | 64.22% | 92.56% | 66.57% | 43.78% | 63.89% | 114 | 918 | 0.1216 | 0.8793 | 31.45% |
+| +8 | 900 | 65.00% | 81.67% | 66.67% | 46.67% | 64.56% | 98.89% | 64.99% | 6.44% | 96.33% | 112 | 556 | 0.1859 | 0.8534 | 28.11% |
+
+No-CoT 下，`+6` 和 `+8` 分别将准确率提高 7.33 pp 和 13.56 pp，两者均通过 Holm 校正（`p_adj=.0003`）。固定工作点 `+8` 同时具有最高的 `first_acc`、最高的 `valid_sub_rate` 和最低的 `early_cand_rate`。`−6` 的准确率下降 3.11 pp，但未达到显著（`p_adj=.0802`）。
+
+CoT 下，`+6` 和 `+8` 分别提高 12.22 pp 和 12.11 pp（均为 `p_adj=.0003`），两者的准确率几乎相同，形成正向高剂量平台。`−6` 也产生较小但显著的提升（Δ=+3.56 pp，95% CI=[+0.11,+6.89]，`p_adj=.044`）。
+
+正向高剂量的主要行为变化是从 answer-first 转向 reason-first。No-CoT 从 α=0 到 `+8` 时，`early_cand_rate` 从 96.22% 降至 6.56%，`reason_first_rate` 从 0.00% 升至 98.44%；CoT 中相应变化为 99.11%→6.44% 和 0.00%→96.33%。candidate 后字符数也明显减少。
+
+但是，CoT 从 `+6` 到 `+8` 时，`early_cand_rate` 继续从 43.78% 降至 6.44%，准确率却基本不变（65.11% vs 65.00%）。此外，`−6` 在没有改善 candidate ordering 的情况下仍产生小幅显著增益。这两项结果共同表明，reason-first output 与较高表现经常同时出现，但既不是准确率提升的必要条件，也不是充分条件。
+
+#### Summary
+
+GSM-Symbolic 提供了同任务家族内的部分迁移证据：
+
+- Llama No-CoT 的 `−6/−4` 显著提高准确率，但 CoT 下没有检测到相同增益；`+4` 在两种条件下均显著降低表现。
+- Qwen No-CoT 的 `+6/+8` 和 CoT 的 `−6/+6/+8` 均显著提高准确率，其中主要增益集中在正向高剂量。
+- Qwen `+6/+8` 的高表现通常伴随明显的 output reordering，但进一步减少 early candidate 不会继续提高准确率。
+
+**Conclusion.** GSM-Symbolic 支持 workpoint 在相近任务家族中的有限迁移，但结果仍依赖模型与 CoT 条件。candidate ordering 是有用的 behavioral signature，却不能单独解释或预测全部准确率变化。
+
 ### 6.3 BBH Object Counting
+
+BBH Object Counting 每个条件包含 250 个样本。这里主要检验 GSM8K 固定工作点——Llama 的 `−6` 和 Qwen 的 `+8`——能否迁移到物体计数任务。`first_acc` 是主要性能指标；`valid_sub_rate` 和 `cond_acc` 用于检查正式答案的提交质量。
+
+#### Llama3.1-8B
+
+##### No-CoT
+
+**Table 6.9. Llama BBH Object Counting No-CoT performance and output behavior**
+
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 40.80% | 40.80% | 82.00% | 47.80% | 84.40% | 9.20% | 0 | 1922 | 0.0875 | 51.60% |
+| 0 | **41.60%** | **41.20%** | 86.80% | **46.54%** | 95.20% | 2.00% | 0 | 1983 | 0.0633 | 63.60% |
+| +4 | 32.80% | 32.80% | 83.60% | 35.89% | 99.20% | 0.00% | 0 | 2002 | 0.0963 | 58.00% |
+
+##### CoT
+
+**Table 6.10. Llama BBH Object Counting CoT performance and output behavior**
+
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | **56.80%** | **56.80%** | 92.00% | **54.35%** | **63.20%** | **39.92%** | 5 | 1790 | 0.0011 | 52.00% |
+| −4 | 44.80% | 44.80% | **97.20%** | 43.62% | 88.00% | 8.80% | 0 | 1790 | 0.0011 | 77.20% |
+| 0 | 40.80% | 40.80% | 95.60% | 39.33% | 97.20% | 1.60% | 0 | 1790 | 0.0011 | 80.80% |
+| +4 | 32.00% | 32.00% | 90.00% | 30.67% | 99.20% | 0.00% | 0 | 1790 | 0.0011 | 78.00% |
+
+No-CoT 下，固定工作点 `−6` 的准确率为 40.80%，与 baseline 的 41.60% 基本相同（Δ=−0.80 pp，Holm `p_adj=1.000`），因此没有检测到正向迁移。`+4` 的准确率进一步降至32.80%。
+
+CoT 下结果明显不同。`−6` 将 `first_acc` 从 40.80% 提高至 56.80%（Δ=+16.00 pp，95% CI=[+8.80,+23.20]，Holm `p_adj=2.25×10⁻⁴`）。该提升也出现在 `cond_acc`，说明结果不能简单归因于更多样本生成了正式答案。
+
+行为上，CoT `−6` 的 `early_cand_rate` 从 baseline 的 97.20% 降至 63.20%，`reason_first_rate` 从 1.60% 升至 39.92%。相比之下，No-CoT `−6` 虽然也有较小的 ordering change，但准确率没有提高。这说明 output reordering 与有效 workpoint 相关，但不能单独保证性能提升。
+
+#### Qwen2.5-7B
+
+##### No-CoT
+
+**Table 6.11. Qwen BBH Object Counting No-CoT performance and output behavior**
+
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 56.80% | 57.60% | 86.40% | 53.24% | 100.00% | 0.00% | 0 | 418 | 0.7428 | 20.00% |
+| 0 | 55.20% | 56.00% | 86.80% | 52.53% | 100.00% | 0.00% | 0 | 422 | 0.7568 | 15.60% |
+| +8 | **57.60%** | 56.40% | **97.20%** | **56.38%** | **44.40%** | **37.40%** | **50** | **150** | 0.6986 | 30.80% |
+
+##### CoT
+
+**Table 6.12. Qwen BBH Object Counting CoT performance and output behavior**
+
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 45.60% | 46.00% | 43.20% | 62.04% | 100.00% | 0.00% | 0 | 20 | 0.6497 | 8.80% |
+| 0 | 52.80% | 54.00% | 38.40% | 62.50% | 100.00% | 0.00% | 0 | 18 | 0.3227 | 8.40% |
+| +6 | 43.20% | 44.00% | 52.40% | 53.44% | 96.80% | 3.20% | 0 | 89 | 0.6673 | 23.60% |
+| +8 | **66.80%** | **66.40%** | **97.60%** | **68.44%** | **7.20%** | **80.32%** | **211** | 143 | 0.6868 | 23.60% |
+
+No-CoT 下，固定工作点 `+8` 将准确率从 55.20% 提高至 57.60%，但差异没有通过校正（Δ=+2.40 pp，Holm `p_adj=1.000`）。尽管 `early_cand_rate` 从 100.00% 降至 44.40%，`reason_first_rate` 从 0.00% 升至 37.40%，明显的 output reordering 并未转化为可检测的准确率提升。
+
+CoT 下，`+8` 将 `first_acc` 从 52.80% 提高至 66.80%（Δ=+14.00 pp，95% CI=[+7.60,+20.40]，Holm `p_adj=2.25×10⁻⁴`）。与此同时，`early_cand_rate` 从 100.00% 降至 7.20%，`reason_first_rate` 从 0.00% 升至 80.32%。
+
+Qwen CoT 的提升还伴随 `valid_sub_rate` 从 38.40% 升至 97.60%，而 `cond_acc` 从 62.50% 升至 68.44%。这说明总体增益同时包含正式答案提交恢复和 answered-sample accuracy 的改善，不能全部归因于推理能力变化。具体的 marker parsing 诊断记录于 `CLAUDE.md`。
+
+#### Summary
+
+BBH Object Counting 的 steering 效果明显依赖 CoT：
+
+- No-CoT 下，Llama `−6` 和 Qwen `+8` 均未显著提高准确率。
+- CoT 下，Llama `−6` 和 Qwen `+8` 分别提高 16.00 pp 和 14.00 pp，且均通过 Holm 校正。
+- 两个有效 CoT workpoint 都伴随更少的 early candidate 和更多 reason-first output。
+- Qwen No-CoT `+8` 已经产生明显的 output reordering，却没有显著提高准确率，再次说明该行为不是充分条件。
+
+**Conclusion.** BBH Object Counting 支持 CoT 条件下的 fixed-workpoint transfer，但不支持 No-CoT 下的稳定迁移。行为重组与有效结果相伴，但输出格式恢复和任务条件同样重要。
 
 ### 6.4 CRUXEval-O
 
@@ -968,66 +1119,8 @@ GSM-Hard 是 fixed-workpoint transfer 最稳定的正向结果：Llama 的负向
 ### 6.8 FinQA
 
 ### 6.9 Cross-Benchmark Summary
-### 6.1 Fixed-Workpoint Transfer Across Tasks
+    
 
-**Table 6.1. GSM8K-derived fixed-workpoint transfer**
-原表只覆盖严格的 fixed-workpoint transfer。下面补入 GSM-Symbolic、ProofWriter、ZebraLogic 和 FinQA，并增加 `Evaluation type`，避免把完整剂量扫描误写成预先冻结的迁移检验。
-
-| Task | Evaluation type | Condition | Llama `−6` | Qwen `+8` | Verdict |
-|---|---|---|---|---|---|
-| MATH | Fixed transfer | No-CoT | 36.67% → 43.33%<br>**Δ=+6.67 pp**, `p_adj=.0489`<br>CI=[+1.00,+12.33] | 60.67% → 63.33%<br>Δ=+2.67 pp, `p_adj=.3581`<br>CI=[−2.33,+7.67] | Llama only |
-| MATH | Fixed transfer | CoT | 42.00% → 49.00%<br>**Δ=+7.00 pp**, `p_adj=.0225` | 63.00% → 64.00%<br>Δ=+1.00 pp, `p_adj=1.000` | Llama only |
-| GSM-Hard | Fixed transfer | No-CoT | 18.00% → 24.33%<br>**Δ=+6.33 pp**, raw `p=.00661` | 34.00% → 50.33%<br>**Δ=+16.33 pp**, raw `p=1.41×10⁻⁸` | Both models |
-| GSM-Hard | Fixed transfer | CoT | 20.00% → 26.00%<br>**Δ=+6.00 pp**, `p_adj=.00393`<br>CI=[+2.33,+10.00] | 38.00% → 51.33%<br>**Δ=+13.33 pp**, `p_adj=9.42×10⁻⁶`<br>CI=[+8.00,+19.00] | Both models |
-| BBH object counting | Fixed transfer | No-CoT | 41.60% → 40.80%<br>Δ=−0.80 pp, `p_adj=1.000` | 55.20% → 57.60%<br>Δ=+2.40 pp, `p_adj=1.000` | Neither |
-| BBH object counting | Fixed transfer | CoT | 40.80% → 56.80%<br>**Δ=+16.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+8.80,+23.20] | 52.80% → 66.80%<br>**Δ=+14.00 pp**, `p_adj=2.25×10⁻⁴`<br>CI=[+7.60,+20.40] | Both models |
-| CRUXEval-O | Fixed transfer | No-CoT | 34.67% → 31.00%<br>Δ=−3.67 pp, `p_adj=.1352` | 29.33% → 37.67%<br>**Δ=+8.33 pp**, `p_adj=.0045` | Qwen only |
-| CRUXEval-O | Fixed transfer | CoT | 34.67% → 34.00%<br>Δ=−0.67 pp, `p_adj=.9656`<br>CI=[−5.00,+3.67] | 34.67% → 54.00%<br>**Δ=+19.33 pp**, `p_adj=2.63×10⁻⁹`<br>CI=[+13.67,+25.00] | Qwen only |
-| CRUXEval-O | Task-specific sweep / Chat | No-CoT / CoT | No-CoT: 45.67% → 46.67% (`−6`), Δ=+1.00 pp, `p_adj=.7111`; CoT: 52.00% → 51.33% (`−6`), Δ=−0.67 pp, `p_adj=1.000` | — | Llama: neither condition |
-| LogiQA 2.0 | Fixed transfer | No-CoT | 56.33% → 52.00%<br>Δ=−4.33 pp, `p_adj=.107` | 64.00% → 65.00%<br>Δ=+1.00 pp, `p_adj=.801` | Neither |
-| LogiQA 2.0 | Fixed transfer | CoT | 46.33% → 44.00%<br>Δ=−2.33 pp, `p_adj=.9656`<br>CI=[−8.00,+3.33] | 66.33% → 61.00%<br>Δ=−5.33 pp, `p_adj=.1677`<br>CI=[−10.67,−0.33] | Neither |
-| GSM-Symbolic | Task-specific sweep / same-family robustness | No-CoT | 48.11% → 57.56%<br>**Δ=+9.44 pp**, `p_adj=.0003`<br>CI=[+5.78,+13.11] | 53.33% → 66.89%<br>**Δ=+13.56 pp**, `p_adj=.0003`<br>CI=[+8.44,+18.56] | Both models |
-| GSM-Symbolic | Task-specific sweep / same-family robustness | CoT | 55.56% → 56.67%<br>Δ=+1.11 pp, `p_adj=.527`<br>CI=[−2.44,+4.56] | 52.89% → 65.00%<br>**Δ=+12.11 pp**, `p_adj=.0003`<br>CI=[+7.11,+17.11] | Qwen only |
-| ProofWriter-OWA | Task-specific sweep | CoT, Bare | 10.33% → 14.33%<br>Δ=+4.00 pp, `p_adj=.3100`<br>CI=[−1.00,+9.00] | 46.33% → 52.00%<br>Δ=+5.67 pp, `p_adj=.2571`<br>CI=[−0.33,+11.67] | Neither at `−6/+8` |
-| ProofWriter-OWA | Task-specific sweep | CoT, Chat | 33.00% → 39.33%<br>Δ=+6.33 pp, `p_adj=.2441`<br>CI=[−0.33,+13.00] | 41.00% → 47.67%<br>**Δ=+6.67 pp**, `p_adj=.0303`<br>CI=[+1.67,+11.67] | Qwen only |
-| ZebraLogic-Easy | Task-specific sweep | Task prompt | 36.79% → 35.71%<br>Δ=−1.07 pp, `p_adj=.749` | 34.64% → 23.93%<br>**Δ=−10.71 pp**, `p_adj=.0004` | No positive effect; Qwen `+8` harmful |
-| FinQA | Task-specific sweep | CoT | 14.33% → 8.67%<br>**Δ=−5.67 pp**, `p_adj=.0190` | 20.67% → 25.67%<br>Δ=+5.00 pp, `p_adj=.1539` | No positive effect; Llama `−6` harmful |
-
-> **Reading note.** `Fixed transfer` 表示 `−6/+8` 在查看目标任务结果前已经由 GSM8K 冻结。`Task-specific sweep` 表示目标任务测试了完整剂量曲线；表中这里只抽取其中的 `−6/+8` 方便横向比较，不能将这些行重新解释为预先注册的 fixed-workpoint transfer。ProofWriter Bare 中另有 Llama `+4` 的显著结果，但该提升主要伴随有效答案提交增加；ProofWriter Chat 中只有 Qwen `+8` 建立了显著正向 workpoint。CRUXEval-O Chat 行是 Llama-only 的目标任务四点扫描；Qwen 没有运行 Chat 对照，因此不能把空缺解释为 null。
-
-
-### 6.2 GSM-Symbolic
-
-GSM-Symbolic 在 `main`、`p1`、`p2` 各使用 300 题，并沿用 GSM8K 的 first-marker/fallback 评分。它是 GSM8K 同任务家族中的扰动鲁棒性检查，不是独立的跨领域迁移验证。
-
-**Table 6.2. GSM-Symbolic No-CoT and CoT dose sweeps**
-
-每个 config（`main`/`p1`/`p2`）使用 300 个实例；Main/P1/P2 三列各自的准确率。正式推断（Primary Δ / 95% CI / Holm `p_adj`）以 `original_id` 为 cluster 做 paired cluster bootstrap，对 `main`/`p1`/`p2` 三个 config 等权（不按行数加权），并在每个模型、每种 CoT 条件内对三个非零剂量分别执行 Holm `m=3` 校正。
-
-| Condition | Model | α | Main | P1 | P2 | Primary Δ | 95% CI | Holm `p_adj` | Verdict |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| **No-CoT** | Llama3.1-8B | 0 | 57.33% | 53.33% | 33.67% | — | — | — | baseline |
-| **No-CoT** | Llama3.1-8B | −6 | 71.00% | 60.67% | 41.00% | **+9.44 pp** | [+5.78,+13.11] | **.0003** | **positive** |
-| **No-CoT** | Llama3.1-8B | −4 | 62.67% | 56.67% | 37.67% | **+4.22 pp** | [+0.78,+7.78] | **.0164** | **positive** |
-| **No-CoT** | Llama3.1-8B | +4 | 50.67% | 39.33% | 26.67% | **−9.22 pp** | [−13.00,−5.56] | **.0003** | significant degradation |
-| **No-CoT** | Qwen2.5-7B | 0 | 65.33% | 56.33% | 38.33% | — | — | — | baseline |
-| **No-CoT** | Qwen2.5-7B | −6 | 59.33% | 54.67% | 36.67% | −3.11 pp | [−6.56,+0.44] | .0802 | not significant |
-| **No-CoT** | Qwen2.5-7B | +6 | 73.00% | 64.00% | 45.00% | **+7.33 pp** | [+3.56,+11.33] | **.0003** | **positive** |
-| **No-CoT** | Qwen2.5-7B | +8 | 78.00% | 71.67% | 51.00% | **+13.56 pp** | [+8.44,+18.56] | **.0003** | **positive** |
-| CoT | Llama3.1-8B | 0 | 62.67% | 58.67% | 45.33% | — | — | — | baseline |
-| CoT | Llama3.1-8B | −6 | 64.00% | 59.00% | 47.00% | +1.11 pp | [−2.44,+4.56] | .527 | not significant |
-| CoT | Llama3.1-8B | −4 | 70.67% | 63.67% | 41.33% | +3.00 pp | [−0.11,+6.22] | .122 | not significant |
-| CoT | Llama3.1-8B | +4 | 54.00% | 41.33% | 25.33% | **−15.33 pp** | [−20.00,−10.90] | **.0003** | significant degradation |
-| CoT | Qwen2.5-7B | 0 | 63.33% | 56.33% | 39.00% | — | — | — | baseline |
-| CoT | Qwen2.5-7B | −6 | 66.00% | 64.33% | 39.00% | **+3.56 pp** | [+0.11,+6.89] | **.044** | **positive** |
-| CoT | Qwen2.5-7B | +6 | 79.33% | 68.33% | 47.67% | **+12.22 pp** | [+8.11,+16.33] | **.0003** | **positive** |
-| CoT | Qwen2.5-7B | +8 | 81.67% | 66.67% | 46.67% | **+12.11 pp** | [+7.11,+17.11] | **.0003** | **positive** |
-
-**No-CoT 结果已修复 sample_id 冲突后重新计算。** 早期版本的 No-CoT 统计使用了冲突的 `sample_id`（`"{config}:{id}"`，其中官方 `id` 字段实为 cluster 级别的 `original_id`，导致每个 300 题的 config 在按 `sample_id` 去重时只保留了 100（`main`/`p1`）或 50（`p2`）行），据此计算的准确率、cluster、CI 和 Holm 判定均已作废。唯一有效的 `sample_id` 为 `{config}:{original_id}:{instance}`；本表 No-CoT 部分为修复后的正式结果。CoT 部分自始至终使用正确的复合 ID，数字未变。
-
-No-CoT 下，Llama `−6` 和 `−4` 均显著提高准确率（`−6`：+9.44 pp；`−4`：+4.22 pp），`+4` 显著降低准确率；Qwen `+6` 和 `+8` 均显著提高准确率（`+6`：+7.33 pp；`+8`：+13.56 pp），`−6` 未达到显著。
-
-CoT 下，Qwen 的 `−6/+6/+8` 三个非零剂量均显著提高准确率；Llama 没有任何正向显著结果（`−6/−4` 均未显著，`+4` 显著降低表现）。说明同一任务家族内的迁移仍然依赖模型与提示条件。
 
 ### 6.3 ProofWriter-OWA
 
