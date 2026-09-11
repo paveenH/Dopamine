@@ -665,9 +665,17 @@ def t_review_fixes():
     # "RoleAnswer/analyze_*.py" on the server -- that path does not exist there.
     for f in (SH_GSM_HARD, SH_MATH, GEN_GSM_HARD, GEN_MATH):
         s = load_src(f)
+        # Narrow deliberately: a PROSE reference to
+        # "RoleAnswer/analyze_first_last_acc.py" is correct (that is where the
+        # file lives). What must not appear is an INVOCATION telling an
+        # operator to run it from the server's cwd, i.e. a python* command
+        # whose script argument is a bare RoleAnswer/ path.
+        bad_invocation = re.search(
+            r"python[0-9.]*\s+RoleAnswer/analyze_", s)
         check(f"t_no_server_analyzer_path[{f.name}]",
-              "RoleAnswer/analyze_" not in s,
-              "the analyzers are not synced to the server; that path misleads")
+              bad_invocation is None,
+              "the analyzers are not synced to the server, so "
+              "'python3.10 RoleAnswer/analyze_*.py' misleads there")
         check(f"t_hint_names_offline_workspace[{f.name}]",
               "RSNResult/RoleAnswer" in s,
               "the hint must name the offline workspace explicitly")
