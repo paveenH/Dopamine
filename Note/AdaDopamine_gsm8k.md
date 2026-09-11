@@ -845,10 +845,113 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 
 ## 6. Cross-Benchmark Workpoint Performance and Behavioral Boundaries
 
+本节按 benchmark 分别汇总 workpoint performance、local stability 和 output behavior。实验包含两类设计：
+
+1. **Fixed-workpoint transfer**：直接使用 GSM8K 冻结的工作点，不根据目标任务结果重新选择剂量。
+2. **Task-specific dose sweep**：在目标任务上测试多个剂量，用于识别该任务的 near-optimal region 或失败边界。
+
+固定迁移点为 Llama3.1-8B 的 `α=−6` 和 Qwen2.5-7B 的 `α=+8`。由于模型使用不同的 mask、层范围和激活尺度，raw α 不能作为跨模型或跨任务的等效剂量。
 ### 6.1 GSM-Hard
+
+GSM-Hard 是 fixed-workpoint transfer 中证据最完整的任务。No-CoT 剂量在查看准确率前完成 blind selection；CoT 与新增邻点用于检查 condition transfer 和 local stability。所有条件均包含 300 个样本，主要性能指标为离线计算的 `first_acc`。
+
+`evidence_status` 区分三类证据：
+
+- `prospective_blind_selection`：查看准确率前冻结的盲测；
+- `condition_transfer_supplement`：将固定工作点迁移至 CoT 条件；
+- `post_hoc_local_stability`：观察主要结果后追加的邻点检查。
+
+| 指标                    | 含义                                 |
+| --------------------- | ---------------------------------- |
+| `α`                   | RSN 干预强度；不同模型间不能直接比较数值大小。          |
+| `n`                   | 该条件下的样本数。                          |
+| `first_acc`           | 按第一次正式答案判断的准确率，主要性能指标。             |
+| `last_acc`            | 按最后一次正式答案判断的准确率，用于观察答案修订。          |
+| `fixed_n`             | 第一次答错、最后一次改对的样本数。                  |
+| `broke_n`             | 第一次答对、最后一次改错的样本数。                  |
+| `valid_sub_rate`      | 能解析出正式答案标记的比例。                     |
+| `cond_acc`            | 只在存在有效正式答案的样本中计算的准确率。              |
+| `early_cand_rate`     | 输出开头很早就出现答案候选的比例。                  |
+| `cand_coverage`       | 能定位到第一个答案候选的样本比例。指标可计算性的覆盖率/质量检查指标 |
+| `reason_first_rate` | 首次答案候选前出现 `=`、`Step 1` 或编号步骤等推理文本的比例；属于表面文本代理指标。 |
+| `pre_cand_chars_med`  | 首个答案候选之前的字符数中位数。                   |
+| `post_cand_chars_med` | 首个答案候选之后继续生成的字符数中位数。               |
+| `posN_med`            | 正式答案标记在全文中的归一化位置中位数，范围为 0–1。       |
+| `multi_marker_rate`   | 同一输出中出现多个正式答案标记的比例。                |
+
+> **备注：**“答案候选（candidate）”与“正式答案标记（marker）”不是同一事件。candidate 是输出中最早出现的答案形态数值或表达式，例如开头的裸数字、等号右侧结果或 “the answer is …” 后的值；它不要求与正确答案匹配，也可能是中间结果。marker 则是 `####`（GSM8K）或 `\boxed{}`（MATH）等正式提交格式。因此，candidate 通常用于分析答案形成顺序，`posN_med` 用于分析正式提交位置。
+
 #### Llama3.1-8B
+
+##### No-CoT
+
+**Table 6.1. Llama GSM-Hard No-CoT performance and output behavior**
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| −8 | 300 | 11.00% | 11.33% | 67.67% | 6.40% | 66.00% | 27.10% | 5 | 2162 | 0.0000 | 10.33% | prospective_blind_selection |
+| −6 | 300 | **24.33%** | **23.67%** | 54.67% | 20.73% | 28.67% | **61.82%** | **204** | 1877 | 0.2740 | 13.67% | prospective_blind_selection |
+| −4 | 300 | 24.00% | 23.00% | 53.00% | **28.30%** | **28.00%** | 38.19% | 0 | 1920 | 0.2351 | 15.67% | prospective_blind_selection |
+| 0 | 300 | 18.00% | 17.33% | 54.33% | 20.25% | 45.67% | 26.64% | 0 | 1952 | 0.2161 | 13.33% | prospective_blind_selection |
+| +4 | 300 | 17.00% | 17.33% | 44.67% | 19.40% | 60.00% | 15.79% | 0 | 1990 | 0.1274 | 11.33% | prospective_blind_selection |
+
+##### CoT
+
+**Table 6.2. Llama GSM-Hard CoT performance and output behavior**
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| −6 | 300 | 26.00% | 27.00% | 52.00% | 17.95% | 30.33% | 63.74% | 234 | 1928 | 0.0000 | 17.00% | condition_transfer_supplement |
+| −4 | 300 | **30.00%** | **29.67%** | 45.67% | **27.01%** | **19.00%** | **74.63%** | **292** | 1864 | 0.3294 | 11.67% | post_hoc_local_stability |
+| 0 | 300 | 20.00% | 20.67% | 41.33% | 19.35% | 43.67% | 41.29% | 0 | 1930 | 0.2810 | 11.00% | condition_transfer_supplement |
+
+No-CoT 盲测中，GSM8K 冻结工作点 `−6` 将 `first_acc` 从 18.00% 提高至 24.33%（Δ=+6.33 pp，raw `p=.00661`）。`−4` 的准确率为 24.00%，与 `−6` 仅相差 0.33 pp，因此 Llama No-CoT 的近优区域为 `{−6,−4}`，而不是唯一 workpoint。
+
+CoT 中，固定工作点 `−6` 将准确率从 20.00% 提高至 26.00%（Δ=+6.00 pp，`p_adj=.00393`，95% CI=[+2.33,+10.00]）。后补的 `−4` 达到 30.00%，相对 baseline 提高 10.00 pp（`p_adj=1.36×10⁻⁶`），但与 `−6` 的直接差异未达到显著（+4.00 pp，`p=.065`）。因此，CoT 的近优区域同样记为 `{−6,−4}`。
+
+行为指标与性能变化大体一致。No-CoT 从 `0` 到 `−6` 时，`early_cand_rate` 从 45.67% 降至 28.67%，`reason_first_rate` 从 26.64% 升至 61.82%，candidate 前字符数中位数从 0 墠至 204。CoT 的 `−4` 进一步表现出更少的 early candidate（19.00%）和更高的 reason-first rate（74.63%）。
+
+`−8` 是明显的负向边界：准确率降至 11.00%，`early_cand_rate` 升至 66.00%，`posN_med` 降至 0。说明负向 α 并非越大越好；超过近优区域后，输出重新转向过早出现 candidate 或 marker。
+
 #### Qwen2.5-7B
-#### Performance and Behavioral Findings
+
+##### No-CoT
+
+**Table 6.3. Qwen GSM-Hard No-CoT performance and output behavior**
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| −4 | 300 | 34.33% | 36.67% | 79.33% | 34.03% | 94.67% | 0.00% | 0 | 1321 | 0.8062 | 35.00% | prospective_blind_selection |
+| 0 | 300 | 34.00% | 34.67% | 72.67% | 36.24% | 93.67% | 0.00% | 0 | 1266 | 0.7680 | 29.00% | prospective_blind_selection |
+| +4 | 300 | 34.67% | 36.00% | 78.00% | 35.90% | 92.00% | 0.67% | 0 | 1264 | 0.6791 | 39.33% | prospective_blind_selection |
+| +6 | 300 | 40.33% | 40.33% | 86.33% | 42.47% | 58.67% | 33.67% | 0 | 1057 | 0.5969 | 39.33% | prospective_blind_selection |
+| +8 | 300 | **50.33%** | **48.33%** | **98.33%** | 50.51% | 6.00% | **98.00%** | 204 | **614** | 0.7765 | 34.00% | prospective_blind_selection |
+| +10 | 300 | **50.33%** | 46.33% | **98.33%** | **51.19%** | **4.67%** | **98.00%** | **238** | 698 | 0.7987 | 32.33% | post_hoc_local_stability |
+
+##### CoT
+
+**Table 6.4. Qwen GSM-Hard CoT performance and output behavior**
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 0 | 300 | 38.00% | 36.67% | 72.00% | 37.96% | 96.00% | 0.33% | 0 | 1456 | 0.8611 | 30.67% | condition_transfer_supplement |
+| +6 | 300 | 49.00% | 47.33% | 91.00% | 50.92% | 48.00% | 59.33% | 108 | 812 | 0.8359 | 34.33% | post_hoc_local_stability |
+| +8 | 300 | **51.33%** | **50.33%** | **98.67%** | **52.03%** | 8.33% | 97.33% | 226 | 582 | 0.8286 | 31.00% | condition_transfer_supplement |
+| +10 | 300 | 50.33% | 49.33% | **98.67%** | 51.01% | **2.67%** | **98.33%** | **228** | **580** | 0.8251 | 30.00% | post_hoc_local_stability |
+
+No-CoT 盲测中，GSM8K 冻结工作点 `+8` 将 `first_acc` 从 34.00% 提高至 50.33%（Δ=+16.33 pp，raw `p=1.41×10⁻⁸`）。后补的 `+10` 同样为 50.33%，与 `+8` 完全相同（`p=1.000`），因此近优区域为 `{+8,+10}`。
+
+CoT 中，固定工作点 `+8` 将准确率从 38.00% 提高至 51.33%（Δ=+13.33 pp，`p_adj=9.42×10⁻⁶`，95% CI=[+8.00,+19.00]）。后补的 `+6` 和 `+10` 分别达到 49.00% 和 50.33%，与 `+8` 均未显著分开（`p=.371/.664`），因此近优区域为 `{+6,+8,+10}`。
+
+Qwen 的 output reordering 集中在正向高剂量。No-CoT 从 `0` 到 `+8` 时，`early_cand_rate` 从 93.67% 降至 6.00%，`reason_first_rate` 从 0.00% 升至 98.00%，candidate 前字符数从 0 增至 204，candidate 后字符数从 1266 降至 614。CoT 从 `0` 到 `+8` 也呈现相同变化：`early_cand_rate` 从 96.00% 降至 8.33%，`reason_first_rate` 从 0.33% 升至 97.33%。
+
+继续增加至 `+10` 后，candidate ordering 仍有小幅变化，但准确率没有进一步提高。这说明减少 early candidate 与进入较优工作区间相关，但在进入平台后，继续推迟 candidate 不会持续增加准确率。
+
+#### Summary
+
+GSM-Hard 是 fixed-workpoint transfer 最稳定的正向结果：Llama 的负向工作点和 Qwen 的正向工作点在 No-CoT 与 CoT 下都提高了准确率。邻点分析进一步表明，更合理的描述是近优区域——Llama 为 `{−6,−4}`，Qwen No-CoT 为 `{+8,+10}`，Qwen CoT 为 `{+6,+8,+10}`。
+
+两个模型的有效 raw α 方向相反，但较优区域具有相似的 behavioral signature：更少的 early candidate、更多的 reason-first output，以及更多 candidate 前文本。该模式描述的是干预后的输出重组，不能证明内部推理顺序或因果中介关系。
 
 ### 6.2 GSM-Symbolic
 
