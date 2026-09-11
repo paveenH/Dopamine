@@ -146,6 +146,8 @@ bash run_gsm8k_qwen25.sh --baseline     # then --nocot / --cot
 # Local verification without a GPU (python3.10 -- plain python3 has no numpy):
 python3.10 test_cruxeval_p4c.py
 python3.10 zebralogic/test_zebralogic.py
+python3  test_chat_sweep_guards.py    # chat-sweep guards; stdlib-only for the
+                                      # generator half, so plain python3 works
 ```
 
 Layer bands are per-model mask facts, not tunable knobs: Llama `[11,20)` (L=9),
