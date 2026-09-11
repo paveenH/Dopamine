@@ -851,15 +851,7 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 2. **Task-specific dose sweep**：在目标任务上测试多个剂量，用于识别该任务的 near-optimal region 或失败边界。
 
 固定迁移点为 Llama3.1-8B 的 `α=−6` 和 Qwen2.5-7B 的 `α=+8`。由于模型使用不同的 mask、层范围和激活尺度，raw α 不能作为跨模型或跨任务的等效剂量。
-### 6.1 GSM-Hard
 
-GSM-Hard 是 fixed-workpoint transfer 中证据最完整的任务。No-CoT 剂量在查看准确率前完成 blind selection；CoT 与新增邻点用于检查 condition transfer 和 local stability。所有条件均包含 300 个样本，主要性能指标为离线计算的 `first_acc`。
-
-`evidence_status` 区分三类证据：
-
-- `prospective_blind_selection`：查看准确率前冻结的盲测；
-- `condition_transfer_supplement`：将固定工作点迁移至 CoT 条件；
-- `post_hoc_local_stability`：观察主要结果后追加的邻点检查。
 
 | 指标                    | 含义                                 |
 | --------------------- | ---------------------------------- |
@@ -880,6 +872,18 @@ GSM-Hard 是 fixed-workpoint transfer 中证据最完整的任务。No-CoT 剂�
 | `multi_marker_rate`   | 同一输出中出现多个正式答案标记的比例。                |
 
 > **备注：**“答案候选（candidate）”与“正式答案标记（marker）”不是同一事件。candidate 是输出中最早出现的答案形态数值或表达式，例如开头的裸数字、等号右侧结果或 “the answer is …” 后的值；它不要求与正确答案匹配，也可能是中间结果。marker 则是 `####`（GSM8K）或 `\boxed{}`（MATH）等正式提交格式。因此，candidate 通常用于分析答案形成顺序，`posN_med` 用于分析正式提交位置。
+
+本节以各模型在 GSM8K 中确定的 workpoint 或 near-optimal range 为起点，检验其在其他 benchmark 上的迁移表现。除明确标注的 local-stability points 外，不根据目标任务结果重新选择 α。整体 `first_acc` 为主要性能指标；行为指标采用各任务的原生答案格式，只用于描述干预后的输出状态，不作为内部 commitment 或准确率因果机制的直接证据。
+
+### 6.1 GSM-Hard
+
+GSM-Hard 是 fixed-workpoint transfer 中证据最完整的任务。No-CoT 剂量在查看准确率前完成 blind selection；CoT 与新增邻点用于检查 condition transfer 和 local stability。所有条件均包含 300 个样本，主要性能指标为离线计算的 `first_acc`。
+
+`evidence_status` 区分三类证据：
+
+- `prospective_blind_selection`：查看准确率前冻结的盲测；
+- `condition_transfer_supplement`：将固定工作点迁移至 CoT 条件；
+- `post_hoc_local_stability`：观察主要结果后追加的邻点检查。
 
 #### Llama3.1-8B
 
@@ -960,7 +964,6 @@ GSM-Symbolic 汇总 `main`、`p1` 和 `p2` 三个配置，每个配置包含 300
 推断统计以 `original_id` 为 cluster，对三个配置等权，并在每个模型和 CoT 条件内执行 Holm `m=3` 校正。完整的数据修复、cluster bootstrap 和校验记录于 `CLAUDE.md`。
 
 `candidate_posN_med` 表示第一个 answer candidate 的归一化位置，`posN_med` 表示正式答案 marker 的位置。前者更直接描述 output ordering；两者均为干预后的输出读数。
-
 
 #### Llama3.1-8B
 
@@ -1110,51 +1113,178 @@ BBH Object Counting 的 steering 效果明显依赖 CoT：
 
 ### 6.4 CRUXEval-O
 
+CRUXEval-O 使用 Python literal 作为答案，因此本节将整体 `first_acc` 作为主要性能指标，`last_acc` 用于观察答案修订。Bare 与 Chat 使用不同的输出接口，结果分别报告，不合并为同一统计比较。
+
+> **Metric note.** `answer_first_rate` 和 `pre_marker_chars_med` 均以正式 `####` marker 为基准，不等同于答案 candidate 的形成时间。`marker_present_rate` 只表示输出中出现过 marker，`valid_sub_rate` 则要求其内容能够被成功解析。`nonliteral_rate` 用于识别 marker 后内容的格式失败。`truncated_rate` 仅在 Chat 数据中可用；Bare 中缺少该元数据，不能据此判断是否发生截断。
+
+#### Bare Performance
+
+**Table 6.13. CRUXEval-O Bare performance**
+
+| Model | Condition | α | n | first_acc | last_acc | valid_sub_rate | cond_acc |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Llama3.1-8B | No-CoT | −6 | 300 | 31.00% | 28.67% | 96.33% | 32.18% |
+| Llama3.1-8B | No-CoT | −4 | 300 | 33.33% | 30.33% | 96.67% | 34.48% |
+| Llama3.1-8B | No-CoT | 0 | 300 | 34.67% | 31.00% | 96.67% | 35.86% |
+| Llama3.1-8B | No-CoT | +4 | 300 | 33.67% | 30.67% | 97.67% | 34.47% |
+| Llama3.1-8B | CoT | −6 | 300 | 34.00% | 32.33% | 97.00% | 35.05% |
+| Llama3.1-8B | CoT | −4 | 300 | 35.67% | 34.33% | 95.67% | 37.28% |
+| Llama3.1-8B | CoT | 0 | 300 | 34.67% | 37.00% | 97.00% | 35.74% |
+| Llama3.1-8B | CoT | +4 | 300 | 32.33% | 36.00% | 97.33% | 33.22% |
+| Qwen2.5-7B | No-CoT | −6 | 300 | 24.00% | 23.67% | 77.67% | 30.90% |
+| Qwen2.5-7B | No-CoT | 0 | 300 | 29.33% | 28.33% | 87.33% | 33.59% |
+| Qwen2.5-7B | No-CoT | +6 | 300 | 30.33% | 25.00% | 85.33% | 35.55% |
+| Qwen2.5-7B | No-CoT | +8 | 300 | **37.67%** | 22.33% | 86.67% | 43.46% |
+| Qwen2.5-7B | CoT | −6 | 300 | 34.67% | 31.00% | 85.67% | 40.47% |
+| Qwen2.5-7B | CoT | 0 | 300 | 34.67% | 28.67% | 83.67% | 41.43% |
+| Qwen2.5-7B | CoT | +6 | 300 | 43.00% | 24.67% | 85.00% | 50.59% |
+| Qwen2.5-7B | CoT | +8 | 300 | **54.00%** | 29.00% | 95.67% | 56.45% |
+
+Llama 在 Bare 接口下没有表现出稳定收益。No-CoT 中各 α 均未超过 baseline；CoT 的最高点为 `−4`，但只比 baseline 高 1.00 pp，不支持稳定的 workpoint transfer。
+
+Qwen 的结果不同。No-CoT 在 `+8` 时，`first_acc` 从 29.33% 提高至 37.67%，增加 8.33 pp（`p_adj=.0045`）；CoT 在 `+8` 时从34.67%提高至54.00%，增加19.33 pp（`p_adj=2.63×10⁻⁹`）。因此，CRUXEval-O 的正向 transfer 主要出现在 Qwen，且 CoT 条件下效果更强。
+
+不过，Qwen 的 `last_acc` 没有同步提高：No-CoT `+8` 为22.33%，CoT `+8` 为29.00%。这说明性能增益主要体现在第一次正式提交，后续答案修订反而经常破坏原本的答案。
+
+#### Qwen CoT Output Reordering
+
+**Table 6.14. Qwen CoT formal-marker ordering**
+
+| α | first_acc | last_acc | answer_first_rate | pre_marker_chars_med | posN_med | multi_marker_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 34.67% | 31.00% | 4.33% | 47 | 0.1866 | 69.33% | 670 |
+| 0 | 34.67% | 28.67% | 7.33% | 46 | 0.3237 | 69.67% | 552 |
+| +6 | 43.00% | 24.67% | 0.00% | 474 | 0.9035 | 67.67% | 589 |
+| +8 | **54.00%** | 29.00% | 0.00% | 686 | 0.9490 | 69.67% | 804 |
+
+从 α=0 增加到 `+6/+8` 后，正式答案标记明显后移：`answer_first_rate` 降至0%，`pre_marker_chars_med` 从46增加至474和686，`posN_med` 也接近输出末尾。与此同时，`first_acc` 明显提高。
+
+但这组指标描述的是正式 `####` marker 的位置，而不是第一个答案 candidate 的形成时间，不能据此断言模型在内部“更晚决定答案”。此外，约七成输出含有多个 marker，且 `first_acc` 与 `last_acc` 明显分离，说明高剂量同时增加了后续修订的不稳定性。
+
+因此，Qwen CoT 的性能提升与 formal-marker reordering 同时出现，但这种 reordering 只能作为输出行为描述，不能视为准确率提升的因果机制。
+
+#### Llama Chat Interface Control
+
+**Table 6.15. Llama Chat performance and output behavior**
+
+| Condition | α | n | first_acc | last_acc | valid_sub_rate | cond_acc | answer_first_rate | pre_marker_chars_med | posN_med | multi_marker_rate | marker_present_rate | nonliteral_rate | truncated_rate | gen_chars_med |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| No-CoT | −6 | 300 | 46.67% | 46.67% | 97.67% | 47.78% | 0.00% | 449 | 0.9700 | 0.00% | 99.00% | 1.33% | 1.33% | 466 |
+| No-CoT | −4 | 300 | 43.33% | 43.33% | 97.00% | 44.67% | 0.00% | 460 | 0.9689 | 0.00% | 98.00% | 1.00% | 2.00% | 483 |
+| No-CoT | 0 | 300 | 45.67% | 45.67% | 97.00% | 47.08% | 0.00% | 435 | 0.9684 | 0.00% | 98.33% | 1.33% | 2.00% | 458 |
+| No-CoT | +4 | 300 | 41.00% | 41.00% | 97.00% | 42.27% | 0.00% | 186 | 0.9214 | 0.00% | 97.33% | 0.33% | 2.67% | 206 |
+| CoT | −6 | 300 | 51.33% | 51.33% | 96.33% | 53.29% | 0.00% | 970 | 0.9853 | 0.00% | 97.00% | 0.67% | 3.00% | 1000 |
+| CoT | −4 | 300 | 49.33% | 49.33% | 97.33% | 50.68% | 0.00% | 994 | 0.9855 | 0.00% | 97.33% | 0.00% | 2.67% | 1023 |
+| CoT | 0 | 300 | **52.00%** | **52.00%** | 97.67% | 53.24% | 0.00% | 978 | 0.9861 | 0.00% | 97.67% | 0.00% | 2.33% | 1002 |
+| CoT | +4 | 300 | 50.33% | 50.33% | 97.00% | 51.89% | 0.00% | 682 | 0.9769 | 0.00% | 97.33% | 0.33% | 3.00% | 710 |
+
+Chat 接口下，`valid_sub_rate` 与 `marker_present_rate` 均超过 96%，而 `nonliteral_rate` 和 `truncated_rate` 很低，说明输出接口整体健康。Llama 的 null result 因而不能简单归因于格式失败。
+
+行为上，负向 α 没有引起明显的 output reordering；`−6/−4` 的正式答案位置和生成长度与 baseline 基本接近。相比之下，`+4` 会明显缩短输出并使正式 marker 提前，但没有提高准确率。No-CoT 的最佳干预点 `−6` 仅比 baseline 高 1.00 pp（Holm-adjusted `p=.7111`）；CoT 的所有干预点均未超过 baseline，差异也不显著。
+
+**Conclusion.** CRUXEval-O 呈现清晰的 model boundary：Qwen，尤其在 CoT 条件下，能够从正向 α 中获得显著的 `first_acc` 提升；Llama 在 Bare 和健康的 Chat 接口下均没有稳定收益。Qwen 的增益伴随正式答案后移，但 `last_acc` 没有同步改善，说明后续答案修订仍不稳定。与此同时，Llama `+4` 虽然改变了输出长度和 marker 位置，却没有带来性能收益，再次说明 output reordering 本身并不足以保证准确率提高。
+
 ### 6.5 ProofWriter-OWA
 
-### 6.6 LogiQA 2.0
+ProofWriter-OWA 要求模型使用严格格式 `#### True/False/Unknown` 提交答案。Bare 接口中存在明显的循环生成和截断，因此该接口只用于记录性能与输出健康度，不用于解释 commitment-related behavior。行为分析学分析主要基于 Chat 接口。
 
-### 6.7 ZebraLogic-Easy
+#### Bare Interface Results
 
-### 6.8 FinQA
+**Table 6.16. ProofWriter-OWA Bare performance and interface health**
 
-### 6.9 Cross-Benchmark Summary
+| Model | α | n | first_acc | last_acc | valid_sub_rate | no_answer_rate | cond_acc | loop_rate | truncated_rate | gen_chars_med |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Llama3.1-8B | −6 | 300 | 14.33% | 10.33% | 26.00% | 74.00% | 55.13% | 93.33% | 100.00% | 4070 |
+| Llama3.1-8B | −4 | 300 | 12.00% | 8.67% | 22.33% | 77.67% | 53.73% | 90.00% | 100.00% | 4164 |
+| Llama3.1-8B | 0 | 300 | 10.33% | 6.00% | 20.67% | 79.33% | 50.00% | 93.33% | 100.00% | 4165 |
+| Llama3.1-8B | +4 | 300 | 21.67% | 18.67% | 39.67% | 60.33% | 54.62% | 95.00% | 100.00% | 4310 |
+| Qwen2.5-7B | −6 | 300 | 49.33% | 49.00% | 90.33% | 9.67% | 54.61% | 14.33% | 14.67% | 850 |
+| Qwen2.5-7B | 0 | 300 | 46.33% | 46.33% | 99.67% | 0.33% | 46.49% | 34.33% | 34.33% | 558 |
+| Qwen2.5-7B | +6 | 300 | 49.67% | 49.67% | 100.00% | 0.00% | 49.67% | 32.00% | 32.00% | 611 |
+| Qwen2.5-7B | +8 | 300 | 52.00% | 52.00% | 100.00% | 0.00% | 52.00% | 47.33% | 47.33% | 894 |
+
+Llama Bare 的所有剂量均发生 100% 截断，并伴随 90% 以上的循环生成。整体准确率因而主要受到能否完成严格提交的限制，不能用于可靠的行为解释。Qwen Bare 的有效提交率较高，但循环和截断仍随剂量变化，因此也只作为接口对照。
+
+#### Llama3.1-8B Chat CoT
+
+**Table 6.17. Llama Chat CoT performance and output behavior**
+
+| α | n | first_acc | last_acc | valid_sub_rate | no_answer_rate | cond_acc | answer_first_rate | pre_marker_chars_med | marker_posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 300 | **39.33%** | **39.33%** | 73.67% | 26.33% | 53.39% | 0.00% | 1368 | 0.9915 | 0.00% | 17.00% | 21.00% | 1605 |
+| −4 | 300 | 34.00% | 34.00% | 59.33% | 40.67% | 57.30% | 0.00% | 1202 | 0.9902 | 0.00% | 26.67% | 29.67% | 1527 |
+| 0 | 300 | 33.00% | 33.00% | 60.33% | 39.67% | 54.70% | 0.00% | 1078 | 0.9897 | 0.00% | 25.67% | 29.67% | 1358 |
+| +4 | 300 | 31.67% | 31.67% | 55.33% | 44.67% | 57.23% | 0.00% | 929 | 0.9877 | 0.00% | 26.67% | 29.00% | 1203 |
+
+Chat 接口显著缓解了 Llama Bare 中的格式失败。与 baseline 相比，`−6` 的 `first_acc` 从 33.00% 提高至 39.33%，`valid_sub_rate` 从 60.33% 提高至 73.67%，同时循环和截断比例下降。
+
+输出行为呈现连续的长度变化：随着 α 从 `−6` 增加到 `+4`，`pre_marker_chars_med` 从 1368 降至 929，`gen_chars_med` 从 1605 降至 1203。负向 α 因而生成更长的 marker 前文本，但所有条件的 `marker_posN_med` 都接近 1，说明正式答案始终主要位于输出末尾。这更适合解释为生成长度变化，而不是明确的 commitment reordering。
+
+#### Qwen2.5-7B Chat CoT
+
+**Table 6.18. Qwen Chat CoT performance and output behavior**
+
+| α | n | first_acc | last_acc | valid_sub_rate | no_answer_rate | cond_acc | answer_first_rate | pre_marker_chars_med | marker_posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 300 | 0.67% | 0.67% | 1.00% | 99.00% | 66.67% | 0.00% | 500 | 0.9785 | 0.00% | 0.00% | 0.00% | 5 |
+| 0 | 300 | 41.00% | 41.00% | 100.00% | 0.00% | 41.00% | 50.33% | 0 | 0.0000 | 0.67% | 0.00% | 0.00% | 231 |
+| +6 | 300 | 39.00% | 39.00% | 99.67% | 0.33% | 39.13% | 96.32% | 0 | 0.0000 | 0.00% | 0.00% | 0.00% | 12 |
+| +8 | 300 | **47.67%** | **47.67%** | 99.67% | 0.33% | 47.83% | 4.01% | 549 | 0.9778 | 0.00% | 0.00% | 0.00% | 563 |
+
+Qwen Chat 对 α 表现出明显的非线性接口响应。`−6` 几乎完全无法产生严格答案，`valid_sub_rate` 只有 1.00%，因此该点属于格式崩溃，不能作为正常的性能或行为状态解释。
+
+`+6` 仍能稳定提交答案，但 96.32% 的有效输出直接以 marker 开始，生成长度中位数只有 12 个字符，准确率也未超过 baseline。到 `+8` 时，输出重新转为先生成较长文本、再在末尾提交答案：`answer_first_rate` 降至 4.01%，`pre_marker_chars_med` 增至 549，`first_acc` 同时从 41.00% 提高至 47.67%。
+
+这一变化不是随 α 平滑移动的单一 output-reordering curve，而是多个输出状态之间的切换。`+8` 的性能提升与更长的 marker 前文本同时出现，但 `+6` 和 `−6` 的反例说明，单独使用 marker timing 无法预测准确率。
+
+> **Metric note.** `answer_first_rate`、`pre_marker_chars_med` 和 `marker_posN_med` 均以严格答案 marker 为基准，只描述可观察的输出顺序，不等同于答案 candidate 的形成时间或内部 commitment。长度和位置指标还会受到循环、截断及无有效提交的影响。
+
+**Conclusion.** Chat 接口修复了 Llama Bare 中的大部分输出问题，并在 `−6` 获得较高的准确率和有效提交率；Qwen 则在 `+8` 获得最高准确率。两种模型的有效方向与 GSM8K-derived workpoint 一致，但 ProofWriter-O​​WA 的行为变化高度依赖模型与接口，不能概括为统一的“先思考、再回答”效应。
+
+### 6.6 FinQA
+
+FinQA 的答案形式比 GSM8K 更复杂。`first_acc` 仍作为主要性能指标；candidate-based metrics 使用 GSM8K candidate detector，因此只用于探索性描述，不作为 FinQA 内部答案形成时间的直接测量。
+
+#### Llama3.1-8B-Instruct
+
+**Llama3.1-8B-Instruct — FinQA CoT**
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 300 | 8.67% | 8.00% | 99.67% | 8.70% | 34.67% | 3.97% | 5 | 828 | 0.0053 | 0.0000 | 10.33% | 93.33% | 100.00% | 868 |
+| −4 | 300 | 9.00% | 7.67% | 99.33% | 9.06% | 75.33% | 2.53% | 0 | 804 | 0.0000 | 0.0057 | 19.67% | 95.33% | 100.00% | 868 |
+| 0 | 300 | 14.33% | 12.67% | 99.67% | 14.38% | 89.67% | 3.46% | 0 | 826 | 0.0000 | 0.0077 | 21.67% | 96.67% | 100.00% | 847 |
+| +4 | 300 | **15.33%** | **13.67%** | 94.67% | 16.20% | 81.33% | 10.49% | 0 | 872 | 0.0000 | 0.0113 | 30.67% | 93.33% | 100.00% | 891 |
+
+Llama 在所有剂量下都达到 100% `truncated_rate`，并伴随超过 93% 的 `loop_rate`。因此，较大的 `post_cand_chars_med` 和 `gen_chars_med` 主要反映循环生成，而不能解释为更长或更充分的推理。
+
+性能上，GSM8K-derived workpoint `−6` 的 `first_acc` 从 baseline 的 14.33% 降至 8.67%；`−4` 同样下降。虽然 `−6` 的 `early_cand_rate` 明显降低，但准确率没有改善，而且输出几乎全部截断。这一结果不能支持“candidate 后移带来更好推理”的解释。
+
+`+4` 的点估计略高于 baseline，但提升仅为 1.00 pp，同时有效提交率下降、多个 marker 的比例上升。整体来看，Llama 在 FinQA 上没有表现出可靠的 fixed-workpoint transfer。
+
+#### Qwen2.5-7B-Instruct
+
+**Qwen2.5-7B-Instruct — FinQA CoT**
+
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 300 | 10.00% | 9.67% | 91.67% | 10.91% | 100.00% | 0.00% | 0 | 742 | 0.0000 | 0.5400 | 42.67% | 19.00% | 28.67% | 746 |
+| 0 | 300 | 20.67% | 20.67% | 92.67% | 22.30% | 99.33% | 0.00% | 0 | 512 | 0.0000 | 0.3773 | 36.33% | 15.33% | 20.67% | 516 |
+| +6 | 300 | 20.67% | 20.33% | 96.67% | 21.38% | 54.00% | 37.37% | 5 | 288 | 0.0122 | 0.6611 | 34.33% | 14.00% | 18.33% | 516 |
+| +8 | 300 | **25.67%** | **24.33%** | 97.67% | 26.28% | 43.33% | 49.15% | 150 | 259 | 0.4138 | 0.2812 | 48.67% | 12.33% | 16.67% | 554 |
+
+Qwen 的正向 α 产生了较清晰的 output reordering。相对于 baseline：
+
+- `+6` 将 `early_cand_rate` 从 99.33% 降至 54.00%，`reason_first_rate` 从 0.00% 升至 37.37%，但 `first_acc` 保持在 20.67%。
+- `+8` 进一步将 `early_cand_rate` 降至 43.33%，并将 `reason_first_rate` 提高至 49.15%；`first_acc` 同时提高至 25.67%，点估计增加 5.00 pp。
+- `loop_rate` 和 `truncated_rate` 随正向 α 下降，说明这些行为变化不能完全归因于更严重的循环或截断。
+
+不过，`+6` 已产生明显的 output reordering，却没有提高准确率，说明这种变化本身并不充分。`+8` 的 `multi_marker_rate` 升至 48.67%，且 `last_acc` 低于 `first_acc`，也表明重复提交和后续修订仍可能破坏答案。
+
+> **Metric note.** `candidate_posN_med` 使用 GSM8K candidate detector，在 FinQA 上属于探索性指标；`posN_med` 测量的是第一个合法 `#### <value>` marker。两者检测的对象和统计子集不同，不能直接比较。长度指标还会受到循环与截断影响。
+
+**Conclusion.** FinQA 没有表现出稳定的跨任务 workpoint transfer。Llama 的负向 workpoint 降低了准确率，并受到严重循环和截断影响；Qwen `+8` 的准确率点估计有所提高，并伴随较少的 early candidate 和更多的 reason-first output，但 `+6` 的行为反例说明 output reordering 不能单独预测性能。
     
-
-
-### 6.3 ProofWriter-OWA
-
-ProofWriter-OWA 使用显式 CoT、固定的单个 Unknown 示例和 first-answer 评分。早期 Bare 条件存在严重的循环、截断和答案提交问题，因此后续增加 Chat 条件检查这些结果是否主要来自接口失效。
-
-Bare 与 Chat 使用相同题目、评分规则和剂量，仅生成接口不同。两者均属于目标任务上的剂量扫描，不是 GSM8K fixed-workpoint transfer。
-
-**Table 6.3. ProofWriter-OWA Bare and Chat dose sweeps (N=300 per cell)**
-
-| Interface | Model | α | Accuracy | Last-answer | Answered-only | No answer | Multiple markers | First ≠ last | Loop | Truncation | Δ vs 0 | Holm `p_adj` |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Bare | Llama3.1-8B | −6 | .1433 | .1033 | .5513 (n=78) | .740 | .2167 | .615 (n=65) | .933 | 1.000 | +4.00 pp | n.s. |
-| Bare | Llama3.1-8B | −4 | .1200 | .0867 | .5373 (n=67) | .777 | .1900 | .509 (n=57) | .900 | 1.000 | +1.67 pp | n.s. |
-| Bare | Llama3.1-8B | 0 | .1033 | .0600 | .5000 (n=62) | .793 | .1767 | .396 (n=53) | .933 | 1.000 | — | — |
-| Bare | Llama3.1-8B | +4 | **.2167** | .1867 | .5462 (n=119) | .603 | .3533 | .406 (n=106) | .950 | 1.000 | **+11.33 pp** | **2.27×10⁻⁴** |
-| Chat | Llama3.1-8B | −6 | **.3933** | .3933 | .5339 (n=221) | .263 | .000 | N/A | .170 | .210 | +6.33 pp | .244 |
-| Chat | Llama3.1-8B | −4 | .3400 | .3400 | .5730 (n=178) | .407 | .000 | N/A | .267 | .297 | +1.00 pp | 1.000 |
-| Chat | Llama3.1-8B | 0 | .3300 | .3300 | .5470 (n=181) | .397 | .000 | N/A | .257 | .297 | — | — |
-| Chat | Llama3.1-8B | +4 | .3167 | .3167 | .5723 (n=166) | .447 | .000 | N/A | .267 | .290 | −1.33 pp | 1.000 |
-| Bare | Qwen2.5-7B | −6 | .4933 | .4900 | .5461 (n=271) | .097 | .1967 | .017 (n=59) | .143 | .147 | +3.00 pp | n.s. |
-| Bare | Qwen2.5-7B | 0 | .4633 | .4633 | .4649 (n=299) | .003 | .3467 | .000 (n=104) | .343 | .343 | — | — |
-| Bare | Qwen2.5-7B | +6 | .4967 | .4967 | .4967 (n=300) | .000 | .3200 | .000 (n=96) | .320 | .320 | +3.34 pp | n.s. |
-| Bare | Qwen2.5-7B | +8 | **.5200** | .5200 | .5200 (n=300) | .000 | .4867 | .027 (n=146) | .473 | .473 | +5.67 pp | .257 |
-| Chat | Qwen2.5-7B | −6 | .0067 | .0067 | .6667 (n=3) | .990 | .000 | N/A | .000 | .000 | **−40.33 pp** | **2.26×10⁻³⁶** |
-| Chat | Qwen2.5-7B | 0 | .4100 | .4100 | .4100 (n=300) | .000 | .007 | .000 (n=2) | .000 | .000 | — | — |
-| Chat | Qwen2.5-7B | +6 | .3900 | .3900 | .3913 (n=299) | .003 | .000 | N/A | .000 | .000 | −2.00 pp | 1.000 |
-| Chat | Qwen2.5-7B | +8 | **.4767** | .4767 | .4783 (n=299) | .003 | .000 | N/A | .000 | .000 | **+6.67 pp** | **.0303** |
-
-Chat template 大幅减少了循环、截断和多答案问题，确认 Bare 条件下的部分低分来自接口与答案提交失败。
-
-在更稳定的 Chat 条件下，Llama 的 `−6` 数值最高，但未通过 Holm，因此只能视为方向一致的趋势。Qwen 的 `+8` 显著提高准确率，而 `−6` 几乎完全退化为不带规定 marker 的裸标签输出。
-
-Bare 条件下 Llama `+4` 虽然显著，但其提升伴随无答案率明显下降，因此更适合解释为有效提交增加，而不是已经证明推理能力改善。总体而言，ProofWriter 支持 steering 效果，但该效果高度依赖模型和提示接口。
-
 ### 6.4 ZebraLogic-Easy
 
 ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答案的样本计错，并在每个模型内对三个非零剂量执行 Holm 校正。
@@ -1176,145 +1306,67 @@ ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答�
 
 因此，ZebraLogic-Easy 没有提供正向迁移证据，但明确显示了 Qwen 的高剂量失败边界。
 
-### 6.5 FinQA
+### 6.7 ZebraLogic-Easy
 
-FinQA 使用显式 CoT 和直接数字答案评分，在每个模型内对三个非零剂量执行 Holm 校正。这里报告的是自定义的数字答案准确率，不等同于官方 FinQA program/DSL execution 指标。
+ZebraLogic-Easy 的答案是完整逻辑网格，因此行为指标围绕 solution grid 的出现位置和修订情况定义。行为指标采用 gold-free 分析；准确率来自冻结的正式评测，未由本次行为脚本重新计算。每个条件均包含 280 个样本。
 
-**Table 6.5. FinQA task-specific dose sweep (N=300 per cell)**
+#### Llama3.1-8B-Instruct
 
-| Model | α | First accuracy | Last accuracy | Answered-only | No answer | Loop | Truncation | Δ vs 0 | Holm `p_adj` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Llama3.1-8B | −6 | 8.67% | 8.00% | 8.70% (n=299) | 0.33% | 93.33% | 100.00% | **−5.67 pp** | **.0190** |
-| Llama3.1-8B | −4 | 9.00% | 7.67% | 9.06% (n=298) | 0.67% | 95.33% | 100.00% | **−5.33 pp** | **.0112** |
-| Llama3.1-8B | 0 | **14.33%** | 12.67% | 14.38% (n=299) | 0.33% | 96.67% | 100.00% | — | — |
-| Llama3.1-8B | +4 | 15.33% | 13.67% | 16.20% (n=284) | 5.33% | 93.33% | 100.00% | +1.00 pp | .7552 |
-| Qwen2.5-7B | −6 | 10.00% | 9.67% | 10.91% (n=275) | 8.33% | 19.00% | 28.67% | **−10.67 pp** | **2.83×10⁻⁶** |
-| Qwen2.5-7B | 0 | 20.67% | 20.67% | 22.30% (n=278) | 7.33% | 15.33% | 20.67% | — | — |
-| Qwen2.5-7B | +6 | 20.67% | 20.33% | 21.38% (n=290) | 3.33% | 14.00% | 18.33% | 0.00 pp | 1.000 |
-| Qwen2.5-7B | +8 | **25.67%** | 24.33% | 26.28% (n=293) | 2.33% | 12.33% | 16.67% | +5.00 pp | .1539 |
+**Llama3.1-8B-Instruct — ZebraLogic-Easy**
 
-两个模型都没有建立有效的正向 workpoint。Llama `−6/−4` 显著降低准确率，`+4` 的小幅正向变化未被检出；Qwen `+8` 提高 5.00 pp，但没有通过 Holm，只能视为正向趋势。
+| α | first_puzzle_acc | last_puzzle_acc | first_cell_acc | last_cell_acc | valid_sub_rate | full_grid_rate | reason_before_solution_rate | pre_solution_chars_med | solution_posN_med | grid_agreement_med | grid_disagreement_rate | loop_rate | truncated_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 35.71% | 33.93% | 48.55% | 41.91% | 75.71% | 71.07% | 75.71% | 544 | 0.1295 | 1.0000 | 9.47% | 90.71% | 100.00% | 4192 |
+| −4 | 33.93% | 32.86% | 47.36% | 42.09% | 75.00% | 69.64% | 75.00% | 515 | 0.1236 | 1.0000 | 7.94% | 93.21% | 100.00% | 4162 |
+| 0 | **36.79%** | **37.14%** | **48.73%** | **48.68%** | 74.64% | 67.86% | 74.64% | 520 | 0.1270 | 1.0000 | 10.19% | 95.00% | 100.00% | 4118 |
+| +4 | 32.14% | 30.00% | 46.27% | 38.64% | 75.00% | 70.71% | 75.00% | 522 | 0.1234 | 1.0000 | 9.34% | 90.00% | 100.00% | 4168 |
 
-Llama 各剂量都存在严重的生成循环与截断，因此其结果需要谨慎解释。不过，主指标取第一次合法答案，尾部循环不会改写已经提交的 first answer。
+Llama 的各项行为指标基本保持不变。`valid_sub_rate` 约为 75%，`pre_solution_chars_med` 维持在 515–544，`solution_posN_med` 也集中在 0.12 附近，没有出现清晰的 dose-dependent reordering。
 
-### 6.6 CRUXEval-O Chat Interface
+准确率同样没有改善。baseline 的 `first_puzzle_acc` 为 36.79%，`−6`、`−4` 和 `+4` 均低于该点；`last_puzzle_acc` 与 `last_cell_acc` 也没有显示有效 transfer。
 
-CRUXEval-O Chat 实验只改变 Llama3 的 prompt wrapper，并分别在 CoT 与 No-CoT 下运行相同的四点剂量 `{−6,−4,0,+4}`。两种条件各自在模型内部以 `α=0` 为基线执行 McNemar 检验和 Holm `m=3` 校正。
+所有条件的 `truncated_rate` 均为 100%，`loop_rate` 超过 90%，且生成 token 数中位数均达到上限 1024。因此，较长的输出不能解释为更充分的推理，solution position 和生成长度也需要谨慎解读。
 
-**Table 6.6. CRUXEval-O Chat No-CoT and CoT dose sweeps (N=300 per cell)**
+#### Qwen2.5-7B-Instruct
 
-| Condition | α | First / last accuracy | No marker | Nonliteral | Degenerate | Truncation | Median chars / tokens | Δ vs 0 | Holm `p_adj` | 95% CI |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| No-CoT | 0 | 45.67% / 45.67% | 1.7% | 1.3% | 1.7% | 2.0% | 458 / 132 | — | — | — |
-| No-CoT | −6 | 46.67% / 46.67% | 1.0% | 1.3% | 0.7% | 1.3% | 468 / 135 | +1.00 pp | .7111 | [−2.67,+4.33] |
-| No-CoT | −4 | 43.33% / 43.33% | 2.0% | 1.0% | 1.7% | 2.0% | 486 / 134 | −2.33 pp | .5299 | [−6.00,+1.00] |
-| No-CoT | +4 | 41.00% / 41.00% | 2.7% | 0.3% | 2.3% | 2.7% | 207 / 70 | −4.67 pp | .2939 | [−10.00,+0.67] |
-| CoT | 0 | 52.00% / 52.00% | 2.3% | 0.0% | 1.3% | 2.3% | 1005 / 283 | — | — | — |
-| CoT | −6 | 51.33% / 51.33% | 3.0% | 0.7% | 3.0% | 3.0% | 1003 / 295 | −0.67 pp | 1.0000 | [−5.00,+3.67] |
-| CoT | −4 | 49.33% / 49.33% | 2.7% | 0.0% | 1.7% | 2.7% | 1024 / 289 | −2.67 pp | .9667 | [−7.33,+2.00] |
-| CoT | +4 | 50.33% / 50.33% | 2.7% | 0.3% | 1.3% | 3.0% | 711 / 199 | −1.67 pp | 1.0000 | [−6.33,+3.00] |
+**Qwen2.5-7B-Instruct — ZebraLogic-Easy**
 
-1. Chat 接口下，两种条件的格式与可评分性都保持健康，但所有非零剂量均未显著优于各自的 `α=0`，因此没有检测到有效 workpoint。
-2. `+4` 在 CoT 和 No-CoT 下都明显缩短生成，却没有提高准确率，说明输出缩短不等于推理改善。CoT 的 `α=0` 点估计高于 No-CoT（52.00% vs 45.67%），但未进行跨条件检验，只作描述。
+| α | first_puzzle_acc | last_puzzle_acc | first_cell_acc | last_cell_acc | valid_sub_rate | full_grid_rate | reason_before_solution_rate | pre_solution_chars_med | solution_posN_med | grid_agreement_med | grid_disagreement_rate | loop_rate | truncated_rate | gen_chars_med |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| −6 | 30.00% | 16.07% | 58.32% | 35.14% | 100.00% | 92.50% | 100.00% | 508 | 0.1669 | 0.1111 | 67.27% | 6.07% | 60.36% | 3906 |
+| 0 | 34.64% | 15.36% | 64.05% | 28.45% | 100.00% | 93.57% | 100.00% | 506 | 0.1492 | 0.0714 | 76.34% | 7.50% | 72.86% | 3967 |
+| +6 | **36.07%** | 12.14% | **65.64%** | 35.95% | 99.64% | 96.79% | 99.64% | 546 | 0.1614 | 0.2000 | 60.65% | 9.29% | 68.57% | 3956 |
+| +8 | 23.93% | **24.64%** | 23.73% | 24.18% | 39.29% | 38.93% | 39.29% | 479 | 0.3411 | 1.0000 | 2.75% | 62.50% | 63.57% | 3070 |
 
-### 6.7 Local Stability and Near-Optimal Regions
+Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason_before_solution_rate` 接近 100%。该指标在这些条件下已经饱和，无法区分不同剂量的输出组织方式。
 
-单一 argmax 容易把抽样波动误写成精确的最佳剂量。本文所称的 near-optimal region，是指在已测离散剂量中，与 observed best 未被显著区分的集合。它不是连续区间，也不代表这些剂量已经被证明统计等效。
+`+6` 的 `first_puzzle_acc` 从 34.64% 小幅提高至 36.07%，`first_cell_acc` 从 64.05% 提高至 65.64%，但 `last_puzzle_acc` 反而下降。因此，这只能视为有限的点估计变化，不能支持稳定的 workpoint transfer。
 
-后补邻点只用于检查固定工作点附近的稳定性，不能重新定义原有 workpoint。
+`+8` 则出现明显的输出崩溃：`valid_sub_rate` 从 100.00% 降至 39.29%，`full_grid_rate` 降至 38.93%，`first_puzzle_acc` 和 `first_cell_acc` 也分别降至 23.93% 和 23.73%。此时较低的 grid disagreement 主要来自能够产生完整答案的选择性子集，不能解释为答案修订变得更加稳定。
 
-**Table 6.7. Observed near-optimal regions and local stability**
+所有 Qwen 条件的生成 token 数中位数同样达到上限 1024，且截断率较高。因此，solution timing 和修订指标仍会受到截断及有效提交率变化的影响。
 
-| Curve | Reference point | Added stability cell(s) | Observed near-optimal region | Key neighbour comparison |
-|---|---|---|---|---|
-| Llama GSM8K No-CoT | Best `−6` | — | **{−6,−4}** | `−6` vs `−4`: +5.00 pp, `p=.101` |
-| Llama GSM8K CoT | Best `−4` | `−2`: 74.00%, Δ=+5.00 pp, `p_adj=.174` | **{−4}** | `−4` vs `−6`: +9.67 pp, `p=1.1×10⁻⁴` |
-| Qwen GSM8K No-CoT | Frozen best `+8` | Later high-dose extension | **{+8}** on the frozen curve; later plateau beyond `+8` | `+8` vs `+6`: +8.00 pp, `p=.0022` |
-| Qwen GSM8K CoT | Best `+6` | — | **{+6,+8}** | `+6` vs `+8`: +2.33 pp, `p=.371` |
-| Llama MATH No-CoT | Frozen `−6` | `−8`: 39.33%, Δ=+2.67 pp, `p_adj=.403`, CI=[−3.00,+8.00] | **{−8,−6,−4}** | `−6` vs `−8`: +4.00 pp, `p=.126`; vs `−4`: +3.33 pp, `p=.212` |
-| Llama MATH CoT | Frozen `−6` | `−8`: 45.33%, Δ=+3.33 pp, `p_adj=.328`, CI=[−0.67,+7.67] | **{−8,−6,−4}** | `−6` vs `−8`: +3.67 pp, `p=.0895`; vs `−4`: +4.00 pp, `p=.104` |
-| Llama GSM-Hard No-CoT | Frozen best `−6` | — | **{−6,−4}** | Difference only +0.33 pp |
-| Llama GSM-Hard CoT | Frozen `−6` | `−4`: 30.00%, Δ=+10.00 pp, `p_adj=1.36×10⁻⁶`, CI=[+6.33,+14.00] | **{−6,−4}** | `−4` vs `−6`: +4.00 pp, `p=.065` |
-| Qwen GSM-Hard No-CoT | Frozen `+8` | `+10`: 50.33%, Δ=+16.33 pp, `p_adj=9.90×10⁻⁸`, CI=[+11.00,+21.67] | **{+8,+10}** | `+10` vs `+8`: 0.00 pp, `p=1.000` |
-| Qwen GSM-Hard CoT | Frozen `+8` | `+6`: 49.00%, `p_adj=.000270`;<br>`+10`: 50.33%, `p_adj=8.46×10⁻⁵` | **{+6,+8,+10}** | `+8` vs `+6`: +2.33 pp, `p=.371`;<br>vs `+10`: +1.00 pp, `p=.664` |
+> **Metric note.** `reason_before_solution_rate` 和 `solution_posN_med` 描述可观察的 solution grid 位置，不代表内部 commitment。`grid_agreement_med` 只在存在可比较网格的样本中计算；当 `valid_sub_rate` 明显变化时，不应直接跨条件比较。`no_answer_rate` 是 `100% − valid_sub_rate`，因此未在合并表中重复列出。
 
-多数曲线的最佳结果更适合表达为一个局部区域，而不是唯一剂量。Llama GSM8K CoT 的 `−4` 是较清晰的单点局部峰；Llama MATH 则表现为宽负向区域；Qwen GSM-Hard 和高剂量 GSM8K 结果更接近正向平台。
-
-因此，workpoint selection 的合理目标是找到方向正确、regret 较低的区域，而不是声称精确命中唯一 argmax。
-
-### 6.8 Exploratory Output-Pattern Diagnostics
-
-为检查准确率变化是否伴随回答位置变化，我们使用 `early_candidate_rate`（`ec`）进行描述性分析。该指标判断首行是否提前出现裸数字；`ec` 下降只表示模型较少立即输出数字答案，不能直接等同于内部 commitment timing。
-
-**Table 6.8. Output-pattern changes on boundary tasks**
-
-| Task | Model | No-CoT ec (0→α) | CoT ec (0→α) | CoT accuracy Δ | Interpretation |
-|---|---|---|---|---:|---|
-| BBH object counting | Llama | 95.2% → 84.4% | 97.2% → 63.2% | **+16.00 pp** | `ec` 与准确率方向一致，但输出退化较高 |
-| BBH object counting | Qwen | 100.0% → 44.4% | 100.0% → 7.2% | **+14.00 pp** | `ec` 大幅下降，同时准确率提高 |
-| CRUXEval-O | Llama | 48.0% → 47.3% | 43.0% → 28.0% | −0.67 pp | `ec` 下降但准确率未改善 |
-| CRUXEval-O | Qwen | 45.0% → 19.0% | 36.0% → 0.0% | **+19.33 pp** | `ec` 降至零，同时准确率提高 |
-| LogiQA 2.0 | Llama | 0.0% → 13.3% | 0.0% → 4.3% | −2.33 pp | 指标不适用于字母选项 |
-| LogiQA 2.0 | Qwen | 0.0% → 0.0% | 0.0% → 0.0% | −5.33 pp | 指标不适用于字母选项 |
-
-BBH-Llama、BBH-Qwen 和 CRUXEval-O-Qwen 的 CoT 准确率收益都伴随 `ec` 下降。然而，CRUXEval-O-Llama 同样出现 `ec` 下降，却没有准确率收益，说明这种输出变化不是性能提升的充分条件。
-
-LogiQA 使用字母选项，现有数字探测器无法判断其回答位置是否发生类似变化。总体上，这些结果只能说明部分准确率收益伴随着更少的提前数字作答，不能证明回答位置变化导致了性能提升。
-
-Llama 的 Chat 四点扫描进一步排除了严重循环与截断作为主要混淆因素：输出已经可以稳定评分，但 CoT 与 No-CoT 均未出现准确率收益，因此该模型上的 CRUXEval-O null 不能仅用 Bare 接口失效解释。
-
-**Table 6.9. GSM-Symbolic commitment / answer-formation timing on key dose comparisons**
-
-主要 commitment 指标是 `early_candidate_rate`（`ec`）和 `reason_first_rate`；两者均为探索性描述统计，不进入 GSM-Symbolic 准确率的 Holm family。`posN`（首个可解析 `####` 标记的归一化字符位置）仅作为辅助格式指标，不要求与准确率同方向——它锚定在 `####` 这一格式事件上，而非答案候选值本身首次出现的位置。`no_answer=0`（本文所有 GSM-Symbolic cell 均如此）只说明冻结 fallback scorer 总能从生成文本中提取出某个可比较的数值，不代表模型都产生了规范的 `####` 提交；是否规范提交需分别参考 `no_marker_rate` 与 `marker_unparsed_rate`。
-
-| Comparison | Accuracy (0→α) | `ec` (0→α) | `reason_first` (0→α) | `posN` (0→α, 辅助) |
-|---|---:|---:|---:|---:|
-| Llama No-CoT `0→−6` | .4811→.5756 | .2522→**.1789** | .3118→**.6007** | .3093→.3337 |
-| Qwen No-CoT `0→+8` | .5333→.6633 | .9622→**.0656** | .0000→**.9844** | .8661→.8287 |
-| Qwen CoT `0→+6` | .5289→.6878 | .9911→**.4378** | .0000→**.6389** | .9092→.8801 |
-| Qwen CoT `0→+8` | .5289→.6822 | .9911→**.0644** | .0000→**.9633** | .9092→.8549 |
-| Llama CoT `0→−6`（反例，`Δ=+1.11 pp`, `p_adj=.527`） | .5556→.5667 | .2833→**.1644** | .5926→**.7929** | .3865→.3294 |
-
-显著改善通常伴随 `ec` 下降和 `reason_first` 上升，Qwen 上变化幅度尤其大；但 Llama CoT 是重要反例——commitment 时序发生了同方向的变化，准确率却没有显著提升。因此，commitment 改变与有效 steering 经常共现，但不是准确率提升的充分条件，这些指标是相关机制证据，而不是因果中介证明。
+**Conclusion.** ZebraLogic-Easy 没有显示稳定的 fixed-workpoint transfer。Llama 的性能和行为指标整体接近 baseline；Qwen `+6` 只有有限的 first-answer 点估计提升，而 `+8` 出现明显的格式与性能崩溃。该任务进一步说明，reason-before-solution 行为可能已经饱和，不能单独预测准确率。
 
 ### 6.9 Cross-Benchmark Summary
 
-**Table 6.10. Where effective workpoints were detected**
+**Table Cross-benchmark workpoint outcomes**
 
-| Benchmark | Evaluation type | Llama | Qwen | Main conclusion |
-|---|---|---|---|---|
-| MATH | Fixed transfer + dose selection | Fixed `−6` supported | Fixed `+8` not detected; task-selected `+6` performs better | Model-specific |
-| GSM-Hard | Fixed transfer | No-CoT and CoT supported | No-CoT and CoT supported | Strongest transfer result |
-| GSM-Symbolic | Full dose / same-family robustness | No-CoT `−6/−4` supported; CoT not detected | No-CoT `+6/+8` and CoT `−6/+6/+8` supported | Same-family robustness |
-| BBH object counting | Fixed transfer | CoT only | CoT only | CoT-dependent |
-| CRUXEval-O | Fixed transfer + Chat interface check | Bare 和 Chat 均未检测到有效 workpoint | Bare No-CoT 和 CoT fixed workpoint supported；Chat 未运行 | Model-specific; fixing the interface did not rescue Llama steering |
-| LogiQA 2.0 | Fixed transfer | Not detected | Not detected | Double null |
-| ProofWriter-OWA | Full dose / interface comparison | Chat `−6` trend only; Bare result submission-sensitive | Chat `+8` supported | Interface-dependent |
-| ZebraLogic-Easy | Full dose | No positive workpoint | No positive workpoint; `+8` harmful | High-dose failure boundary |
-| FinQA | Full dose | No positive workpoint | `+8` trend only | No effective workpoint |
+| Benchmark | Llama3.1-8B | Qwen2.5-7B | Main boundary |
+| --- | --- | --- | --- |
+| GSM-Hard | Supported in No-CoT and CoT | Supported in No-CoT and CoT | Workpoint extends to a nearby hard arithmetic task |
+| GSM-Symbolic | Supported in No-CoT; not stable in CoT | Supported in No-CoT and CoT | Transfer depends on model and prompting condition |
+| BBH Object Counting | CoT only | CoT only | CoT-dependent transfer; No-CoT reordering is insufficient |
+| CRUXEval-O | No stable gain | Supported mainly under CoT | Clear model boundary; revision remains unstable |
+| ProofWriter-OWA | Descriptive gain at `−6` under Chat | Descriptive gain at `+8` under Chat | Strong interface dependence; Bare results are format-limited |
+| LogiQA 2.0 | No stable gain | No stable gain | Multiple-choice output does not show reliable transfer |
+| ZebraLogic-Easy | No stable gain | No stable gain; `+8` collapses | Reason-before-solution is saturated and not predictive |
+| FinQA | No stable gain | Modest descriptive gain at `+8` | Reordering appears in Qwen but does not establish stable transfer |
 
-整体结果可以归纳为三点：
+跨任务结果不支持一个对所有任务都有效的单点 workpoint。更合适的结论是：每个模型存在一个在部分相近任务中可迁移的 workpoint range，但其效果受到 benchmark、prompting condition 和输出接口的共同限制。
 
-1. **固定工作点可以迁移，但范围有限。** GSM-Hard 的证据最稳定；MATH、BBH 和 CRUXEval-O 均表现出模型或提示条件差异。
-2. **完整剂量曲线揭示了更多条件性结果。** GSM-Symbolic 支持同任务家族鲁棒性，ProofWriter 显示接口依赖；ZebraLogic 和 FinQA 没有找到有效的正向 workpoint。CRUXEval-O 展示模型特异性迁移：Qwen 在 Bare fixed-workpoint 条件下有效，Llama 即使使用健康的 Chat 接口仍为 null。不应据此写成"chat template 没有价值"；它改善的是生成稳定性和可评分性，但没有使 steering accuracy effect 出现。
-3. **不存在跨模型、跨任务统一的最佳 α。** 更合理的目标是识别每个模型和任务中的有效方向、近优区域与失败边界。
+行为结果同样没有形成统一的“先思考、再回答”规律。有效 α 经常伴随更少的 early candidate、更多的 reason-first output 或更晚的正式提交，但这些变化既不是性能提升的必要条件，也不是充分条件。部分任务出现明显的 output reordering 却没有准确率收益，另一些任务则受到截断、循环、格式崩溃或行为指标饱和的影响。
 
-这些结果属于模型输出和准确率层面的证据，不证明生物多巴胺、通用 wanting 轴或 commitment timing 的因果中介机制。完整协议、运行配置、统计家族、敏感性分析和输出诊断保留在 `CLAUDE.md`。
-
-## References
-
-**神经科学（次要旁证）：多巴胺 → 焦虑 / 警觉 / 威胁高估**（§2.2 / §2.3 的机制**旁**锚。注意本项目主机制锚已改为 **VTA→NAcc wanting 过载 → 冲动 + 固著**，见 §0.2；下列 DA→anxiety 文献有通路特异性（VTA→IPN），列此仅表明 DA 亦有独立焦虑下游，但**非**本数据 +α 端的主要解释——我们观测到的是抢答 / 固著，而非回避 / freezing）
-- Dopamine release in the interpeduncular nucleus promotes anxiety. *(VTA→IPN D1 通路双向调节焦虑行为的光遗传+药理证据)* — PMC7687288. https://pmc.ncbi.nlm.nih.gov/articles/PMC7687288/
-- MIT News (2018). Dopamine, brain vigilance and anxiety. *(Tye Lab：DA 提高威胁通路信噪比、压制奖励神经活动，偏向 threat/freeze)* https://news.mit.edu/2018/dopamine-brain-vigilance-anxiety-1107
-- Dopaminergic alteration in anxiety and compulsive disorders. *Frontiers in Neuroscience* (2020). https://www.frontiersin.org/articles/10.3389/fnins.2020.608520/full
-- Dopaminergic mechanisms of trait anxiety. *Journal of Neuroscience* (2019). https://www.jneurosci.org/content/39/14/2735
-
-**候选机制（emotional salience，待 RSA 验证）**
-- Brickner, M. A., Szot, W. E., Wolff, A. R., Thomas, M. J., & Saunders, B. T. (2026). Basolateral amygdala dopamine transmits emotional salience. *Nature Communications.* *(BLA DA 编码情绪显著性 / 重新判断需求，非奖赏价值；候选解释 +α 端「放不下」的 salience 过载。注意：−α 端是 under-wanting / commitment-formation failure，非 salience 过载，不由此通路解释。验证需 `Ada_Dopamine2.md` RSA 纳入 BLA/amygdala ROI。)*
-
-**理论框架：wanting / incentive salience**
-- Berridge, K. C., & Robinson, T. E. What is the role of dopamine in reward: hedonic impact, reward learning, or incentive salience? *(wanting ≠ liking；本工作 α = incentive salience 的母假设)*
-- RSN paper (ACL ARR). Role-Sensitive Neurons: A Neuron-Level Gain Control Mechanism for Confidence Steering. *(母论文 §6.1 "Digital Dopamine"；commitment dynamics = wanting 的下游行为表现)*
-
-**心理学框架**
-- Yerkes, R. M., & Dodson, J. D. (1908). The relation of strength of stimulus to rapidity of habit-formation. *(倒 U 型 arousal–performance；§1.1 acc 峰在 α=−6、两端崩的 framing 来源)*
+**Conclusion.** Fixed-workpoint transfer 在 GSM-Hard、GSM-Symbolic、BBH Object Counting 和 Qwen CRUXEval-O 上获得不同程度的支持，但不能推广到所有任务。RSN 能够调节 commitment-related output behavior，但行为方向及其与准确率的关系具有明显的 model、task、condition 和 interface dependence。
