@@ -1,194 +1,165 @@
-# Role Neurons 与 Confidence Neurons 的表征关系
+# Role and Confidence Neurons: Representation and Function
 
-## 1. 研究问题
+## 1. Main Findings
 
-我们希望判断：原 RSN 研究中通过 `expert/non-expert` 条件识别的 role neurons，与通过 `confident/unconfident` 条件识别的 confidence neurons，是否对应相同或相近的内部表征机制。
+Role neurons（RSNs）与 Confidence neurons（CSNs）在表征上明显相关，但目前没有证据表明两者具有相同功能。
 
-分析集中在 RSN 的干预层 Layer 11–19，并依次比较：
+- **Representation:** 两个方向在 Layer 11–19 的 cosine similarity 为 **0.6063**，并共享 **46/180（25.6%）** 个 top-neuron positions。
+- **Organization:** 整体 alignment 主要来自广泛分布的非 top positions；共享 top neurons 数量少，但单位贡献高度富集。
+- **MMLU-E:** 小剂量 CSN steering 能减少 E（“I am not sure”）选择，并在 confident prompt 下保持或小幅提高准确率；较大剂量则明显损害答案选择。
+- **GSM8K:** CSN steering 会改变提前输出、规范提交和重复行为，但没有复现 RSN 的有效推理工作区间。
 
-1. 两类条件产生的整体表征方向；
-2. confident 与 unconfident 表征的逐层分化；
-3. 两组 top neurons 的位置重叠；
-4. 不同 neuron 集合对整体方向一致性的贡献。
+最简洁的结论是：
 
-## 2. 整体表征方向
+> **RSNs 与 CSNs 共享一部分表征基础，但不是可直接互换的功能机制。**
 
-Role direction 与 Confidence direction 分别定义为：
+## 2. Representational Alignment
 
-$$
-d_{\mathrm{role}}
-=
-\mu_{\mathrm{expert}}
--
-\mu_{\mathrm{nonexpert}}
-$$
+### 2.1 Direction and Layerwise Separation
+
+两个方向定义为：
 
 $$
-d_{\mathrm{confidence}}
-=
-\mu_{\mathrm{confident}}
--
-\mu_{\mathrm{unconfident}}
+d_{\mathrm{role}}=\mu_{\mathrm{expert}}-\mu_{\mathrm{nonexpert}},
+\qquad
+d_{\mathrm{confidence}}=\mu_{\mathrm{confident}}-\mu_{\mathrm{unconfident}}.
 $$
 
-两个方向在 Layer 11–19 表现出明显的正向对齐。
-
-| 指标 | Layer 11–19 结果 |
+| Direction Metric | Result |
 |---|---:|
-| 拼接 cosine similarity | **0.6063** |
-| 拼接 Pearson correlation | **0.6063** |
-| 逐层 cosine 均值 | 0.4991 |
-| 逐层 cosine 中位数 | 0.4752 |
-| 逐层最低值 | 0.1584（Layer 11） |
-| 逐层最高值 | **0.7641（Layer 19）** |
-| Role direction L2 norm | 4.4395 |
-| Confidence direction L2 norm | 12.5108 |
-| Confidence/Role norm ratio | 2.82 |
+| Concatenated cosine similarity, Layer 11–19 | **0.6063** |
+| Concatenated Pearson correlation, Layer 11–19 | **0.6063** |
+| Mean layerwise cosine | 0.4991 |
+| Median layerwise cosine | 0.4752 |
+| Minimum layerwise cosine | 0.1584 (Layer 11) |
+| Maximum layerwise cosine | **0.7641 (Layer 19)** |
+| Role-direction L2 norm | 4.4395 |
+| Confidence-direction L2 norm | 12.5108 |
+| Confidence/Role norm ratio | **2.82** |
 
-两种方向的相似度从 Layer 11 开始总体增强，并在 Layer 19 达到约 **0.76**。这说明角色身份与显式自信提示虽然不是同一种干预，但它们在中后层引起了方向相近的内部表征变化。
+两种方向从 Layer 11 起总体更接近，并在 Layer 19 达到最高相似度。Confidence direction 的整体幅度约为 Role direction 的 **2.82 倍**，因此相同 raw α 不能被视为等强度干预。
 
-Confidence direction 的整体幅度约为 Role direction 的 **2.82 倍**，说明显式 confident/unconfident 提示产生了更强的表征位移。
+Confident 与 unconfident 条件的分化也主要出现在这一中后层区间：
 
-## 3. Confident 与 Unconfident 的逐层分化
-
-除了比较 Role 与 Confidence 的差分方向，我们还直接比较了 confident 与 unconfident 条件下的平均 hidden states。
-
-| 指标 | Layer 1–10 | Layer 11–19 | 变化 |
+| Layerwise Metric | Layer 1–10 | Layer 11–19 | Change |
 |---|---:|---:|---:|
-| Confident–Unconfident correlation | 0.9886 | **0.8783** | 明显下降 |
-| Derived divergence \(1-r\) | 0.0114 | **0.1217** | 约增至10倍 |
-| Confidence direction norm | 0.4571 | **3.9009** | 约增至8.5倍 |
-| 区间极值 | — | \(r=0.8192\) | Layer 19 |
-| 区间内最大 direction norm | — | 约6.4 | Layer 19 |
+| Confident–Unconfident correlation | 0.9886 | **0.8783** | Decreased |
+| Derived divergence, $1-r$ | 0.0114 | **0.1217** | About 10× higher |
+| Confidence-direction norm | 0.4571 | **3.9009** | About 8.5× higher |
+| Minimum in-band correlation | — | **0.8192 (Layer 19)** | — |
+| Maximum in-band direction norm | — | **About 6.4 (Layer 19)** | — |
 
-在 Layer 1–10，confident 与 unconfident 的平均表征几乎完全一致，平均相关性为 **0.9886**。进入 Layer 11–19 后，两者的相关性明显下降，平均降至 **0.8783**，并在 Layer 19 达到最低值 **0.8192**。
+这说明显式 confidence 条件与原 expert/non-expert 条件在相近层段形成差异，但层级位置相近本身不等于功能相同。
 
-与此同时，表征差异幅度从 Layer 10–11 附近开始快速增加。Layer 11–19 的平均 divergence 为 **0.1217**，约为前段的10倍；direction norm 也从平均 **0.4571** 上升至 **3.9009**。
+### 2.2 Top-Neuron Overlap
 
-因此，显式 confidence 条件的主要分化同样出现在 RSN 所关注的中后层区间，呈现出与原 expert/non-expert 分化相似的层级位置。
+在 Layer 11–19，每层分别选取 20 个 Role top neurons 和 20 个 Confidence top neurons。随机情况下，每层期望重叠仅为 $20\times20/4096\approx0.098$。
 
-## 4. Top-neuron support overlap
-
-在 Layer 11–19，每层分别选取20个 Role top neurons 和20个 Confidence top neurons，共计每组180个 neuron-position。随机选择时，每层的期望重叠数仅为：
-
-\[
-\frac{20\times20}{4096}\approx0.098
-\]
-
-实际重叠结果如下：
-
-| Layer | 共享数量 | Overlap rate | Jaccard | 符号一致率 | 单尾 \(p\) |
+| Layer | Shared Positions | Overlap Rate | Jaccard | Sign Agreement | One-Sided $p$ |
 |---:|---:|---:|---:|---:|---:|
-| 11 | 2/20 | 10% | 0.053 | 50.0% | \(4.08\times10^{-3}\) |
+| 11 | 2/20 | 10% | 0.053 | 50.0% | $4.08\times10^{-3}$ |
 | 12 | 0/20 | 0% | 0.000 | — | 1.00 |
-| 13 | 3/20 | 15% | 0.081 | 66.7% | \(1.08\times10^{-4}\) |
-| 14 | 5/20 | 25% | 0.143 | 100% | \(2.40\times10^{-8}\) |
-| 15 | 5/20 | 25% | 0.143 | 100% | \(2.40\times10^{-8}\) |
-| 16 | 8/20 | 40% | 0.250 | 100% | \(7.88\times10^{-15}\) |
-| 17 | 6/20 | 30% | 0.176 | 83.3% | \(2.21\times10^{-10}\) |
-| **18** | **10/20** | **50%** | **0.333** | **100%** | \(9.21\times10^{-20}\) |
-| 19 | 7/20 | 35% | 0.212 | 100% | \(1.52\times10^{-12}\) |
+| 13 | 3/20 | 15% | 0.081 | 66.7% | $1.08\times10^{-4}$ |
+| 14 | 5/20 | 25% | 0.143 | 100% | $2.40\times10^{-8}$ |
+| 15 | 5/20 | 25% | 0.143 | 100% | $2.40\times10^{-8}$ |
+| 16 | 8/20 | 40% | 0.250 | 100% | $7.88\times10^{-15}$ |
+| 17 | 6/20 | 30% | 0.176 | 83.3% | $2.21\times10^{-10}$ |
+| **18** | **10/20** | **50%** | **0.333** | **100%** | $9.21\times10^{-20}$ |
+| 19 | 7/20 | 35% | 0.212 | 100% | $1.52\times10^{-12}$ |
 | **Layer 11–19** | **46/180** | **25.6%** | **0.147** | — | — |
 
-两组 top neurons 在 Layer 11–19 共共享 **46/180** 个位置，overlap rate 为 **25.6%**，Jaccard similarity 为 **0.147**。
+除 Layer 12 外，各层重叠都高于随机预期，Layer 18 的重叠最高。Layer 14–19 的共享 neurons 也几乎都具有相同符号。两组 neurons 因而共享一个稳定核心，但 **46/180** 的总重叠也清楚表明它们并非同一组 neurons。
 
-除 Layer 12 外，其余各层的重叠均显著高于随机预期。重叠程度总体随网络深度增强，并在 Layer 18 达到最高：20个 top neurons 中有 **10个共享**，即一半的神经元位置相同。
+### 2.3 Distribution of Alignment
 
-Layer 14–19 的共享 neurons 还表现出很高的方向一致性，绝大多数层的符号一致率为 **100%**。这表明共享 neurons 不仅位置相同，其在 Role 和 Confidence 两个方向中的变化符号也基本一致。
+Layer 11–19 的 36,864 个 neuron positions 可分为四组：
 
-不过，46/180 的重叠也说明两组 neurons 并不完全相同。更准确地说，Role 与 Confidence 共享一个显著高于随机的核心子集，同时各自保留了大量特异 neurons。
+| Neuron Group | Count | Signed Dot Share | Absolute Alignment Share | Role Energy | Confidence Energy | Relative Contribution per Position |
+|---|---:|---:|---:|---:|---:|---:|
+| Shared top | 46 | **8.0%** | **6.5%** | 5.63% | 5.25% | **1.0× (reference)** |
+| Role only | 134 | 2.9% | 2.5% | 3.75% | 1.13% | About 1/8× |
+| Confidence only | 134 | 2.8% | 2.5% | 0.96% | 4.61% | About 1/8× |
+| Neither top | 36,550 | **86.3%** | **88.6%** | **89.65%** | **89.01%** | About 1/74× |
 
-## 5. Shared neurons 对整体方向一致性的贡献
+从总量看，alignment 主要来自 neither-top positions；从单位密度看，46 个 shared-top positions 的贡献约为 role-only 或 confidence-only 的 **8 倍**，约为 neither-top 的 **74 倍**。
 
-为了判断整体 cosine similarity 是否主要由共享 top neurons 产生，我们将 Layer 11–19 的所有36,864个 neuron-position 分为四组：
+因此，最符合数据的结构是：
 
-| Neuron 组 | 数量 | Signed dot 占比 | Absolute alignment 占比 | Role energy | Confidence energy |
-|---|---:|---:|---:|---:|---:|
-| Shared-top | 46 | **8.0%** | **6.5%** | 5.63% | 5.25% |
-| Role-only | 134 | 2.9% | 2.5% | 3.75% | 1.13% |
-| Confidence-only | 134 | 2.8% | 2.5% | 0.96% | 4.61% |
-| Neither-top | 36,550 | **86.3%** | **88.6%** | **89.65%** | **89.01%** |
+> **广泛分布的表征对齐背景，加上一个稀疏、方向一致且高度富集的共享核心。**
 
-从总量看，Role–Confidence alignment 主要位于 top-20 support 之外：neither-top 集合贡献了 **86.3%** 的 signed dot product 和 **88.6%** 的 absolute alignment。
+这并不意味着所有非 top neurons 都均匀贡献；大量 alignment 仍可能集中在刚好未进入 top-20 的较高排名 neurons 中。
 
-但是，shared-top 只有46个 neuron-position，却贡献了 **8.0%** 的 signed dot product，说明其贡献密度非常高。
+## 3. Functional Evidence on MMLU-E
 
-| 单位贡献比较 | 约数 |
-|---|---:|
-| Shared-top / Role-only | 8倍 |
-| Shared-top / Confidence-only | 8倍 |
-| Shared-top / Neither-top | **74倍** |
+### 3.1 RSN Steering under Confidence Prompts
 
-因此，这些共享 top neurons 虽然不能单独解释整体 cosine similarity，但构成了一个高度富集的局部核心。整体结果更符合以下结构：
+在 confident prompt 下，RSN steering 能明显减少 E 选择，同时基本保持准确率。
 
-> **广泛分布的表征对齐背景，加上少量单位贡献显著更高的共享核心 neurons。**
-
-需要注意的是，neither-top 集合包含绝大多数 neuron-position。当前结果只能说明大部分 alignment 总量位于 top-20 之外，尚不能证明所有非 top neurons 都在均匀贡献；这部分信号也可能集中在刚好未进入 top-20 的次高排名 neurons 中。
-
-## 6. 总结
-
-MMLU-E 上的结果表明：
-
-1. **Role 与 Confidence 的整体表征方向明显相关。**  
-   Layer 11–19 的拼接 cosine 为 **0.6063**，逐层最高达到 **0.7641**。
-
-2. **Confidence 的主要表征分化发生在与 RSN 相近的中后层。**  
-   Confident–Unconfident correlation 从 Layer 1–10 的 **0.9886** 降至 Layer 11–19 的 **0.8783**，最低在 Layer 19 达到 **0.8192**。
-
-3. **Role neurons 与 Confidence neurons 部分重叠，但并非同一组。**  
-   两组 top neurons 共享 **46/180（25.6%）**，Jaccard 为 **0.147**，显著高于随机预期。
-
-4. **共享 neurons 构成一个稀疏但高度富集的核心。**  
-   Shared-top neurons 的单位贡献约为 role-only/confidence-only neurons 的 **8倍**，约为 neither-top neurons 的 **74倍**。
-
-总体而言，Role 与显式 Confidence 可能共享一部分中后层表征基础，但两者并不是完全相同的神经元机制。当前结果支持一种简洁的解释：
-
-> **Role 与 Confidence 共享一个方向一致、贡献高度集中的稀疏核心，同时伴随更广泛的分布式表征对齐。**
-
-这些结果目前证明的是结构上的关联。两组 neurons 是否具有可互换的功能，仍需通过后续 cross-steering 实验验证。
-
----
-
-## MMLU-E 上的 Confidence Prompt 与 RSN Steering 结果
-
-该实验使用 `confident/unconfident` prompt，但 steering mask 仍然来自原始 RSN，即 `expert/non-expert` 条件筛选出的 role neurons。
-
-| Condition | STEM Acc. | STEM E-rate | Humanities Acc. | Humanities E-rate | Social Sciences Acc. | Social Sciences E-rate | Other Acc. | Other E-rate | Task-average Acc. | Task-average E-rate |
+| Condition | STEM Acc. | STEM E-rate | Humanities Acc. | Humanities E-rate | Social Sciences Acc. | Social Sciences E-rate | Other Acc. | Other E-rate | Task-Macro Acc. | Task-Macro E-rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Confident | 55.03% | 2.72% | 68.16% | 3.34% | 73.65% | 1.60% | 69.06% | 1.54% | 65.14% | 2.36% |
-| 3 [11,19] | 56.17% | 0.40% | 69.39% | 0.93% | 74.10% | 0.85% | 68.93% | 0.59% | **65.87%** | 0.66% |
-| 3 [11,19], t4 | 55.70% | 0.23% | **69.81%** | 0.39% | **74.01%** | 0.61% | 68.69% | 0.34% | 65.74% | 0.37% |
-| 4 [11,19] | 55.14% | **0.09%** | 69.38% | **0.34%** | 73.68% | **0.54%** | 68.70% | **0.27%** | 65.38% | **0.28%** |
+| Confident baseline | 55.03% | 2.72% | 68.16% | 3.34% | 73.65% | 1.60% | 69.06% | 1.54% | 65.14% | 2.36% |
+| RSN +3, Layer 11–19 | 56.17% | 0.40% | 69.39% | 0.93% | 74.10% | 0.85% | 68.93% | 0.59% | **65.87%** | 0.66% |
+| RSN +3, Layer 11–19, t4 | 55.70% | 0.23% | **69.81%** | 0.39% | **74.01%** | 0.61% | 68.69% | 0.34% | 65.74% | 0.37% |
+| RSN +4, Layer 11–19 | 55.14% | **0.09%** | 69.38% | **0.34%** | 73.68% | **0.54%** | 68.70% | **0.27%** | 65.38% | **0.28%** |
 
-其中，`E-rate` 表示模型选择“不确定”选项 E 的比例。使用 RSN mask 进行干预后，平均 E-rate 从 **2.36%** 降至 **0.66%、0.37% 和 0.28%**，而平均准确率维持在 **65.38%–65.87%**，没有明显下降。
+Task-macro E-rate 从 **2.36%** 降至 **0.66%、0.37% 和 0.28%**，准确率维持在 **65.38%–65.87%**。这说明 RSNs 能调节不确定性表达，而不必同步损害知识选择。
 
-这说明：
+### 3.2 CSN Dose Response
 
-> 即使输入使用显式 confident/unconfident prompt，原 RSN role neurons 仍能显著降低模型表达不确定性的倾向，并且基本不损害任务准确率。
+CSN steering 对 confident 与 unconfident prompts 均有因果影响，但小剂量与大剂量的行为不同。
 
----
-### Confident Prompt 下的 RSN 与 CSN Steering
+| α | Prompt | Task-Macro Acc. | E-rate | Wrong Non-E |
+|---:|---|---:|---:|---:|
+| 0 | Confident | 65.20% | 2.31% | 32.49% |
+| +0.5 | Confident | 66.62% | 0.75% | 32.62% |
+| +1 | Confident | 66.68% | 0.29% | 33.03% |
+| +2 | Confident | 56.99% | 1.51% | 41.49% |
+| +4 | Confident | 32.39% | 0.02% | 67.60% |
+| 0 | Unconfident | 0.32% | 99.39% | 0.28% |
+| +0.5 | Unconfident | 2.57% | 96.08% | 1.36% |
+| +1 | Unconfident | 12.13% | 81.58% | 6.30% |
+| +2 | Unconfident | 53.62% | 9.04% | 37.33% |
+| +4 | Unconfident | 27.42% | 0.02% | 72.56% |
 
-| Steering | α | Mean_acc | Δ Mean_acc | E-ratio | Δ E-ratio |
+Conditional accuracy 衡量模型没有选择 E 时的正确率。它有助于区分“少弃权”与“非 E 答案质量”，但不同剂量下进入该子集的样本会变化，因此不能单独证明知识能力提高。
+
+| α | Confident Conditional Acc. (95% CI) | Δ vs 0 (95% CI) | Unconfident Conditional Acc. (95% CI) | Δ vs 0 (95% CI) |
+|---:|---:|---:|---:|---:|
+| 0 | 66.56% [65.78, 67.33] | — | 49.46% [39.21, 59.60] | — |
+| +0.5 | 67.19% [66.40, 67.95] | +0.63 pp [+0.29, +0.98] | 60.35% [56.60, 64.12] | **+10.89 pp [+1.60, +20.22]** |
+| +1 | 67.09% [66.31, 67.87] | +0.53 pp [+0.03, +1.02] | 60.22% [58.54, 61.91] | **+10.76 pp [+0.97, +21.14]** |
+| +2 | 56.31% [55.50, 57.13] | −10.25 pp [−11.11, −9.41] | 58.24% [57.39, 59.07] | +8.78 pp [−1.42, +19.16] |
+| +4 | 31.83% [31.07, 32.61] | −34.73 pp [−35.80, −33.64] | 27.36% [26.61, 28.09] | −22.10 pp [−32.41, −11.99] |
+
+结果可以概括为：
+
+- **α=+0.5/+1:** confident prompt 的准确率与 conditional accuracy 保持或小幅提高，同时 E-rate 降低；这是当前最干净的低代价区间。
+- **Unconfident prompt:** α=+1 时 E-rate 已从 **99.39%** 降至 **81.58%**。Conditional accuracy 同时上升，但 baseline 的非 E 子集很小、跨剂量子集组成也不同，因此应解释为“回答倾向和条件正确率共同变化”，而不是知识被恢复。
+- **α=+2:** unconfident accuracy 的大幅上升主要伴随 E-rate 从 **99.39%** 降至 **9.04%**；其 conditional-accuracy 差异区间跨 0，不能确认额外的答案质量提升。Confident accuracy 已下降 **8.21 pp**。
+- **α=+4:** 两种 prompt 都进入过度 steering；E-rate 接近 0，但 confident 与 unconfident conditional accuracy 分别降至 **31.83%** 和 **27.36%**。
+
+### 3.3 RSN–CSN Comparison under the Confident Prompt
+
+| Steering | α | Task-Macro Acc. | Δ Acc. | E-rate | Δ E-rate |
 |---|---:|---:|---:|---:|---:|
-| Baseline（RSN） | 0 | 65.14% | — | 2.36% | — |
+| RSN baseline | 0 | 65.14% | — | 2.36% | — |
 | RSN | +3 | 65.87% | +0.73 pp | 0.66% | −1.70 pp |
 | RSN | +4 | 65.38% | +0.24 pp | 0.28% | −2.08 pp |
-| Baseline（CSN） | 0 | 65.20% | — | 2.31% | — |
-| CSN | +2 | 57.00% | −8.20 pp | 1.51% | −0.80 pp |
-| CSN | +4 | 32.40% | −32.80 pp | 0.02% | −2.29 pp |
+| CSN baseline | 0 | 65.20% | — | 2.31% | — |
+| CSN | +0.5 | 66.62% | +1.42 pp | 0.75% | −1.56 pp |
+| CSN | +1 | 66.68% | +1.48 pp | 0.29% | −2.02 pp |
+| CSN | +2 | 56.99% | −8.21 pp | 1.51% | −0.80 pp |
+| CSN | +4 | 32.39% | −32.81 pp | 0.02% | −2.29 pp |
 
-在 confident prompt 下，两次实验的基线结果基本一致。RSN steering能够显著降低模型选择“不确定”（E选项）的比例，同时保持原有准确率；CSN steering同样降低了E-ratio，但准确率随剂量增加而明显下降，说明其不仅增强回答倾向，还扰动了A–D答案之间的选择。
+两种 masks 都能降低不确定性表达，但功能曲线不同：RSN 在已测试剂量下基本保留准确率；CSN 只有较小正向剂量保持稳定，剂量继续增加后会快速损害 A–D 答案选择。
 
-需要注意，两种mask尚未进行norm matching，因此相同的raw α不代表相同的实际干预强度。
+这两组结果来自不同实验链，且 masks 未做 norm matching。因此只能比较行为形态，不能用相同 raw α 比较绝对强弱。
 
-### Confidence Neuron Steering on GSM8K
+## 4. Functional Evidence on GSM8K
 
-**Setup.** 本实验使用Llama3.1-8B-Instruct，在GSM8K的300道题上测试Confidence Neuron（CSN）steering。所有条件均采用neutral、plain No-CoT prompt和greedy decoding；steering作用于decoder layer 11–19。准确率采用offline `first_acc`，并与inline accuracy逐剂量核对一致；`last_acc`仅用于检查后续答案修改。
+### 4.1 CSN Output Behavior
 
-行为指标严格复用RSN §2.1的分析口径。`Premature, either rule`定义为：输出以裸数字开始，或首次`####`出现在全文前2%以内。该指标不同于后续冻结的`earlycand-v1`，两者不能混用。
-
-#### Dose-Dependent Output Behavior
+在 GSM8K 的 300 道题上，CSN steering 改变了多种输出行为，但未产生高于 baseline 的准确率点。
 
 | Metric | −4 | −2 | 0 | +2 | +4 |
 |---|---:|---:|---:|---:|---:|
@@ -210,50 +181,22 @@ MMLU-E 上的结果表明：
 | Median equation count | 4.0 | 4.0 | 4.0 | 4.0 | 3.0 |
 | **Full-text compulsive repetition** | **104** | 59 | 73 | 75 | **102** |
 
-`Committed accuracy`只在产生可解析`#### <number>`的样本中计算，不能替代总体accuracy。`####` position同样只在已提交样本中定义。Generation length以字符数计算；其余计数的分母均为300题。
+`Committed accuracy` 和 `####` position 只在产生可解析正式提交的样本中定义，不能替代总体准确率。其余计数的分母均为 300。
 
-#### Performance Curve
+主要现象如下：
 
-CSN的accuracy呈现一个以 `α=−2/0` 为最高点的有限工作区间，但没有观察到超过baseline的性能增益：
+- First accuracy 为 **51.0% → 60.3% → 60.3% → 55.7% → 46.3%**。强正、负干预都降低准确率，没有出现高于 baseline 的工作点。
+- First 与 last accuracy 的差异均不超过 **4.7 pp**，且多数剂量下 first accuracy 更高；后续答案修改通常没有改善总体表现。
+- Median `####` position 始终为全文的 **17%–20%**，commit rate 也没有一致的剂量方向。
+- `Premature, either rule` 在 +2 降至 139，但准确率同时下降到 55.7%；减少 premature output 本身不足以提高准确率。
+- Full-text compulsive repetition 在 −4/+4 增至 104/102，与两端性能下降相伴，但普通 loop rate 没有清晰趋势。
+- +4 的 committed accuracy 降至 **48.3%**，stuck loops 增至 **36**，说明强干预也降低正式提交质量。
 
-\[
-51.0\% \rightarrow 60.3\% \rightarrow 60.3\%
-\rightarrow 55.7\% \rightarrow 46.3\%.
-\]
+这些结果是描述性点估计；该 pilot 没有对各剂量与 baseline 做正式显著性检验。
 
-正负方向的较强干预都会降低准确率，其中 `α=+4` 相比baseline下降14.0 pp，`α=−4`下降9.3 pp。因此，这条曲线更接近“baseline附近稳定、两端受损”，而不是RSN中“适度负向干预带来增益”的非对称峰形。
+### 4.2 RSN–CSN Comparison
 
-First与last accuracy的差异均不超过4.7 pp，且多数剂量下first accuracy更高。这说明后续答案修改通常没有改善整体表现，但不能据此判断答案在模型内部形成的具体时间。
-
-#### Commitment-Related Behavior
-
-CSN对正式commit指标的改变相对有限且缺乏一致的剂量方向：
-
-- Median `####` position始终位于全文17%–20%，基本保持稳定。
-- 正向区间内，commit rate从baseline的62.0%降至+2的53.3%，随后在+4回升至57.3%，并非单调变化。
-- `α=−4`是主要例外，其commit rate降至36.7%，说明较强负向干预会明显破坏规范答案提交。
-
-与此同时，premature output发生了明显但非单调的变化。`Premature, either rule`在baseline为206例，在 `α=+2` 降至139例，但准确率同时从60.3%下降至55.7%。继续增加到 `α=+4` 后，premature output回升至220例，准确率进一步降至46.3%。
-
-因此，减少premature output本身不足以提高准确率。CSN确实会改变答案出现顺序，但这种变化没有形成与性能提升一致的commitment工作点。
-
-#### Repetition and Submission Quality
-
-Full-text compulsive repetition在两个较强端点明显升高：
-
-- `α=−4`：104例；
-- `α=0`：73例；
-- `α=+4`：102例。
-
-这一形态与两端准确率下降大致对应，但不构成因果证明。普通loop样本始终维持在212–231例，缺乏清晰的剂量趋势，因此不能将总体loop rate解释为CSN特异的perseveration效应。
-
-高正向剂量还显著降低了提交质量。Committed accuracy从baseline的66.7%降至 `α=+4` 的48.3%，同时stuck loops从27例增加到36例。这说明+4不仅改变模型是否提交，还使已经正式提交的答案变得更不可靠。
-
-#### Comparison with RSN Steering
-
-RSN与CSN均在neutral、plain No-CoT条件下测试，且baseline基本一致，因此可以描述性比较曲线形态。
-
-| α | RSN first_acc | CSN first_acc | RSN commit rate | CSN commit rate | RSN premature | CSN premature |
+| α | RSN First Acc. | CSN First Acc. | RSN Commit Rate | CSN Commit Rate | RSN Premature | CSN Premature |
 |---:|---:|---:|---:|---:|---:|---:|
 | −4 | **73.0%** | 51.0% | 58.3% | 36.7% | 195 | 266 |
 | −2 | **69.0%** | 60.3% | 63.0% | 55.0% | 223 | 196 |
@@ -261,12 +204,16 @@ RSN与CSN均在neutral、plain No-CoT条件下测试，且baseline基本一致�
 | +2 | 57.0% | 55.7% | 53.0% | 53.3% | 215 | 139 |
 | +4 | **55.3%** | 46.3% | 49.0% | 57.3% | 232 | 220 |
 
-RSN在负向剂量下明显提高准确率，并在完整曲线的 `α=−6` 达到78.0%；此时premature output降至94例，committed accuracy达到79.7%。CSN则没有产生高于baseline的剂量点，也没有复现RSN在 `α=−6` 附近的低premature、高提交质量工作状态。
+RSN 在完整曲线的 **α=−6** 达到 **78.0%** accuracy，同时 premature output 降至 **94**，committed accuracy 达到 **79.7%**。CSN 没有复现这一“较低 premature、较高提交质量、准确率同步提升”的状态。
 
-在正向区间 `0→+4`，RSN的commit rate由62.7%降至49.0%，而CSN仅由62.0%降至57.3%。因此，CSN对正式commit rate和commit position的系统性调节弱于RSN，但其对准确率的破坏更明显。
+同样需要注意：两种 masks 未做 norm matching，相同 raw α 不是相同干预剂量。这里比较的是曲线与行为签名，而不是绝对效应强弱。
 
-需要注意，两种mask尚未进行norm matching，因此相同raw α不能解释为相同的实际干预强度。上述比较主要用于区分曲线形态和行为签名，而不是比较两组neurons的绝对效应强弱。
+## 5. Conclusion and Evidence Boundary
 
-#### Summary
+表征证据支持 RSNs 与 CSNs 具有共同的中后层方向、显著的 top-neuron overlap，以及一个高度富集的共享核心。但功能实验显示，两者不能简单等同：
 
-> Confidence-neuron steering能够改变premature output、规范提交率和重复行为，但没有复现RSN的有效推理工作区间。其对正式commit位置的影响较小，行为变化也缺乏一致的剂量方向；较强的双向干预主要表现为答案形成不稳定、重复增加和准确率下降。该结果说明，Confidence neurons与RSN虽然具有方向相关和显著的neuron overlap，但两者并不因此具有相同的功能作用。
+- RSN steering 可以在降低不确定性表达的同时保留 MMLU-E 准确率，并在 GSM8K 形成有效工作点。
+- CSN steering 的小剂量区间可以较低代价地减少 E 选择，但较大剂量迅速损害答案质量。
+- CSN 在 GSM8K 上改变多种 commitment-related outputs，却没有带来对应的准确率提升。
+
+因此，当前证据支持“**结构相关、功能有别**”。是否存在真正可互换的因果通路，仍需要 norm-matched cross-steering 与相应控制实验验证。
