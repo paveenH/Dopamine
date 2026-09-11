@@ -215,12 +215,22 @@ def main():
     args = parse_args()
 
     cfgs = utils.parse_configs(args.configs)
-    got_alphas = {int(al) for al, _ in cfgs}
-    if not got_alphas.issubset(EXPECTED_ALPHAS):
-        die(f"alpha values {sorted(got_alphas - EXPECTED_ALPHAS)} are outside "
-            f"this protocol's frozen dose set {sorted(EXPECTED_ALPHAS)}. This "
-            "sweep reuses the bare main line's own 9-point dose family and "
-            "does not search new alpha.")
+    # EXACT match on the frozen nine-point family, as a SORTED LIST -- not a
+    # set-subset, and with NO int() coercion. utils.parse_configs accepts float
+    # alpha tokens, so int(2.5) would silently read as 2 and pass a subset
+    # check; a subset check also admits a partial curve (8 cells) or a repeated
+    # dose. This protocol claims "the complete frozen nine-point sweep", so it
+    # must refuse anything that is not exactly that, in any order.
+    got_alphas = sorted(al for al, _ in cfgs)
+    want_alphas = sorted(EXPECTED_ALPHAS)
+    if got_alphas != want_alphas:
+        die(f"--configs alphas {got_alphas} != this protocol's frozen "
+            f"nine-point dose set {want_alphas}. Exact match required: a "
+            "non-integer dose (parse_configs accepts floats), a missing dose, "
+            "a duplicate, or an extra dose all land here. This sweep reuses "
+            "the bare main line's own dose family and does not search alpha, "
+            "and a partial curve must not be written under this protocol "
+            "name.")
 
     samples = utils.load_json(args.test_file)
     n = len(samples)
