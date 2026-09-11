@@ -656,6 +656,131 @@ def t_analyzers():
                   "an absent nine-point curve must fail closed")
 
 
+
+# ── review fixes 2026-09-11: NA vs 0, analyzer path hint, alpha-vs-dir ───────
+def t_review_fixes():
+    print("\n[review fixes] NA-not-zero, honest analyzer hint, alpha-vs-dir")
+
+    # (2) The launchers/generators must NOT tell an operator to run
+    # "RoleAnswer/analyze_*.py" on the server -- that path does not exist there.
+    for f in (SH_GSM_HARD, SH_MATH, GEN_GSM_HARD, GEN_MATH):
+        s = load_src(f)
+        check(f"t_no_server_analyzer_path[{f.name}]",
+              "RoleAnswer/analyze_" not in s,
+              "the analyzers are not synced to the server; that path misleads")
+        check(f"t_hint_names_offline_workspace[{f.name}]",
+              "RSNResult/RoleAnswer" in s,
+              "the hint must name the offline workspace explicitly")
+
+    ra = Path.home() / "Documents" / "RSNResult" / "RoleAnswer"
+    if not (ra / "chat_sweep_common.py").exists():
+        check("t_review_workspace_present", False, f"{ra} not found")
+        return
+    if str(ra) not in sys.path:
+        sys.path.insert(0, str(ra))
+    import chat_sweep_common as C
+
+    # (3) meta.alpha must match the directory alpha.
+    try:
+        C.assert_meta_alpha_matches_dir(-6, {"alpha": -6}, "p"); ok = True
+    except SystemExit:
+        ok = False
+    check("t_alpha_dir_accepts_match", ok)
+    try:
+        C.assert_meta_alpha_matches_dir(-6, {"alpha": 4}, "p"); bad = False
+    except SystemExit:
+        bad = True
+    check("t_alpha_dir_guard", bad,
+          "a cell in the wrong mdf_* directory must be refused")
+    try:
+        C.assert_meta_alpha_matches_dir(-6, {}, "p"); bad = False
+    except SystemExit:
+        bad = True
+    check("t_alpha_dir_absent_meta_alpha_guard", bad)
+
+    # (1)+(3) driven end to end on real fixtures.
+    import json as _j, tempfile as _t, subprocess as _s
+    N = 6
+    ids = [f"s{i}" for i in range(N)]
+    gold = [str(10 + i) for i in range(N)]
+
+    def _meta(a, L=9):
+        return {"protocol": "gsm-hard-chat-sweep-v1", "model": "llama3",
+                "size": "8B", "alpha": a, "layer_start": 11, "layer_end": 20,
+                "L": L, "mask_sha256": "m", "max_new_tokens": 768,
+                "temperature": 0.0, "top_p": 1.0, "batch_size": 24,
+                "prompt_body_sha256": "pb", "prompt_sha256": "ps",
+                "chat_template_hash": "ct",
+                "prompt_wrapper_id": "llama3-chat-template-v1",
+                "chat_template_applied": True, "padding_side": "left",
+                "prefill_only": True, "prefill_tail_len": 1, "role": "neutral",
+                "cot": False, "n": N,
+                "steering_fires": 0 if a == 0 else L * N,
+                "questions_sha256": "D" * 64}
+
+    with _t.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "gold.json").write_text(_j.dumps(
+            {"meta": {"questions_sha256": "D" * 64},
+             "data": [{"sample_id": i, "gold": g} for i, g in zip(ids, gold)]}))
+        for a in C.ALPHAS:
+            rows = [{"sample_id": i, "question": f"q{i}",
+                     "generated": f"x #### {g}", "generated_token_count": 9,
+                     "stop_reason": "natural_eos"} for i, g in zip(ids, gold)]
+            d = tmp / "chat" / f"mdf_{a}".replace("-", "neg")
+            d.mkdir(parents=True)
+            (d / "gsm_hard_chat_8B_11_20.json").write_text(
+                _j.dumps({"meta": _meta(a), "data": rows}))
+        # bare: NO stop_reason (the frozen tree's real shape), and only 4 of
+        # the 5 expected doses, to exercise the INCOMPLETE label too.
+        for a in [-8, -6, -4, 0]:
+            rows = [{"sample_id": i, "question": f"q{i}",
+                     "generated": f"y #### {g}"} for i, g in zip(ids, gold)]
+            d = tmp / "bare" / f"mdf_{a}".replace("-", "neg")
+            d.mkdir(parents=True)
+            (d / "gsm_hard_8B_11_20.json").write_text(
+                _j.dumps({"meta": {}, "data": rows}))
+
+        cmd = [sys.executable, str(ra / "analyze_gsm_hard_chat_sweep.py"),
+               "--chat_root", str(tmp / "chat"), "--bare_root", str(tmp / "bare"),
+               "--gold", str(tmp / "gold.json"), "--out_dir", str(tmp / "out")]
+        r = _s.run(cmd, capture_output=True, text=True)
+        check("t_review_e2e_runs", r.returncode == 0,
+              (r.stdout + r.stderr)[-300:])
+        if r.returncode == 0:
+            res = _j.load(open(tmp / "out" / "gsm_hard_chat_sweep_result.json"))
+            pr = res["bare_vs_chat_descriptive"]
+            check("t_bare_eos_is_NA_not_zero",
+                  all(x["natural_eos_pct_bare"] == "NA" for x in pr),
+                  "a bare cell with no stop_reason must read NA")
+            check("t_bare_truncation_is_NA_not_zero",
+                  all(x["truncation_pct_bare"] == "NA" for x in pr))
+            check("t_bare_no_stop_reason_pct_kept",
+                  all(x["no_stop_reason_pct_bare"] == 100.0 for x in pr),
+                  "no_stop_reason_pct must still say 100")
+            check("t_chat_side_still_numeric",
+                  all(isinstance(x["natural_eos_pct_chat"], (int, float))
+                      for x in pr),
+                  "the chat side DOES record stop_reason and must stay numeric")
+            check("t_bare_incomplete_flagged",
+                  res["bare_paired_complete"] is False
+                  and res["bare_paired_alphas_present"] == [-8, -6, -4, 0],
+                  "a 4-of-5 bare set must not be reported as complete")
+            check("t_bare_incomplete_in_title",
+                  "INCOMPLETE" in r.stdout,
+                  "the printed table must say INCOMPLETE, not '5 of 9'")
+
+        # mutation: move a cell into the wrong directory
+        import shutil as _sh
+        _sh.rmtree(tmp / "out")
+        src = tmp / "chat" / "mdf_4" / "gsm_hard_chat_8B_11_20.json"
+        dst = tmp / "chat" / "mdf_6" / "gsm_hard_chat_8B_11_20.json"
+        _sh.copy(src, dst)          # mdf_6 now holds a cell whose meta.alpha=4
+        r2 = _s.run(cmd, capture_output=True, text=True)
+        check("t_misplaced_cell_rejected", r2.returncode != 0
+              and "meta.alpha" in (r2.stdout + r2.stderr),
+              "a cell copied into the wrong dose directory must fail closed")
+
 def main():
     print("=" * 72)
     print("chat-sweep guard suite (GSM-Hard + MATH) -- no GPU, no model")
@@ -670,6 +795,7 @@ def main():
     t_launchers()
     t_frozen_no_diff()
     t_analyzers()
+    t_review_fixes()
     print("\n" + "=" * 72)
     print(f"{len(PASS)} passed, {len(FAIL)} failed")
     if FAIL:
