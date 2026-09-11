@@ -558,6 +558,19 @@ These are exploratory and **not** part of the frozen GSM8K dose-response table �
 
 ## Offline analysis workspace (`~/Documents/RSNResult/RoleAnswer/`)
 
+<!-- Why: a launcher once printed "Next: python3.10 RoleAnswer/analyze_*.py" as its
+closing line, which reads as a server-side command; the analyzers are not on the server
+and never will be, so that path silently sends an operator to a nonexistent file.
+Evidence: run_{gsm_hard,math}_chat_sweep.sh closing hint; test_chat_sweep_guards.py
+t_no_server_analyzer_path. Scope: every launcher whose results are scored offline. -->
+**NOTHING IS ANALYSED ON THE SERVER, and a launcher must not imply otherwise.** This
+workspace is **not in this git repo** — a server `git pull` will not fetch it — so a
+`python3.10 RoleAnswer/analyze_*.py` invocation printed by a run script resolves to
+nothing there. The flow is always: generate on the server → sync the output dir here →
+run the analyzer from THIS box. A launcher's closing hint should name the rsync and the
+analysis box explicitly rather than a bare `RoleAnswer/` path. (Same caveat the `p2/` and
+`manifold/` sections already record for their offline scripts.)
+
 This directory is **not** in the RolePlaying git repo. It is the offline analysis workspace for Phase 1 (observation) signal-proxy validation and capitulation analysis. **Location note: relocated 2026-07-16 to `~/Documents/RSNResult/RoleAnswer/`** (the old `~/Downloads/RSNResult/` mount dropped). **Phase naming (settled 2026-07-16): Phase 1 = observation (α=0 signal characterization + steered α-dose signal), Phase 2 = control (closed-loop, currently shelved pending Phase 1 wrap-up). The older "Phase 1b" name is retired — just Phase 1 / Phase 2.** The current Phase 1 signal set lives under `llama3/dopamine/signal/` and holds three file classes per condition — `dopamine_signal_*` (NMD-mask wanting projection), `random_signal_*` (random-mask RSN-specificity control), `metrics_*` (entropy/top1/margin/info_gain) — across the α-dose (`_a4/_a6/_a8/_aneg4/_aneg6/_aneg8`, α=0 untagged; ±2 backfill pending), the four No-CoT roles (`_expert/_non_expert/_primary_teacher/` + neutral), and CoT (α=0, −4). **Steered files carry inline `accuracy`** (184/bs=1; role/α comparable same-machine, but never配 onto the 182 dose table — see the 184-vs-182 bullet). **Steering is prefill-only + output-side**: `track_dopamine_signal.py` injects `α×mask` into the last prompt token's OUTPUT inside the observation hook *before* projecting, so `x_prefill` is the POST-injection point (`x_prefill(α) ≈ x_prefill(0) + α·‖mask‖²` by the co-design identity), while `x_decode` steps are NOT re-injected — they are the natural aftermath of that prefill perturbation. Key scripts there:
 
 - `plot_phase1_state.py` — **Phase 1 trajectory plotter** (α=0 state contrasts). Three figure types × 5 metrics (wanting/entropy/top1/margin/info_gain): `plot_overlay` (two state curves), `plot_diffs` (a−b difference + bootstrap band), `plot_allroles` (four No-CoT roles overlaid). Prefill is drawn as point 0 on an integer index axis (0 = last prompt token, 1..100 = decode); EMA-smoothed by default, `--raw` for unsmoothed (writes `_raw` suffix). Reads `dopamine_signal_*` (wanting = `x_decode`) + `metrics_*`. Outputs `llama3/dopamine/plots_eot/phase1_{state,diff,roles}_<metric>.png`. Run with `python3.10`.
