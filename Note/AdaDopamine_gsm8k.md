@@ -843,22 +843,28 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 
 总体而言，predictor 更适合判断 steering 方向并找到低-regret 的近优区域，而不是精确命中唯一 argmax，也不能直接预测新任务的绝对准确率。当目标任务本身没有可检测的剂量效应时，predictor 的排序也缺乏明确的验证依据。
 
----
+## 6. Cross-Benchmark Workpoint Performance and Behavioral Boundaries
 
-## 6. Cross-Task Workpoint Evaluation: Transfer, Dose Sweeps, and Boundaries
+### 6.1 GSM-Hard
+#### Llama3.1-8B
+#### Qwen2.5-7B
+#### Performance and Behavioral Findings
 
-本节汇总 steering workpoint 在不同任务上的表现。实验分为两类：
+### 6.2 GSM-Symbolic
 
-1. **Fixed-workpoint transfer**：直接使用 GSM8K 冻结的工作点，不在目标任务上重新选择剂量。
-2. **Task-specific dose sweep**：在目标任务上测试多个剂量，用于寻找该任务自己的 workpoint 或失败边界。
+### 6.3 BBH Object Counting
 
-固定迁移点为：
+### 6.4 CRUXEval-O
 
-- Llama3.1-8B：`α=−6`
-- Qwen2.5-7B：`α=+8`
+### 6.5 ProofWriter-OWA
 
-两种模型使用不同的 steering mask、层范围和激活尺度，因此 raw α 不能作为跨模型共同剂量比较。
+### 6.6 LogiQA 2.0
 
+### 6.7 ZebraLogic-Easy
+
+### 6.8 FinQA
+
+### 6.9 Cross-Benchmark Summary
 ### 6.1 Fixed-Workpoint Transfer Across Tasks
 
 **Table 6.1. GSM8K-derived fixed-workpoint transfer**
@@ -886,11 +892,8 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 
 > **Reading note.** `Fixed transfer` 表示 `−6/+8` 在查看目标任务结果前已经由 GSM8K 冻结。`Task-specific sweep` 表示目标任务测试了完整剂量曲线；表中这里只抽取其中的 `−6/+8` 方便横向比较，不能将这些行重新解释为预先注册的 fixed-workpoint transfer。ProofWriter Bare 中另有 Llama `+4` 的显著结果，但该提升主要伴随有效答案提交增加；ProofWriter Chat 中只有 Qwen `+8` 建立了显著正向 workpoint。CRUXEval-O Chat 行是 Llama-only 的目标任务四点扫描；Qwen 没有运行 Chat 对照，因此不能把空缺解释为 null。
 
-### 6.2 Task-Specific Dose Sweeps
 
-以下实验在目标任务上测试多个剂量。它们可以识别任务自己的 workpoint 或失败边界，但不属于严格的 fixed-workpoint transfer。
-
-#### 6.2.1 GSM-Symbolic
+### 6.2 GSM-Symbolic
 
 GSM-Symbolic 在 `main`、`p1`、`p2` 各使用 300 题，并沿用 GSM8K 的 first-marker/fallback 评分。它是 GSM8K 同任务家族中的扰动鲁棒性检查，不是独立的跨领域迁移验证。
 
@@ -923,7 +926,7 @@ No-CoT 下，Llama `−6` 和 `−4` 均显著提高准确率（`−6`：+9.44 p
 
 CoT 下，Qwen 的 `−6/+6/+8` 三个非零剂量均显著提高准确率；Llama 没有任何正向显著结果（`−6/−4` 均未显著，`+4` 显著降低表现）。说明同一任务家族内的迁移仍然依赖模型与提示条件。
 
-#### 6.2.2 ProofWriter-OWA
+### 6.3 ProofWriter-OWA
 
 ProofWriter-OWA 使用显式 CoT、固定的单个 Unknown 示例和 first-answer 评分。早期 Bare 条件存在严重的循环、截断和答案提交问题，因此后续增加 Chat 条件检查这些结果是否主要来自接口失效。
 
@@ -956,7 +959,7 @@ Chat template 大幅减少了循环、截断和多答案问题，确认 Bare 条
 
 Bare 条件下 Llama `+4` 虽然显著，但其提升伴随无答案率明显下降，因此更适合解释为有效提交增加，而不是已经证明推理能力改善。总体而言，ProofWriter 支持 steering 效果，但该效果高度依赖模型和提示接口。
 
-#### 6.2.3 ZebraLogic-Easy
+### 6.4 ZebraLogic-Easy
 
 ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答案的样本计错，并在每个模型内对三个非零剂量执行 Holm 校正。
 
@@ -977,7 +980,7 @@ ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答�
 
 因此，ZebraLogic-Easy 没有提供正向迁移证据，但明确显示了 Qwen 的高剂量失败边界。
 
-#### 6.2.4 FinQA
+### 6.5 FinQA
 
 FinQA 使用显式 CoT 和直接数字答案评分，在每个模型内对三个非零剂量执行 Holm 校正。这里报告的是自定义的数字答案准确率，不等同于官方 FinQA program/DSL execution 指标。
 
@@ -998,7 +1001,7 @@ FinQA 使用显式 CoT 和直接数字答案评分，在每个模型内对三个
 
 Llama 各剂量都存在严重的生成循环与截断，因此其结果需要谨慎解释。不过，主指标取第一次合法答案，尾部循环不会改写已经提交的 first answer。
 
-#### 6.2.5 CRUXEval-O Chat Interface
+### 6.6 CRUXEval-O Chat Interface
 
 CRUXEval-O Chat 实验只改变 Llama3 的 prompt wrapper，并分别在 CoT 与 No-CoT 下运行相同的四点剂量 `{−6,−4,0,+4}`。两种条件各自在模型内部以 `α=0` 为基线执行 McNemar 检验和 Holm `m=3` 校正。
 
@@ -1018,7 +1021,7 @@ CRUXEval-O Chat 实验只改变 Llama3 的 prompt wrapper，并分别在 CoT 与
 1. Chat 接口下，两种条件的格式与可评分性都保持健康，但所有非零剂量均未显著优于各自的 `α=0`，因此没有检测到有效 workpoint。
 2. `+4` 在 CoT 和 No-CoT 下都明显缩短生成，却没有提高准确率，说明输出缩短不等于推理改善。CoT 的 `α=0` 点估计高于 No-CoT（52.00% vs 45.67%），但未进行跨条件检验，只作描述。
 
-### 6.3 Local Stability and Near-Optimal Regions
+### 6.7 Local Stability and Near-Optimal Regions
 
 单一 argmax 容易把抽样波动误写成精确的最佳剂量。本文所称的 near-optimal region，是指在已测离散剂量中，与 observed best 未被显著区分的集合。它不是连续区间，也不代表这些剂量已经被证明统计等效。
 
@@ -1043,7 +1046,7 @@ CRUXEval-O Chat 实验只改变 Llama3 的 prompt wrapper，并分别在 CoT 与
 
 因此，workpoint selection 的合理目标是找到方向正确、regret 较低的区域，而不是声称精确命中唯一 argmax。
 
-### 6.4 Exploratory Output-Pattern Diagnostics
+### 6.8 Exploratory Output-Pattern Diagnostics
 
 为检查准确率变化是否伴随回答位置变化，我们使用 `early_candidate_rate`（`ec`）进行描述性分析。该指标判断首行是否提前出现裸数字；`ec` 下降只表示模型较少立即输出数字答案，不能直接等同于内部 commitment timing。
 
@@ -1078,7 +1081,7 @@ Llama 的 Chat 四点扫描进一步排除了严重循环与截断作为主要�
 
 显著改善通常伴随 `ec` 下降和 `reason_first` 上升，Qwen 上变化幅度尤其大；但 Llama CoT 是重要反例——commitment 时序发生了同方向的变化，准确率却没有显著提升。因此，commitment 改变与有效 steering 经常共现，但不是准确率提升的充分条件，这些指标是相关机制证据，而不是因果中介证明。
 
-### 6.5 Cross-Benchmark Summary
+### 6.9 Cross-Benchmark Summary
 
 **Table 6.10. Where effective workpoints were detected**
 
