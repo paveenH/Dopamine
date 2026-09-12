@@ -1,21 +1,3 @@
-#### Description
-
-现在我们的目标是将Dopamine写成一篇conference paper 或者journal 
-RSN最初的内容已经发表，来源是RSNpaper，具体内容在/Users/paveenhuang/Downloads/Dopamine/ACLARR
-现在我们的目标是想要论证，这一套机制类似人体的Dopamine系统机制
-
-Behaviour.md记录了一些行为学实验
-ReasoningBare.md是推理任务上的表现，gsm8k & math
-ThinkingCurve.md 这里是对内部的thinking Curve的一些观察 原本是计划找到一些类似激素水平变化的曲线，但是目前没有显著的效果
-Manifold.md这里是和Manifold有关的一些研究，是ThinkingCurve的一些拓展
-ConfidenceNeurons.md 这里是最新的confidence neurons的结果（于RSN的交互）
-
-其余是一些辅助文件：
-Bandit.md 专门记录了Bandit实验（主线在Behaviour.md），但是没有找到合适的结果
-LogitsLens.md 对应RSNpaper时候做的一下研究
-TODO是接下来的一些执行计划
-
----
 ### Document writing
 我们的要求是： 1）细节部分放到Claude.md不要在文档中出现 2）数据尽量保持完整 3）尽量合并表格（但是不要勉强，可以合并的合并） 4）内容和章节都可以重构或者合并 5）结论简洁 通俗易懂 目标是提升可读性 6）标题和表格写英文
 
@@ -98,11 +80,11 @@ rsync -avzh --partial --info=progress2 \
 32. 也修改一下CRUXEval的chat版本 cot & non-cot ✔
 33. GSM-Symbolic行为学特征统计 ✔
 34. Confidence neurons ✔
-   1. 相关性分析：role neurons & confidence neurons; 相关性在11-19层上升 -> 实际上相关性非常的高，最高可以达到0.7左右
-   2. confident & unconfident相关性分析：相关性在11-19最低，类似RSN
-   3. overlap：band 内仅共享 46/180=25.6%，Jaccard 为 0.14；但是是显著高于随机
-   4. shared-top 的单位贡献大约是 role-only/confidence-only 的 8 倍；是 neither-top 的 74 倍。
-   5. overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
+   1) 相关性分析：role neurons & confidence neurons; 相关性在11-19层上升 -> 实际上相关性非常的高，最高可以达到0.7左右
+   2) confident & unconfident相关性分析：相关性在11-19最低，类似RSN
+   3) overlap：band 内仅共享 46/180=25.6%，Jaccard 为 0.14；但是是显著高于随机
+   4) shared-top 的单位贡献大约是 role-only/confidence-only 的 8 倍；是 neither-top 的 74 倍。
+   5) overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
 35. cross-steering: MMLUE ✔
 36. cross-steering: GSM8K ✔
 ---
@@ -110,11 +92,12 @@ rsync -avzh --partial --info=progress2 \
 38. 缩小confidence alpha MMLUE: ACC + Behaivour ✔
 39. 缩小confidence alpha GSM8K: : ACC + Behaivour ✔
 38. 确认Loop的问题 -> Llama3补充chat template + steering的结果
-   1. GSM8K ✔
-   2. GSM-hard ✔
-   3. MATH ✔
-   4. 整理一份当前的结果 ⏸
-39. 试着理解chat template的影响的原因：注入点切回到answer
+   1) GSM8K ✔
+   2) GSM-hard ✔
+   3) MATH ✔
+   4) 整理一份当前的结果 ✔
+39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: 
+   1) MATH
 40. 试着理解chat template的影响的原因：Base model 
 ---
 Role/Confidence cross-steering
