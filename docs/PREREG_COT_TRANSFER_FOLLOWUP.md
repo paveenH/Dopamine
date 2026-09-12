@@ -8,7 +8,7 @@ No-CoT transfer tests (LogiQA 2.0 `logiqa2-p4-v0`, BBH `object_counting`
 `bbh-p4b-v0`, CRUXEval-O `cruxeval-p4c-v0`), motivated by having seen those
 results. **It does not replace, correct, rescale, or supersede any of the three
 frozen No-CoT results.** Those stay CLOSED exactly as written in
-`AdaDopamine_gsm8k.md` §5.7–5.9 (or wherever they are indexed) and in
+`ReasoningBare.md` §5.7–5.9 (or wherever they are indexed) and in
 `docs/p4_logiqa2_evaluation.json` / `docs/bbh_p4b_object_counting_result.json` /
 `docs/p4c_cruxeval_evaluation.json`. Nothing in those files or in
 `docs/PREREG_P4_LOGIQA2.md`, `docs/PREREG_P4B_BBH.md`, or
@@ -317,7 +317,7 @@ computed as a **question-level paired bootstrap** (B=10000, seed 0; each
 bootstrap draw resamples a `sample_id` and reads all four accuracies —
 CoT-workpoint, CoT-0, No-CoT-workpoint, No-CoT-0 — for that same item, exactly
 mirroring the four-cell joint-paired procedure already used for the GSM8K
-No-CoT-vs-CoT interaction in `AdaDopamine_gsm8k.md` §3.5.1). Reported as a
+No-CoT-vs-CoT interaction in `ReasoningBare.md` §3.5.1). Reported as a
 point estimate with a 95% CI, **never as a significance test** and **never
 pooled with §4.1's Holm family** — it answers a different question (does the
 steering effect depend on the CoT condition) than §4.1 does (does the
