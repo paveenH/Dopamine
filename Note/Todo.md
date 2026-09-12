@@ -101,6 +101,8 @@ rsync -avzh --partial --info=progress2 \
 40. 试着理解chat template的影响的原因：Base model 
 41. Chat-Bare是什么呢？
 42. 认知切换开关
+43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
+44. chat - bare
 ---
 Role/Confidence cross-steering
 建议测试的任务
