@@ -352,7 +352,7 @@ because MATH accuracy has already been observed by the researcher in prior work.
 - all negative results and any triggered failure conditions
 
 Code and acceptance detail → `CLAUDE.md`.
-`AdaptiveThinking.md` records only 口径, main results, evidence level and
+`ThinkingCurve.md` records only 口径, main results, evidence level and
 conclusion boundaries. **P1 is not modified on the basis of P2 results.**
 
 ---
