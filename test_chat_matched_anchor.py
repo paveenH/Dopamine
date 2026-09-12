@@ -6,15 +6,15 @@ chat_matched_anchor_lib.py and the two matched-anchor generators. Exits
 non-zero on failure (see main()'s exit code), prints its own [ok]/[FAIL]
 lines.
 
-TWO GROUPS, deliberately separated:
+THREE GROUPS, deliberately separated:
 
 Group A (FAKE TOKENIZER, always runs, zero dependencies beyond the standard
-library): exercises every fail-closed branch in chat_matched_anchor_lib.py
-directly, using a minimal fake object exposing the same
-apply_chat_template/__call__/decode/bos_token(_id)/chat_template surface a
-real HF tokenizer does. This tests the ASSERTION LOGIC itself -- both the
-pass path and every failure path -- independent of whether the real
-tokenizer happens to be cached on this machine.
+library): exercises every fail-closed branch in chat_matched_anchor_lib.py's
+anchor/BOS/tail-token machinery directly, using a minimal fake object
+exposing the same apply_chat_template/__call__/decode/bos_token(_id)/
+chat_template surface a real HF tokenizer does. This tests the ASSERTION
+LOGIC itself -- both the pass path and every failure path -- independent of
+whether the real tokenizer happens to be cached on this machine.
 
 Group B (REAL TOKENIZER, runs only if
 meta-llama/Llama-3.1-8B-Instruct's tokenizer is available in the local HF
@@ -28,15 +28,27 @@ built on:
     matched-anchor  -> id 220 ' '     (this experiment's mechanism)
 If the tokenizer is not cached, Group B prints a clear SKIP notice (not a
 silent no-op, and not a failure) and the suite's exit code depends only on
-Group A.
+Groups A and C.
+
+Group C (ALPHA-FAMILY VALIDATION, always runs, zero dependencies): exercises
+chat_matched_anchor_lib.assert_alpha_family() -- the SAME function both
+get_answer_math_chat_matched_anchor.py and get_answer_gsm8k_chat_matched_
+anchor.py call for their `--configs` validation (refactored out of each
+generator's main() into this one shared function precisely so it is
+directly testable and cannot silently drift between the two tasks). Covers
+the full nine-point family {-8,-6,-4,-2,0,2,4,6,8}: a missing dose, a
+duplicate dose, an extra dose, and a float/off-grid dose must all be
+rejected; a shuffled (reordered) but otherwise complete nine-point family
+must be accepted.
 
 No GPU is used anywhere in this file. No model weights are loaded. No
-network access is required for Group A; Group B only ever reads from an
-existing local HF cache with local_files_only=True.
+network access is required for Groups A and C; Group B only ever reads from
+an existing local HF cache with local_files_only=True.
 """
 
 from __future__ import annotations
 
+import random
 import sys
 
 import chat_matched_anchor_lib as CMA
@@ -338,9 +350,85 @@ def run_group_b():
         print(f"  {final_text[-60:]!r}")
 
 
+# ============================================================ Group C ======
+NINE_POINT = [-8, -6, -4, -2, 0, 2, 4, 6, 8]
+
+
+def run_group_c():
+    print("\n=== Group C: alpha-family validation (shared by both "
+          "generators) ===")
+
+    # --- happy path: exact nine-point family, in order -----------------------
+    expect_ok(
+        "assert_alpha_family: exact nine-point family, in order",
+        CMA.assert_alpha_family, list(NINE_POINT), NINE_POINT, "test-protocol")
+
+    # --- happy path: SHUFFLED order must still be accepted --------------------
+    shuffled = list(NINE_POINT)
+    rng = random.Random(0)
+    rng.shuffle(shuffled)
+    check("assert_alpha_family: shuffled order differs from NINE_POINT "
+          "(sanity check on the test fixture itself)",
+          shuffled != NINE_POINT)
+    expect_ok(
+        "assert_alpha_family: shuffled nine-point family is ACCEPTED "
+        "(order-independent)",
+        CMA.assert_alpha_family, shuffled, NINE_POINT, "test-protocol")
+
+    # --- failure: missing one dose --------------------------------------------
+    missing_one = [a for a in NINE_POINT if a != -6]
+    expect_die(
+        "assert_alpha_family: missing dose (-6 absent) dies",
+        CMA.assert_alpha_family, missing_one, NINE_POINT, "test-protocol")
+
+    # --- failure: duplicate dose (same length as the real family, but one
+    # dose repeated and another therefore absent) -----------------------------
+    duplicated = [a for a in NINE_POINT if a != 8] + [0]
+    check("assert_alpha_family: duplicated fixture has the same length as "
+          "the real family (sanity check on the test fixture itself)",
+          len(duplicated) == len(NINE_POINT))
+    expect_die(
+        "assert_alpha_family: duplicate dose (0 twice, +8 absent) dies",
+        CMA.assert_alpha_family, duplicated, NINE_POINT, "test-protocol")
+
+    # --- failure: extra dose (all nine plus one more) -------------------------
+    extra = list(NINE_POINT) + [10]
+    expect_die(
+        "assert_alpha_family: extra dose (+10 appended) dies",
+        CMA.assert_alpha_family, extra, NINE_POINT, "test-protocol")
+
+    # --- failure: float / off-grid dose ----------------------------------------
+    float_dose = [a for a in NINE_POINT if a != 2] + [2.5]
+    expect_die(
+        "assert_alpha_family: float/off-grid dose (2.5 instead of 2) dies",
+        CMA.assert_alpha_family, float_dose, NINE_POINT, "test-protocol")
+
+    # --- the exact real-generator invocation shape, both tasks -----------------
+    # Mirrors get_answer_math_chat_matched_anchor.py's / get_answer_gsm8k_
+    # chat_matched_anchor.py's actual call: EXPECTED_ALPHAS is a set, and the
+    # generators pass `got_alphas = [al for al, _ in cfgs]` (unsorted, since
+    # sorting happens INSIDE assert_alpha_family now).
+    import get_answer_math_chat_matched_anchor as MATH_GEN
+    import get_answer_gsm8k_chat_matched_anchor as GSM8K_GEN
+
+    check("MATH generator: EXPECTED_ALPHAS is the full nine-point family",
+          sorted(MATH_GEN.EXPECTED_ALPHAS) == NINE_POINT)
+    check("GSM8K generator: EXPECTED_ALPHAS is the full nine-point family",
+          sorted(GSM8K_GEN.EXPECTED_ALPHAS) == NINE_POINT)
+    expect_ok(
+        "MATH generator's EXPECTED_ALPHAS accepted via the shared function",
+        CMA.assert_alpha_family, list(NINE_POINT), MATH_GEN.EXPECTED_ALPHAS,
+        MATH_GEN.PROTOCOL)
+    expect_ok(
+        "GSM8K generator's EXPECTED_ALPHAS accepted via the shared function",
+        CMA.assert_alpha_family, list(NINE_POINT), GSM8K_GEN.EXPECTED_ALPHAS,
+        GSM8K_GEN.PROTOCOL)
+
+
 def main():
     run_group_a()
     run_group_b()
+    run_group_c()
 
     print(f"\n{'='*60}")
     if FAILURES:

@@ -207,3 +207,26 @@ def assert_matched_anchor_tail(vc, text: str, label: str) -> dict:
             "bare anchor's injection site under the full chat template is "
             "this experiment's entire mechanism.")
     return {"id": last_id, "text": last_text}
+
+
+def assert_alpha_family(got_alphas, want_alphas, protocol_label):
+    """SHARED between both generators (previously each had its own inline
+    copy of this check) so the frozen dose-family validation cannot silently
+    drift between MATH and GSM8K.
+
+    EXACT match on the frozen alpha family, as SORTED LISTS -- not a
+    set-subset, and with NO int() coercion (utils.parse_configs accepts
+    float alpha tokens, e.g. '0.5-11-20', so int(2.5) would silently read as
+    2 and pass a naive subset check). Order-INDEPENDENT: a shuffled
+    --configs is accepted, since sorting both sides before comparing is
+    exactly what makes this a SET-equality check rather than a sequence
+    check. Any of a missing dose, a duplicate dose, an extra dose, or a
+    non-integer/off-grid dose fails closed here."""
+    got_sorted = sorted(got_alphas)
+    want_sorted = sorted(want_alphas)
+    if got_sorted != want_sorted:
+        die(f"--configs alphas {got_sorted} != {protocol_label}'s frozen "
+            f"dose set {want_sorted}. Exact match required: a non-integer "
+            "dose, a missing dose, a duplicate, or an extra dose all land "
+            "here. A partial family must not be written under this "
+            "protocol name.")

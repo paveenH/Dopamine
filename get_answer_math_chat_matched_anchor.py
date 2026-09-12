@@ -2,8 +2,17 @@
 # -*- coding: utf-8 -*-
 r"""
 get_answer_math_chat_matched_anchor.py -- MATH No-CoT, chat-template
-MATCHED-ANCHOR control condition. PRIMARY task of this experiment; run before
-get_answer_gsm8k_chat_matched_anchor.py.
+MATCHED-ANCHOR control condition, full nine-point alpha sweep.
+
+INDEPENDENT STATISTICAL FAMILY from get_answer_gsm8k_chat_matched_anchor.py
+(own Holm m=8, own output tree, own protocol string) -- the two tasks do NOT
+depend on each other and may be launched CONCURRENTLY on separate GPUs (e.g.
+MATH on CUDA_VISIBLE_DEVICES=0, GSM8K on CUDA_VISIBLE_DEVICES=1). An earlier
+revision of this experiment ran GSM8K only after MATH was reviewed and
+confirmed; that sequencing gate has been REMOVED (see
+run_gsm8k_chat_matched_anchor.sh) now that the family has grown to the full
+nine-point sweep and both tasks are analysed as separate families that are
+never pooled.
 
 INDEPENDENT of every existing MATH tree: the frozen bare-string line
 (run_math.sh / get_answer_regenerate_math.py) and the native chat-sweep
@@ -40,12 +49,13 @@ either, that is evidence against injection-site identity being sufficient by
 itself, again not proof that "the interface" in some other sense is the
 whole story.
 
-THIS IS NOT A WORKPOINT SEARCH AND NOT THE NINE-POINT SWEEP. alpha in
-{-6, 0, 6, 8} is a FIXED four-point family declared up front, matching the
-two most informative flat/collapse cells from the native chat sweep (0 as
-baseline, -6 as the frozen bare workpoint, +6/+8 as the region where the
-native chat sweep showed early-candidate/generation-compression onset) plus
-the shared baseline. This is a smaller, targeted family, not a re-search.
+THIS IS NOT A WORKPOINT SEARCH. alpha in {-8,-6,-4,-2,0,2,4,6,8} is the SAME
+nine-point family the native chat sweep and the frozen bare No-CoT dose set
+use -- not re-selected, not narrowed. (An earlier draft of this script ran a
+targeted four-point subset {-6,0,6,8}; that was replaced before any real
+data existed -- see the module-level note in run_math_chat_matched_anchor.sh
+-- so this is the ONLY matched-anchor family that has ever been generated
+under protocol "math-chat-matched-anchor-v1".)
 
 WHAT IS HELD IDENTICAL to both the frozen bare and native-chat MATH cells:
   - the SAME 300-problem fixed sample: benchmark/math_test_sample.json,
@@ -69,7 +79,7 @@ WHAT IS HELD IDENTICAL to both the frozen bare and native-chat MATH cells:
     baseline, not the bare or native-chat alpha=0 cell -- those used
     different prompt strings).
 
-THE ONLY EXPERIMENTAL VARIABLE, held constant across all four alpha, is the
+THE ONLY EXPERIMENTAL VARIABLE, held constant across all nine alpha, is the
 matched-anchor construction in chat_matched_anchor_lib.py: strip the trailing
 "Answer: " from the rendered body, wrap the remainder with
 apply_chat_template(..., add_generation_prompt=True), strip a duplicated
@@ -91,8 +101,8 @@ Output tree (independent from both the bare and native-chat MATH trees):
         math_chat_matched_anchor_8B_11_20.json
 
 Existing output files are NEVER overwritten -- fail closed (die()). There is
-no --allow_overwrite escape hatch. All FOUR paths are checked BEFORE the
-first cell runs, so a long run cannot die on cell 4 after three are written.
+no --allow_overwrite escape hatch. All NINE paths are checked BEFORE the
+first cell runs, so a long run cannot die on cell 9 after eight are written.
 
 @author: MATH chat-template matched-anchor control (2026-09-12)
 """
@@ -121,13 +131,13 @@ PROTOCOL = "math-chat-matched-anchor-v1"
 CONDITION = "Chat Matched-Anchor"
 PROMPT_WRAPPER_ID = "llama3-chat-template-matched-anchor-v1"
 
-EXPECTED_ALPHAS = {-6, 0, 6, 8}
+EXPECTED_ALPHAS = {-8, -6, -4, -2, 0, 2, 4, 6, 8}
 BAND = (11, 20)
 EXPECTED_N = 300
 
-# For descriptive metadata only: which of these four alpha have a counterpart
-# in the frozen bare tree (MATH_DIRS' No-CoT subset, -8/-6/-4/0/+4) and in the
-# native chat sweep (all nine of -8..+8).
+# For descriptive metadata only: which of these nine alpha have a counterpart
+# in the frozen bare tree (MATH_DIRS' No-CoT subset, -8/-6/-4/0/+4 -- FIVE of
+# the nine) and in the native chat sweep (all nine of -8..+8).
 BARE_ALPHAS = (-8, -6, -4, 0, 4)
 NATIVE_CHAT_ALPHAS = (-8, -6, -4, -2, 0, 2, 4, 6, 8)
 
@@ -152,8 +162,10 @@ def parse_args():
                    help="SAME mask as the bare/native-chat cells: "
                         "mask/llama3_non_logits/nmd_0.5_11_20_8B.npy")
     p.add_argument("--configs", required=True, nargs="+",
-                   help="0-11-20 neg6-11-20 6-11-20 8-11-20 (exactly the "
-                        "frozen four-point matched-anchor dose set)")
+                   help="0-11-20 neg8-11-20 neg6-11-20 neg4-11-20 "
+                        "neg2-11-20 2-11-20 4-11-20 6-11-20 8-11-20 "
+                        "(exactly the frozen nine-point matched-anchor dose "
+                        "set)")
     p.add_argument("--out_dir", required=True,
                    help="components/llama3/answer_math_chat_matched_anchor_v1")
     p.add_argument("--n_samples", type=int, default=300,
@@ -177,17 +189,12 @@ def main():
     args = parse_args()
 
     cfgs = utils.parse_configs(args.configs)
-    # EXACT match on the frozen four-point family, as a SORTED LIST -- not a
-    # set-subset, and with NO int() coercion (parse_configs accepts floats, so
-    # int(2.5) would silently read as 2 and pass a subset check).
-    got_alphas = sorted(al for al, _ in cfgs)
-    want_alphas = sorted(EXPECTED_ALPHAS)
-    if got_alphas != want_alphas:
-        die(f"--configs alphas {got_alphas} != this protocol's frozen "
-            f"four-point dose set {want_alphas}. Exact match required: a "
-            "non-integer dose, a missing dose, a duplicate, or an extra dose "
-            "all land here. A partial family must not be written under this "
-            "protocol name.")
+    # Shared with the GSM8K sibling (chat_matched_anchor_lib.py) so the
+    # frozen dose-family validation cannot silently drift between the two
+    # tasks. See its docstring for the exact-match / order-independence /
+    # float-coercion rationale.
+    got_alphas = [al for al, _ in cfgs]
+    CMA.assert_alpha_family(got_alphas, EXPECTED_ALPHAS, PROTOCOL)
 
     # FROZEN at n=300, matching the bare/native-chat MATH trees this family
     # is designed to sit between -- unlike --configs (whose subset-vs-exact
@@ -310,12 +317,13 @@ def main():
             args.out_dir, f"mdf_{alpha_tag}",
             f"math_chat_matched_anchor_{args.size}_{ls}_{le}.json")
 
-    # Spec: "启动前一次性检查四个输出路径；任一已存在则整次拒绝运行." All four
-    # checked BEFORE any cell runs.
+    # Spec: check all nine output paths up front; any existing file refuses
+    # the WHOLE run. All nine checked BEFORE any cell runs, so a long run
+    # cannot die on cell 9 after eight are already written.
     existing = [op for op in out_paths.values() if os.path.exists(op)]
     if existing:
         die("the following matched-anchor output path(s) already exist -- "
-            "refusing to run ANY cell of this four-point family: "
+            "refusing to run ANY cell of this nine-point family: "
             + ", ".join(existing) +
             ". Delete them deliberately first if a re-run is truly intended.")
 
@@ -452,8 +460,11 @@ def main():
                 "comparison_note": (
                     "Comparisons against the bare and native-chat trees are "
                     "DESCRIPTIVE ONLY and are never pooled into this "
-                    "family's own Holm m=3 statistics (three non-zero alpha "
-                    "vs this family's OWN alpha=0)."),
+                    "family's own Holm m=8 statistics (eight non-zero alpha "
+                    "vs this family's OWN alpha=0). MATH's bare tree covers "
+                    "only 5 of these 9 doses (-8/-6/-4/0/+4); the bare "
+                    "comparison for the other 4 doses is unavailable, not "
+                    "just unpaired."),
             },
             "data": rows,
         }, open(out_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
@@ -465,8 +476,9 @@ def main():
           "~/Documents/RSNResult/RoleAnswer/ -- which is NOT part of this "
           "repo and is NOT present on the server -- then, FROM THAT BOX:")
     print("      python3.10 analyze_chat_matched_anchor.py --task math")
-    print("\nOnce MATH is complete and reviewed, proceed to phase 2:")
-    print("      bash run_gsm8k_chat_matched_anchor.sh")
+    print("\n(GSM8K's matched-anchor sweep is an independent family and can "
+          "run concurrently on another GPU -- see run_gsm8k_chat_matched_"
+          "anchor.sh; no gate or ordering between the two tasks.)")
 
 
 if __name__ == "__main__":

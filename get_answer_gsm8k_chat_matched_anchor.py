@@ -2,11 +2,17 @@
 # -*- coding: utf-8 -*-
 """
 get_answer_gsm8k_chat_matched_anchor.py -- GSM8K No-CoT, chat-template
-MATCHED-ANCHOR control condition. SECOND phase of this experiment -- run only
-after get_answer_math_chat_matched_anchor.py has completed and its results
-have been reviewed (run_gsm8k_chat_matched_anchor.sh enforces this: it
-refuses to launch unless all four MATH matched-anchor cells already exist AND
-an explicit CONFIRMED=1 is set).
+MATCHED-ANCHOR control condition, full nine-point alpha sweep.
+
+INDEPENDENT STATISTICAL FAMILY from get_answer_math_chat_matched_anchor.py
+(own Holm m=8, own output tree, own protocol string) -- the two tasks do NOT
+depend on each other and may be launched CONCURRENTLY on separate GPUs (e.g.
+GSM8K on CUDA_VISIBLE_DEVICES=1 while MATH runs on CUDA_VISIBLE_DEVICES=0).
+An earlier revision required MATH to complete and be confirmed first
+(CONFIRMED=1); that sequencing gate has been REMOVED from
+run_gsm8k_chat_matched_anchor.sh now that the family has grown to the full
+nine-point sweep and both tasks are analysed as separate families that are
+never pooled.
 
 INDEPENDENT of every existing GSM8K tree: the frozen bare-string main line
 (run_gsm8k.sh / get_answer_regenerate_gsm8k.py) and the native chat sweep
@@ -29,9 +35,13 @@ sequence composition -- if a bare-like result reappears here, read it as
 never as "the injection-site shift alone causes/fully explains" the
 native-chat difference.
 
-THIS IS NOT A WORKPOINT SEARCH AND NOT THE NINE-POINT SWEEP. alpha in
-{-6, 0, 6, 8} is the SAME fixed four-point family as the MATH sibling (chosen
-for cross-task comparability of this NEW family, not re-derived per task).
+THIS IS NOT A WORKPOINT SEARCH. alpha in {-8,-6,-4,-2,0,2,4,6,8} is the SAME
+nine-point family as the frozen bare/native-chat GSM8K dose set (GSM8K_DIRS
+mdf_-8..mdf_8) and the MATH sibling -- not re-selected, not narrowed. (An
+earlier draft of this script ran a targeted four-point subset {-6,0,6,8};
+that was replaced before any real data existed, so this is the ONLY
+matched-anchor family that has ever been generated under protocol
+"gsm8k-chat-matched-anchor-v1".)
 
 WHAT IS HELD IDENTICAL to both the frozen bare and native-chat GSM8K cells:
   - the SAME 300-question fixed sample (benchmark/gsm8k_test_sample.json).
@@ -52,7 +62,7 @@ WHAT IS HELD IDENTICAL to both the frozen bare and native-chat GSM8K cells:
     AUTHORITATIVE first_acc/last_acc reading is computed offline by
     RoleAnswer/analyze_chat_matched_anchor.py --task gsm8k.
 
-THE ONLY EXPERIMENTAL VARIABLE, held constant across all four alpha, is the
+THE ONLY EXPERIMENTAL VARIABLE, held constant across all nine alpha, is the
 matched-anchor construction in chat_matched_anchor_lib.py (shared verbatim
 with the MATH generator, precisely so the two tasks cannot silently apply
 different anchor logic): strip the trailing "Answer: " from the rendered
@@ -67,10 +77,10 @@ Output tree (independent from both the bare and native-chat GSM8K trees):
         gsm8k_chat_matched_anchor_8B_answers_11_20.json
 
 Existing output files are NEVER overwritten -- fail closed (die()). There is
-no --allow_overwrite escape hatch. All FOUR paths are checked BEFORE the
-first cell runs.
+no --allow_overwrite escape hatch. All NINE paths are checked BEFORE the
+first cell runs, so a long run cannot die on cell 9 after eight are written.
 
-All four alpha are driven by ONE launcher invocation, ONE model load, so the
+All nine alpha are driven by ONE launcher invocation, ONE model load, so the
 same-machine/same-GPU pairing holds structurally rather than by convention.
 
 @author: GSM8K chat-template matched-anchor control (2026-09-12)
@@ -99,15 +109,15 @@ PROTOCOL = "gsm8k-chat-matched-anchor-v1"
 CONDITION = "Chat Matched-Anchor"
 PROMPT_WRAPPER_ID = "llama3-chat-template-matched-anchor-v1"
 
-# Same four-point family as the MATH sibling -- NOT the frozen bare/
-# native-chat nine-point set.
-EXPECTED_ALPHAS = {-6, 0, 6, 8}
+# Same nine-point family as the MATH sibling and the frozen bare/
+# native-chat GSM8K sweeps.
+EXPECTED_ALPHAS = {-8, -6, -4, -2, 0, 2, 4, 6, 8}
 BAND = (11, 20)
 EXPECTED_N = 300
 
 # Descriptive-metadata-only note: GSM8K's frozen bare tree carries ALL nine
 # doses (GSM8K_DIRS mdf_-8..mdf_8), unlike MATH's five-dose bare tree -- so
-# all four of this family's alpha DO have a bare counterpart here.
+# all nine of this family's alpha DO have a bare counterpart here.
 BARE_ALPHAS = (-8, -6, -4, -2, 0, 2, 4, 6, 8)
 NATIVE_CHAT_ALPHAS = (-8, -6, -4, -2, 0, 2, 4, 6, 8)
 
@@ -133,9 +143,10 @@ def parse_args():
                    help="SAME mask as the bare/native-chat cells: "
                         "mask/llama3_non_logits/nmd_0.5_11_20_8B.npy")
     p.add_argument("--configs", required=True, nargs="+",
-                   help="0-11-20 neg6-11-20 6-11-20 8-11-20 (exactly the "
-                        "frozen four-point matched-anchor dose set, GSM8K's "
-                        "own signed directory-naming convention)")
+                   help="0-11-20 neg8-11-20 neg6-11-20 neg4-11-20 neg2-11-20 2-11-20 "
+                        "4-11-20 6-11-20 8-11-20 (exactly the frozen "
+                        "nine-point matched-anchor dose set, GSM8K's own "
+                        "signed directory-naming convention)")
     p.add_argument("--out_dir", required=True,
                    help="components/llama3/answer_mdf_gsm8k_chat_matched_anchor_v1")
     p.add_argument("--batch_size", type=int, default=24)
@@ -151,11 +162,10 @@ def main():
     args = parse_args()
 
     cfgs = utils.parse_configs(args.configs)
-    got_alphas = sorted(al for al, _ in cfgs)
-    want_alphas = sorted(EXPECTED_ALPHAS)
-    if got_alphas != want_alphas:
-        die(f"--configs alphas {got_alphas} != this protocol's frozen "
-            f"four-point dose set {want_alphas}. Exact match required.")
+    # Shared with the MATH sibling (chat_matched_anchor_lib.py) so the frozen
+    # dose-family validation cannot silently drift between the two tasks.
+    got_alphas = [al for al, _ in cfgs]
+    CMA.assert_alpha_family(got_alphas, EXPECTED_ALPHAS, PROTOCOL)
 
     samples = utils.load_json(args.test_file)
     n = len(samples)
@@ -270,7 +280,7 @@ def main():
     existing = [op for op in out_paths.values() if os.path.exists(op)]
     if existing:
         die("the following matched-anchor output path(s) already exist -- "
-            "refusing to run ANY cell of this four-point family: "
+            "refusing to run ANY cell of this nine-point family: "
             + ", ".join(existing) +
             ". Delete them deliberately first if a re-run is truly intended.")
 
@@ -388,7 +398,7 @@ def main():
                 "comparison_note": (
                     "Comparisons against the bare and native-chat trees are "
                     "DESCRIPTIVE ONLY and are never pooled into this "
-                    "family's own Holm m=3 statistics (three non-zero alpha "
+                    "family's own Holm m=8 statistics (eight non-zero alpha "
                     "vs this family's OWN alpha=0)."),
             },
             "data": rows,
