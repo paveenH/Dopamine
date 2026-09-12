@@ -23,7 +23,7 @@ under explicit CoT. It is:
 
 This work is entirely isolated: new code lives under `zebralogic/`, new results
 under a ZebraLogic-only output tree, and touches no existing runner, mask,
-dataset loader, or document (`AdaDopamine_gsm8k.md`, `CLAUDE.md` untouched).
+dataset loader, or document (`ReasoningBare.md`, `CLAUDE.md` untouched).
 
 ## 1. Data
 
