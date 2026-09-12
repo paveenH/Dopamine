@@ -3,7 +3,7 @@
 Split out of `CLAUDE.md` on 2026-09-02 to shrink the always-loaded context. P2,
 P3 and the P3 supplement are all **COMPLETE + FROZEN**; their frozen wording,
 口径 traps and boundaries stay in `CLAUDE.md`, and their narrative results live
-in `AdaDopamine_gsm8k.md` §5.1–5.6. What moved here is the material a future
+in `ReasoningBare.md` §5.1–5.6. What moved here is the material a future
 session does not need in context to avoid a mistake: the numeric result tables
 already published in the results document, the per-artifact SHA256 lists (also
 in the `docs/*_manifest.json` / `docs/*_result_*.json` files), and the
