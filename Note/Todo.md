@@ -102,8 +102,9 @@ rsync -avzh --partial --info=progress2 \
 41. Chat-Bare是什么呢？
 42. 认知切换开关
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
-44. chat - bare
+
 ---
+### RSN vs Confidence
 Role/Confidence cross-steering
 建议测试的任务
 第一阶段：MMLU-E
