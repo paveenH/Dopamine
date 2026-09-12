@@ -15,13 +15,19 @@ INDEPENDENT of every existing GSM8K tree: the frozen bare-string main line
 this script.
 
 QUESTION THIS CONTROLS FOR (identical logic to the MATH sibling; see
-get_answer_math_chat_matched_anchor.py's docstring for the full rationale).
-get_answer_gsm8k_chat_sweep.py's own docstring records the SAME measured
-confound on GSM8K: apply_chat_template's Jinja `| trim` strips the "Answer: "
-anchor's trailing space, moving the last prefill token from id 220 ' ' (bare)
-to id 271 '\\n\\n' (native chat, the assistant header). This script keeps the
-full chat template but re-creates the bare injection site under it, isolating
-"does the interface matter" from "does the injection site matter".
+get_answer_math_chat_matched_anchor.py's docstring for the full rationale,
+including its "what matching the token id does and does not control for"
+caveat -- it applies here unchanged). get_answer_gsm8k_chat_sweep.py's own
+docstring records the SAME measured confound on GSM8K: apply_chat_template's
+Jinja `| trim` strips the "Answer: " anchor's trailing space, moving the
+last prefill token from id 220 ' ' (bare) to id 271 '\\n\\n' (native chat,
+the assistant header). This script keeps the full chat template but
+re-creates the bare condition's last-token ID/text under it. Matching the
+token id does NOT mean matching the surrounding hidden state or the full
+sequence composition -- if a bare-like result reappears here, read it as
+"the effect is sensitive to the assistant-side anchor/injection geometry",
+never as "the injection-site shift alone causes/fully explains" the
+native-chat difference.
 
 THIS IS NOT A WORKPOINT SEARCH AND NOT THE NINE-POINT SWEEP. alpha in
 {-6, 0, 6, 8} is the SAME fixed four-point family as the MATH sibling (chosen
@@ -97,6 +103,7 @@ PROMPT_WRAPPER_ID = "llama3-chat-template-matched-anchor-v1"
 # native-chat nine-point set.
 EXPECTED_ALPHAS = {-6, 0, 6, 8}
 BAND = (11, 20)
+EXPECTED_N = 300
 
 # Descriptive-metadata-only note: GSM8K's frozen bare tree carries ALL nine
 # doses (GSM8K_DIRS mdf_-8..mdf_8), unlike MATH's five-dose bare tree -- so
@@ -152,6 +159,17 @@ def main():
 
     samples = utils.load_json(args.test_file)
     n = len(samples)
+    # FROZEN at n=300, matching the bare/native-chat GSM8K trees this family
+    # is designed to sit between -- an accidentally truncated or duplicated
+    # test_file would still produce a syntactically valid protocol file
+    # (every other check here is agnostic to n) and could silently drift out
+    # of pairability with the bare/native-chat cells without this check.
+    if n != EXPECTED_N:
+        die(f"test file holds {n} GSM8K samples, expected exactly "
+            f"{EXPECTED_N} -- the bare/native-chat GSM8K cells this family "
+            "is designed to sit between are all built on 300 fixed "
+            "samples, so a different count would not be pairable. Refusing "
+            "to write a protocol file whose sample count silently differs.")
     print(f"Loaded {n} GSM8K samples from {args.test_file}")
 
     templates = build_gsm8k_default_suite(cot=False, wording=args.fmt_wording)
