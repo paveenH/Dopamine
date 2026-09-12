@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Llama answer-first pattern across prompt conditions -- EXPLORATORY.
 
-Builds Table 5.11e of AdaptiveThinking.md: the four llama GSM-Hard cells
+Builds Table 5.11e of ThinkingCurve.md: the four llama GSM-Hard cells
 (No-CoT / CoT x alpha 0 / -6), each with accuracy, committed n, answer-first
 count and posN median.
 

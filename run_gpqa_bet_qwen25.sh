@@ -23,7 +23,7 @@
 #       fix); replies turn into prose that pushes the bet out of format.
 # So intervention overload IS reachable in single-step betting, and the failing
 # arm is MODEL-SPECIFIC (Llama fails on the −α side, Qwen on +α). Do not carry
-# the "betting can't overload" claim forward — see AdaDopamine.md §3.1.2.
+# the "betting can't overload" claim forward — see Behaviour.md §3.1.2.
 #
 # GPQA (n=646) carries the 9-cell scan; MMLU stays ±4-only (large-n dissociation).
 #

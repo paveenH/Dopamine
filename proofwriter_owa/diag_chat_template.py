@@ -6,7 +6,7 @@ diagnostic comparing bare-string vs HF chat-template wrapping at alpha=0.
 
 THIS IS AN INTERFACE DIAGNOSTIC, NOT A NEW EXPERIMENT AND NOT A WORKPOINT
 SEARCH. It does not redefine the ProofWriter-OWA workpoint (COMPLETE + CLOSED
-2026-09-05, see CLAUDE.md / AdaDopamine_gsm8k.md Sec 5.5c) and its output is
+2026-09-05, see CLAUDE.md / ReasoningBare.md Sec 5.5c) and its output is
 never substituted for the frozen formal_sweep_v2.json result. Question being
 asked: is llama3's high no_answer_rate/loop_rate under the v2 prompt driven
 mainly by the BARE-STRING prompt wrapping (an interface/termination issue), or

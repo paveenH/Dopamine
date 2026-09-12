@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==================== GSM8K — Qwen2.5-7B-Instruct cross-model replication ======
-# Direct replication of the Llama3 GSM8K dose-response (AdaDopamine_gsm8k.md
+# Direct replication of the Llama3 GSM8K dose-response (ReasoningBare.md
 # §1.2): No-CoT neutral over the full -8 -> +8 sweep, plus CoT at -4/0/+4.
 #
 # SEPARATE from run_gsm8k.sh on purpose: that script's plain/pushy x 4-role x

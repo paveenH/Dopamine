@@ -2,8 +2,8 @@
 
 整條研究主線（四段）：
   RSN
-    → 行為學多巴胺（Behavioral Dopamine）← AdaDopamine.md
-        → 腦科學多巴胺（Brain Dopamine）← 規劃中,尚未成獨立文檔（AdaDopamine.md §5 登記人類/動物範式血統）
+    → 行為學多巴胺（Behavioral Dopamine）← Behaviour.md
+        → 腦科學多巴胺（Brain Dopamine）← 規劃中,尚未成獨立文檔（Behaviour.md §5 登記人類/動物範式血統）
             → 多巴胺與思考曲線（Dopamine & Thinking Curve）← 本文檔
 
   附：AdaThink.md 是 Thinking Curve 的額外延伸驗證（學弟執行），不在主線框架內。
@@ -20,12 +20,12 @@
      → 詳見 AdaThink.md（trace-level 分析框架）
 
 【前兩段的任務】
-AdaDopamine.md：行為學基礎驗證（wanting/knowing 解離、Bandit、Pressure）。
+Behaviour.md：行為學基礎驗證（wanting/knowing 解離、Bandit、Pressure）。
 腦科學升華（RSA：RSN Δh 是否對應 ventral striatum / vmPFC）：規劃中,尚未成獨立文檔。
 
 關聯文件：
-  AdaDopamine.md — 行為學理論框架與實驗結果（§5 登記人類/動物範式血統）
-  AdaDopamine_gsm8k.md — GSM8K/MATH 當前 production accuracy 與 commitment-dynamics 權威來源
+  Behaviour.md — 行為學理論框架與實驗結果（§5 登記人類/動物範式血統）
+  ReasoningBare.md — GSM8K/MATH 當前 production accuracy 與 commitment-dynamics 權威來源
   AdaThink.md — Reasoning model trace-level 分析框架（Thinking Curve 執行細節）
 -->
 
@@ -271,7 +271,7 @@ Entropy、top1、margin 與 information-change metrics 均由 final-layer hidden
 | α0_cot | 67.7 | 69.0 | −1.3 |
 | α−4_cot | 82.7 | 85.0 | −2.3 |
 
-**口徑:** 本表及 §4 全節的 `signal` 只用於**同批 signal–behavior alignment**；**production accuracy 以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 為準**。兩套數值不可混算,但 **dose 形狀一致、離散最佳點均在 α=−6**——alignment 依靠的是形狀,不是絕對水平。（兩批的機器/batch-size 差異來源與診斷見 `CLAUDE.md`。）
+**口徑:** 本表及 §4 全節的 `signal` 只用於**同批 signal–behavior alignment**；**production accuracy 以 [ReasoningBare.md](ReasoningBare.md) 為準**。兩套數值不可混算,但 **dose 形狀一致、離散最佳點均在 α=−6**——alignment 依靠的是形狀,不是絕對水平。（兩批的機器/batch-size 差異來源與診斷見 `CLAUDE.md`。）
 
 ### 4.1 Correct vs Incorrect Responses
 
@@ -468,7 +468,7 @@ Persona 呈現三階段變化：
 
 分析沿用 §4.2/§4.3 的 gain coordinates 與 commit locator：reference μ/σ 固定為 neutral α=0 No-CoT prefill；dose calibration 使用各 α 全量 300 題；slow/fast/confidence 則以**每個 α 與 α=0 的 common-valid questions 作 paired comparison**（不取全 9 檔共同交集，否則 −8 會壓縮所有 cell）。C1 定義為首個 `####`，缺失時使用 first answer-candidate fallback。
 
-**兩項貫穿全節的限制，後續不再重複。**（i）signal–behavior alignment 使用同批 server-184 inline `correct`；production accuracy 以 [AdaDopamine_gsm8k.md](AdaDopamine_gsm8k.md) 的 server-182 offline first-`####` 為準。兩套不可混算,但 dose shape 與離散最佳點一致。（ii）**−8 的 C1-analyzable subset 明顯減少**（paired n=229 vs 其餘 291–298），故所有 −8 的 event-centered 結果都是**條件子樣本**，須與 C1-analyzable rate 一起解讀。
+**兩項貫穿全節的限制，後續不再重複。**（i）signal–behavior alignment 使用同批 server-184 inline `correct`；production accuracy 以 [ReasoningBare.md](ReasoningBare.md) 的 server-182 offline first-`####` 為準。兩套不可混算,但 dose shape 與離散最佳點一致。（ii）**−8 的 C1-analyzable subset 明顯減少**（paired n=229 vs 其餘 291–298），故所有 −8 的 event-centered 結果都是**條件子樣本**，須與 C1-analyzable rate 一起解讀。
 
 #### Result 1 — α Linearly Controls Task-Entry RSN Gain
 
@@ -623,7 +623,7 @@ $$\alpha \;\to\; \text{linear task-entry gain } (G_{prefill}) \;\to\; \text{nonl
 
 $$\mathrm{DiD}_q = \big(\text{cot}_{-4} - \text{cot}_0\big) - \big(\text{nocot}_{-4} - \text{nocot}_0\big) \qquad \text{[每題 } q\text{]}$$
 
-inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.7，與 §2.5.1 行為（182：60/73/69/85）同向、量級一致；行為結果直接引用 `AdaDopamine_gsm8k.md` §2.5/§2.5.1，本節不重複展開。
+inline acc（184）：nocot_0=60.0 / nocot_−4=74.3 / cot_0=67.7 / cot_−4=82.7，與 §2.5.1 行為（182：60/73/69/85）同向、量級一致；行為結果直接引用 `ReasoningBare.md` §2.5/§2.5.1，本節不重複展開。
 
 **三條貫穿全節的統計限制，後續不再重複。**（i）**statistical 與 practical interaction 須分開讀**：n=300 加上極小的配對方差，能偵測到量級可忽略的系統偏離（入口 DiD `***` 但僅約 α 主效應的 0.4%），判定以**量級比**為準，既不因量級小而降級為 ns，也不寫成「純 additive」。（ii）**「一顯著 + 一 ns」不等於兩者顯著不同**——early window 的 α 效應在 CoT 下轉 ns，但其 DiD p=.14，故只記為 **attenuation trend**，不作 redundancy/saturation 的正式判定。（iii）**單一 α 劑量**：不能推斷 CoT 下的 dose-response 或最佳 α（例如 CoT 是否移動 §4.4 的 asymmetric working point / discrete optimum——需補採 CoT × dose signal）；「無顯著交互」也不等於證明兩機制獨立。
 
@@ -940,7 +940,7 @@ GSM8K 支持把 `s_t` **level** 解讀為 ongoing engagement / commitment state 
 
 ## 5. Qwen2.5 Cross-Model Analysis
 
-本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**本節結論限於一維投影層次**；manifold 分析已於 2026-08-28 完成並關閉（見 `AdaManifold.md`），跨模型行為差異的定位見 §5.8。
+本節記錄 Qwen2.5-7B-Instruct 在 GSM8K、neutral 條件下，以 §4 的一維 state 分析鏈所得的結果。**本節結論限於一維投影層次**；manifold 分析已於 2026-08-28 完成並關閉（見 `Manifold.md`），跨模型行為差異的定位見 §5.8。
 
 > **一句話結論：Qwen 的入口增益持續隨 α 線性增加，但進入 decode 後，回應沿一個相對固定的 RSN layer profile 被顯著壓縮；現有證據更支持「標量增益壓縮」，不支持「軌跡發生幾何重分配」。**
 
@@ -1514,7 +1514,7 @@ Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论
 
 这些结果表明 commitment timing 不仅能解释剂量曲线，还携带错误监测与工作点选择信息。边界是：绝对概率校准不能跨任务迁移，GSM-Hard 仍属于 near-domain transfer，而且低 `posN` 仅表示答案 marker 的文本位置，不能单独视为 premature commitment。
 
-完整行为结果、表格与证据边界见 `AdaDopamine_gsm8k.md §5`；协议、artifact hashes 与实现细节见 `CLAUDE.md`.
+完整行为结果、表格与证据边界见 `ReasoningBare.md §5`；协议、artifact hashes 与实现细节见 `CLAUDE.md`.
 
 ## 6. Conclusion
 
@@ -1634,7 +1634,7 @@ Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论
     `####` 本身会改变 token distribution，因此 entropy spike、top1 dip 和 margin change 不能全部解释为实质 confidence 改变。
 
 31. **目前没有 manifold reorganization 的证据（manifold pilot 已完成，2026-08-28）。**  
-    一维结果更符合固定 RSN profile 的标量压缩，manifold 分析未推翻这一点：两模型的 entry displacement 都是线性单轴的（`AdaManifold.md`）。注意 `k=20` 是**分析上限，不是 intrinsic dimension**——PCA 只能显示线性低秩，且 top-20 仅覆盖约一半 α=0 方差，所以「内在维度」在本项目中从未被测量，不应作为待检项保留。
+    一维结果更符合固定 RSN profile 的标量压缩，manifold 分析未推翻这一点：两模型的 entry displacement 都是线性单轴的（`Manifold.md`）。注意 `k=20` 是**分析上限，不是 intrinsic dimension**——PCA 只能显示线性低秩，且 top-20 仅覆盖约一半 α=0 方差，所以「内在维度」在本项目中从未被测量，不应作为待检项保留。
 
 32. **目前没有证明 causal direction specificity。**  
     现有 random/orthogonal remask 是对同一批 hidden states 的重新投影，只证明 readout specificity。要证明只有 RSN steering 能产生行为变化，仍需真正注入 random/orthogonal directions。

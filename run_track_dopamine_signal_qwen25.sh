@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Qwen2.5-7B-Instruct — AdaptiveThinking SIGNAL collection (Phase 1 replication)
+# Qwen2.5-7B-Instruct — ThinkingCurve SIGNAL collection (Phase 1 replication)
 #
 # Separate launcher on purpose: run_track_hidden_states.sh drives the FROZEN
 # Llama phase1b_eot matrix and must not be edited.
@@ -33,7 +33,7 @@
 # Signal-behaviour pairing 口径 (settled 2026-08-21):
 #   this run stores its OWN generated text + commit marker + correctness; those
 #   are what pair per-question with the signal. The frozen behaviour table in
-#   AdaDopamine_gsm8k.md §4 stays the PRODUCTION accuracy reference and is never
+#   ReasoningBare.md §4 stays the PRODUCTION accuracy reference and is never
 #   mixed per-question with these samples (different batch).
 #
 # +10/+12 are collected here so G_prefill's linearity can be checked past the

@@ -85,16 +85,22 @@ Read the document for the question you have; none of them is a summary of the ot
 
 | Document | Question it answers | Status |
 |---|---|---|
-| [`Note/AdaDopamine.md`](Note/AdaDopamine.md) | Do classic behavioral-economics paradigms (betting, CGT, IGT, bandit) show a wanting–knowing dissociation? | Behavioral core |
-| [`Note/AdaDopamine_gsm8k.md`](Note/AdaDopamine_gsm8k.md) | What does α do to reasoning accuracy and commitment on GSM8K / MATH, and how far does a frozen workpoint transfer? | **Authoritative** for accuracy & transfer |
-| [`Note/AdaptiveThinking.md`](Note/AdaptiveThinking.md) | What happens *inside* the trajectory — entry gain, slow state, commitment, release? | Thinking curve; largely a null on the waveform goal |
-| [`Note/AdaManifold.md`](Note/AdaManifold.md) | Is steering a scalar gain or a directional reorganization of hidden state? | Extension of the above; closed |
-| [`Note/AdaNeurons.md`](Note/AdaNeurons.md) | Are confidence neurons the same substrate as role neurons? | Newest line |
+| [`Note/Behaviour.md`](Note/Behaviour.md) | Do classic behavioral-economics paradigms (betting, CGT, IGT, bandit) show a wanting–knowing dissociation? | Behavioral core |
+| [`Note/ReasoningBare.md`](Note/ReasoningBare.md) | What does α do to reasoning accuracy and commitment on GSM8K / MATH, and how far does a frozen workpoint transfer? | **Authoritative** for accuracy & transfer |
+| [`Note/ThinkingCurve.md`](Note/ThinkingCurve.md) | What happens *inside* the trajectory — entry gain, slow state, commitment, release? | Thinking curve; largely a null on the waveform goal |
+| [`Note/Manifold.md`](Note/Manifold.md) | Is steering a scalar gain or a directional reorganization of hidden state? | Extension of the above; closed |
+| [`Note/ConfidenceNeurons.md`](Note/ConfidenceNeurons.md) | Are confidence neurons the same substrate as role neurons? | Newest line |
 
-Supporting: [`Note/AdaBandit.md`](Note/AdaBandit.md) (bandit design and literature — no
-usable positive result), [`Note/AdaLogitsLens.md`](Note/AdaLogitsLens.md) (analysis from
-the RSN paper era), [`Note/AdaLiterature.md`](Note/AdaLiterature.md) (reading list),
-[`Note/Todo.md`](Note/Todo.md) (execution plan), `ACLARR/` (parent paper).
+Supporting: [`Note/Bandit.md`](Note/Bandit.md) (bandit design and literature — no
+usable positive result), [`Note/LogitsLens.md`](Note/LogitsLens.md) (analysis from
+the RSN paper era), [`Note/Literature.md`](Note/Literature.md) (reading list),
+[`Note/TODO.md`](Note/TODO.md) (execution plan), `ACLARR/` (parent paper).
+
+> **Renamed 2026-09-12.** These documents were previously named `AdaDopamine_gsm8k.md`,
+> `AdaDopamine.md`, `AdaptiveThinking.md`, `AdaBandit.md`, `AdaManifold.md`,
+> `AdaNeurons.md`, `AdaLiterature.md`, `AdaLogitsLens.md`. **Content is unchanged.** A
+> pre-rename citation is a stale name, not a missing file — the full mapping table is in
+> `CLAUDE.md` (search "NOTE RENAME").
 
 **`CLAUDE.md` is the operational ledger** — per-experiment frozen results, retracted
 readings, and the measurement conventions (口径) that cannot be re-derived from the code.

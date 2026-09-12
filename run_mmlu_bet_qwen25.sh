@@ -11,7 +11,7 @@
 #
 # RE-RUN 2026-07-29 — SCHEMA, NOT NUMBERS. Applies to BOTH models: the existing
 # MMLU per-sample CSVs (Llama AND Qwen, 42,126 rows each) lack `sample_idx`, so
-# the PAIRED statistics cited in AdaDopamine.md §3.1 CANNOT BE RECOMPUTED from
+# the PAIRED statistics cited in Behaviour.md §3.1 CANNOT BE RECOMPUTED from
 # stored data — McNemar (accuracy) and Wilcoxon (bets) both pair by question.
 # Note the Qwen GPQA re-run did NOT fix MMLU: it only re-ran GPQA, so Qwen's
 # MMLU is still the older schema. The re-run also adds acc_explicit_pct /

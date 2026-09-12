@@ -1370,5 +1370,3 @@ Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason
 行为结果同样没有形成统一的“先思考、再回答”规律。有效 α 经常伴随更少的 early candidate、更多的 reason-first output 或更晚的正式提交，但这些变化既不是性能提升的必要条件，也不是充分条件。部分任务出现明显的 output reordering 却没有准确率收益，另一些任务则受到截断、循环、格式崩溃或行为指标饱和的影响。
 
 **Conclusion.** Fixed-workpoint transfer 在 GSM-Hard、GSM-Symbolic、BBH Object Counting 和 Qwen CRUXEval-O 上获得不同程度的支持，但不能推广到所有任务。RSN 能够调节 commitment-related output behavior，但行为方向及其与准确率的关系具有明显的 model、task、condition 和 interface dependence。
-
----

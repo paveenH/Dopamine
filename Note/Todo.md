@@ -4,15 +4,15 @@
 RSN最初的内容已经发表，来源是RSNpaper，具体内容在/Users/paveenhuang/Downloads/Dopamine/ACLARR
 现在我们的目标是想要论证，这一套机制类似人体的Dopamine系统机制
 
-AdaDopamine.md记录了一些行为学实验
-AdaDopamine_gsm8k.md是推理任务上的表现，gsm8k & math
-AdaptiveThinking.md 这里是对内部的thinking Curve的一些观察 原本是计划找到一些类似激素水平变化的曲线，但是目前没有显著的效果
-AdaManifold.md这里是和Manifold有关的一些研究，是AdaptiveThinking的一些拓展
-AdaNeurons.md 这里是最新的confidence neurons的结果（于RSN的交互）
+Behaviour.md记录了一些行为学实验
+ReasoningBare.md是推理任务上的表现，gsm8k & math
+ThinkingCurve.md 这里是对内部的thinking Curve的一些观察 原本是计划找到一些类似激素水平变化的曲线，但是目前没有显著的效果
+Manifold.md这里是和Manifold有关的一些研究，是ThinkingCurve的一些拓展
+ConfidenceNeurons.md 这里是最新的confidence neurons的结果（于RSN的交互）
 
 其余是一些辅助文件：
-AdaBandit.md 专门记录了Bandit实验（主线在AdaDopamine.md），但是没有找到合适的结果
-AdaLogitsLens.md 对应RSNpaper时候做的一下研究
+Bandit.md 专门记录了Bandit实验（主线在Behaviour.md），但是没有找到合适的结果
+LogitsLens.md 对应RSNpaper时候做的一下研究
 TODO是接下来的一些执行计划
 
 ---
@@ -280,7 +280,7 @@ NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BID
 6. MATH cot ✔ 
 7. 复现qwen的thinking curve signal部分，没有存HS ✔
 8. qwen的thinking curve 存HS ✔
-9. 重新梳理一下AdaptiveThinking的文档 ✔
+9. 重新梳理一下ThinkingCurve的文档 ✔
 9. qwen的具体分析 ✔
 10. Qwen 的 output decisiveness: 从现有 7 个 H5 cell 提取 entropy/log(V)、top1、margin ✔
 11. manifold llama3 实验以及结果整理 

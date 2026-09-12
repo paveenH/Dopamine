@@ -53,7 +53,7 @@
 # (there is no manual_seed in get_answer_gpqa_bet.py), so this is a resample, not
 # a reproduction. Trends replicate; exact values do not byte-match. The old
 # published cells were orig 5.13 / +4 7.6316 / −4 4.418 mean_bet. After the
-# re-run, UPDATE AdaDopamine.md §3.1.1 and the §3.1 cross-model table rather than
+# re-run, UPDATE Behaviour.md §3.1.1 and the §3.1 cross-model table rather than
 # treating a small delta as a regression.
 #
 # Output (overwrites OUT_DIR — the superseded old-parser data is intentionally

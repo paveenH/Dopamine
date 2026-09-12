@@ -2,7 +2,7 @@
 # IGT — Qwen2.5-7B-Instruct cross-model port.
 #
 # SEPARATE from run_igt.sh on purpose: that script's v4/v6a/v6b x verify/full
-# matrix is Llama-specific and its results are frozen (AdaDopamine.md §3.3 IGT).
+# matrix is Llama-specific and its results are frozen (Behaviour.md §3.3 IGT).
 # Editing it to add a model risks the Llama main line for no benefit.
 #
 # THREE Qwen-specific facts, none inherited from Llama:

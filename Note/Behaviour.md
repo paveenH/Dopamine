@@ -273,7 +273,7 @@ Qwen 在 +4 見頂後出現兩種不同失效：+6 的下注退化為常數，+8
 
 ## 3.2 Experiment 6 — Exploration/Exploitation (Bandit Task, PV9)
 
-PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（`.60/.55/.25/.25`）兩個環境中測試 `α∈{−4,0,+4}`；每格為 20 paired seeds × 100 rounds。α 只注入負責產生 evidence 與 policy 的 Stage 1，Stage 2 executor 完全未 steering。完整協議、指標定義與分析表見 `AdaBandit.md` §4；此處只保留可直接支撐主要結論的結果。
+PV9 使用 Llama-3.1-8B-Instruct，在 Easy（`.75/.25/.25/.25`）與 NearTie（`.60/.55/.25/.25`）兩個環境中測試 `α∈{−4,0,+4}`；每格為 20 paired seeds × 100 rounds。α 只注入負責產生 evidence 與 policy 的 Stage 1，Stage 2 executor 完全未 steering。完整協議、指標定義與分析表見 `Bandit.md` §4；此處只保留可直接支撐主要結論的結果。
 
 | Narrative claim | Supporting result | Interpretation |
 |---|---|---|
@@ -551,7 +551,7 @@ Betting 測「願不願意押」、CGT-Seq 測「願不願意等」、Bandit/IGT
 
 **跨任務證據邊界**（詳見 §3.4）：目前較一致的是 α 對 engagement、commitment timing 與策略表達的影響；各任務的局部峰位只作模型內描述，不再組合成統一 wanting axis 或通用 optimal-α 規律。Bandit/PV9 尤其顯示 policy-expression effect 可以與 directed-exploration／outcome 的 null 並存。
 
-**尚未覆蓋的範式**（誠實登記，非待辦）：Progressive Ratio（努力支出的經典 DA 範式，語言版設計見 TODO §4）、Pavlovian-Instrumental Transfer 與 Reversal Learning（均已記錄 why-skipped，見 `AdaDopamine_bp.md` §4.8/§4.10——核心理由是 phasic DA / RPE 需要突觸可塑性，inference-time 注入原理上碰不到）。
+**尚未覆蓋的範式**（誠實登記，非待辦）：Progressive Ratio（努力支出的經典 DA 範式，語言版設計見 TODO §4）、Pavlovian-Instrumental Transfer 與 Reversal Learning（均已記錄 why-skipped，見 `Dopamine_backup.md` §4.8/§4.10——核心理由是 phasic DA / RPE 需要突觸可塑性，inference-time 注入原理上碰不到）。
 
 ## References
 

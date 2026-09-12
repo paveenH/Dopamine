@@ -403,4 +403,4 @@ run_proofwriter_owa.sh               7-stage launcher
 ```
 
 No existing GSM8K/MATH/BBH/CRUXEval/LogiQA/ZebraLogic runner, no CLAUDE.md, no
-AdaDopamine_gsm8k.md, and no existing result file was modified for this line.
+ReasoningBare.md, and no existing result file was modified for this line.
