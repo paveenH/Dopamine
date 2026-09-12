@@ -19,13 +19,26 @@ tail=1 steering injects into -- moves from the bare condition's anchor token
 (id 220, ' ') to the assistant generation header token (id 271, '\n\n').
 Native chat therefore changes TWO things at once relative to bare: the
 interface (full chat wrapping) AND the injection site. This script keeps the
-full chat template but manually re-creates the bare condition's injection
-site UNDER it, so that only the interface changes and the injection site is
-held matched to bare. If MATH's bare alpha=-6 gain reappears here but not
-under native chat, the workpoint's failure under native chat is attributable
-to the injection-site shift rather than to the chat interface itself; if it
-does not reappear here either, the interface (not the injection site) is
-implicated.
+full chat template but manually re-creates the bare condition's last-token
+ID and decoded text UNDER it, matching the SAME PREFILL-TAIL TOKEN ID (220,
+a single ASCII space) and the tail=1 relative injection position.
+
+WHAT MATCHING THE TOKEN ID DOES AND DOES NOT CONTROL FOR -- do not overstate
+this. Identical token id/text at the last position does NOT mean identical
+hidden state at that position: the anchor's surrounding context differs (it
+now follows the chat template's assistant-header markup rather than a bare
+newline), and the whole preceding sequence -- system/turn markers, BOS
+handling -- differs from bare too. So this experiment isolates ONE
+manipulable variable (the last-token identity prefill-only steering injects
+into) while leaving several others (surrounding token context, full sequence
+composition) changed alongside the interface. If MATH's bare alpha=-6 gain
+reappears here but not under native chat, the correct reading is that the
+effect is SENSITIVE TO the assistant-side anchor/injection geometry -- never
+that the workpoint's native-chat failure is "caused by" or "fully explained
+by" the injection-site token shift alone. If the gain does not reappear here
+either, that is evidence against injection-site identity being sufficient by
+itself, again not proof that "the interface" in some other sense is the
+whole story.
 
 THIS IS NOT A WORKPOINT SEARCH AND NOT THE NINE-POINT SWEEP. alpha in
 {-6, 0, 6, 8} is a FIXED four-point family declared up front, matching the
@@ -110,6 +123,7 @@ PROMPT_WRAPPER_ID = "llama3-chat-template-matched-anchor-v1"
 
 EXPECTED_ALPHAS = {-6, 0, 6, 8}
 BAND = (11, 20)
+EXPECTED_N = 300
 
 # For descriptive metadata only: which of these four alpha have a counterpart
 # in the frozen bare tree (MATH_DIRS' No-CoT subset, -8/-6/-4/0/+4) and in the
@@ -143,7 +157,10 @@ def parse_args():
     p.add_argument("--out_dir", required=True,
                    help="components/llama3/answer_math_chat_matched_anchor_v1")
     p.add_argument("--n_samples", type=int, default=300,
-                   help="Truncation applied EXACTLY as "
+                   help="FROZEN at 300 -- the flag exists only to mirror "
+                        "get_answer_math_chat_sweep.py's CLI shape; any "
+                        "other value is rejected (see the check in main()). "
+                        "Truncation applied EXACTLY as "
                         "get_answer_regenerate_math.py / "
                         "get_answer_math_chat_sweep.py do (all_samples[:n]).")
     p.add_argument("--batch_size", type=int, default=8)
@@ -171,6 +188,18 @@ def main():
             "non-integer dose, a missing dose, a duplicate, or an extra dose "
             "all land here. A partial family must not be written under this "
             "protocol name.")
+
+    # FROZEN at n=300, matching the bare/native-chat MATH trees this family
+    # is designed to sit between -- unlike --configs (whose subset-vs-exact
+    # trap is guarded above), a bare --n_samples int has no such guard by
+    # construction, so a caller passing e.g. --n_samples 100 would otherwise
+    # produce a syntactically valid, but silently unpairable, protocol file.
+    if args.n_samples != EXPECTED_N:
+        die(f"--n_samples={args.n_samples}, expected exactly {EXPECTED_N} -- "
+            "the bare/native-chat MATH cells this family is designed to "
+            "sit between are all built on 300 fixed samples, so any other "
+            "count would not be pairable. This flag is not a free choice "
+            "under this protocol name.")
 
     all_samples = utils.load_json(args.test_file)
     # Truncate EXACTLY as get_answer_regenerate_math.py / the native chat
