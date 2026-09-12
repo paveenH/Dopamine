@@ -7,7 +7,7 @@ Protocol `cruxeval-o-cot-chat-v1`.
 WHY. `get_answer_cruxeval_cot.py` (protocol `cot-transfer-followup-v0`) runs
 the CoT follow-up bare-string, matching the P4c No-CoT convention. Llama's CoT
 No-CoT and CoT cells both carry a high degenerate-tail / loop rate (see the
-`AdaDopamine_gsm8k.md` P4c and ProofWriter-OWA precedent), which raises the
+`ReasoningBare.md` P4c and ProofWriter-OWA precedent), which raises the
 question this script exists to answer: is that loop/truncation behaviour, and
 the accompanying accuracy null, an artifact of the bare-string prompt
 interface, or does it persist under the model's native chat interface?
