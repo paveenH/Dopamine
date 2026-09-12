@@ -96,8 +96,7 @@ rsync -avzh --partial --info=progress2 \
    2) GSM-hard ✔
    3) MATH ✔
    4) 整理一份当前的结果 ✔
-39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: 
-   1) MATH
+39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K
 40. 试着理解chat template的影响的原因：Base model 
 41. Chat-Bare是什么呢？
 42. 认知切换开关
@@ -124,11 +123,6 @@ Role/Confidence cross-steering
 MMLU-E 回答“是否都能调节 confidence”，GSM8K则回答“这种功能等价性是否能够迁移为相似的 reasoning commitment 效果”。
 MATH 和其他任务暂时不需要加入。先完成 MMLU-E → GSM8K 两级验证，已经足够形成清晰的证据链。
 
----
-
-Shared-only 与 exclusive-neuron 因果拆分
-最后才考虑 Manifold
-
 
 2. **四种 mean 的关系**
    - Expert、Non-Expert、Confident、Unconfident 做逐层相关/距离矩阵。
@@ -144,20 +138,8 @@ Shared-only 与 exclusive-neuron 因果拆分
    - 与 Role RSN 比较 Jaccard、随机期望以上的 overlap、符号一致性和 cross-projection。
    - 静态分析完成后再决定 cross-steering；只有“低重叠但功能相似”时，Manifold 才真正值得重开。
 
-有一个文件口径必须固定：
-
-- Confidence 主结果使用 `confidence_diff_8B.npy`
-- 不要使用 `diff_mean_confidence_8B.npy`，它是较早的 divergent-only 文件。
-- 旧 Role direction 建议由 `llama3_logits/diff_mean_8B.npy - none_diff_mean_8B.npy` 现场重建，或使用与之匹配的 `llama3_logits_8B_diff.npy`。
-- 不建议直接使用 `llama3_8B_diff.npy`；我检查到它与上述旧均值之差并不一致，可能来自另一版本。
-
-因此第一份正式产物应该是一张逐层 cosine/norm 图和一份数值表，用来先回答：
-
-> Confidence direction 和原 Role direction 是同一方向、局部共享，还是基本独立？
-
 ---
 
-16. Ada-GSM8K部分需要一个同一的指标 （reason-first）
 15. commitment regime 作为预测标的（直接预测调整的方向）
 SAE ?
 
