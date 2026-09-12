@@ -6,7 +6,7 @@ exists because PV10-A v2 answered the mechanism question: forced continuation
 to the full budget did NOT produce exploration (min_trials stayed at 1,
 max_arm_share ~.6, A0 true_top2 .408 against a rate-based empirical_top2 .734),
 so PV10-B's bottleneck is the ACQUISITION policy, not a too-low commitment
-threshold. See AdaBandit.md 4.4. The question here is therefore not "sample
+threshold. See Bandit.md 4.4. The question here is therefore not "sample
 more" but "does naming the comparison change HOW the model samples".
 
 WHAT CHANGES, EXHAUSTIVELY:
