@@ -111,9 +111,11 @@ rsync -avzh --partial --info=progress2 \
 39. 缩小confidence alpha GSM8K: : ACC + Behaivour ✔
 38. 确认Loop的问题 -> Llama3补充chat template + steering的结果
    1. GSM8K ✔
-   2. GSM-hard ⏸
-   3. MATH ⏸
-
+   2. GSM-hard ✔
+   3. MATH ✔
+   4. 整理一份当前的结果 ⏸
+39. 试着理解chat template的影响的原因：注入点切回到answer
+40. 试着理解chat template的影响的原因：Base model 
 ---
 Role/Confidence cross-steering
 建议测试的任务
