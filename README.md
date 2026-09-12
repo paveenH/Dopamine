@@ -195,3 +195,84 @@ These exist because each was violated once and cost a wrong conclusion.
   year      = {2026}
 }
 ```
+
+# 09.11
+## 大的研究思路
+
+我们可以把整个项目统一成一个“模型内部状态控制系统”的框架：
+
+```text
+Context / Role Cue
+        ↓
+State-Switching Mechanism
+        ↓
+Global Operating State
+        ↓
+Confidence / Engagement / Commitment Control
+        ↓
+Observable Behavior
+```
+
+### 1. Bare 与 Chat 是两种不同的工作状态
+
+- **Bare**：同一个 Instruct 模型没有进入标准 Chat 交互框架时的状态，更准确地说是 *unscaffolded state*，而不是完全“自然、未社会化”的模型。
+- **Chat**：Chat template 作为一个训练中反复出现的条件信号，激活了由 SFT/RLHF 塑造的完整 assistant policy。
+- 因此，**Bare → Chat 可以理解为一次较完整的全局状态切换**：身份、回答规范、推理顺序、终止行为等同时改变。
+
+Chat token 本身不是 reward 或 dopamine，而是一个能够唤起 reward-shaped state 的信号。
+
+### 2. Expert / Non-expert 也是状态切换
+
+Expert / Non-expert 实验是在 Bare 下完成的，这说明：
+
+- Chat 并不是状态切换的必要条件；
+- 单纯的角色描述也能改变模型对“自己是谁、应该怎样回答”的内部表征；
+- Chat 是更强、更系统化的状态提示，而角色提示是更局部的语义状态提示。
+
+所以它们可以统一理解为不同强度、不同范围的 **self-state switching**。
+
+### 3. RSN 可能只是完整状态中的一个控制维度
+
+RSN 目前更像是在控制：
+
+- engagement；
+- effort allocation；
+- response vigor；
+- commitment threshold；
+- 何时从推理转向提交答案。
+
+因此，RSN 不是完整的“Expert state”或“Chat state”，而是其中一个低维的控制轴。可以把它称为：
+
+> **A sparse engagement/commitment gain controller within a broader model state.**
+
+这也解释了为什么 Chat 可以整体消除 loop、改变开场和终止行为，而 RSN steering 通常只改变某些行为维度。
+
+### 4. Confidence 可能属于同一个状态控制系统
+
+Confidence neurons 可能负责调节：
+
+- 模型认为自己有多确定；
+- 是否继续检查；
+- 是否立即提交；
+- 当前行为策略有多强。
+
+因此可以提出一个分层结构：
+
+- **State-switching neurons**：决定进入哪一种状态；
+- **State-representation neurons**：持续编码当前处于什么状态；
+- **State-gain neurons**：调节当前状态的强度，例如 RSN；
+- **Confidence neurons**：调节确定性和元认知判断。
+
+这些成分可能相互重叠，但不能预先假设它们是同一组 neurons。
+
+### 5. 最核心的研究目标
+
+我们真正想寻找的，不只是“能改变准确率的 neurons”，而是：
+
+> **负责根据情境切换模型工作状态，并进一步调节 confidence、engagement 和 commitment 的内部控制回路。**
+
+当前证据主要说明 RSN 是一个可因果操控的 **state-gain mechanism**。要证明某些 neurons 是真正的 **state-switching neurons**，还需要证明它们在切换信号出现时短暂激活，并且干预它们能够促进或阻止状态转换，而不仅是让当前行为变强或变弱。
+
+### 一句话总假设
+
+> LLM 中可能存在一个层级化的状态控制系统：Chat template 和角色提示触发全局工作状态切换，而 RSN 与 confidence neurons 调节该状态内部的投入程度、确定性和提交策略；其中 RSN 在计算功能上可能类似多巴胺所参与的动机与行动增益调节，但不是生物学意义上的多巴胺神经元。
