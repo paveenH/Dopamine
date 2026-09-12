@@ -21,7 +21,10 @@
 # header (id 271, '\n\n'), because apply_chat_template's Jinja `| trim`
 # strips the anchor's trailing space. This experiment keeps the full chat
 # template but manually re-creates the bare anchor position UNDER it, so the
-# interface and the injection site are no longer confounded together.
+# final prefill token identity and anchor are matched to the bare condition's
+# -- the hidden state, surrounding context, and absolute position still
+# differ, so this does NOT mean the interface and injection site are fully
+# disentangled.
 #
 # Full nine-point alpha sweep (-8,-6,-4,-2,0,+2,+4,+6,+8) -- the SAME dose
 # set as the frozen bare/native-chat MATH curves, NOT a re-search. All nine
