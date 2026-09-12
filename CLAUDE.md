@@ -779,6 +779,8 @@ generation output only (no model re-run) and writes a same-named `.csv` +
 - `unified_behavior_finqa.py` — FinQA
 - `unified_behavior_proofwriter_owa.py` — ProofWriter-OWA
 - `unified_behavior_zebralogic.py` — ZebraLogic-Easy
+- `unified_behavior_chat_numeric.py` — GSM8K + MATH + GSM-Hard, **chat**
+  No-CoT nine-point α sweep, Llama3.1-8B only
 
 Shared conventions across all of them: every table is descriptive/post-hoc
 output-behaviour statistics only — no new significance testing, and none
@@ -804,6 +806,62 @@ partial output.
 `unified_behavior_zebralogic.py` is gold-free: it never calls the gated
 private-gold loader, and its accuracy columns are copied verbatim from the
 existing frozen result JSON as background context only, not recomputed.
+
+**`unified_behavior_chat_numeric.py` (2026-09-12) is the ONE script in this
+family that spans three tasks and reads the CHAT trees, not bare.** GSM8K,
+MATH and GSM-Hard's nine-point chat No-CoT sweeps
+(`gsm8k-chat-sweep-v1`/`math-chat-sweep-v1`/`gsm-hard-chat-sweep-v1`,
+`llama3/{gsm8k,math,gsm_hard}/chat/`), one merged 27-row CSV
+(`unified_behavior_chat_numeric.csv`) sorted GSM8K→MATH→GSM-Hard then α
+ascending, plus a provenance JSON. No `.md` was requested for this one.
+Reuses everything the bare scripts use (`analyze_first_last_acc`,
+`early_candidate_detector`, `p2/p2_features.build_features`,
+`p3/precandidate_reasoning.first_candidate`) **plus `chat_sweep_common.py`**
+for the per-task metadata/steering-fires/item-alignment guards, so the
+fail-closed checks are shared with `analyze_{gsm8k,math,gsm_hard}_chat_sweep.py`
+rather than reimplemented a second time.
+- **On-disk α-directory naming is NOT uniform across the three chat trees**,
+  the same trap `early_candidate_detector.py`'s own `TREES` dict already
+  documents for the bare Qwen trees: GSM8K chat uses signed `mdf_-8`/`mdf_8`;
+  MATH and GSM-Hard chat use `mdf_neg8`/`mdf_8`. Hardcoding one convention
+  silently reads "missing" for half the cells of whichever task guessed
+  wrong.
+- **Cross-check against the three existing chat-sweep analyzers is exact
+  after two corrections, not by construction.** `chat_sweep_common.py`'s own
+  `marker_metrics`/`behaviour_metrics` round every `*_pct` to 1 decimal,
+  while this script's own rates are computed at 2 decimals — a naive
+  equality (or a too-tight tolerance) reads ~68 false mismatches that are
+  pure display rounding; the tolerance needed is 0.06 (max gap between a 1dp
+  and 2dp rounding of the same fraction), not 0.01. Separately,
+  `gen_chars_median` must use the SAME median convention as
+  `chat_sweep_common.behaviour_metrics` — `sorted(lens)[n // 2]` (upper-middle
+  index, no averaging on even n), not `statistics.median` — or every
+  even-`n` cell (all of them, since n=300) reads a spurious ~1–5 character
+  mismatch. Only `gen_chars_median` uses this non-standard median; every
+  other `*_median` field in the script keeps `statistics.median`.
+- **One real, permanent, documented cross-check exception exists and is
+  reported rather than silenced: MATH α=+8, `valid_submission_rate` (231/300,
+  77.0%) vs the existing analyzer's `commit_pct` (232/300, 77.3%).** One
+  sample (idx 97) has an empty `\boxed{}`. `analyze_first_last_acc.all_boxed`
+  returns `['']` — a non-empty list, so `first_last_stats`' `bool(marks)`
+  check (which the existing analyzer's `commit_pct` is built on) reads it as
+  committed. `p2/p2_features.py`'s MATH marker adapter explicitly filters an
+  empty `\boxed{}` out as unparseable (its own docstring: "the same
+  treatment `all_hash` gives an unparseable `####`"), so `build_features`'
+  `posN_observed` (which this script's `valid_submission_rate` is built on)
+  reads it as not-committed. Both definitions are imported verbatim from
+  their respective frozen sources per the no-reimplementation rule; neither
+  is patched to force agreement, and the discrepancy is printed at runtime
+  and recorded in the provenance JSON rather than silenced by a wider
+  tolerance.
+- **`condition` is hardcoded `"Chat No-CoT"`** — none of the three chat-sweep
+  protocols has a CoT arm, so there is no condition column to vary; do not
+  add one without a corresponding CoT chat-sweep protocol existing first.
+- Reuses the sealed GSM-Hard gold file and its exact SHA256
+  (`a464d591abe659dca3fde2f9bccbd184ef1ccf0ba4dc66afa4d01a00ce8368c2`) from
+  `unified_behavior_gsm_hard.py`, plus the chat cell's own
+  `questions_sha256` cross-check against the gold's, plus a `sample_id`-set
+  equality check — three independent identity checks, not one.
 
 ## Server / data layout
 
