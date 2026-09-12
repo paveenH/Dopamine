@@ -2,7 +2,7 @@
 """PV11 Controlled Evidence-State Micro-Episodes: state bank builder. PURE.
 
 PV11 is a NEW PROTOCOL, not PV10-D. The online PV10-A/B/C line is closed (see
-AdaBandit.md 4.4): four representation-layer interventions -- Stage-1 alpha,
+Bandit.md 4.4): four representation-layer interventions -- Stage-1 alpha,
 choice history, the Beta calculator and the PV10-C competitor cue -- each
 raised recognition without moving acquisition. PV11 therefore stops asking the
 model to generate its own evidence and instead HANDS it a controlled evidence
