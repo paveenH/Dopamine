@@ -19,7 +19,7 @@ Per the PV11 pre-registered termination rule, five intervention classes each
 raised the model's *recognition* of uncertainty without moving *acquisition*.
 These checks are kept because later protocols reuse the seed banks, gate rules
 and analysis 口径 — not because the line is expected to reopen. Design +
-results: `AdaBandit.md` §3–5.
+results: `Bandit.md` §3–5.
 
 ```bash
 
@@ -172,7 +172,7 @@ python3.10 evaluate_competence_gate_pv9.py --result <dir>/pv9_easy_bare
 
 # PV9 alpha tables (run from RoleAnswer/, needs synced result dirs, no GPU):
 python3.10 analyze_bandit_pv9.py --part validity   # attestation only, fails closed
-python3.10 analyze_bandit_pv9.py --part all        # every AdaBandit.md section-4 table
+python3.10 analyze_bandit_pv9.py --part all        # every Bandit.md section-4 table
 python3.10 analyze_bandit_pv9.py --part primary --no-model   # fast: skips the fits
 
 # pv7 frozen-state diagnostics (the lock-in bank; --dry_run needs no GPU):
