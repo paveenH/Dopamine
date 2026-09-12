@@ -99,6 +99,8 @@ rsync -avzh --partial --info=progress2 \
 39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: 
    1) MATH
 40. 试着理解chat template的影响的原因：Base model 
+41. Chat-Bare是什么呢？
+42. 认知切换开关
 ---
 Role/Confidence cross-steering
 建议测试的任务
