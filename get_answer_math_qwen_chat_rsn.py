@@ -133,6 +133,13 @@ def parse_args():
     p.add_argument("--top_p", type=float, default=0.9,
                    help="Matches get_answer_regenerate_math.py's own default. "
                         "Inert under greedy; recorded for metadata parity.")
+    p.add_argument("--expect_test_file_sha256", default="",
+                   help="Optional: the frozen SHA256 of math_test_sample.json. "
+                        "Empty (default) = no check -- there is currently no "
+                        "frozen digest constant for this file anywhere in "
+                        "the repo. Pass it once one is established so a "
+                        "swapped/regenerated sample file names itself before "
+                        "a multi-hour cell runs.")
     return p.parse_args()
 
 
@@ -211,6 +218,14 @@ def main():
             f"--n_samples={args.n_samples}; the bare cells were built on "
             f"{args.n_samples}, so a shorter sample would not be pairable.")
     print(f"Loaded {n} MATH problems from {args.test_file}")
+
+    test_file_sha256_pre = hashlib.sha256(
+        open(args.test_file, "rb").read()).hexdigest()
+    if args.expect_test_file_sha256 and test_file_sha256_pre != args.expect_test_file_sha256:
+        die(f"test_file SHA256 {test_file_sha256_pre} != expected "
+            f"{args.expect_test_file_sha256}. A different sample file would "
+            "make every downstream bare-vs-chat pairing invalid; refusing "
+            "before the model load rather than after a multi-hour cell.")
 
     templates = build_math_suite(cot=False)
     neutral_tmpl = templates["neutral"]
