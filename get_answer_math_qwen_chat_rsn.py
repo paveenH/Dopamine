@@ -89,6 +89,17 @@ PROMPT_WRAPPER_ID = "qwen2.5-chat-template-v1"
 EXPECTED_ALPHAS = {-8, 0, 6, 8}
 BAND = (16, 22)
 
+# FROZEN generation budget, matching the bare Qwen MATH line
+# (run_math_qwen25.sh) exactly -- MATH's OWN budget, not GSM8K's. These CLI
+# flags exist so the launcher can pass them explicitly; main() hard-fails on
+# any other value, closing the gap where bypassing the launcher could still
+# write into the same protocol name/output tree under a different,
+# unpairable budget.
+EXPECTED_N = 300
+EXPECTED_MAX_NEW_TOKENS = 2048
+EXPECTED_BATCH_SIZE = 8
+EXPECTED_TEMPERATURE = 0.0
+
 
 def die(msg):
     print(f"[FATAL] {msg}", file=sys.stderr)
