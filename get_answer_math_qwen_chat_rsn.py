@@ -178,6 +178,31 @@ def main():
             "required: a non-integer dose, a missing dose, a duplicate, or "
             "an extra dose all land here.")
 
+    # Budget/batch/temperature are FROZEN at the bare Qwen MATH line's own
+    # values -- not a free choice under this protocol name.
+    if args.max_new_tokens != EXPECTED_MAX_NEW_TOKENS:
+        die(f"--max_new_tokens={args.max_new_tokens}, expected exactly "
+            f"{EXPECTED_MAX_NEW_TOKENS} -- MATH's own frozen budget, not "
+            "GSM8K's; reusing a shorter budget would truncate solutions and "
+            "manufacture an extraction floor.")
+    if args.batch_size != EXPECTED_BATCH_SIZE:
+        die(f"--batch_size={args.batch_size}, expected exactly "
+            f"{EXPECTED_BATCH_SIZE} -- batch size affects padding and is "
+            "part of this protocol's frozen generation path.")
+    if args.temperature != EXPECTED_TEMPERATURE:
+        die(f"--temperature={args.temperature}, expected exactly "
+            f"{EXPECTED_TEMPERATURE} -- this protocol is greedy-only; a "
+            "non-zero temperature would make the cell non-reproducible.")
+    # --n_samples is FROZEN at 300, matching matched-anchor's own MATH
+    # convention -- unlike GSM8K's exact-file-length check, MATH truncates
+    # via all_samples[:n], so a bare --n_samples int has no other guard.
+    if args.n_samples != EXPECTED_N:
+        die(f"--n_samples={args.n_samples}, expected exactly {EXPECTED_N} "
+            "-- the bare Qwen MATH cells this family is designed to sit "
+            "beside are all built on 300 fixed samples, so any other count "
+            "would not be pairable. This flag is not a free choice under "
+            "this protocol name.")
+
     all_samples = utils.load_json(args.test_file)
     n = min(len(all_samples), args.n_samples)
     samples = all_samples[:n]
