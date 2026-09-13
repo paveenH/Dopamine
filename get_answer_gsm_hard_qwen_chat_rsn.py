@@ -99,6 +99,17 @@ PROMPT_WRAPPER_ID = "qwen2.5-chat-template-v1"
 EXPECTED_ALPHAS = {-8, 0, 6, 8}
 BAND = (16, 22)
 
+# FROZEN generation budget, matching the bare Qwen GSM-Hard line
+# (get_answer_gsm_hard_blind.py via run_wps_gsm_hard.sh) exactly. These CLI
+# flags exist so the launcher can pass them explicitly; main() hard-fails on
+# any other value, closing the gap where bypassing the launcher could still
+# write into the same protocol name/output tree under a different,
+# unpairable budget.
+EXPECTED_N = 300
+EXPECTED_MAX_NEW_TOKENS = 768
+EXPECTED_BATCH_SIZE = 24
+EXPECTED_TEMPERATURE = 0.0
+
 # The frozen GSM-Hard questions digest (docs/PREREG_P3.md, p3-v1). Checked so
 # a swapped or regenerated sample file names itself instead of producing a
 # plausible-looking curve over different questions.
@@ -219,8 +230,31 @@ def main():
             "required: a non-integer dose, a missing dose, a duplicate, or "
             "an extra dose all land here.")
 
+    # Budget/batch/temperature are FROZEN at the bare Qwen GSM-Hard line's
+    # own values -- not a free choice under this protocol name.
+    if args.max_new_tokens != EXPECTED_MAX_NEW_TOKENS:
+        die(f"--max_new_tokens={args.max_new_tokens}, expected exactly "
+            f"{EXPECTED_MAX_NEW_TOKENS} -- this protocol's cells must share "
+            "one generation budget with each other and with the bare Qwen "
+            "GSM-Hard line they are compared against.")
+    if args.batch_size != EXPECTED_BATCH_SIZE:
+        die(f"--batch_size={args.batch_size}, expected exactly "
+            f"{EXPECTED_BATCH_SIZE} -- batch size affects padding and is "
+            "part of this protocol's frozen generation path.")
+    if args.temperature != EXPECTED_TEMPERATURE:
+        die(f"--temperature={args.temperature}, expected exactly "
+            f"{EXPECTED_TEMPERATURE} -- this protocol is greedy-only; a "
+            "non-zero temperature would make the cell non-reproducible.")
+
     qmeta, samples = load_questions(args.questions, args.expect_questions_sha256)
     n = len(samples)
+    # FROZEN at n=300, matching the bare Qwen GSM-Hard line this family is
+    # designed to sit beside.
+    if n != EXPECTED_N:
+        die(f"questions file holds {n} GSM-Hard questions, expected exactly "
+            f"{EXPECTED_N} -- the bare Qwen GSM-Hard cells this family is "
+            "designed to sit beside are all built on 300 fixed questions, "
+            "so a different count would not be pairable.")
     print(f"Loaded {n} GSM-Hard questions from {args.questions} "
           f"(digest {qmeta['questions_sha256'][:16]}, label-free check OK)")
 
