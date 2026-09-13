@@ -98,6 +98,18 @@ PROMPT_WRAPPER_ID = "qwen2.5-chat-template-v1"
 EXPECTED_ALPHAS = {-8, 0, 6, 8}
 BAND = (16, 22)
 
+# FROZEN generation budget, matching the bare Qwen GSM8K line
+# (run_gsm8k_qwen25.sh) exactly. These CLI flags exist so the launcher can
+# pass them explicitly (readable in the process listing / logs), NOT so a
+# caller can silently drift them -- main() hard-fails on any other value,
+# closing the gap where bypassing the launcher and invoking this script
+# directly could still write into the same protocol name/output tree under a
+# different, unpairable budget.
+EXPECTED_N = 300
+EXPECTED_MAX_NEW_TOKENS = 768
+EXPECTED_BATCH_SIZE = 24
+EXPECTED_TEMPERATURE = 0.0
+
 
 def die(msg):
     print(f"[FATAL] {msg}", file=sys.stderr)
@@ -190,8 +202,40 @@ def main():
             "required: a non-integer dose, a missing dose, a duplicate, or "
             "an extra dose all land here.")
 
+    # Budget/batch/temperature are FROZEN at the bare Qwen GSM8K line's own
+    # values -- not a free choice under this protocol name. A caller who
+    # bypasses the launcher and invokes this script directly with a
+    # different budget would otherwise still write a syntactically valid
+    # cell into the same output tree/protocol, silently unpairable with its
+    # siblings.
+    if args.max_new_tokens != EXPECTED_MAX_NEW_TOKENS:
+        die(f"--max_new_tokens={args.max_new_tokens}, expected exactly "
+            f"{EXPECTED_MAX_NEW_TOKENS} -- this protocol's cells must share "
+            "one generation budget with each other and with the bare Qwen "
+            "GSM8K line they are compared against.")
+    if args.batch_size != EXPECTED_BATCH_SIZE:
+        die(f"--batch_size={args.batch_size}, expected exactly "
+            f"{EXPECTED_BATCH_SIZE} -- batch size affects padding and is "
+            "part of this protocol's frozen generation path.")
+    if args.temperature != EXPECTED_TEMPERATURE:
+        die(f"--temperature={args.temperature}, expected exactly "
+            f"{EXPECTED_TEMPERATURE} -- this protocol is greedy-only; a "
+            "non-zero temperature would make the cell non-reproducible and "
+            "not comparable to the rest of the family.")
+
     samples = utils.load_json(args.test_file)
     n = len(samples)
+    # FROZEN at n=300, matching the bare Qwen GSM8K line this family is
+    # designed to sit beside -- an accidentally truncated or duplicated test
+    # file would still produce a syntactically valid protocol file (every
+    # other check here is agnostic to n) and could silently drift out of
+    # pairability without this check.
+    if n != EXPECTED_N:
+        die(f"test file holds {n} GSM8K samples, expected exactly "
+            f"{EXPECTED_N} -- the bare Qwen GSM8K cells this family is "
+            "designed to sit beside are all built on 300 fixed samples, so "
+            "a different count would not be pairable. Refusing to write a "
+            "protocol file whose sample count silently differs.")
     print(f"Loaded {n} GSM8K samples from {args.test_file}")
 
     templates = build_gsm8k_default_suite(cot=False, wording=args.fmt_wording)
