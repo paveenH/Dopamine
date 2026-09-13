@@ -140,6 +140,16 @@ def parse_args():
     p.add_argument("--top_p", type=float, default=1.0)
     p.add_argument("--fmt_wording", default="plain", choices=["plain"],
                    help="Fixed to 'plain' (the main-line wording).")
+    p.add_argument("--expect_test_file_sha256", default="",
+                   help="Optional: the frozen SHA256 of gsm8k_test_sample.json "
+                        "(matching GSM-Hard's own --expect_questions_sha256 "
+                        "convention). Empty (default) = no check -- there is "
+                        "currently no frozen digest constant for this file "
+                        "anywhere in the repo (unlike GSM-Hard's sealed "
+                        "questions file). Pass it once one is established so "
+                        "a swapped/regenerated sample file names itself "
+                        "before a multi-hour cell runs, instead of only "
+                        "being caught by a later sample-alignment check.")
     return p.parse_args()
 
 
@@ -237,6 +247,14 @@ def main():
             "a different count would not be pairable. Refusing to write a "
             "protocol file whose sample count silently differs.")
     print(f"Loaded {n} GSM8K samples from {args.test_file}")
+
+    test_file_sha256_pre = hashlib.sha256(
+        open(args.test_file, "rb").read()).hexdigest()
+    if args.expect_test_file_sha256 and test_file_sha256_pre != args.expect_test_file_sha256:
+        die(f"test_file SHA256 {test_file_sha256_pre} != expected "
+            f"{args.expect_test_file_sha256}. A different sample file would "
+            "make every downstream bare-vs-chat pairing invalid; refusing "
+            "before the model load rather than after a multi-hour cell.")
 
     templates = build_gsm8k_default_suite(cot=False, wording=args.fmt_wording)
     neutral_tmpl = templates["neutral"]
