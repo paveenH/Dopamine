@@ -1,6 +1,5 @@
 ### Document writing
 我们的要求是： 1）细节部分放到Claude.md不要在文档中出现 2）数据尽量保持完整 3）尽量合并表格（但是不要勉强，可以合并的合并） 4）内容和章节都可以重构或者合并 5）结论简洁 通俗易懂 目标是提升可读性 6）标题和表格写英文
-
 给我md版本的文字就好 我会自己去替换
 尽量不要删除原始数据，可以合并
 
@@ -41,16 +40,16 @@ rsync -avzh --partial --info=progress2 \
 ---
 ### Daily
 
-09.12 周六 确认公证需要的材料，买药，取戒指
+09.13 周日 买药
 09.19 台北-杭州萧山 机票 ✔
 09.20 杭州逛逛
 09.21 杭州逛逛
-09.22 回家高铁*1 - Helene ⏸
-09.23、09.24 在家 需要去办理公证 + 爸妈护照
-09.24 全曜回家 高铁*1  ⏸
+09.22 回家高铁*1 - Helene ✔
+09.23、09.24 在家 需要去办理公证 + 爸妈护照 （身份证，户口本）
+09.24 全曜回家 高铁*1  ✔
 09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
 10.02 丽江
-10.02晚上-10.03 成都市区 机票 ✔ 住宿 ⏸
+10.02晚上-10.03 成都市区 机票 ✔ 住宿 ✔
 10.04 成都-武夷山Flight Home
 10.04-10.10 Home
 10.11 Flight Taipei
@@ -96,12 +95,137 @@ rsync -avzh --partial --info=progress2 \
    2) GSM-hard ✔
    3) MATH ✔
    4) 整理一份当前的结果 ✔
-39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K
+39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K -> chat是更明显的开关 ✔
 40. 试着理解chat template的影响的原因：Base model 
 41. Chat-Bare是什么呢？
 42. 认知切换开关
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
 
+---
+你的三个方向都值得做，但要把第二点的表述稍微收紧：
+
+> **Chat template 不是 RLHF 本身，而是一个调用 post-training policy 的上下文开关。**
+
+模型权重通过 SFT、rejection sampling 和 preference optimization 学会“作为 assistant 应该怎样回答”；chat tokens 在推理时告诉模型：现在进入这种工作模式。Llama 3.1 官方说明其 post-training 是多轮 **SFT、Rejection Sampling 和 DPO**；Llama 3 的说明还强调，偏好训练会帮助模型从已有推理轨迹中选择更合适的回答。[Meta Llama 3.1](https://ai.meta.com/blog/meta-llama-3-1/), [Meta Llama 3](https://ai.meta.com/blog/meta-llama-3/)
+
+因此，我建议这样推进：
+
+### 1. 先做 Qwen 的小型三条件验证
+
+暂时不要直接跑九格，先用相同题目比较 α=0：
+
+- Bare
+- Native Chat
+- Chat-matched
+
+观察：
+
+- 是否也从自由续写切换到规范的 assistant 风格；
+- 是否减少 loop/truncation；
+- 是否出现 reasoning-first；
+- assistant-side `Answer:` 是否也增加直接回答；
+- 实际注入 token 和位置必须用 Qwen tokenizer 重新读取，不能沿用 Llama 的 220/271。
+
+如果 Qwen 也出现同样结构，说明这是较普遍的 **post-training interface state switch**；如果没有，则可能是 Llama 特有的训练格式或状态几何。确认以后再决定是否补完整剂量曲线。
+
+### 2. 做 Llama 的 Chat–Bare hidden-state 对比
+
+这是现在机制价值最高的一步。使用 α=0，比较：
+
+- Bare
+- Native Chat
+- Chat-matched
+
+不要直接把不同长度序列逐 token 相减。建议记录三个位置：
+
+1. 相同问题正文的最后一个 token；
+2. 各条件实际的最后一个 prefill token；
+3. 在三种条件后 teacher-force 同一个短前缀时，该共同 token 的 hidden state。
+
+逐层计算：
+
+- `‖h_chat − h_bare‖`
+- `‖h_matched − h_bare‖`
+- `‖h_matched − h_chat‖`
+- Chat–Bare 差异方向在 GSM8K 与 MATH 之间的 cosine
+- 用 GSM8K 训练 Chat/Bare linear probe，在 MATH 上测试
+
+最关键的预测是：
+
+> 如果 Chat-matched 的状态在中后层更接近 Native Chat，而不是与它共享最后 token 的 Bare，就说明整套角色上下文比最后一个 token 更能决定模型状态。
+
+只保存选定位置的 HS 即可，不必保存完整序列，能大幅减少空间。
+
+### 3. 用 Base–Instruct 对照连接 post-training
+
+做一个 α=0 的简单 `2×2`：
+
+| Model | Bare | Chat-formatted |
+|---|---:|---:|
+| Llama-3.1 Base | ✓ | ✓ |
+| Llama-3.1 Instruct | ✓ | ✓ |
+
+如果 Chat template 的行为和 HS 切换主要出现在 Instruct，而 Base 对这些 token 没有同等反应，就能支持：
+
+> 这种状态切换是 post-training 学出来的，而不是 special tokens 天然具有的功能。
+
+但公开模型不能干净拆分 SFT 与 DPO 的贡献，所以最多写成 **post-training-associated**，暂时不能特指 RLHF。Base 的 Chat 条件也是诊断性 OOD 对照，不能公平比较准确率。
+
+### 4. 最后做因果状态切换
+
+如果得到稳定的：
+
+```text
+d_chat = mean(h_chat − h_bare)
+```
+
+可以在 held-out task 上尝试：
+
+- 向 Bare 注入 `+d_chat`：能否减少 loop、产生 Chat 式 reasoning-first 风格；
+- 向 Chat 注入 `−d_chat`：能否恢复部分 Bare 风格；
+- 加入 norm-matched random/orthogonal direction；
+- 比较 `d_chat` 与 RSN、Confidence direction 的 cosine、neuron overlap 和 cross-steering。
+
+这一步才真正连接你们的核心假设：
+
+> RSN/Confidence neurons 可能不是完整的状态开关，而是广义 Chat/post-training 状态切换系统中的一个调节轴。
+
+我的建议顺序是：**Qwen α=0 小试验与 Llama HS 同时准备 → Base/Instruct 对照 → hidden-state direction 的因果注入**。目前不建议马上定位“状态切换 neurons”；先证明存在稳定、跨任务、可干预的 state direction，再向 neuron 层下钻。
+---
+对，这其实是最直接的实验。做一个 α=0 的 `2×3`：
+
+| Model | Bare | Native Chat | Chat-matched |
+|---|---:|---:|---:|
+| Llama-3.1-8B Base | ✓ | ✓ | ✓ |
+| Llama-3.1-8B-Instruct | ✓ | ✓ | ✓ |
+
+保持题目、解码参数和 token 序列一致。Base 没有可用 chat template 时，就手工序列化 Instruct 的同一套特殊 token。
+
+重点不只看 accuracy，还看：
+
+- 开场是直接答案还是 `To solve...`
+- reasoning-first
+- loop、truncation、natural EOS
+- valid submission
+- 生成长度和答案位置
+
+结果很好解释：
+
+- **只有 Instruct 在 Chat 下切换**：Chat token 的“状态开关”功能主要由 post-training 学会。
+- **Base 也明显切换**：说明相关行为在 pre-training 中已经存在，Chat 结构能够直接调用它。
+- **Base Chat 反而变差**：说明这些 token 对 Base 是 OOD，而 Instruct 通过 post-training 才赋予它们明确意义。
+- **Base 出现 Chat 风格但能力没提升**：说明 template 能改变表达状态，但高质量 assistant policy 仍来自 post-training。
+
+再进一步，才是真正的“state paste”：
+
+```text
+d_chat = h(Instruct, Chat) − h(Instruct, Bare)
+```
+
+把这个方向注入 Base，观察 Base 是否变得更像 Chat。  
+**贴 template 测的是条件提示；贴 hidden-state direction 测的是状态本身的因果作用。**
+
+所以我同意：先做这个 Base–Instruct 对照，比继续扩 benchmark 更直接。
 ---
 ### RSN vs Confidence
 Role/Confidence cross-steering
