@@ -2,7 +2,7 @@
 
 ## 1. Scope and Evaluation Setup
 
-本节比较 Native Chat、Chat Matched-Anchor 与既有 Bare 参照下的性能和可见输出。Bare 只用于接口参照，不能与 Chat 条件进行样本级统计推断。`first_acc` 是主要性能指标，`last_acc` 仅为敏感性指标。Llama3.1-8B-Instruct 的 Native Chat 是九点 dose response；Qwen2.5-7B-Instruct 只测试 `−8/0/+6/+8`，属于 targeted dose comparison，不构成完整 dose curve。`early_candidate_rate`、`reason_first_rate` 与 `candidate_posN_median` 只描述干预后的可见 output ordering，不能代表内部 commitment 或因果中介。
+本节比较 Native Chat、Chat Matched-Anchor 与既有 Bare 参照下的性能和可见输出。Bare 只用于接口参照，不能与 Chat 条件进行样本级统计推断。`first_acc` 是主要性能指标；在提供该指标的实验中，`last_acc` 仅作为敏感性分析。Llama3.1-8B-Instruct 的 Native Chat 是九点 dose response；Qwen2.5-7B-Instruct 只测试 `−8/0/+6/+8`，属于 targeted dose comparison，不构成完整 dose curve。`early_candidate_rate`、`reason_first_rate` 与 `candidate_posN_median` 只描述干预后的可见 output ordering，不能代表内部 commitment 或因果中介。
 
 ## 2. Native Chat Dose–Response
 
@@ -12,7 +12,7 @@
 
 **Table 2.1. Llama3.1-8B-Instruct on GSM8K under Native Chat**
 
-| α | n | first_acc | valid_sub_rate | early_cand_rate | reason_first_rate | cand_posN_med | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
+| α | n | first_acc | valid_sub_rate | early_candidate_rate | reason_first_rate | candidate_posN_median | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −8 | 300 | 89.00% | 96.33% | 0.33% | 92.62% | 0.4628 | 0.00% | 99.33% | 0.67% | 566 |
 | −6 | 300 | 88.67% | 96.00% | 0.00% | 100.00% | 0.4573 | 0.33% | 99.33% | 0.67% | 559 |
@@ -30,7 +30,7 @@
 
 **Table 2.2. Llama3.1-8B-Instruct on MATH under Native Chat**
 
-| α | n | first_acc | valid_sub_rate | early_cand_rate | reason_first_rate | cand_posN_med | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
+| α | n | first_acc | valid_sub_rate | early_candidate_rate | reason_first_rate | candidate_posN_median | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −8 | 300 | 47.67% | 84.33% | 1.00% | 96.86% | 0.2976 | 2.67% | 84.00% | 16.00% | 945 |
 | −6 | 300 | 47.33% | 80.33% | 1.00% | 96.13% | 0.2909 | 5.67% | 80.00% | 20.00% | 1012 |
@@ -48,7 +48,7 @@
 
 **Table 2.3. Llama3.1-8B-Instruct on GSM-Hard under Native Chat**
 
-| α | n | first_acc | valid_sub_rate | early_cand_rate | reason_first_rate | cand_posN_med | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
+| α | n | first_acc | valid_sub_rate | early_candidate_rate | reason_first_rate | candidate_posN_median | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −8 | 300 | 33.00% | 89.67% | 1.00% | 98.66% | 0.3969 | 1.00% | 95.00% | 5.00% | 687 |
 | −6 | 300 | 32.00% | 82.33% | 0.33% | 99.32% | 0.3827 | 1.33% | 91.67% | 8.33% | 698 |
@@ -109,14 +109,14 @@ baseline 已稳定 reasoning-first。`−8/+6/+8` 均未显著改变准确率，
 
 **Table 2.7. Qwen Native Chat Comparisons against α=0**
 
-| Task | α | Baseline first_acc | Cell first_acc | Δ | Discordant | Raw p | Holm p_adj | Significant |
+| Task | α | Baseline first_acc | Cell first_acc | Δ | Discordant (baseline-only / cell-only) | Raw p | Holm p_adj | Significant |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
 | GSM8K | −8 | 63.33% | 47.33% | −16.00 pp | 52 / 4 | 1.101e−11 | 1.101e−11 | Yes |
-| GSM8K | +6 | 63.33% | 94.67% | +31.34 pp | 1 / 95 | 2.449e−27 | 7.346e−27 | Yes |
+| GSM8K | +6 | 63.33% | 94.67% | +31.33 pp | 1 / 95 | 2.449e−27 | 7.346e−27 | Yes |
 | GSM8K | +8 | 63.33% | 93.00% | +29.67 pp | 4 / 93 | 4.565e−23 | 9.131e−23 | Yes |
-| MATH | −8 | 70.67% | 71.33% | +0.66 pp | 18 / 20 | .8714 | 1.0000 | No |
+| MATH | −8 | 70.67% | 71.33% | +0.67 pp | 18 / 20 | .8714 | 1.0000 | No |
 | MATH | +6 | 70.67% | 72.67% | +2.00 pp | 9 / 15 | .3075 | .9224 | No |
-| MATH | +8 | 70.67% | 71.33% | +0.66 pp | 15 / 17 | .8601 | 1.0000 | No |
+| MATH | +8 | 70.67% | 71.33% | +0.67 pp | 15 / 17 | .8601 | 1.0000 | No |
 | GSM-Hard | −8 | 40.00% | 25.67% | −14.33 pp | 50 / 7 | 4.237e−09 | 1.271e−08 | Yes |
 | GSM-Hard | +6 | 40.00% | 54.33% | +14.33 pp | 21 / 64 | 3.276e−06 | 3.276e−06 | Yes |
 | GSM-Hard | +8 | 40.00% | 54.67% | +14.67 pp | 12 / 56 | 6.209e−08 | 1.242e−07 | Yes |
@@ -146,7 +146,7 @@ Llama Native Chat 未重现 Bare 的负向工作点，强正向 α 主要伴随 
 
 **Table 3.1. Llama3.1-8B-Instruct on GSM8K under Chat Matched-Anchor**
 
-| α | first_acc | last_acc | valid_sub_rate | early_cand_rate | reason_first_rate | cand_posN_med | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
+| α | first_acc | last_acc | valid_sub_rate | early_candidate_rate | reason_first_rate | candidate_posN_median | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −8 | 89.33% | 89.33% | 96.67% | 3.00% | 96.97% | 0.4128 | 0.33% | 99.00% | 1.00% | 506 |
 | −6 | 88.33% | 88.33% | 95.33% | 1.67% | 94.61% | 0.4565 | 0.00% | 98.33% | 1.67% | 493 |
@@ -164,7 +164,7 @@ Llama Native Chat 未重现 Bare 的负向工作点，强正向 α 主要伴随 
 
 **Table 3.2. Llama3.1-8B-Instruct on MATH under Chat Matched-Anchor**
 
-| α | first_acc | last_acc | valid_sub_rate | early_cand_rate | reason_first_rate | cand_posN_med | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
+| α | first_acc | last_acc | valid_sub_rate | early_candidate_rate | reason_first_rate | candidate_posN_median | loop_rate | natural_eos_rate | truncation_rate | gen_chars_med |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −8 | 44.67% | 44.67% | 86.67% | 18.00% | 79.65% | 0.2500 | 5.33% | 77.33% | 22.67% | 967 |
 | −6 | 46.00% | 46.00% | 81.67% | 7.67% | 87.63% | 0.3107 | 4.67% | 81.00% | 19.00% | 922 |
@@ -207,7 +207,7 @@ MATH 对 assistant-side anchor 更敏感：正向 α 自 `+2` 开始下降，`+4
 
 ### 4.1 Bare versus Native Chat
 
-**Table 4.1. Bare and Native Chat Output States**
+**Table 4.1. Qwen Bare and Native Chat Output States**
 
 | Model | Task | Condition | first_acc | early_candidate_rate | reason_first_rate |
 |---|---|---|---:|---:|---:|
@@ -230,7 +230,7 @@ MATH 对 assistant-side anchor 更敏感：正向 α 自 `+2` 开始下降，`+4
 
 ### 4.2 Opening Style across Interfaces
 
-**Table 4.2. Main Opening Style at α=0**
+**Table 4.2. Llama Opening Style across Interfaces at α=0**
 
 | Task | Interface | Main opening pattern |
 |---|---|---|
