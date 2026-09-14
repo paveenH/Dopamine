@@ -97,16 +97,13 @@ rsync -avzh --partial --info=progress2 \
    4) 整理一份当前的结果 ✔
 39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K -> chat是更明显的开关 ✔
 40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
-41. chat - bare
+41. chat - bare llama3 & qwen3 GSM8K/MATH/GSMHard
+42. 看一下cot 区分RSN COT Chat Confidence
 40. 试着理解chat template的影响的原因：Base model 
 42. 认知切换开关
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
 
 ---
-
-对，我觉得下一步就应该计算 **Chat − Bare 的 hidden-state direction**。这是把“行为上统一”推进到“内部状态是否统一”的关键一步。
-
-建议按三层做：
 
 1. **Paired hidden-state difference**
 
