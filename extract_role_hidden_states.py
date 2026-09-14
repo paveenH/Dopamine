@@ -429,20 +429,36 @@ def assert_no_double_bos(vc, input_ids_row) -> None:
         die(f"double BOS detected (head={ids[:4]}) -- refusing to proceed.")
 
 
+# Hard global invariant: every rendered prompt in this pipeline (both
+# models, all four tasks, both role conditions) ends its bare-string prefill
+# in a literal trailing space right before generation would begin (e.g.
+# "...Answer: " / "...is: "), which every tokenizer used here (Llama-3.1 and
+# Qwen2.5, both bare-string, no chat template) renders as a single trailing
+# ' ' token. This was independently confirmed against the REAL cached
+# tokenizer for both models across all four prompt types during development
+# (see the module's own smoke-test history) and matches
+# extract_interface_hidden_states.py's own frozen `expected_tail_bare`
+# convention (id=220, text=' '). It is intentionally NOT re-derived
+# per-cell from each cell's own first sample -- deriving it that way would
+# let a uniform template drift (e.g. every prompt losing its trailing
+# space) pass silently, since every sample in the drifted cell would still
+# agree with each other. Every sample of every cell is instead checked
+# against this ONE fixed, hardcoded expectation.
+EXPECTED_FINAL_TOKEN_ID = 220
+EXPECTED_FINAL_TOKEN_TEXT = " "
+
+
 def derive_expected_final_token(vc, first_rendered_prompt: str):
-    """Read the expected final-prefill-token (id, text) OUT OF THE ACTUAL
-    TOKENIZER by tokenizing the first rendered prompt, rather than
-    hardcoding a bare literal id anywhere in this module. Every subsequent
-    sample's final token is then asserted to match THIS value (constancy
-    across the whole cell is itself checked at the end of the extraction
-    loop) -- so the "expected" id is tokenizer-derived, per-run, never an
-    unconditional assumption baked into the code."""
+    """Tokenize the first rendered prompt of a cell (only to run the
+    double-BOS guard on a real encoding) and return the GLOBAL fixed
+    expectation (EXPECTED_FINAL_TOKEN_ID, EXPECTED_FINAL_TOKEN_TEXT) rather
+    than whatever this cell's own first sample happens to produce -- see the
+    module-level comment above. Kept as a function (not inlined at call
+    sites) so every caller still goes through one place."""
     enc = tokenize_single(vc, first_rendered_prompt)
     input_ids = enc["input_ids"][0]
     assert_no_double_bos(vc, input_ids)
-    last_id = int(input_ids[-1].item())
-    last_text = vc.tokenizer.decode([last_id])
-    return last_id, last_text
+    return EXPECTED_FINAL_TOKEN_ID, EXPECTED_FINAL_TOKEN_TEXT
 
 
 def assert_final_token(expected_id: int, expected_text: str, tok_id: int,
@@ -452,9 +468,11 @@ def assert_final_token(expected_id: int, expected_text: str, tok_id: int,
         die(f"task={task} subject={subject} condition={condition} "
             f"sample_idx={sample_idx}: final prefill token is "
             f"id={tok_id} text={tok_text!r}, expected id={expected_id} "
-            f"text={expected_text!r} (derived from this same run's first "
-            "sample). Refusing to extract hidden states under an "
-            "unverified/inconstant prefill boundary.")
+            f"text={expected_text!r} (this is a FIXED global expectation, "
+            "not derived per-cell -- see EXPECTED_FINAL_TOKEN_ID/TEXT and "
+            "the comment above derive_expected_final_token()). Refusing to "
+            "extract hidden states under an unverified/drifted prefill "
+            "boundary.")
 
 
 # --------------------------------------------------------------------------
@@ -671,14 +689,15 @@ def process_cell(vc, mcfg, model_key, model_dir, size, cell: Cell,
     print("First rendered prompt (repr, truncated to 400 chars):")
     print(repr(rendered_prompts[0][:400]))
 
-    # ---- Derive the expected final-prefill-token (id,text) FROM THE REAL
-    # ---- TOKENIZER on this run's own first sample, rather than hardcoding
-    # ---- any literal id (e.g. 220) anywhere in this module. ----
+    # ---- Fixed global final-prefill-token expectation (id=220, text=' '),
+    # ---- checked against every sample below -- NOT re-derived per cell, so
+    # ---- a uniform template drift cannot pass silently. See
+    # ---- EXPECTED_FINAL_TOKEN_ID/TEXT and derive_expected_final_token(). ----
     expected_id, expected_text = derive_expected_final_token(
         vc, rendered_prompts[0])
     print(f"expected_final_prefill_token: id={expected_id} "
-          f"text={expected_text!r} (derived from this run's own first "
-          "sample; asserted against every sample below)")
+          f"text={expected_text!r} (fixed global expectation; asserted "
+          "against every sample below)")
 
     # ---- Extraction loop: ONE forward pass per sample, bs=1, prefill only,
     # ---- NO hooks, NO generation. ----
@@ -900,7 +919,9 @@ def write_mmlue_tree_manifest(out_dir, model_key, model_dir, size,
     {
       "script_version": ..., "git_commit": ..., "model": ..., "model_dir": ...,
       "n_subjects": 57, "conditions": ["expert", "non_expert"],
-      "total_n_samples": 14042,
+      "n_unique_samples": 14042,
+      "n_samples_by_condition": {"expert": 14042, "non_expert": 14042},
+      "total_rows_stored": 28084,
       "cells": [
         {"subject": ..., "condition": ..., "h5_path": "<basename>.h5",
          "n_samples": ...},
@@ -909,11 +930,18 @@ def write_mmlue_tree_manifest(out_dir, model_key, model_dir, size,
       "extraction_timestamp_utc": ...
     }
 
-    total_n_samples counts each condition's samples independently (i.e. it
-    is 2x the number of distinct MMLU-E questions, matching how
-    N_EXPECT_MMLUE_TOTAL=14042 is asserted per-condition elsewhere in this
-    script: 57 subjects summing to 14042 samples for EACH of expert/
-    non_expert, not 14042 combined across both conditions).
+    Three distinct counts are reported, deliberately NOT collapsed into one
+    ambiguous "total_n_samples" field: n_unique_samples is the number of
+    distinct MMLU-E QUESTIONS (14042, the number asserted per-condition
+    elsewhere in this script as N_EXPECT_MMLUE_TOTAL); n_samples_by_condition
+    breaks that same 14042 down per role condition (both entries equal
+    n_unique_samples, since expert and non_expert are the SAME 14042
+    questions asked twice, not 14042 combined across both); and
+    total_rows_stored is the actual number of HDF5 rows written across all
+    114 cells (2 x 14042 = 28084), i.e. what you would get by summing
+    n_samples over every entry in "cells" below. Do not read
+    n_samples_by_condition's values as summing to a grand total -- they are
+    each independently equal to n_unique_samples.
     """
     cells_by_condition = {"expert": 0, "non_expert": 0}
     entries = []
@@ -926,6 +954,16 @@ def write_mmlue_tree_manifest(out_dir, model_key, model_dir, size,
             "n_samples": n_samples,
         })
 
+    n_unique_by_condition = set(cells_by_condition.values())
+    n_unique_samples = (n_unique_by_condition.pop()
+                        if len(n_unique_by_condition) == 1 else None)
+    if n_unique_samples is None:
+        die("MMLU-E tree manifest: expert and non_expert sample counts "
+            f"disagree ({cells_by_condition}) -- cannot report a single "
+            "n_unique_samples value. This means the two conditions did not "
+            "cover the same question set; refusing to write a manifest "
+            "that would silently hide that mismatch.")
+
     manifest = {
         "script_version": SCRIPT_VERSION,
         "git_commit": git_commit(),
@@ -934,8 +972,9 @@ def write_mmlue_tree_manifest(out_dir, model_key, model_dir, size,
         "size": size,
         "n_subjects": len(set(e["subject"] for e in entries)),
         "conditions": list(CONDITIONS),
+        "n_unique_samples": n_unique_samples,
         "n_samples_by_condition": cells_by_condition,
-        "total_n_samples": sum(cells_by_condition.values()),
+        "total_rows_stored": sum(cells_by_condition.values()),
         "cells": entries,
         "extraction_timestamp_utc": time.strftime(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
