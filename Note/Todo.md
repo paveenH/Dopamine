@@ -34,7 +34,7 @@ rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/benchmark
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
-  d12922004@140.112.31.184:/data1/paveen/Dopamine/components/ \
+  d12922004@140.112.31.185:/data1/paveen/Dopamine/components/ \
   /data1/paveen/Dopamine/components/
 
 ---
@@ -97,7 +97,7 @@ rsync -avzh --partial --info=progress2 \
    4) 整理一份当前的结果 ✔
 39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K -> chat是更明显的开关 ✔
 40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
-41. chat - bare llama3 & qwen3 GSM8K/MATH/GSMHard
+41. chat - bare llama3 & qwen3 GSM8K/MATH/GSMHard ⏸
 42. 看一下cot 区分RSN COT Chat Confidence
 40. 试着理解chat template的影响的原因：Base model 
 42. 认知切换开关
