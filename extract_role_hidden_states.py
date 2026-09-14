@@ -168,23 +168,26 @@ finite/atomic-write checks as before, unchanged; the only difference in
 --run_all mode is that the per-cell body runs many times against ONE loaded
 model instead of once against a freshly-loaded model per process.
 
-MMLU-E FILENAME CONVENTION (documented design choice, not derived from any
-reference script). extract_interface_hidden_states.py has no expert/
-non_expert naming to copy for MMLU-E, and get_answer_logits.py's own
-`safe_role = role.replace(" ", "_").replace("-", "_")` convention would
-produce long, subject-duplicated filenames from a full rendered role string
-(e.g. "college_biology_expert_college_biology_8B.h5"). This script instead
-uses the FIXED CONDITION KEY ("expert" / "non_expert") as the filename
-prefix -- matching the SHAPE of run_hidden_mmlue_confidence_hs.sh's own
-confident_/unconfident_ convention (a short, fixed, condition-keyed prefix,
-not the full rendered role string), while keeping the literal condition
-name rather than confident/unconfident since the axis here is role, not
-confidence. Filenames:
-  components/hidden_states/{model}/mmlue/expert_{subject}_{size}.h5
-  components/hidden_states/{model}/mmlue/non_expert_{subject}_{size}.h5
+MMLU-E FILENAME CONVENTION (documented design choice). extract_interface_
+hidden_states.py has no expert/non_expert naming to copy for MMLU-E, so this
+script instead reuses get_answer_logits.py's OWN, already-established
+convention verbatim: `safe_role = role.replace(" ", "_").replace("-", "_")`
+then `f"{safe_role}_{task}_{size}.h5"` (get_answer_logits.py lines 50-51 /
+129-130), where `role` is the FULL rendered role string ("college biology
+expert" / "non college biology expert") and `task` here is the MMLU-E
+subject. This deliberately reproduces the original RSN pipeline's own
+subject-duplicated filenames (e.g.
+"college_biology_expert_college_biology_8B.h5" /
+"non_college_biology_expert_college_biology_8B.h5") rather than a shorter
+condition-keyed prefix, so that this re-collection is directly compatible
+with existing downstream RSN analysis code expecting this exact naming --
+the goal of this re-collection is to reproduce the original RSN data under
+the current pipeline, not to introduce a new naming scheme. Filenames:
+  components/hidden_states/{model}/mmlue/{subject}_expert_{subject}_{size}.h5
+  components/hidden_states/{model}/mmlue/non_{subject}_expert_{subject}_{size}.h5
 each with a sibling `.manifest.json`. This convention is fixed by
-mmlue_h5_path()/mmlue_meta_path() below and must not be changed casually --
-it determines every consumer's glob pattern.
+mmlue_h5_path()/mmlue_meta_path()/mmlue_safe_role() below and must not be
+changed casually -- it determines every consumer's glob pattern.
 
 TREE-LEVEL MMLU-E MANIFEST. In --run_all mode, after all 114 MMLU-E cells
 have been written, this script writes ONE additional aggregate manifest at
@@ -533,7 +536,12 @@ def mmlue_safe_role(role_string: str) -> str:
 
 
 def mmlue_h5_path(out_dir: str, condition: str, subject: str, size: str) -> str:
-    role_string = mmlue_role_string(condition, subject)
+    # subject here is the raw file-stem (e.g. "college_biology"); the role
+    # string needs the SPACE-formatted subject ("college biology"), matching
+    # process_cell()'s own `subject.lower().replace("_", " ")` -- reuse that
+    # exact transform rather than duplicating a slightly different one.
+    subject_formatted = subject.lower().replace("_", " ")
+    role_string = mmlue_role_string(condition, subject_formatted)
     safe_role = mmlue_safe_role(role_string)
     return os.path.join(out_dir, f"{safe_role}_{subject}_{size}.h5")
 
