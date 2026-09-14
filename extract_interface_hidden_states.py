@@ -138,6 +138,9 @@ MODELS = {
         "prompt_wrapper_id": "llama3-chat-template-v1",
         "expected_tail_bare": (220, " "),
         "expected_tail_chat": (271, "\n\n"),
+        # embedding + 32 decoder layers = 33; hidden_size = 4096.
+        "expected_n_layers_out": 33,
+        "expected_hidden_size": 4096,
     },
     "qwen2.5": {
         "model_dir_default": "Qwen/Qwen2.5-7B-Instruct",
@@ -145,6 +148,9 @@ MODELS = {
         "prompt_wrapper_id": "qwen2.5-chat-template-v1",
         "expected_tail_bare": (220, " "),
         "expected_tail_chat": (198, "\n"),
+        # embedding + 28 decoder layers = 29; hidden_size = 3584.
+        "expected_n_layers_out": 29,
+        "expected_hidden_size": 3584,
     },
 }
 
@@ -473,6 +479,21 @@ def main():
 
     n_decoder = len(vc._find_decoder_layers())
     n_layers_out = n_decoder + 1  # embedding + every decoder layer output
+
+    # ---- Model-shape lock: a wrong --model_dir (wrong architecture/size
+    # for the requested --model key) must not silently write into this
+    # model's formal output path. Assert BEFORE any prompt rendering or
+    # forward pass.
+    expect_layers = mcfg["expected_n_layers_out"]
+    expect_hidden = mcfg["expected_hidden_size"]
+    actual_hidden = int(vc.model.config.hidden_size)
+    if n_layers_out != expect_layers or actual_hidden != expect_hidden:
+        die(f"model shape mismatch for --model {model_key} "
+            f"(--model_dir {model_dir}): got n_layers_out={n_layers_out} "
+            f"hidden_size={actual_hidden}, expected "
+            f"n_layers_out={expect_layers} hidden_size={expect_hidden}. "
+            "Refusing to write output under a model key whose loaded "
+            "architecture does not match.")
 
     # ---- Render prompts ----
     bare_prompts = [
