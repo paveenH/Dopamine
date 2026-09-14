@@ -207,7 +207,27 @@ MATH 对 assistant-side anchor 更敏感：正向 α 自 `+2` 开始下降，`+4
 
 ### 4.1 Bare versus Native Chat
 
-**Table 4.1. Qwen Bare and Native Chat Output States**
+
+**Table 4.1. Llama Bare and Native Chat Output States**
+
+| Model | Task | Condition | first_acc | early_candidate_rate | reason_first_rate |
+|---|---|---|---:|---:|---:|
+| Llama3.1-8B-Instruct | GSM8K | Bare α=0 | 60.00% | 48.00% | 30.85% |
+| Llama3.1-8B-Instruct | GSM8K | Native Chat α=0 | 89.67% | 0.00% | 100.00% |
+| Llama3.1-8B-Instruct | GSM8K | Bare −6 | 78.00% | 18.67% | 66.55% |
+| Llama3.1-8B-Instruct | GSM8K | Native Chat −6 | 88.67% | 0.00% | 100.00% |
+| Llama3.1-8B-Instruct | MATH | Bare α=0 | 36.67% | 26.67% | 47.18% |
+| Llama3.1-8B-Instruct | MATH | Native Chat α=0 | 47.67% | 0.33% | 96.43% |
+| Llama3.1-8B-Instruct | MATH | Bare −6 | 43.33% | 6.33% | 79.44% |
+| Llama3.1-8B-Instruct | MATH | Native Chat −6 | 47.33% | 1.00% | 96.13% |
+| Llama3.1-8B-Instruct | GSM-Hard | Bare α=0 | 18.00% | 45.67% | 26.64% |
+| Llama3.1-8B-Instruct | GSM-Hard | Native Chat α=0 | 31.00% | 0.33% | 99.32% |
+| Llama3.1-8B-Instruct | GSM-Hard | Bare −6 | 24.33% | 28.67% | 61.82% |
+| Llama3.1-8B-Instruct | GSM-Hard | Native Chat −6 | 32.00% | 0.33% | 99.32% |
+
+Native Chat 在三个任务中都显著重排了 Llama 的可见输出：相较 Bare α=0，`early_candidate_rate` 接近地板，`reason_first_rate` 接近上限。Bare 条件下有效的 `−6` 可以使输出向同一方向移动，但其变化幅度小于 Chat 本身；进入 Native Chat 后，再施加 `−6` 几乎不再改变 output ordering。该比较只描述跨接口的行为状态，不作跨接口显著性或因果归因。
+
+**Table 4.2. Qwen Bare and Native Chat Output States**
 
 | Model | Task | Condition | first_acc | early_candidate_rate | reason_first_rate |
 |---|---|---|---:|---:|---:|
