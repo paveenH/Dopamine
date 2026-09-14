@@ -28,7 +28,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/llama3_confidence /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/hidden_states /Users/paveenhuang/Downloads
 
 rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/benchmark/cruxeval_p4c_formal.json /Users/paveenhuang/Downloads
 
@@ -105,6 +105,48 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 
+1. 先计算 Chat–Bare hidden-state direction
+
+对每个模型、任务和层计算：
+
+$$
+d_{m,t,l}=\operatorname{mean}(h_{\text{chat}}-h_{\text{bare}})
+$$
+
+重点检查：
+
+- split-half reliability：方向是否稳定；
+- 同模型跨任务 cosine：GSM8K、MATH、GSM-Hard 是否共享方向；
+- held-out projection：用一个任务得到的方向，能否区分另一个任务的 Chat/Bare 状态；
+- 排除方向只由少量异常样本贡献。
+
+2. 与 RSN direction 对齐
+
+比较时使用模型各自的有效符号：
+
+- Llama：`Chat−Bare` 对比 `−RSN`
+- Qwen：`Chat−Bare` 对比 `+RSN`
+
+计算逐层 cosine、projection 和随机/正交方向对照。这里不要比较两模型的原始 α，也不要直接比较不同维度的向量。
+
+可能得到三种结论：
+
+- 跨任务稳定且与 RSN 对齐：支持 Chat 与 RSN 进入相近的工作状态；
+- 跨任务稳定但不与 RSN 对齐：Chat 是更广泛的状态切换，RSN 只是其中一部分；
+- 方向不稳定：Chat–Bare 差异主要是任务或 prompt/token 几何造成的。
+
+3. 最后才做因果实验
+
+如果方向稳定，再进行 norm-matched steering：
+
+- 把 `Chat−Bare` direction 注入 Bare，看行为是否向 Chat 靠近；
+- 反向注入 Chat，看是否向 Bare 返回；
+- 再定位对跨任务方向贡献稳定的 neurons，并做消融/激活。
+
+有一个重要限制：现在 Chat 和 Bare 的最后 token 不同，所以 `Chat−Bare` 同时包含接口状态和注入位置/token 差异。建议先分析现有数据；如果确实发现稳定方向，再补一个很便宜的 matched-anchor HS control。这个控制不需要重新生成答案，只需提取 prefill hidden states，却是以后声称“状态切换方向”前很重要的一步。
+
+所以眼下最直接的任务是：**先完成两个模型各自的逐层 Chat–Bare direction、跨任务稳定性，以及与 signed RSN direction 的对齐分析。**
+
 1. **Paired hidden-state difference**
 
    对相同模型、相同题目、α=0，逐层计算：
@@ -134,19 +176,21 @@ rsync -avzh --partial --info=progress2 \
 
 最重要的控制是不要只做 Native Chat − Bare，因为两者最后 token 不同。可以利用现有三个条件拆开：
 
-\[
+$$
 \begin{aligned}
 d_{\text{full}} &= h_{\text{Native Chat}}-h_{\text{Bare}}\\
 d_{\text{context}} &= h_{\text{Matched Anchor}}-h_{\text{Bare}}\\
 d_{\text{anchor}} &= h_{\text{Native Chat}}-h_{\text{Matched Anchor}}
 \end{aligned}
-\]
+$$
 
 其中 `Matched Anchor − Bare` 的末尾都是 `Answer: ` 的 space token，更适合检验完整 chat context 带来的状态切换。
 
 我建议先做 **Qwen：GSM8K + GSM-Hard**，因为 Chat 与有效 RSN 的行为方向最清楚；MATH 作为已饱和的 null/control。确认方法可行后，再做 Llama。需要注意：当前 Bare 和 Chat 都是在 **Instruct checkpoint** 上，只是输入接口不同；这一步还不是把方向迁移到 pretrained Base model，Base transfer 可以作为下一阶段。
 
 一句话说：**先证明 Chat−Bare 与有效 RSN 在几何上同向，再证明 Chat−Bare direction 能因果地把 Bare 推向 Chat-like behavior。**
+
+
 ---
 
 你的三个方向都值得做，但要把第二点的表述稍微收紧：
