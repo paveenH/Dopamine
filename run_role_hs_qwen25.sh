@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ================= Role Hidden-State Extraction: Qwen2.5 =================
-# Runs extract_role_hidden_states.py --run_all for Llama-3.1-8B-Instruct
+# Runs extract_role_hidden_states.py --run_all for Qwen2.5-7B-Instruct
 # across all 4 tasks {gsm8k, math, gsm_hard, mmlue (57 subjects)} x 2 role
 # conditions {expert, non_expert}: 3*2=6 reasoning cells + 57*2=114 mmlue
 # cells = 120 cells total.
@@ -22,7 +22,7 @@ set -euo pipefail
 # it reloaded the 8B model up to 120 times per run and has been replaced).
 #
 # Usage (server, from /data1/paveen/Dopamine):
-#   CUDA_VISIBLE_DEVICES=0 nohup bash run_role_hs_qwen25.sh > role_hs_qwen25.log 2>&1 &
+#   CUDA_VISIBLE_DEVICES=1 nohup bash run_role_hs_qwen25.sh > role_hs_qwen25.log 2>&1 &
 #
 # Syntax check only (no GPU/model needed): bash -n run_role_hs_qwen25.sh
 
