@@ -96,7 +96,7 @@ rsync -avzh --partial --info=progress2 \
    3) MATH ✔
    4) 整理一份当前的结果 ✔
 39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K -> chat是更明显的开关 ✔
-40. 确认Qwen上是不是存在相同的东西
+40. 确认Qwen上是不是存在相同的chat 现象
 40. 试着理解chat template的影响的原因：Base model 
 41. Chat-Bare是什么呢？
 42. 认知切换开关
