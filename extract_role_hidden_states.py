@@ -511,12 +511,31 @@ def git_commit() -> str:
 # Output path helpers -- see the "MMLU-E FILENAME CONVENTION" module
 # docstring section for the documented rationale of this naming choice.
 #   reasoning tasks: components/hidden_states/{model}/{task}/{condition}_{size}.h5
-#   mmlue: components/hidden_states/{model}/mmlue/{expert|non_expert}_{subject}_{size}.h5
+#   mmlue: components/hidden_states/{model}/mmlue/{safe_role}_{subject}_{size}.h5
+#     where safe_role is the FULL rendered role string (e.g.
+#     "college biology expert" / "non college biology expert") with spaces
+#     and hyphens replaced by underscores -- reproducing get_answer_logits.py's
+#     OWN `safe_role = role.replace(" ", "_").replace("-", "_")` /
+#     `f"{safe_role}_{task}_{size}.h5"` convention exactly (get_answer_logits.py
+#     lines 50-51 / 129-130), so this re-collection lands under the SAME
+#     filename pattern the original RSN MMLU-E hidden-state files used
+#     (e.g. college_biology_expert_college_biology_8B.h5 /
+#     non_college_biology_expert_college_biology_8B.h5) rather than the
+#     condition-keyed expert_/non_expert_ prefix an earlier draft of this
+#     script used. Chosen deliberately to stay compatible with existing
+#     downstream RSN analysis code that expects this naming.
 # --------------------------------------------------------------------------
 
+def mmlue_safe_role(role_string: str) -> str:
+    """Matches get_answer_logits.py's safe_role construction EXACTLY:
+    role.replace(" ", "_").replace("-", "_")."""
+    return role_string.replace(" ", "_").replace("-", "_")
+
+
 def mmlue_h5_path(out_dir: str, condition: str, subject: str, size: str) -> str:
-    prefix = "expert" if condition == "expert" else "non_expert"
-    return os.path.join(out_dir, f"{prefix}_{subject}_{size}.h5")
+    role_string = mmlue_role_string(condition, subject)
+    safe_role = mmlue_safe_role(role_string)
+    return os.path.join(out_dir, f"{safe_role}_{subject}_{size}.h5")
 
 
 def mmlue_meta_path(out_dir: str, condition: str, subject: str, size: str) -> str:
