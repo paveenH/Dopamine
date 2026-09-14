@@ -103,6 +103,55 @@ rsync -avzh --partial --info=progress2 \
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
 
 ---
+
+对，我觉得下一步就应该计算 **Chat − Bare 的 hidden-state direction**。这是把“行为上统一”推进到“内部状态是否统一”的关键一步。
+
+建议按三层做：
+
+1. **Paired hidden-state difference**
+
+   对相同模型、相同题目、α=0，逐层计算：
+   $$
+   d_{\text{chat-bare}}^{(l)}
+   = \frac{1}{N}\sum_i
+   \left(h_{\text{chat},i}^{(l)}-h_{\text{bare},i}^{(l)}\right)
+   $$
+
+2. **与 RSN 方向比较**
+
+   计算逐层 cosine similarity、RSN 上的投影和 bootstrap CI。比较时应使用“有效工作点方向”：
+
+   - Llama：`−RSN direction`
+   - Qwen：`+RSN direction`
+
+   不要直接比较原始 α 正负。
+
+3. **做因果迁移**
+
+   把 `Chat − Bare` 方向注入 Bare，观察它能否：
+
+   - 降低 early candidate
+   - 提高 reason-first
+   - 减少 loop / multiple markers
+   - 改善 accuracy
+
+最重要的控制是不要只做 Native Chat − Bare，因为两者最后 token 不同。可以利用现有三个条件拆开：
+
+\[
+\begin{aligned}
+d_{\text{full}} &= h_{\text{Native Chat}}-h_{\text{Bare}}\\
+d_{\text{context}} &= h_{\text{Matched Anchor}}-h_{\text{Bare}}\\
+d_{\text{anchor}} &= h_{\text{Native Chat}}-h_{\text{Matched Anchor}}
+\end{aligned}
+\]
+
+其中 `Matched Anchor − Bare` 的末尾都是 `Answer: ` 的 space token，更适合检验完整 chat context 带来的状态切换。
+
+我建议先做 **Qwen：GSM8K + GSM-Hard**，因为 Chat 与有效 RSN 的行为方向最清楚；MATH 作为已饱和的 null/control。确认方法可行后，再做 Llama。需要注意：当前 Bare 和 Chat 都是在 **Instruct checkpoint** 上，只是输入接口不同；这一步还不是把方向迁移到 pretrained Base model，Base transfer 可以作为下一阶段。
+
+一句话说：**先证明 Chat−Bare 与有效 RSN 在几何上同向，再证明 Chat−Bare direction 能因果地把 Bare 推向 Chat-like behavior。**
+---
+
 你的三个方向都值得做，但要把第二点的表述稍微收紧：
 
 > **Chat template 不是 RLHF 本身，而是一个调用 post-training policy 的上下文开关。**
