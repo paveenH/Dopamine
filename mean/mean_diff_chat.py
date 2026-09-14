@@ -296,19 +296,23 @@ def compute_task_means(task_info: dict) -> dict:
 
 
 def atomic_save_npy(path: Path, arr: np.ndarray):
+    # np.save() only skips appending ".npy" when the given name's suffix is
+    # EXACTLY ".npy" (a str.endswith(".npy") check) -- a mkstemp name ending
+    # in ".npy.tmp" does NOT qualify, so np.save silently writes to a
+    # SECOND, different path (tmp_path + ".npy") and leaves the original
+    # mkstemp-created file behind as an empty, never-written leftover.
+    # Fixed by suffixing with plain ".npy" and writing into the already-open
+    # file descriptor directly, so there is exactly one file on disk at any
+    # time before the atomic os.replace().
     tmp_fd, tmp_path = tempfile.mkstemp(
-        suffix=".npy.tmp", dir=str(path.parent), prefix=path.stem + "_")
-    os.close(tmp_fd)
+        suffix=".npy", dir=str(path.parent), prefix=path.stem + "_")
     try:
-        np.save(tmp_path, arr)
-        # np.save appends .npy if the temp name doesn't already end with it;
-        # mkstemp's suffix guarantees it does, but guard anyway.
-        saved_path = tmp_path if tmp_path.endswith(".npy") else tmp_path + ".npy"
-        os.replace(saved_path, path)
+        with os.fdopen(tmp_fd, "wb") as f:
+            np.save(f, arr)
+        os.replace(tmp_path, path)
     except Exception:
-        for p in (tmp_path, tmp_path + ".npy"):
-            if os.path.exists(p):
-                os.remove(p)
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
         raise
 
 
