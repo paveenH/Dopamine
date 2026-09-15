@@ -29,7 +29,7 @@ Each maps to one results document. None is a summary of the others.
 | **Q1** | Does α move *wanting* while leaving *knowing* fixed? | [`Behaviour.md`](Note/Behaviour.md) | Yes, cleanly, in behavioral-economics paradigms |
 | **Q2** | Does that produce a reasoning working point, and how far does it travel? | [`ReasoningBare.md`](Note/ReasoningBare.md) | Yes, but transfer is bounded and interface-dependent |
 | **Q3** | What happens inside the trajectory? | [`ThinkingCurve.md`](Note/ThinkingCurve.md) · [`Manifold.md`](Note/Manifold.md) | Commitment moves; the hormone-like waveform does not |
-| **Q4** | Is "confidence" the same substrate as "role"? | [`ConfidenceNeurons.md`](Note/ConfidenceNeurons.md) | Structurally related, functionally distinct |
+| **Q4** | How are role, confidence, and chat states related? | [`Neurons.md`](Note/Neurons.md) | Partial structural relationships; functional separation |
 
 ---
 
@@ -114,7 +114,7 @@ old→new table for resolving stale citations.
 | [`reasoning_chat.md`](Note/reasoning_chat.md) | Chat-interface nine-point sweeps (GSM8K / MATH / GSM-Hard, Llama) |
 | [`ThinkingCurve.md`](Note/ThinkingCurve.md) | Entry gain, slow state, commitment, release — largely a null on the waveform goal |
 | [`Manifold.md`](Note/Manifold.md) | Scalar gain vs directional reorganization; closed |
-| [`ConfidenceNeurons.md`](Note/ConfidenceNeurons.md) | Role vs confidence neurons: representation + MMLU-E/GSM8K function |
+| [`Neurons.md`](Note/Neurons.md) | Role–confidence and Role–Chat: representations, MMLU-E/GSM8K function, and evidence boundaries |
 
 Supporting: [`Bandit.md`](Note/Bandit.md) (design and literature; no usable positive
 result), [`LogitsLens.md`](Note/LogitsLens.md) (RSN-paper-era analysis),
