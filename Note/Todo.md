@@ -116,6 +116,8 @@ MATH role chat
 GSMHard role chat
 
 
+Model：ZGCM-1
+
 ---
 整体看下来，我觉得项目现在已经进入一个很清晰的阶段：**不应该再继续证明“RSN 能不能影响更多任务”，而应该解释 RSN 究竟是模型内部哪一层级的控制变量。**
 
