@@ -103,7 +103,7 @@ rsync -avzh --partial --info=progress2 \
 41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
 42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
 43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
-44. Manifold分析
+44. Manifold分析 ✔
 
 44. confidence vector和这些之间的关系
 42. 看一下cot 区分RSN COT Chat Confidence
@@ -121,40 +121,6 @@ GSMHard role chat
 Model：ZGCM-1
 
 ---
-整体看下来，我觉得项目现在已经进入一个很清晰的阶段：**不应该再继续证明“RSN 能不能影响更多任务”，而应该解释 RSN 究竟是模型内部哪一层级的控制变量。**
-
-我现在最认可的模型是：
-
-```text
-Chat / post-training context
-        ↓ 建立整体 policy state
-RSN / Confidence sparse axes
-        ↓ 局部调节 engagement、abstention、commitment
-Downstream generation dynamics
-        ↓
-不同模型、任务、接口下的行为与准确率
-```
-
-## 当前最重要的认识
-
-最近的结果其实否定了一个过于简单的说法：
-
-> RSN 不是完整的 Chat state switch，也不能简单说 RSN 和 Chat 是同一个方向。
-
-证据结构现在是：
-
-- `Chat−Bare` 是一个非常大的、跨任务稳定的分布式状态变化：跨任务 cosine 大约 `0.83–0.99`。
-- 但 `Expert−Non-Expert` 与 `Chat−Bare` 的 dense cosine 接近零。
-- 两者的 top-0.5% dimensions 又显著高于随机重叠，而且在 RSN band 中更加富集。
-- RSN 与 Confidence direction 的关系明显更强：band cosine `0.6063`，同时有显著 sparse overlap；但 cross-steering 又显示二者功能并不等价。
-
-因此，目前最有价值的新解释是：
-
-> **Chat template 建立的是广泛的 assistant-policy macrostate；RSN 是其中一个稀疏的 engagement/commitment 调节轴；Confidence neurons 是部分共享、但更偏向 confidence/abstention 的另一个轴。**
-
-也就是说，三者可能共享一小部分高密度控制核心，但不是同一个 direction，更不是同一种功能。
-
-这比“RSN≈Chat”更准确，也更有研究价值。现有证据分别见 [ConfidenceNeurons.md](/Users/paveenhuang/Downloads/Dopamine/Note/ConfidenceNeurons.md:1)、[ReasoningChat.md](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:1) 和最新的 [Role–Chat structural report](/Users/paveenhuang/Documents/RSNResult/RoleHidden/AdaResult/4.full_role_chat_direction/full_role_chat_direction_report.md:95)。
 
 ## 接下来最合理的执行顺序
 
