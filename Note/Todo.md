@@ -102,7 +102,7 @@ rsync -avzh --partial --info=progress2 \
 40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
 41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
 42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
-43. 分析Role Matrix之间的关系
+43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
 42. 看一下cot 区分RSN COT Chat Confidence
 40. 试着理解chat template的影响的原因：Base model 
 42. 认知切换开关
@@ -114,93 +114,6 @@ GSM8K role chat
 MATH role chat
 GSMHard role chat
 
----
-### Manifold
-
-当前 cosine 检验的是很强的线性假设：
-
-$$
-d_{\text{chat}}\parallel d_{\text{role}}
-$$
-
-但更合理的假设可能是：
-
-> Role direction 不是 Chat–Bare 两个均值之间的直线，而是 Chat 状态流形中的一个局部切向方向或功能轴。
-
-也就是说：
-
-$$
-d_{\text{role}}\not\parallel d_{\text{chat}}
-$$
-
-并不排除：
-
-$$
-d_{\text{role}}\in \mathcal{T}(\mathcal{M}_{\text{chat}})
-$$
-
-其中 \(\mathcal{T}(\mathcal{M}_{\text{chat}})\) 是 Chat 状态变化的低维子空间。
-
-### 最值得做的分析
-
-需要使用每个样本的 hidden state，而不只是现有的 `diff_mean`：
-
-$$
-\Delta h_{i,l}
-=
-h^{chat}_{i,l}-h^{bare}_{i,l}
-$$
-
-将三个任务的 900 个 paired differences 合并，在每层做 PCA/SVD：
-
-$$
-\Delta H_l=U_l\Sigma_lV_l^\top
-$$
-
-然后计算 Role direction 在 Chat subspace 中的投影：
-
-$$
-R^2_{role\rightarrow chat}(k)
-=
-\frac{\|V_{l,k}^\top r_l\|^2}{\|r_l\|^2}
-$$
-
-它回答：
-
-> Role direction 虽然不等于 Chat 的平均方向，但是否位于 Chat 状态变化的主要低维空间中？
-
-可能出现三种结果：
-
-- **cosine 低，但 subspace projection 高**：最符合“RSN 是 Chat 的一个局部轴”；
-- cosine 和 projection 都高：RSN 接近 Chat 的主转换方向；
-- 两者都低：RSN 与 Chat 主要是行为相似，内部几何关系较弱。
-
-### 再看 Chat 是平移还是重构
-
-可以对 Bare 和 Chat 的样本云做 Procrustes/CCA，区分：
-
-- **translation**：整体沿固定方向平移；
-- **rotation**：表示空间发生旋转；
-- **reshaping**：局部距离和邻域结构改变。
-
-如果 Chat 是广泛的状态重构，而 RSN 只是其中一条局部控制轴，那么低 mean-direction cosine 就非常正常。
-
-### 最后做因果 manifold test
-
-将 Bare hidden state沿 Role direction steering，然后检查它是否：
-
-- 更接近 Chat manifold；
-- 提高 Chat/Bare classifier 的 Chat probability；
-- 保持在数据流形附近，而不是单纯增大 hidden-state norm；
-- 比 norm-matched random direction 更有效。
-
-这比静态 overlap 更能支持：
-
-> RSN participates in the transition toward a Chat-like working state.
-
-不过有一个前提：**真正的 manifold 分析必须使用 sample-level H5，只有三个任务的 `diff_mean` 不够。** 三个均值最多形成 rank≤3 的小子空间，只能称为 task-direction subspace，不能称为完整的 Chat manifold。
-
-我建议第一步先做最小版本：每个模型合并三个任务的 900 个 paired Chat–Bare differences，逐层计算 PCA、Role projection 和 principal angle。重点仍然看 Llama `[11,20)`、Qwen `[16,22)`。
 ---
 3. 最后才做因果实验
 
