@@ -281,3 +281,156 @@ candidate 不等于正式 marker，reasoning-first 是表面输出模式。行�
 6. Steering 效果取决于 model、task、interface 和 baseline output state。
 
 **Conclusion.** Chat interface 改变了 steering 的剂量响应。有效方向并不跨模型和任务统一：Qwen 在 GSM8K 与 GSM-Hard 上可通过正向 α 获得明显收益，但在已经稳定 reasoning-first 的 MATH 上没有进一步改善；Llama 的结果则主要表现为高正向剂量导致输出提前和性能下降。因此，workpoint 必须在具体的 model–task–interface 条件下确定。
+
+
+---
+
+# Role–Chat Relationship: Interim Report
+
+## 1. Behavioral Validation on Qwen
+
+我们首先验证 Qwen 是否也存在 Chat interface 与 RSN steering 的功能联系。
+
+Qwen 在 GSM8K 和 GSM-Hard 上呈现了清晰结果：
+
+- Native Chat 相比 Bare 减少提前回答，并增加先推理后提交；
+- 在 Native Chat 上继续施加正向 RSN steering，效果可以进一步增强；
+- GSM8K 的 α=+6/+8 分别提升 **31.34/29.67 pp**；
+- GSM-Hard 的 α=+6/+8 分别提升 **14.33/14.67 pp**；
+- MATH 上没有显著 steering 效应。
+
+这说明 RSN 与 Chat 在行为功能上存在相似性：二者都能改变模型的推理参与程度、答案提交顺序和最终表现。但不同模型的有效 α 方向不同，因此不能把某个固定正负方向视为跨模型统一剂量。
+
+**Status: Supported at the functional level.**
+
+## 2. Chat–Bare Hidden-State Direction
+
+我们提取了 Llama3 和 Qwen2.5 在 GSM8K、MATH、GSM-Hard 上的 paired Chat/Bare hidden states，并计算：
+
+$$d_{\text{chat}}=\operatorname{mean}(h_{\text{chat}}-h_{\text{bare}})$$
+
+Chat–Bare shift 本身具有一定跨任务稳定性：
+
+- GSM8K 与 GSM-Hard 的方向高度一致；
+- Llama3 cosine = **0.983**；
+- Qwen2.5 cosine = **0.988**；
+- MATH 与两个 GSM 类任务的相似度较低，但仍保持较高的整体相关。
+
+因此，Chat template 确实引起了结构化、可重复的 hidden-state shift。但仅分析平均 Chat–Bare direction，无法解释它与 Role/RSN 的关系。
+
+**Status: Chat–Bare direction is measurable, but mean-direction analysis alone is insufficient.**
+
+## 3. Expert/Non-expert Hidden States
+
+我们重新采集了两个模型在以下任务上的 Expert/Non-expert hidden states：
+
+- GSM8K
+- MATH
+- GSM-Hard
+- MMLU-E
+
+其中三个 reasoning task 使用相同样本进行 Expert/Non-expert 配对；MMLU-E Role direction 单独保留，因为原始 RSN 方向包含基于答案的筛选，不能与未经筛选的 reasoning Role direction 直接混合。
+
+**Status: Completed.**
+
+## 4. Dense and Sparse Role–Chat Relationship
+
+### Dense Direction
+
+Reasoning Role average 与 Reasoning Chat average 在 RSN band 内的 cosine 为：
+
+| Model | Dense Role–Chat Cosine |
+|---|---:|
+| Llama3 | **−0.0286** |
+| Qwen2.5 | **−0.1036** |
+
+Task-matched comparisons同样接近零，并且 GSM8K/GSM-Hard 多为负，MATH 略偏正。
+
+因此，Role direction 与 Chat–Bare mean direction 几乎正交，不能认为它们是同一个 dense axis。
+
+### Sparse Coordinates
+
+尽管 dense cosine 很低，Role 与 Chat 的绝对值 top-0.5% dimensions 存在显著重合：
+
+- Llama3 task-matched enrichment：**34–49× random**；
+- Qwen2.5 task-matched enrichment：**50–57× random**；
+- Llama3 有 **19/33 layers** 达到 Holm-adjusted significance；
+- Qwen2.5 有 **13/29 layers** 达到显著。
+
+Role directions 本身也表现出明显任务结构：
+
+- GSM8K 与 GSM-Hard Role cosine：**0.96–0.98**；
+- MATH 与其他任务明显不同；
+- MMLU-E Role 与 reasoning Role 的相似度也较低。
+
+这些结果说明：
+
+> Role 与 Chat 共享非随机的稀疏坐标结构，但不是同一条完整的 dense direction。
+
+**Status: Dense alignment not supported; sparse structural overlap supported.**
+
+## 5. Chat–Bare Transition Subspace
+
+为了检验 Role 是否位于 Chat–Bare 更广泛的状态变化空间中，我们将三个任务的900组 paired differences 合并，在每层进行 PCA，并计算 Role direction 投影到前 \(k\) 个主成分上的能量比例：
+
+$$
+R^2(k)=\frac{\|V_k^\top r\|^2}{\|r\|^2}
+$$
+
+主分析采用 within-task centering，并通过150/150 split cross-fitting进行评估。
+
+### Main Results
+
+| Model | Centered R², k=10 | Random Mean | Null p97.5 | Enrichment | Held-out Reconstruction, k=50 |
+|---|---:|---:|---:|---:|---:|
+| Llama3 | **0.0788** | 0.0024 | 0.0030 | **32.3×** | **0.4381** |
+| Qwen2.5 | **0.1261** | 0.0028 | 0.0036 | **45.3×** | **0.4768** |
+
+结果在不同 \(k\) 下保持稳定：
+
+| k | Llama3 R² | Qwen2.5 R² |
+|---:|---:|---:|
+| 1 | 0.0286 | 0.0278 |
+| 5 | 0.0631 | 0.1011 |
+| 10 | 0.0788 | 0.1261 |
+| 20 | 0.1126 | 0.1423 |
+| 50 | 0.1901 | 0.2052 |
+
+Centered projection 没有在去除任务平均 shift 后消失，而且明显超过 isotropic 与 coordinate-permutation null。
+
+这说明：
+
+> Role direction 不是 Chat–Bare 的平均转换方向，但它部分嵌入在 Chat–Bare 的多维 transition subspace 中。
+
+前10维捕获 Role 总能量的 **7.9–12.6%**，前50维捕获 **19–21%**。因此这是明显但不完全的几何包含关系。
+
+**Status: Non-random subspace relationship supported.**
+
+## Overall Conclusion
+
+目前结果形成了一个比较一致的层级结构：
+
+1. **Behavioral level:** RSN 与 Chat 都会改变推理参与、提交顺序和任务表现；
+2. **Dense direction level:** Role 与 Chat–Bare mean direction 几乎正交；
+3. **Sparse level:** 二者共享显著高于随机的 top-neuron coordinates；
+4. **Subspace level:** Role direction 对 Chat–Bare transition subspace 具有稳定且远超随机的投影。
+
+最合适的总体表述是：
+
+> Chat induces a broad, multidimensional working-state transition. Role-sensitive directions are not equivalent to its mean transition direction, but form a non-random sparse and subspace-level component of this broader transformation.
+
+通俗地说：
+
+> **Chat 是一次更广泛的工作状态重构；Role/RSN 不是整个 Chat 状态，但可能是其中一条与推理参与和答案提交有关的局部功能轴。**
+
+这些结果仍然属于结构和功能层面的证据，不能单独证明共享因果机制，也不能推出与人类多巴胺系统的生物学同源性。
+
+## Figure Locations
+
+- Role–Chat dense/sparse figures: `/Users/paveenhuang/Documents/RSNResult/RoleHidden/AdaResult/4.full_role_chat_direction/plots/`
+
+- Transition-subspace figures: `/Users/paveenhuang/Documents/RSNResult/RoleHidden/AdaResult/5.chat_role_transition_subspace/plots/`
+
+- Transition-subspace results and plotting sources: `/Users/paveenhuang/Documents/RSNResult/RoleHidden/AdaResult/5.chat_role_transition_subspace/`
+
+其中包括主图 `fig_main_role_projection.png`，以及补充图 `fig_supp_layerwise_heatmap.png` 和 `fig_supp_enrichment.png`。
