@@ -45,9 +45,9 @@ rsync -avzh --partial --info=progress2 \
 09.15 周二 买药
 09.17 周四 收拾行李
 09.18 周五 台北-杭州萧山 机票 ✔
+09.19 杭州逛逛
 09.20 杭州逛逛
-09.21 杭州逛逛
-09.22 回家高铁*1 - Helene ✔
+09.21 回家高铁*1 - Helene ✔
 09.23、09.24 在家 需要去办理公证 + 爸妈护照 （身份证，户口本）
 09.24 全曜回家 高铁*1  ✔
 09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
@@ -98,7 +98,7 @@ rsync -avzh --partial --info=progress2 \
    2) GSM-hard ✔
    3) MATH ✔
    4) 整理一份当前的结果 ✔
-39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K -> chat是更明显的开关 ✔
+39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K ✔
 40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
 41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
 42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ⏸
