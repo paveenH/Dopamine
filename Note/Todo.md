@@ -30,7 +30,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/hidden_states /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/hidden_states/{llama3_chat,qwen2.5_chat} /Users/paveenhuang/Downloads
 
 rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/benchmark/cruxeval_p4c_formal.json /Users/paveenhuang/Downloads
 
@@ -101,16 +101,20 @@ rsync -avzh --partial --info=progress2 \
 39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K ✔
 40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
 41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
-42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ⏸
+42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
+43. 分析Role Matrix之间的关系
 42. 看一下cot 区分RSN COT Chat Confidence
 40. 试着理解chat template的影响的原因：Base model 
 42. 认知切换开关
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
 44. MMLUE 
 
+MMLUE role 
+GSM8K role chat
+MATH role chat
+GSMHard role chat
 
 ---
-
 ### Manifold
 
 当前 cosine 检验的是很强的线性假设：
