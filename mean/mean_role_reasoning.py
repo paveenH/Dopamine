@@ -57,13 +57,21 @@ only for the saved .npy, per the legacy (1, 1, n_layers, hidden_size)
 convention. No L2 normalization anywhere in this script -- per instruction,
 this is a direct arithmetic mean over raw hidden states.
 
-FAIL-CLOSED: every (model, task) cell's expert+non_expert pair is validated
-BEFORE any accumulation. If ANY of the 3 tasks for a model fails validation
-(missing file, n!=300, shape mismatch, expert/non_expert shape or
-pairing-digest mismatch, non-finite values), the WHOLE MODEL's run aborts
-with exit 1 and writes NOTHING for that model -- never a partial result
-computed from the surviving tasks. Mirrors mean_diff_chat.py's two-pass
-(validate-then-accumulate) design exactly.
+FAIL-CLOSED, THREE PASSES (not two): (1) validate all 3 tasks' H5/manifest
+headers+attrs (existence, shape, n_samples==300, n_samples_done, pairing
+digest) for a model, WITHOUT loading the hidden_states arrays; (2) THEN load
+every task's full arrays and check finiteness + compute means IN MEMORY for
+ALL 3 tasks, still without writing anything; (3) only once ALL 3 tasks have
+passed BOTH pass 1 and pass 2 does ANY task's output get written. This
+three-pass split (rather than interleaving pass 2's compute with pass 3's
+write per task) is what makes "a single failing task writes nothing for any
+task" actually true: the finite check happens during array loading (pass 2),
+and if it were interleaved with writing, a later task's NaN/Inf would only
+be discovered AFTER earlier tasks had already been written to disk. If ANY
+of the 3 tasks fails pass 1 OR pass 2 (missing file, n!=300, shape mismatch,
+expert/non_expert shape or pairing-digest mismatch, non-finite values), the
+WHOLE MODEL's run aborts with exit 1 and writes NOTHING for that model --
+never a partial result computed from the surviving tasks.
 
 Loads NO model, uses NO GPU, and never writes to (or reads from) the H5
 source files except in read-only mode -- this script only reads the
@@ -145,7 +153,25 @@ MODEL_SHAPE = {
     "qwen2.5": {"n_layers": 29, "hidden_size": 3584},
 }
 
+# --size is locked to --model rather than accepted as a free string, so a
+# typo'd/mismatched size (e.g. --model llama3 --size 7B) cannot silently
+# construct a misleading path (llama3_chat/gsm8k/expert_mean_7B.npy) that
+# looks plausible but names a size no llama3 file ever used.
+MODEL_EXPECTED_SIZE = {
+    "llama3": "8B",
+    "qwen2.5": "7B",
+}
+
 EXPECTED_CHAT_BARE_DIRECTION = "chat_minus_bare"
+
+
+def assert_size_matches_model(model: str, size: str) -> None:
+    expected = MODEL_EXPECTED_SIZE[model]
+    if size != expected:
+        die(f"--size {size!r} does not match --model {model!r} (expected "
+            f"--size {expected!r}). --size is locked to the model to avoid "
+            "constructing a misleading output path under the wrong size "
+            "suffix.")
 
 
 def die(msg: str, code: int = 1):
@@ -420,15 +446,46 @@ def run_compute_means(args):
             print(f"  [FAIL] {t}: {v['errors']}")
         sys.exit(1)
 
-    print(f"All {len(TASKS)} tasks passed validation for model={model}, size={size}.")
+    print(f"All {len(TASKS)} tasks passed header/attrs validation for "
+          f"model={model}, size={size}.")
 
-    # ---- Pass 2: compute + write, now that every task is known-good. ----
-    per_task_report = []
+    # ---- Pass 2: load every task's H5 arrays, check finiteness, and
+    # ---- compute means IN MEMORY for ALL 3 tasks -- still NO file write.
+    # ---- This is what makes "a single failing task writes nothing for
+    # ---- any task" actually true: compute_task_means() is where the
+    # ---- finite check happens (load_and_check_finite), and previously it
+    # ---- ran interleaved with Pass-3's writes, so a later task's NaN/Inf
+    # ---- would be discovered only AFTER earlier tasks had already been
+    # ---- written to disk. Now every task's finite check completes before
+    # ---- any task's write begins. ----
+    means_by_task = {}
+    compute_errors = {}
     for task in TASKS:
         v = validations[task]
         print(f"[compute] model={model} task={task} n_samples={v['n_samples']} "
               f"shape={v['shape']}")
-        means = compute_task_means(v)
+        try:
+            means_by_task[task] = compute_task_means(v)
+        except Exception as e:
+            compute_errors[task] = f"{type(e).__name__}: {e}"
+
+    if compute_errors:
+        print(f"[REFUSE] {len(compute_errors)}/{len(TASKS)} task(s) failed "
+              f"load/finite/compute for model={model} -- aborting before "
+              "writing any output (fail-closed).")
+        for t, msg in compute_errors.items():
+            print(f"  [FAIL] {t}: {msg}")
+        sys.exit(1)
+
+    print(f"All {len(TASKS)} tasks passed load/finite/compute for "
+          f"model={model}, size={size}.")
+
+    # ---- Pass 3: write, now that every task is fully known-good
+    # ---- (validated AND loaded AND finite AND computed). ----
+    per_task_report = []
+    for task in TASKS:
+        v = validations[task]
+        means = means_by_task[task]
 
         task_dir = model_out_dir / task
         task_dir.mkdir(parents=True, exist_ok=True)
@@ -519,13 +576,38 @@ def validate_rename_task(model: str, task: str, mean_root: Path, size: str) -> d
     dst_npy = task_dir / f"chat_bare_diff_mean_{size}.npy"
     manifest_p = task_dir / "manifest.json"
 
-    if not src_npy.exists():
+    src_exists = src_npy.exists()
+    dst_exists = dst_npy.exists()
+
+    if not src_exists and dst_exists:
+        # This is exactly the half-done state a crash between os.replace()
+        # (npy) and atomic_write_json() (manifest) in a PRIOR run would
+        # leave behind: the .npy was already renamed, but this task's own
+        # manifest was never updated to point at the new name (that update
+        # is the LAST step of a per-task rename; a crash before it fires
+        # leaves this state, never the reverse). Detected explicitly here
+        # rather than silently proceeding -- the caller must inspect
+        # manifest_p by hand and confirm whether it is safe to treat this
+        # task as already-done before re-running.
+        result["errors"].append(
+            f"HALF-DONE STATE DETECTED: {dst_npy} exists but {src_npy} does "
+            "not, and this looks like an interrupted prior rename for this "
+            "task (the .npy was renamed but the manifest update step never "
+            "completed or was not verified). Refusing to guess -- inspect "
+            f"{manifest_p} by hand: if it already refers to "
+            f"{dst_npy.name}, this task is actually already fully done and "
+            "can be left alone (or the whole run re-launched, which will "
+            "then see this same file layout and can be told to skip it); "
+            "if it still refers to the OLD filename, the manifest needs a "
+            "manual fix before this script is trusted on it again.")
+        return result
+    if not src_exists:
         result["errors"].append(f"source file missing: {src_npy}")
         return result
     if not manifest_p.exists():
         result["errors"].append(f"manifest missing: {manifest_p}")
         return result
-    if dst_npy.exists():
+    if dst_exists:
         result["errors"].append(
             f"target already exists, refusing to overwrite: {dst_npy}")
         return result
@@ -613,12 +695,36 @@ def run_rename_chat_bare(args):
           "proceeding with rename.")
 
     # ---- Pass 2: rename .npy (atomic os.replace, bytes untouched) + rewrite
-    # ---- manifest.json (atomic tempfile + os.replace, values untouched). ----
+    # ---- manifest.json (atomic tempfile + os.replace, values untouched).
+    # ----
+    # ---- NOTE ON TRANSACTIONALITY (honest limitation, not claimed to be
+    # ---- stronger than it is): each task does TWO separate filesystem
+    # ---- operations (os.replace the .npy, THEN atomic_write_json the
+    # ---- manifest). Each operation is individually atomic, but the PAIR
+    # ---- is not -- a crash/disk-error between them leaves that one task's
+    # ---- .npy renamed while its manifest still names the old file. This
+    # ---- is a real, accepted limitation (a true cross-file transaction
+    # ---- would need a WAL or a two-phase-commit protocol, out of scope
+    # ---- here), NOT described as strict all-or-nothing. Two mitigations
+    # ---- ARE in place: (1) the .npy rename happens FIRST and the manifest
+    # ---- write SECOND, so a crash between them always leaves the harmless
+    # ---- direction (file physically present under its new name, manifest
+    # ---- merely stale) rather than a manifest claiming a file exists that
+    # ---- does not; (2) validate_rename_task() explicitly DETECTS this
+    # ---- exact half-done state on any subsequent run (dst_npy exists,
+    # ---- src_npy does not) and refuses with a clear message rather than
+    # ---- silently reprocessing or silently skipping it. Tasks are also
+    # ---- still processed one at a time with per-task progress printed
+    # ---- immediately below, so a crash's blast radius (which tasks
+    # ---- completed vs which did not) is visible in the log rather than
+    # ---- discovered later. ----
     old_name = f"diff_mean_{size}.npy"
     new_name = f"chat_bare_diff_mean_{size}.npy"
     for task in TASKS:
         v = validations[task]
         os.replace(v["src_npy"], v["dst_npy"])
+        print(f"[step] model={model} task={task}: renamed .npy "
+              f"({v['src_npy']} -> {v['dst_npy']}); updating manifest next")
 
         updated_manifest = rewrite_manifest_filename_refs(
             v["manifest"], old_name, new_name)
@@ -643,7 +749,8 @@ def run_rename_chat_bare(args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=list(MODEL_SHAPE.keys()))
-    ap.add_argument("--size", required=True)
+    ap.add_argument("--size", required=True,
+                    help=f"Locked to --model: {MODEL_EXPECTED_SIZE}")
     ap.add_argument("--rename_chat_bare", action="store_true",
                     help="Run the rename-only mode instead of computing "
                          "Expert/Non-expert means. See module docstring.")
@@ -657,6 +764,7 @@ def main():
                     help="Required for --rename_chat_bare mode, e.g. "
                          "/data1/paveen/Dopamine/components/hidden_states_mean")
     args = ap.parse_args()
+    assert_size_matches_model(args.model, args.size)
 
     if args.rename_chat_bare:
         if not args.mean_root:
