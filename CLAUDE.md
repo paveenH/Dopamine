@@ -254,7 +254,7 @@ deleted file:
 | `AdaptiveThinking_control.md` | **`ThinkingControl.md`** |
 | `AdaBandit.md` | **`Bandit.md`** |
 | `AdaManifold.md` | **`Manifold.md`** |
-| `AdaNeurons.md` | **`ConfidenceNeurons.md`** |
+| `AdaNeurons.md` / `ConfidenceNeurons.md` | **`Neurons.md`** |
 | `AdaLiterature.md` | **`Literature.md`** |
 | `AdaLogitsLens.md` | **`LogitsLens.md`** |
 | `AdaDopamine_old.md` / `AdaDopamine_bp.md` | **`Dopamine_backup.md`** |
