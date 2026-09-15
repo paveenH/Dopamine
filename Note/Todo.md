@@ -110,10 +110,148 @@ rsync -avzh --partial --info=progress2 \
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
 44. MMLUE 
 
-MMLUE role 
+MMLUE role confidence
 GSM8K role chat
 MATH role chat
 GSMHard role chat
+
+
+---
+整体看下来，我觉得项目现在已经进入一个很清晰的阶段：**不应该再继续证明“RSN 能不能影响更多任务”，而应该解释 RSN 究竟是模型内部哪一层级的控制变量。**
+
+我现在最认可的模型是：
+
+```text
+Chat / post-training context
+        ↓ 建立整体 policy state
+RSN / Confidence sparse axes
+        ↓ 局部调节 engagement、abstention、commitment
+Downstream generation dynamics
+        ↓
+不同模型、任务、接口下的行为与准确率
+```
+
+## 当前最重要的认识
+
+最近的结果其实否定了一个过于简单的说法：
+
+> RSN 不是完整的 Chat state switch，也不能简单说 RSN 和 Chat 是同一个方向。
+
+证据结构现在是：
+
+- `Chat−Bare` 是一个非常大的、跨任务稳定的分布式状态变化：跨任务 cosine 大约 `0.83–0.99`。
+- 但 `Expert−Non-Expert` 与 `Chat−Bare` 的 dense cosine 接近零。
+- 两者的 top-0.5% dimensions 又显著高于随机重叠，而且在 RSN band 中更加富集。
+- RSN 与 Confidence direction 的关系明显更强：band cosine `0.6063`，同时有显著 sparse overlap；但 cross-steering 又显示二者功能并不等价。
+
+因此，目前最有价值的新解释是：
+
+> **Chat template 建立的是广泛的 assistant-policy macrostate；RSN 是其中一个稀疏的 engagement/commitment 调节轴；Confidence neurons 是部分共享、但更偏向 confidence/abstention 的另一个轴。**
+
+也就是说，三者可能共享一小部分高密度控制核心，但不是同一个 direction，更不是同一种功能。
+
+这比“RSN≈Chat”更准确，也更有研究价值。现有证据分别见 [ConfidenceNeurons.md](/Users/paveenhuang/Downloads/Dopamine/Note/ConfidenceNeurons.md:1)、[ReasoningChat.md](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:1) 和最新的 [Role–Chat structural report](/Users/paveenhuang/Documents/RSNResult/RoleHidden/AdaResult/4.full_role_chat_direction/full_role_chat_direction_report.md:95)。
+
+## 接下来最合理的执行顺序
+
+### 1. 先完成 Role–Confidence–Chat 三角关系
+
+Todo 中“confidence vector 和这些之间的关系”应该是当前第一优先级。
+
+必须在相同任务、token position、层区间和方向定义下比较：
+
+- Role vs Confidence
+- Role vs Chat
+- Confidence vs Chat
+- dense cosine、top-neuron overlap、asymmetric containment
+- shared / Role-only / Confidence-only / Chat-only components
+
+重点不是找“谁最像谁”，而是判断：
+
+- Chat 是否包含一个 RSN/Confidence sparse core；
+- RSN 是否更接近 Confidence，而只与 Chat 共享少量控制维度；
+- 两个模型是否都呈现这一组织结构。
+
+### 2. 补 matched-anchor hidden-state control
+
+这是当前最关键的有效性缺口。现在的 `Chat−Bare` 同时混合了：
+
+- Chat 上下文；
+- 最后 token；
+- token position；
+- prompt length。
+
+所以现有跨任务稳定方向还不能直接叫“认知状态开关”。
+
+建议保持 Todo 中的三个位置：
+
+- 相同问题正文的最后 token；
+- 各条件实际 last-prefill token；
+- teacher-force 相同短前缀后的共同 token。
+
+同时增加 split-half reliability 或跨题目的 sample-level probe。当前报告主要基于 mean matrices；高跨任务 cosine 很有意思，但还没有回答这个方向是否能稳定地区分单个样本。
+
+### 3. 做一个小型 Base–Instruct 对照
+
+不需要扩成大 sweep。Llama 的 `Base/Instruct × Bare/Native Chat/Matched-anchor`、α=0 就够。
+
+它回答的是：
+
+> Chat state switch 是否主要是 post-training-associated？
+
+不要表述为 RLHF-specific，因为公开模型无法拆开 SFT、rejection sampling 和 preference optimization。Base 的 Chat 条件也是 OOD diagnostic，不适合拿准确率作公平对比。
+
+### 4. 最后做一个真正有判别力的因果实验
+
+如果前面方向可靠，再做：
+
+- `+d_chat → Bare`
+- `−d_chat → Chat`
+- norm-matched random direction
+- orthogonal-to-chat direction
+
+先测试完整 dense `d_chat` 能否改变 interface/output state。若成功，再拆分：
+
+- Role–Chat shared sparse core
+- Role-only
+- Chat-only
+
+这样可以直接区分：
+
+1. Chat state 是否可被 hidden-state paste；
+2. sparse shared core 是否负责 engagement/commitment；
+3. dense Chat-only component 是否主要负责 assistant style 与 generation health。
+
+主要 readouts 应该是 reason-first、early candidate、loop/truncation、natural EOS、abstention 和 commitment；accuracy 是下游结果，不应成为唯一判据。
+
+## 现在不建议继续的方向
+
+暂时不要：
+
+- 再扩新的 reasoning benchmark；
+- 重开 Bandit、manifold 或 closed-loop；
+- 直接寻找“认知开关 neurons”或检查其是否在指令位置达到高峰；
+- 把 brain RSA、SAE、焦虑量表并进当前主线；
+- 因为 sparse overlap 显著就宣称共同机制。
+
+这些会让项目重新变成很多平行支线。尤其 neuron localization 应该放在方向经过 matched-anchor、sample-level reliability 和 causal paste 验证以后。
+
+## 对整个项目的最终定位
+
+主论文仍然可以保持：
+
+> **RSN 是一种 context-dependent、state-level engagement/commitment gain mechanism，并与 dopaminergic adaptive calibration 存在功能类比。**
+
+但现在应该明确增加两层限定：
+
+- reasoning workpoint 不是普遍能力提升，其中一部分是在修复 Bare interface 的退化状态；
+- RSN 不是整体 post-training/Chat state，而是可能嵌在其中的稀疏调节轴。
+
+所以我建议当前只集中完成一条证据链：
+
+> **三方向结构比较 → matched-anchor 验证 → Base–Instruct 归因 → held-out causal state paste。**
+
+完成这条线后，项目会从“很多任务上有 steering 现象”，提升为一个比较完整的内部状态控制模型。Todo 里其他开放想法可以先全部降为 future work。另外，[CLAUDE.md](/Users/paveenhuang/Downloads/Dopamine/CLAUDE.md:96) 的 `Active status` 仍停在 8 月 30 日，之后最好更新成当前这条主线，否则项目事实已经走在 operational ledger 前面了。
 
 ---
 3. 最后才做因果实验
