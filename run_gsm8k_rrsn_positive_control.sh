@@ -30,11 +30,14 @@
 # directory, and requires no rebuild of the mask itself.
 #
 # This launcher and the driver it calls have NO runtime dependency on the
-# local build's provenance JSON or on any RoleHidden-relative path -- both
-# --check and formal generation verify the deployed mask directly from its
-# own array content (shape, finiteness, exact band/top_k structure) and
-# record its actual sha256 for offline cross-checking, e.g. against the
-# local archive's array sha256, after upload.
+# local build's provenance JSON or on any RoleHidden-relative path.
+# Mask validation is performed automatically at the beginning of every
+# formal generation invocation (--baseline/--sweep/--full), directly from
+# the deployed mask's own array content on the server (shape, finiteness,
+# exact band/top_k structure) -- there is no separate preflight/check
+# command. Its actual sha256 is recorded in each cell's run_config.json for
+# offline cross-checking, e.g. against the local archive's array sha256,
+# after upload.
 #
 # Everything else is held IDENTICAL to each model's existing frozen No-CoT
 # GSM8K sweep: same 300-question benchmark + order, same neutral/Bare/No-CoT
@@ -51,9 +54,6 @@
 # baseline) is same-GPU and internally paired.
 #
 # ==================== Steps ====================
-#   bash run_gsm8k_rrsn_positive_control.sh --check   <model>
-#       technical pre-flight: mask presence+shape+sha256, benchmark file,
-#       output paths. No generation.
 #   bash run_gsm8k_rrsn_positive_control.sh --baseline <model>
 #       alpha=0 only. Re-run in THIS tree (not copied), so this curve's own
 #       baseline is same-card with every steered cell.
@@ -64,6 +64,12 @@
 #       the FULL frozen grid including alpha=0, sequentially, one card. Use
 #       this instead of --baseline+--sweep when starting fresh on an empty
 #       output tree.
+#
+# Every mode above loads and validates the mask automatically before the
+# model or any generation starts (see get_answer_gsm8k_rrsn_positive_control.py's
+# load_and_verify_mask()) -- there is no separate preflight/check command.
+# If the mask is missing or structurally wrong, the run exits immediately,
+# before the model is loaded.
 #
 # Output: components/{model}/gsm8k_rrsn_positive_control/mdf_<alpha>/
 #   gsm8k_rrsn_pc_<size>_answers_<top_k>_<start>_<end>.json
@@ -78,7 +84,7 @@ MODE="${1:-}"
 MODEL="${2:-}"
 
 if [[ "${MODEL}" != "llama3" && "${MODEL}" != "qwen2.5" ]]; then
-  echo "Usage: bash run_gsm8k_rrsn_positive_control.sh {--check|--baseline|--sweep|--full} {llama3|qwen2.5}"
+  echo "Usage: bash run_gsm8k_rrsn_positive_control.sh {--baseline|--sweep|--full} {llama3|qwen2.5}"
   exit 1
 fi
 
@@ -129,70 +135,6 @@ run_driver () {   # $1 = space-separated alphas, $2 = extra flags
 }
 
 case "${MODE}" in
-  --check)
-    banner "--check (technical pre-flight, no generation)" "(none)"
-    MASK_DIR="${BASE_DIR}/mask/${MODEL}_non_logits"
-    if [[ "${MODEL}" == "llama3" ]]; then
-      MASK_FILE="${MASK_DIR}/rrsn_normmatched_0.5_11_20_8B.npy"
-      BAND_START=11; BAND_END=20; TOP_K=20
-    else
-      MASK_FILE="${MASK_DIR}/rrsn_normmatched_0.5_16_22_7B.npy"
-      BAND_START=16; BAND_END=22; TOP_K=17
-    fi
-    echo "mask file       : ${MASK_FILE}"
-    if [[ ! -f "${MASK_FILE}" ]]; then
-      echo "[✗] mask file not found -- deploy it: copy the locally-built"
-      echo "    rrsn_scaled_${MODEL}_*.npy (from"
-      echo "    RoleHidden/build_rrsn_gsm8k_positive_control_mask.py's output,"
-      echo "    AdaResult/8.rrsn_gsm8k_positive_control/masks/) to"
-      echo "    ${MASK_FILE} on this machine. Do NOT overwrite the existing"
-      echo "    nmd_0.5_*.npy MRSN mask files in the same directory."
-      exit 1
-    fi
-    echo "benchmark       : ${BASE_DIR}/${GSM8K_FILE}"
-    if [[ ! -f "${BASE_DIR}/${GSM8K_FILE}" ]]; then
-      echo "[✗] benchmark file not found: ${BASE_DIR}/${GSM8K_FILE}"
-      exit 1
-    fi
-    echo "output          : ${BASE_DIR}/${MODEL}/gsm8k_rrsn_positive_control/mdf_<alpha>/"
-    # No external provenance file is read here -- shape, finiteness, band
-    # alignment and exact per-layer top_k are all verified directly from the
-    # deployed array's own content, and its actual sha256 is printed for
-    # offline cross-checking (e.g. against the local archive copy) rather
-    # than checked against a server-side provenance record.
-    ${PY} - "${MASK_FILE}" "${BAND_START}" "${BAND_END}" "${TOP_K}" <<'PYEOF'
-import sys, hashlib
-import numpy as np
-mask_file, band_start, band_end, top_k = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
-mask = np.load(mask_file)
-sha = hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()
-finite_ok = bool(np.all(np.isfinite(mask)))
-nz_rows = sorted(int(i) for i in np.flatnonzero(np.any(mask != 0, axis=1)))
-expected_rows = list(range(band_start - 1, band_end - 1))
-rows_ok = (nz_rows == expected_rows)
-topk_ok = True
-for r in range(mask.shape[0]):
-    nnz = int(np.count_nonzero(mask[r]))
-    expect = top_k if r in expected_rows else 0
-    if nnz != expect:
-        topk_ok = False
-        print(f"  [row {r}] nnz={nnz} expected={expect} -- MISMATCH")
-print(f"mask shape      : {mask.shape}")
-print(f"mask sha256     : {sha}")
-print(f"finite          : {finite_ok}")
-print(f"band (raw)      : ({band_start}, {band_end}), top_k={top_k}")
-print(f"nonzero rows    : {nz_rows}")
-print(f"expected rows   : {expected_rows}")
-print(f"rows match      : {rows_ok}")
-print(f"exact top_k     : {topk_ok}")
-ok = finite_ok and rows_ok and topk_ok
-sys.exit(0 if ok else 1)
-PYEOF
-    rc=$?
-    [ $rc -eq 0 ] && echo "[✓] check passed" || echo "[✗] check failed (rc=$rc)"
-    exit $rc
-    ;;
-
   --baseline)
     OUT="${BASE_DIR}/${MODEL}/gsm8k_rrsn_positive_control/mdf_0"
     banner "--baseline (alpha=0, re-run fresh in this tree)" "${ALPHAS_BASELINE}"
@@ -222,12 +164,14 @@ PYEOF
     ;;
 
   *)
-    echo "Usage: bash run_gsm8k_rrsn_positive_control.sh {--check|--baseline|--sweep|--full} {llama3|qwen2.5}"
+    echo "Usage: bash run_gsm8k_rrsn_positive_control.sh {--baseline|--sweep|--full} {llama3|qwen2.5}"
     echo ""
-    echo "  --check     technical pre-flight (mask sha256+shape/paths), no generation"
     echo "  --baseline  alpha=0 only -> mdf_0 (run first, THIS tree's own baseline)"
     echo "  --sweep     remaining alphas of the frozen grid -> completes the curve"
     echo "  --full      the ENTIRE frozen grid incl. alpha=0, one shot, one card"
+    echo ""
+    echo "Each mode validates the mask automatically before the model loads --"
+    echo "there is no separate preflight/check command."
     echo ""
     echo "Pin CUDA_VISIBLE_DEVICES and keep it identical across all steps for one model:"
     echo "  CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_rrsn_positive_control.sh --baseline llama3"
