@@ -108,7 +108,8 @@ rsync -avzh --partial --info=progress2 \
 43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
 44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
 45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠；✔
-46. Steering RSM8K with RRSN
+46. Steering RSM8K with RRSN ⏸
+47. Steering MMLUE with RRSN ⏸
 
 46. Manifold reasoning Chat & MMLUE RSN
 44. MMLUE confidence vector和这些之间的关系
