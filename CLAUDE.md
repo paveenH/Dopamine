@@ -6,6 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Behavioral guidelines to reduce common LLM coding mistakes. **Tradeoff:** these bias toward caution over speed. For trivial tasks, use judgment.
 
+### 0.0 Recurring bash launcher trap: `${1:?usage: ... {a|b}}`
+
+<!-- Why: hit repeatedly across launchers (RR/CC mmlue-confidence-steering-v0,
+P4 LogiQA) despite being documented each time -- documentation alone did not
+stop a new launcher (run_rrsn_mmlue.sh) from shipping with the same bug.
+Evidence: CLAUDE.md's own RR/CC and P4 entries; "Local checks" section's
+three "bash -n is NOT sufficient" reminders.
+Scope: every new bash launcher using ${N:?msg}. Check before writing, not
+after the server rejects it. -->
+**Never put a brace-list like `{a|b}` inside a `${N:?message}` usage
+string.** The literal `}` inside the brace-list closes the `${...}`
+expansion at its own first `}`, corrupting the parsed positional value with a
+trailing fragment (`full` becomes `full {llama3|qwen2.5}}`). `bash -n` does
+NOT catch this — it's a semantic bug, not a syntax error. Write
+`${1:?usage: run_x.sh verify-or-full model_a-or-model_b}` (no braces) instead.
+**Before writing a new `${N:?...}` line, grep this rule and the "Local
+checks" section's `${1:?` reminders — do not rediscover this from a failed
+server run.** After writing one, verify it by actually invoking the script
+with real arguments and printing the resolved variable, not just `bash -n`.
+
 ### 0.1 Think Before Coding
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 - State assumptions explicitly. If uncertain, ask.
