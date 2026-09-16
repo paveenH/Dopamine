@@ -61,8 +61,8 @@ set -euo pipefail
 #   {task}_{size}_answers.json   (57 files)
 #   run_meta_{size}.json
 
-STEP="${1:?usage: bash run_rrsn_mmlue.sh {verify|full} {llama3|qwen2.5}}"
-MODEL="${2:?usage: bash run_rrsn_mmlue.sh {verify|full} {llama3|qwen2.5}}"
+STEP="${1:?usage: bash run_rrsn_mmlue.sh verify-or-full llama3-or-qwen2.5}"
+MODEL="${2:?usage: bash run_rrsn_mmlue.sh verify-or-full llama3-or-qwen2.5}"
 
 if [[ "${MODEL}" != "llama3" && "${MODEL}" != "qwen2.5" ]]; then
   echo "[REFUSE] Unknown model: ${MODEL} (expected llama3 or qwen2.5)"
