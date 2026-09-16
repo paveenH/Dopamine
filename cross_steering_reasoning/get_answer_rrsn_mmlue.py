@@ -543,6 +543,19 @@ def main():
                 "actually fired as expected. This is a hard requirement, not optional "
                 "instrumentation; refusing rather than generating unverified data.")
 
+        # tasks_to_run can be EMPTY here: all 57 task outputs already exist
+        # and matched run_config, but run_meta_{size}.json is missing (e.g.
+        # the previous invocation was interrupted after writing the last
+        # task's output but before writing run_meta). In that case nothing
+        # is regenerated this invocation, so fires/expected_fires must NOT
+        # be left unassigned (that would either crash with UnboundLocalError
+        # or, if defaulted carelessly, masquerade as a fresh injection
+        # verification that never actually ran). Record explicitly that no
+        # generation happened and no fire-count check was performed.
+        fires = None
+        expected_fires = None
+        fire_check_note = "not applicable: no tasks were (re)generated this invocation"
+
         for task in tasks_to_run:
             print(f"\n=== alpha={alpha} task={task} ===")
             vc.steering_fire_count(reset=True)
@@ -559,6 +572,7 @@ def main():
                 if fires != expected_fires:
                     die(f"alpha={alpha} task={task}: steering_fire_count={fires} != "
                         f"expected {expected_fires} (= n_layers_in_band * n_samples * n_roles * tail_len)")
+            fire_check_note = "verified during this invocation's generation (see per-task checks above)"
 
             out_path = out_dir / f"{task}_{size}_answers.json"
             with open(out_path, "w", encoding="utf-8") as fw:
@@ -605,8 +619,10 @@ def main():
             },
             "steering_fires_this_invocation": fires,
             "expected_steering_fires": expected_fires,
+            "steering_fire_check_status": fire_check_note,
             "task_summary": task_summary,
             "tasks_completed_this_invocation": tasks_to_run,
+            "run_meta_rebuilt_from_existing_tasks": len(tasks_to_run) == 0,
         }
         with open(out_dir / f"run_meta_{size}.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
