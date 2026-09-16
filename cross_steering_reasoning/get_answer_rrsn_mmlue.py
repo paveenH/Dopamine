@@ -524,6 +524,20 @@ def main():
 
         out_dir.mkdir(parents=True, exist_ok=True)
 
+        # run_config.json is written BEFORE any generation for this cell,
+        # and contains ONLY expected_meta (the same object check_config_matches
+        # verifies future invocations against). This is what makes
+        # check_config_matches() authoritative: if this process is
+        # interrupted mid-cell, a future invocation sees run_config.json,
+        # verifies it matches, and safely resumes at task granularity --
+        # rather than seeing partial task outputs with no way to verify what
+        # config produced them.
+        config_path = out_dir / f"run_config_{size}.json"
+        if not config_path.exists():
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(expected_meta, f, ensure_ascii=False, indent=2)
+            print(f"[wrote] {config_path} (written before generation, for safe resume)")
+
         if not hasattr(vc, "steering_fire_count"):
             die("VicundaModel has no steering_fire_count() -- cannot verify steering "
                 "actually fired as expected. This is a hard requirement, not optional "
