@@ -4,10 +4,13 @@
 尽量不要删除原始数据，可以合并
 
 ---
+
 ### Note
 Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retrograde gain control.](https://doi.org/10.1038/s41586-026-10967-w) 该研究发现，伏隔核 D2R–Penk 神经元通过释放内源性大麻素 2-AG，逆向抑制 aPVT→NAc 的谷氨酸输入，从而以通路特异的增益控制维持奖励追求中的行为投入。该机制与 RSN 调节 engagement/commitment gain 的功能解释高度相关，也位于接受多巴胺调节的伏隔核奖赏回路中；但论文直接验证的是 `2-AG→CB1R` 通路，而非 dopamine，因此适合作为 neuromodulatory engagement gain control 的生物学参照，而不能作为 RSN≈dopamine 的直接证据。
 
 Bandit.NatureCommunications2026.[Foraging models explain human exploration in uncertain tasks.](https://doi.org/10.1038/s41467-026-75773-4) 该研究发现，人类在动态 Bandit 中更接近 compare-to-threshold 策略：主要追踪当前选项是否仍值得继续，而非持续比较所有候选价值。这与 PV10 中模型反复采样 incumbent、却不响应低样本替代臂的行为相似，为 incumbent persistence 提供了“局部阈值决策”的替代解释；但我们尚未进行相应的模型拟合，且任务设定不同，因此只能视为行为结构上的参照，不能断言 LLM 使用了相同的 foraging-RL 机制。
+
+---
 
 #### Tmux
 conda activate dopamine
@@ -44,7 +47,7 @@ rsync -avzh --partial --info=progress2 \
 
 09.16 周三 阅读Paper；继续实验
 09.17 周四 收拾行李
-09.18 周五 台北-杭州萧山 机票 ✔
+09.18 周五 12：20 group meeting；台北-杭州萧山 机票 ✔
 09.19 杭州逛逛
 09.20 杭州逛逛
 09.21 回家高铁*1 - Helene ✔
@@ -106,9 +109,7 @@ rsync -avzh --partial --info=progress2 \
 44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
 45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性
 
-45. 看几组RSN之间的差异 
 46. Manifold reasoning Chat & MMLUE RSN
-
 44. MMLUE confidence vector和这些之间的关系
 42. 看一下cot 区分RSN COT Chat Confidence
 40. 试着理解chat template的影响的原因：Base model 
@@ -122,8 +123,54 @@ GSM8K role chat
 MATH role chat
 GSMHard role chat
 
+---
 
-Model：ZGCM-1
+因此下一步不需要马上继续做 Manifold，而应进入 causal steering：
+1. 用 RRSN 在 GSM8K 做同方向 positive control；
+2. 用 RRSN 在 MMLU-E 做 reverse transfer；
+3. 与已有的 MRSN→MMLU-E、MRSN→GSM8K 构成完整的 direction × task 矩阵；
+4. 固定当前共同 band、exact-NMD 数量，并做注入范数匹配，不能直接把相同 raw α 当作相同剂量。
+届时能够区分三种情况：
+- RRSN 同时作用于 reasoning 和 MMLU-E：支持共享的 task-general role/expertise component；
+- RRSN 只作用于 reasoning：共享神经元存在，但具体权重决定任务功能；
+- 两个方向交叉迁移不对称：支持“共享核心 + task-specific extension”，与当前 containment 非对称性一致。
+唯一建议补充的统计备注：如果 pooled hypergeometric p 是把整个 band 当作一个全局 universe 直接计算，它并不是严格符合“每层固定选 k 个”的精确零分布。更严格的是逐层 hypergeometric 的卷积或 layer-wise permutation。不过目前 p 值极小、富集达 29–38 倍，这不会改变实质结论；可以把 pooled p 标为 uniform-coordinate reference，避免把它写成主要证据。
+总之，这个结果没有制造新的“不一致”，反而给出了一个很清楚的解释框架：共享稀疏核心是真实的，但完整方向具有任务特异性；接下来由 cross-steering 判断共享部分是否具有共同功能。
+
+---
+1. 先补一个成本很低的 final RRSN–MRSN exact-NMD comparison  
+   包括 aggregate mask overlap、Jaccard、weighted cosine、双向 energy containment。这个不算完整 Manifold。
+
+2. `RRSN → GSM8K`  
+   使用已经决定的 matched band：
+   - Llama `[11,20)`
+   - Qwen `[16,22)`
+
+   这是 RRSN 的自身正对照。若这里没有效果，`RRSN → MMLU-E` 的 null 将无法解释。
+
+3. `RRSN → MMLU-E`  
+
+   检验反向跨任务迁移，并与已有的：
+   - `MRSN → MMLU-E`
+   - `MRSN → GSM8K`
+
+   组成完整 2×2 cross-steering。比较时匹配 band、neuron count 和注入 norm，不能直接比较原始 α。
+
+4. 最后做 induced-state Manifold  
+   根据 steering 结果提出更精确的问题：
+
+   - 双向迁移：两个不同 vector 是否汇聚到相同下游状态？
+   - 仅各自在本任务有效：是否对应 task-specific manifolds？
+   - MRSN 可迁移、RRSN 不可迁移：MRSN 是否更接近通用 interface/engagement direction？
+   - RRSN 自身都无效：先检查 vector 构造或层段，不宜解释 Manifold。
+
+所以我的明确判断是：
+
+> **现在完整做 Manifold 容易得到又一组“结构相关但含义不确定”的结果；先完成 RRSN 的 causal steering，之后 Manifold 才能解释机制。**
+
+当前主线可以简化为：
+
+> **exact-NMD 静态核对 → RRSN→GSM8K → RRSN→MMLU-E → induced-state Manifold。**
 
 ---
 - `MMLU-E RSN`：MMLU-E 上得到的 sparse vector；
@@ -421,6 +468,8 @@ MATH 和其他任务暂时不需要加入。先完成 MMLU-E → GSM8K 两级验
 
 15. commitment regime 作为预测标的（直接预测调整的方向）
 SAE ?
+Model：ZGCM-1
+
 
 ---
 
