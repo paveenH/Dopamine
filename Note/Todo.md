@@ -111,6 +111,7 @@ rsync -avzh --partial --info=progress2 \
 46. Steering RSM8K with RRSN ⏸
 47. Steering MMLUE with RRSN ⏸
 
+48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
 44. MMLUE confidence vector和这些之间的关系
 42. 看一下cot 区分RSN COT Chat Confidence
@@ -125,6 +126,65 @@ GSM8K role chat
 MATH role chat
 GSMHard role chat
 
+---
+若重点是“几何结构相似”，建议做一条很干净的 activation-manifold 分析链，而不是先做 neuron overlap。
+
+1. 固定可比状态  
+   同一批 prompt、同一 token 位置、同一 layer，收集两条件的 residual stream：
+   $$ 
+   X\in\mathbb{R}^{n\times d},\quad Y\in\mathbb{R}^{n\times d}.
+   $$
+   对 RSN，优先比较 prefill 最后一个 token、注入 token，或 teacher-forced 的相同生成位置；不能拿两条自由生成、token 已错位的轨迹直接比较。
+
+2. 分层计算三类主指标  
+   - **Centered linear CKA**：比较样本间几何关系是否一致，对正交变换及整体尺度较稳健。适合作为主报告指标。
+   - **mCCA / SVCCA**：问“是否存在近似线性坐标变换，使两团 activation 对齐”；更接近你刚读的论文所说的线性表征相似。
+   - **Orthogonal Procrustes residual**：先求最佳旋转 \(R\)，报告
+    $$
+     \frac{\lVert X-YR\rVert_F}{\lVert X\rVert_F}.
+     $$
+     它很直观：最优刚体对齐后，还剩多少结构差异。
+
+3. 补充子空间而非只看坐标轴  
+   对每层 activation 做 PCA，取解释 80–90% 方差的主子空间，计算：
+   - principal angles；
+   - shared explained variance / cross-projection $X\rightarrow {\rm span}(Y)$；
+   - 前几个主成分的方差谱。  
+   这能区分“整体流形相似但单 neuron basis 不同”与“主变化方向本身已经改变”。
+
+4. 单独报告轴级关系  
+   若同一模型、同一 residual basis 下比较 steering 前后，可补充 coordinate-wise Pearson/cosine、方向向量 cosine、rank correlation。它们回答的是“是否沿同一 neuron axes 改变”，不能替代 CKA/CCA。已有的 dense cosine、top-neuron overlap、Jaccard 和 contribution mass 正适合放在这一层。
+
+5. 用严格 null 与不确定性  
+   以 prompt 为 cluster bootstrap 单位给 CIs；加入 prompt-pair permutation、随机正交旋转或随机 neuron/direction 的 null。每层、每个 token 位置单独画曲线或热图，不把 layer 平均后才看结果。
+
+我会把结论分成三档写：
+
+- CKA/CCA 高、Procrustes residual 低、子空间夹角小：**几何上近似线性对齐**。
+- CKA 高但 coordinate overlap 低：**流形相近，但不共享稀疏轴/神经元实现**。
+- cosine 或 overlap 有富集，但 CKA/CCA 不高：**只有局部或方向性结构关联，不能说整体表征相近**。
+
+对你当前 RSN 项目，最有价值的首个图大概是：`layer × token-position` 的 CKA / Procrustes residual 热图，再配一张 PCA 子空间夹角曲线。PCA/UMAP/t-SNE 可以作图，但不应作为正式相似性证据。
+---
+内部表征“相近”没有单一指标，最好分三层评估：
+
+| 层次 | 要回答的问题 | 推荐指标 |
+|---|---|---|
+| 几何结构 | 两组 activation 的空间布局是否相似？ | centered CKA、mCCA/SVCCA、正交 Procrustes residual、子空间夹角 |
+| 可读出功能 | 在 A 中线性可读的信息，B 中是否仍可读？ | 同一标签/状态的线性 probe；跨条件训练-测试（train A → test B） |
+| 因果功能 | 两个表征是否能产生同一种干预效果？ | norm-matched cross-steering / cross-ablation 矩阵 |
+
+对 RSN，最实用的最小方案是：
+
+1. 固定同一批 prompts、模型、tokenizer 和 token 位置；在每层提取 residual stream（尤其是注入位点）。不要把不同输出长度或不同生成阶段的 states 直接混在一起比较。
+2. 对 baseline 与 steering 条件，先算每层的 centered CKA 或 mCCA；它们评价的是“允许线性变换后的几何对应”，比逐神经元 cosine 更合适。
+3. 再做 probe：例如用 baseline activation 训练“reason-first / premature candidate / answer correctness / confidence”等线性读出器，直接迁移到 steering activation。迁移仍有效，才说明该信息的编码方式近似保留。
+4. 若比较的是两个方向或两个 neuron set，控制层数、神经元数、方向范数与实际注入强度；报告 direction cosine、top-neuron overlap/Jaccard、rank correlation 与 principal angles。
+5. 最后用交叉干预裁决：用 A 的方向/神经元去复现 B 的行为 readout，并反向测试。只有在这一层成立，才能接近“功能上可替代”；前面所有相似性指标都只能说明结构关联。
+
+你们当前的 role/confidence 与 RSN 结果就是很好的例子：层间 cosine、top-neuron overlap 和共享稀疏核心可以支持“结构关联”，但不能推出两者同一机制或可互换；还需要 norm-matched cross-steering 复现彼此的行为效应。
+
+顺带说，这篇 logit-distance 论文补充了一个输出侧条件：若两模型在同一输入上的全词表 logit distance 小，在其强假设下可推出较高线性表征相似性；但对单模型局部 steering，它不能替代 activation-level 对齐与因果交叉验证。
 ---
 
 因此下一步不需要马上继续做 Manifold，而应进入 causal steering：
