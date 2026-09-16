@@ -44,9 +44,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 ### Daily
-
-09.16 周三 阅读Paper；继续实验
-09.17 周四 收拾行李
+09.17 周四 收拾行李；继续实验
 09.18 周五 12：20 group meeting；台北-杭州萧山 机票 ✔
 09.19 杭州逛逛
 09.20 杭州逛逛
