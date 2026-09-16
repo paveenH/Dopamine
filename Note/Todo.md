@@ -42,7 +42,7 @@ rsync -avzh --partial --info=progress2 \
 ---
 ### Daily
 
-09.15 周二 买药
+09.16 周三 阅读Paper；继续实验
 09.17 周四 收拾行李
 09.18 周五 台北-杭州萧山 机票 ✔
 09.19 杭州逛逛
@@ -103,14 +103,19 @@ rsync -avzh --partial --info=progress2 \
 41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
 42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
 43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
-44. Manifold分析 ✔
+44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
+45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性
 
-44. confidence vector和这些之间的关系
+45. 看几组RSN之间的差异 
+46. Manifold reasoning Chat & MMLUE RSN
+
+44. MMLUE confidence vector和这些之间的关系
 42. 看一下cot 区分RSN COT Chat Confidence
 40. 试着理解chat template的影响的原因：Base model 
 42. 认知切换开关
 43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
 44. MMLUE 
+45. 待补 Qwen Matched-Anchor α=0”
 
 MMLUE role confidence
 GSM8K role chat
@@ -121,6 +126,75 @@ GSMHard role chat
 Model：ZGCM-1
 
 ---
+- `MMLU-E RSN`：MMLU-E 上得到的 sparse vector；
+- `Reasoning RSN`：GSM8K、MATH、GSM-Hard 三个方向取平均后，经过相同 sparse 流程得到的 vector；
+- 当前真正未完成的是 **Reasoning RSN 的中间层 band 选择**。
+### 1. 先完成逐层关系和 band 选择
+
+先不做 steering，比较两个 sparse vector 的：
+
+- 每层 cosine、norm、符号一致性；
+- top-neuron overlap 和随机富集；
+- 三个 reasoning task 在每层的一致性；
+- split-half reliability；
+- Reasoning RSN 对 MMLU-E RSN 的逐层 projection。
+
+Reasoning band 不要根据 downstream accuracy 选择，而应根据提取集上的结构稳定性确定，例如选择一段连续层，使其同时满足：
+
+- 三个 reasoning task 的方向一致性较高；
+- split-half 稳定；
+- sparse overlap 高于随机；
+- 不由单个任务独占。
+
+band 长度最好与 MMLU-E RSN 一致，便于后续 norm matching。除此之外，可以把“直接使用 MMLU-E 原 band”保留为 matched-band control。
+
+### 2. 再完成 2×2 cross-steering
+
+这里应改称 Reasoning RSN，而不是 GSM8K RSN：
+
+| Steering vector | MMLU-E | GSM8K |
+|---|---:|---:|
+| MMLU-E RSN | 已有 | 已有 |
+| Reasoning RSN | **待做** | **待做自身正对照** |
+
+优先顺序：
+
+1. `Reasoning RSN → GSM8K`：确认这个新 vector 自身确实具有 causal effect；
+2. `Reasoning RSN → MMLU-E`：检验反向迁移；
+3. 与已有的 `MMLU-E RSN → GSM8K/MMLU-E` 做 norm-matched 比较。
+
+这里至少保留两个 Reasoning RSN 版本：
+
+- **Matched-band**：使用 MMLU-E 相同层段，回答“同层条件下是否功能可互换”；
+- **Native-band**：使用 reasoning 数据选出的稳定层段，回答“Reasoning RSN 自身最佳的功能范围是什么”。
+
+如果只做 native-band，一旦结果不同，会混入 layer band 差异；只做 matched-band，则可能低估 Reasoning RSN。
+
+### 3. Manifold 分成两层
+
+在 steering 前，可以做静态的 Role-difference subspace：
+
+- MMLU-E RSN 是否位于 reasoning 三任务形成的 subspace；
+- Reasoning RSN 是否位于 MMLU-E sample-difference subspace；
+- matched-band 与 native-band 的结论是否一致。
+
+完成 cross-steering 后，再做更关键的 induced-state analysis：
+
+> 两个初始 vector 即使方向不同，是否在模型中间层传播后产生相似的 hidden-state displacement？
+
+这能区分：
+
+- **shared injection direction**；
+- **different inputs, convergent downstream state**；
+- **different directions and different functions**。
+
+所以目前最合理的主线是：
+
+> **逐层关系 → 冻结 Reasoning band → Reasoning RSN 自身正对照 → 反向 MMLU-E transfer → induced-state manifold。**
+
+其中真正具有决定性的实验仍是 `Reasoning RSN → MMLU-E`，但必须与 `Reasoning RSN → GSM8K` 一起看。否则反向 null 无法区分“不能跨任务”和“Reasoning RSN 本身没有被正确定位”。
+---
+
 
 ## 接下来最合理的执行顺序
 
@@ -194,35 +268,6 @@ Todo 中“confidence vector 和这些之间的关系”应该是当前第一优
 
 主要 readouts 应该是 reason-first、early candidate、loop/truncation、natural EOS、abstention 和 commitment；accuracy 是下游结果，不应成为唯一判据。
 
-## 现在不建议继续的方向
-
-暂时不要：
-
-- 再扩新的 reasoning benchmark；
-- 重开 Bandit、manifold 或 closed-loop；
-- 直接寻找“认知开关 neurons”或检查其是否在指令位置达到高峰；
-- 把 brain RSA、SAE、焦虑量表并进当前主线；
-- 因为 sparse overlap 显著就宣称共同机制。
-
-这些会让项目重新变成很多平行支线。尤其 neuron localization 应该放在方向经过 matched-anchor、sample-level reliability 和 causal paste 验证以后。
-
-## 对整个项目的最终定位
-
-主论文仍然可以保持：
-
-> **RSN 是一种 context-dependent、state-level engagement/commitment gain mechanism，并与 dopaminergic adaptive calibration 存在功能类比。**
-
-但现在应该明确增加两层限定：
-
-- reasoning workpoint 不是普遍能力提升，其中一部分是在修复 Bare interface 的退化状态；
-- RSN 不是整体 post-training/Chat state，而是可能嵌在其中的稀疏调节轴。
-
-所以我建议当前只集中完成一条证据链：
-
-> **三方向结构比较 → matched-anchor 验证 → Base–Instruct 归因 → held-out causal state paste。**
-
-完成这条线后，项目会从“很多任务上有 steering 现象”，提升为一个比较完整的内部状态控制模型。Todo 里其他开放想法可以先全部降为 future work。另外，[CLAUDE.md](/Users/paveenhuang/Downloads/Dopamine/CLAUDE.md:96) 的 `Active status` 仍停在 8 月 30 日，之后最好更新成当前这条主线，否则项目事实已经走在 operational ledger 前面了。
-
 ---
 3. 最后才做因果实验
 
@@ -237,32 +282,6 @@ Todo 中“confidence vector 和这些之间的关系”应该是当前第一优
 所以眼下最直接的任务是：**先完成两个模型各自的逐层 Chat–Bare direction、跨任务稳定性，以及与 signed RSN direction 的对齐分析。**
 
 ---
-
-你的三个方向都值得做，但要把第二点的表述稍微收紧：
-
-> **Chat template 不是 RLHF 本身，而是一个调用 post-training policy 的上下文开关。**
-
-模型权重通过 SFT、rejection sampling 和 preference optimization 学会“作为 assistant 应该怎样回答”；chat tokens 在推理时告诉模型：现在进入这种工作模式。Llama 3.1 官方说明其 post-training 是多轮 **SFT、Rejection Sampling 和 DPO**；Llama 3 的说明还强调，偏好训练会帮助模型从已有推理轨迹中选择更合适的回答。[Meta Llama 3.1](https://ai.meta.com/blog/meta-llama-3-1/), [Meta Llama 3](https://ai.meta.com/blog/meta-llama-3/)
-
-因此，我建议这样推进：
-
-### 1. 先做 Qwen 的小型三条件验证
-
-暂时不要直接跑九格，先用相同题目比较 α=0：
-
-- Bare
-- Native Chat
-- Chat-matched
-
-观察：
-
-- 是否也从自由续写切换到规范的 assistant 风格；
-- 是否减少 loop/truncation；
-- 是否出现 reasoning-first；
-- assistant-side `Answer:` 是否也增加直接回答；
-- 实际注入 token 和位置必须用 Qwen tokenizer 重新读取，不能沿用 Llama 的 220/271。
-
-如果 Qwen 也出现同样结构，说明这是较普遍的 **post-training interface state switch**；如果没有，则可能是 Llama 特有的训练格式或状态几何。确认以后再决定是否补完整剂量曲线。
 
 ### 2. 做 Llama 的 Chat–Bare hidden-state 对比
 
