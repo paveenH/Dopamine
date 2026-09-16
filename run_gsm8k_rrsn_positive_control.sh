@@ -19,16 +19,22 @@
 # neither is imported. This launcher drives ONLY
 # gsm8k_rrsn_positive_control/get_answer_gsm8k_rrsn_positive_control.py,
 # which loads the pre-built norm-matched RRSN mask from the SERVER's standard
-# mask tree, matching every other steering launcher's layout:
+# mask tree, using the SAME filename convention every other steering
+# launcher already uses for its MRSN mask:
 #   ${BASE_DIR}/mask/{model}_non_logits/rrsn_normmatched_0.5_<start>_<end>_<size>.npy
 # The mask is built OFFLINE, LOCALLY, BEFORE this launcher (see
 # RoleHidden/build_rrsn_gsm8k_positive_control_mask.py), then DEPLOYED to the
 # server by copying its output array (rrsn_scaled_{model}_{size}.npy in the
 # local archive tree) to the path above under a NEW filename -- this NEVER
 # overwrites the existing nmd_0.5_..._.npy MRSN mask files in that same
-# directory. ROLEHIDDEN_DIR is still required, but only to locate the local
-# build's provenance JSON (used to verify the deployed mask's sha256) -- the
-# mask array itself is loaded from BASE_DIR/mask/, not from ROLEHIDDEN_DIR.
+# directory, and requires no rebuild of the mask itself.
+#
+# This launcher and the driver it calls have NO runtime dependency on the
+# local build's provenance JSON or on any RoleHidden-relative path -- both
+# --check and formal generation verify the deployed mask directly from its
+# own array content (shape, finiteness, exact band/top_k structure) and
+# record its actual sha256 for offline cross-checking, e.g. against the
+# local archive's array sha256, after upload.
 #
 # Everything else is held IDENTICAL to each model's existing frozen No-CoT
 # GSM8K sweep: same 300-question benchmark + order, same neutral/Bare/No-CoT
@@ -92,11 +98,6 @@ fi
 DATA="data1"
 WORK_DIR="/${DATA}/paveen/Dopamine"
 BASE_DIR="${WORK_DIR}/components"
-# RoleHidden workspace synced from the local analysis box, holding
-# AdaResult/8.rrsn_gsm8k_positive_control/masks/*.npy +
-# rrsn_gsm8k_positive_control_mask_provenance.json. Override with
-# ROLEHIDDEN_DIR=<path> if synced elsewhere on this machine.
-ROLEHIDDEN_DIR="${ROLEHIDDEN_DIR:-${WORK_DIR}/RoleHidden}"
 PY="${PY:-python}"
 GSM8K_FILE="benchmark/gsm8k_test_sample.json"
 
@@ -107,7 +108,6 @@ banner () {
   echo "RRSN -> GSM8K positive control | ${MODEL}"
   echo "step                : $1"
   echo "model_dir            : ${MODEL_DIR}"
-  echo "rolehidden_dir        : ${ROLEHIDDEN_DIR}"
   echo "alphas this step     : $2"
   echo "CUDA_VISIBLE_DEVICES = ${CUDA_VISIBLE_DEVICES:-(unset - ALL cards visible)}"
   echo "Start: $(date)"
@@ -123,7 +123,6 @@ run_driver () {   # $1 = space-separated alphas, $2 = extra flags
       --model          "${MODEL}" \
       --model_dir      "${MODEL_DIR}" \
       --base_dir       "${BASE_DIR}" \
-      --rolehidden_dir "${ROLEHIDDEN_DIR}" \
       --gsm8k_file     "${GSM8K_FILE}" \
       --alphas         $1 \
       $2
@@ -133,11 +132,12 @@ case "${MODE}" in
   --check)
     banner "--check (technical pre-flight, no generation)" "(none)"
     MASK_DIR="${BASE_DIR}/mask/${MODEL}_non_logits"
-    PROV="${ROLEHIDDEN_DIR}/AdaResult/8.rrsn_gsm8k_positive_control/rrsn_gsm8k_positive_control_mask_provenance.json"
     if [[ "${MODEL}" == "llama3" ]]; then
       MASK_FILE="${MASK_DIR}/rrsn_normmatched_0.5_11_20_8B.npy"
+      BAND_START=11; BAND_END=20; TOP_K=20
     else
       MASK_FILE="${MASK_DIR}/rrsn_normmatched_0.5_16_22_7B.npy"
+      BAND_START=16; BAND_END=22; TOP_K=17
     fi
     echo "mask file       : ${MASK_FILE}"
     if [[ ! -f "${MASK_FILE}" ]]; then
@@ -149,39 +149,43 @@ case "${MODE}" in
       echo "    nmd_0.5_*.npy MRSN mask files in the same directory."
       exit 1
     fi
-    if [[ ! -f "${PROV}" ]]; then
-      echo "[✗] mask provenance not found: ${PROV}"
-      exit 1
-    fi
-    echo "provenance      : ${PROV}"
     echo "benchmark       : ${BASE_DIR}/${GSM8K_FILE}"
     if [[ ! -f "${BASE_DIR}/${GSM8K_FILE}" ]]; then
       echo "[✗] benchmark file not found: ${BASE_DIR}/${GSM8K_FILE}"
       exit 1
     fi
     echo "output          : ${BASE_DIR}/${MODEL}/gsm8k_rrsn_positive_control/mdf_<alpha>/"
-    ${PY} - "${MASK_FILE}" "${PROV}" "${MODEL}" <<'PYEOF'
-import json, sys, hashlib
+    # No external provenance file is read here -- shape, finiteness, band
+    # alignment and exact per-layer top_k are all verified directly from the
+    # deployed array's own content, and its actual sha256 is printed for
+    # offline cross-checking (e.g. against the local archive copy) rather
+    # than checked against a server-side provenance record.
+    ${PY} - "${MASK_FILE}" "${BAND_START}" "${BAND_END}" "${TOP_K}" <<'PYEOF'
+import sys, hashlib
 import numpy as np
-mask_file, prov_file, model = sys.argv[1], sys.argv[2], sys.argv[3]
+mask_file, band_start, band_end, top_k = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
 mask = np.load(mask_file)
 sha = hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()
-with open(prov_file) as f:
-    prov = json.load(f)
-recorded = prov[model]["outputs"]["rrsn_scaled_mask"]["sha256"]
-band = tuple(prov[model]["band_raw_layers_left_closed_right_open"])
-top_k = prov[model]["exact_top_k"]
+finite_ok = bool(np.all(np.isfinite(mask)))
 nz_rows = sorted(int(i) for i in np.flatnonzero(np.any(mask != 0, axis=1)))
-expected_rows = list(range(band[0]-1, band[1]-1))
+expected_rows = list(range(band_start - 1, band_end - 1))
+rows_ok = (nz_rows == expected_rows)
+topk_ok = True
+for r in range(mask.shape[0]):
+    nnz = int(np.count_nonzero(mask[r]))
+    expect = top_k if r in expected_rows else 0
+    if nnz != expect:
+        topk_ok = False
+        print(f"  [row {r}] nnz={nnz} expected={expect} -- MISMATCH")
 print(f"mask shape      : {mask.shape}")
 print(f"mask sha256     : {sha}")
-print(f"provenance sha  : {recorded}")
-print(f"sha256 match    : {sha == recorded}")
-print(f"band (raw)      : {band}, top_k={top_k}")
+print(f"finite          : {finite_ok}")
+print(f"band (raw)      : ({band_start}, {band_end}), top_k={top_k}")
 print(f"nonzero rows    : {nz_rows}")
 print(f"expected rows   : {expected_rows}")
-print(f"rows match      : {nz_rows == expected_rows}")
-ok = (sha == recorded) and (nz_rows == expected_rows)
+print(f"rows match      : {rows_ok}")
+print(f"exact top_k     : {topk_ok}")
+ok = finite_ok and rows_ok and topk_ok
 sys.exit(0 if ok else 1)
 PYEOF
     rc=$?
