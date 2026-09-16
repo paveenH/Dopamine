@@ -18,10 +18,17 @@
 # INDEPENDENT of run_gsm8k.sh / run_gsm8k_qwen25.sh -- neither is modified,
 # neither is imported. This launcher drives ONLY
 # gsm8k_rrsn_positive_control/get_answer_gsm8k_rrsn_positive_control.py,
-# which loads the pre-built norm-matched RRSN mask directly (see
-# RoleHidden/build_rrsn_gsm8k_positive_control_mask.py, run OFFLINE, LOCALLY,
-# BEFORE this launcher, and its output synced to the server under
-# ROLEHIDDEN_DIR).
+# which loads the pre-built norm-matched RRSN mask from the SERVER's standard
+# mask tree, matching every other steering launcher's layout:
+#   ${BASE_DIR}/mask/{model}_non_logits/rrsn_normmatched_0.5_<start>_<end>_<size>.npy
+# The mask is built OFFLINE, LOCALLY, BEFORE this launcher (see
+# RoleHidden/build_rrsn_gsm8k_positive_control_mask.py), then DEPLOYED to the
+# server by copying its output array (rrsn_scaled_{model}_{size}.npy in the
+# local archive tree) to the path above under a NEW filename -- this NEVER
+# overwrites the existing nmd_0.5_..._.npy MRSN mask files in that same
+# directory. ROLEHIDDEN_DIR is still required, but only to locate the local
+# build's provenance JSON (used to verify the deployed mask's sha256) -- the
+# mask array itself is loaded from BASE_DIR/mask/, not from ROLEHIDDEN_DIR.
 #
 # Everything else is held IDENTICAL to each model's existing frozen No-CoT
 # GSM8K sweep: same 300-question benchmark + order, same neutral/Bare/No-CoT
@@ -125,18 +132,21 @@ run_driver () {   # $1 = space-separated alphas, $2 = extra flags
 case "${MODE}" in
   --check)
     banner "--check (technical pre-flight, no generation)" "(none)"
-    MASK_DIR="${ROLEHIDDEN_DIR}/AdaResult/8.rrsn_gsm8k_positive_control/masks"
+    MASK_DIR="${BASE_DIR}/mask/${MODEL}_non_logits"
     PROV="${ROLEHIDDEN_DIR}/AdaResult/8.rrsn_gsm8k_positive_control/rrsn_gsm8k_positive_control_mask_provenance.json"
     if [[ "${MODEL}" == "llama3" ]]; then
-      MASK_FILE="${MASK_DIR}/rrsn_scaled_llama3_8B.npy"
+      MASK_FILE="${MASK_DIR}/rrsn_normmatched_0.5_11_20_8B.npy"
     else
-      MASK_FILE="${MASK_DIR}/rrsn_scaled_qwen2.5_7B.npy"
+      MASK_FILE="${MASK_DIR}/rrsn_normmatched_0.5_16_22_7B.npy"
     fi
     echo "mask file       : ${MASK_FILE}"
     if [[ ! -f "${MASK_FILE}" ]]; then
-      echo "[✗] mask file not found -- run build_rrsn_gsm8k_positive_control_mask.py"
-      echo "    locally and sync AdaResult/8.rrsn_gsm8k_positive_control/ to"
-      echo "    ${ROLEHIDDEN_DIR} on this machine first."
+      echo "[✗] mask file not found -- deploy it: copy the locally-built"
+      echo "    rrsn_scaled_${MODEL}_*.npy (from"
+      echo "    RoleHidden/build_rrsn_gsm8k_positive_control_mask.py's output,"
+      echo "    AdaResult/8.rrsn_gsm8k_positive_control/masks/) to"
+      echo "    ${MASK_FILE} on this machine. Do NOT overwrite the existing"
+      echo "    nmd_0.5_*.npy MRSN mask files in the same directory."
       exit 1
     fi
     if [[ ! -f "${PROV}" ]]; then
