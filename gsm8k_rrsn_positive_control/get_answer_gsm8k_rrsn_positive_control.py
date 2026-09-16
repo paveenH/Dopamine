@@ -28,37 +28,44 @@ GSM8K generation pipeline EXACTLY:
 
 The ONLY thing that differs from get_answer_regenerate_gsm8k.py's mechanics is
 WHICH mask is loaded: this script loads the norm-matched RRSN mask from the
-SERVER's standard mask tree,
-  {base_dir}/mask/{model}_non_logits/rrsn_normmatched_0.5_<start>_<end>_{size}.npy
+SERVER's standard mask tree, using the SAME filename convention every other
+steering launcher in this repo already uses for its MRSN mask
+({mask_type}_{percentage}_{start}_{end}_{size}.npy under
+mask/{model}_non_logits/, e.g. nmd_0.5_11_20_8B.npy) --
+  {base_dir}/mask/{model}_non_logits/rrsn_normmatched_0.5_<start>_<end>_<size>.npy
 (a pre-built, per-layer-L2-norm-matched-to-this-model's-own-MRSN, signed RRSN
-exact-NMD mask), deployed there as a plain copy of the array built and
-verified locally by
-RoleHidden/build_rrsn_gsm8k_positive_control_mask.py (output file
-rrsn_scaled_{model}_{size}.npy in that script's own archive path -- see
-RoleHidden/AdaResult/8.rrsn_gsm8k_positive_control/RUNBOOK.md for the
-"local archive path" vs "server injection path" distinction). This mirrors
-the on-server layout every other steering launcher in this repo uses
-(mask/{model}_non_logits/nmd_0.5_<start>_<end>_<size>.npy for MRSN) instead
-of a bespoke RoleHidden-relative path. The array CONTENT is unchanged by the
-move -- only its filename and directory differ from the local archive copy
-(never overwrites the existing nmd_0.5_*.npy MRSN mask files, which this
-script never touches).
+exact-NMD mask). It is deployed there as a plain file copy of the array built
+and verified LOCALLY (offline, no GPU) by
+RoleHidden/build_rrsn_gsm8k_positive_control_mask.py (local archive output
+file rrsn_scaled_{model}_{size}.npy, kept unmodified in that script's own
+archive path -- see RoleHidden/AdaResult/8.rrsn_gsm8k_positive_control/RUNBOOK.md
+for the "local archive path" vs "server deployment path" distinction). The
+array CONTENT is unchanged by the move -- only its filename and directory
+differ from the local archive copy. This script NEVER touches, reads, or
+overwrites the existing nmd_0.5_*.npy MRSN mask files that live in the same
+mask/{model}_non_logits/ directory.
+
+This script has NO runtime dependency on the local build's provenance JSON
+or on any RoleHidden-relative path -- the deployed mask's sha256 is computed
+here, at load time, directly from the file's own array content, and written
+into each cell's run_config.json for offline cross-checking (e.g. against the
+local archive's array sha256) rather than checked against a server-side copy
+of the provenance record.
 
 Output tree: components/{model}/gsm8k_rrsn_positive_control/mdf_<alpha>/
   gsm8k_rrsn_pc_{size}_answers_<top_k>_<start>_<end>.json
-  run_config.json          (per-cell provenance: mask sha256, alpha, band,
-                             steering_fires, prompt template, generation args)
+  run_config.json          (per-cell provenance: mask path, mask sha256,
+                             alpha, band, steering_fires, prompt template,
+                             generation args)
 
 Fail-closed checks performed by THIS script before/around generation:
-  - mask file exists at {base_dir}/mask/{model}_non_logits/rrsn_normmatched_...npy,
-    shape == (n_decoder_layers, hidden), matches this model's expected shape
-  - mask sha256 (of the deployed server file's array content) matches the
-    value recorded in rrsn_gsm8k_positive_control_mask_provenance.json (an
-    artifact from the LOCAL build, read from --rolehidden_dir) -- refuses to
-    proceed on mismatch. This verifies the deployed file is byte-identical
-    (as an array) to the locally-built, locally-verified mask -- a filename/
-    location change does not require rebuilding the mask or touching the
-    provenance JSON itself.
+  - mask file exists at {base_dir}/mask/{model}_non_logits/rrsn_normmatched_...npy
+  - mask shape == (n_decoder_layers, hidden), matches this model's expected shape
+  - mask is all-finite (no NaN/Inf)
+  - mask is exactly zero outside the frozen band, and each in-band layer has
+    exactly the model's frozen exact top_k (Llama 20, Qwen 17) nonzero
+    entries -- verified directly from the loaded array, not from an external
+    record
   - alpha=0 must NOT register any steering fire (checked via
     vc.steering_fire_count() after the alpha=0 cell; VicundaModel builds a
     REAL all-zero diff_matrices at alpha=0, so hooks DO register -- fires
@@ -98,6 +105,12 @@ MODEL_SHAPE = {
     "qwen2.5": {"size": "7B", "hidden": 3584, "n_decoder_layers": 28, "band": (16, 22)},
 }
 
+# Frozen exact-NMD top_k, per model (int(hidden_size * 0.5 / 100), int
+# truncation not round -- Qwen is 17, not 18). Used both for the mask
+# filename ("gsm8k_rrsn_pc_{size}_answers_{top_k}_...") and to verify each
+# in-band row's nonzero count directly from the array.
+TOP_K = {"llama3": 20, "qwen2.5": 17}
+
 # Frozen per-model alpha grid -- SAME as each model's existing frozen No-CoT
 # GSM8K sweep (run_gsm8k.sh / run_gsm8k_qwen25.sh). Not re-searched here.
 ALPHA_GRID = {
@@ -131,9 +144,10 @@ def sha256_of_array(a):
     return hashlib.sha256(np.ascontiguousarray(a).tobytes()).hexdigest()
 
 
-def load_and_verify_mask(model, mask_dir, provenance_path):
+def load_and_verify_mask(model, mask_dir):
     cfg = MODEL_SHAPE[model]
     band = cfg["band"]
+    top_k = TOP_K[model]
     mask_filename = f"rrsn_normmatched_0.5_{band[0]}_{band[1]}_{cfg['size']}.npy"
     mask_path = os.path.join(mask_dir, mask_filename)
     if not os.path.exists(mask_path):
@@ -157,18 +171,25 @@ def load_and_verify_mask(model, mask_dir, provenance_path):
         die(f"mask {mask_path}: nonzero rows {sorted(actual_nonzero_rows)} != "
             f"expected {sorted(expected_nonzero_rows)} for band {band}")
 
-    if not os.path.exists(provenance_path):
-        die(f"mask-build provenance not found: {provenance_path} -- run "
-            f"build_rrsn_gsm8k_positive_control_mask.py first")
-    with open(provenance_path) as f:
-        mask_prov = json.load(f)
-    recorded_sha = mask_prov.get(model, {}).get("outputs", {}).get("rrsn_scaled_mask", {}).get("sha256")
+    # every in-band row must have EXACTLY top_k nonzero entries (exact-NMD
+    # sparsity), every out-of-band row must be all-zero -- verified directly
+    # from the array, with no external provenance record required.
+    for r in range(mask.shape[0]):
+        nnz = int(np.count_nonzero(mask[r]))
+        if r in expected_nonzero_rows:
+            if nnz != top_k:
+                die(f"mask {mask_path}: row {r} (in-band) has {nnz} nonzero "
+                    f"entries, expected exactly top_k={top_k}")
+        else:
+            if nnz != 0:
+                die(f"mask {mask_path}: row {r} (out-of-band) has {nnz} "
+                    f"nonzero entries, expected 0")
+
     actual_sha = sha256_of_array(mask)
-    if recorded_sha != actual_sha:
-        die(f"mask {mask_path}: sha256 {actual_sha} does not match provenance-recorded "
-            f"{recorded_sha} -- mask has changed since it was built/verified")
     print(f"  mask verified: {mask_path}")
-    print(f"  mask shape={mask.shape}, sha256={actual_sha}, matches provenance -- PASS")
+    print(f"  mask shape={mask.shape}, sha256={actual_sha}")
+    print(f"  band {band}: in-band rows all exactly top_k={top_k} nonzero, "
+          f"out-of-band rows all zero -- PASS")
     return mask, actual_sha, mask_path
 
 
@@ -206,14 +227,6 @@ def main():
     ap.add_argument("--model_dir", required=True)
     ap.add_argument("--base_dir", required=True,
                      help="server components dir, e.g. /data1/paveen/Dopamine/components")
-    ap.add_argument("--rolehidden_dir", required=True,
-                     help="path to the RoleHidden workspace holding "
-                          "AdaResult/8.rrsn_gsm8k_positive_control/"
-                          "rrsn_gsm8k_positive_control_mask_provenance.json "
-                          "(the LOCAL build's provenance record, used only to "
-                          "verify the deployed server mask's sha256 -- the mask "
-                          "array itself is loaded from --base_dir/mask/, not "
-                          "from this directory)")
     ap.add_argument("--gsm8k_file", default="benchmark/gsm8k_test_sample.json")
     ap.add_argument("--alphas", nargs="*", type=float, default=None,
                      help="subset of this model's frozen alpha grid to run "
@@ -235,10 +248,7 @@ def main():
         alphas = grid
 
     mask_dir = os.path.join(args.base_dir, "mask", f"{args.model}_non_logits")
-    provenance_path = os.path.join(args.rolehidden_dir, "AdaResult",
-                                    "8.rrsn_gsm8k_positive_control",
-                                    "rrsn_gsm8k_positive_control_mask_provenance.json")
-    mask, mask_sha256, mask_path = load_and_verify_mask(args.model, mask_dir, provenance_path)
+    mask, mask_sha256, mask_path = load_and_verify_mask(args.model, mask_dir)
 
     gsm8k_path = os.path.join(args.base_dir, args.gsm8k_file)
     if not os.path.exists(gsm8k_path):
@@ -296,7 +306,7 @@ def main():
                         f"{expected_fires} (= n_layers_in_band * n_samples * tail_len)")
             print(f"  steering_fires={fires} (expected {expected_fires}) -- PASS")
 
-        top_k = 20 if args.model == "llama3" else 17
+        top_k = TOP_K[args.model]
         out_path = os.path.join(
             out_dir, f"gsm8k_rrsn_pc_{cfg['size']}_answers_{top_k}_{cfg['band'][0]}_{cfg['band'][1]}.json")
         with open(out_path, "w", encoding="utf-8") as fw:
