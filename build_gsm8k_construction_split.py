@@ -170,6 +170,14 @@ def main():
     ds = load_dataset(**load_kwargs)
     n_full = len(ds)
     print(f"Loaded full GSM8K test set: openai/gsm8k/main/test, n={n_full}")
+    if n_full != EXPECTED_FULL_TEST_N:
+        die(f"full GSM8K test set has {n_full} rows, expected exactly "
+            f"{EXPECTED_FULL_TEST_N} -- the upstream dataset appears to have "
+            "changed (different revision/version than previously verified). "
+            "Refusing rather than silently building a construction split "
+            "from an unexpected base. Pin --revision to the previously "
+            "verified commit if you intend to reproduce the exact same "
+            "construction split.")
 
     full_questions = [row["question"] for row in ds]
     if len(set(full_questions)) != n_full:
