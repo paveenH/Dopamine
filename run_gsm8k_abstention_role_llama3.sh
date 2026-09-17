@@ -26,6 +26,15 @@ set -euo pipefail
 #   expert_8B.h5
 #   non_expert_8B.h5
 #   manifest.json   (ONE experiment-level manifest, not per-role)
+#
+# CRASH-RECOVERY CAVEAT: if this run dies after expert_8B.h5 is written but
+# before non_expert_8B.h5/manifest.json are, the extraction script's
+# overwrite guard will REFUSE the next invocation (expert_8B.h5 already
+# exists) even though the cell as a whole is incomplete. Resuming requires a
+# DELIBERATE manual step: inspect
+#   components/hidden_states/llama3/gsm8k_abstention_role/
+# and if incomplete, delete its contents before re-running -- do not assume
+# a bare re-run will resume cleanly.
 
 MODE="${1:-}"
 

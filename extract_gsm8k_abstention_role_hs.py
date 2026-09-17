@@ -99,11 +99,35 @@ FAIL-CLOSED VALIDATION:
   - no double-BOS;
   - all extracted hidden states are finite;
   - atomic write: build the full (n, L, H) array in memory, verify it, THEN
-    write to a temp path and os.replace() it into place.
+    write to a temp path and os.replace() it into place;
+  - ordered_sample_identity_sha256 for the loaded 300-question file must
+    equal EXPECTED_GSM8K_PAIRING_DIGEST, the digest already recorded in the
+    OLD GSM8K Role HS extraction's manifest -- this is checked unconditionally
+    (not merely printed for a caller to compare), so it also catches the
+    server's benchmark/gsm8k_test_sample.json having drifted since that
+    extraction ran, which "both models here agree with each other" alone
+    cannot detect.
 
-MODEL LOADED EXACTLY ONCE PER RUN. --run_all loads the model ONCE, then
-processes BOTH conditions (expert, non_expert) sequentially in-process,
-reusing the same loaded VicundaModel object for every forward pass.
+CRASH-RECOVERY CAVEAT (operational, not a correctness issue). This script
+always processes BOTH conditions (expert, then non_expert) in one process,
+model loaded once. If the process dies AFTER expert_{size}.h5 has been
+written but BEFORE non_expert_{size}.h5 / manifest.json are written, the
+overwrite guard on the next invocation will refuse (expert_{size}.h5 already
+exists) even though this experiment cell as a whole is incomplete. This is
+intentional fail-closed behaviour (silently skipping a re-check of the
+finished expert file and only extracting non_expert would break the
+"BOTH conditions validated as a single atomic unit before any output exists"
+guarantee documented above) but it means resuming after a partial crash
+requires a DELIBERATE manual step: inspect which of expert_{size}.h5 /
+non_expert_{size}.h5 / manifest.json exist, and if the cell is genuinely
+incomplete, delete the partial output directory's contents before
+re-running. See the launcher scripts' own comments for the exact server
+paths to check.
+
+MODEL LOADED EXACTLY ONCE PER RUN (there is no --run_all mode in this
+script -- the model always loads exactly once and unconditionally, then
+BOTH conditions are processed sequentially in-process against that one
+loaded VicundaModel object).
 
 OUTPUT (server): components/hidden_states/{model}/gsm8k_abstention_role/
   expert_{size}.h5
@@ -173,6 +197,19 @@ ABSTENTION_SENTENCE = (
 )
 
 N_EXPECT = 300
+
+# Known-good ordered_sample_identity_sha256 for the frozen 300-question GSM8K
+# benchmark, recorded in the existing (older) GSM8K Role HS manifest -- i.e.
+# extract_role_hidden_states.py's own printed/stored digest for
+# task="gsm8k", computed via the IDENTICAL formula this script uses
+# ([s["question"] for s in samples], sha256 of "\n"-joined list). Checked
+# against unconditionally (not merely printed for a caller to compare) so
+# this script alone -- without needing the old extraction's manifest online
+# on the server -- detects if benchmark/gsm8k_test_sample.json on the server
+# has drifted from the file the old Role HS extraction actually read.
+EXPECTED_GSM8K_PAIRING_DIGEST = (
+    "64af9b38dac72f35ee1efa97bea8026e0c4d97b35730e76361eea9581a23cf35"
+)
 
 
 def die(msg: str) -> None:
@@ -532,6 +569,22 @@ def run_experiment(args):
     question_ids = [s["question"] for s in samples]
     questions_file_sha256 = sha256_of_file(gsm8k_file)
 
+    # ---- Fixed-value pairing-digest check against the OLD (existing)
+    # ---- GSM8K Role HS extraction's recorded digest -- this is the check
+    # ---- that actually guards against the server's benchmark file having
+    # ---- drifted since that extraction ran, which "same formula, both
+    # ---- models agree with each other" cannot detect on its own. ----
+    pairing_digest = sha256_of_list(ordered_identity_list(samples))
+    if pairing_digest != EXPECTED_GSM8K_PAIRING_DIGEST:
+        die("ordered_sample_identity_sha256 for "
+            f"{gsm8k_file} is {pairing_digest}, but the OLD GSM8K Role HS "
+            f"extraction recorded {EXPECTED_GSM8K_PAIRING_DIGEST}. The "
+            "300-question benchmark file must be byte-identical (same "
+            "questions, same order) to what that extraction used. Refusing "
+            "to proceed -- this indicates the file has drifted on this "
+            "server, not merely that this run's two models disagree with "
+            "each other.")
+
     templates = build_abstention_templates(wording=args.wording)
 
     manifest_path = experiment_manifest_path(out_dir)
@@ -687,9 +740,14 @@ def parse_args():
     p.add_argument("--out_dir", default=None,
                    help="Default: <base_dir>/hidden_states/<model>/"
                         "gsm8k_abstention_role/")
-    p.add_argument("--wording", default="plain", choices=["plain", "pushy"],
-                   help="Passed to build_gsm8k_default_suite's wording= "
-                        "(default: plain, matching the GSM8K main line).")
+    p.add_argument("--wording", default="plain", choices=["plain"],
+                   help="Frozen to 'plain' for this experiment -- 'pushy' "
+                        "is deliberately NOT offered (it would write to the "
+                        "SAME output directory as 'plain', which is a "
+                        "silent-collision hazard for a degree of freedom "
+                        "this round does not need). If a pushy-wording "
+                        "variant is ever wanted, it needs its own output "
+                        "directory, not this flag.")
     p.add_argument("--verify_only", action="store_true",
                    help="Render and print both prompts, print digests, "
                         "exit. No model load, no GPU.")
