@@ -104,8 +104,9 @@ rsync -avzh --partial --info=progress2 \
 43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
 44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
 45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠；✔
-46. Steering RSM8K with RRSN ⏸
-47. Steering MMLUE with RRSN ⏸
+46. Steering RSM8K with RRSN ✔
+47. Steering MMLUE with RRSN ✔
+48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN ⏸
 
 48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
@@ -117,10 +118,12 @@ rsync -avzh --partial --info=progress2 \
 44. MMLUE 
 45. 待补 Qwen Matched-Anchor α=0”
 
-MMLUE role confidence
-GSM8K role chat
-MATH role chat
-GSMHard role chat
+| Task | Existing Hidden-State Vectors |
+|---|---|
+| MMLU-E | Role-MRSN, Confidence-CSN |
+| GSM8K | Role-RRSN, Chat, Role-Abstention-ARRSN |
+| MATH | Role-RRSN, Chat |
+| GSM-Hard | Role-RRSN, Chat |
 
 ---
 若重点是“几何结构相似”，建议做一条很干净的 activation-manifold 分析链，而不是先做 neuron overlap。
