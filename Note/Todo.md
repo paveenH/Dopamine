@@ -33,11 +33,11 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.184:/data1/paveen/Dopamine/components/{llama3,qwen2.5} /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/hidden_states_mean/{llama3,qwen2.5} /Users/paveenhuang/Downloads
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
-  d12922004@140.112.31.182:/data1/paveen/Dopamine/components/ \
+  d12922004@140.112.31.185:/data1/paveen/Dopamine/components/ \
   /data1/paveen/Dopamine/components/
 
 ---
@@ -104,9 +104,10 @@ rsync -avzh --partial --info=progress2 \
 43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
 44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
 45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠；✔
-46. Steering RSM8K with RRSN ✔
-47. Steering MMLUE with RRSN ✔
-48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN ⏸
+46. Steering RSM8K with RRSN ✔ 
+47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
+48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好
+
 48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
 44. MMLUE confidence vector和这些之间的关系
@@ -163,6 +164,7 @@ rsync -avzh --partial --info=progress2 \
 - cosine 或 overlap 有富集，但 CKA/CCA 不高：**只有局部或方向性结构关联，不能说整体表征相近**。
 
 对你当前 RSN 项目，最有价值的首个图大概是：`layer × token-position` 的 CKA / Procrustes residual 热图，再配一张 PCA 子空间夹角曲线。PCA/UMAP/t-SNE 可以作图，但不应作为正式相似性证据。
+
 ---
 内部表征“相近”没有单一指标，最好分三层评估：
 
@@ -183,6 +185,7 @@ rsync -avzh --partial --info=progress2 \
 你们当前的 role/confidence 与 RSN 结果就是很好的例子：层间 cosine、top-neuron overlap 和共享稀疏核心可以支持“结构关联”，但不能推出两者同一机制或可互换；还需要 norm-matched cross-steering 复现彼此的行为效应。
 
 顺带说，这篇 logit-distance 论文补充了一个输出侧条件：若两模型在同一输入上的全词表 logit distance 小，在其强假设下可推出较高线性表征相似性；但对单模型局部 steering，它不能替代 activation-level 对齐与因果交叉验证。
+
 ---
 
 因此下一步不需要马上继续做 Manifold，而应进入 causal steering：
@@ -198,6 +201,7 @@ rsync -avzh --partial --info=progress2 \
 总之，这个结果没有制造新的“不一致”，反而给出了一个很清楚的解释框架：共享稀疏核心是真实的，但完整方向具有任务特异性；接下来由 cross-steering 判断共享部分是否具有共同功能。
 
 ---
+
 1. 先补一个成本很低的 final RRSN–MRSN exact-NMD comparison  
    包括 aggregate mask overlap、Jaccard、weighted cosine、双向 energy containment。这个不算完整 Manifold。
 
@@ -233,6 +237,7 @@ rsync -avzh --partial --info=progress2 \
 > **exact-NMD 静态核对 → RRSN→GSM8K → RRSN→MMLU-E → induced-state Manifold。**
 
 ---
+
 - `MMLU-E RSN`：MMLU-E 上得到的 sparse vector；
 - `Reasoning RSN`：GSM8K、MATH、GSM-Hard 三个方向取平均后，经过相同 sparse 流程得到的 vector；
 - 当前真正未完成的是 **Reasoning RSN 的中间层 band 选择**。
@@ -300,6 +305,7 @@ band 长度最好与 MMLU-E RSN 一致，便于后续 norm matching。除此之�
 > **逐层关系 → 冻结 Reasoning band → Reasoning RSN 自身正对照 → 反向 MMLU-E transfer → induced-state manifold。**
 
 其中真正具有决定性的实验仍是 `Reasoning RSN → MMLU-E`，但必须与 `Reasoning RSN → GSM8K` 一起看。否则反向 null 无法区分“不能跨任务”和“Reasoning RSN 本身没有被正确定位”。
+
 ---
 
 
