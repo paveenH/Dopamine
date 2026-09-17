@@ -72,6 +72,8 @@ import utils
 SCRIPT_VERSION = "build_gsm8k_construction_split-v1"
 
 EXPECTED_300_COUNT = 300
+EXPECTED_FULL_TEST_N = 1319
+EXPECTED_CONSTRUCTION_N = 1019
 
 
 def die(msg: str) -> None:
