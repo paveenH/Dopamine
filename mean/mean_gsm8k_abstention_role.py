@@ -42,10 +42,22 @@ workspace, not the large H5 themselves):
 
 ACCUMULATION DTYPE: float32 (never float16) for the running sum, matching
 mean_diff.py / mean_diff_confidence_local.py / mean_diff_chat.py /
-mean_role_reasoning.py's stated rationale; final mean/diff cast to float16
-only for the saved .npy, per the legacy (1, 1, n_layers, hidden_size)
-convention. NO L2 normalization anywhere -- direct arithmetic mean over raw
-hidden states, and a direct subtraction for the diff.
+mean_role_reasoning.py's stated rationale. NO L2 normalization anywhere --
+direct arithmetic mean over raw hidden states, and a direct subtraction for
+the diff.
+
+OUTPUT DTYPE, TWO DIFFERENT VALUES BY DESIGN (not a typo, not uniform):
+expert_mean/non_expert_mean are cast to FLOAT16 for saving, per the legacy
+(1, 1, n_layers, hidden_size) mean-file convention. The DIRECTION
+(gsm8k_abstention_role_diff) is then computed from those SAME SAVED float16
+mean arrays -- upcast back to float32, THEN subtracted -- and saved as
+FLOAT32, matching the existing formal reasoning Role-direction construction
+and the old GSM8K Role direction file's dtype. This is deliberately NOT the
+same as subtracting the two mean arrays before their float16 cast: the two
+orders (round-then-subtract vs subtract-then-round) differ by float16
+rounding, which could otherwise shift an exact-NMD top-k selection against
+the existing pipeline. See compute_means_and_diff()'s own docstring for the
+exact construction.
 
 FAIL-CLOSED, THREE PASSES: (1) validate the expert+non_expert H5/manifest
 headers+attrs (existence, shape, n_samples==300, n_samples_done==300,
@@ -59,15 +71,17 @@ written. This mirrors mean_role_reasoning.py's own three-pass discipline
 exactly (this script has only one "task" -- GSM8K -- where that script
 loops over three).
 
-Loads NO model, uses NO GPU. Never writes to (or reads from, except
-read-only) the input H5/manifest -- this script only reads the
-already-extracted hidden_states arrays and the experiment manifest, and
-never modifies either.
+Loads NO model, uses NO GPU. Never writes to, or modifies, the input
+expert_{size}.h5 / non_expert_{size}.h5 files themselves -- those are only
+ever opened read-only.
 
-Also updates the experiment-level manifest.json IN PLACE (atomic
-tempfile+os.replace) to record the mean/diff output paths, shapes, and the
-consistency-audit numbers -- this is an ADDITIVE update (new keys only); no
-existing key written by extract_gsm8k_abstention_role_hs.py is altered or
+The experiment-level manifest.json IS updated, but NOT by rewriting or
+removing anything extract_gsm8k_abstention_role_hs.py wrote to it: this
+script performs one ADDITIVE, atomic (tempfile+os.replace) update that adds
+a new "mean_diff" key recording the mean/diff output paths, dtypes, shapes,
+and the consistency-audit numbers. Every key already written by
+extract_gsm8k_abstention_role_hs.py is read back unchanged and re-written
+byte-for-byte as part of the same JSON object -- none of them is altered or
 removed.
 
 Usage (run on the SERVER -- server interpreter is `python`, NOT `python3.10`,
@@ -271,6 +285,21 @@ def load_and_check_finite(h5_file_path: Path) -> np.ndarray:
 
 
 def compute_means_and_diff(v: dict) -> dict:
+    """Mean/diff dtype convention, MATCHING the existing formal reasoning
+    Role direction construction (and the old GSM8K Role direction file),
+    NOT independently re-derived:
+      - expert_mean / non_expert_mean are float32-accumulated, then cast to
+        float16 for saving (mean_role_reasoning.py's convention).
+      - the DIRECTION (diff) is computed from those SAME saved float16 mean
+        arrays, upcast back to float32, THEN subtracted, and saved as
+        float32 -- NOT computed from the pre-cast float32 means. The two
+        differ by float16 rounding order (round-then-subtract vs
+        subtract-then-round), and only the round-then-subtract order
+        matches what the existing exact-NMD/Role-direction pipeline
+        actually consumes (a stored float16 mean pair, subtracted after
+        loading). This ordering is small but was explicitly requested to
+        avoid an exact-NMD top-k discrepancy against the existing pipeline.
+    """
     expert_16 = load_and_check_finite(v["h5_paths"]["expert"])
     nonexpert_16 = load_and_check_finite(v["h5_paths"]["non_expert"])
 
@@ -279,43 +308,80 @@ def compute_means_and_diff(v: dict) -> dict:
 
     expert_mean32 = expert_32.mean(axis=0)   # (L, H)
     nonexpert_mean32 = nonexpert_32.mean(axis=0)
-    diff32 = expert_mean32 - nonexpert_mean32   # raw sign, NO L2 norm
+
+    # ---- Final on-disk mean dtype: float16. Everything downstream of this
+    # ---- point (the diff) is built from THESE arrays, not from
+    # ---- expert_mean32/nonexpert_mean32 directly. ----
+    expert_mean_out = expert_mean32.astype(np.float16)[None, None, ...]
+    nonexpert_mean_out = nonexpert_mean32.astype(np.float16)[None, None, ...]
+
+    # ---- Direction: reconstructed from the SAVED float16 means, upcast to
+    # ---- float32, then subtracted -- matches the existing Role direction
+    # ---- construction (expert_mean_f16.astype(float32) -
+    # ---- nonexpert_mean_f16.astype(float32)). Saved as float32, NOT
+    # ---- float16 -- matches the old GSM8K Role direction file's dtype. NO
+    # ---- L2 normalization anywhere. ----
+    diff_out = (
+        expert_mean_out.astype(np.float32)
+        - nonexpert_mean_out.astype(np.float32)
+    )
 
     # float64 shadow pass for a consistency audit (accumulation precision
-    # only), matching mean_role_reasoning.py's pattern.
+    # only), matching mean_role_reasoning.py's pattern. The float64
+    # reference diff is likewise built the round-then-subtract way (via a
+    # float64 mean rounded to float16 and back), so it audits the SAME
+    # on-disk construction, not the alternate subtract-then-round one.
     expert_64 = expert_16.astype(np.float64)
     nonexpert_64 = nonexpert_16.astype(np.float64)
     expert_mean64 = expert_64.mean(axis=0)
     nonexpert_mean64 = nonexpert_64.mean(axis=0)
-    diff64 = expert_mean64 - nonexpert_mean64
+    diff64_ref = (
+        expert_mean64.astype(np.float16).astype(np.float64)
+        - nonexpert_mean64.astype(np.float16).astype(np.float64)
+    )
 
     max_abs_err_expert = float(np.max(np.abs(
         expert_mean64.astype(np.float32) - expert_mean32)))
     max_abs_err_nonexpert = float(np.max(np.abs(
         nonexpert_mean64.astype(np.float32) - nonexpert_mean32)))
     max_abs_err_diff = float(np.max(np.abs(
-        diff64.astype(np.float32) - diff32)))
+        diff64_ref.astype(np.float32) - diff_out[0, 0])))
 
-    # Identity check: diff computed from the float32 MEANS must equal
-    # expert_mean32 - nonexpert_mean32 exactly (it is defined that way, but
-    # verified rather than assumed -- catches a copy/paste transposition
-    # bug where diff was accidentally computed from something else).
-    if not np.array_equal(diff32, expert_mean32 - nonexpert_mean32):
-        die("internal error: diff32 does not equal "
-            "expert_mean32 - nonexpert_mean32 by direct recomputation; "
+    # Identity check: diff_out must equal, by direct recomputation from the
+    # FINAL on-disk mean arrays (not from the pre-cast float32 means), a
+    # fresh (expert_mean_out.astype(float32) - nonexpert_mean_out.astype
+    # (float32)) -- catches a copy/paste/reordering bug where diff was
+    # accidentally computed from something else than the saved means.
+    recomputed = (
+        expert_mean_out.astype(np.float32)
+        - nonexpert_mean_out.astype(np.float32)
+    )
+    if not np.array_equal(diff_out, recomputed):
+        die("internal error: diff_out does not equal "
+            "expert_mean_out.astype(float32) - "
+            "nonexpert_mean_out.astype(float32) by direct recomputation; "
             "refusing to write an inconsistent diff.")
 
     return {
-        "expert_mean": expert_mean32.astype(np.float16)[None, None, ...],
-        "non_expert_mean": nonexpert_mean32.astype(np.float16)[None, None, ...],
-        "diff": diff32.astype(np.float16)[None, None, ...],
+        "expert_mean": expert_mean_out,
+        "non_expert_mean": nonexpert_mean_out,
+        "diff": diff_out,
+        "mean_dtype": "float16",
+        "diff_dtype": "float32",
         "consistency_check": {
-            "description": "float32 (production accumulation dtype) mean/"
-                           "diff vs an independent float64 (higher-"
-                           "precision audit) recomputation, both before any "
-                           "float16 cast; NO L2 normalization applied "
-                           "anywhere; diff = expert_mean - non_expert_mean, "
-                           "raw sign, verified by direct recomputation.",
+            "description": "float32 (production accumulation dtype) means "
+                           "vs an independent float64 (higher-precision "
+                           "audit) recomputation, both before any float16 "
+                           "cast; NO L2 normalization applied anywhere. "
+                           "diff is computed from the SAVED float16 means "
+                           "(round-then-subtract), upcast to float32, "
+                           "matching the existing formal Role-direction "
+                           "construction and the old GSM8K Role direction "
+                           "file's dtype -- NOT from the pre-cast float32 "
+                           "means (subtract-then-round), which would differ "
+                           "by float16 rounding order. Verified by direct "
+                           "recomputation from the final on-disk mean "
+                           "arrays before writing.",
             "max_abs_error_float64_expert": max_abs_err_expert,
             "max_abs_error_float64_non_expert": max_abs_err_nonexpert,
             "max_abs_error_float64_diff": max_abs_err_diff,
@@ -417,12 +483,19 @@ def run(args):
         "computation": (
             "expert_mean/non_expert_mean = elementwise arithmetic mean over "
             "the sample axis (per layer, per hidden dim), NO L2 "
-            "normalization. gsm8k_abstention_role_diff = expert_mean - "
-            "non_expert_mean, raw sign, NO L2 normalization, verified by "
-            "direct recomputation before writing."
+            "normalization, accumulated in float32 then cast to float16 for "
+            "saving. gsm8k_abstention_role_diff = expert_mean.astype("
+            "float32) - non_expert_mean.astype(float32), computed from "
+            "those SAME SAVED float16 mean arrays (round-then-subtract, "
+            "matching the existing formal Role-direction construction and "
+            "the old GSM8K Role direction file's dtype), NOT from the "
+            "pre-cast float32 means -- raw sign, NO L2 normalization, "
+            "verified by direct recomputation from the on-disk mean arrays "
+            "before writing."
         ),
         "accumulation_dtype": "float32 (float64 shadow pass for audit only)",
-        "output_dtype": "float16",
+        "mean_dtype": means["mean_dtype"],
+        "diff_dtype": means["diff_dtype"],
         "n_samples": v["n_samples"],
         "input_shape": v["shape"],
         "output_shape": list(means["expert_mean"].shape),
