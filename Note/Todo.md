@@ -106,7 +106,8 @@ rsync -avzh --partial --info=progress2 \
 45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠；✔
 46. Steering RSM8K with RRSN ✔ 
 47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
-48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好
+48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
+49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
 
 48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
