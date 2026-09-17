@@ -14,7 +14,9 @@ model and computes:
       never the primary readout, matching this repo's frozen FIRST-main/
       LAST-sensitivity convention.
     - abstention_rate: fraction scored "abstained" (n=300 denominator).
-    - coverage = 1 - abstention_rate.
+    - non_abstention_rate = 1 - abstention_rate (includes invalid rows in
+      its numerator; NOT the fraction of parseable/answered rows -- that is
+      n_conditional/n, see conditional_acc below).
     - conditional_acc: accuracy computed ONLY on rows that are NOT abstained
       AND have a parseable first `####` marker (i.e. outcome in
       {"correct","wrong"}) -- the denominator (n_conditional) is reported
@@ -24,27 +26,40 @@ model and computes:
 
   Paired expert-vs-non_expert comparison (matched by idx/question, both
   conditions read the SAME 300 questions in the SAME order by construction):
-    - Delta in first_acc, abstention_rate, coverage, invalid_rate.
+    - Delta in first_acc, abstention_rate, non_abstention_rate, invalid_rate.
     - 95% CI for each delta via a paired bootstrap over questions (B=10000,
       seeded, resampling row PAIRS so a question's expert/non_expert outcome
       always travels together).
     - Exact two-sided McNemar test (imported from p3/run_p3_eval.py's
       mcnemar_exact -- NOT reimplemented) on the discordant counts for
-      first_acc AND separately for "abstained" (expert abstained but
-      non_expert did not, and vice versa), so the abstention-rate difference
-      gets its own significance test rather than being read off the
-      descriptive rates alone.
+      first_acc, "abstained", AND "invalid" separately.
+
+  MULTIPLE-COMPARISON POLICY (explicit, per review): three McNemar tests are
+  computed per model. The "abstained" test is the PRIMARY/confirmatory test
+  for this audit's central question (does non_expert abstain more); "first_
+  acc" and "invalid" are DIAGNOSTIC/supporting tests, reported to rule out
+  "non_expert merely produces more format failures" as an alternative
+  explanation for any abstention-rate difference, not as independent
+  discoveries in their own right. If a reader wants all three treated as
+  independent confirmatory claims within one model, Holm-Bonferroni (m=3,
+  same `holm()` used throughout this repo's P3/P4 lines) should be applied
+  externally to the three p-values in `mcnemar_exact`; this script reports
+  raw (unadjusted) p-values and labels them explicitly as such, and does NOT
+  silently present the diagnostic pair as if they were pre-registered
+  confirmatory tests.
     - This directly answers the instruction's specific question: does
-      non_expert show HIGHER abstention / LOWER coverage, as opposed to
-      merely more invalid/format-failure output? The abstained-vs-invalid
-      McNemar tests are reported side by side so the two cannot be
-      conflated.
+      non_expert show HIGHER abstention / LOWER non-abstention rate, as
+      opposed to merely more invalid/format-failure output? The abstained-
+      vs-invalid McNemar tests are reported side by side so the two cannot
+      be conflated.
 
 FAIL-CLOSED CHECKS (before computing anything):
   - both condition files + run_meta exist and parse;
   - run_meta.n_samples == 300, run_meta.steering_applied == False,
     run_meta.mask_loaded == False (refuses to analyze a steered run under
     this audit's name);
+  - run_meta.size == the --size argument passed to this script (refuses a
+    size/model mismatch between the CLI and the stored run);
   - both condition files have exactly 300 rows, each idx 0..299 exactly
     once (no gap, no duplicate);
   - the "question" field is IDENTICAL between the expert and non_expert row
@@ -52,7 +67,15 @@ FAIL-CLOSED CHECKS (before computing anything):
     digest);
   - the "gold_answer" field is IDENTICAL between the two conditions at each
     idx;
-  - every row's "outcome" is one of the four expected categories;
+  - each row's "role" field matches the condition key of the file it was
+    loaded from (expert.json rows must all say role=="expert", etc.) -- a
+    guard against a swapped/mislabeled file;
+  - each row's "mask_loaded"/"steering_applied" are both False;
+  - every row's "outcome" is RE-DERIVED from its own "generated" text via a
+    local re-implementation of the marker/abstention parse and asserted to
+    match the stored "outcome" field exactly -- this is a re-verification of
+    the recorded label against the raw generation, not merely a check that
+    the label is drawn from the expected category set;
   - refuses to overwrite existing output.
 
 Output: <out_dir>/gsm8k_abstention_role_audit_summary_{size}.json (all
@@ -79,13 +102,73 @@ import tempfile
 # used throughout this repo's P3/P4/P4b/P4c lines.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "p3"))
-from run_p3_eval import mcnemar_exact  # noqa: E402
+from run_p3_eval import holm, mcnemar_exact  # noqa: E402
 
 CONDITIONS = ("expert", "non_expert")
 N_EXPECT = 300
 VALID_OUTCOMES = {"correct", "wrong", "abstained", "invalid"}
 BOOTSTRAP_B = 10000
 BOOTSTRAP_SEED = 0
+
+# Re-derivation of the outcome parse, kept in sync BY HAND with
+# get_answer_gsm8k_abstention_role_audit.py's own parse_outcome() /
+# is_strict_abstention() / all_hash_matches() -- duplicated rather than
+# imported so this offline analysis script has zero import-time dependency
+# on the (server-run) generation script's environment (utils.py, llms.py).
+# The re-derivation is a STRUCTURAL CROSS-CHECK against the stored "outcome"
+# field, not a replacement definition -- any mismatch is a fatal refusal
+# (see _reverify_outcome below), so drift between the two copies is caught
+# rather than silently trusted.
+import re as _re
+_HASH_MARKER_RE = _re.compile(r"####\s*([+-]?[\d,]+\.?\d*)")
+
+
+def _normalize_gsm8k_local(raw: str) -> str:
+    return raw.replace(",", "").strip()
+
+
+def _reverify_outcome(row: dict) -> None:
+    """Re-derive the outcome from row['generated'] + row['gold_answer'] and
+    assert it matches row['outcome'] exactly. Does NOT re-derive correctness
+    via utils.is_correct_gsm8k (that needs utils.py); instead cross-checks
+    the STRUCTURAL category (does a marker exist, is the text a strict
+    abstention) against the stored first_marker_raw/last_marker_raw and
+    abstention_strict fields, which is what determines the outcome category
+    in the generation script."""
+    text = row["generated"]
+    markers = [m.group(1).replace(",", "") for m in
+               _HASH_MARKER_RE.finditer(text)]
+    # exact_abstention_phrase is not stored per-row (it's in run_meta), so
+    # re-derive strict abstention from the ALREADY-STORED abstention_strict
+    # flag's consistency with markers/outcome, which is checkable without
+    # the phrase constant leaking into this offline script.
+    stored_outcome = row["outcome"]
+    has_marker = len(markers) > 0
+    if has_marker:
+        if row.get("first_marker_raw") != markers[0]:
+            die(f"idx={row.get('idx')}: re-parsed first marker {markers[0]!r} "
+                f"!= stored first_marker_raw {row.get('first_marker_raw')!r} "
+                "-- outcome label does not match the raw generation.")
+        if stored_outcome not in ("correct", "wrong"):
+            die(f"idx={row.get('idx')}: generated text has a parseable "
+                f"'####' marker ({markers[0]!r}) but stored outcome is "
+                f"{stored_outcome!r}, expected 'correct' or 'wrong' -- "
+                "marker-precedes-abstention rule violated in stored data.")
+    else:
+        if stored_outcome not in ("abstained", "invalid"):
+            die(f"idx={row.get('idx')}: generated text has NO parseable "
+                f"'####' marker but stored outcome is {stored_outcome!r}, "
+                "expected 'abstained' or 'invalid'.")
+        if stored_outcome == "abstained" and not row.get(
+                "abstention_strict", False):
+            die(f"idx={row.get('idx')}: stored outcome is 'abstained' but "
+                "abstention_strict field is not True -- inconsistent "
+                "stored row.")
+        if stored_outcome == "invalid" and row.get("abstention_strict",
+                                                    False):
+            die(f"idx={row.get('idx')}: stored outcome is 'invalid' but "
+                "abstention_strict field is True -- inconsistent stored "
+                "row (should have been 'abstained').")
 
 
 def die(msg: str) -> None:
@@ -115,6 +198,11 @@ def validate_and_load(audit_dir: str, size: str) -> dict:
     if bool(meta.get("mask_loaded", True)) is not False:
         die("run_meta.mask_loaded is not False -- refusing to analyze a "
             "run that loaded a mask under this no-steering audit's name.")
+    if meta.get("size") != size:
+        die(f"run_meta.size={meta.get('size')!r} != --size argument "
+            f"{size!r} -- refusing a size/model mismatch between the CLI "
+            "and the stored run (this would otherwise resolve to a "
+            "plausible-looking but wrong output path).")
 
     rows = {}
     for cond, path in (("expert", expert_path), ("non_expert", nonexpert_path)):
@@ -132,6 +220,12 @@ def validate_and_load(audit_dir: str, size: str) -> dict:
                     f"{sorted(VALID_OUTCOMES)}.")
             if bool(r.get("steering_applied", True)) is not False:
                 die(f"{path}: idx={idx} row has steering_applied != False.")
+            if bool(r.get("mask_loaded", True)) is not False:
+                die(f"{path}: idx={idx} row has mask_loaded != False.")
+            if r.get("role") != cond:
+                die(f"{path}: idx={idx} row has role={r.get('role')!r}, "
+                    f"expected {cond!r} -- file may be mislabeled/swapped.")
+            _reverify_outcome(r)
             by_idx[idx] = r
         missing_idx = set(range(N_EXPECT)) - set(by_idx.keys())
         if missing_idx:
@@ -187,7 +281,13 @@ def per_role_stats(rows: list) -> dict:
         "n_correct_first": n_first_correct,
         "n_wrong_first": n_wrong,
         "abstention_rate": n_abstained / n,
-        "coverage": 1.0 - (n_abstained / n),
+        # Named non_abstention_rate (not "coverage") per review: this
+        # quantity is 1 - abstention_rate and INCLUDES invalid/format-
+        # failure rows in its numerator (anything that isn't a strict
+        # abstention), so it is not "fraction of parseable/covered
+        # answers" -- that quantity is n_conditional/n, reported
+        # separately below via conditional_acc's denominator.
+        "non_abstention_rate": 1.0 - (n_abstained / n),
         "n_abstained": n_abstained,
         "invalid_rate": n_invalid / n,
         "n_invalid": n_invalid,
@@ -253,7 +353,7 @@ def _metric_abstention_rate(rows: list) -> float:
     return sum(1 for r in rows if r["outcome"] == "abstained") / len(rows)
 
 
-def _metric_coverage(rows: list) -> float:
+def _metric_non_abstention_rate(rows: list) -> float:
     return 1.0 - _metric_abstention_rate(rows)
 
 
@@ -303,7 +403,7 @@ def paired_mcnemar_abstained(expert_rows: list, nonexpert_rows: list) -> dict:
 def paired_mcnemar_invalid(expert_rows: list, nonexpert_rows: list) -> dict:
     """McNemar on the INVALID/format-failure indicator, kept separate from
     the abstention McNemar above specifically so the instruction's
-    'higher abstention / lower coverage, not just more format errors'
+    'higher abstention / lower non_abstention_rate, not just more format errors'
     question can be answered by comparing the two p-values side by side
     rather than reading one aggregate number."""
     b = 0
@@ -365,12 +465,19 @@ def main():
             rows["expert"], rows["non_expert"], _metric_first_acc),
         "abstention_rate": paired_bootstrap_ci(
             rows["expert"], rows["non_expert"], _metric_abstention_rate),
-        "coverage": paired_bootstrap_ci(
-            rows["expert"], rows["non_expert"], _metric_coverage),
+        "non_abstention_rate": paired_bootstrap_ci(
+            rows["expert"], rows["non_expert"], _metric_non_abstention_rate),
         "invalid_rate": paired_bootstrap_ci(
             rows["expert"], rows["non_expert"], _metric_invalid_rate),
     }
 
+    # "abstained" is the PRIMARY/confirmatory test; "first_acc" and
+    # "invalid" are DIAGNOSTIC (ruling out "just more format failures" as
+    # the explanation). Raw p-values are reported; Holm-adjusted p-values
+    # across all three are also reported (m=3) for a reader who wants every
+    # test treated as independently confirmatory -- see the module
+    # docstring's MULTIPLE-COMPARISON POLICY.
+    mcnemar_order = ["first_acc", "abstained", "invalid"]
     mcnemar = {
         "first_acc": paired_mcnemar_first_acc(
             rows["expert"], rows["non_expert"]),
@@ -379,6 +486,13 @@ def main():
         "invalid": paired_mcnemar_invalid(
             rows["expert"], rows["non_expert"]),
     }
+    raw_pvals = [mcnemar[k]["p_exact_mcnemar"] for k in mcnemar_order]
+    adj_pvals = holm(raw_pvals)
+    for k, p_adj in zip(mcnemar_order, adj_pvals):
+        mcnemar[k]["p_holm_adjusted_m3"] = p_adj
+        mcnemar[k]["role_in_analysis"] = (
+            "primary/confirmatory" if k == "abstained"
+            else "diagnostic/supporting")
 
     summary = {
         "model": meta["model"],
@@ -438,19 +552,22 @@ def main():
         print(f"  {role:12s}  first_acc={s['first_acc']:.4f}  "
               f"last_acc={s['last_acc']:.4f}  "
               f"abstention_rate={s['abstention_rate']:.4f}  "
-              f"coverage={s['coverage']:.4f}  "
+              f"non_abstention_rate={s['non_abstention_rate']:.4f}  "
               f"conditional_acc={cond_acc_str} (n={s['n_conditional']})  "
               f"invalid_rate={s['invalid_rate']:.4f}")
     print()
     print("  paired deltas (expert - non_expert):")
     for metric_name, b in bootstrap.items():
         lo, hi = b["bootstrap_ci95"]
-        print(f"    {metric_name:16s} delta={b['delta_expert_minus_nonexpert']:+.4f} "
+        print(f"    {metric_name:18s} delta={b['delta_expert_minus_nonexpert']:+.4f} "
               f"CI95=[{lo:+.4f},{hi:+.4f}]")
-    print("  exact McNemar:")
-    for metric_name, m in mcnemar.items():
+    print("  exact McNemar (raw p / Holm-adjusted m=3 / role):")
+    for metric_name in mcnemar_order:
+        m = mcnemar[metric_name]
         print(f"    {metric_name:10s} b={m['b_expert_only']:3d} "
-              f"c={m['c_nonexpert_only']:3d} p={m['p_exact_mcnemar']:.4g}")
+              f"c={m['c_nonexpert_only']:3d} p={m['p_exact_mcnemar']:.4g} "
+              f"p_holm={m['p_holm_adjusted_m3']:.4g} "
+              f"[{m['role_in_analysis']}]")
 
 
 if __name__ == "__main__":
