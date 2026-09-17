@@ -107,7 +107,6 @@ rsync -avzh --partial --info=progress2 \
 46. Steering RSM8K with RRSN ✔
 47. Steering MMLUE with RRSN ✔
 48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN ⏸
-
 48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
 44. MMLUE confidence vector和这些之间的关系
