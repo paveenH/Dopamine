@@ -66,17 +66,29 @@ sample):
   - "wrong"     : a `####` marker parses to a number, but it does NOT
                    normalize equal to gold.
   - "abstained" : NO `####` marker anywhere in the generated text, AND the
-                   text contains the EXACT phrase 'I am not sure' (matched
-                   case-sensitively against the literal abstention phrase
-                   from ABSTENTION_SENTENCE, not a fuzzy/case-insensitive
-                   match -- a model that writes "I am not sure" but ALSO
-                   emits a parseable `####` marker is NOT scored as
-                   abstained, since it did commit to a numeric answer; see
-                   parse_outcome() for the precedence rule).
-  - "invalid"   : neither of the above -- no parseable `####` marker AND no
-                   exact "I am not sure" phrase (empty generation, prose
-                   with no marker and no abstention phrase, or any other
-                   format failure).
+                   text, after stripping whitespace, is EXACTLY the phrase
+                   'I am not sure' (strict equality, not a substring match --
+                   a model that writes "I am not sure, but maybe 42" or
+                   "I am not sure. Let me reconsider..." is NOT scored as a
+                   clean abstention under this primary definition, since it
+                   did not stop at the bare phrase; see parse_outcome() for
+                   the precedence rule and the separate substring-based
+                   sensitivity field).
+  - "invalid"   : neither of the above -- no parseable `####` marker AND the
+                   stripped text is not exactly "I am not sure" (empty
+                   generation, prose with no marker and no exact abstention
+                   phrase, "I am not sure" embedded in a longer non-marker
+                   reply, or any other format failure).
+
+ABSTENTION MATCH: STRICT (primary) vs SUBSTRING (sensitivity). The PRIMARY
+"abstained" outcome requires `generated.strip() == "I am not sure"` exactly --
+a bare, clean abstention. A separate boolean field,
+`abstention_phrase_present_substring`, records the looser substring check
+(`"I am not sure" in generated`) for every row regardless of outcome, so the
+offline analysis can report how often the phrase appears embedded in longer,
+non-clean replies without those replies silently inflating the primary
+abstention rate. A `####` marker still takes precedence over both checks (see
+below).
 PRIMARY marker extraction is FIRST-`####`-ONLY (matching this repo's
 documented production convention: `analyze_first_last_acc.py`'s `all_hash`
 takes every `####` match and MAIN accuracy uses the FIRST; GSM8K's own
@@ -244,7 +256,19 @@ def all_hash_matches(text: str) -> list:
     return [m.group(1).replace(",", "") for m in HASH_MARKER_RE.finditer(text)]
 
 
+def is_strict_abstention(text: str) -> bool:
+    """PRIMARY abstention check: the generated text, stripped of leading/
+    trailing whitespace, is EXACTLY the abstention phrase -- no extra words,
+    no trailing continuation. Strict equality, not a substring match."""
+    return text.strip() == EXACT_ABSTENTION_PHRASE
+
+
 def contains_exact_abstention_phrase(text: str) -> bool:
+    """SENSITIVITY-ONLY substring check: does the exact phrase appear
+    anywhere in the text (case-sensitive), regardless of what else is
+    written. Recorded on every row but does NOT by itself drive the
+    "abstained" outcome -- see is_strict_abstention() for the primary
+    check."""
     return EXACT_ABSTENTION_PHRASE in text
 
 
@@ -253,7 +277,8 @@ def parse_outcome(generated: str, gold: str) -> dict:
       marker_values_first_to_last: list[str] (raw parsed strings, in order)
       first_marker_raw / last_marker_raw: str or None
       first_correct / last_correct: bool or None (None if no marker)
-      abstention_phrase_present: bool
+      abstention_phrase_present_substring: bool (sensitivity-only)
+      abstention_strict: bool (drives the primary "abstained" outcome)
       outcome: one of "correct","wrong","abstained","invalid"
 
     PRECEDENCE RULE (deliberate, stated in the module docstring): a
@@ -261,11 +286,16 @@ def parse_outcome(generated: str, gold: str) -> dict:
     a sample that both writes "I am not sure" AND emits a `####` marker is
     scored by the marker (correct/wrong), never as "abstained", because it
     DID commit to a numeric answer. Only the complete absence of any
-    parseable marker, combined with the exact phrase present, counts as a
-    true abstention.
+    parseable marker, combined with a STRICT (whole-reply) match on the
+    exact phrase, counts as a true "abstained" outcome. A reply that merely
+    CONTAINS the phrase amid other text (e.g. "I am not sure, but maybe 42")
+    is scored "invalid" under the primary outcome -- it is neither a clean
+    abstention nor a parseable numeric answer -- and is flagged via
+    `abstention_phrase_present_substring` for sensitivity reporting.
     """
     markers = all_hash_matches(generated)
-    abst_present = contains_exact_abstention_phrase(generated)
+    abst_substring = contains_exact_abstention_phrase(generated)
+    abst_strict = is_strict_abstention(generated)
 
     if markers:
         first_raw = markers[0]
@@ -279,18 +309,20 @@ def parse_outcome(generated: str, gold: str) -> dict:
             "last_marker_raw": last_raw,
             "first_correct": first_correct,
             "last_correct": last_correct,
-            "abstention_phrase_present": abst_present,
+            "abstention_phrase_present_substring": abst_substring,
+            "abstention_strict": abst_strict,
             "outcome": outcome,
         }
 
-    if abst_present:
+    if abst_strict:
         return {
             "marker_values_first_to_last": [],
             "first_marker_raw": None,
             "last_marker_raw": None,
             "first_correct": None,
             "last_correct": None,
-            "abstention_phrase_present": True,
+            "abstention_phrase_present_substring": abst_substring,
+            "abstention_strict": True,
             "outcome": "abstained",
         }
 
@@ -300,7 +332,8 @@ def parse_outcome(generated: str, gold: str) -> dict:
         "last_marker_raw": None,
         "first_correct": None,
         "last_correct": None,
-        "abstention_phrase_present": False,
+        "abstention_phrase_present_substring": abst_substring,
+        "abstention_strict": False,
         "outcome": "invalid",
     }
 
