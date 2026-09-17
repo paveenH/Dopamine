@@ -61,7 +61,7 @@ rsync -avzh --partial --info=progress2 \
 看完徐玉兰视频
 
 ### TO DO
-16. MATH补充完整 ✔ 
+16. MATH 补充完整 ✔ 
 17. LogiQA working point ✖ 目前做不出来，不确定是因为选择题的形式问题还是逻辑推理无法迁移
 18. BBH counting task ✔
 19. 精简claude.md的内容 ✔
@@ -108,7 +108,8 @@ rsync -avzh --partial --info=progress2 \
 47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
 48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
 49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
-50. 换成全量的GSM8K Chat 作为固定的ChatSN ⏸
+50. 换成全量的GSM8K Chat 作为固定的ChatSN ✔
+51. GSM8K with anstention expert & non-expert performance ⏸
 
 MRSN & RRSN 
 RRSN & ChatSN（GSM8K）
