@@ -33,9 +33,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/hidden_states/{llama3_chat,qwen2.5_chat} /Users/paveenhuang/Downloads
-
-rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/benchmark/cruxeval_p4c_formal.json /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.184:/data1/paveen/Dopamine/components/{llama3,qwen2.5} /Users/paveenhuang/Downloads
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
