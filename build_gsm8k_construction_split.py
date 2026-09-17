@@ -218,6 +218,14 @@ def main():
         die(f"construction split has {len(construction_rows)} items, "
             f"expected exactly {n_full} - {EXPECTED_300_COUNT} = "
             f"{expected_construction_n}.")
+    if len(construction_rows) != EXPECTED_CONSTRUCTION_N:
+        die(f"construction split has {len(construction_rows)} items, "
+            f"expected exactly {EXPECTED_CONSTRUCTION_N} (the previously "
+            "verified count: 1319 full test - 300 reserved = 1019). This "
+            "check is independent of the full_test_n check above and is "
+            "what catches the case where the full test set silently changed "
+            "size to something that still happens to be 300 more than the "
+            "construction split.")
 
     construction_questions = [r["question"] for r in construction_rows]
     if len(set(construction_questions)) != len(construction_questions):
@@ -254,11 +262,11 @@ def main():
         "source_dataset": {
             "path": "openai/gsm8k", "name": "main", "split": "test",
             "requested_revision": args.revision,
-            "note": "revision was NOT passed to load_dataset() unless "
-                    "--revision was given; if omitted, this manifest "
-                    "records only the requested value (None), not a "
-                    "resolved commit hash -- rerun with --revision pinned "
-                    "for byte-exact future reproducibility.",
+            "note": "requested_revision was passed to load_dataset() as "
+                    "'revision' when --revision was given (None means the "
+                    "HF default revision was used and no revision pin was "
+                    "applied) -- rerun with --revision pinned for "
+                    "byte-exact future reproducibility.",
         },
         "full_test_set_n": n_full,
         "excluded_300_file": {
