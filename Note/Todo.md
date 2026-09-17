@@ -108,6 +108,11 @@ rsync -avzh --partial --info=progress2 \
 47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
 48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
 49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
+50. 换成全量的GSM8K Chat 作为固定的ChatSN ⏸
+
+MRSN & RRSN 
+RRSN & ChatSN（GSM8K）
+MRSN & Confidence （MMLUE）
 
 48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
