@@ -33,7 +33,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/hidden_states_mean/{llama3,qwen2.5} /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/{llama3,qwen2.5} /Users/paveenhuang/Downloads
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
@@ -109,11 +109,16 @@ rsync -avzh --partial --info=progress2 \
 48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
 49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
 50. 换成全量的GSM8K Chat 作为固定的ChatSN ✔
-51. GSM8K with anstention expert & non-expert performance ⏸
+51. GSM8K with anstention expert & non-expert performance ✔
+   1) 当前的prompt控制不住输出，那么HS应该也是不对的
+   2) 需要先完善版本，控制住输出才可以
 
+Target：
 MRSN & RRSN 
 RRSN & ChatSN（GSM8K）
 MRSN & Confidence （MMLUE）
+
+也可以用MRSN来控制 reasoning的不确定出口 如果找到的话
 
 48. 再讨论一下相似度表征这件事
 46. Manifold reasoning Chat & MMLUE RSN
