@@ -4,6 +4,8 @@
 
 本文分别整理 Role–Confidence 与 Role–Chat 两组关系。前者同时包含 representation 与 intervention-based functional evidence；后者目前主要是 hidden-state structural evidence，Chat 的行为 dose response 单独见 `ReasoningChat.md`。hidden-state projection、cosine、top-coordinate overlap 与 transition subspace 都只能描述表征关系，不能单独证明共享因果机制。
 
+**说明（2026-09-18）：** 本文 §3 中作为 "Reasoning Role mean" 参照使用的方向，读取自 `2.constructed_directions/{model}_role_diff_reasoning_mean.npy`——这是旧版三任务（GSM8K/MATH/GSM-Hard）forced-answer Role direction 的未归一化算术平均，与之前曾被称为 RRSN 的任一版本（包括后来重定义为 GSM8K abstention-role 的版本）同源。RRSN 的两个版本均已从当前研究主线中退出（详见 `~/CLAUDE.md` 的历史记录条目），本文 §3 的数值和结论未受影响、无需重新计算，但读者不应将 §3 中的这一参照方向视为未来任何新 RRSN 的结果。
+
 Role neurons（RSNs）与 Confidence neurons（CSNs）在表征上明显相关，但目前没有证据表明两者具有相同功能。
 
 - **Representation:** 两个方向在 Layer 11–19 的 cosine similarity 为 **0.6063**，并共享 **46/180（25.6%）** 个 top-neuron positions。
@@ -275,92 +277,20 @@ Role direction 与 Chat–Bare mean direction 几乎正交，因此二者不是�
 
 因此，当前证据支持一种部分包含关系：Role/RSN 不是完整的 Chat state，但与 Chat 引起的多维状态变化共享非随机的稀疏结构和子空间成分。该结果属于 representational evidence，不能单独证明二者具有相同的因果机制。
 
-## 4. MMLU-E RSN–Reasoning RSN Relationship
+## 4. Cross-Relationship Summary
 
-### 4.1 Analysis Scope
-
-本节直接比较两类 Role directions：
-
-- **MMLU-E RSN（MRSN）**：MMLU-E 的 Expert−Non-expert direction；
-- **Reasoning RSN（RRSN）**：GSM8K、MATH 与 GSM-Hard 三个 Expert−Non-expert directions 的未归一化算术平均。
-
-所有方向均保持原始符号，不做自动翻转；RRSN 在聚合前不进行逐任务 L2 normalization。主比较沿用已冻结的 MRSN band：Llama3 `[11,20)`，Qwen2.5 `[16,22)`。因此，本节回答的是同一层段内两类 Role directions 的表征关系，而不是它们各自最优的 causal steering layer。
-
-### 4.2 Dense Direction Alignment
-
-RRSN 与 MRSN 在两个模型中均呈弱正相关，但不构成同一条 dense axis。
-
-| Model | Band | Mean Layerwise Cosine | Flattened-Band Cosine | Per-Layer Range |
-|---|---:|---:|---:|---:|
-| Llama3 | `[11,20)` | **0.1777** | 0.1400 | 0.0240–0.2536 |
-| Qwen2.5 | `[16,22)` | **0.1343** | 0.1307 | 0.1107–0.1488 |
-
-Llama3 的 alignment 在 band 后段明显下降，而 Qwen2.5 在 band 内较为稳定。两者的 cosine 均为正，但远低于 GSM8K–GSM-Hard Role direction 的跨任务 cosine（Llama3 0.956；Qwen2.5 0.976）。因此，更准确的描述是：MRSN 与 RRSN 存在部分共享结构，但其大部分 dense direction 仍是 task-conditioned 的。
-
-### 4.3 Task-Level Sparse Overlap
-
-现有 sparse analysis 分别比较了三个 reasoning task 的 Role direction 与 MRSN。下表报告同一 MRSN band 内的平均结果；随机富集以相同 hidden size 下两个等规模 top-coordinate sets 的期望重叠为基线。
-
-| Model | Reasoning Role | Mean Dense Cosine | Mean Top-Coordinate Overlap | Mean Enrichment over Random | Shared-Dimension Sign Agreement |
-|---|---|---:|---:|---:|---:|
-| Llama3 | GSM8K | 0.1848 | 3.67/20 | **37.55×** | 0.870 |
-| Llama3 | MATH | 0.0573 | 2.11/20 | **21.62×** | 0.543 |
-| Llama3 | GSM-Hard | 0.1628 | 3.44/20 | **35.27×** | 0.889 |
-| Qwen2.5 | GSM8K | 0.0984 | 2.50/18 | **27.65×** | 0.833 |
-| Qwen2.5 | MATH | 0.1507 | 2.67/18 | **29.50×** | 0.833 |
-| Qwen2.5 | GSM-Hard | 0.1058 | 2.67/18 | **29.50×** | 0.847 |
-
-重叠的绝对数量不高，但明显超过随机预期，并且大多数 shared dimensions 具有相同符号。Llama3 上，MATH 与 MRSN 的 dense alignment 和符号一致性均弱于两个 GSM 类任务；Qwen2.5 则没有出现相同排序。这说明共享 sparse coordinates 具有跨任务稳定性，但其强度与任务构成仍具有模型依赖性。
-
-Qwen2.5 的这组既有 sparse statistics 使用旧分析中的 top-18 定义，而当前 canonical NMD 规则为 `int(3584×0.5%)=17`。因此，这些数值只作为已有的 task-level descriptive evidence；下节的 final aggregate comparison 使用最终 RRSN mean mask 与 MRSN mask 的 exact-NMD support，不取代这里的逐任务结果。
-
-### 4.4 Final Aggregate Exact-NMD Comparison
-
-最终 RRSN 是 GSM8K、MATH 与 GSM-Hard 三个原始 Expert−Non-expert directions 的未归一化算术平均；MRSN 与 RRSN 均保持原始符号。分析固定使用 MRSN bands：Llama3 `[11,20)`、Qwen2.5 `[16,22)`。exact NMD 每层采用 `int(H×0.5%)`：Llama3 `k=20`、Qwen2.5 `k=17`。pooled support 将每个 `(layer, hidden coordinate)` 视为独立坐标，而非在整个 band 上再选择一次 global top-k。aggregation identity、manifest convention 与 canonical `get_nmd_mask` cross-check 均已通过。
-
-**Table 4.1. Final Aggregate Exact-NMD Support and Signed Alignment**
-
-| Model | Band | k | Overlap / Union | Jaccard | Enrichment | Hypergeom p | Sparse Weighted Cosine | Shared Sign Agreement | Shared-Coordinate Cosine |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Llama3 | `[11,20)` | 20 | 33 / 327 | 0.1009 | **37.55×** | 1.79e-42 | 0.2557 | 0.788 | 0.744 |
-| Qwen2.5 | `[16,22)` | 17 | 14 / 190 | 0.0737 | **28.94×** | 4.89e-17 | 0.1989 | 0.929 | 0.806 |
-
-absolute overlap 不高，但相对 uniform-coordinate random reference 富集约 **29–38×**；shared coordinates 上的符号与相对幅度也高度一致。不过 full sparse-space weighted cosine 只有约 **0.20–0.26**，因此不能称两者是同一条 sparse direction。Hypergeometric p 仅是 uniform-coordinate null 下的参考证据；其 pooled 形式没有显式建模“每层固定 k 个坐标”的分层约束，不能作为严格的 layer-stratified significance test。这里的结论主要依赖效应量、enrichment 与两个模型中的一致模式。
-
-**Table 4.2. Final Aggregate Asymmetric Energy Containment**
-
-| Model | C(R←S_M) | C(R←S_R) | Relative R Efficiency | C(M←S_R) | C(M←S_M) | Relative M Efficiency |
-|---|---:|---:|---:|---:|---:|---:|
-| Llama3 | 0.0450 | 0.1352 | 0.333 | 0.0485 | 0.0938 | 0.517 |
-| Qwen2.5 | 0.0595 | 0.1725 | 0.345 | 0.0290 | 0.0869 | 0.334 |
-
-`S_M` 表示 MRSN exact-NMD support，`S_R` 表示 RRSN exact-NMD support；`C(R←S_M)` 是 MRSN support 捕获的 RRSN dense energy，`C(M←S_R)` 是 RRSN support 捕获的 MRSN dense energy。relative efficiency 为 cross-support containment 除以相应方向自己的 exact-NMD self-capture。
-
-对方 support 只能达到自身 support energy ceiling 的约 **33%–52%**。因此，两者共享显著 sparse core，但大部分显著能量仍由各自特有坐标承担。Llama3 的 RRSN support 对 MRSN salient energy 的相对效率为 0.517，而反方向为 0.333；这最多提示 shared core 对 MRSN 更集中、RRSN 含有更多 reasoning-conditioned extension，不能直接解释为功能包含关系。Qwen2.5 两个方向均约为三分之一，更接近对称的部分共享。
-
-> **MRSN 与 RRSN 共享一个显著富集且符号一致的稀疏坐标核心，但该核心只解释对方自身稀疏能量上限的约三分之一到二分之一；因此二者是部分共享、任务条件化的 Role directions，而不是同一条稀疏方向。**
-
-### 4.5 Current Interpretation and Evidence Boundary
-
-final aggregate exact-NMD comparison 已完成，但不取代 §4.3 的逐任务分析。当前仍只有 aggregate mean directions，尚无 split-half reliability 或 sample-level bootstrap；overlap、cosine、sign agreement 与 energy containment 都是静态结构证据，不能推出 neuron functional interchangeability、共享因果机制或方向等价。
-
-因果层面仍需在相同 band、exact neuron count 与 norm-matched intervention strength 下完成 `RRSN → GSM8K` 自身正对照和 `RRSN → MMLU-E` 反向迁移。
-
-## 5. Cross-Relationship Summary
-
-**Table 5.1. Summary of Representational and Functional Relationships**
+**Table 4.1. Summary of Representational and Functional Relationships**
 
 | Relationship | Dense Alignment | Sparse Alignment | Subspace Evidence | Functional Evidence | Current Interpretation |
 |---|---|---|---|---|---|
 | Role–Confidence | Moderate | Enriched shared top neurons | Not tested | Related but distinct dose responses | Shared representation with functional separation |
 | Role–Chat | Near-zero mean-direction cosine | Strong top-coordinate enrichment | Non-random projection into Chat transition subspace | Related output-ordering effects reported separately | Partial structural relationship, not axis equivalence |
-| MRSN–RRSN | Weak positive alignment | Final exact-NMD masks show 29–38× enriched overlap and high shared-coordinate sign agreement | Not tested | MRSN transfers to GSM8K; RRSN causal tests pending | Shared sparse core with substantial task-conditioned direction-specific components |
 
 raw α、direction norm 与模型间 activation scale 都不能直接比较；尤其不同模型的 hidden sizes、architecture、mask band 与激活尺度不同，表中的模式不能转换为跨模型的绝对效应排序。
 
-## 6. Conclusions and Evidence Boundaries
+## 5. Conclusions and Evidence Boundaries
 
-Role–Confidence 结果显示中等方向对齐与 enriched shared neurons，但其 functional dose responses 不同。Role–Chat 结果则显示 mean directions 不同，却共享 sparse coordinates，并对 Chat–Bare transition subspace 有非随机投影。MRSN–RRSN 的 dense alignment 较弱，但 final exact-NMD support 显著富集，shared coordinates 的 signed alignment 较强，而 cross-support energy containment 明显低于 self-support ceiling。该模式支持“shared sparse core + task-conditioned extensions”，而不是统一 dense 或 sparse direction。三组结果共同说明 RSN 与其他状态方向及不同任务条件下的 Role representations 存在部分表征联系，但不能把 Role、Confidence、Chat 或不同来源的 RSN 视为同一机制。
+Role–Confidence 结果显示中等方向对齐与 enriched shared neurons，但其 functional dose responses 不同。Role–Chat 结果则显示 mean directions 不同，却共享 sparse coordinates，并对 Chat–Bare transition subspace 有非随机投影。两组结果共同说明 RSN 与其他状态方向及不同任务条件下的 Role representations 存在部分表征联系，但不能把 Role、Confidence 或 Chat 视为同一机制。
 
 这些证据不支持人类 dopamine system 的生物学同源性，也不能从结构相似性推出因果通路。需要 norm-matched cross-steering、针对性的 intervention 和适当 controls，才可能检验功能或因果上的重叠。
 
@@ -373,6 +303,4 @@ Role–Confidence 结果显示中等方向对齐与 enriched shared neurons，�
 | Enrichment Analysis | Projection enrichment against null distributions | `5.chat_role_transition_subspace` |
 | Dense and Sparse Analysis | Role–Chat dense cosine and sparse-coordinate figures | `4.full_role_chat_direction` |
 | Transition-Subspace Artifacts | Reports, results and plotting sources | `5.chat_role_transition_subspace` |
-| MRSN–RRSN Dense Alignment | Direct mean-direction and layerwise comparison | `3.dense_direction_similarity` |
-| MRSN–Task RSN Sparse Alignment | Cross-task Role overlap, enrichment and sign agreement | `4.full_role_chat_direction` |
-| Final MRSN–RRSN Exact-NMD Comparison | Layerwise overlap coefficient and sparse weighted cosine | `7.mrsn_rrsn_exact_nmd/mrsn_rrsn_layerwise_summary.png` |
+| Cross-Task Role–Chat Sparse Alignment | Task-level Role–Chat top-coordinate overlap, enrichment and energy capture | `4.full_role_chat_direction` |
