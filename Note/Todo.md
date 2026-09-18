@@ -3,6 +3,9 @@
 给我md版本的文字就好 我会自己去替换
 尽量不要删除原始数据，可以合并
 
+看一下我们现在的整个项目以及近期的工作（可以参考TODO里面的list）
+你觉得我们现在的思路应该是什么
+
 ---
 
 ### Note
@@ -112,8 +115,8 @@ rsync -avzh --partial --info=progress2 \
 51. 删除之前所有关于RRSN的内容 ✔
 52. GSM8K with anstention expert & non-expert performance ✔
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
-   2) 优化prompt，看能不能控制住输出
-   
+   2) 优化prompt，看能不能控制住输出 ⏸
+
 
 Target：
 MRSN & RRSN 
