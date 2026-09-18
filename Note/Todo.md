@@ -109,9 +109,11 @@ rsync -avzh --partial --info=progress2 \
 48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
 49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
 50. 换成全量的GSM8K Chat 作为固定的ChatSN ✔
-51. GSM8K with anstention expert & non-expert performance ✔
-   1) 当前的prompt控制不住输出，那么HS应该也是不对的
-   2) 需要先完善版本，控制住输出才可以
+51. 删除之前所有关于RRSN的内容 ✔
+52. GSM8K with anstention expert & non-expert performance ✔
+   1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
+   2) 优化prompt，看能不能控制住输出
+   
 
 Target：
 MRSN & RRSN 
