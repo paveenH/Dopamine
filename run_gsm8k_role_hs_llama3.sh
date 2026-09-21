@@ -22,6 +22,7 @@ set -euo pipefail
 # gsm8k_role_abstention task). Separate output tree, separate log.
 #
 # Usage (server, from /data1/paveen/Dopamine):
+#   mkdir -p logs   # first run only, if logs/ does not already exist
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_gsm8k_role_hs_llama3.sh \
 #       > logs/gsm8k_role_hs_llama3.log 2>&1 &
 #
