@@ -112,14 +112,16 @@ rsync -avzh --partial --info=progress2 \
 52. GSM8K with anstention expert & non-expert performance ✔
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
-53. 对比当前的RSN的差异 GSM8K w/o abstention 全量 (GRSN/ AGRSN)
-54. RSN差异对比：MRSN
+53. 全量 1319 题 GSM8K Role 方向：GRSN（`gsm8k_role`，无弃答出口）与 AGRSN（`gsm8k_role_abstention`，v2 弃答 prompt）—— 两者都用同一批全量 1319 题构造，不再单独用固定 300 题作方向构造集。代码与本地合成数据测试已完成（见 CLAUDE.md 对应条目），尚未在 GPU 上跑出真实 HS。
+54. RSN差异对比：MRSN vs. GRSN/AGRSN
 
 
 RSN llama
 MRSN
-RRSN
-ARRSN
+RRSN（已退役，历史实验，见下方历史记录）
+ARRSN（已退役，历史实验，见下方历史记录）
+GRSN（当前计划，item 53，尚未产出 HS）
+AGRSN（当前计划，item 53，尚未产出 HS）
 
 Target：
 MRSN & RRSN 
@@ -144,6 +146,8 @@ MRSN & Confidence （MMLUE）
 | GSM8K | Role-RRSN, Chat, Role-Abstention-ARRSN |
 | MATH | Role-RRSN, Chat |
 | GSM-Hard | Role-RRSN, Chat |
+
+（此表为历史记录：RRSN/ARRSN 已退役，见下方历史条目。当前计划中的全量 GSM8K Role 方向见 item 53，命名为 GRSN/AGRSN，不是 RRSN/ARRSN 的延续。）
 
 ---
 若重点是“几何结构相似”，建议做一条很干净的 activation-manifold 分析链，而不是先做 neuron overlap。
