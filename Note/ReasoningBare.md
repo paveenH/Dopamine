@@ -353,6 +353,23 @@ Plain 条件下，identity monologue 整体很少，每个 role 在 300 题中�
 
 Identity monologue 只是生成文本中的角色一致性现象，不能证明模型具有真实身份、自我认知或主观心理状态。
 
+#### GSM8K Role-Abstention Prompt v2 (Exploratory)
+
+这是一项无 steering 的新 prompt 探索，给模型提供明确的弃答出口，并在同一 300 道 GSM8K 题上配对比较 Llama3.1-8B-Instruct 的 `expert` 与 `non_expert` 输出。最新离线统一评分如下；`first_acc` 以首个 `####` 为先，并在没有 marker 时使用生产规则的 fallback。
+
+| Prompt | Role | First acc. | First `####` acc. | `####` rate | Strict abstention |
+|---|---|---:|---:|---:|---:|
+| Bare | Expert | 58.00% | 34.33% | 56.67% | 0.00% |
+| Bare | Non-expert | 68.00% | 44.33% | 60.67% | 0.00% |
+| Abstention v2 | Expert | 82.00% | 71.67% | 82.33% | 0.00% |
+| Abstention v2 | Non-expert | 74.33% | 66.67% | 86.00% | 0.00% |
+
+在统一 `first_acc` 下，Bare 的 expert − non-expert 为 **−10.00 pp**（expert-only correct 23、non-expert-only correct 53，exact McNemar `p=0.00077`）；v2 为 **+7.67 pp**（46、23，`p=0.0076`）。角色差的跨版本变化为 **+17.67 pp**，配对 bootstrap 95% CI 为 **[+9.67, +26.00]**。v2 的首个 `####` 准确率仍为 71.67%/66.67%，此前的逐题配对检验为 `p≈0.124`；因此，“v2 有准确率差异”仅指统一评分的 `first_acc`。
+
+两组均为 **0/300 严格弃答**；这里的严格弃答仅指整个回复恰为 `I am not sure`，不将后续继续推理或提交答案后的犹豫语言计作弃答。角色仍与提交后的可见输出有关：`expert`/`non_expert` 的正式提交后犹豫语言分别为 **21%/28%**（配对 McNemar 原始 `p=0.033`，探索性、未校正），严格 loop 分别为 **73.33%/79.33%**（原始 `p=0.050`）。
+
+统一评分后，角色准确率差的方向仍发生反转；但这比较的是两套 prompt 的整体效果，不能归因于弃答出口，也不能据此认定找到了新的 RRSN。提交后的犹豫不是弃答。
+
 ### 2.5 Self-Reported Willingness and Confidence: A Negative Readout
 
 除了答案生成，还测试了两种 0–9 自评方式：
