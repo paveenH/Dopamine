@@ -36,7 +36,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/{llama3,qwen2.5} /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/{llama3,qwen2.5} /Users/paveenhuang/Downloads
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
@@ -45,11 +45,7 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 ### Daily
-09.17 周四 收拾行李；继续实验
-09.18 周五 12：20 group meeting；台北-杭州萧山 机票 ✔
-09.19 杭州逛逛
-09.20 杭州逛逛
-09.21 回家高铁*1 - Helene ✔
+09.21 回家高铁 + 继续科研
 09.23、09.24 在家 需要去办理公证 + 爸妈护照 （身份证，户口本）
 09.24 全曜回家 高铁*1  ✔
 09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
@@ -106,7 +102,7 @@ rsync -avzh --partial --info=progress2 \
 42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
 43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
 44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
-45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠；✔
+45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠，相似度很低；✔
 46. Steering RSM8K with RRSN ✔ 
 47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
 48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
@@ -115,7 +111,8 @@ rsync -avzh --partial --info=progress2 \
 51. 删除之前所有关于RRSN的内容 ✔
 52. GSM8K with anstention expert & non-expert performance ✔
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
-   2) 优化prompt，看能不能控制住输出 ⏸
+   2) 优化prompt -> v2，看能不能控制住输出 -> 有差异但是都会回答
+53. 
 
 
 Target：
