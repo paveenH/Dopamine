@@ -111,9 +111,15 @@ rsync -avzh --partial --info=progress2 \
 51. 删除之前所有关于RRSN的内容 ✔
 52. GSM8K with anstention expert & non-expert performance ✔
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
-   2) 优化prompt -> v2，看能不能控制住输出 -> 有差异但是都会回答
-53. 
+   2) 优化prompt v2 -> 有差异但是都会回答 ✖
+53. 对比当前的RSN的差异 GSM8K w/o abstention 全量 (GRSN/ AGRSN)
+54. RSN差异对比：MRSN
 
+
+RSN llama
+MRSN
+RRSN
+ARRSN
 
 Target：
 MRSN & RRSN 
