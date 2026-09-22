@@ -47,7 +47,7 @@ Metric 3 -- Role-Transition CKA (per layer):
   linear CKA). Null model: with a FIXED seed, permute the QUESTION ROWS of one
   group (breaks the per-question pairing; an orthogonal-rotation null is NOT
   used -- CKA is invariant to it). Reports real value, per-layer null
-  mean/std/max and empirical p (fraction of perms >= real).
+  mean/std/max and empirical p = (1 + count(null >= real)) / (n_perms + 1).
 
 Metric 4 -- Role-Transition Subspace (per layer, per k in K_GRID):
   ONE fixed-seed train/held-out split of the 1319 questions (same indices for
@@ -70,13 +70,13 @@ Metric 5 -- Direction-Subspace (per layer, per k, both directions):
   (float32 subtraction; stored diff_mean used ONLY as a consistency check),
   exactly the Metric 1-2 convention. Projection fraction:
       R^2 = ||V_k^T r||^2 / ||r||^2
-  of the GRSN mean direction into the AGRSN train-fit PCA subspace, and vice
-  versa. PCA subspaces are the Metric 4 TRAIN-fit ones; the full-1319 mean
-  direction is a DESCRIPTIVE input here -- this projection is NOT an
-  independent held-out validation. Random-k-dim-subspace baseline = k/4096,
-  plus a fixed-seed random simulation (random unit direction vs random
-  orthonormal k-bases). Projection enrichment is NOT to be read as mechanism
-  equivalence.
+  specifically, r2_G_into_A = ||B_A,k^T r_G||^2 / ||r_G||^2 and
+  r2_A_into_G = ||B_G,k^T r_A||^2 / ||r_A||^2. PCA subspaces are the Metric 4
+  TRAIN-fit ones; the full-1319 mean direction is a DESCRIPTIVE input here --
+  this projection is NOT an independent held-out validation. Random-k-dim-
+  subspace baseline = k/4096, plus a fixed-seed random simulation (random unit
+  direction vs random orthonormal k-bases). Projection enrichment is NOT to
+  be read as mechanism equivalence.
 
 Outputs (all under --out_dir, default
 /data1/paveen/Dopamine/components/analysis/GRSN_AGRSN/):
@@ -90,13 +90,16 @@ Outputs (all under --out_dir, default
   direction_subspace_projection.{png,svg}
 
 Usage (SERVER; interpreter is `python`):
-  python analyze_grsn_agrsn_metrics345.py \
+  cd /data1/paveen/Dopamine
+  mkdir -p logs
+  nohup python analyze_grsn_agrsn_metrics345.py \
       --hs_root /data1/paveen/Dopamine/components/hidden_states \
       --mean_root /data1/paveen/Dopamine/components/hidden_states_mean \
-      --out_dir /data1/paveen/Dopamine/components/analysis/GRSN_AGRSN
+      --out_dir /data1/paveen/Dopamine/components/analysis/GRSN_AGRSN \
+      > logs/grsn_agrsn_m345.log 2>&1 &
 
-Runtime: order tens of minutes on CPU (dominated by the CKA permutation
-null). --n_perms and thread count are the main knobs.
+Runtime depends on server CPU, BLAS configuration, and --n_perms. Reducing
+--n_perms lowers empirical-p resolution.
 
 These are REPRESENTATION-similarity results. Geometric similarity between
 GRSN and AGRSN must NOT be written as steering-equivalence, behavioral
@@ -118,7 +121,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-SCRIPT_VERSION = "analyze_grsn_agrsn_metrics345-v1"
+SCRIPT_VERSION = "analyze_grsn_agrsn_metrics345-v2"
 
 TASKS = {"grsn": "gsm8k_role", "agrsn": "gsm8k_role_abstention"}
 CONDITIONS = ("expert", "non_expert")
@@ -451,6 +454,10 @@ def write_report(out_dir: Path, val: dict, cka_rows, sub_rows, dir_rows,
         vs = [r[key] for r in dir_rows if r["layer"] in BAND_LAYERS and r["k"] == k]
         return float(np.mean(vs)) if vs else float("nan")
 
+    n_above_null = sum(r["cka"] > r["null_max"] for r in cka_rows)
+    n_below_null = sum(r["cka"] < r["null_min"] for r in cka_rows)
+    n_within_null = len(cka_rows) - n_above_null - n_below_null
+
     L = []
     L.append("# GRSN vs AGRSN Representation-Similarity Analysis -- Metrics 3-5\n")
     L.append("**Scope: representation-similarity only, Llama3.1-8B, all 32 decoder layers "
@@ -478,7 +485,12 @@ def write_report(out_dir: Path, val: dict, cka_rows, sub_rows, dir_rows,
              "invariant to it).")
     L.append(f"- Null distribution across all {n_perms}x{len(cka_rows)} values: "
              f"mean={null_summary['mean']:.5f}, std={null_summary['std']:.5f}, "
-             f"max={null_summary['max']:.5f} (essentially 0 -- real values are far above).")
+             f"min={null_summary['min']:.5f}, max={null_summary['max']:.5f}.")
+    L.append(f"- Relative to each layer's permutation range, observed CKA is above "
+             f"the null maximum in {n_above_null}/{len(cka_rows)} layers, within the "
+             f"range in {n_within_null}/{len(cka_rows)}, and below the null minimum in "
+             f"{n_below_null}/{len(cka_rows)}. Per-layer empirical p uses "
+             f"(1 + count(null >= observed)) / ({n_perms} + 1), so it is never zero.")
     L.append(f"- Real CKA, band L11-L19: mean={np.mean(band_cka):.4f}, "
              f"min={np.min(band_cka):.4f}, max={np.max(band_cka):.4f}.")
     L.append(f"- Real CKA, all 32 layers: mean={np.mean(all_cka):.4f}, "
@@ -508,7 +520,9 @@ def write_report(out_dir: Path, val: dict, cka_rows, sub_rows, dir_rows,
              f"stored diff_mean used only as a consistency check "
              f"(GRSN max|err|={val['diff_check']['grsn']:.2e}, "
              f"AGRSN max|err|={val['diff_check']['agrsn']:.2e}).")
-    L.append("- R^2 = ||V_k^T r||^2 / ||r||^2. Random k-dim subspace baseline = k/4096 "
+    L.append("- r2_G_into_A = ||B_A,k^T r_G||^2 / ||r_G||^2; "
+             "r2_A_into_G = ||B_G,k^T r_A||^2 / ||r_A||^2. "
+             "Random k-dim subspace baseline = k/4096 "
              "(dotted gray; fixed-seed simulation confirms it). The full-1319 mean direction "
              "is a DESCRIPTIVE input here: this is NOT an independent held-out validation, "
              "and projection enrichment must not be read as mechanism equivalence.")
@@ -611,21 +625,23 @@ def main():
         cka = linear_cka_from_gram(gx, gy)
         nulls = np.empty(args.n_perms)
         for p in range(args.n_perms):
-            dp = dac[null_perms[p]]
-            gp = dp @ dp.T
+            perm = null_perms[p]
+            gp = gy[np.ix_(perm, perm)]
             nulls[p] = linear_cka_from_gram(gx, gp)
         null_all.extend(nulls.tolist())
         cka_rows.append({
             "layer": l, "cka": cka,
             "null_mean": float(nulls.mean()), "null_std": float(nulls.std()),
             "null_min": float(nulls.min()), "null_max": float(nulls.max()),
-            "null_p_ge_real": float(np.mean(nulls >= cka)),
+            "null_p_ge_real": float((1 + np.count_nonzero(nulls >= cka)) /
+                                      (args.n_perms + 1)),
             "n_perms": args.n_perms,
             "n_questions": N_EXPECT, "in_band": l in BAND_LAYERS})
         if (li + 1) % 8 == 0 or li == len(ANALYSIS_LAYERS) - 1:
             print(f"      CKA layer {l}/32 done ({time.time()-t0:.0f}s)")
 
     print("[4/6] per-layer Metric 4 (subspaces, train-fit PCA) ...")
+    metric4_basis = {}
     for li, l in enumerate(ANALYSIS_LAYERS):
         dg = (hs[(TASKS["grsn"], "expert")][:, l, :].astype(np.float32)
               - hs[(TASKS["grsn"], "non_expert")][:, l, :].astype(np.float32))
@@ -638,6 +654,7 @@ def main():
             tr = d[name][train_idx]
             mean[name] = tr.mean(axis=0)
             basis[name] = pca_basis(tr - mean[name], K_MAX)
+        metric4_basis[l] = basis
         v = {"grsn": d["grsn"][val_idx] - mean["grsn"],
              "agrsn": d["agrsn"][val_idx] - mean["agrsn"]}
         for k in K_GRID:
@@ -658,28 +675,19 @@ def main():
             print(f"      subspace layer {l}/32 done ({time.time()-t0:.0f}s)")
 
     print("[5/6] Metric 5 (mean direction -> subspace) + baselines ...")
-    # subspaces must be recomputed per layer; reuse Metric-4 loop by re-fitting
-    # (deterministic, same split) -- cheaper than caching 32x2x4096x50 bases? cache them.
-    # (bases are small: 32*2*4096*50*8B ~ 105 MB; recompute instead to save memory)
     rand_base = random_subspace_baseline_sim(HIDDEN, K_GRID, seed=args.seed)
     for li, l in enumerate(ANALYSIS_LAYERS):
-        dg = (hs[(TASKS["grsn"], "expert")][:, l, :].astype(np.float32)
-              - hs[(TASKS["grsn"], "non_expert")][:, l, :].astype(np.float32))
-        da = (hs[(TASKS["agrsn"], "expert")][:, l, :].astype(np.float32)
-              - hs[(TASKS["agrsn"], "non_expert")][:, l, :].astype(np.float32))
         rg = dirs["grsn"][l]
         ra = dirs["agrsn"][l]
         ng = float(rg @ rg)
         na = float(ra @ ra)
-        mean_g = dg[train_idx].mean(axis=0)
-        mean_a = da[train_idx].mean(axis=0)
-        bg = pca_basis(dg[train_idx] - mean_g, K_MAX)
-        ba = pca_basis(da[train_idx] - mean_a, K_MAX)
+        bg = metric4_basis[l]["grsn"]
+        ba = metric4_basis[l]["agrsn"]
         for k in K_GRID:
             dir_rows.append({
                 "layer": l, "k": k,
-                "r2_G_into_A": float(np.sum((bg[:, :k].T @ ra) ** 2)) / max(na, 1e-300),
-                "r2_A_into_G": float(np.sum((ba[:, :k].T @ rg) ** 2)) / max(ng, 1e-300),
+                "r2_G_into_A": float(np.sum((ba[:, :k].T @ rg) ** 2)) / max(ng, 1e-300),
+                "r2_A_into_G": float(np.sum((bg[:, :k].T @ ra) ** 2)) / max(na, 1e-300),
                 "random_baseline_k_over_d": k / HIDDEN,
                 "random_sim_mean": rand_base[k]["sim_mean"],
                 "grsn_dir_norm": float(np.sqrt(ng)),
@@ -763,18 +771,20 @@ def main():
         },
         "metric_definitions": {
             "metric3_cka": "column-centered (over questions) linear CKA via "
-                           "Gram matrices: <Gx,Gy>_F/(||Gx||_F ||Gy||_F)",
+                           "Gram matrices: <Gx,Gy>_F/(||Gx||_F ||Gy||_F); "
+                           "permutation p=(1+count(null>=observed))/(n_perms+1)",
             "metric4_subspace": "PCA fit on the train split only (train "
                                 "column mean subtracted; held-out centered "
                                 "with the SAME train mean); energy fraction = "
                                 "mean over held-out samples of "
                                 "||P x||^2/||x||^2; principal angles via "
                                 "singular values of V_G^T V_A",
-            "metric5_direction_subspace": "R^2 = ||V_k^T r||^2/||r||^2 of the "
-                                "full-1319 reconstructed mean direction r "
-                                "into the Metric-4 TRAIN-fit subspace; the "
-                                "mean direction is a DESCRIPTIVE input, NOT "
-                                "an independent held-out validation",
+            "metric5_direction_subspace": "r2_G_into_A = ||B_A,k^T r_G||^2/"
+                                "||r_G||^2; r2_A_into_G = ||B_G,k^T r_A||^2/"
+                                "||r_A||^2. B_G/B_A are the corresponding "
+                                "Metric-4 TRAIN-fit PCA bases; full-1319 mean "
+                                "directions are DESCRIPTIVE inputs, NOT an "
+                                "independent held-out validation",
             "k_grid": list(K_GRID),
         },
         "environment": {
