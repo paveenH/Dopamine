@@ -114,7 +114,7 @@ rsync -avzh --partial --info=progress2 \
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
-54. 重新讨论一下相似表征的评估
+54. 相似度 GRSN & AGRSN
 
 ---
 
