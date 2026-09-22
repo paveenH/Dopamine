@@ -36,7 +36,8 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/{llama3,qwen2.5} /Users/paveenhuang/Downloads
+rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/hidden_states_mean/llama3/{gsm8k_role,gsm8k_role_abstention}  /Users/paveenhuang/Downloads/
+
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
@@ -114,6 +115,8 @@ rsync -avzh --partial --info=progress2 \
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
 54. 重新讨论一下相似表征的评估
+
+---
 
 | Layer | Input | Core metrics | 回答的问题 |
 | --- | --- | --- | --- |
