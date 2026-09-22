@@ -116,7 +116,6 @@ rsync -avzh --partial --info=progress2 \
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
 54. 相似度 GRSN & AGRSN
 
----
 
 | Layer | Input | Core metrics | 回答的问题 |
 | --- | --- | --- | --- |
@@ -125,6 +124,8 @@ rsync -avzh --partial --info=progress2 \
 | Role-Transition CKA | 两个实验在相同题目上的逐题配对差 $d_i=h_{i,\text{expert}}-h_{i,\text{non-expert}}$ | **Centered linear CKA**；题目配对打乱作为 null | 不同题目的 role 变化之间，整体几何关系是否相似？ |
 | Role-Transition Subspace | 各实验的逐题配对差 $d_i$ | 对 $d_i-\bar d$ 拟合 PCA；比较子空间夹角、交叉重建率 | 除平均方向外，role 对不同题目的影响模式是否相似？ |
 | Direction–Subspace | 一个实验的均值方向 $r$ 与另一个实验的 role-transition PCA 子空间 $V_k$ | 投影比例 $R^2=\lVert V_k^\top r\rVert^2/\lVert r\rVert^2$，及随机基线 | 一个实验的平均角色方向在多大程度上落入另一个实验的变化空间？ |
+
+---
 
 
 46. Manifold reasoning Chat & MMLUE RSN
