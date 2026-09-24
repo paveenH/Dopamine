@@ -35,8 +35,10 @@ top -u $USER
 rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
-##### 182/184/185/177/178
-rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/hidden_states_mean/llama3/{gsm8k_role,gsm8k_role_abstention}  /Users/paveenhuang/Downloads/
+##### 182/184/185/177/178a
+rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/hidden_states/llama3/  /Users/paveenhuang/Downloads/
+
+rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/hidden_states/llama3/  /data1/paveen/Dopamine/components/hidden_states/llama3
 
 
 rsync -avzh --partial --info=progress2 \
@@ -46,13 +48,12 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 ### Daily
-09.21 回家高铁 + 继续科研
-09.23、09.24 在家 需要去办理公证 + 爸妈护照 （身份证，户口本）
-09.24 全曜回家 高铁*1  ✔
+09.24 繼續整理實驗
 09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
 10.02 丽江
 10.02晚上-10.03 成都市区 机票 ✔ 住宿 ✔
-10.04 成都-武夷山Flight Home
+10.04 成都-武夷山 Flight Home
+10.05 和學弟討論Psychiatry的進展
 10.04-10.10 Home
 10.11 Flight Taipei
 
@@ -61,33 +62,6 @@ rsync -avzh --partial --info=progress2 \
 看完徐玉兰视频
 
 ### TO DO
-16. MATH 补充完整 ✔ 
-17. LogiQA working point ✖ 目前做不出来，不确定是因为选择题的形式问题还是逻辑推理无法迁移
-18. BBH counting task ✔
-19. 精简claude.md的内容 ✔
-20. 整理GSM8K文档 ✔
-21. 补充一下llama3-gsm8k-cot working point的结果 ✔
-22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ✔ 
-23. CRUXEval Design ✔ 
-24. 优化文档GSM8K ✔
-25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
-25. 顺便丰富一下prediction的结果 ✔
-26. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
-27. ZebraLogic WP 测试 ✖
-28. 1-shot multi-hop ProofWwiter OWA ✖
-29. FinQA ✖
-30. GSM-Symbolic cot & non-cot ✔
-31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat趋势ok ✔
-32. 也修改一下CRUXEval的chat版本 cot & non-cot ✔
-33. GSM-Symbolic行为学特征统计 ✔
-34. Confidence neurons ✔
-   1) 相关性分析：role neurons & confidence neurons; 相关性在11-19层上升 -> 实际上相关性非常的高，最高可以达到0.7左右
-   2) confident & unconfident相关性分析：相关性在11-19最低，类似RSN
-   3) overlap：band 内仅共享 46/180=25.6%，Jaccard 为 0.14；但是是显著高于随机
-   4) shared-top 的单位贡献大约是 role-only/confidence-only 的 8 倍；是 neither-top 的 74 倍。
-   5) overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
-35. cross-steering: MMLUE ✔
-36. cross-steering: GSM8K ✔
 ---
 37. 统一各个任务的行为统计指标 ✔
 38. 缩小confidence alpha MMLUE: ACC + Behaivour ✔
@@ -114,7 +88,9 @@ rsync -avzh --partial --info=progress2 \
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
-54. 相似度 GRSN & AGRSN
+54. 相似度 GRSN & AGRSN -> 相似度也不是很高
+---
+
 
 
 | Layer | Input | Core metrics | 回答的问题 |
@@ -138,7 +114,6 @@ rsync -avzh --partial --info=progress2 \
 45. 待补 Qwen Matched-Anchor α=0”
 46. 也可以用MRSN来控制 reasoning的不确定出口 如果找到的话
 
----
 - mCCA / SVCCA：当 CKA 与子空间结果不一致，想进一步问“经过线性变换后能否对齐”时再做。高维、小样本下需要谨慎选择维数并用留出题目验证。
 - Procrustes residual：当我们特别想量化“最佳旋转对齐后还差多少”时再做。它允许旋转坐标，因此不能用低 residual 推断共享同一批神经元；同样需要在留出题目上计算。
 
@@ -268,3 +243,30 @@ NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BID
 15. GSM-Hard -> 1）最佳工作点可以复制；2）可以通过回答情况看来预测是否最优 ✔
 15. GSM-Hard COT + alpha Vs. COT ✔
 --- 
+16. MATH 补充完整 ✔ 
+17. LogiQA working point ✖ 目前做不出来，不确定是因为选择题的形式问题还是逻辑推理无法迁移
+18. BBH counting task ✔
+19. 精简claude.md的内容 ✔
+20. 整理GSM8K文档 ✔
+21. 补充一下llama3-gsm8k-cot working point的结果 ✔
+22. 思考关于working point，补充一下其余的点 (GSM 185/ Llama GSM8K 182/ LLama Math 182) ✔ 
+23. CRUXEval Design ✔ 
+24. 优化文档GSM8K ✔
+25. 补充BBH CRUX LogiQA cot的结果 -> cot会有效果 ✔
+25. 顺便丰富一下prediction的结果 ✔
+26. multi-hop ProofWwiter OWA 无法得到有效的格式的答案 ✖
+27. ZebraLogic WP 测试 ✖
+28. 1-shot multi-hop ProofWwiter OWA ✖
+29. FinQA ✖
+30. GSM-Symbolic cot & non-cot ✔
+31. ProofWriter check是不是格式问题导致Llama失效 -> 确认是格式问题 -> 是格式问题，用chat趋势ok ✔
+32. 也修改一下CRUXEval的chat版本 cot & non-cot ✔
+33. GSM-Symbolic行为学特征统计 ✔
+34. Confidence neurons ✔
+   1) 相关性分析：role neurons & confidence neurons; 相关性在11-19层上升 -> 实际上相关性非常的高，最高可以达到0.7左右
+   2) confident & unconfident相关性分析：相关性在11-19最低，类似RSN
+   3) overlap：band 内仅共享 46/180=25.6%，Jaccard 为 0.14；但是是显著高于随机
+   4) shared-top 的单位贡献大约是 role-only/confidence-only 的 8 倍；是 neither-top 的 74 倍。
+   5) overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
+35. cross-steering: MMLUE ✔
+36. cross-steering: GSM8K ✔
