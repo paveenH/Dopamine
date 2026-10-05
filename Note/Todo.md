@@ -60,6 +60,10 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 ### TO DO
+1. 整理思路
+
+---
+
 ## Vector
 - 提取位置：当前 RSN 是 Role 提示在任务入口引起的综合状态差异。可以比较“身份描述结束处”和“生成入口”的 HS，区分身份编码与任务整合后的影响；目前还不能确定换位置会更好。
 - 与 confidence 的差异方向：可以提取 Role 中无法被 confidence 方向解释的 residual。它可能帮助定位额外的功能成分，但不能直接叫“更纯粹的 Role”，因为仍可能包含其他提示和任务效应。
