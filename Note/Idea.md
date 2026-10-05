@@ -10,8 +10,6 @@
 为什么效果随 model、task、Chat interface 改变？
    ↓
 Role、Confidence、Chat 是否共享内部机制？
-   ↓
-目前开放问题：这种结构关系是否具有因果功能？
 ```
 
 ## 1. 最初：我们从 RSN 出发
