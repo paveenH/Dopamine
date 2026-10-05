@@ -50,60 +50,32 @@ rsync -avzh --partial --info=progress2 \
 
 ### Daily
 10.05 整理Dopamine进展
+
+
 10.06 组会（10:00），和学弟讨论（晚上，时间待定）
+
+
 10.10 高铁到杭州
+
+
 10.11 Flight Taipei
 
 准备多益考试
+
+
 看完瑜伽视频
+
+
 看完徐玉兰视频
 
 ---
-
 ### TO DO
-37. 统一各个任务的行为统计指标 ✔
-38. 缩小confidence alpha MMLUE: ACC + Behaivour ✔
-39. 缩小confidence alpha GSM8K: : ACC + Behaivour ✔
-38. 确认Loop的问题 -> Llama3补充chat template + steering的结果
-   1) GSM8K ✔
-   2) GSM-hard ✔
-   3) MATH ✔
-   4) 整理一份当前的结果 ✔
-39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K ✔
-40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
-41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
-42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
-43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
-44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
-45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠，相似度很低；✔
-46. Steering RSM8K with RRSN ✔ 
-47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
-48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
-49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
-50. 换成全量的GSM8K Chat 作为固定的ChatSN ✔
-51. 删除之前所有关于RRSN的内容 ✔
-52. GSM8K with anstention expert & non-expert performance ✔
-   1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
-   2) 优化prompt v2 -> 有差异但是都会回答 ✖
-53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
-54. 相似度 GRSN & AGRSN -> 相似度也不是很高 ✖
+## Vector
+- 提取位置：当前 RSN 是 Role 提示在任务入口引起的综合状态差异。可以比较“身份描述结束处”和“生成入口”的 HS，区分身份编码与任务整合后的影响；目前还不能确定换位置会更好。
+- 与 confidence 的差异方向：可以提取 Role 中无法被 confidence 方向解释的 residual。它可能帮助定位额外的功能成分，但不能直接叫“更纯粹的 Role”，因为仍可能包含其他提示和任务效应。
+- Manifold reasoning Chat & MMLUE RSN
 
----
-46. Manifold reasoning Chat & MMLUE RSN
-44. MMLUE confidence vector和这些之间的关系
-42. 看一下cot 区分RSN COT Chat Confidence
-40. 试着理解chat template的影响的原因：Base model 
-42. 认知切换开关
-43. 观察这些neurons的状态 应该要在认知指令的位置达到高峰
-44. MMLUE 
-45. 待补 Qwen Matched-Anchor α=0”
-46. 也可以用MRSN来控制 reasoning的不确定出口 如果找到的话
-
-- mCCA / SVCCA：当 CKA 与子空间结果不一致，想进一步问“经过线性变换后能否对齐”时再做。高维、小样本下需要谨慎选择维数并用留出题目验证。
-- Procrustes residual：当我们特别想量化“最佳旋转对齐后还差多少”时再做。它允许旋转坐标，因此不能用低 residual 推断共享同一批神经元；同样需要在留出题目上计算。
-
----
-内部表征“相近”没有单一指标，最好分三层评估：
+## Representation
 
 | 层次 | 要回答的问题 | 推荐指标 |
 |---|---|---|
@@ -118,48 +90,11 @@ rsync -avzh --partial --info=progress2 \
 | Role-Transition CKA | 两个实验在相同题目上的逐题配对差 $d_i=h_{i,\text{expert}}-h_{i,\text{non-expert}}$ | **Centered linear CKA**；题目配对打乱作为 null | 不同题目的 role 变化之间，整体几何关系是否相似？ |
 | Role-Transition Subspace | 各实验的逐题配对差 $d_i$ | 对 $d_i-\bar d$ 拟合 PCA；比较子空间夹角、交叉重建率 | 除平均方向外，role 对不同题目的影响模式是否相似？ |
 | Direction–Subspace | 一个实验的均值方向 $r$ 与另一个实验的 role-transition PCA 子空间 $V_k$ | 投影比例 $R^2=\lVert V_k^\top r\rVert^2/\lVert r\rVert^2$，及随机基线 | 一个实验的平均角色方向在多大程度上落入另一个实验的变化空间？ |
+## Brain
 
-对 RSN，最实用的最小方案是：
+**Steingroever 健康常模对齐**
 
-1. 固定同一批 prompts、模型、tokenizer 和 token 位置；在每层提取 residual stream（尤其是注入位点）。不要把不同输出长度或不同生成阶段的 states 直接混在一起比较。
-2. 对 baseline 与 steering 条件，先算每层的 centered CKA 或 mCCA；它们评价的是“允许线性变换后的几何对应”，比逐神经元 cosine 更合适。
-3. 再做 probe：例如用 baseline activation 训练“reason-first / premature candidate / answer correctness / confidence”等线性读出器，直接迁移到 steering activation。迁移仍有效，才说明该信息的编码方式近似保留。
-4. 若比较的是两个方向或两个 neuron set，控制层数、神经元数、方向范数与实际注入强度；报告 direction cosine、top-neuron overlap/Jaccard、rank correlation 与 principal angles。
-5. 最后用交叉干预裁决：用 A 的方向/神经元去复现 B 的行为 readout，并反向测试。只有在这一层成立，才能接近“功能上可替代”；前面所有相似性指标都只能说明结构关联。
-
-causal steering：
-1. 用 RRSN 在 GSM8K 做同方向 positive control；
-2. 用 RRSN 在 MMLU-E 做 reverse transfer；
-3. 与已有的 MRSN→MMLU-E、MRSN→GSM8K 构成完整的 direction × task 矩阵；
-4. 固定当前共同 band、exact-NMD 数量，并做注入范数匹配，不能直接把相同 raw α 当作相同剂量。
-届时能够区分三种情况：
-- RRSN 同时作用于 reasoning 和 MMLU-E：支持共享的 task-general role/expertise component；
-- RRSN 只作用于 reasoning：共享神经元存在，但具体权重决定任务功能；
-- 两个方向交叉迁移不对称：支持“共享核心 + task-specific extension”，与当前 containment 非对称性一致。
-
-静态相似度回答“长得像不像”；cross-steering 回答“作用能否迁移”；induced-state manifold 则在观察到作用后，追问状态变化是否相近。
-
-### Base–Instruct 对照
-
-> Chat state switch 是否主要是 post-training-associated？
-
-这是现在机制价值最高的一步。使用 α=0，比较：
-- Bare
-- Native Chat
-
----
-
-15. commitment regime 作为预测标的（直接预测调整的方向）
-SAE ?
-Model：ZGCM-1
-
----
-
-# Brain
-
-1. **现在做：Steingroever 健康常模对齐**
-
-这条成本低，而且公开数据确实包含 617 名参与者的逐 trial 选择、收益与损失。不过数据混合了 95/100/150 trials 和三种 payoff scheme，因此必须只选与我们 IGT 协议完全匹配的子集。[Steingroever et al. 数据说明](https://openpsychologydata.metajnl.com/articles/jopd.ak)
+公开数据确实包含 617 名参与者的逐 trial 选择、收益与损失。不过数据混合了 95/100/150 trials 和三种 payoff scheme，因此必须只选与我们 IGT 协议完全匹配的子集。[Steingroever et al. 数据说明](https://openpsychologydata.metajnl.com/articles/jopd.ak)
 
 建议检验：
 
@@ -169,17 +104,10 @@ Model：ZGCM-1
 - Wasserstein distance / RMSE；
 - 按原始 study 做 held-out，而不是把所有参与者混在一起挑最佳 α。
 
-它能支持的结论是：
+它能支持的结论是：某个 RSN 条件产生的 IGT 行为最接近健康人常模。行为相似不能识别神经递质水平。因此建议称为 **human behavioural calibration**，而不是 dopamine-axis calibration。
 
-> 某个 RSN 条件产生的 IGT 行为最接近健康人常模。
 
-但不能写成：
-
-> α=0 等于正常 dopamine 水平。
-
-行为相似不能识别神经递质水平。因此建议称为 **human behavioural calibration**，而不是 dopamine-axis calibration。
-
-2. **已有药理学方向对照：保留即可**
+**已有药理学方向对照：保留即可**
 
 现在的定性文献结论已经够用了：
 
@@ -190,13 +118,9 @@ Model：ZGCM-1
 
 > RSN manipulation exhibits behavioural correspondence with reported dopaminergic pharmacology effects.
 
-不要上升为神经机制同源。
-
-3. **fMRI RSA：有潜力，但暂不作为当前投稿必做项**
+**fMRI RSA：有潜力，但暂不作为当前投稿必做项**
 
 NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BIDS 数据和公开预处理结果，技术上适合开展共享刺激分析。[NARPS 数据说明](https://pmc.ncbi.nlm.nih.gov/articles/PMC6602933/)
-
-但原计划需要两处修正：
 
 - 必须把 NARPS 中完全相同的 gain/loss gamble 输入 LLM，才能构建可比较的 RDM；现有 MCQ/Betting 刺激不能直接与 fMRI trial 做 RSA。
 - 即使 vmPFC/striatum RSA 显著，也只能说明 **representational correspondence**，不能“直接证明 RSN 操纵 reward representation”。
@@ -211,8 +135,6 @@ NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BID
 2. 并行做 Steingroever 健康常模的小型定量对齐。
 3. 将药理学方向一致性放进 Discussion。
 4. NARPS RSA 放入 future work；如果前面的行为对齐很漂亮，再考虑扩成后续论文。
-
-所以这条线不应该删除。**最值得现在做的是健康人 IGT 行为对齐；fMRI RSA 很有价值，但不应成为当前 ACL ARR 的阻塞项。**
 
 ---
 ## TO DO
@@ -263,3 +185,30 @@ NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BID
    5) overlap分析：整体 alignment 是广泛分布的，而非集中在极少数高贡献 neurons
 35. cross-steering: MMLUE ✔
 36. cross-steering: GSM8K ✔
+---
+37. 统一各个任务的行为统计指标 ✔
+38. 缩小confidence alpha MMLUE: ACC + Behaivour ✔
+39. 缩小confidence alpha GSM8K: : ACC + Behaivour ✔
+38. 确认Loop的问题 -> Llama3补充chat template + steering的结果
+   1) GSM8K ✔
+   2) GSM-hard ✔
+   3) MATH ✔
+   4) 整理一份当前的结果 ✔
+39. 试着理解chat template的影响的原因：注入点切回到answer <><><> Answer: MATH + GSM8K ✔
+40. 确认Qwen上是不是存在相同的chat 现象 -> 基本可以确认RSN和Chat是类似的function ✔
+41. chat - bare llama3 & qwen2.5 GSM8K/MATH/GSMHard -> 以目前的结果分析不出来 ✖
+42. 采一下GSM8K/ MATH/ GSMHard/ MMLUE 上面的expert vs. non-expert HS ✔
+43. 分析Role Matrix之间的关系 ✖ 除了部分top neurons重叠之外 几乎正交 没有相关性 
+44. Manifold分析 reasoning RSN & Chat -> 类似top neurons之间的关系 ✔
+45. 确认Reasoning RSN(RRSN)的expert与non-expert的关系；RRSN与MRSN之间的相关性 -> 还是和之前一样 核心重叠，相似度很低；✔
+46. Steering RSM8K with RRSN ✔ 
+47. Steering MMLUE with RRSN ✔ -> 结果很乱，和MRSN非常不一致
+48. 看是不是RRSN的提取需要增加Abstention的提示 -> ARRSN 结果没有比较好 ✖ 
+49. 换成全量的GSM8K RRSN 作为固定的RRSN ✔
+50. 换成全量的GSM8K Chat 作为固定的ChatSN ✔
+51. 删除之前所有关于RRSN的内容 ✔
+52. GSM8K with anstention expert & non-expert performance ✔
+   1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
+   2) 优化prompt v2 -> 有差异但是都会回答 ✖
+53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
+54. 相似度 GRSN & AGRSN -> 相似度也不是很高 ✖
