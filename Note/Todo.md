@@ -87,6 +87,7 @@ rsync -avzh --partial --info=progress2 \
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
 54. 相似度 GRSN & AGRSN -> 相似度也不是很高 ✖
+
 ---
 46. Manifold reasoning Chat & MMLUE RSN
 44. MMLUE confidence vector和这些之间的关系
