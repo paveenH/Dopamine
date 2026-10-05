@@ -1,10 +1,7 @@
 ### Document writing
-我们的要求是： 1）细节部分放到Claude.md不要在文档中出现 2）数据尽量保持完整 3）尽量合并表格（但是不要勉强，可以合并的合并） 4）内容和章节都可以重构或者合并 5）结论简洁 通俗易懂 目标是提升可读性 6）标题和表格写英文
+要求：1）细节部分放到Claude.md不要在文档中出现 2）数据尽量保持完整 3）尽量合并表格（但是不要勉强，可以合并的合并） 4）内容和章节都可以重构或者合并 5）结论简洁 通俗易懂 目标是提升可读性 6）标题和表格写英文
 给我md版本的文字就好 我会自己去替换
 尽量不要删除原始数据，可以合并
-
-看一下我们现在的整个项目以及近期的工作（可以参考TODO里面的list）
-你觉得我们现在的思路应该是什么
 
 ---
 
@@ -14,6 +11,7 @@ Dopamine.Nature2026.[Endocannabinoids facilitate reward engagement through retro
 Bandit.NatureCommunications2026.[Foraging models explain human exploration in uncertain tasks.](https://doi.org/10.1038/s41467-026-75773-4) 该研究发现，人类在动态 Bandit 中更接近 compare-to-threshold 策略：主要追踪当前选项是否仍值得继续，而非持续比较所有候选价值。这与 PV10 中模型反复采样 incumbent、却不响应低样本替代臂的行为相似，为 incumbent persistence 提供了“局部阈值决策”的替代解释；但我们尚未进行相应的模型拟合，且任务设定不同，因此只能视为行为结构上的参照，不能断言 LLM 使用了相同的 foraging-RL 机制。
 
 ---
+```text
 
 #### Tmux
 conda activate dopamine
@@ -46,23 +44,23 @@ rsync -avzh --partial --info=progress2 \
   d12922004@140.112.31.185:/data1/paveen/Dopamine/components/ \
   /data1/paveen/Dopamine/components/
 
+```
+
 ---
+
 ### Daily
-09.24 繼續整理實驗
-09.25 - 10.02 武夷山-成都-丽江 <川滇之间>
-10.02 丽江
-10.02晚上-10.03 成都市区 机票 ✔ 住宿 ✔
-10.04 成都-武夷山 Flight Home
-10.05 和學弟討論Psychiatry的進展
-10.04-10.10 Home
+10.05 整理Dopamine进展
+10.06 组会（10:00），和学弟讨论（晚上，时间待定）
+10.10 高铁到杭州
 10.11 Flight Taipei
 
 准备多益考试
 看完瑜伽视频
 看完徐玉兰视频
 
-### TO DO
 ---
+
+### TO DO
 37. 统一各个任务的行为统计指标 ✔
 38. 缩小confidence alpha MMLUE: ACC + Behaivour ✔
 39. 缩小confidence alpha GSM8K: : ACC + Behaivour ✔
@@ -88,22 +86,8 @@ rsync -avzh --partial --info=progress2 \
    1) 当前的prompt控制不住输出，那么HS应该也是不对的 ✖
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
-54. 相似度 GRSN & AGRSN -> 相似度也不是很高
+54. 相似度 GRSN & AGRSN -> 相似度也不是很高 ✖
 ---
-
-
-
-| Layer | Input | Core metrics | 回答的问题 |
-| --- | --- | --- | --- |
-| Mean Direction | 每个实验的全量均值差 $r=\mu_{\text{expert}}-\mu_{\text{non-expert}}$ | signed cosine、norm、逐层 cosine | 两个角色方向是否指向相近的位置？ |
-| Sparse Coordinates | 均值方向的逐层 top-$k$ 坐标 | overlap、Jaccard、enrichment、符号一致性、双向能量包含率 | 是否涉及相同神经元？共享部分有多重要？ |
-| Role-Transition CKA | 两个实验在相同题目上的逐题配对差 $d_i=h_{i,\text{expert}}-h_{i,\text{non-expert}}$ | **Centered linear CKA**；题目配对打乱作为 null | 不同题目的 role 变化之间，整体几何关系是否相似？ |
-| Role-Transition Subspace | 各实验的逐题配对差 $d_i$ | 对 $d_i-\bar d$ 拟合 PCA；比较子空间夹角、交叉重建率 | 除平均方向外，role 对不同题目的影响模式是否相似？ |
-| Direction–Subspace | 一个实验的均值方向 $r$ 与另一个实验的 role-transition PCA 子空间 $V_k$ | 投影比例 $R^2=\lVert V_k^\top r\rVert^2/\lVert r\rVert^2$，及随机基线 | 一个实验的平均角色方向在多大程度上落入另一个实验的变化空间？ |
-
----
-
-
 46. Manifold reasoning Chat & MMLUE RSN
 44. MMLUE confidence vector和这些之间的关系
 42. 看一下cot 区分RSN COT Chat Confidence
@@ -125,6 +109,14 @@ rsync -avzh --partial --info=progress2 \
 | 几何结构 | 两组 activation 的空间布局是否相似？ | centered CKA、mCCA/SVCCA、正交 Procrustes residual、子空间夹角 |
 | 可读出功能 | 在 A 中线性可读的信息，B 中是否仍可读？ | 同一标签/状态的线性 probe；跨条件训练-测试（train A → test B） |
 | 因果功能 | 两个表征是否能产生同一种干预效果？ | norm-matched cross-steering / cross-ablation 矩阵 |
+
+| Layer | Input | Core metrics | 回答的问题 |
+| --- | --- | --- | --- |
+| Mean Direction | 每个实验的全量均值差 $r=\mu_{\text{expert}}-\mu_{\text{non-expert}}$ | signed cosine、norm、逐层 cosine | 两个角色方向是否指向相近的位置？ |
+| Sparse Coordinates | 均值方向的逐层 top-$k$ 坐标 | overlap、Jaccard、enrichment、符号一致性、双向能量包含率 | 是否涉及相同神经元？共享部分有多重要？ |
+| Role-Transition CKA | 两个实验在相同题目上的逐题配对差 $d_i=h_{i,\text{expert}}-h_{i,\text{non-expert}}$ | **Centered linear CKA**；题目配对打乱作为 null | 不同题目的 role 变化之间，整体几何关系是否相似？ |
+| Role-Transition Subspace | 各实验的逐题配对差 $d_i$ | 对 $d_i-\bar d$ 拟合 PCA；比较子空间夹角、交叉重建率 | 除平均方向外，role 对不同题目的影响模式是否相似？ |
+| Direction–Subspace | 一个实验的均值方向 $r$ 与另一个实验的 role-transition PCA 子空间 $V_k$ | 投影比例 $R^2=\lVert V_k^\top r\rVert^2/\lVert r\rVert^2$，及随机基线 | 一个实验的平均角色方向在多大程度上落入另一个实验的变化空间？ |
 
 对 RSN，最实用的最小方案是：
 
