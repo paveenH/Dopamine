@@ -50,22 +50,12 @@ rsync -avzh --partial --info=progress2 \
 
 ### Daily
 10.05 整理Dopamine进展
-
-
 10.06 组会（10:00），和学弟讨论（晚上，时间待定）
-
-
 10.10 高铁到杭州
-
-
 10.11 Flight Taipei
 
 准备多益考试
-
-
 看完瑜伽视频
-
-
 看完徐玉兰视频
 
 ---
