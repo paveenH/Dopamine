@@ -14,7 +14,7 @@ Role、Confidence、Chat 是否共享内部机制？
 
 ## 1. 最初：我们从 RSN 出发
 
-父项目发现了一小组 Role-Sensitive Neurons：
+发现了一小组 Role-Sensitive Neurons：
 
 - 主要位于中间层；
 - 可以双向调节模型愿不愿意回答；
@@ -22,8 +22,6 @@ Role、Confidence、Chat 是否共享内部机制？
 - 在部分条件下，conditional accuracy 相对保留。
 
 最初的假设是：RSN 可能像一个 dopamine-like gain，调节 wanting、engagement 和 action readiness，而不是直接增加知识。
-
-这是整个 Dopamine 项目的起点。
 
 ## 2. 第一阶段：行为学验证
 
@@ -41,7 +39,7 @@ Role、Confidence、Chat 是否共享内部机制？
 
 Bandit/BAI 已经关闭，不需要再救。
 
-主要文档是 [Behaviour.md](/Users/paveenhuang/Downloads/Dopamine/Note/Behaviour.md)。
+[Behaviour.md](/Users/paveenhuang/Downloads/Dopamine/Note/Behaviour.md)。
 
 ## 3. 第二阶段：Reasoning working point
 
@@ -49,94 +47,99 @@ Bandit/BAI 已经关闭，不需要再救。
 
 ### Llama Bare
 
-GSM8K 出现明显的非线性曲线：
+GSM8K 出现明显的非线性剂量响应：
 
 - α=0：60.0%
 - α=−6：78.0%
-- α=−8：掉到40.3%
+- α=−8：40.3%
 
-所以当时看起来像一个 asymmetric working point。
+这表明，在当前协议下存在一个 **asymmetric working point**：适量干预能改善表现，但继续增加负向剂量会导致明显下降。
 
 ### Qwen Bare
 
-Qwen 没有复制同样的峰，而是：
+Qwen 没有呈现同样的峰形曲线，而是：
 
-- 随正向 α 改成 reasoning-first；
-- 高剂量进入 plateau；
-- 没有出现 Llama 那种右侧下降。
+- 随正向 α 增大，输出更倾向于 reasoning-first；
+- 准确率在高剂量区间进入 plateau；
+- 在已测试范围内，没有观察到 Llama 式的峰后下降。
 
-因此我们已经知道：两个模型共享“α 改变 commitment”的现象，但不共享同一个行为曲线。
+因此，两个模型都表现出 **α 对答案出现时机与 commitment-related behavior 的调节**，但准确率的响应方向和曲线形状不同。不同模型的 raw α 也不能直接视为相同干预剂量。
 
 ### 跨任务转移
 
-固定 GSM8K 的工作点，不在新任务重新搜索：
+固定 GSM8K 的工作点，不在新任务上重新搜索：
 
 - GSM-Hard：两个模型都能转移；
 - MATH：主要是 Llama；
 - CRUXEval-O：主要是 Qwen；
-- LogiQA、BBH No-CoT：双 null；
-- 加 explicit CoT 后，部分任务恢复。
+- LogiQA、BBH No-CoT：两个模型均未检测到明确收益；
+- 加入 explicit CoT 后，部分任务重新出现收益。
 
-所以不存在 universal α，也不存在一个能普遍增强 reasoning 的 direction。
+这些结果说明，**RSN 的调节作用具有一定跨任务共性，但推理收益依赖模型、任务与输出协议。** 固定工作点的成功迁移支持它不只是 GSM8K 特有的效应；迁移失败则限定其适用范围。现有证据尚不支持一个普遍有效的 α，也不足以将 RSN 定义为通用推理增强方向，但不能据此否定共享调节机制的可能性
 
-权威结果在 [ReasoningBare.md](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md)。
+[ReasoningBare.md](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md)
 
 ## 4. 第三阶段：它究竟改变了什么？
 
-我们分析了生成轨迹和 hidden states。
+我们进一步分析生成轨迹和 hidden states，尝试理解准确率变化背后的行为过程。
 
 比较稳定的发现是：
 
-- Prefill gain 随 α 几乎线性变化；
-- 行为结果却是非线性的；
-- α 会改变 first candidate、formal answer、reason-first、post-commit continuation；
-- Qwen 的提升尤其明显地对应 answer-first → reason-first；
-- Llama 的最佳点对应 premature commitment 减少。
+- Prefill gain 随 α 几乎线性变化，可作为干预是否生效的 manipulation check；
+- 行为和准确率的响应却是非线性的；
+- α 会改变首次候选答案、正式答案的出现时机、reason-first 比例，以及答案提交后的续写行为；
+- Qwen 的准确率提升明显伴随 answer-first → reason-first 的转变；
+- Llama 的最佳工作点伴随过早给出答案的行为减少。
 
-因此目前最好的功能解释是：RSN 不直接提高模型能力，而是在调节模型何时进入、维持和提交一种推理策略。
+这些结果更支持一种**回答与承诺过程的调节解释**：RSN steering 改变模型如何展开推理和何时给出答案，而不只是统一提高准确率。不过，“入口状态 → 输出与承诺行为 → 准确率”目前仍是与结果一致的解释链，尚未完成因果中介验证，也不能据此排除其他机制。
 
-### 没成功的部分
+### 未获得支持的路线
 
-最初希望找到类似 tonic/ramping/phasic dopamine 的 Thinking Curve，并用 closed-loop 控制它。
+最初，我们尝试寻找类似 tonic/ramping/phasic 的 Thinking Curve，并通过 closed-loop 控制其形状。
 
-结果是：
+结果表明：
 
-- 可以塑造曲线；
-- 但曲线形状改变不等于准确率改变；
-- manifold 也无法解释 Llama peak 与 Qwen plateau 的差异。
+- 可以塑造所测曲线；
+- 曲线形状改变并不稳定地带来准确率收益；
+- 现有 prefill manifold 分析尚未稳定解释 Llama peak 与 Qwen plateau 的差异。
 
-所以已经关闭：
+因此，当前不再将以下内容作为投稿主线：
 
-- hormone-like waveform 主张；
-- closed-loop accuracy control；
-- 用 prefill geometry 解释所有行为曲线。
+- 将 Thinking Curve 直接解释为 dopamine-like waveform；
+- 通过 closed-loop 曲线塑形实现可靠的准确率控制；
+- 仅用 prefill geometry 解释完整的行为剂量响应。
 
-留下来的有效发现是 commitment transition，而不是 dopamine waveform。
+留下来的核心发现是：**入口干预与后续生成动态可以解耦，而答案时机、输出顺序和 commitment-related behavior 是理解收益与失败的重要线索。**
 
 对应文档是 [ThinkingCurve.md](/Users/paveenhuang/Downloads/Dopamine/Note/ThinkingCurve.md) 和 [Manifold.md](/Users/paveenhuang/Downloads/Dopamine/Note/Manifold.md)。
 
-## 5. 最近最重要的发现：Interface 改变了一切
+## 5. 最近最重要的发现：Interface 改变基线与干预响应
 
-**Native Chat**
-### Llama
+### Llama：Native Chat 下，Bare 的最佳工作点不再带来同样收益
 
-Native Chat 本身就让模型稳定进入 reasoning-first：
+Native Chat 条件下，Llama 的基线更倾向于 reasoning-first：
 
-- GSM8K 从 Bare α=0 的60%左右升到约90%；
-- 原来的 −6 working point 基本消失；
-- 高正向 α 主要导致 premature answer、输出缩短和性能下降。
+- GSM8K 准确率从 Bare α=0 的约60%提高到约90%；
+- Bare 下 α=−6 的明显收益，在 Native Chat 下不再出现；
+- 高正向 α 更多伴随过早给出答案、输出缩短和准确率下降。
 
-这说明 Llama Bare 的 −6 峰，很大程度上是在：修复一个退化的 Bare interface baseline，而不是创造新的推理能力。
+这一对照提示：**Bare 下的 −6 收益可能部分来自对接口相关输出状态的调整。** 它不必被解释为新增推理能力，但目前也不能据此认定 Bare 是“退化状态”，或证明收益完全由基线修复产生。
 
-### Qwen
+### Qwen：Chat 并不统一消除 steering 收益
 
-Qwen 又不同：
+Qwen 呈现不同的响应：
 
-- Native Chat baseline 并不总是已经完全进入合适状态；
-- +6/+8 在 GSM8K、GSM-Hard 仍可把输出推向 reasoning-first 并提高准确率；
-- MATH baseline 已经 reasoning-first，因此没有明显收益。
+- Native Chat 并不使所有任务都呈现相同的基线输出模式；
+- 在 GSM8K、GSM-Hard 上，+6/+8 仍伴随更多 reasoning-first 输出和准确率收益；
+- MATH 基线已经以 reasoning-first 为主，未观察到类似收益。
 
-所以现在最关键的总规律是：α 的效果取决于 model × task × interface × baseline state。Matched-Anchor 进一步说明 final-prefill anchor/injection geometry 很重要，但它没有完全解释 Chat 效应。
+这些结果与“**干预收益依赖原有输出状态**”的解释一致，但 reasoning-first 本身还不能被视为准确率提升的充分条件或已验证的因果中介。
+
+### 当前结论
+
+**RSN steering 的效果具有模型、任务和接口依赖性；各条件的基线输出状态，是理解这种差异的重要线索。**
+
+Matched-Anchor 对照进一步提示 final-prefill anchor 与注入位置会影响结果，但尚不能将 Chat 效应完全归因于注入几何，也不能单独归因于 instruction post-training。
 
 对应文档是 [ReasoningChat.md](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md)。
 
@@ -195,55 +198,26 @@ Qwen 又不同：
 - RSN 能稳定增强 directed exploration；
 - Thinking Curve 是 hormone-like waveform。
 
-## 8. 现在真正剩下的核心问题
+## 8. 其余问题
 
-项目已经不缺行为曲线和 benchmark。现在只剩两个真正有价值的问题：
+#### 问题一：Chat state 从哪里来？
 
-### 问题一：Chat state 从哪里来？
+> 它主要是 prompt formatting/token geometry，还是 instruction post-training 学出的 policy state？-> 用 Base–Instruct 对照回答。
 
-> 它主要是 prompt formatting/token geometry，还是 instruction post-training 学出的 policy state？
+#### 问题二：这种状态关系是否有因果功能？
 
-用 Base–Instruct 对照回答。
-
-### 问题二：这种状态关系是否有因果功能？
-
-> 把 Bare hidden state 推向 Chat state，能否让 commitment behavior 也向 Chat 移动？
-
-用 held-out causal state transfer/state-paste 回答。
-
-## 9. 下一步只做这三件事
-
-1. **冻结 GRSN/AGRSN 结果并统一文档口径。**
-2. **做 Llama Base–Instruct α=0 对照。**
-3. **做 held-out causal state transfer。**
-
-结果清楚且因果链完整，就收窄投 TACL；结果较混合但形成完整、诚实的机制边界图谱，就投 TMLR。
-
-一句话概括整个项目：
-
-> 我们最初想验证人工 dopamine；最后发现了一个更具体也更可信的机制：RSN 是受 post-training 与 interface baseline state 调节的 commitment gain，它能改变模型如何进入和表达推理，但不直接等于能力、探索或生物 dopamine。
+> 把 Bare hidden state 推向 Chat state，能否让 commitment behavior 也向 Chat 移动？-> 用 held-out causal state transfer/state-paste 回答。
 
 
----
-如果按照 TMLR 写，当前最合适的主线是：
+# TMLR
 
-> **RSN steering provides a causal task-entry gain that changes engagement and commitment. Its downstream behavioral effect depends on the model, task, interface, and baseline state. This produces dopamine-like functional patterns in some settings, together with clear boundaries and null results.**
-
-这是一篇“提出假设—系统检验—确定适用边界”的论文。重点不再是寻找统一的 Role switch，也不要求证明人工 dopamine。
-
-## 建议标题
-
-我最推荐：
+### Title
 
 > **Dopamine-Inspired Adaptive Gain Control in Language Models: Commitment, Interface Dependence, and Functional Boundaries**
 
-更保守的版本：
-
 > **Role-Sensitive Gain Controls Commitment in Language Models**
 
-前者更适合 TMLR 完整故事；后者可以避免审稿人把主要注意力放在生物学类比上。
-
-## 论文回答四个问题
+## Research Questions
 
 ### RQ1：RSN 是否改变 engagement，同时保留 knowing？
 
@@ -254,9 +228,7 @@ Qwen 又不同：
 - IGT：deliberation、switching 和策略结构变化；
 - HaluEval：challenge threshold 变化。
 
-这里的结论是：RSN 可以改变模型表达行动、投入和承诺的方式，而不必同时改变它知道什么。
-
-Betting 是最干净的主结果，CGT 是 commitment timing 的补强，IGT 和 HaluEval 提供任务边界。
+这里的结论是：RSN 可以改变模型表达行动、投入和承诺的方式，而不必同时改变它知道什么。Betting 是最干净的主结果，CGT 是 commitment timing 的补强，IGT 和 HaluEval 提供任务边界。
 
 ### RQ2：这种 gain 如何影响 reasoning？
 
@@ -282,8 +254,6 @@ Native Chat 是这篇论文最重要的解释性结果：
 - 高正向 α 主要造成提前回答和性能下降；
 - Qwen 在部分 Chat 条件下仍可被 `+6/+8` 推向更合适的状态；
 - MATH baseline 已经 reasoning-first 时，进一步 steering 没有明显收益。
-
-Matched-Anchor 又说明 injection anchor 会影响剂量曲线，但不能完整解释 Chat 效应。
 
 因此，论文的中心模型是：
 
@@ -318,24 +288,7 @@ task outcome
 
 因此建议全文使用：**a causal RSN gain mechanism with functional parallels to dopaminergic adaptive calibration**，不要直接称为 “a dopaminergic mechanism”。
 
-## GRSN/AGRSN 放在哪里
-
-在 TMLR 稿件里，GRSN/AGRSN 不应成为主线实验，也不需要修复成一个统一方向。
-
-它适合支持一个边界结论：
-
-> Role contrasts do not yield a prompt-invariant one-dimensional controller. They recruit partially shared, question-structured geometry whose mean direction and sparse realization remain prompt-dependent.
-
-也就是说：
-
-- centered CKA／transition geometry 可以说明存在部分共享结构；
-- mean direction 和 sparse support 的差异说明没有 universal Role vector；
-- 这不影响已有的 causal RSN steering 结果；
-- 它限制的是“稳定 Role switch”主张。
-
-建议主文用一个简洁 panel 或一段结果说明，完整 Metrics 1–5 放 Supplement。旧 RRSN 不进入主文。
-
-## 推荐的论文结构
+# Paper
 
 ### 1. Introduction
 
