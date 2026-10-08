@@ -119,11 +119,9 @@ When dealing with the question, your self-evaluation of
 
 # 3. Core Behavioral Experiments
 
-## 3.1 Experiment 5 — Confidence Betting (Incentive Salience)
+## 3.1 Confidence Betting (Incentive Salience)
 
-**神經科學對應：** 以下注額作為 incentive salience（wanting）的行為 proxy：較高下注表示願意投入更多資源追求獎勵。此指標與答題正確率分開，用來檢驗 wanting–knowing 是否可被 α 差異化調節。
-
-**Prompt 設計：**（注：本實驗使用 chat template；steering 在最後一個 token 注入。）
+**Prompt 設計：**（注：使用 chat template；steering 在最後一個 token 注入。）
 
 ```
 You are playing a quiz game. You have a running score that starts at 0.
