@@ -29,9 +29,7 @@ AdaptativeThinking.md：最終升華——在 reasoning model 的 thinking trace
 
 # Behavioral Dopamine: Theoretical Grounding & Experiments
 
-*April 2026*
-
-RSN paper: `ACLARR/` (in this repo; `main.tex`)
+RSN paper: `ACLARR/main.tex`
 
 # 1. MCQ Reasoning & Factor Benchmark Results
 
@@ -65,8 +63,8 @@ RSN paper: `ACLARR/` (in this repo; `main.tex`)
 
 ## 2.1 Experiment A — Abstention Rate (MMLU-E)
 
-- 來自 RSN paper，測量 role prompt 切換對 E-ratio 的影響。
-- Expert role 一致降低 E-ratio（更願意作答），對應 effort engagement threshold 的調控。
+- From RSN paper，測量 role prompt 切換對 E-ratio 的影響。
+- Expert role 一致降低 E-ratio，對應 effort engagement threshold 的調控。
 
 | Model | Role | Acc | E-ratio | Acc_cond |
 | --- | --- | --- | --- | --- |
@@ -95,8 +93,9 @@ RSN paper: `ACLARR/` (in this repo; `main.tex`)
 
 ## 2.3 ExperimentB：Willingness Self-Evaluation（0–9 scale）
 
-根據 Berridge 框架，wanting（incentive salience）是一個可在**無意識層面**運作的動機過程，與主觀感受到的 conscious desire 是可解離的兩套系統（Berridge & Robinson, 2003；Berridge, 2023）。最直接的實證來自 Winkielman, Berridge & Wilbarger（2005）：阈下（subliminal）呈現的情緒線索能改變行為層面的 wanting——口渴受試在阈下笑臉後**倒更多、喝更多、願付更高價**，阈下皺眉則相反——而受試者**完全無法以 self-report 察覺此變化**，甚至報告不出任何情緒波動。這證明 wanting 的行為讀數與 self-report 在人類身上就已解離：**self-report 測不到的 wanting，行為指標測得到。**
+让模型用 0–9 分评价自己“有多愿意推理”。结果显示，正向 RSN 调节普遍提高了自评分数，说明 RSN 会影响模型对推理意愿的表达。但“说自己愿意”不等于“实际投入更多”，这个分数也可能受到答题信心或表达习惯的影响。
 
+Berridge 框架提醒我们，动机过程可以在无意识层面运作，不一定都能通过自评反映，但并不意味着自评没有价值（[Berridge，2023](https://pmc.ncbi.nlm.nih.gov/articles/PMC10527990/)）。因此，我们将这个实验作为意愿表达的辅助证据，再结合实际选择、投入和核验行为，判断 RSN 究竟改变了什么；仅凭自评分数，还不能证明它具有类似多巴胺的调节功能。
 | Task | Orig Mean ± Std | α=+4 Mean ± Std | α=−4 Mean ± Std |
 | --- | --- | --- | --- |
 | MMLU | 5.37 ± 3.79 | **7.93 ± 1.11** | 5.22 ± 3.86 |
