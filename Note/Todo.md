@@ -47,12 +47,11 @@ rsync -avzh --partial --info=progress2 \
 ```
 
 ---
-Psychiatry：怎么定位？怎么验证？思路2问题太大
+Psychiatry：怎么定位？怎么验证？思路2问题太大（并不依赖于Steering就存在）？
 Dopamine：调控的到底是什么怎么定位？和confidence的区分？practical？
 
 ### Daily
-10.06 组会（10:00）
-10.07 和学弟讨论（20:00）
+10.08 周四
 10.10 高铁到杭州
 10.11 Flight Taipei
 
