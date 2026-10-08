@@ -3,7 +3,9 @@
 # Llama-3.1-8B-Instruct, neutral, no CoT, bare string, NMD mask 11-20, prefill last token.
 # Doses: alpha = -4, 0, +4 (alpha=0 is RE-RUN under the new prompt).
 #
-# usage:  bash run_action_willingness_v2.sh smoke-or-full [task ...]
+# usage:  bash run_action_willingness_v2.sh smoke-or-full-or-full3 [task ...]
+#   full3  splits the 8 tasks over 3 GPUs (GPUS="0 1 2", override via env), 3 background jobs,
+#          logs wv2_full_g0/1/2.log.  A task (all its alphas) always stays in ONE process/GPU.
 #   smoke  first 20 samples per task -> willingness_v2_smoke (separate dir, throwaway)
 #   full   all samples               -> willingness_v2
 # Every alpha of a task runs in ONE process on ONE machine/GPU set (paired design).
@@ -11,9 +13,23 @@
 # Analysis is OFFLINE: rsync ${OUT_ROOT} to RoleAnswer/ and run analyze_willingness_v2.py there.
 set -euo pipefail
 
-MODE="${1:?usage: run_action_willingness_v2.sh smoke-or-full [task ...]}"
+MODE="${1:?usage: run_action_willingness_v2.sh smoke-or-full-or-full3 [task ...]}"
 shift || true
 TASKS="${*:-mmlu mmlupro gpqa arlsat logiqa medqa truthfulqa gsm8k}"
+
+if [ "${MODE}" = "full3" ]; then
+  read -r G0 G1 G2 <<< "${GPUS:-0 1 2}"
+  HERE="$(cd "$(dirname "$0")" && pwd)"; cd "${HERE}"
+  # balanced by size: mmlu 14042 | mmlupro ~12032 + gsm8k + truthfulqa | the four smaller sets
+  i=0
+  for spec in "${G0}|mmlu" "${G1}|mmlupro gsm8k truthfulqa" "${G2}|logiqa gpqa arlsat medqa"; do
+    gpu="${spec%%|*}"; tk="${spec#*|}"
+    CUDA_VISIBLE_DEVICES="${gpu}" nohup bash "$0" full ${tk} > "wv2_full_g${i}.log" 2>&1 &
+    echo "GPU ${gpu}: ${tk}  -> wv2_full_g${i}.log (pid $!)"
+    i=$((i+1))
+  done
+  exit 0
+fi
 
 PY="${PY:-python}"
 MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"
@@ -32,14 +48,14 @@ TASK_FILES=(
   "arlsat=${BASE_DIR}/benchmark/arlsat_all.json"
   "logiqa=${BASE_DIR}/benchmark/logiqa_mrc.json"
   "medqa=${BASE_DIR}/benchmark/medqa_source_test.json"
-  "truthfulqa=${BASE_DIR}/benchmark/truthfulqa_mc2_validation.json"
+  "truthfulqa=${BASE_DIR}/benchmark/truthfulqa_mc1_validation.json"
   "gsm8k=${BASE_DIR}/benchmark/gsm8k_test_sample.json"
 )
 
 case "${MODE}" in
   smoke) OUT_ROOT="${BASE_DIR}/llama3/willingness_v2_smoke"; EXTRA="--limit 20" ;;
   full)  OUT_ROOT="${BASE_DIR}/llama3/willingness_v2";       EXTRA="" ;;
-  *) echo "MODE must be smoke or full, got '${MODE}'"; exit 2 ;;
+  *) echo "MODE must be smoke, full or full3, got '${MODE}'"; exit 2 ;;
 esac
 [ "${SKIP_MISSING:-0}" = "1" ] && EXTRA="${EXTRA} --skip_missing"
 
