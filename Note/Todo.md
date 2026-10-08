@@ -47,11 +47,17 @@ rsync -avzh --partial --info=progress2 \
 ```
 
 ---
-Psychiatry：怎么定位？怎么验证？思路2问题太大（并不依赖于Steering就存在）？
+### TO DO
 Dopamine：调控的到底是什么怎么定位？和confidence的区分？practical？
 
+1. 重新看看willingness实验
+
+
+
+---
+
 ### Daily
-10.08 周四
+10.08 周四 重新组织实验思路
 10.10 高铁到杭州
 10.11 Flight Taipei
 
