@@ -34,7 +34,7 @@ rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
 ##### 182/184/185/177/178a
-rsync -avzP d12922004@140.112.31.185:/data1/paveen/Dopamine/components/hidden_states/llama3/  /Users/paveenhuang/Downloads/
+rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/llama3/  /Users/paveenhuang/Downloads/
 
 rsync -avzP d12922004@140.112.31.182:/data1/paveen/Dopamine/components/hidden_states/llama3/  /data1/paveen/Dopamine/components/hidden_states/llama3
 
@@ -51,12 +51,12 @@ rsync -avzh --partial --info=progress2 \
 Dopamine：调控的到底是什么怎么定位？和confidence的区分？practical？
 
 1. 重新看看willingness实验，统一模板，优化负向表达 ⏸
-2. 
+2.  
 
 ---
 
 ### Daily
-10.08 周四 重新组织实验思路
+10.09 周五 重新组织行为学实验；看Paper
 10.10 高铁到杭州
 10.11 Flight Taipei
 
