@@ -57,7 +57,7 @@ TASK_DEFAULTS = {
     "arlsat":     ("benchmark/arlsat_all.json",               "text",     "file"),
     "logiqa":     ("benchmark/logiqa_mrc.json",               "text",     "file"),
     "medqa":      ("benchmark/medqa_source_test.json",        "text",     "file"),
-    "truthfulqa": ("benchmark/truthfulqa_mc2_validation.json", "text",    "file"),
+    "truthfulqa": ("benchmark/truthfulqa_mc1_validation.json", "text",    "file"),
     "gsm8k":      ("benchmark/gsm8k_test_sample.json", "question", "file"),
 }
 ALL_TASKS = list(TASK_DEFAULTS)
@@ -316,7 +316,7 @@ def main():
     man = {"protocol": PROTOCOL, "tasks_run": {t: {"n": len(d['samples']), "digest": d["digest"], "path": d["path"]}
                                              for t, d in task_data.items()},
            "tasks_missing": missing, "configs": args.configs, "mask_sha256": mask_sha, **env}
-    with open(os.path.join(args.out_root, f"run_manifest_{int(time.time())}.json"), "w") as f:
+    with open(os.path.join(args.out_root, f"run_manifest_{int(time.time())}_{os.getpid()}.json"), "w") as f:
         json.dump(man, f, indent=2)
     if missing:
         print(f"[WARN] tasks with missing data (NOT run): {sorted(missing)}")
