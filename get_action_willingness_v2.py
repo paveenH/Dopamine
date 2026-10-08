@@ -12,7 +12,8 @@ Scoring: next-token logits over the ten digit tokens "0".."9"; softmax INSIDE th
 digits; argmax = the original score.  Nothing is generated.  Because the softmax is
 restricted to the digits, the stored probabilities say nothing about whether the model
 would naturally obey "respond with a single digit".  `digit_mass` (the full-vocabulary
-probability that sits on the ten digit tokens) is stored as the separate diagnostic.
+probability that the NEXT token is one of the ten digits) is stored as the separate diagnostic;
+it says nothing about what follows (the model may emit a digit and then keep explaining).
 
 Isolation: new script, new template constant (template.py untouched), new output root.
 alpha=0 is RE-RUN here, never taken from an old baseline.  Mask is applied for every
@@ -223,10 +224,11 @@ def main():
     mask_path = os.path.join(args.mask_dir, mask_name)
     mask = np.load(mask_path)
     mask_sha = sha256_file(mask_path)
-    n_steered = int((np.abs(mask).sum(axis=1) > 0).sum())
-    expect_rows = len(utils.decoder_layer_range(st, en))
-    if n_steered != expect_rows:
-        sys.exit(f"mask non-zero rows {n_steered} != band size {expect_rows} for layers {st}-{en}")
+    nz_rows = [int(i) for i in np.where(np.abs(mask).sum(axis=1) > 0)[0]]
+    expect_rows = [int(i) for i in utils.decoder_layer_range(st, en)]
+    n_steered = len(nz_rows)
+    if nz_rows != expect_rows:
+        sys.exit(f"mask non-zero decoder rows {nz_rows} != expected {expect_rows} for layers {st}-{en}")
     print(f"[mask] {mask_path} sha256={mask_sha[:16]} shape={mask.shape} steered_layers={n_steered}")
 
     vc = VicundaModel(model_path=args.model_dir)
@@ -261,12 +263,23 @@ def main():
             tag = f"neg{abs(alpha)}" if alpha < 0 else str(alpha)
             out_dir = os.path.join(args.out_root, t, f"mdf_{tag}")
             out_path = os.path.join(out_dir, f"willingness_v2_{t}_{args.size}_{a_st}_{a_en}.json")
+            prompts_digest = sha256_text("\n".join(sha256_text(p) for p in prompts))
+            want = {
+                "samples_digest": td["digest"], "data_file_sha256": td["file_sha256"],
+                "mask_sha256": mask_sha, "prompt_version": PROMPT_VERSION,
+                "prompt_template_sha256": sha256_text(PROMPT_V2), "prompts_digest": prompts_digest,
+                "alpha": alpha, "model": args.model, "model_dir": args.model_dir, "size": args.size,
+                "tail_len": args.tail_len, "layer_start": a_st, "layer_end": a_en,
+                "limit": args.limit or None, "host": env["host"], "gpu": env["gpu"],
+                "CUDA_VISIBLE_DEVICES": env["CUDA_VISIBLE_DEVICES"], "torch": env["torch"],
+                "transformers": env["transformers"],
+            }
             if os.path.exists(out_path):
                 old = json.load(open(out_path, encoding="utf-8"))["meta"]
-                same = (old.get("samples_digest") == td["digest"] and old.get("mask_sha256") == mask_sha
-                        and old.get("prompt_version") == PROMPT_VERSION and old.get("alpha") == alpha)
-                if not same:
-                    sys.exit(f"[FATAL] {out_path} exists with DIFFERENT provenance; refusing to overwrite")
+                diff = [k for k, v in want.items() if old.get(k) != v]
+                if diff:
+                    sys.exit(f"[FATAL] {out_path} exists with DIFFERENT provenance in {diff}; "
+                             f"refusing to resume/overwrite (all alphas of a task must come from one run environment)")
                 print(f"[skip] complete cell exists: {out_path}")
                 continue
             diff_mtx = list(mask * alpha)
@@ -276,7 +289,7 @@ def main():
             meta = {
                 "protocol": PROTOCOL, "prompt_version": PROMPT_VERSION,
                 "prompt_template": PROMPT_V2, "prompt_template_sha256": sha256_text(PROMPT_V2),
-                "example_prompt": prompts[0],
+                "example_prompt": prompts[0], "prompts_digest": prompts_digest,
                 "task": t, "data_path": td["path"], "data_file_sha256": td["file_sha256"],
                 "n_samples": len(samples), "samples_digest": td["digest"], "limit": args.limit or None,
                 "model": args.model, "model_dir": args.model_dir, "size": args.size,
