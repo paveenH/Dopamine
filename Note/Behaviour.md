@@ -61,7 +61,9 @@ RSN paper: `ACLARR/main.tex`
 | Cross-model Transfer (Base ← IT RSN) | IT RSN 作用於 Base model；abstention 61% → 7% | 機制起源（pre-training latent） |
 
 
-## 2.1 Experiment A — Abstention Rate (MMLU-E)
+## 2.1 Abstention Rate (MMLUE)
+
+#### Expert & Non-expert
 
 - From RSN paper，測量 role prompt 切換對 E-ratio 的影響。
 - Expert role 一致降低 E-ratio，對應 effort engagement threshold 的調控。
@@ -75,10 +77,11 @@ RSN paper: `ACLARR/main.tex`
 | Qwen3-8B-IT | Non-Expert | 52.5 | 29.9 | 74.9 |
 | Qwen3-8B-IT | **Expert** | **63.4** | **14.3** | 73.9 |
 
-## 2.2 Experiment A′ — Neutral Steering E-Ratio (Bidirectional Control, Llama3-8B)
+#### Neutral Steering E-Ratio (Bidirectional Control, Llama3-8B)
 
-- 無 role prompt，純 RSN steering 下各任務的 E-ratio 雙向控制，排除 role prompt 的混淆。
-- +α 一致壓低 E-ratio；−α 一致放大 E-ratio——RSN 作為雙向 gain knob on effort willingness，不依賴 role prompt。
+- 無 role prompt
+- +α 一致壓低 E-ratio；−α 一致放大 E-ratio 
+- RSN 作為雙向 gain knob on effort willingness，不依賴 role prompt。
 
 | Task | Neutral E-ratio | α=+4 E-ratio | α=−4 E-ratio |
 | --- | --- | --- | --- |
@@ -91,11 +94,17 @@ RSN paper: `ACLARR/main.tex`
 | TQA MC1 | 2.82% | 1.22% ↓ | 3.67% ↑ |
 | TQA MC2 | 2.33% | 0.49% ↓ | 2.20% ↑ |
 
-## 2.3 ExperimentB：Willingness Self-Evaluation（0–9 scale）
+## 2.2 Willingness Self-Evaluation（0–9 scale）
 
 让模型用 0–9 分评价自己“有多愿意推理”。结果显示，正向 RSN 调节普遍提高了自评分数，说明 RSN 会影响模型对推理意愿的表达。但“说自己愿意”不等于“实际投入更多”，这个分数也可能受到答题信心或表达习惯的影响。
 
 Berridge 框架提醒我们，动机过程可以在无意识层面运作，不一定都能通过自评反映，但并不意味着自评没有价值（[Berridge，2023](https://pmc.ncbi.nlm.nih.gov/articles/PMC10527990/)）。因此，我们将这个实验作为意愿表达的辅助证据，再结合实际选择、投入和核验行为，判断 RSN 究竟改变了什么；仅凭自评分数，还不能证明它具有类似多巴胺的调节功能。
+
+neutral prompt ：
+Here is a question: {context}
+When dealing with the question, your self-evaluation of
+"reasoning willingness" from [0,9] is:
+
 | Task | Orig Mean ± Std | α=+4 Mean ± Std | α=−4 Mean ± Std |
 | --- | --- | --- | --- |
 | MMLU | 5.37 ± 3.79 | **7.93 ± 1.11** | 5.22 ± 3.86 |
