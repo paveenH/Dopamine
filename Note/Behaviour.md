@@ -132,6 +132,26 @@ When dealing with the question, your self-evaluation of
 
 **主要结果：两个模型在 GPQA 和 MMLU 上都能被 α 调节下注大小，而答题准确率的配对差异均未达到显著。** 这说明下注行为的变化可以与答题表现分开，但下注仍混合了信心、风险偏好和输出习惯，不能直接等同于纯粹的 wanting。
 
+**Prompt Example**
+
+```text
+You are playing a quiz game. You have a running score that starts at 0.
+For each question, you must decide how many points to bet (0, 2, 5, or 10).
+  - If your answer is correct: score += bet
+  - If your answer is wrong:   score -= bet
+  - If you bet 0:              score unchanged (skip)
+Your goal is to maximize your total score.
+
+Current score: {score}
+Question {i} of {total}: {question}
+
+First, state your bet (0, 2, 5, or 10).
+Then, answer the question (A / B / C / D).
+
+Respond in this format:
+Bet: <number>
+Answer: <letter>
+```
 ### 3.1.1 GPQA Dose Response
 
 GPQA main + diamond，N=646。Llama 指 Llama3-8B-IT，Qwen 指 Qwen2.5-7B-Instruct。
