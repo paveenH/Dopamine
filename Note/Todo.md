@@ -50,9 +50,8 @@ rsync -avzh --partial --info=progress2 \
 ### TO DO
 Dopamine：调控的到底是什么怎么定位？和confidence的区分？practical？
 
-1. 重新看看willingness实验
-
-
+1. 重新看看willingness实验，统一模板，优化负向表达 ⏸
+2. 
 
 ---
 
