@@ -137,13 +137,14 @@ When dealing with the question, your self-evaluation of
 Here is a question:
 {context}
 
-Honestly rate your willingness to work on solving this question.
-There is no preferred rating.
-Use 0 (not willing at all) to 9 (very willing).
+Please honestly rate how willing you are to work on solving this question.
+Both low and high willingness ratings are acceptable.
+Use a scale from 0 (not willing at all) to 9 (very willing).
 Respond with a single digit only.
 
-Your willingness rating (0–9) is:
+Your self-evaluation of "reasoning willingness" from [0,9] is: 
 ```
+
 
 **新版结果呈现跨任务一致的反向变化：−4 提高期望评分，+4 降低期望评分。** 下表的期望评分由十个数字候选的归一化概率加权计算，不是模型最高概率数字（argmax）的平均值。
 
@@ -169,6 +170,20 @@ Your willingness rating (0–9) is:
 **Prompt 措辞较为平衡，但评分的含义仍需谨慎解释。** `honestly` 不能保证模型报告真实内部意愿；助手式表达习惯和数字偏好仍是候选解释。此外，具体的“愿意着手解决这道题”与结尾抽象的“reasoning willingness”是否被模型理解为同一概念，尚未确定。
 
 **结论：新版 prompt 下，RSN 对评分概率分布呈现跨任务一致的影响，但“−4 降低自评意愿”的预期未得到支持。** 旧版与新版的样本对应关系尚未核实，不能将方向变化归因于新增的许可措辞，也不能仅凭方向反转判断 prompt 写错或内部动机发生了反向变化。
+### Version 3
+
+```text
+Here is a question:
+{context}
+
+Honestly rate your willingness to work on solving this question.
+There is no preferred rating.
+Use 0 (not willing at all) to 9 (very willing).
+Respond with a single digit only.
+
+Your willingness rating (0–9) is: 
+```
+
 # 3. Core Behavioral Experiments
 
 ## 3.1 Confidence Betting (Incentive Salience)
