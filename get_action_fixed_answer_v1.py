@@ -258,7 +258,11 @@ def run_readout(vc, samples, prompts, ids, diff_mtx, n_steered, tail_len, make):
 
 
 def tokenizer_checks(vc, prompts, labels, ids, name):
-    """Each candidate must CONTINUE the prompt as one extra token; BOS count 1; uniform final token."""
+    """ID-level checks (string re-tokenisation is NOT required to match: Llama merges '<space>+A' into one token,
+    so tokenize(prompt+label) != prompt_ids+[label_id] for letters/X/Y even though the experiment is correct).
+    Checked: BOS count 1; every prompt ends in the SAME anchor token and it is the ASCII space;
+    each candidate is ONE bare token (tokenised alone, no special tokens) that decodes to its label;
+    all candidate ids distinct.  Returns (final token ids, diagnostics incl. string-merge observations)."""
     tok = vc.tokenizer
     bos = getattr(tok, "bos_token_id", None)
     last = set()
@@ -267,12 +271,29 @@ def tokenizer_checks(vc, prompts, labels, ids, name):
         if bos is not None and base.count(bos) != 1:
             raise RuntimeError(f"[{name}] BOS count {base.count(bos)} != 1")
         last.add(base[-1])
-        for lab, tid in zip(labels, ids):
-            if tok(p + lab, add_special_tokens=True).input_ids != base + [tid]:
-                raise RuntimeError(f"[{name}] candidate {lab!r} (id {tid}) does not continue the prompt tail as a separate token")
     if len(last) != 1:
         raise RuntimeError(f"[{name}] prompts end in different tokens {sorted(last)}; injection site not uniform")
-    return sorted(last)
+    anchor = next(iter(last))
+    if tok.decode([anchor]) != " ":
+        raise RuntimeError(f"[{name}] final prompt token {anchor} decodes to {tok.decode([anchor])!r}, expected the ASCII-space anchor")
+    if len(set(ids)) != len(ids):
+        raise RuntimeError(f"[{name}] duplicate candidate ids {ids}")
+    for lab, tid in zip(labels, ids):
+        alone = tok(lab, add_special_tokens=False).input_ids
+        if alone != [tid] or tok.decode([tid]).strip() != lab:
+            raise RuntimeError(f"[{name}] candidate {lab!r}: id {tid} is not its single bare token (tokenised alone: {alone})")
+    # diagnostic only: does string concatenation merge the anchor space into the candidate?
+    p0 = prompts[0]
+    base0 = tok(p0, add_special_tokens=True).input_ids
+    merged = [lab for lab, tid in zip(labels, ids) if tok(p0 + lab, add_special_tokens=True).input_ids != base0 + [tid]]
+    return sorted(last), {"anchor_token_id": anchor, "string_concat_merges": merged}
+
+
+def cand_digest_of(cands):
+    """digest over EVERYTHING that matters downstream: id, label, text, correctness, gold, ties"""
+    return v2.sha256_text("\n".join(
+        f"{c['sample_id']}|{c['label']}|{v2.sha256_text(c['text'])}|{int(c['correct'])}|{c['gold']}|{c['n_tied_top']}"
+        for c in cands))
 
 
 def write_json_atomic(path, obj):
@@ -382,8 +403,7 @@ def main():
            "transformers": transformers.__version__, "python": platform.python_version(),
            "hf_device_map_multi": bool(getattr(vc.model, "hf_device_map", None) and
                                        len(set(map(str, vc.model.hf_device_map.values()))) > 1)}
-    if env["hf_device_map_multi"]:
-        sys.exit("model is sharded over several devices; this protocol expects one card")
+    # device / sharding is provenance, not a constraint (repo rule); hf_device_map_multi is recorded in every cell
 
     common = {"protocol": PROTOCOL, "mode": args.mode, "model": args.model, "model_dir": args.model_dir,
               "size": args.size, "mask_sha256": mask_sha, "tail_len": args.tail_len,
@@ -401,7 +421,8 @@ def main():
 
     # ---- step 1: alpha=0 A-D -> fixed candidates ----
     ad_prompts = [build_ad(s) for s in samples]
-    last_ad = tokenizer_checks(vc, ad_prompts, AD_LABELS, ids["ad"], "ad")
+    last_ad, diag_tok = tokenizer_checks(vc, ad_prompts, AD_LABELS, ids["ad"], "ad")
+    tok_diag = {"ad": diag_tok}
     ad_digest = v2.sha256_text("\n".join(v2.sha256_text(p) for p in ad_prompts))
     want0 = {**common, "readout": "ad", "alpha": 0, "prompts_digest": ad_digest,
              "prompt_template_sha256": v2.sha256_text(PROMPT_AD), "candidates_digest": None}
@@ -416,7 +437,7 @@ def main():
                                    lambda s, pr, raw: ad_record(s, pr, raw, ids["ad"]))
         write_json_atomic(p0, {"meta": full_meta(want0, {
             "prompt_template": PROMPT_AD, "example_prompt": ad_prompts[0], "steering_fires": fires,
-            "expected_steering_fires": 0, "label_token_ids": ids["ad"], "final_prompt_token_ids": last_ad,
+            "expected_steering_fires": 0, "label_token_ids": ids["ad"], "final_prompt_token_ids": last_ad, "token_diagnostics": tok_diag["ad"],
             "seconds": round(time.time() - t0, 1)}), "records": recs0})
         print(f"[saved] ad alpha=+0 n={len(recs0)} (prep cell) -> {p0}")
 
@@ -429,7 +450,7 @@ def main():
                       "correct": bool(AD_LABELS[k] == s["gold"]), "gold": s["gold"],
                       "n_tied_top": r["n_tied_top"], "tied_top_labels": r["tied_top_labels"],
                       "ad0_probs": r["ad_probs"], "ad0_logits": r["ad_logits"]})
-    cand_digest = v2.sha256_text("\n".join(f"{c['sample_id']}|{c['label']}|{v2.sha256_text(c['text'])}" for c in cands))
+    cand_digest = cand_digest_of(cands)
     cand_path = os.path.join(args.out_root, "candidates.json")
     cand_obj = {"protocol": PROTOCOL, "mode": args.mode, "selection_digest": common["selection_digest"],
                 "candidates_digest": cand_digest, "mask_sha256": mask_sha, "alpha": 0,
@@ -438,8 +459,12 @@ def main():
                 "n_tied": sum(c["n_tied_top"] > 1 for c in cands), "candidates": cands}
     if os.path.exists(cand_path):
         oldc = json.load(open(cand_path, encoding="utf-8"))
-        if oldc.get("candidates_digest") != cand_digest or oldc.get("selection_digest") != common["selection_digest"]:
-            sys.exit(f"[FATAL] {cand_path} exists with a different candidate set; refusing to replace the fixed candidates")
+        redigest = cand_digest_of(oldc.get("candidates", []))
+        if redigest != oldc.get("candidates_digest"):
+            sys.exit(f"[FATAL] {cand_path}: declared candidates_digest does not match its own contents (edited file?)")
+        if oldc.get("candidates") != json.loads(json.dumps(cands)) or oldc.get("selection_digest") != common["selection_digest"]:
+            sys.exit(f"[FATAL] {cand_path} exists with a different candidate set (contents differ from the alpha=0 prep cell); "
+                     f"refusing to replace the fixed candidates")
     else:
         write_json_atomic(cand_path, cand_obj)
     print(f"[cand] n={len(cands)} correct={cand_obj['n_correct']} tied={cand_obj['n_tied']} digest={cand_digest[:16]}")
@@ -452,10 +477,12 @@ def main():
     templates = {"ad": PROMPT_AD, "b": PROMPT_B, "c_map1": PROMPT_C, "c_map2": PROMPT_C}
     last_ids = {"ad": last_ad}
     for r in ("b", "c_map1", "c_map2"):
-        last_ids[r] = tokenizer_checks(vc, prompts[r], READOUT_LABELS[r], ids[r], r)
+        last_ids[r], tok_diag[r] = tokenizer_checks(vc, prompts[r], READOUT_LABELS[r], ids[r], r)
         print(f"[{r}] final prompt token ids={last_ids[r]} "
-              f"(decoded {[vc.tokenizer.decode([i]) for i in last_ids[r]]}); label ids={ids[r]}")
-    print(f"[ad] final prompt token ids={last_ad}; label ids={ids['ad']}")
+              f"(decoded {[vc.tokenizer.decode([i]) for i in last_ids[r]]}); label ids={ids[r]}; "
+              f"string-concat merges (diagnostic, NOT a failure): {tok_diag[r]['string_concat_merges']}")
+    print(f"[ad] final prompt token ids={last_ad}; label ids={ids['ad']}; "
+          f"string-concat merges (diagnostic, NOT a failure): {tok_diag['ad']['string_concat_merges']}")
     done = 1
     for alpha, (a_st, a_en) in configs:
         diff_mtx = list(mask * alpha)
@@ -485,7 +512,7 @@ def main():
             write_json_atomic(path, {"meta": full_meta(want, {
                 "prompt_template": templates[r], "example_prompt": pr_list[0], "steering_fires": fires,
                 "expected_steering_fires": ns * len(samples) * args.tail_len,
-                "label_token_ids": ids[r], "final_prompt_token_ids": last_ids[r],
+                "label_token_ids": ids[r], "final_prompt_token_ids": last_ids[r], "token_diagnostics": tok_diag[r],
                 "seconds": round(time.time() - t0, 1)}), "records": recs})
             done += 1
             print(f"[saved] {r} alpha={alpha:+d} n={len(recs)} fires={fires} -> {path}")
