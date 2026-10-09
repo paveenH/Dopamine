@@ -96,6 +96,8 @@ RSN paper: `ACLARR/main.tex`
 
 ## 2.2 Willingness Self-Evaluation (0–9 Scale)
 
+### Version 1
+
 本实验让模型在看到题目后，用 0–9 分评价自己的“推理意愿”。它测量的是模型如何表达意愿，而不是实际花了多少时间推理、是否愿意承担成本，或最终能否答对。
 
 **Neutral Prompt**
@@ -123,7 +125,50 @@ When dealing with the question, your self-evaluation of
 | TruthfulQA | 5.47 ± 3.81 | **8.05 ± 0.25** | 6.36 ± 3.31 |
 | GSM8K | 5.50 ± 3.66 | **7.98 ± 0.33** | 6.58 ± 3.06 |
 
+### Version 2
 
+[结果目录](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/AdarResult/llama3/willingness)
+
+新版 prompt 明确允许低分和高分，并解释量表两端，目的是减少模型倾向于表达高意愿的措辞影响。
+
+**Prompt Example**
+
+```text
+Here is a question:
+{context}
+
+Honestly rate your willingness to work on solving this question.
+There is no preferred rating.
+Use 0 (not willing at all) to 9 (very willing).
+Respond with a single digit only.
+
+Your willingness rating (0–9) is:
+```
+
+**新版结果呈现跨任务一致的反向变化：−4 提高期望评分，+4 降低期望评分。** 下表的期望评分由十个数字候选的归一化概率加权计算，不是模型最高概率数字（argmax）的平均值。
+
+**Table. Expected Willingness Scores Across Tasks**
+
+***p<0.001 versus α=0; two-sided paired Wilcoxon signed-rank tests with Holm correction across 16 comparisons.
+
+| Task | N | α=−4 | α=0 | α=+4 |
+| --- | ---: | ---: | ---: | ---: |
+| MMLU | 14,042 | 7.35 | 7.11 | 6.41 |
+| MMLU-Pro | 12,032 | 7.22 | 6.90 | 6.06 |
+| GPQA | 1,192 | 7.21 | 6.88 | 6.36 |
+| AR-LSAT | 2,091 | 7.32 | 6.93 | 6.50 |
+| LogiQA | 1,572 | 7.24 | 6.95 | 6.47 |
+| MedQA | 1,273 | 7.41 | 7.27 | 6.68 |
+| TruthfulQA MC1 | 817 | 7.03 | 6.55 | 6.09 |
+| GSM8K | 300 | 7.46 | 7.28 | 6.66 |
+
+**变化主要发生在评分概率分布中，最高概率评分仍集中在 8 分。** α=0 时，98.3%–100% 的题目以 8 为 argmax；−4 时为 99.7%–100%。以 GSM8K 为例，−4/0/+4 下的平均 P(8) 分别为 0.563/0.513/0.320；+4 将更多概率移向 4–6 分，但 argmax 基本仍为 8。因此，期望评分下降不等于模型普遍改为给出低分。
+
+这一方向并非少数题目驱动：−4 使约 96.3%–100% 的题目期望评分上升，+4 使约 95.7%–100% 下降。逐题 bootstrap 的变化区间均不跨零，但这些区间反映当前样本内的不确定性，不代表跨运行稳定性。平均 digit mass 为 0.89–0.99，说明下一 token 的概率主要落在数字上，不能据此证明完整回复符合单数字要求或评分具有真实动机含义。
+
+**Prompt 措辞较为平衡，但评分的含义仍需谨慎解释。** `honestly` 不能保证模型报告真实内部意愿；助手式表达习惯和数字偏好仍是候选解释。此外，具体的“愿意着手解决这道题”与结尾抽象的“reasoning willingness”是否被模型理解为同一概念，尚未确定。
+
+**结论：新版 prompt 下，RSN 对评分概率分布呈现跨任务一致的影响，但“−4 降低自评意愿”的预期未得到支持。** 旧版与新版的样本对应关系尚未核实，不能将方向变化归因于新增的许可措辞，也不能仅凭方向反转判断 prompt 写错或内部动机发生了反向变化。
 # 3. Core Behavioral Experiments
 
 ## 3.1 Confidence Betting (Incentive Salience)
