@@ -96,71 +96,63 @@ RSN paper: `ACLARR/main.tex`
 
 ## Behaviour on MMLU
 
-### Fixed-Answer Reliability and Submission
+### Fixed-Answer Ratings and Submission
 
-本轮使用 Llama-3.1-8B-Instruct，在固定抽取的 300 道 MMLU 题上比较 α=−4、0、+4。每题的候选答案由未干预模型预先选择，之后保持不变，分别独立测量正确性评分 C 和提交概率 S。固定候选答对 **167/300 题（55.7%）**，其中 2 题存在 A–D 最高分并列。
+使用 Llama-3.1-8B-Instruct，在固定的 300 道 MMLU 题上比较 α=−4、0、+4。每题先由未干预模型选择候选答案，再保持答案不变，分别测量正确性评分 C（0–9）和条件提交概率 S。固定候选答对 **167/300 题（55.7%）**。
 
-**Table 1. Correctness Ratings and Submission Probabilities**
+**+4 提高了条件提交概率，但正确性评分的平均值变化很小。−4 的平均提交概率接近不变，却掩盖了两个标签映射下方向相反的变化。**
+
+**Table 1. Changes in Correctness Ratings and Conditional Submission**
 
 | Measure | α | Baseline Mean | Intervention Mean | Mean Difference [95% CI] | Holm p |
 |---|---:|---:|---:|---|---:|
 | Correctness Rating C | −4 | 6.869 | 6.963 | +0.094 [+0.051, +0.141] | 0.219 |
 | Correctness Rating C | +4 | 6.869 | 6.857 | −0.012 [−0.079, +0.057] | 0.014 |
-| Submission Probability S | −4 | 0.610 | 0.609 | −0.002 [−0.010, +0.007] | 0.986 |
-| Submission Probability S | +4 | 0.610 | 0.682 | +0.071 [+0.060, +0.083] | **2.02×10⁻²³** |
+| Conditional Submission S | −4 | 0.610 | 0.609 | −0.002 [−0.010, +0.007] | 0.986 |
+| Conditional Submission S | +4 | 0.610 | 0.682 | +0.071 [+0.060, +0.083] | **2.02×10⁻²³** |
 
-C 为数字 0–9 内部概率计算的期望评分；S 为两个 X/Y 映射下条件提交概率的逐题平均。置信区间来自配对 bootstrap，未做多重校正；p 值来自双侧配对 Wilcoxon，四项比较统一进行 Holm 校正。
+C 是数字候选概率加权的期望评分；S 是 X/Y 两个候选内部的相对提交概率。表中置信区间针对平均变化，p 值来自配对 Wilcoxon 检验，两者衡量的内容不同。
 
-**+4 的条件提交概率上升，但 −4 的平均值掩盖了两个映射方向相反的变化。**
+### Mapping Sensitivity
 
-**Table 2. Submission Effects by Label Mapping**
+**+4 在两个映射下都提高了提交概率；−4 则主要表现为对 Y／第二项的偏好增强。** X 始终排第一、Y 始终排第二，因此目前无法区分字母偏好与位置偏好。
 
-| Mapping | α=−4 | α=0 | α=+4 | Δ at −4 | Δ at +4 |
-|---|---:|---:|---:|---:|---:|
-| X = Submit, Y = Leave | 0.388 | 0.515 | 0.634 | −0.127 | +0.118 |
-| X = Leave, Y = Submit | 0.830 | 0.706 | 0.730 | +0.124 | +0.024 |
-| Average | 0.609 | 0.610 | 0.682 | −0.002 | +0.071 |
+**Table 2. Conditional Submission and Label–Position Preference**
 
-+4 在两个映射下方向一致，但效应大小不同；−4 则存在明显的标签／排列敏感性，不能仅根据平均值称其“没有影响”。
+| α | S: X = Submit | Δ vs. Baseline | S: Y = Submit | Δ vs. Baseline | Mean S | P(X, First) | P(Y, Second) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| −4 | 0.388 | −0.127 | 0.830 | +0.124 | 0.609 | 27.9% | 72.1% |
+| 0 | 0.515 | — | 0.706 | — | 0.610 | 40.5% | 59.5% |
+| +4 | 0.634 | +0.118 | 0.730 | +0.024 | 0.682 | 45.2% | 54.8% |
 
-正确性评分的总体均值变化较小，但逐题变化并不小。+4 下，**187 题评分下降、113 题上升**，差值中位数为 **−0.152**；题目间期望评分的标准差从 **1.30 降至 0.87**。因此，更合适的描述是：**评分发生了重组，题目间差异缩小，正负变化使总体均值接近不变。** 均值置信区间与 Wilcoxon 结果不同，不构成统计矛盾，也不能单凭 Wilcoxon 显著证明分布压缩。
 
-需要保留一个重要限制：α=0、+4 时，X/Y 两个候选 token 的平均全词表概率总量仅约 **0.00065%–0.00169%**，而评分分支的数字概率总量约为 **98%–99%**。因此，表中的 S 衡量的是 **X/Y 候选内部的相对提交倾向**，不能直接视为模型自然输出时的提交概率。
+**Label–position preference:** 两个映射等权平均后的标签偏好计算为：
 
-**本轮结果显示，RSN 对固定答案的正确性表达与条件提交读数产生了不同影响。+4 的提交读数上升较一致，但由于行动接口的候选概率总量极低，目前仍不足以确认提交策略发生变化，也不能据此认为内部信心保持不变。**
+  $$
+  \overline{P(X\mid\alpha)}
+  =
+  \frac{
+  P(\mathrm{Submit}\mid\mathrm{Map1},\alpha)
+  +
+  1-P(\mathrm{Submit}\mid\mathrm{Map2},\alpha)
+  }{2}
+  $$
 
-#### Position Bias
+  $$
+  \overline{P(Y\mid\alpha)}
+  =
+  1-\overline{P(X\mid\alpha)}
+  $$
 
-**−4 放大了模型对 Y／第二项的相对偏好。** 由于 X 始终排在第一、Y 始终排在第二，目前无法区分字母偏好与位置偏好。
+−4 将平均 P(Y) 从 **59.5% 提高到 72.1%**，增加约 **12.6 个百分点**：Y 表示弃答时，提交概率下降；Y 表示提交时，提交概率上升。因此，不能仅凭平均提交概率接近不变，就认为 −4 没有影响。
 
-**Table. Label and Position Preference Across Steering Conditions**
+### Rating Changes and Interpretation
 
-| α | P(X, First Option) | P(Y, Second Option) |
-|---|---:|---:|
-| −4 | 27.9% | 72.1% |
-| 0 | 40.5% | 59.5% |
-| +4 | 45.2% | 54.8% |
+**正确性评分的均值接近不变，但逐题评分发生了明显变化。** +4 下，187 题评分下降、113 题上升，变化中位数为 **−0.152**；题目间评分的标准差从 **1.30 降至 0.87**。这说明正负变化在总体均值上相互抵消，同时题目间的评分差异缩小。
 
-映射 1 中 X 表示提交，映射 2 中 Y 表示提交，因此：
+提交读数还有一个重要限制：α=0、+4 时，X/Y 候选合计仅占全词表概率的 **0.00065%–0.00169%**，而评分分支的数字概率总量约为 **98%–99%**。因此，S 只能反映 X/Y 之间的相对倾向，不能直接当作模型自然回答时的提交概率。
 
-$$
-\overline{P(X\mid\alpha)}
-=
-\frac{
-P(\mathrm{Submit}\mid\mathrm{Map1},\alpha)
-+
-1-P(\mathrm{Submit}\mid\mathrm{Map2},\alpha)
-}{2}
-$$
-
-$$
-\overline{P(Y\mid\alpha)}
-=
-1-\overline{P(X\mid\alpha)}
-$$
-
-相对于 α=0，−4 将平均 P(Y) 从 **59.5% 提高到 72.1%**，增加约 **12.6 个百分点**。这解释了 −4 下两个映射的提交变化为何相反：当 Y 表示弃答时，提交概率下降；当 Y 表示提交时，提交概率上升。因此，−4 的平均提交概率接近不变，掩盖了明显的标签／位置敏感性。以上概率均在 X/Y 候选内部归一化，不能直接视为自然输出概率。
-
+**结论：RSN 对正确性评分和条件提交读数的影响不同。+4 的提交读数上升，但目前还不能确认模型更愿意实际提交答案；评分均值变化小，也不代表内部信心没有变化。**
 # 3. Core Behavioral Experiments
 
 ## 3.1 Confidence Betting (Incentive Salience)
