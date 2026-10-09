@@ -184,6 +184,14 @@ Respond with a single digit only.
 Your willingness rating (0–9) is: 
 ```
 
+**状态：仅完成代码与本地测试，尚无任何结果；服务器 smoke 与正式运行均未执行。** 在结果出现前，本节不下结论，也不改写 Version 2 的结论。
+
+**设置。** Llama-3.1-8B-Instruct，neutral，无 CoT，裸字符串；NMD 0.5%，层 11–20（decoder 10–18），prefill 最后一个 token 输出侧注入。每个任务用 `random.Random(42)` 从各自题池无放回抽 300 题（MMLU 为 57 科目合并后抽；GSM8K 恰好 300 题全用；不足 300 报错），升序固定；九个剂量 −8…+8（步长 2）使用同一批题、同一顺序，α=0 在 V3 prompt 下重跑。题池摘要、数据文件 sha256 与 mask sha256 须与 V2 元数据一致，否则中止。结果写入 `components/llama3/{task}/mdf_{α}/willingness_v3_{task}_8B_11_20.json`。
+
+**分析口径。** 主指标为期望评分（十个数字 logit 在数字内 softmax 后的 Σ i·p_i）；每个非零剂量只与同任务 α=0 比较，按 sample_id + 文本 hash 配对；配对 bootstrap 95% CI（B=10000, seed 0）与双侧配对 Wilcoxon；Holm 固定为 64 次比较（8 任务 × 8 剂量），缺失或来源不一致的比较以 p=1 计入并标为 unavailable，此时报告标注 PROVISIONAL。argmax 均值、0–9 计数、0–2/8–9 占比、P(8)、熵（自然对数）、digit_mass 仅作描述。
+
+**解释限制。** 推断仅针对当前抽样的 300 题；未对 MMLU/MMLU-Pro 的科目聚类建模；没有跨运行稳定性；digit_mass 只是下一个 token 为数字的概率，不能证明整段输出是单个数字；评分是自我报告，不等同于动机。V3 与 V2 在 prompt、题目（300 对全量）和剂量集三方面都不同，V2↔V3 的差异不能归因于措辞。
+
 # 3. Core Behavioral Experiments
 
 ## 3.1 Confidence Betting (Incentive Salience)
