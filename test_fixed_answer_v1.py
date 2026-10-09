@@ -97,7 +97,10 @@ import sys,types,hashlib,numpy as np; sys.path.insert(0,{R!r})
 import llms, utils
 class FakeTok:
     bos_token_id=None
-    def __call__(self,s,add_special_tokens=True): return types.SimpleNamespace(input_ids=[ord(c) for c in s])
+    def __call__(self,s,add_special_tokens=True):
+        ids=[ord(c) for c in s]
+        if len(s)>=2 and s[-2]==" " and s[-1] in "ABCDXY": ids=ids[:-2]+[1000+ord(s[-1])]   # Llama-style merge
+        return types.SimpleNamespace(input_ids=ids)
     def decode(self,ids): return "".join(chr(i) for i in ids)
 class FakeVC:
     def __init__(self,model_path): self.tokenizer=FakeTok(); self.model=types.SimpleNamespace(eval=lambda:None); self._f=0
@@ -138,6 +141,7 @@ rc, out = run("pilot", po)
 check("pilot run rc 0, 12 cells", rc == 0 and "done: 12/12" in out, out[-300:])
 rc, out = run("formal", fo)
 check("formal run rc 0, 12 cells", rc == 0 and "done: 12/12" in out, out[-300:])
+shutil.copytree(fo, tmp + "/formal_clean")
 cells = sorted(glob.glob(fo + "/cells/*/*.json"))
 check("12 cell files", len(cells) == 12)
 cj = json.load(open(fo + "/candidates.json"))
@@ -184,6 +188,9 @@ check("provenance fields recorded", all(meta.get(k) is not None for k in
 
 # resume / tamper
 rc, out = run("formal", fo)
+check("tokenizer check is ID-level (string-concat merge only a diagnostic)",
+      any(x.get("token_diagnostics", {}).get("string_concat_merges") for x in [L("b", "0")["meta"], L("c_map1", "0")["meta"]]))
+check("anchor token id 32 recorded", L("b", "0")["meta"]["token_diagnostics"]["anchor_token_id"] == 32)
 check("resume skips all 12 cells", rc == 0 and out.count("[skip]") == 12, out[-300:])
 rc, out = run("formal", fo, ["--tail_len", "2"])
 check("changed tail_len -> FATAL", rc != 0 and "DIFFERENT provenance" in out)
@@ -194,7 +201,16 @@ check("tampered cell provenance -> refuse", rc != 0 and "DIFFERENT provenance" i
 d["meta"]["mask_sha256"] = L("b", "0")["meta"]["mask_sha256"]; json.dump(d, open(p, "w"))
 cp = fo + "/candidates.json"; c = json.load(open(cp)); c["candidates_digest"] = "x"; json.dump(c, open(cp, "w"))
 rc, out = run("formal", fo)
-check("changed candidates file -> refuse", rc != 0 and "different candidate set" in out)
+check("changed candidates file -> refuse", rc != 0 and ("does not match its own contents" in out or "different candidate set" in out))
+c = json.load(open(cp)); c["candidates_digest"] = L("b", "0")["meta"]["candidates_digest"]; json.dump(c, open(cp, "w"))
+rc, out = run("formal", fo); check("restored candidates resume ok", rc == 0, out[-200:])
+c = json.load(open(cp)); c["candidates"][0]["text"] = "EDITED"; json.dump(c, open(cp, "w"))
+rc, out = run("formal", fo)
+check("edited candidate TEXT with old digest -> refuse", rc != 0 and "does not match its own contents" in out, out[-200:])
+c = json.load(open(cp)); c["candidates"][1]["correct"] = not c["candidates"][1]["correct"]
+c["candidates_digest"] = g.cand_digest_of(c["candidates"]); json.dump(c, open(cp, "w"))   # self-consistent edit
+rc, out = run("formal", fo)
+check("self-consistent edit of correct flag (digest recomputed) -> refuse", rc != 0 and "different candidate set" in out, out[-200:])
 rc, out = run("formal", tmp + "/pilot_x", ["--configs", "neg4-11-20", "0-11-20"])
 check("alpha set other than -4/0/+4 rejected", rc != 0 and "alpha set" in out)
 rc, out = run("formal", tmp + "/pilot_dir")
@@ -210,7 +226,7 @@ check("wrong mask rows (not decoder 10-18) rejected", r.returncode != 0 and "non
 code2 = code.replace("--ref_check\",\"off\"", "--ref_check\",\"strict\"").replace(bad + "/mask", tmp + "/mask").replace(bad + "/o", bad + "/o2")
 r = subprocess.run([sys.executable, "-c", code2], capture_output=True, text=True)
 check("strict ref check rejects fixture pool (not the real MMLU)", r.returncode != 0 and "differs from the v2/v3 pool" in (r.stdout + r.stderr))
-open(os.path.join(tmp, "TMP_PATH"), "w").write(fo)
+open(os.path.join(tmp, "TMP_PATH"), "w").write(tmp + "/formal_clean")
 print("\nfixture output kept at", fo, "(FAKE numbers)")
 print("FAILED:" if FAILS else "ALL PASSED", FAILS or "")
 sys.exit(1 if FAILS else 0)
