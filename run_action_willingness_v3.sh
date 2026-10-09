@@ -74,7 +74,8 @@ case "${MODE}" in
       n=0; for j in 0 1 2; do [ -f "${LOG_DIR}/worker_g${j}.exit" ] && n=$((n + 1)); done
       [ "${n}" = "3" ] && break; sleep 60
     done
-    do_status > "${LOG_DIR}/summary.txt" 2>&1 || true; cat "${LOG_DIR}/summary.txt"; exit 0 ;;
+    rc=0; do_status > "${LOG_DIR}/summary.txt" 2>&1 || rc=$?
+    cat "${LOG_DIR}/summary.txt"; exit "${rc}" ;;
   full3)
     read -r G0 G1 G2 <<< "${GPUS:-0 1 2}"
     GPU_IDS=("${G0}" "${G1}" "${G2}")
