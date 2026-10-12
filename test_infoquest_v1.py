@@ -1,0 +1,236 @@
+#!/usr/bin/env python3.10
+"""Local CPU checks for infoquest-v1 (no GPU, no real model, no network needed once the
+source jsonl is in the HF cache). Exit code != 0 on any failure."""
+import copy
+import hashlib
+import json
+import os
+import sys
+import tempfile
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import prepare_infoquest_v1 as P
+import get_answer_infoquest_v1 as G
+
+N_OK = 0
+
+
+def ok(cond, msg):
+    global N_OK
+    if not cond:
+        print(f"FAIL: {msg}")
+        sys.exit(1)
+    N_OK += 1
+    print(f"ok   {msg}")
+
+
+def raises_exit(fn, msg):
+    try:
+        fn()
+    except SystemExit as e:
+        ok(e.code == 2, msg)
+        return
+    ok(False, msg + " (no SystemExit)")
+
+
+# ----------------------------------------------------------------- sampling / materials
+samp = json.load(open(P.SAMPLING, encoding="utf-8"))
+sc = samp["scenarios"]
+pil = [s for s in sc if s["split"] == "pilot"]
+frm = [s for s in sc if s["split"] == "formal"]
+ok(len(pil) == 30 and len(frm) == 100, "30 pilot / 100 formal")
+ok(not ({s["request_id"] for s in pil} & {s["request_id"] for s in frm}), "pilot/formal request ids disjoint")
+ok(len({P.norm_text(s["incomplete_text"]) for s in sc}) == 130, "130 distinct normalised requests")
+ok(len({s["scenario_id"] for s in sc}) == 130, "scenario ids unique")
+paths = P.fetch_source(None)
+fresh = P.derive_sampling(paths)
+ok(P.canon(fresh) == P.canon(samp), "sampling reproduces byte-for-byte from the pinned source")
+ok(all(s["setting_key"] == P.pick_setting_key(s["request_id"]) for s in sc), "setting rule is the hash rule")
+ok(all(not P.SAFETY_RE.search(s["incomplete_text"] + " " + s["source"]["description"]) for s in sc),
+   "no sampled scenario matches the safety regex")
+
+scen = json.load(open(P.SCENARIOS, encoding="utf-8"))["scenarios"]
+by = {s["scenario_id"]: s for s in scen}
+ok(len(scen) == 130, "130 scenarios built")
+ok(all(s["complete_text"].startswith(s["incomplete_text"] + " ") for s in scen), "Complete = Incomplete + supplement")
+ok(all(len(s["target_item_ids"]) >= 2 for s in scen), "each scenario has >=2 target items (K_i fixed)")
+ok(all(not P.validate_items(s, {"supplement": s["supplement"], "items": s["items"],
+                                "review_status": s["review_status"]}) for s in scen), "all scenarios validate")
+bad = copy.deepcopy(scen[0])
+bad["supplement"] += " No need to ask me anything."
+ok(P.validate_items(bad, {"supplement": bad["supplement"], "items": bad["items"],
+                          "review_status": "reviewed"}), "instruction-like wording in Complete is rejected")
+bad = copy.deepcopy(scen[0])
+bad["items"][0]["complete_span"] = "text that is not in the supplement"
+ok(P.validate_items(bad, {"supplement": bad["supplement"], "items": bad["items"],
+                          "review_status": "reviewed"}), "complete_span must be in the supplement")
+bad = copy.deepcopy(scen[0])
+bad["items"][0]["provided_in_incomplete"] = True
+ok(P.validate_items(bad, {"supplement": bad["supplement"], "items": bad["items"],
+                          "review_status": "reviewed"}), "target item present in Incomplete is rejected")
+import re
+ok(all(not re.search(r"\b(checklist|persona)\b", s["supplement"], re.I) for s in scen),
+   "no persona/checklist wording copied into supplements")
+
+# ------------------------------------------------------------------- freeze guard
+tmp = tempfile.mkdtemp()
+fake_all = {"protocol": "infoquest-v1", "scenarios": [dict(s, review_status="reviewed") for s in scen]}
+sp = os.path.join(tmp, "scen.json")
+fp = os.path.join(tmp, "freeze.json")
+json.dump(fake_all, open(sp, "w"))
+raises_exit(lambda: G.load_frozen_scenarios(sp, fp, "pilot"), "no freeze manifest -> refuse")
+json.dump({"scenarios_sha256": "0" * 64}, open(fp, "w"))
+raises_exit(lambda: G.load_frozen_scenarios(sp, fp, "pilot"), "freeze/scenario hash mismatch -> refuse")
+json.dump({"scenarios_sha256": G.sha256_file(sp)}, open(fp, "w"))
+got, sha = G.load_frozen_scenarios(sp, fp, "pilot")
+ok(len(got) == 30 and sha == G.sha256_file(sp), "frozen reviewed pilot loads (30)")
+ok(len(G.load_frozen_scenarios(sp, fp, "formal")[0]) == 100, "frozen reviewed formal loads (100)")
+draft = os.path.join(tmp, "draft.json")
+json.dump({"scenarios": scen}, open(draft, "w"))
+json.dump({"scenarios_sha256": G.sha256_file(draft)}, open(fp, "w"))
+raises_exit(lambda: G.load_frozen_scenarios(draft, fp, "pilot"), "unreviewed scenarios even with a matching hash -> refuse")
+
+
+# ------------------------------------------------------------------- fake model
+class FakeTok:
+    padding_side = "left"
+    bos_token = "<s>"
+    bos_token_id = 1
+    chat_template = "fake-template-v1"
+
+    def apply_chat_template(self, msgs, tokenize=False, add_generation_prompt=True):
+        assert tokenize is False and add_generation_prompt is True and len(msgs) == 1 and msgs[0]["role"] == "user"
+        return "<s><|sys|>You are helpful.<|u|>" + msgs[0]["content"].strip() + "<|a|>\n\n"
+
+    def __call__(self, text, add_special_tokens=True):
+        ids = [1] if add_special_tokens else []
+        if text.startswith("<s>"):
+            ids.append(1)
+            text = text[3:]
+        ids += [100 + (ord(c) % 50) for c in text]
+        return {"input_ids": ids}
+
+    def decode(self, ids):
+        return "".join(str(i) for i in ids)
+
+
+class FakeModel:
+    def parameters(self):
+        return iter(())
+
+
+class FakeVC:
+    def __init__(self, n_dec=32):
+        self.tokenizer = FakeTok()
+        self.model = FakeModel()
+        self.n_dec = n_dec
+        self.terminators = [2]
+        self._fires = 0
+        self.calls = []
+
+    def _find_decoder_layers(self):
+        return list(range(self.n_dec))
+
+    def steering_fire_count(self, reset=False):
+        n = self._fires
+        if reset:
+            self._fires = 0
+        return n
+
+    def regenerate(self, inputs, max_new_tokens, temperature, top_p, diff_matrices, prefill_only,
+                   prefill_tail_len, batch_size, return_metadata):
+        self.calls.append({"prefill_only": prefill_only, "tail": prefill_tail_len, "temp": temperature,
+                           "mnt": max_new_tokens, "n": len(inputs)})
+        assert len(diff_matrices) == self.n_dec
+        steered = sum(1 for r in diff_matrices if np.any(r != 0))
+        self._fires += steered * len(inputs) * prefill_tail_len
+        scale = float(sum(np.abs(r).sum() for r in diff_matrices))
+        out = []
+        for t in inputs:
+            h = int(hashlib.sha256(t.encode()).hexdigest(), 16)
+            out.append({"text": f"reply {h % 997} alpha-norm {round(scale, 1)}?", "generated_token_count": 7,
+                        "stop_reason": "natural_eos" if h % 5 else "budget_exhausted"})
+        return out
+
+
+def make_mask(band=(10, 19), n=32, seed=0):
+    m = np.zeros((n, 16))
+    m[band[0]:band[1]] = np.random.default_rng(seed).normal(size=(band[1] - band[0], 16))
+    return m
+
+
+mask = make_mask()
+out_dir = os.path.join(tmp, "out")
+pilot = [s for s in fake_all["scenarios"] if s["split"] == "pilot"]
+formal = [s for s in fake_all["scenarios"] if s["split"] == "formal"][:6]   # small formal for speed
+dlr = lambda a, b: list(range(a - 1, b - 1))
+
+vc = FakeVC()
+w = G.run_cells(vc, "llama3", "pilot", pilot, "s" * 64, mask, out_dir, "m" * 64, "mask.npy", decoder_layer_range=dlr)
+ok(len(w) == 1 and "_a0.json" in w[0], "pilot writes exactly one cell (alpha=0)")
+c0 = json.load(open(w[0]))
+ok(c0["meta"]["steering_fires"] == 0 and c0["meta"]["alpha"] == 0, "alpha=0 -> zero injections")
+ok(len(c0["data"]) == 60 and c0["meta"]["n_rows"] == 60, "30 requests x 2 conditions = 60 replies")
+ok(all(c["prefill_only"] is True and c["tail"] == 1 and c["temp"] == 0.0 and c["mnt"] == 512 for c in vc.calls),
+   "regenerate always prefill_only, tail=1, greedy, 512 tokens")
+ok(c0["meta"]["extra_anchor_added"] is False and c0["meta"]["chat_template_applied"], "no extra anchor, chat template applied")
+ok(c0["data"][0]["messages"] == [{"role": "user", "content": pilot[0]["incomplete_text"]}], "single user message = Incomplete text")
+ok(c0["data"][1]["messages"][0]["content"] == pilot[0]["complete_text"], "Complete row follows Incomplete row")
+
+# formal: 3 alphas, same inputs, injection counts L*n
+vc = FakeVC()
+w = G.run_cells(vc, "llama3", "formal", formal, "s" * 64, mask, out_dir, "m" * 64, "mask.npy", decoder_layer_range=dlr)
+ok(len(w) == 3, "formal writes three cells")
+cells = {json.load(open(p))["meta"]["alpha"]: json.load(open(p)) for p in w}
+ok(set(cells) == {-4, 0, 4}, "alpha set {-4,0,+4}")
+n = 2 * len(formal)
+ok(cells[0]["meta"]["steering_fires"] == 0 and cells[4]["meta"]["steering_fires"] == 9 * n
+   and cells[-4]["meta"]["steering_fires"] == 9 * n, "fires = 0 at alpha=0, L*n (L=9) otherwise")
+ok(len({c["meta"]["prompt_ids_sha256"] for c in cells.values()}) == 1, "tokenised inputs identical across alpha")
+ok(all([r["prompt_sha256"] for r in cells[a]["data"]] == [r["prompt_sha256"] for r in cells[0]["data"]] for a in (-4, 4)),
+   "per-row prompt hashes identical across alpha")
+ok(cells[4]["data"][0]["generated"] != cells[0]["data"][0]["generated"], "steered output differs from alpha=0 (fake model sees the mask)")
+ok(cells[0]["meta"]["injection_last_token_ids_all_prompts"] == [int(100 + (ord("\n") % 50))],
+   "last prefill token is the native assistant header (no anchor added)")
+
+# resume / conflicts
+before = {p: (os.path.getmtime(p), G.sha256_file(p)) for p in w}
+w2 = G.run_cells(FakeVC(), "llama3", "formal", formal, "s" * 64, mask, out_dir, "m" * 64, "mask.npy", decoder_layer_range=dlr)
+ok(w2 == [] and all((os.path.getmtime(p), G.sha256_file(p)) == before[p] for p in w), "identical re-run resumes, rewrites nothing")
+raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "formal", formal, "x" * 64, mask, out_dir, "m" * 64, "mask.npy",
+                                decoder_layer_range=dlr), "conflicting scenario source -> refuse")
+raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "formal", formal, "s" * 64, mask, out_dir, "z" * 64, "mask.npy",
+                                decoder_layer_range=dlr), "conflicting mask hash -> refuse")
+ok(all(G.sha256_file(p) == before[p][1] for p in w), "conflicting re-runs left existing cells untouched")
+ok(not [f for r, _, fs in os.walk(out_dir) for f in fs if f.endswith(".tmp")], "no stray .tmp files")
+
+# guards
+raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "pilot", pilot, "s" * 64, make_mask((11, 20)),
+                                os.path.join(tmp, "o2"), "m" * 64, "mask.npy", decoder_layer_range=dlr),
+            "mask band shifted by one layer -> refuse")
+raises_exit(lambda: G.run_cells(FakeVC(n_dec=28), "llama3", "pilot", pilot, "s" * 64, mask,
+                                os.path.join(tmp, "o3"), "m" * 64, "mask.npy", decoder_layer_range=dlr),
+            "mask rows != decoder layers -> refuse")
+orig = G.strip_leading_bos
+G.strip_leading_bos = lambda tok, t: t
+raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "pilot", pilot, "s" * 64, mask,
+                                os.path.join(tmp, "o4"), "m" * 64, "mask.npy", decoder_layer_range=dlr),
+            "double BOS is detected")
+G.strip_leading_bos = orig
+
+# qwen config: own band
+qm = make_mask((15, 21), n=28)
+vq = FakeVC(n_dec=28)
+wq = G.run_cells(vq, "qwen2.5", "formal", formal, "s" * 64, qm, os.path.join(tmp, "oq"), "q" * 64, "qmask.npy",
+                 decoder_layer_range=dlr)
+cq = json.load(open([p for p in wq if "_a4" in p][0]))
+ok(cq["meta"]["L"] == 6 and cq["meta"]["steering_fires"] == 6 * n and cq["meta"]["layer_start"] == 16,
+   "qwen: band [16,22), L=6, fires 6*n")
+raises_exit(lambda: G.run_cells(FakeVC(n_dec=32), "qwen2.5", "pilot", pilot, "s" * 64, mask, os.path.join(tmp, "oq2"),
+                                "q" * 64, "m.npy", decoder_layer_range=dlr), "llama mask used for qwen -> refuse")
+
+print(f"\nALL {N_OK} CHECKS PASSED")

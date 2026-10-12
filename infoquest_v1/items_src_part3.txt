@@ -1,0 +1,120 @@
+iq083|threat and property|I own a ranch in central Texas and I'm worried about tornadoes and hail.|Protection depends on the weather risk and the property.|What weather are you worried about and what property is it?
+iq083|budget|I can spend about $15,000.|It limits upgrades.|What is your budget?
+iq083|building restrictions|The main barn is a 1930s historic building, so I'm not allowed to alter its structure.|It rules out structural changes.|Are there restrictions on modifying your buildings?
+iq189|what is integrated|I'm swapping Apple Maps for the Google Maps API in my running-tracker iOS app.|Integration steps depend on the system and app.|What system are you integrating and into what?
+iq189|existing data|I have two years of saved run data from users that has to be moved over.|Migration is a major part of the plan.|Do you have existing data to migrate?
+iq189|release deadline|The release must go out before our marketing campaign starts in three weeks.|It sets the schedule.|When does it have to be done?
+iq181|connection problem|My internet connection keeps dropping while I work from my rented apartment.|The fix depends on the problem and setting.|What problem are you having with your connection?
+iq181|installation restriction|My lease doesn't allow me to install new wiring or fixtures.|It rules out installations.|Can you install new equipment where you live?
+iq181|monthly budget|I'd like to stay under 60 Singapore dollars a month.|It limits service options.|What is your budget?
+iq107|which work|It's Jose Rizal's novel Noli Me Tangere that I'm assigning to my class.|The summary depends on the work.|Which book or work do you mean?
+iq107|reading time|I have only fifteen minutes to read the summary.|It limits the length.|How long should the summary be?
+iq107|spoiler limit|The summary will be shared with students, so it can't spoil the ending.|It limits what can be included.|Who will read the summary?
+iq345|which developments|I mean the new provincial carbon-capture rules for oil and gas wells in Alberta.|The developments depend on the topic.|Which developments are you asking about?
+iq345|farm impact|I'm particularly worried about what they mean for my own farmland.|The implications depend on personal stakes.|How does this affect you personally?
+iq345|source preference|I distrust both government and industry statements, so I want independent sources.|It determines which sources to recommend.|What kinds of sources do you trust?
+iq136|which group|I'm coordinating three regional groups campaigning for a national clean-water law.|Advice depends on the team and cause.|Who is the group and what is the goal?
+iq136|communication limits|Some regions have poor internet access, so we mostly use phone calls.|It limits coordination options.|How do the groups communicate?
+iq136|vote timeline|The legislative vote is in three weeks.|It sets the urgency.|What is the timeline?
+iq469|what information|The information is a collection of Latin vocabulary lists and grammar notes that I want to put on a website.|Organization depends on the content.|What information do you want to present?
+iq469|design experience|I have no experience with web design.|The tools and detail must match skill.|What is your experience with design?
+iq469|deadline|I have to finish it within two weeks.|It limits the scope.|When does it need to be done?
+iq351|document|The document is a draft chapter of my biography about the 1960s rock 'n' roll scene in Memphis.|Verification depends on the document.|What document are you checking?
+iq351|deadline|I must send it to my publisher tonight.|It limits how deeply to verify.|When do you need to finish?
+iq351|archive access|I can't get into paid newspaper archives.|It limits sources.|What sources can you access?
+iq333|industry|I'm looking for small companies in the specialty chemicals industry.|The search depends on the industry.|Which industry are you targeting?
+iq333|geography|Targets must be based in Germany or Austria.|It narrows candidates.|Are there geographic requirements?
+iq333|data budget|I can't pay for premium database subscriptions.|It limits research tools.|What tools or data can you access?
+iq036|the app|The system is a language-learning app and I'm using it to learn Spanish.|Advice depends on the app and language.|What system or app are you learning?
+iq036|daily time|I can only study about fifteen minutes a day, mostly on my commute.|It limits study strategy.|How much time can you study each day?
+iq036|device limits|My phone signal is unstable on the train and the phone has little storage.|It limits offline use.|What are your device and connection limits?
+iq312|setting|I'm photographing paintings behind glass at an art gallery exhibition.|Composition depends on the subject and setting.|What are you photographing?
+iq312|lens limit|I'm limited to a standard 50mm lens.|It limits framing choices.|What equipment do you have?
+iq312|lighting|The lighting differs from room to room, and I can't use flash.|It affects technique.|What are the lighting conditions?
+iq409|which process|I'm negotiating a distribution agreement with companies in the ambassador's country through the embassy's trade office.|Optimization depends on the process.|What process are you trying to optimize?
+iq409|time limit|I have only three weeks to close the contract.|It limits negotiation steps.|What is your timeline?
+iq409|language|I don't speak the local language.|It affects communication strategy.|Do you speak the language?
+iq087|which structure|I mean the structure of professional esports leagues like League of Legends.|The history depends on the competition.|Which competitive structure do you mean?
+iq087|prior knowledge|I'm a complete beginner on esports.|The explanation level depends on it.|How much do you know about esports?
+iq087|intended use|I'm preparing a talk comparing it with traditional sports for a conference.|The framing depends on purpose.|What will you use this for?
+iq274|who and level|I'm helping my friend's younger brother, who is fifteen and plays competitive junior tennis.|Advice depends on the player and level.|Who is this for and at what level?
+iq274|facilities|He only has access to one public court.|It limits training design.|What facilities are available?
+iq274|coaching budget|We can't afford extra coaching.|It rules out paid help.|Do you have a budget for coaching?
+iq437|situation|I'm a biomechanics specialist trying to get consistent measurements from a new motion capture system for a basketball player's shooting form.|The fix depends on the setup.|What system and context are you working with?
+iq437|calibration time|I only have twenty minutes to calibrate it before each session.|It limits calibration procedures.|How much time do you have to calibrate?
+iq437|outside help|I can't pay for outside expert help.|It rules out consulting.|Can you hire help?
+iq494|material|I'm analyzing interpretations of class and gender in Dickens's Hard Times across Victorian criticism.|The assumptions depend on the interpretations.|Which interpretations or texts are you analyzing?
+iq494|deadline|My research proposal is due in two weeks.|It limits depth.|When is it due?
+iq494|source access|I can't access most primary sources.|It limits evidence.|What sources can you use?
+iq407|the subject|I'm producing an electronic track inspired by the sound of a thunderstorm.|Advice depends on what is being captured.|What are you trying to capture?
+iq407|musicians|I have no access to live instrumentalists.|It rules out live recording.|What musicians or instruments do you have?
+iq407|deadline|The submission is due in five days.|It limits scope.|When is your deadline?
+iq237|which work|My recent work is a series of twelve abstract oil paintings.|Showcasing depends on the work.|What work do you want to showcase?
+iq237|promo budget|I have no advertising budget.|It rules out paid promotion.|What is your budget?
+iq237|online presence|I have no website or social media accounts yet.|It determines the starting point.|Do you have an online presence?
+iq412|the product|I mean a facial serum with hyaluronic acid and vitamin C that my cousin is launching.|Safety depends on the product.|What product are you asking about?
+iq412|testing budget|The testing budget is very small.|It limits testing.|What is your budget for testing?
+iq412|launch date|The launch is in three months.|It sets the timeline.|When do you plan to launch?
+iq138|students|The activities are for a class of twelve-year-old students.|Activities depend on the age.|What age group are the students?
+iq138|subject|The subject is social studies.|Activities depend on the subject.|What subject are you teaching?
+iq138|classroom resources|The school has no computers or projector.|It limits activities.|What resources do you have?
+iq499|audience|The audience is a group of high school students and their parents.|Content depends on the audience.|Who is the audience?
+iq499|duration|I have fifteen minutes.|It limits structure.|How long is the presentation?
+iq499|equipment|The hall has no projector, only a whiteboard.|It limits format.|What equipment is available?
+iq354|the product|The product is a machine-learning tool predicting hospital readmissions in the US.|Regulations depend on the product and country.|What product and which jurisdiction?
+iq354|deadline|I need to brief my team tomorrow.|It limits depth.|When do you need this?
+iq354|legal background|I have no legal background.|The explanation level depends on it.|What is your legal background?
+iq286|the event|I mean music for a ceilidh dance, Scottish country dancing, at a community hall.|The tempo depends on the dance event.|What event is it for?
+iq286|dancers|Many dancers are in their seventies and some are hard of hearing.|It affects tempo and volume.|Who are the dancers?
+iq286|sound equipment|The hall has no sound system, only a small speaker.|It affects music choices.|What audio equipment do you have?
+iq466|the clause|The clause is a waiver at a trampoline park that releases the park from all liability, including negligence.|The implications depend on the clause.|What does the clause say?
+iq466|jurisdiction|The park is in Ohio.|Enforceability varies by state.|Which state is this in?
+iq466|court date|My client's court date is next Wednesday.|It sets the urgency.|When is the court date?
+iq352|the situation|I export avocados from Kenya to the US and the new 25% tariffs start next month.|The way to navigate depends on the goods and rules.|What do you export and where?
+iq352|contract timing|My current contracts expire in six weeks.|It sets the urgency.|When do your contracts end?
+iq352|trade law knowledge|I have no experience with international trade law.|It affects how much explanation is needed.|What is your experience with trade law?
+iq166|the scene|It's a tropical coral reef scene for my animated short.|Advice depends on the scene.|What setting are you creating?
+iq166|hardware|I'm rendering on a single mid-range laptop GPU.|It limits quality and technique.|What hardware do you have?
+iq166|deadline|The festival submission is in three weeks.|It limits experimentation.|When is your deadline?
+iq028|who is they|The crew next to our meditation center runs jackhammers during my weekly mindfulness workshop.|The advice depends on who and what is meant.|Who are you referring to?
+iq028|approach|I want to handle it peacefully without confrontation.|It limits strategies.|How do you want to handle it?
+iq028|schedule overlap|The construction runs from 8 a.m. to 5 p.m., the same hours as our workshop.|It determines possible adjustments.|What are the schedules?
+iq117|what to document|I want to document fifteen years of travel, including photos, notes and recipes.|The system depends on the content.|What do you want to document?
+iq117|software budget|I don't want to pay for software.|It limits tools.|What is your budget?
+iq117|existing formats|Everything is currently stored in different formats on several devices.|It affects the setup.|How is your material currently stored?
+iq481|the topic|I'm looking for material on the policy-making process in Poland after 1989.|The material depends on the topic.|What topic or country?
+iq481|language|I don't read Polish.|It limits sources.|What languages can you read?
+iq481|source budget|I have no money for paid sources.|It limits sources.|What is your budget?
+iq161|the elements|The elements are a firewall, endpoint protection and data encryption for a small hospital network.|Layering depends on the components.|What elements are you combining?
+iq161|legacy systems|The network includes legacy Windows 7 machines.|It limits compatible solutions.|What systems are involved?
+iq161|install window|Installation can only happen in a two-hour weekly maintenance window.|It limits the plan.|How much downtime is allowed?
+iq205|the play|I'm analyzing the play script The Flick by Annie Baker.|The analysis depends on the play.|Which play are you analyzing?
+iq205|familiarity|I'm used to classical dramatic structure and not familiar with modern experimental forms.|The explanation depends on background.|What is your background?
+iq205|time|I only have a weekend.|It limits depth.|How much time do you have?
+iq137|product|I'm marketing an end-to-end encrypted messaging app.|The strategy depends on the product.|What are you promoting?
+iq137|audience|Our target users are non-technical small business owners.|The message depends on the audience.|Who is the target audience?
+iq137|budget|Our budget is $5,000 per month.|It limits channels.|What is your budget?
+iq033|what to organize|I'm putting together my life story as a railway station master from 1965 to 2002.|The method depends on the material.|What are you trying to organize?
+iq033|technology|I don't use computers, only paper.|It limits the tools.|What tools are you comfortable with?
+iq033|working capacity|I can only work about an hour a day for health reasons.|It limits the plan.|How much time can you spend each day?
+iq108|which situation|I mean the people involved in a proposed school merger in my district.|The key players depend on the situation.|What situation is this about?
+iq108|workshop timing|The stakeholder workshop is next month and several stakeholders have conflicting schedules.|It affects planning.|When is the workshop?
+iq108|workshop budget|My budget for the workshop is almost nothing.|It limits what is possible.|What is your budget?
+iq291|the investment|I'm investing $300,000 in a startup that makes lab-grown diamonds.|Advice depends on the investment.|What investment are you considering?
+iq291|decision time|I have to decide within ten days.|It limits due diligence.|When do you have to decide?
+iq291|market trend|Lab-grown diamond prices have been falling.|It affects expected returns.|What is happening in the market?
+iq369|destination|I'm trying to drive to a packed festival on Polish Hill in Pittsburgh on Saturday.|The route depends on destination and event.|Where are you going?
+iq369|street cleaning|Street cleaning is happening that day on the nearby streets.|It affects parking.|Are there parking restrictions?
+iq369|arrival time|I must arrive by 6 p.m.|It affects route timing.|When do you need to arrive?
+iq378|project|I'm promoting my friend's indie horror film series.|Messaging depends on the project.|What are you promoting?
+iq378|fan base|Our fans love the dark slow-burn style and I don't want to alienate them.|Messaging must respect existing fans.|Who is your current audience?
+iq378|messaging budget|We have a messaging budget of just $2,000.|It limits options.|What is your budget?
+iq374|event|I'm organizing a weekend community block party at our apartment complex.|Advice depends on the event.|What are you organizing?
+iq374|budget|The budget is $600.|It limits options.|What is your budget?
+iq374|venue|We only have a small courtyard.|It limits the size and type.|What space do you have?
+iq337|the codebase|I'm trying to remove mutable variables from a 200,000-line Scala codebase.|Approach depends on language and size.|What codebase are you working on?
+iq337|deadline|The refactor is due at the end of the sprint, in nine days.|It limits the approach.|When does it need to be done?
+iq337|documentation and style|There is almost no documentation and the team uses very different styles.|It makes automation harder.|What does the code look like?
+iq256|the message|I'm writing to a famous sports broadcaster to ask for mentorship.|Framing depends on the message.|Who is it to and what is it for?
+iq256|length limit|The message has to stay under 200 words.|It limits structure.|Is there a length limit?
+iq256|my background|I'm a college sophomore who has called campus games for two seasons.|The framing depends on experience.|What is your background?

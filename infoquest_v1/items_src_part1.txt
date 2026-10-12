@@ -1,0 +1,134 @@
+# id|information_need|complete_span (first-person fact added to the request)|why_relevant|acceptable_question_example
+# DRAFT authored by Claude from the source setting (description/constraints); review_status stays draft_unreviewed until a human reviews.
+iq329|which tool|I'm talking about Cyn.in, the collaboration platform we're about to roll out.|The steps depend on the specific software being integrated.|Which tool or system are you planning to integrate into your workflow?
+iq329|operating systems|Our staff use a mix of Windows laptops and a few Macs.|Installation and compatibility advice differs per operating system.|What operating systems do your team members use?
+iq329|downtime tolerance|We can only afford about an hour of downtime, and only outside business hours.|It decides between a phased rollout and a one-time cutover.|How much downtime can your business tolerate during the switch?
+iq057|what is promoted|I run small-group snake and frog spotting tours in the rainforests of Borneo.|The channels and message depend on what is being promoted.|What kind of business or content are you trying to promote?
+iq057|marketing budget|My marketing budget is about $200 a month.|Paid versus free tactics depend on the money available.|How much can you spend on marketing?
+iq057|internet access|I only get reliable internet when I'm back in town, not out on the trails.|Real-time posting is only feasible with connectivity.|What is your internet access like while you are working?
+iq012|deadline|It's for an article that is due to my editor this evening.|The depth of help depends on how much time there is.|When do you need this by?
+iq012|source access|I can't get past the paywall of the journal where the paper is published.|Which sources can be recommended depends on what the user can open.|Do you have access to the original paper or only to summaries?
+iq012|audience level|My readers are general news readers, so I need it in plain, non-academic language.|The register and level of simplification depend on the audience.|Who is your audience and how technical can the explanation be?
+iq381|route endpoints|I'm driving from Dayton to my sister's place in Columbus this Saturday.|A route cannot be planned without start, destination and day.|Where are you starting from, where are you going, and when?
+iq381|event to avoid|There is a political rally planned along the usual highway that day, and I'd like to steer clear of it.|It determines which roads to avoid.|Are there particular areas or events you want to avoid?
+iq381|road preferences|I'd like to avoid toll roads and stay on main roads that have gas stations.|Road type and tolls change the recommended route.|Do you have preferences about toll roads or the type of road?
+iq140|nature of situation|My coworkers and I filed a collective labor dispute against our employer last month.|The legal pathway depends on what kind of dispute it is.|What kind of situation or dispute are you dealing with?
+iq140|confidentiality need|We need to keep this confidential, so nothing can become public.|It rules out public or media-based strategies.|Is confidentiality a concern for you?
+iq140|financial capacity|Our group can't afford a long, drawn-out legal battle.|It changes how aggressive or prolonged a strategy can be.|What resources do you have for a legal process?
+iq125|which system|It's an online storytelling platform I want to use to publish my hockey stories.|Guidance is specific to the platform.|Which system are you trying to learn?
+iq125|technical comfort and devices|I'm not very comfortable with technology and I mostly use my phone and an old tablet.|Instructions must fit skill level and devices.|How comfortable are you with technology, and what devices do you have?
+iq125|cost limit|I don't want to pay for any monthly subscription.|It limits which tools and plans can be suggested.|Do you have a budget for software?
+iq114|subject|I mean the BMW-Sauber Formula 1 team.|The history depends on which subject is meant.|What is the thing you want the history of?
+iq114|deadline|I'm writing an article about it that is due today.|It determines how much to cover and how fast.|Do you have a deadline for this?
+iq114|period of interest|I mostly care about the years when Robert Kubica drove for them.|It narrows which part of the history matters.|Is there a specific period you are interested in?
+iq071|product category|I'm sourcing cleaning products for a large corporate office building.|Performance criteria and options depend on the category.|What kind of product are you sourcing?
+iq071|certification requirement|Anything I pick has to carry recognized green certifications like Green Seal or EPA Safer Choice.|Compliance requirements filter the candidates.|Are there specific certifications you need?
+iq071|budget limit|My budget doesn't allow for premium-priced options.|Cost sets which sustainable options are viable.|What budget are you working with?
+iq379|what the sequence is|It's a sequence of coin-flip outcomes from a probability exercise in my cryptography course.|The analysis method depends on the kind of sequence.|What is the sequence you are analyzing?
+iq379|math background|I've only had an introductory probability course and haven't studied combinatorics yet.|The explanation level depends on prior knowledge.|What math background do you have?
+iq379|available tools|I don't have any statistical software, only a basic calculator and a spreadsheet.|Methods must be doable with the user's tools.|What tools or software do you have access to?
+iq052|what is distributed|I run a volunteer program that distributes donated food and supplies to three neighborhoods.|Allocation advice depends on what the resources and recipients are.|What resources are you allocating and to whom?
+iq052|storage and transport|We only have one small storage garage and one donated van.|Logistics capacity bounds any allocation plan.|What storage and transport capacity do you have?
+iq052|volunteer availability|Our volunteers can only work on weekends.|Scheduling and distribution frequency depend on it.|How much volunteer time is available and when?
+iq348|trip context|I'm visiting Uttar Pradesh for the first time next month, coming from Karnataka.|The advice depends on what the situation actually is.|What is the situation you are trying to approach?
+iq348|budget|My budget is tight, about 15,000 rupees in total for transport and lodging.|It limits transport and accommodation options.|What is your budget for the trip?
+iq348|trip length|I only have four days.|It determines how many places can be visited.|How long will you be there?
+iq496|which structure|I mean the labyrinths in Borges's stories, and I'm planning a painting based on them.|Interpretation depends on the specific work and purpose.|Which labyrinth or work are you asking about?
+iq496|deadline|The painting is due for a gallery submission in three weeks.|Scope of advice depends on available time.|When is the piece due?
+iq496|medium|I'll be working in oil paint on a medium-sized canvas.|What can be depicted depends on the medium.|What medium will you use?
+iq459|topic|I'm preparing an etymology presentation on words that came from Old English.|What the core components are depends on the topic.|What topic or subject do you mean?
+iq459|deadline|The presentation is in two days.|It sets how much research is realistic.|When do you need to present?
+iq459|time limit|I only get five minutes to present.|Content has to fit the presentation length.|How long is the presentation?
+iq280|domain|I'm a police officer and I want to understand how to measure performance in law enforcement, such as response times and case clearance in my precinct.|Which measures are relevant depends on the domain and goals.|What kind of performance are you trying to measure?
+iq280|statistics background|I don't have a statistics background beyond the basics.|Method complexity must fit the user's skills.|What statistics background do you have?
+iq280|study time|I can only study between shifts, maybe 30 minutes a day.|It determines how deep the explanation can go.|How much time do you have to learn this?
+iq044|which person|I mean Clayton, the point guard I've been following since college.|The data depends on who is meant.|Whose performance are you asking about?
+iq044|data type|I want actual statistics like points, assists and shooting percentages, not opinion pieces.|It decides between statistical tables and narrative.|Are you looking for statistics or narrative descriptions?
+iq044|deadline|I need this for a talk I'm giving tomorrow night.|Time pressure affects what to recommend.|When do you need this by?
+iq303|data source|The data is from the Postgres database behind my Heroku app and covers daily user sign-ups.|Tool and approach depend on data format and content.|What data do you have and in what format?
+iq303|audience preference|The stakeholders want interactive charts they can explore themselves.|Presentation format depends on the audience's needs.|Who is the audience and what format do they prefer?
+iq303|tool limitation|I can only use free or open-source tools.|It limits which visualization tools are possible.|Are there constraints on the tools you can use?
+iq216|which feature|I'm trying to add a notification feature to a friend's web app built on Django.|Help depends on the specific feature and framework.|What feature are you trying to add, and what framework is it?
+iq216|coding skill|I only know basic Python and have never used Django before.|Guidance must be pitched at the user's skill level.|How experienced are you with this framework?
+iq216|change restriction|I can't change the core code, only add to it.|It limits the integration approach.|Are there parts of the code you are not allowed to change?
+iq016|which area|I mean regional rainfall and temperature patterns in the Midwest, which affect when I buy corn and soybeans.|The relevant data and patterns depend on the region and crop.|Which region or aspect are you asking about?
+iq016|data budget|I can't pay for subscription weather data services.|Free versus paid sources depend on it.|Can you pay for data services?
+iq016|decision timeline|I have to decide on next season's purchase contracts within a month.|It sets the relevance of long- versus short-term patterns.|When do you have to make the decision?
+iq015|decision context|I'm a government liaison officer and the decision is about a proposed road upgrade through land tied to the local Aboriginal community.|The relevant history depends on the specific decision.|What decision are you facing and in which place?
+iq015|archive access|I can't get into the state archives without a lengthy approval process.|Which sources are practical depends on access.|Do you have access to archives or records?
+iq015|deadline|The decision has to be made within two weeks.|It limits how deep the research can go.|How soon do you have to decide?
+iq047|nature of the problem|Weekday attendance at my sports bar has been dropping for several months.|Consequences and mitigation depend on the actual problem.|What exactly is the problem you are facing?
+iq047|marketing budget|I have almost no marketing budget this year.|It rules out paid mitigation options.|What budget do you have for dealing with this?
+iq047|competition|A new bar with cheap drink specials opened two blocks away.|Competitive pressure changes the likely risks and responses.|Is there new competition nearby?
+iq111|what was created|What I created is a basketball statistical model that predicts Knicks game outcomes.|The way to measure impact depends on what it is.|What did you create?
+iq111|data access|I can only use publicly available stats.|It limits which impact measures are feasible.|What data can you use to evaluate it?
+iq111|audience statistics level|My readers have very mixed levels of statistical knowledge.|Reporting style depends on the audience.|Who will read the results and how technical are they?
+iq119|event|It's for a fan gathering to celebrate Deportivo Lara's anniversary.|Title ideas depend on what the title is for.|What is the title for?
+iq119|audience|Attendees range from kids to elderly fans, so it has to feel welcoming to everyone.|Tone and wording depend on the audience.|Who is the audience?
+iq119|time limit|I need to finalize the title in the next three days for the posters.|It affects how much iteration is possible.|When do you need to decide on the title?
+iq259|resource domain|I'm deciding how to spend the budget for our hospital's sports medicine clinic.|The allocation advice depends on what resources and area are involved.|Which resources and which department are you allocating?
+iq259|budget size|We have about $50,000 for the whole year.|The size of the budget determines the options.|How much budget is available?
+iq259|space and staffing|We can't hire more staff and the clinic is out of floor space.|These limits rule out many allocation options.|Do you have limits on staff or space?
+iq309|role|I'm hiring a lab assistant for my quantum computing experiments.|What skills matter depends on the role.|What kind of person or role do you need?
+iq309|relocation|The person would have to relocate to our city.|It narrows the candidate pool and recruiting approach.|Does the person need to be local or relocate?
+iq309|budget|The budget for the position is capped at $45,000 a year.|Salary level determines where to search.|What is your budget for the role?
+iq013|case being presented|I'm presenting a proposal to a wildlife conservation board for funding to protect a river-otter habitat.|The advice depends on the case and the audience.|What case are you presenting and to whom?
+iq013|audience priorities|The board mostly cares about hard data and measurable outcomes.|It sets the emphasis of the presentation.|What does your audience care about most?
+iq013|preparation time|I have only two days to prepare.|It limits how elaborate the plan can be.|How much time do you have to prepare?
+iq288|object|It's a large ceramic sculpture, around 60 kg, that I'm taking to a gallery in another city.|Packing and transport depend on the object's size, weight and fragility.|What is the item and how large or fragile is it?
+iq288|deadline|The gallery needs it installed within five days.|It decides between faster and cheaper options.|When does it have to arrive?
+iq288|shipping budget|I can only spend about $400 on shipping and I've never packed art before.|Cost and skill limit the options.|What is your budget and experience with packing?
+iq101|what is being taught|I'm putting together a weekly tennis class for adult beginners at my club.|Consistency advice depends on what is being taught and to whom.|What exactly are you trying to make consistent?
+iq101|physical limits|My knees limit how much I can demonstrate on court.|It affects which teaching methods are possible.|Do you have any physical limitations?
+iq101|court availability|We only have one court available and only on Tuesday evenings.|Class structure depends on venue time and space.|What venue or time constraints do you have?
+iq368|which document|I mean the US Constitution.|The principles depend on which document is meant.|What is the thing you want to understand?
+iq368|analytic focus|I'm particularly interested in critiques of it rather than endorsements.|The perspective of the analysis depends on it.|Do you want a critical or a supportive perspective?
+iq368|time available|I only have about a week to prepare my lecture on it.|Depth of coverage depends on the time.|How much time do you have?
+iq334|activity|I'm an artist and I want to organize an online exhibition of contemporary Russian art.|Advice depends on what the user is trying to do.|What are you trying to do or promote?
+iq334|funding|I have almost no funding, maybe a couple of hundred dollars.|It limits platform and promotion choices.|What budget do you have?
+iq334|technical experience|I've never set up a virtual exhibition space before.|Instructions must fit the user's technical level.|What is your experience with online platforms?
+iq361|work pattern|I work shifts at both a hospital and a nursing home, and my shift lengths change every week.|The schedule depends on the structure of the commitments.|What commitments do you need to schedule?
+iq361|travel time|It takes me forty minutes to travel between the two workplaces.|Travel eats into schedule flexibility.|How long does it take to travel between places?
+iq361|on-call duty|At the hospital I'm sometimes on call for emergencies.|On-call duty constrains when other commitments can be placed.|Do you have on-call responsibilities?
+iq485|the two options|The options are a small independent publisher and a large publishing house for my debut novel.|The comparison depends on what the options are.|What are the two options you are choosing between?
+iq485|main priority|What matters most to me is keeping creative control of the book.|Priorities determine which option is better for the user.|What matters most to you in this decision?
+iq485|finances|I am short on money, and the big house offers a noticeably higher advance.|Money pressure changes how heavily the advance should weigh.|What is your financial situation?
+iq214|which activity|The activity I mean is two-hour sessions on an indoor rowing machine.|Physical effects depend on the specific activity.|What activity are you asking about?
+iq214|source access|I only have free access to research, not the journals behind paywalls.|It determines which sources are practical.|What kind of research materials can you access?
+iq214|deadline and workload|The paper is due next Wednesday and I have other coursework too.|It limits how deeply the topic can be researched.|When is it due and how much time do you have?
+iq112|what business|I mean the art gallery my family has run for thirty years, which I'm about to take over.|The balance depends on the actual business and its history.|What are the tradition and the change you are talking about?
+iq112|building limits|The building is historic, so we can't do major renovations.|It rules out some modernization options.|Are there physical or legal limits on what you can change?
+iq112|customer base|Our regular customers mainly buy classical paintings.|Customers' preferences constrain change.|Who are your customers and what do they want?
+iq230|sport and level|I play competitive badminton singles at a regional level.|Technique advice depends on sport and level.|What sport and level do you play at?
+iq230|training time|I can train only three evenings a week.|It bounds the training plan.|How much time can you train each week?
+iq230|injury history|I had a shoulder injury last year and have to avoid overuse.|It restricts which drills are safe.|Do you have any injuries I should know about?
+iq302|project|It's for launching our new software product to a client next quarter.|Allocation depends on the type of project.|What project are you allocating resources for?
+iq302|staffing limit|We cannot hire any additional staff.|It limits the available resource options.|Can you add staff or only reallocate?
+iq302|timeline|The deadline is eight weeks away.|Prioritization depends on the timeline.|What is your timeline?
+iq142|story premise|It's a short story about a girl growing up in a fishing village on Peru's coast.|The narrative arc depends on the premise.|What is the project about?
+iq142|writing time|I can only write on weekends because of school.|It affects how elaborate a plan is realistic.|How much time do you have to write?
+iq142|audience and occasion|The story is for a national school writing contest, so readers will be a general audience.|Arc and tone depend on the audience.|Who is the story for?
+iq416|club situation|I coach a small bowling club on Montserrat that has only twelve members.|The recruitment approach depends on the club's situation.|What kind of group do you want more people for?
+iq416|promotion budget|We have almost no marketing budget.|It limits promotion channels.|What budget do you have for outreach?
+iq416|venue capacity|Our venue only has four lanes.|It caps event size and the type of activity.|What are your facility limits?
+iq448|the two things|The two things are make-up artistry and film history, for a lecture in my film studies course.|Blending advice depends on what is being combined.|What are the two things you want to blend?
+iq448|class format|I teach a mix of in-person and online students.|The lecture design depends on the delivery format.|How will the lecture be delivered?
+iq448|clip access|I don't have access to licensed film clips.|It limits which examples can be used.|What materials or clips do you have access to?
+iq003|which shift|The shift I mean is the rise of artificial intelligence in military and economic power.|The consequences depend on which shift is meant.|Which shift in power dynamics do you mean?
+iq003|audience|I'm writing it up for a general-audience magazine.|Depth and style depend on the audience.|Who is this for?
+iq003|deadline|My draft is due in five days.|It sets how comprehensive the help can be.|When is your deadline?
+iq390|workload|I'm a freelance writer with six articles due in the next two weeks.|Prioritization depends on the actual workload.|What are your competing priorities?
+iq390|daily capacity|I can only write about four hours a day.|Total capacity bounds the schedule.|How many hours can you work per day?
+iq390|quality constraint|I won't compromise on quality, so I need revision time for each piece.|It affects how time is split.|Are there quality requirements that affect scheduling?
+iq414|scenario|It's for a small quadcopter drone flying toward a stationary obstacle during a demonstration.|The calculation depends on the physical scenario.|What is the situation, and what object is moving?
+iq414|battery limit|The drone's battery has only about six minutes of flight time left.|It limits how long a maneuver can take.|How much battery or flight time remains?
+iq414|computing resources|I can only run calculations on a laptop with Python, not on the drone's onboard computer.|The method must fit the compute available.|What computing resources do you have?
+iq081|what is that|I'm asking about a state education funding bill from the 1970s that my grandfather helped write.|The history depends on what the bill or event is.|What are you asking about?
+iq081|source access|I can't get to the state archives in person.|It determines which sources can be suggested.|What sources can you access?
+iq081|time frame|I want to share what I find at a family reunion this weekend.|It limits how deep the research can go.|When do you need this?
+iq359|the source|The source is a merchant's diary that says a flood hit his town on 14 March 1913.|Verification steps depend on the type of source and claim.|What is the source and what claim does it make?
+iq359|archive access|I can't afford the subscription to the online newspaper archives.|It limits which corroborating sources can be used.|What archives or databases can you access?
+iq359|deadline|My article is due to the journal at the end of the month.|It affects how thorough verification can be.|When do you need to finish?
+iq482|the subject|I mean Jesse James and his life before the first bank robbery in Liberty, Missouri.|Sources depend on who the person is.|Who is the outlaw you are asking about?
+iq482|travel budget|My budget doesn't cover travel for interviews.|It rules out in-person archive trips.|What budget do you have for research?
+iq482|production timeline|Production starts in three weeks.|It limits how much source gathering is realistic.|When does production start?
