@@ -4,7 +4,16 @@
 prepare_infoquest_v1.py -- data/scenario preparation for `infoquest-v1`
 (first-turn information-gap selectivity; see CLAUDE.md "InfoQuest" entry).
 
-Subcommands (all offline once the three source files are cached):
+Server workflow (everything under /data1/paveen/Dopamine, no local preparation):
+  python prepare_infoquest_v1.py prepare     # download pinned source, sample, build drafts, validate, report
+  (review/edit components/benchmark/infoquest_v1_work/scenario_items_v1.json)
+  python prepare_infoquest_v1.py review --confirm-reviewed --reviewer NAME   # explicit; never automatic
+  python prepare_infoquest_v1.py export      # rebuild + validate + write components/benchmark/infoquest_v1.json
+
+The only shipped inputs are infoquest_v1/items_src_part*.txt (authored by us; the public data
+supplies constraints/checklist, not our facts or scoring items).
+
+Subcommands (all offline once the source files are cached):
   sample  Download seed_messages.jsonl + settings.jsonl at the PINNED revision,
           apply the structural filter, draw 130 distinct requests with
           random.Random(42), fix 30 as pilot / 100 as formal, pick one hidden
@@ -41,10 +50,12 @@ N_PILOT, N_FORMAL = 30, 100
 RULE_VERSION = "infoquest-v1-sampling-1"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(HERE, "infoquest_v1")
-SAMPLING = os.path.join(DATA_DIR, "sampling_v1.json")
-ITEMS = os.path.join(DATA_DIR, "scenario_items_v1.json")
-SCENARIOS = os.path.join(DATA_DIR, "scenarios_v1.json")
+DATA_DIR = os.path.join(HERE, "infoquest_v1")        # shipped build resources (authored items_src_part*.txt)
+WORK_DIR = os.path.join(HERE, "components", "benchmark", "infoquest_v1_work")   # derived/edited files
+SAMPLING = os.path.join(WORK_DIR, "sampling_v1.json")
+ITEMS = os.path.join(WORK_DIR, "scenario_items_v1.json")      # the file a reviewer edits
+SCENARIOS = os.path.join(WORK_DIR, "scenarios_v1.json")
+STATE = os.path.join(WORK_DIR, "prepare_state.json")
 BENCH = os.path.join(HERE, "components", "benchmark", "infoquest_v1.json")  # the ONLY runtime file
 
 # Instruction-like wording that must never appear in a Complete supplement
@@ -228,7 +239,7 @@ def ints(s):  # request text: strip only; wording is otherwise untouched
 def cmd_sample(a):
     if os.path.exists(SAMPLING):
         die(f"{SAMPLING} exists; refusing to overwrite a frozen sampling manifest")
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(WORK_DIR, exist_ok=True)
     out = derive_sampling(fetch_source(a.src_dir))
     with open(SAMPLING, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
@@ -344,7 +355,7 @@ def cmd_build(a):
     if problems:
         print("\n".join(problems[:60]))
         die(f"{len(problems)} validation problem(s); nothing written")
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(WORK_DIR, exist_ok=True)
     with open(SCENARIOS, "w", encoding="utf-8") as f:
         json.dump({"protocol": "infoquest-v1", "sampling_digest": samp["request_id_digest"],
                    "scenarios": out}, f, ensure_ascii=False, indent=1)
@@ -389,6 +400,69 @@ def cmd_freeze(a):
     print(f"wrote {BENCH}: {len(d['scenarios'])} reviewed scenarios, file sha256={sha256_file(BENCH)[:16]}")
 
 
+def resources():
+    import glob
+    fps = sorted(glob.glob(os.path.join(DATA_DIR, "items_src_part*.txt")))
+    if not fps:
+        die(f"build resources missing: no {DATA_DIR}/items_src_part*.txt (sync the code AND infoquest_v1/ resources)")
+    return sha256_bytes(b"".join(open(f, "rb").read() for f in fps))
+
+
+def cmd_prepare(a):
+    rsha = resources()
+    os.makedirs(WORK_DIR, exist_ok=True)
+    state = json.load(open(STATE)) if os.path.exists(STATE) else None
+    if os.path.exists(SAMPLING):
+        fresh = derive_sampling(fetch_source(a.src_dir))
+        if canon(fresh) != canon(json.load(open(SAMPLING, encoding="utf-8"))):
+            die(f"{SAMPLING} conflicts with a fresh derivation from the pinned source; not overwriting")
+        print("[reuse] sampling_v1.json matches the pinned source")
+    else:
+        cmd_sample(a)
+    if os.path.exists(ITEMS):
+        if state is None:
+            die(f"{ITEMS} exists but {STATE} is missing; cannot tell which resources it came from")
+        if state["resources_sha256"] != rsha:
+            die("shipped build resources changed since this draft was created. Your edits in "
+                f"{ITEMS} are kept untouched; move that file aside deliberately to re-derive it")
+        print("[reuse] scenario_items_v1.json kept (manual edits are never overwritten)")
+    else:
+        cmd_items(argparse.Namespace(rebuild_draft=False))
+        state = {"resources_sha256": rsha, "sampling_digest": json.load(open(SAMPLING))["request_id_digest"]}
+        json.dump(state, open(STATE, "w"), indent=1)
+    cmd_build(argparse.Namespace(rebuild_draft=True))
+    d = json.load(open(SCENARIOS, encoding="utf-8"))["scenarios"]
+    n_rev = sum(s["review_status"] == "reviewed" for s in d)
+    print(f"\n[status] {len(d)} scenarios, reviewed={n_rev}, unreviewed={len(d) - n_rev}")
+    print(f"[drafts] edit: {ITEMS}\n         built: {SCENARIOS}")
+    if n_rev < len(d):
+        print("[next]  review/edit the items file, then:\n"
+              "        python prepare_infoquest_v1.py review --confirm-reviewed --reviewer <name>\n"
+              "        python prepare_infoquest_v1.py export\n"
+              "        (nothing is marked reviewed automatically; pilot cannot start before export)")
+    else:
+        print("[next]  python prepare_infoquest_v1.py export")
+
+
+def cmd_review(a):
+    if not a.confirm_reviewed:
+        die("refusing: pass --confirm-reviewed (and --reviewer) only after you have read the scenarios")
+    items = json.load(open(ITEMS, encoding="utf-8"))
+    for v in items.values():
+        v["review_status"] = "reviewed"
+    json.dump(items, open(ITEMS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    import datetime
+    st = json.load(open(STATE)); st["reviewed_by"] = a.reviewer
+    st["reviewed_at"] = datetime.datetime.now().isoformat(timespec="seconds")
+    json.dump(st, open(STATE, "w"), indent=1)
+    print(f"marked {len(items)} scenarios reviewed by {a.reviewer}")
+
+
+def cmd_export(a):
+    cmd_build(argparse.Namespace(rebuild_draft=True))     # derived file is always re-derived from the edited items
+    cmd_freeze(a)
+
+
 def cmd_check(a):
     samp = json.load(open(SAMPLING, encoding="utf-8"))
     fresh = derive_sampling(fetch_source(a.src_dir))
@@ -421,9 +495,12 @@ def cmd_check(a):
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for n, fn in (("sample", cmd_sample), ("items", cmd_items), ("build", cmd_build), ("freeze", cmd_freeze), ("check", cmd_check)):
+    for n, fn in (("prepare", cmd_prepare), ("review", cmd_review), ("export", cmd_export), ("sample", cmd_sample), ("items", cmd_items), ("build", cmd_build), ("freeze", cmd_freeze), ("check", cmd_check)):
         p = sub.add_parser(n)
         p.add_argument("--src_dir", default=None, help="directory holding the source jsonl (offline)")
+        if n == "review":
+            p.add_argument("--confirm-reviewed", dest="confirm_reviewed", action="store_true")
+            p.add_argument("--reviewer", required=True)
         if n in ("build", "items"):
             p.add_argument("--rebuild_draft", action="store_true")
         p.set_defaults(fn=fn)
