@@ -14,9 +14,9 @@ Subcommands (all offline once the three source files are cached):
   build   Merge sampling_v1.json with the AUTHORED items file
           infoquest_v1/scenario_items_v1.json -> infoquest_v1/scenarios_v1.json
           (Complete = Incomplete + " " + supplement). Validates every scenario.
-  freeze  Only if EVERY scenario is review_status == "reviewed": write
-          infoquest_v1/scenarios_v1.freeze.json (sha256 of scenarios_v1.json).
-          get_answer_infoquest_v1.py refuses to run without a matching freeze.
+  freeze  Validate everything; only if EVERY scenario is "reviewed" write the single runtime
+          file components/benchmark/infoquest_v1.json (scenarios + sampling provenance).
+          Refuses to overwrite; writes nothing on any failure.
   check   Re-derive sampling from the source files and compare to the stored
           sampling_v1.json; re-validate scenarios_v1.json. Writes nothing.
 
@@ -45,7 +45,7 @@ DATA_DIR = os.path.join(HERE, "infoquest_v1")
 SAMPLING = os.path.join(DATA_DIR, "sampling_v1.json")
 ITEMS = os.path.join(DATA_DIR, "scenario_items_v1.json")
 SCENARIOS = os.path.join(DATA_DIR, "scenarios_v1.json")
-FREEZE = os.path.join(DATA_DIR, "scenarios_v1.freeze.json")
+BENCH = os.path.join(HERE, "components", "benchmark", "infoquest_v1.json")  # the ONLY runtime file
 
 # Instruction-like wording that must never appear in a Complete supplement
 # (the Complete condition must differ from Incomplete ONLY by facts).
@@ -286,8 +286,6 @@ def cmd_items(a):
     import glob
     if os.path.exists(ITEMS) and not a.rebuild_draft:
         die(f"{ITEMS} exists; pass --rebuild_draft to regenerate (reviewed status would be reset)")
-    if os.path.exists(FREEZE):
-        die("a freeze manifest exists; scenarios are frozen")
     by = {}
     for fp in sorted(glob.glob(os.path.join(DATA_DIR, "items_src_part*.txt"))):
         for ln, line in enumerate(open(fp, encoding="utf-8"), 1):
@@ -318,9 +316,7 @@ def cmd_build(a):
     samp = json.load(open(SAMPLING, encoding="utf-8"))
     items = json.load(open(ITEMS, encoding="utf-8"))
     if os.path.exists(SCENARIOS) and not a.rebuild_draft:
-        die(f"{SCENARIOS} exists; pass --rebuild_draft to regenerate (refused if a freeze exists)")
-    if os.path.exists(FREEZE):
-        die("a freeze manifest exists; scenarios are frozen and cannot be rebuilt")
+        die(f"{SCENARIOS} exists; pass --rebuild_draft to regenerate ")
     problems, out = [], []
     ids = {s["scenario_id"] for s in samp["scenarios"]}
     extra = set(items) - ids
@@ -357,8 +353,8 @@ def cmd_build(a):
 
 
 def cmd_freeze(a):
-    if os.path.exists(FREEZE):
-        die(f"{FREEZE} exists; refusing to overwrite")
+    if os.path.exists(BENCH):
+        die(f"{BENCH} exists; refusing to overwrite (move it away deliberately to re-export)")
     d = json.load(open(SCENARIOS, encoding="utf-8"))
     samp = json.load(open(SAMPLING, encoding="utf-8"))
     if d.get("sampling_digest") != samp["request_id_digest"]:
@@ -383,11 +379,14 @@ def cmd_freeze(a):
     bad = [s["scenario_id"] for s in d["scenarios"] if s["review_status"] != "reviewed"]
     if bad:
         die(f"{len(bad)} scenario(s) not reviewed (e.g. {bad[:5]}); cannot freeze")
-    man = {"protocol": "infoquest-v1", "scenarios_sha256": sha256_file(SCENARIOS),
-           "sampling_sha256": sha256_file(SAMPLING), "n": len(d["scenarios"])}
-    with open(FREEZE, "w", encoding="utf-8") as f:
-        json.dump(man, f, indent=1)
-    print(f"wrote {FREEZE}: scenarios_sha256={man['scenarios_sha256'][:16]}")
+    meta = {k: v for k, v in samp.items() if k != "scenarios"}
+    meta["selected_request_ids_in_order"] = [x["request_id"] for x in samp["scenarios"]]
+    out = {"protocol": "infoquest-v1", "status": "reviewed_export", "n_pilot": N_PILOT, "n_formal": N_FORMAL,
+           "sampling": meta, "scenarios": d["scenarios"]}
+    os.makedirs(os.path.dirname(BENCH), exist_ok=True)
+    with open(BENCH, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=1)
+    print(f"wrote {BENCH}: {len(d['scenarios'])} reviewed scenarios, file sha256={sha256_file(BENCH)[:16]}")
 
 
 def cmd_check(a):
@@ -410,10 +409,13 @@ def cmd_check(a):
                 die(f"{s['scenario_id']}: {errs or 'complete_text inconsistent'}")
             n += 1
         print(f"[ok] {n} scenarios valid; reviewed={sum(s['review_status']=='reviewed' for s in d['scenarios'])}")
-    if os.path.isfile(FREEZE):
-        m = json.load(open(FREEZE))
-        assert m["scenarios_sha256"] == sha256_file(SCENARIOS), "freeze/scenarios mismatch"
-        print("[ok] freeze manifest matches scenarios_v1.json")
+    if os.path.isfile(BENCH):
+        m = json.load(open(BENCH, encoding="utf-8"))
+        assert m["protocol"] == "infoquest-v1" and m["status"] == "reviewed_export"
+        assert m["sampling"]["selected_request_ids_in_order"] == [x["request_id"] for x in samp["scenarios"]], \
+            "benchmark selection differs from sampling"
+        assert m["scenarios"] == json.load(open(SCENARIOS, encoding="utf-8"))["scenarios"], "benchmark != scenarios_v1.json"
+        print(f"[ok] runtime benchmark matches local scenarios (sha256 {sha256_file(BENCH)[:16]})")
 
 
 def main():
