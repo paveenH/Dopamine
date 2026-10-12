@@ -11,7 +11,7 @@
 # pilot  = 30 requests x 2 conditions, alpha=0 only        (60 replies / model)
 # formal = 100 requests x 2 conditions, alpha=-4,0,+4      (600 replies / model)
 # Pilot does NOT chain into formal. No scoring happens on the server.
-# Refuses unless infoquest_v1/scenarios_v1.freeze.json matches the reviewed
+# Materials are read from ${BASE_DIR}/benchmark/infoquest_v1/. Refuses unless scenarios_v1.freeze.json matches the reviewed
 # scenario file. Existing cells are resumed only with identical provenance.
 set -e
 
@@ -27,9 +27,12 @@ PY="${PY:-python}"
 cd "${WORK_DIR}"
 
 "${PY}" -c "import numpy, torch" || { echo "[x] ${PY} cannot import numpy/torch"; exit 1; }
-for f in infoquest_v1/scenarios_v1.json infoquest_v1/scenarios_v1.freeze.json; do
-    [ -f "${f}" ] || { echo "[x] missing ${f} (scenarios must be reviewed and frozen first)"; exit 1; }
+MAT_DIR="${BASE_DIR}/benchmark/infoquest_v1"
+for f in "${MAT_DIR}/scenarios_v1.json" "${MAT_DIR}/scenarios_v1.freeze.json"; do
+    [ -f "${f}" ] || { echo "[x] missing ${f} (scenarios must be reviewed, frozen and synced first)"; exit 1; }
 done
 echo "[env] host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
-"${PY}" get_answer_infoquest_v1.py --model "${MODEL}" --stage "${STAGE}" --base_dir "${BASE_DIR}"
+"${PY}" get_answer_infoquest_v1.py --model "${MODEL}" --stage "${STAGE}" --base_dir "${BASE_DIR}" \
+    --scenarios "${MAT_DIR}/scenarios_v1.json" \
+    --freeze "${MAT_DIR}/scenarios_v1.freeze.json"
