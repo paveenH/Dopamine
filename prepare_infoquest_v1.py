@@ -392,7 +392,9 @@ def cmd_freeze(a):
         die(f"{len(bad)} scenario(s) not reviewed (e.g. {bad[:5]}); cannot freeze")
     meta = {k: v for k, v in samp.items() if k != "scenarios"}
     meta["selected_request_ids_in_order"] = [x["request_id"] for x in samp["scenarios"]]
-    out = {"protocol": "infoquest-v1", "status": "reviewed_export", "n_pilot": N_PILOT, "n_formal": N_FORMAL,
+    st = json.load(open(STATE)) if os.path.exists(STATE) else {}
+    review = {k: st.get(k) for k in ("reviewed_by", "reviewed_at", "reviewed_content_sha256")}
+    out = {"protocol": "infoquest-v1", "status": "reviewed_export", "review": review, "n_pilot": N_PILOT, "n_formal": N_FORMAL,
            "sampling": meta, "scenarios": d["scenarios"]}
     os.makedirs(os.path.dirname(BENCH), exist_ok=True)
     with open(BENCH, "w", encoding="utf-8") as f:
@@ -444,6 +446,13 @@ def cmd_prepare(a):
         print("[next]  python prepare_infoquest_v1.py export")
 
 
+def items_content_sha():
+    """Hash of everything a reviewer can change, EXCLUDING the review_status flag itself."""
+    items = json.load(open(ITEMS, encoding="utf-8"))
+    return sha256_bytes(canon({k: {kk: vv for kk, vv in v.items() if kk != "review_status"}
+                               for k, v in items.items()}).encode())
+
+
 def cmd_review(a):
     if not a.confirm_reviewed:
         die("refusing: pass --confirm-reviewed (and --reviewer) only after you have read the scenarios")
@@ -453,12 +462,20 @@ def cmd_review(a):
     json.dump(items, open(ITEMS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     import datetime
     st = json.load(open(STATE)); st["reviewed_by"] = a.reviewer
+    st["reviewed_content_sha256"] = items_content_sha()
     st["reviewed_at"] = datetime.datetime.now().isoformat(timespec="seconds")
     json.dump(st, open(STATE, "w"), indent=1)
     print(f"marked {len(items)} scenarios reviewed by {a.reviewer}")
 
 
 def cmd_export(a):
+    st = json.load(open(STATE)) if os.path.exists(STATE) else {}
+    if not st.get("reviewed_by") or st.get("reviewed_content_sha256") != items_content_sha():
+        die("items were not signed off, or were modified after the sign-off; re-run "
+            "`review --confirm-reviewed --reviewer NAME` after finishing your edits")
+    fresh = derive_sampling(fetch_source(a.src_dir))
+    if canon(fresh) != canon(json.load(open(SAMPLING, encoding="utf-8"))):
+        die(f"{SAMPLING} does not match a fresh derivation from the pinned source; not exporting")
     cmd_build(argparse.Namespace(rebuild_draft=True))     # derived file is always re-derived from the edited items
     cmd_freeze(a)
 

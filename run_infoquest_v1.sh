@@ -27,7 +27,7 @@ cd "${WORK_DIR}"
 
 "${PY}" -c "import numpy, torch" || { echo "[x] ${PY} cannot import numpy/torch"; exit 1; }
 BENCH_FILE="${BASE_DIR}/benchmark/infoquest_v1.json"
-[ -f "${BENCH_FILE}" ] || { echo "[x] missing ${BENCH_FILE} (export reviewed material with prepare_infoquest_v1.py freeze, then sync)"; exit 1; }
+[ -f "${BENCH_FILE}" ] || { echo "[x] missing ${BENCH_FILE} (run on the server: prepare_infoquest_v1.py prepare, review, then export)"; exit 1; }
 echo "[env] host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 "${PY}" get_answer_infoquest_v1.py --model "${MODEL}" --stage "${STAGE}" --base_dir "${BASE_DIR}" --benchmark "${BENCH_FILE}"
