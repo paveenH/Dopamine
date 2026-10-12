@@ -37,6 +37,53 @@ def raises_exit(fn, msg):
     ok(False, msg + " (no SystemExit)")
 
 
+# ----------------------------------------------------------------- prepare (server workflow, temp WORK dir)
+import argparse
+TW = tempfile.mkdtemp()
+P.WORK_DIR = TW
+P.SAMPLING, P.ITEMS, P.SCENARIOS, P.STATE = (os.path.join(TW, f) for f in (
+    "sampling_v1.json", "scenario_items_v1.json", "scenarios_v1.json", "prepare_state.json"))
+P.BENCH = os.path.join(TW, "bench", "infoquest_v1.json")
+NSP = argparse.Namespace(src_dir=None)
+real_data_dir = P.DATA_DIR
+P.DATA_DIR = os.path.join(TW, "no_resources")
+raises_exit(lambda: P.cmd_prepare(NSP), "missing shipped build resources -> clear error")
+P.DATA_DIR = real_data_dir
+P.cmd_prepare(NSP)
+ok(all(os.path.exists(f) for f in (P.SAMPLING, P.ITEMS, P.SCENARIOS, P.STATE)), "prepare writes sampling/items/scenarios/state in the work dir")
+ok(not os.path.exists(P.BENCH), "prepare does not export a benchmark")
+ok(all(v["review_status"] == "draft_unreviewed" for v in json.load(open(P.ITEMS)).values()), "prepare leaves everything unreviewed")
+raises_exit(lambda: P.cmd_export(NSP), "export refuses unreviewed material")
+ok(not os.path.exists(P.BENCH), "no benchmark after refused export")
+# manual edits survive a repeated prepare
+it = json.load(open(P.ITEMS)); it["iq329"]["items"][0]["information_need"] = "EDITED BY REVIEWER"
+json.dump(it, open(P.ITEMS, "w"), ensure_ascii=False)
+P.cmd_prepare(NSP)
+ok(json.load(open(P.ITEMS))["iq329"]["items"][0]["information_need"] == "EDITED BY REVIEWER", "repeat prepare keeps manual edits")
+ok(next(x for x in json.load(open(P.SCENARIOS))["scenarios"] if x["scenario_id"] == "iq329")["items"][0]["information_need"]
+   == "EDITED BY REVIEWER", "built scenarios pick the edit up")
+sam0 = open(P.SAMPLING).read()
+sd = json.load(open(P.SAMPLING)); sd["rule"]["seed"] = 7
+json.dump(sd, open(P.SAMPLING, "w"))
+raises_exit(lambda: P.cmd_prepare(NSP), "sampling conflicting with the pinned source -> error")
+open(P.SAMPLING, "w").write(sam0)
+st = json.load(open(P.STATE)); st["resources_sha256"] = "x"
+json.dump(st, open(P.STATE, "w"))
+raises_exit(lambda: P.cmd_prepare(NSP), "changed shipped resources vs existing draft -> error, edits untouched")
+st["resources_sha256"] = P.resources(); json.dump(st, open(P.STATE, "w"))
+raises_exit(lambda: P.cmd_review(argparse.Namespace(confirm_reviewed=False, reviewer="x")), "review refuses without --confirm-reviewed")
+P.cmd_review(argparse.Namespace(confirm_reviewed=True, reviewer="tester"))
+ok(json.load(open(P.STATE))["reviewed_by"] == "tester", "explicit review recorded")
+P.cmd_export(NSP)
+ok(os.path.exists(P.BENCH) and json.load(open(P.BENCH))["status"] == "reviewed_export", "export writes the single benchmark file")
+G.load_benchmark(P.BENCH, "pilot"); G.load_benchmark(P.BENCH, "formal")
+ok(True, "exported benchmark is accepted by the generator loader")
+os.remove(P.BENCH)
+it = json.load(open(P.ITEMS))
+for v in it.values():
+    v["review_status"] = "draft_unreviewed"
+json.dump(it, open(P.ITEMS, "w"), ensure_ascii=False)
+
 # ----------------------------------------------------------------- sampling / materials
 samp = json.load(open(P.SAMPLING, encoding="utf-8"))
 sc = samp["scenarios"]
@@ -218,7 +265,7 @@ ok(cells[0]["meta"]["model_dir"] == "meta-llama/Llama-3.1-8B-Instruct", "actual 
 import shutil
 fz = os.path.join(tmp, "fz"); os.makedirs(fz)
 for fn in ("sampling_v1.json", "scenarios_v1.json"):
-    shutil.copy(os.path.join(P.DATA_DIR, fn), fz)
+    shutil.copy(os.path.join(TW, fn), fz)
 P.SAMPLING, P.SCENARIOS, P.BENCH = (os.path.join(fz, "sampling_v1.json"), os.path.join(fz, "scenarios_v1.json"),
                                    os.path.join(fz, "bench", "infoquest_v1.json"))
 dd = json.load(open(P.SCENARIOS))
