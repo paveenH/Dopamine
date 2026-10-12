@@ -52,9 +52,10 @@ reviewed before freeze; any change is made before model output and logged below.
 ### Review log (pre-model changes)
 - (none yet)
 
-### Where to edit scenarios (so a rebuild never overwrites manual work)
-- Edit `items_src_part*.txt` -> `prepare_infoquest_v1.py items --rebuild_draft` -> `build --rebuild_draft`.
-- Or edit `scenario_items_v1.json` directly -> `build --rebuild_draft` only (do NOT rerun `items`).
-- Set `review_status` to `reviewed` in `scenario_items_v1.json`, then `build --rebuild_draft`, then `freeze`,
-  which validates everything and writes the single runtime file `components/benchmark/infoquest_v1.json`
-  (never overwritten; only this file and the two run scripts go to the server; this guide stays local).
+### Where to edit scenarios (server workflow)
+- `python prepare_infoquest_v1.py prepare` builds drafts in `components/benchmark/infoquest_v1_work/`.
+- Edit `scenario_items_v1.json` there (repeat `prepare` never overwrites it; `scenarios_v1.json` is derived).
+- Sign off explicitly: `review --confirm-reviewed --reviewer NAME`; then `export` writes the single runtime file
+  `components/benchmark/infoquest_v1.json`. Changing the shipped `items_src_part*.txt` after a draft exists is an error
+  by design (move the work file aside to re-derive).
+- This guide stays local; rating import takes `--guide` and `--guide_version`.
