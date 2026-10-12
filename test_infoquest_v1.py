@@ -76,23 +76,25 @@ import re
 ok(all(not re.search(r"\b(checklist|persona)\b", s["supplement"], re.I) for s in scen),
    "no persona/checklist wording copied into supplements")
 
-# ------------------------------------------------------------------- freeze guard
+# ------------------------------------------------------------------- benchmark loading
 tmp = tempfile.mkdtemp()
-fake_all = {"protocol": "infoquest-v1", "scenarios": [dict(s, review_status="reviewed") for s in scen]}
-sp = os.path.join(tmp, "scen.json")
-fp = os.path.join(tmp, "freeze.json")
-json.dump(fake_all, open(sp, "w"))
-raises_exit(lambda: G.load_frozen_scenarios(sp, fp, "pilot"), "no freeze manifest -> refuse")
-json.dump({"scenarios_sha256": "0" * 64}, open(fp, "w"))
-raises_exit(lambda: G.load_frozen_scenarios(sp, fp, "pilot"), "freeze/scenario hash mismatch -> refuse")
-json.dump({"scenarios_sha256": G.sha256_file(sp)}, open(fp, "w"))
-got, sha = G.load_frozen_scenarios(sp, fp, "pilot")
-ok(len(got) == 30 and sha == G.sha256_file(sp), "frozen reviewed pilot loads (30)")
-ok(len(G.load_frozen_scenarios(sp, fp, "formal")[0]) == 100, "frozen reviewed formal loads (100)")
-draft = os.path.join(tmp, "draft.json")
-json.dump({"scenarios": scen}, open(draft, "w"))
-json.dump({"scenarios_sha256": G.sha256_file(draft)}, open(fp, "w"))
-raises_exit(lambda: G.load_frozen_scenarios(draft, fp, "pilot"), "unreviewed scenarios even with a matching hash -> refuse")
+rev = [dict(s, review_status="reviewed") for s in scen]
+bp = os.path.join(tmp, "infoquest_v1.json")
+good = {"protocol": "infoquest-v1", "status": "reviewed_export", "scenarios": rev}
+json.dump(good, open(bp, "w"))
+raises_exit(lambda: G.load_benchmark(os.path.join(tmp, "missing.json"), "pilot"), "missing benchmark -> refuse, exact path")
+got, bsha = G.load_benchmark(bp, "pilot")
+ok(len(got) == 30 and bsha == G.sha256_file(bp), "reviewed export loads (30 pilot), sha = whole-file sha256")
+ok(len(G.load_benchmark(bp, "formal")[0]) == 100, "formal loads (100)")
+for name, d in (("draft status", dict(good, status="draft")),
+                ("wrong protocol", dict(good, protocol="other")),
+                ("unreviewed scenario", dict(good, scenarios=[dict(rev[0], review_status="draft_unreviewed")] + rev[1:])),
+                ("wrong pilot count", dict(good, scenarios=rev[1:]))):
+    json.dump(d, open(bp, "w"))
+    raises_exit(lambda: G.load_benchmark(bp, "pilot"), f"benchmark refused: {name}")
+json.dump(good, open(bp, "w"))
+fake_all = good
+sp = bp
 
 
 # ------------------------------------------------------------------- fake model
@@ -212,20 +214,26 @@ raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "formal", formal, "s" * 64, 
                                 decoder_layer_range=dlr, model_dir="other/weights"), "different actual model_dir -> refuse resume")
 ok(cells[0]["meta"]["model_dir"] == "meta-llama/Llama-3.1-8B-Instruct", "actual model_dir recorded")
 
-# freeze re-validation (monkeypatched paths, temp copies)
+# freeze/export re-validation (monkeypatched paths, temp copies)
 import shutil
 fz = os.path.join(tmp, "fz"); os.makedirs(fz)
 for fn in ("sampling_v1.json", "scenarios_v1.json"):
     shutil.copy(os.path.join(P.DATA_DIR, fn), fz)
-P.SAMPLING, P.SCENARIOS, P.FREEZE = (os.path.join(fz, "sampling_v1.json"), os.path.join(fz, "scenarios_v1.json"),
-                                    os.path.join(fz, "scenarios_v1.freeze.json"))
+P.SAMPLING, P.SCENARIOS, P.BENCH = (os.path.join(fz, "sampling_v1.json"), os.path.join(fz, "scenarios_v1.json"),
+                                   os.path.join(fz, "bench", "infoquest_v1.json"))
 dd = json.load(open(P.SCENARIOS))
 for x in dd["scenarios"]:
     x["review_status"] = "reviewed"
 json.dump(dd, open(P.SCENARIOS, "w"))
 P.cmd_freeze(None)
-ok(os.path.exists(P.FREEZE), "valid reviewed material freezes")
-os.remove(P.FREEZE)
+ex_ = json.load(open(P.BENCH))
+ok(ex_["status"] == "reviewed_export" and len(ex_["scenarios"]) == 130, "valid reviewed material exports one benchmark file")
+ok(ex_["sampling"]["seed"] == 42 if "seed" in ex_["sampling"] else ex_["sampling"]["rule"]["seed"] == 42, "sampling provenance kept")
+ok(len(ex_["sampling"]["selected_request_ids_in_order"]) == 130 and "safety_replacements" in ex_["sampling"]
+   and "source" in ex_["sampling"], "selection order, replacements and source hashes kept")
+raises_exit(lambda: P.cmd_freeze(None), "existing benchmark file is not overwritten")
+G.load_benchmark(P.BENCH, "pilot")
+os.remove(P.BENCH)
 for name, mut in (("edited Complete text", lambda d: d["scenarios"][3].__setitem__("complete_text", "tampered")),
                   ("changed split", lambda d: d["scenarios"][3].__setitem__("split", "pilot" if d["scenarios"][3]["split"] == "formal" else "formal")),
                   ("changed request text", lambda d: d["scenarios"][3].__setitem__("incomplete_text", "other request")),
@@ -233,8 +241,10 @@ for name, mut in (("edited Complete text", lambda d: d["scenarios"][3].__setitem
                       dict(d["scenarios"][3]["items"][0], item_id="extra_i9"))),
                   ("leak wording added", lambda d: d["scenarios"][3].__setitem__("supplement", d["scenarios"][3]["supplement"] + " No need to ask."))):
     d2 = copy.deepcopy(dd); mut(d2); json.dump(d2, open(P.SCENARIOS, "w"))
-    raises_exit(lambda: P.cmd_freeze(None), f"freeze refuses: {name}")
-    ok(not os.path.exists(P.FREEZE), f"no freeze written: {name}")
+    raises_exit(lambda: P.cmd_freeze(None), f"export refuses: {name}")
+    ok(not os.path.exists(P.BENCH), f"no benchmark written: {name}")
+json.dump(dict(dd, scenarios=[dict(dd["scenarios"][0], review_status="draft_unreviewed")] + dd["scenarios"][1:]), open(P.SCENARIOS, "w"))
+raises_exit(lambda: P.cmd_freeze(None), "export refuses unreviewed scenario")
 
 # guards
 raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "pilot", pilot, "s" * 64, make_mask((11, 20)),
