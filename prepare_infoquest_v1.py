@@ -372,6 +372,9 @@ def cmd_freeze(a):
                 probs.append(f"{sc['scenario_id']}: {k} differs from sampling")
         if sc["complete_text"] != f"{sc['incomplete_text']} {sc['supplement']}":
             probs.append(f"{sc['scenario_id']}: complete_text != incomplete + supplement")
+        tids = [x["item_id"] for x in sc["items"] if x.get("role", "target") == "target"]
+        if sc.get("target_item_ids") != tids:
+            probs.append(f"{sc['scenario_id']}: target_item_ids {sc.get('target_item_ids')} != target items {tids}")
         probs += [f"{sc['scenario_id']}: {e}" for e in validate_items(
             sc, {"supplement": sc["supplement"], "items": sc["items"], "review_status": sc["review_status"]})]
     if probs:
