@@ -360,6 +360,23 @@ def cmd_freeze(a):
     if os.path.exists(FREEZE):
         die(f"{FREEZE} exists; refusing to overwrite")
     d = json.load(open(SCENARIOS, encoding="utf-8"))
+    samp = json.load(open(SAMPLING, encoding="utf-8"))
+    if d.get("sampling_digest") != samp["request_id_digest"]:
+        die("scenarios_v1.json was built from a different sampling manifest")
+    if [s["scenario_id"] for s in d["scenarios"]] != [s["scenario_id"] for s in samp["scenarios"]]:
+        die("scenario ids/order differ from sampling_v1.json")
+    probs = []
+    for sc, ref in zip(d["scenarios"], samp["scenarios"]):
+        for k in ("split", "request_id", "setting_key", "incomplete_text", "source"):
+            if sc[k] != ref[k]:
+                probs.append(f"{sc['scenario_id']}: {k} differs from sampling")
+        if sc["complete_text"] != f"{sc['incomplete_text']} {sc['supplement']}":
+            probs.append(f"{sc['scenario_id']}: complete_text != incomplete + supplement")
+        probs += [f"{sc['scenario_id']}: {e}" for e in validate_items(
+            sc, {"supplement": sc["supplement"], "items": sc["items"], "review_status": sc["review_status"]})]
+    if probs:
+        print("\n".join(probs[:40]))
+        die(f"{len(probs)} validation problem(s); cannot freeze")
     bad = [s["scenario_id"] for s in d["scenarios"] if s["review_status"] != "reviewed"]
     if bad:
         die(f"{len(bad)} scenario(s) not reviewed (e.g. {bad[:5]}); cannot freeze")
