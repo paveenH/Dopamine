@@ -39,3 +39,14 @@ advice + question still counts.
    `RoleAnswer/infoquest_blind.py` (ratings files carry the version they were made under).
 3. Formal: rate with the frozen guide. If it is revised later, keep the old version and
    re-rate all affected replies consistently.
+
+## Compound items (rule added before any model output)
+Each item is scored against its `information_need` label only. If the reference fact bundles
+two things (e.g. "room size" + "what it must hold"), `asked=1` requires a question that covers
+the **labelled need**; asking only about the bundled extra counts as `asked=0`. Items that
+mix two independent needs should be split during scenario review (before freeze), not here.
+Requests the model cannot perform (e.g. "send me the file") or with unresolved names are
+reviewed before freeze; any change is made before model output and logged below.
+
+### Review log (pre-model changes)
+- (none yet)
