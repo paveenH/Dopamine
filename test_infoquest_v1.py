@@ -208,6 +208,32 @@ raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "formal", formal, "s" * 64, 
 ok(all(G.sha256_file(p) == before[p][1] for p in w), "conflicting re-runs left existing cells untouched")
 ok(not [f for r, _, fs in os.walk(out_dir) for f in fs if f.endswith(".tmp")], "no stray .tmp files")
 
+raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "formal", formal, "s" * 64, mask, out_dir, "m" * 64, "mask.npy",
+                                decoder_layer_range=dlr, model_dir="other/weights"), "different actual model_dir -> refuse resume")
+ok(cells[0]["meta"]["model_dir"] == "meta-llama/Llama-3.1-8B-Instruct", "actual model_dir recorded")
+
+# freeze re-validation (monkeypatched paths, temp copies)
+import shutil
+fz = os.path.join(tmp, "fz"); os.makedirs(fz)
+for fn in ("sampling_v1.json", "scenarios_v1.json"):
+    shutil.copy(os.path.join(P.DATA_DIR, fn), fz)
+P.SAMPLING, P.SCENARIOS, P.FREEZE = (os.path.join(fz, "sampling_v1.json"), os.path.join(fz, "scenarios_v1.json"),
+                                    os.path.join(fz, "scenarios_v1.freeze.json"))
+dd = json.load(open(P.SCENARIOS))
+for x in dd["scenarios"]:
+    x["review_status"] = "reviewed"
+json.dump(dd, open(P.SCENARIOS, "w"))
+P.cmd_freeze(None)
+ok(os.path.exists(P.FREEZE), "valid reviewed material freezes")
+os.remove(P.FREEZE)
+for name, mut in (("edited Complete text", lambda d: d["scenarios"][3].__setitem__("complete_text", "tampered")),
+                  ("changed split", lambda d: d["scenarios"][3].__setitem__("split", "pilot" if d["scenarios"][3]["split"] == "formal" else "formal")),
+                  ("changed request text", lambda d: d["scenarios"][3].__setitem__("incomplete_text", "other request")),
+                  ("leak wording added", lambda d: d["scenarios"][3].__setitem__("supplement", d["scenarios"][3]["supplement"] + " No need to ask."))):
+    d2 = copy.deepcopy(dd); mut(d2); json.dump(d2, open(P.SCENARIOS, "w"))
+    raises_exit(lambda: P.cmd_freeze(None), f"freeze refuses: {name}")
+    ok(not os.path.exists(P.FREEZE), f"no freeze written: {name}")
+
 # guards
 raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "pilot", pilot, "s" * 64, make_mask((11, 20)),
                                 os.path.join(tmp, "o2"), "m" * 64, "mask.npy", decoder_layer_range=dlr),
