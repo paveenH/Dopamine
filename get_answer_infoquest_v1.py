@@ -266,8 +266,10 @@ def main():
     ap = argparse.ArgumentParser(description="InfoQuest information-gap selectivity generation")
     ap.add_argument("--model", required=True, choices=sorted(MODELS))
     ap.add_argument("--stage", required=True, choices=sorted(ALPHAS))
-    ap.add_argument("--scenarios", default=os.path.join(HERE, "infoquest_v1", "scenarios_v1.json"))
-    ap.add_argument("--freeze", default=os.path.join(HERE, "infoquest_v1", "scenarios_v1.freeze.json"))
+    ap.add_argument("--scenarios", default=None,
+                    help="default: <base_dir>/benchmark/infoquest_v1/scenarios_v1.json")
+    ap.add_argument("--freeze", default=None,
+                    help="default: <base_dir>/benchmark/infoquest_v1/scenarios_v1.freeze.json")
     ap.add_argument("--base_dir", default=os.environ.get("BASE_DIR", "components"))
     ap.add_argument("--mask_path", default=None)
     ap.add_argument("--model_dir", default=None)
@@ -281,7 +283,13 @@ def main():
     if not os.path.isfile(mask_path):
         die(f"mask not found: {mask_path}")
     out_dir = a.out_dir or os.path.join(a.base_dir, cfg["out"], "infoquest_v1")
-    scenarios, sc_sha = load_frozen_scenarios(a.scenarios, a.freeze, a.stage)
+    mat_dir = os.path.join(a.base_dir, "benchmark", "infoquest_v1")
+    sc_path = a.scenarios or os.path.join(mat_dir, "scenarios_v1.json")
+    fz_path = a.freeze or os.path.join(mat_dir, "scenarios_v1.freeze.json")
+    for pth in (sc_path, fz_path):
+        if not os.path.isfile(pth):
+            die(f"not found: {pth} (looked exactly here; no fallback to the repo copy)")
+    scenarios, sc_sha = load_frozen_scenarios(sc_path, fz_path, a.stage)
     mask = np.load(mask_path)
     vc = VicundaModel(model_path=a.model_dir or cfg["model_dir"])
     vc.model.eval()
