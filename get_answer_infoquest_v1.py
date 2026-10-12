@@ -128,7 +128,7 @@ def check_tokenization(tok, rendered, label):
 # ------------------------------------------------------------------- provenance
 def provenance_key(meta):
     keys = ("protocol", "model", "stage", "alpha", "layer_start", "layer_end", "mask_sha256",
-            "scenarios_sha256", "chat_template_hash", "prompt_ids_sha256", "max_new_tokens",
+            "scenarios_sha256", "model_dir", "model_config_sha256", "chat_template_hash", "prompt_ids_sha256", "max_new_tokens",
             "temperature", "batch_size", "prefill_only", "prefill_tail_len", "n_rows")
     return {k: meta.get(k) for k in keys}
 
@@ -156,7 +156,7 @@ def try_resume(path, new_meta):
 
 # ------------------------------------------------------------------------- run
 def run_cells(vc, model_key, stage, scenarios, scenarios_sha, mask, out_dir, mask_sha, mask_path,
-              max_new_tokens=MAX_NEW_TOKENS, batch_size=BATCH_SIZE, decoder_layer_range=None):
+              max_new_tokens=MAX_NEW_TOKENS, batch_size=BATCH_SIZE, decoder_layer_range=None, model_dir=None):
     import numpy as np
     cfg = MODELS[model_key]
     ls, le = cfg["band"]
@@ -201,12 +201,16 @@ def run_cells(vc, model_key, stage, scenarios, scenarios_sha, mask, out_dir, mas
     prov = {"host": platform.node(), "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
             "param_devices": devs, "sharded": len(devs) > 1}
 
+    model_dir = model_dir or cfg["model_dir"]
+    mc = getattr(vc.model, "config", None)
+    model_cfg_sha = sha256_text(json.dumps(mc.to_dict(), sort_keys=True, default=str)) if hasattr(mc, "to_dict") else None
     alphas = ALPHAS[stage]
     plan = []
     for a in alphas:
         meta = {
             "protocol": PROTOCOL, "model": model_key, "size": cfg["size"], "stage": stage, "alpha": a,
             "layer_start": ls, "layer_end": le, "L": L, "mask_path": mask_path, "mask_sha256": mask_sha,
+            "model_dir": model_dir, "model_config_sha256": model_cfg_sha,
             "scenarios_sha256": scenarios_sha, "n_scenarios": len(scenarios), "n_rows": len(jobs),
             "max_new_tokens": max_new_tokens, "temperature": 0.0, "top_p": 1.0, "batch_size": batch_size,
             "prefill_only": True, "prefill_tail_len": 1, "role": "neutral",
@@ -293,7 +297,8 @@ def main():
     mask = np.load(mask_path)
     vc = VicundaModel(model_path=a.model_dir or cfg["model_dir"])
     vc.model.eval()
-    run_cells(vc, a.model, a.stage, scenarios, sc_sha, mask, out_dir, sha256_file(mask_path), mask_path)
+    run_cells(vc, a.model, a.stage, scenarios, sc_sha, mask, out_dir, sha256_file(mask_path), mask_path,
+              model_dir=a.model_dir or cfg["model_dir"])
     print("done. Next: export a BLIND file with RoleAnswer/infoquest_blind.py (no scoring happens here).")
 
 
