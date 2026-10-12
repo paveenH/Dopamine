@@ -35,8 +35,9 @@ advice + question still counts.
 ## Procedure
 1. PILOT only: two raters independently score the pilot export (or a subset); run
    `infoquest_blind.py agreement`, discuss each disagreement, and revise this guide.
-2. Freeze the guide before formal rating: record its sha256 and bump `GUIDE_VERSION` in
-   `RoleAnswer/infoquest_blind.py` (ratings files carry the version they were made under).
+2. Freeze the guide before formal rating: save the exact file used and pass it when importing
+   each rater's CSV (`infoquest_blind.py import --guide SCORING_GUIDE.md --guide_version <label>`).
+   Ratings files store its sha256; merge/agreement refuse files made under different guides.
 3. Formal: rate with the frozen guide. If it is revised later, keep the old version and
    re-rate all affected replies consistently.
 
@@ -50,3 +51,8 @@ reviewed before freeze; any change is made before model output and logged below.
 
 ### Review log (pre-model changes)
 - (none yet)
+
+### Where to edit scenarios (so a rebuild never overwrites manual work)
+- Edit `items_src_part*.txt` -> `prepare_infoquest_v1.py items --rebuild_draft` -> `build --rebuild_draft`.
+- Or edit `scenario_items_v1.json` directly -> `build --rebuild_draft` only (do NOT rerun `items`).
+- Set `review_status` to `reviewed` in `scenario_items_v1.json`, then `build --rebuild_draft`, then `freeze`.
