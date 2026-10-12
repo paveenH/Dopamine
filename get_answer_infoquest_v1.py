@@ -19,8 +19,7 @@ Design (see CLAUDE.md "InfoQuest" entry; no real result exists yet):
   * The native assistant header is kept as the last prefill token; NO anchor is
     added to recover token 220.
 
-Fail-closed: the scenario file must match scenarios_v1.freeze.json (which exists
-only if every scenario was reviewed); an existing cell is resumed ONLY when its
+Fail-closed: the single benchmark file must be a reviewed export (protocol/status/counts); an existing cell is resumed ONLY when its
 provenance key is identical, otherwise the run stops WITHOUT overwriting.
 """
 from __future__ import annotations
@@ -73,24 +72,22 @@ def alpha_tag(a):
 
 
 # --------------------------------------------------------------------------- data
-def load_frozen_scenarios(scenarios_path, freeze_path, stage):
-    """Return (scenarios of this stage in file order, scenarios_sha256).
-    Refuses unless a freeze manifest exists and matches the file byte-for-byte."""
-    if not os.path.isfile(freeze_path):
-        die(f"{freeze_path} missing: scenarios have not been reviewed and frozen "
-            "(prepare_infoquest_v1.py freeze). Real runs need frozen material.")
-    man = json.load(open(freeze_path, encoding="utf-8"))
-    got = sha256_file(scenarios_path)
-    if man.get("scenarios_sha256") != got:
-        die("scenarios file does not match its freeze manifest "
-            f"({got[:12]} vs {str(man.get('scenarios_sha256'))[:12]})")
-    d = json.load(open(scenarios_path, encoding="utf-8"))
-    sc = [s for s in d["scenarios"] if s["split"] == stage]
-    if len(sc) != N_EXPECT[stage]:
-        die(f"{len(sc)} {stage} scenarios, expected {N_EXPECT[stage]}")
-    if any(s["review_status"] != "reviewed" for s in sc):
-        die("unreviewed scenario in a frozen file")
-    return sc, got
+def load_benchmark(path, stage):
+    """Return (scenarios of this stage in file order, benchmark file sha256).
+    The single runtime file must be an export of reviewed material."""
+    if not os.path.isfile(path):
+        die(f"benchmark not found: {path} (looked exactly here; no fallback)")
+    d = json.load(open(path, encoding="utf-8"))
+    if d.get("protocol") != PROTOCOL or d.get("status") != "reviewed_export":
+        die(f"{path}: protocol/status must be {PROTOCOL}/reviewed_export "
+            f"(got {d.get('protocol')!r}/{d.get('status')!r})")
+    allsc = d["scenarios"]
+    if any(s["review_status"] != "reviewed" for s in allsc):
+        die("benchmark contains an unreviewed scenario")
+    for sp, n in N_EXPECT.items():
+        if sum(s["split"] == sp for s in allsc) != n:
+            die(f"benchmark has {sum(s['split'] == sp for s in allsc)} {sp} scenarios, expected {n}")
+    return [s for s in allsc if s["split"] == stage], sha256_file(path)
 
 
 def build_jobs(scenarios):
@@ -128,7 +125,7 @@ def check_tokenization(tok, rendered, label):
 # ------------------------------------------------------------------- provenance
 def provenance_key(meta):
     keys = ("protocol", "model", "stage", "alpha", "layer_start", "layer_end", "mask_sha256",
-            "scenarios_sha256", "model_dir", "model_config_sha256", "chat_template_hash", "prompt_ids_sha256", "max_new_tokens",
+            "benchmark_sha256", "model_dir", "model_config_sha256", "chat_template_hash", "prompt_ids_sha256", "max_new_tokens",
             "temperature", "batch_size", "prefill_only", "prefill_tail_len", "n_rows")
     return {k: meta.get(k) for k in keys}
 
@@ -211,7 +208,7 @@ def run_cells(vc, model_key, stage, scenarios, scenarios_sha, mask, out_dir, mas
             "protocol": PROTOCOL, "model": model_key, "size": cfg["size"], "stage": stage, "alpha": a,
             "layer_start": ls, "layer_end": le, "L": L, "mask_path": mask_path, "mask_sha256": mask_sha,
             "model_dir": model_dir, "model_config_sha256": model_cfg_sha,
-            "scenarios_sha256": scenarios_sha, "n_scenarios": len(scenarios), "n_rows": len(jobs),
+            "benchmark_sha256": scenarios_sha, "n_scenarios": len(scenarios), "n_rows": len(jobs),
             "max_new_tokens": max_new_tokens, "temperature": 0.0, "top_p": 1.0, "batch_size": batch_size,
             "prefill_only": True, "prefill_tail_len": 1, "role": "neutral",
             "prompt_wrapper_id": cfg["wrapper"], "chat_template_applied": True,
@@ -270,10 +267,7 @@ def main():
     ap = argparse.ArgumentParser(description="InfoQuest information-gap selectivity generation")
     ap.add_argument("--model", required=True, choices=sorted(MODELS))
     ap.add_argument("--stage", required=True, choices=sorted(ALPHAS))
-    ap.add_argument("--scenarios", default=None,
-                    help="default: <base_dir>/benchmark/infoquest_v1/scenarios_v1.json")
-    ap.add_argument("--freeze", default=None,
-                    help="default: <base_dir>/benchmark/infoquest_v1/scenarios_v1.freeze.json")
+    ap.add_argument("--benchmark", default=None, help="default: <base_dir>/benchmark/infoquest_v1.json")
     ap.add_argument("--base_dir", default=os.environ.get("BASE_DIR", "components"))
     ap.add_argument("--mask_path", default=None)
     ap.add_argument("--model_dir", default=None)
@@ -287,13 +281,8 @@ def main():
     if not os.path.isfile(mask_path):
         die(f"mask not found: {mask_path}")
     out_dir = a.out_dir or os.path.join(a.base_dir, cfg["out"], "infoquest_v1")
-    mat_dir = os.path.join(a.base_dir, "benchmark", "infoquest_v1")
-    sc_path = a.scenarios or os.path.join(mat_dir, "scenarios_v1.json")
-    fz_path = a.freeze or os.path.join(mat_dir, "scenarios_v1.freeze.json")
-    for pth in (sc_path, fz_path):
-        if not os.path.isfile(pth):
-            die(f"not found: {pth} (looked exactly here; no fallback to the repo copy)")
-    scenarios, sc_sha = load_frozen_scenarios(sc_path, fz_path, a.stage)
+    bench_path = a.benchmark or os.path.join(a.base_dir, "benchmark", "infoquest_v1.json")
+    scenarios, sc_sha = load_benchmark(bench_path, a.stage)
     mask = np.load(mask_path)
     vc = VicundaModel(model_path=a.model_dir or cfg["model_dir"])
     vc.model.eval()
