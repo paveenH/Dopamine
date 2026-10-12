@@ -229,6 +229,8 @@ os.remove(P.FREEZE)
 for name, mut in (("edited Complete text", lambda d: d["scenarios"][3].__setitem__("complete_text", "tampered")),
                   ("changed split", lambda d: d["scenarios"][3].__setitem__("split", "pilot" if d["scenarios"][3]["split"] == "formal" else "formal")),
                   ("changed request text", lambda d: d["scenarios"][3].__setitem__("incomplete_text", "other request")),
+                  ("target_item_ids out of sync with items", lambda d: d["scenarios"][3]["items"].append(
+                      dict(d["scenarios"][3]["items"][0], item_id="extra_i9"))),
                   ("leak wording added", lambda d: d["scenarios"][3].__setitem__("supplement", d["scenarios"][3]["supplement"] + " No need to ask."))):
     d2 = copy.deepcopy(dd); mut(d2); json.dump(d2, open(P.SCENARIOS, "w"))
     raises_exit(lambda: P.cmd_freeze(None), f"freeze refuses: {name}")
