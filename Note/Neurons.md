@@ -165,7 +165,7 @@ Conditional accuracy 衡量模型没有选择 E 时的正确率。它有助于�
 
 在 GSM8K 的 300 道题上，我们对 Confidence-neuron steering（CSN）测试了九个剂量。准确率采用冻结的 offline `first_acc` 口径；行为指标沿用统一分析模板。
 
-| α | First acc. | Last acc. | Valid submission | Conditional acc. | Early candidate | Candidate coverage | Reason first | Median `posN` | Multiple markers | Median gen. chars | Δ First acc. vs 0（95% CI） | McNemar raw p | Holm p |
+| α | First acc. | Last acc. | Valid submission | Conditional acc. | Early candidate | Candidate coverage | Reason first | `first_parseable_marker_posN_med` | Multiple markers | Median gen. chars | Δ First acc. vs 0（95% CI） | McNemar raw p | Holm p |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −4 | 51.00% | 49.67% | 36.67% | 63.64% | 72.33% | 99.33% | 10.74% | 0.1876 | 16.00% | 2,289 | — | — | — |
 | −2 | 60.33% | 56.33% | 55.00% | 61.21% | 60.33% | 94.67% | 34.51% | 0.1697 | 19.67% | 2,118 | — | — | — |
@@ -181,7 +181,7 @@ Conditional accuracy 衡量模型没有选择 E 时的正确率。它有助于�
 
 行为上，α=−1 同时表现出较低的 early-candidate rate（**41.00%**，baseline 为 48.33%）、较高的 valid-submission rate（64.33%）和 conditional accuracy（73.06%），方向上与“减少过早候选输出、提高答案质量”一致。不过这些关系并不单调：例如 α=+2 的 reason-first rate 最高（51.05%），但准确率下降至 55.67%。因此，更多前置推理或更晚输出答案本身并不足以保证正确率提高。
 
-`Conditional accuracy` 和 `posN` 仅在产生有效正式提交的样本中定义；`reason-first` 使用 candidate-covered subset。`posN` 表示正式 `####` 标记在输出文本中的相对位置，不代表模型内部的 commitment 时间。上述行为变化均为干预后的描述性共现，不能解释为准确率变化的因果中介。
+`Conditional accuracy` 和 `first_parseable_marker_posN_med` 仅在产生有效正式提交（第一个后接可解析数值的 `####`）的样本中定义，缺失不补值；`Conditional accuracy` 比较的是该子集内第一个可解析 marker 的答案与 gold，不等于 `First acc.` 除以有效提交率；`reason-first` 使用 candidate-covered subset（分母见 `Candidate coverage`）。`first_parseable_marker_posN_med` 表示该 `####` 在输出文本中的字符相对位置，是辅助位置诊断，不代表模型内部的 commitment 时间。主要输出组织指标为 `Early candidate`，`Reason first` 为辅助；二者只描述可见顺序，尚未建立对准确率变化的因果中介作用。上述行为变化均为干预后的描述性共现，不能解释为准确率变化的因果中介。
 
 #### 2.5.2 RSN–CSN Functional Comparison
 
