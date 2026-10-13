@@ -833,7 +833,7 @@ cot_−4 在 `s_t` 與 confidence 上均為四格最高，並與最高 acc co-oc
 
 #### Result 1 — Slow-State Level Is Associated with Commitment Timing
 
-at-risk subset 上，`s_t` level 與提交時間穩定正相關：水平越高，模型通常維持推理越久、提交越晚。
+at-risk subset 上，`s_t` level 與提交時間穩定正相關：水平越高，定位到的首次提交事件通常越晚（Llama 的定位規則：優先首個 `####`，無 marker 時回退到首個答案候選；不同於 Qwen 的 marker-only 規則）。這是文本事件位置的關聯，不解釋為內部思考持續更久。
 
 | Readout | 值 |
 |---|---|
@@ -1017,7 +1017,7 @@ $$
 表格中每一列代表一个 α 剂量，各行含义如下：
 - **Accuracy**：300 道题的正确率。
 - **Commit step (`c_med`)**：首次生成 `####` 的 token 位置中位数；越大表示越晚正式提交答案。
-- **Normalized commit position (`commit_step_posN_med`)**：首个 `####`（bare，不要求后接数字）所在的 decode token step（`commit_aligned.commit_step`）除以总生成长度，范围约为 0–1；越接近 0 越像“先答后推理”，越接近 1 越接近在推理末尾提交。（signal 批次，decode token step 口径，聚合为中位数，不与 benchmark 表 4.1 的字符位置比较。**实现待核实：** `commit_aligned.py`/`suite34.py` 不在本机，分母“总生成长度”与纳入样本的规则未直接核对；该读数只说明 bare `####` 写出的位置，不等于内部提交）
+- **Normalized commit position (`commit_step_posN_med`)**：首个 `####`（bare，不要求后接数字）所在的 decode token step（`commit_aligned.commit_step`）除以总生成长度，范围约为 0–1；越接近 0 越像“先答后推理”，越接近 1 越接近在推理末尾提交。（signal 批次，decode token step 口径，聚合为中位数，不与 benchmark 表 4.1 的字符位置比较。实现已核对 `commit_aligned.commit_step`/`suite34.py`：`re.search("####")` 取首个 bare marker，用整段生成的 offset mapping 取首个字符跨度覆盖 marker 起点的 token，序号 `i`；仅当 `i < len(x_decode)` 保留，归一化为 `i/len(x_decode)`，在定位成功且 `len(x_decode)>0` 的样本上取中位数。该读数只说明 bare `####` 写出的位置，不等于内部提交）
 - **Decode length**：平均生成长度。
 - **Post-commit steps**：首次 `####` 之后仍继续生成的平均 token 数；越长表示提交答案后仍有大量输出。
 - **Pre-span ≥20 coverage**：至少具有 20 个 commit 前 token 的样本比例；决定该剂量下的 pre-commit `s_t` 分析是否可靠。
@@ -1027,7 +1027,7 @@ $$
 
 **主要結果。** Qwen 的核心鏈條在 `+4→+8` 間最明顯：隨 task-entry gain 線性上升（§5.2），pre-commit `s_t` 整體抬高（early：`.74→.90`），首個 bare `####` 的相對位置由生成開頭移至後段（`commit_step_posN_med: .010→.828`），accuracy 同時由 `67.67%` 提升至 `86.00%`。loop rate 亦由 `13.0%` 降至 `2.7%`，說明表現提升並非來自更長的重複輸出。
 
-`+8` 之後，accuracy 與相對 commit 位置進入平台：accuracy 為 `86.00%→88.00%→87.67%`，`commit_step_posN_med` 為 `.828→.839→.854`。但絕對 commit step 仍由 `110→134→163` 持續延後，因為生成長度同時由 `258.9→269.5→279.4` 增加。因此，趨平的是 commitment 在完整生成中的**相對位置**，而非首個 bare `####` 的絕對 token step（該 step 仍在延後）。
+`+8` 之後，accuracy 與首個 bare `####` 的相對 token 位置進入平台：accuracy 為 `86.00%→88.00%→87.67%`，`commit_step_posN_med` 為 `.828→.839→.854`。但絕對 commit step 仍由 `110→134→163` 持續延後，因為生成長度同時由 `258.9→269.5→279.4` 增加。因此，趨平的是 commitment 在完整生成中的**相對位置**，而非首個 bare `####` 的絕對 token step（該 step 仍在延後）。
 
 **與 Llama 的差異。**
 
@@ -1136,7 +1136,7 @@ $$
 
 **结论**
 
-> Qwen 的 α 干预不会整体放大生成过程中的快速波动，但会改变答案提交瞬间的状态转折。换言之，α 主要调节 **commit 时刻的快速切换**，而非全程提高 residual amplitude。该结果与 Llama 部分一致，但 `p_t` 是 slow state 的残差成分，只能作为同一机制链的补充读数，不能视为独立的因果证据。
+> Qwen 的 α 干预不会整体放大生成过程中的快速波动，但会改变首个 bare `####` 对齐点附近的状态转折。换言之，α 主要调节 **commit 时刻的快速切换**，而非全程提高 residual amplitude。该结果与 Llama 部分一致，但 `p_t` 是 slow state 的残差成分，只能作为同一机制链的补充读数，不能视为独立的因果证据。
 
 需要注意：
 
@@ -1182,7 +1182,7 @@ commit **當步**本身則隨劑量進一步 sharpen（`pre` 窗口平均 entrop
 |---|---:|---:|---:|
 | at-commit sharpening | +0.044 | +0.058 | +0.092 |
 
-**α 使答案提交瞬間更 decisive，但提交後的分布反而變鬆。** 此結構與 Result 1 的 `p_t` commit-locked dip、§5.3.1 的 `s_t` post-commit release 是**同一事件的不同讀數**。
+**α 使首個 bare `####` 對齊點的輸出分布更 decisive，但該 marker 之後的分布反而變鬆。** 此結構與 Result 1 的 `p_t` commit-locked dip、§5.3.1 的 `s_t` post-commit release 是**同一事件的不同讀數**。
 
 三項限制隨數字同行：
 
