@@ -1017,7 +1017,7 @@ $$
 表格中每一列代表一个 α 剂量，各行含义如下：
 - **Accuracy**：300 道题的正确率。
 - **Commit step (`c_med`)**：首次生成 `####` 的 token 位置中位数；越大表示越晚正式提交答案。
-- **Normalized commit position (`commit_step_posN_med`)**：首个 `####`（bare，不要求后接数字）所在的 decode token step（`commit_aligned.commit_step`）除以总生成长度，范围约为 0–1；越接近 0 越像“先答后推理”，越接近 1 越接近在推理末尾提交。（signal 批次，token step 口径，不与 benchmark 表 4.1 比较）
+- **Normalized commit position (`commit_step_posN_med`)**：首个 `####`（bare，不要求后接数字）所在的 decode token step（`commit_aligned.commit_step`）除以总生成长度，范围约为 0–1；越接近 0 越像“先答后推理”，越接近 1 越接近在推理末尾提交。（signal 批次，decode token step 口径，聚合为中位数，不与 benchmark 表 4.1 的字符位置比较。**实现待核实：** `commit_aligned.py`/`suite34.py` 不在本机，分母“总生成长度”与纳入样本的规则未直接核对；该读数只说明 bare `####` 写出的位置，不等于内部提交）
 - **Decode length**：平均生成长度。
 - **Post-commit steps**：首次 `####` 之后仍继续生成的平均 token 数；越长表示提交答案后仍有大量输出。
 - **Pre-span ≥20 coverage**：至少具有 20 个 commit 前 token 的样本比例；决定该剂量下的 pre-commit `s_t` 分析是否可靠。
@@ -1052,7 +1052,7 @@ $$
 - **`n_risk`**：有足够 commit 前窗口、能够计算 `s_pre` 的样本数。
 - **loop%**：出现重复或循环输出的比例。
 
-整体上，`+6` 主要让 CoT 模型更晚提交答案、提高正确率并减少循环；`s_pre` 的水平几乎不变。CoT 把 α=0 的 accuracy 由 67.67 抬到 77.00，**但沒有改變「低 α 先答後推」**（`c_med` 仍為 3，coverage 5.0%）。CoT α=+6 已達到 No-CoT α=+8…+12 的 accuracy 平台（87.67）與 commit 位置（`commit_step_posN` .857），即 **CoT 與 +α 在此任務上推動同一條鏈條，且 CoT 讓較低的 α 就達到平台**。兩個 cell 不足以構成 CoT 的 dose curve，不可外推。
+整体上，`+6` 主要让 CoT 模型的首个 `####` 位置更晚（`commit_step` 口径）、伴随正确率提高并减少循环；`s_pre` 的水平几乎不变。CoT 把 α=0 的 accuracy 由 67.67 抬到 77.00，**但沒有改變「低 α 先答後推」**（`c_med` 仍為 3，coverage 5.0%）。CoT α=+6 已達到 No-CoT α=+8…+12 的 accuracy 平台（87.67）與 commit 位置（`commit_step_posN` .857），即 **CoT 與 +α 在此任務上推動同一條鏈條，且 CoT 讓較低的 α 就達到平台**。兩個 cell 不足以構成 CoT 的 dose curve，不可外推。
 
 #### 5.3.1 Post-commit slow-state release：same-sign but attenuated
 
@@ -1386,7 +1386,7 @@ Commit state 分为三类：
 | **+8** | **86.00** | **5.0** | 0.657 | 2.0 | 0.7 | **0.0** |
 | +12 | 87.67 | 4.0 | 0.697 | 2.3 | 1.3 | **0.0** |
 
-四个读数分别测量：**是否在推导前就写下答案**（`early-cand%`）、**答案标记出现在文本何处**
+（上表 `first_parseable_marker_posN` 为 signal 批次、已提交样本上的**均值**，不同于 benchmark 表的中位数；主要输出组织指标仍是 `early-cand%`。）四个读数分别测量：**是否在推导前就写下答案**（`early-cand%`）、**答案标记出现在文本何处**
 （`first_parseable_marker_posN`，第一个后接数值的 `####` 的字符位置 ÷ 全文字符数，在已提交样本上取均值）、**提交了但答案不可解析**（`unparsed%`，括号内为退化反复提交的 `loop%`）、
 **完全没有提交**（`nomk%`）。冻结定义与实现见 `CLAUDE.md`。
 
