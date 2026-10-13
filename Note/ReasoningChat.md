@@ -2,7 +2,7 @@
 
 ## 1. Scope and Evaluation Setup
 
-本节比较 Native Chat、Chat Matched-Anchor 与既有 Bare 参照下的性能和可见输出。Bare 只用于接口参照，不能与 Chat 条件进行样本级统计推断。`first_acc` 是主要性能指标；在提供该指标的实验中，`last_acc` 仅作为敏感性分析。Llama3.1-8B-Instruct 的 Native Chat 是九点 dose response；Qwen2.5-7B-Instruct 只测试 `−8/0/+6/+8`，属于 targeted dose comparison，不构成完整 dose curve。`early_candidate_rate`、`reason_first_rate` 与 `candidate_posN_median` 只描述干预后的可见 output ordering，不能代表内部 commitment 或因果中介。
+本节比较 Native Chat、Chat Matched-Anchor 与既有 Bare 参照下的性能和可见输出。Bare 只用于接口参照，不能与 Chat 条件进行样本级统计推断。`first_acc` 是主要性能指标；在提供该指标的实验中，`last_acc` 仅作为敏感性分析。Llama3.1-8B-Instruct 的 Native Chat 是九点 dose response；Qwen2.5-7B-Instruct 只测试 `−8/0/+6/+8`，属于 targeted dose comparison，不构成完整 dose curve。`early_candidate_rate` 是主要输出组织指标，`reason_first_rate`（分母为 candidate-covered 子集）为辅助指标，`candidate_posN_median`（candidate 字符位置 ÷ 全文字符数，candidate-covered 子集的中位数；文档名 `candidate_posN_med`）为辅助位置诊断；三者只描述干预后的可见 output ordering，不能代表内部决策、停止思考、推理投入或因果中介。Bare 与 Chat 的 early-candidate 沿用同一检测版本（`earlycand-v1`）的数值检测器，但接口不同，不能因名称一致而直接比较。
 
 ## 2. Native Chat Dose–Response
 
