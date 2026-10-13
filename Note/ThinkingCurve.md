@@ -1006,7 +1006,7 @@ $$
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | acc(300) | 62.00 | 65.33 | 68.00 | 68.00 | 67.67 | 68.33 | 73.67 | 77.67 | 86.00 | 88.00 | 87.67 |
 | commit `c_med` | 3 | 3 | 3 | 3 | 3 | 3 | 3 | 47 | 110 | 134 | 163 |
-| `posN_med` | .010 | .010 | .010 | .010 | .010 | .010 | .010 | .190 | .828 | .839 | .854 |
+| `commit_step_posN_med` | .010 | .010 | .010 | .010 | .010 | .010 | .010 | .190 | .828 | .839 | .854 |
 | decode length | 386.5 | 377.4 | 388.4 | 392.0 | 397.4 | 381.9 | 377.6 | 304.5 | 258.9 | 269.5 | 279.4 |
 | post-commit step | 374.2 | 368.9 | 381.2 | 383.0 | 387.9 | 371.4 | 362.0 | 237.3 | 111.5 | 104.1 | 103.5 |
 | pre-span ≥20 % | 8.3% | 6.0% | 4.3% | 4.3% | 5.7% | 6.0% | 9.3% | 58.0% | 96.0% | 97.0% | 96.7% |
@@ -1017,7 +1017,7 @@ $$
 表格中每一列代表一个 α 剂量，各行含义如下：
 - **Accuracy**：300 道题的正确率。
 - **Commit step (`c_med`)**：首次生成 `####` 的 token 位置中位数；越大表示越晚正式提交答案。
-- **Normalized commit position (`posN_med`)**：commit step 除以总生成长度，范围约为 0–1；越接近 0 越像“先答后推理”，越接近 1 越接近在推理末尾提交。
+- **Normalized commit position (`commit_step_posN_med`)**：首个 `####`（bare，不要求后接数字）所在的 decode token step（`commit_aligned.commit_step`）除以总生成长度，范围约为 0–1；越接近 0 越像“先答后推理”，越接近 1 越接近在推理末尾提交。（signal 批次，token step 口径，不与 benchmark 表 4.1 比较）
 - **Decode length**：平均生成长度。
 - **Post-commit steps**：首次 `####` 之后仍继续生成的平均 token 数；越长表示提交答案后仍有大量输出。
 - **Pre-span ≥20 coverage**：至少具有 20 个 commit 前 token 的样本比例；决定该剂量下的 pre-commit `s_t` 分析是否可靠。
@@ -1025,9 +1025,9 @@ $$
 - **Loop %**：输出出现明显重复或循环的样本比例。
 - **EOS fail**：没有自然生成结束符、最终撞到长度上限的比例。
 
-**主要結果。** Qwen 的核心鏈條在 `+4→+8` 間最明顯：隨 task-entry gain 線性上升（§5.2），pre-commit `s_t` 整體抬高（early：`.74→.90`），答案提交位置由生成開頭移至後段（`posN_med: .010→.828`），accuracy 同時由 `67.67%` 提升至 `86.00%`。loop rate 亦由 `13.0%` 降至 `2.7%`，說明表現提升並非來自更長的重複輸出。
+**主要結果。** Qwen 的核心鏈條在 `+4→+8` 間最明顯：隨 task-entry gain 線性上升（§5.2），pre-commit `s_t` 整體抬高（early：`.74→.90`），答案提交位置由生成開頭移至後段（`commit_step_posN_med: .010→.828`），accuracy 同時由 `67.67%` 提升至 `86.00%`。loop rate 亦由 `13.0%` 降至 `2.7%`，說明表現提升並非來自更長的重複輸出。
 
-`+8` 之後，accuracy 與相對 commit 位置進入平台：accuracy 為 `86.00%→88.00%→87.67%`，`posN_med` 為 `.828→.839→.854`。但絕對 commit step 仍由 `110→134→163` 持續延後，因為生成長度同時由 `258.9→269.5→279.4` 增加。因此，趨平的是 commitment 在完整生成中的**相對位置**，而非絕對提交時間。
+`+8` 之後，accuracy 與相對 commit 位置進入平台：accuracy 為 `86.00%→88.00%→87.67%`，`commit_step_posN_med` 為 `.828→.839→.854`。但絕對 commit step 仍由 `110→134→163` 持續延後，因為生成長度同時由 `258.9→269.5→279.4` 增加。因此，趨平的是 commitment 在完整生成中的**相對位置**，而非絕對提交時間。
 
 **與 Llama 的差異。**
 
@@ -1038,7 +1038,7 @@ $$
 
 **CoT（α ∈ {0,+6}，各 n=300）沿同一鏈條移動，且不改變上述形態：**
 
-| Condition | acc | `Z_prefill` | `jump/Zpre` | `c_med` | `posN` | `s_pre`(n_risk) | loop% |
+| Condition | acc | `Z_prefill` | `jump/Zpre` | `c_med` | `commit_step_posN` | `s_pre`(n_risk) | loop% |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | CoT α=0 | 77.00 | 0.00 | — | 3 | .0095 | 1.697 (12) | 12.3 |
 | CoT α=+6 | 87.67 | +24.00 | −0.960 | 163 | .857 | 1.672 (175) | 5.0 |
@@ -1047,12 +1047,12 @@ $$
 - **`Z_prefill`**：生成开始前的标准化 task-entry RSN gain；α=0 按定义为 0。
 - **`jump/Zpre`**：从 prefill 到第一个 decode token 时，入口增益回弹的比例；`−0.960` 表示约 96% 的入口偏移迅速消退。
 - **`c_med`**：首次生成 `####` 的 token 位置中位数。
-- **`posN`**：commit 在完整输出中的相对位置。
+- **`commit_step_posN`**：commit 在完整输出中的相对位置。
 - **`s_pre`**：commit 前 slow state 的平均水平。
 - **`n_risk`**：有足够 commit 前窗口、能够计算 `s_pre` 的样本数。
 - **loop%**：出现重复或循环输出的比例。
 
-整体上，`+6` 主要让 CoT 模型更晚提交答案、提高正确率并减少循环；`s_pre` 的水平几乎不变。CoT 把 α=0 的 accuracy 由 67.67 抬到 77.00，**但沒有改變「低 α 先答後推」**（`c_med` 仍為 3，coverage 5.0%）。CoT α=+6 已達到 No-CoT α=+8…+12 的 accuracy 平台（87.67）與 commit 位置（`posN` .857），即 **CoT 與 +α 在此任務上推動同一條鏈條，且 CoT 讓較低的 α 就達到平台**。兩個 cell 不足以構成 CoT 的 dose curve，不可外推。
+整体上，`+6` 主要让 CoT 模型更晚提交答案、提高正确率并减少循环；`s_pre` 的水平几乎不变。CoT 把 α=0 的 accuracy 由 67.67 抬到 77.00，**但沒有改變「低 α 先答後推」**（`c_med` 仍為 3，coverage 5.0%）。CoT α=+6 已達到 No-CoT α=+8…+12 的 accuracy 平台（87.67）與 commit 位置（`commit_step_posN` .857），即 **CoT 與 +α 在此任務上推動同一條鏈條，且 CoT 讓較低的 α 就達到平台**。兩個 cell 不足以構成 CoT 的 dose curve，不可外推。
 
 #### 5.3.1 Post-commit slow-state release：same-sign but attenuated
 
@@ -1324,7 +1324,7 @@ CoT `+6`（cov 58.3%、n=175）：
 |---|---:|---:|---|
 | `Z_prefill` | `−19.74` | `+32.68…+50.06` | 不可直接比較：兩者以各自模型的 α=0 reference 標準化 |
 | pre-commit `s_t` | Δ vs α=0 = `+0.449`（`d_z=0.584`，paired `n=291`） | level = `1.448`（at-risk `n=212`） | 不可直接比較：一側是配對變化量，另一側是選定 cohort 的絕對水平 |
-| commitment timing | 各劑量約 `77%` coverage，`posN` 隨 α 平緩變化 | `posN: .010→.828`，coverage `5.7%→96.0%` | 可比較變化形態，不可視為相同 commitment state |
+| commitment timing | 各劑量約 `77%` coverage，`commit_step_posN` 隨 α 平緩變化 | `commit_step_posN: .010→.828`，coverage `5.7%→96.0%` | 可比較變化形態，不可視為相同 commitment state |
 | output decisiveness | 齊備（11 cell） | 已提取（7 cell，§5.5） | `PARTIALLY AVAILABLE / SPARSELY SAMPLED`：可比較 commit-locked transition 的**方向**，不可比較劑量曲線 |
 
 四條邊界，任何跨模型陳述都必須同時聲明：
@@ -1370,7 +1370,7 @@ Commit state 分为三类：
 
 每格對各自 α=0 逐題配對。**raw α 只用於模型內部比較。**
 
-| Llama α | acc | early-cand% | posN | `unparsed%` | (其中 `loop%`) | `nomk%` |
+| Llama α | acc | early-cand% | first_parseable_marker_posN（均值，signal 批次） | `unparsed%` | (其中 `loop%`) | `nomk%` |
 |---|---:|---:|---:|---:|---:|---:|
 | −8 | 40.67 | **77.0** | **0.043** | 23.7 | 18.0 | 17.0 |
 | **−6** | **79.67** | **19.3** | **0.298** | 37.3 | 32.0 | 4.0 |
@@ -1378,7 +1378,7 @@ Commit state 分为三类：
 | 0 | 60.00 | 47.7 | 0.219 | 22.0 | 17.3 | 19.0 |
 | +8 | 49.67 | 69.3 | 0.193 | 22.0 | 18.7 | 23.7 |
 
-| Qwen α | acc | early-cand% | posN | `unparsed%` | (其中 `loop%`) | `nomk%` |
+| Qwen α | acc | early-cand% | first_parseable_marker_posN（均值，signal 批次） | `unparsed%` | (其中 `loop%`) | `nomk%` |
 |---|---:|---:|---:|---:|---:|---:|
 | −8 | 62.00 | 95.0 | 0.487 | 17.3 | 4.3 | **0.0** |
 | 0 | 67.67 | 96.3 | 0.553 | 20.3 | 5.0 | **0.0** |
@@ -1387,13 +1387,13 @@ Commit state 分为三类：
 | +12 | 87.67 | 4.0 | 0.697 | 2.3 | 1.3 | **0.0** |
 
 四个读数分别测量：**是否在推导前就写下答案**（`early-cand%`）、**答案标记出现在文本何处**
-（`posN`）、**提交了但答案不可解析**（`unparsed%`，括号内为退化反复提交的 `loop%`）、
+（`first_parseable_marker_posN`，第一个后接数值的 `####` 的字符位置 ÷ 全文字符数，在已提交样本上取均值）、**提交了但答案不可解析**（`unparsed%`，括号内为退化反复提交的 `loop%`）、
 **完全没有提交**（`nomk%`）。冻结定义与实现见 `CLAUDE.md`。
 
 **两个模型内部都成立：剂量不只改变准确率，也系统性改变答案形成与提交的时序。**
 
 - **Llama 是 peak–collapse。** `−6` 抢答最少（19.3%）、准确率最高（79.67%）；到 `−8` 抢答
-  升至 77.0%、`posN` 提前到 0.043，准确率崩至 40.67%。
+  升至 77.0%、`first_parseable_marker_posN` 提前到 0.043，准确率崩至 40.67%。
 - **Qwen 是单调后移至饱和。** 正向剂量把抢答从 96.3% 压到 5.0%；`+8` 之后各指标趋于饱和，
   准确率随之进入平台而非继续上升。
 - **Qwen 的 `nomk%` 在全部 11 格均为 0.0**——它总是写出 `####`，不可解析样本全部属于
@@ -1512,7 +1512,7 @@ Qwen 只有 7 个非同批次条件，无法进行对称检验，因此该结论
 - 在前瞻性封存的 GSM-Hard 上，两模型均选中 observed near-optimal workpoint，直接迁移 GSM8K 工作点分别提高 `6.33 pp` 与 `16.33 pp`。
 - 固定工作点在 CoT 条件下仍分别提高 Llama `6.00 pp`、Qwen `13.33 pp`；未检出 CoT × steering interaction。
 
-这些结果表明 commitment timing 不仅能解释剂量曲线，还携带错误监测与工作点选择信息。边界是：绝对概率校准不能跨任务迁移，GSM-Hard 仍属于 near-domain transfer，而且低 `posN` 仅表示答案 marker 的文本位置，不能单独视为 premature commitment。
+这些结果表明 commitment timing 不仅能解释剂量曲线，还携带错误监测与工作点选择信息。边界是：绝对概率校准不能跨任务迁移，GSM-Hard 仍属于 near-domain transfer，而且低 `first_parseable_marker_posN` 仅表示答案 marker 的文本位置，不能单独视为 premature commitment。
 
 完整行为结果、表格与证据边界见 `ReasoningBare.md §5`；协议、artifact hashes 与实现细节见 `CLAUDE.md`.
 
