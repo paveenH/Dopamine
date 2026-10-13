@@ -6,11 +6,12 @@ get_answer_infoquest_v1.py -- InfoQuest information-gap selectivity (infoquest-v
 Question: does RSN change WHICH information a model asks for on its FIRST reply,
 depending on whether the key facts are already in the request?
 
-Design (see CLAUDE.md "InfoQuest" entry; no real result exists yet):
+Design (see CLAUDE.md "InfoQuest" entry; revision infoquest-v1-r2):
   * Native Chat, neutral role, ONE user message = the condition text
     (Incomplete = original request; Complete = request + factual supplement).
   * No instruction to ask questions, no JSON, no scoring hints.
-  * Greedy, max_new_tokens=512, batch decoding; reply = the first assistant turn.
+  * Greedy, max_new_tokens passed EXPLICITLY by the launcher (r2: 1024; the same value for pilot and formal),
+    batch decoding; reply = the first assistant turn.
   * Prefill-only, tail=1, output-side injection (vc.regenerate prefill_only path),
     each model's OWN Role-derived RSN mask and band:
         llama3   [11,20)  decoder 10-18, L=9, mask nmd_0.5_11_20_8B.npy
@@ -33,7 +34,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROTOCOL = "infoquest-v1"
-MAX_NEW_TOKENS = 512
+REVISION = "infoquest-v1-r2"       # post-pilot material revision; r1 results live elsewhere and are never mixed in
 BATCH_SIZE = 24
 ALPHAS = {"pilot": [0], "formal": [-4, 0, 4]}
 N_EXPECT = {"pilot": 30, "formal": 100}
@@ -81,6 +82,8 @@ def load_benchmark(path, stage):
     if d.get("protocol") != PROTOCOL or d.get("status") != "reviewed_export":
         die(f"{path}: protocol/status must be {PROTOCOL}/reviewed_export "
             f"(got {d.get('protocol')!r}/{d.get('status')!r})")
+    if d.get("revision") != REVISION:
+        die(f"{path}: revision {d.get('revision')!r} != {REVISION!r} (an r1 benchmark must not be re-used)")
     allsc = d["scenarios"]
     if any(s["review_status"] != "reviewed" for s in allsc):
         die("benchmark contains an unreviewed scenario")
@@ -124,7 +127,7 @@ def check_tokenization(tok, rendered, label):
 
 # ------------------------------------------------------------------- provenance
 def provenance_key(meta):
-    keys = ("protocol", "model", "stage", "alpha", "layer_start", "layer_end", "mask_sha256",
+    keys = ("protocol", "revision", "model", "stage", "alpha", "layer_start", "layer_end", "mask_sha256",
             "benchmark_sha256", "model_dir", "model_config_sha256", "chat_template_hash", "prompt_ids_sha256", "max_new_tokens",
             "temperature", "batch_size", "prefill_only", "prefill_tail_len", "n_rows")
     return {k: meta.get(k) for k in keys}
@@ -153,7 +156,7 @@ def try_resume(path, new_meta):
 
 # ------------------------------------------------------------------------- run
 def run_cells(vc, model_key, stage, scenarios, scenarios_sha, mask, out_dir, mask_sha, mask_path,
-              max_new_tokens=MAX_NEW_TOKENS, batch_size=BATCH_SIZE, decoder_layer_range=None, model_dir=None):
+              max_new_tokens, batch_size=BATCH_SIZE, decoder_layer_range=None, model_dir=None):
     import numpy as np
     cfg = MODELS[model_key]
     ls, le = cfg["band"]
@@ -205,7 +208,7 @@ def run_cells(vc, model_key, stage, scenarios, scenarios_sha, mask, out_dir, mas
     plan = []
     for a in alphas:
         meta = {
-            "protocol": PROTOCOL, "model": model_key, "size": cfg["size"], "stage": stage, "alpha": a,
+            "protocol": PROTOCOL, "revision": REVISION, "model": model_key, "size": cfg["size"], "stage": stage, "alpha": a,
             "layer_start": ls, "layer_end": le, "L": L, "mask_path": mask_path, "mask_sha256": mask_sha,
             "model_dir": model_dir, "model_config_sha256": model_cfg_sha,
             "benchmark_sha256": scenarios_sha, "n_scenarios": len(scenarios), "n_rows": len(jobs),
@@ -267,6 +270,7 @@ def main():
     ap = argparse.ArgumentParser(description="InfoQuest information-gap selectivity generation")
     ap.add_argument("--model", required=True, choices=sorted(MODELS))
     ap.add_argument("--stage", required=True, choices=sorted(ALPHAS))
+    ap.add_argument("--max_new_tokens", type=int, required=True, help="no default: the launcher passes the frozen value")
     ap.add_argument("--benchmark", default=None, help="default: <base_dir>/benchmark/infoquest_v1.json")
     ap.add_argument("--base_dir", default=os.environ.get("BASE_DIR", "components"))
     ap.add_argument("--mask_path", default=None)
@@ -280,14 +284,16 @@ def main():
     mask_path = a.mask_path or os.path.join(a.base_dir, cfg["mask_rel"])
     if not os.path.isfile(mask_path):
         die(f"mask not found: {mask_path}")
-    out_dir = a.out_dir or os.path.join(a.base_dir, cfg["out"], "infoquest_v1")
+    out_dir = a.out_dir or os.path.join(a.base_dir, cfg["out"], "infoquest_v1_r2")
     bench_path = a.benchmark or os.path.join(a.base_dir, "benchmark", "infoquest_v1.json")
     scenarios, sc_sha = load_benchmark(bench_path, a.stage)
     mask = np.load(mask_path)
     vc = VicundaModel(model_path=a.model_dir or cfg["model_dir"])
     vc.model.eval()
+    if a.max_new_tokens < 1:
+        die("--max_new_tokens must be positive")
     run_cells(vc, a.model, a.stage, scenarios, sc_sha, mask, out_dir, sha256_file(mask_path), mask_path,
-              model_dir=a.model_dir or cfg["model_dir"])
+              max_new_tokens=a.max_new_tokens, model_dir=a.model_dir or cfg["model_dir"])
     print("done. Next: export a BLIND file with RoleAnswer/infoquest_blind.py (no scoring happens here).")
 
 
