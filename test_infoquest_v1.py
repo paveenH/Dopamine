@@ -116,9 +116,34 @@ scen = json.load(open(P.SCENARIOS, encoding="utf-8"))["scenarios"]
 by = {s["scenario_id"]: s for s in scen}
 ok(len(scen) == 130, "130 scenarios built")
 ok(all(s["complete_text"].startswith(s["incomplete_text"] + " ") for s in scen), "Complete = Incomplete + supplement")
-ok(all(len(s["target_item_ids"]) >= 2 for s in scen), "each scenario has >=2 target items (K_i fixed)")
+ok(all(1 <= len(s["target_item_ids"]) <= 5 for s in scen), "each scenario has 1..5 target items (no padding to a fixed K)")
+ok(all(x["category"] in P.CATEGORIES for s in scen for x in s["items"] if x["role"] == "target"), "every target has a valid category")
+ok(all(x["role"] == "target" or x["category"] == "background" for s in scen for x in s["items"]), "non-target items are background only")
+ok(all(set(s["target_item_ids"]) == {x["item_id"] for x in s["items"] if x["role"] == "target"} for s in scen),
+   "target_item_ids = targets only (background never scored)")
+ok(sum(x["category"] == "constraint" for s in scen for x in s["items"]) > 100
+   and sum(x["category"] == "task_clarification" for s in scen for x in s["items"]) > 50, "both categories are populated")
+rv = json.load(open(P.R2_REVIEW, encoding="utf-8"))
+ok(rv["revision"] == P.BENCH_REVISION and rv["agent_review_only"] is True, "r2 review file declares revision and that it is NOT a human review")
+ok(all(set(v) <= set(P.KNOWN_FLAGS) for v in rv["flags"].values()) and all(s["flags"] == sorted(rv["flags"].get(s["scenario_id"], [])) for s in scen),
+   "flags carried into scenarios and all known")
+byid = {s["scenario_id"]: s for s in scen}
+tg = lambda sid: {x["information_need"]: x["category"] for x in byid[sid]["items"] if x["role"] == "target"}
+ok("which system" not in tg("iq125") and "object_unresolved_in_complete" in byid["iq125"]["flags"], "iq125: unresolved system is not a target, flagged")
+ok("which person" not in tg("iq044") and "object_unresolved_in_complete" in byid["iq044"]["flags"], "iq044: unresolved identity is not a target, flagged")
+ok("deadline" not in tg("iq114") and "subject" in tg("iq114"), "iq114: deadline is background, subject stays")
+ok("request_infeasible" in byid["iq275"]["flags"], "iq275 flagged infeasible (file request)")
+ok(all("|" not in x["information_need"] for s in scen for x in s["items"]), "no compound separators in item labels")
+ok(all(rv["notes"][sid]["basis"] for sid in rv["notes"] if sid in byid), "every edited scenario records its basis")
 ok(all(not P.validate_items(s, {"supplement": s["supplement"], "items": s["items"],
-                                "review_status": s["review_status"]}) for s in scen), "all scenarios validate")
+                                "review_status": s["review_status"], "flags": s["flags"]}) for s in scen), "all scenarios validate")
+bad = copy.deepcopy(scen[0])
+bad["items"][0]["category"] = "other"
+ok(P.validate_items(bad, {"supplement": bad["supplement"], "items": bad["items"], "review_status": "reviewed"}), "invalid target category rejected")
+bad = copy.deepcopy(scen[0])
+bad["items"] = [x for x in bad["items"] if x["role"] != "target"]
+ok(P.validate_items(bad, {"supplement": bad["supplement"], "items": bad["items"], "review_status": "reviewed"}), "scenario with no target is a material problem")
+ok(len(byid["iq044"]["target_item_ids"]) == 1, "a single-target scenario exists and validates (no padding to a fixed K)")
 bad = copy.deepcopy(scen[0])
 bad["supplement"] += " No need to ask me anything."
 ok(P.validate_items(bad, {"supplement": bad["supplement"], "items": bad["items"],
@@ -139,7 +164,7 @@ ok(all(not re.search(r"\b(checklist|persona)\b", s["supplement"], re.I) for s in
 tmp = tempfile.mkdtemp()
 rev = [dict(s, review_status="reviewed") for s in scen]
 bp = os.path.join(tmp, "infoquest_v1.json")
-good = {"protocol": "infoquest-v1", "status": "reviewed_export", "scenarios": rev}
+good = {"protocol": "infoquest-v1", "revision": "infoquest-v1-r2", "status": "reviewed_export", "scenarios": rev}
 json.dump(good, open(bp, "w"))
 raises_exit(lambda: G.load_benchmark(os.path.join(tmp, "missing.json"), "pilot"), "missing benchmark -> refuse, exact path")
 got, bsha = G.load_benchmark(bp, "pilot")
@@ -147,6 +172,7 @@ ok(len(got) == 30 and bsha == G.sha256_file(bp), "reviewed export loads (30 pilo
 ok(len(G.load_benchmark(bp, "formal")[0]) == 100, "formal loads (100)")
 for name, d in (("draft status", dict(good, status="draft")),
                 ("wrong protocol", dict(good, protocol="other")),
+                ("r1/no revision", {k: v for k, v in good.items() if k != "revision"}),
                 ("unreviewed scenario", dict(good, scenarios=[dict(rev[0], review_status="draft_unreviewed")] + rev[1:])),
                 ("wrong pilot count", dict(good, scenarios=rev[1:]))):
     json.dump(d, open(bp, "w"))
@@ -229,6 +255,13 @@ out_dir = os.path.join(tmp, "out")
 pilot = [s for s in fake_all["scenarios"] if s["split"] == "pilot"]
 formal = [s for s in fake_all["scenarios"] if s["split"] == "formal"][:6]   # small formal for speed
 dlr = lambda a, b: list(range(a - 1, b - 1))
+_RC = G.run_cells
+try:
+    _RC(FakeVC(), "llama3", "pilot", pilot, "s" * 64, None, out_dir, "m" * 64, "mask.npy")
+    ok(False, "run_cells must require max_new_tokens")
+except TypeError:
+    ok(True, "run_cells has no default max_new_tokens (launcher must pass it)")
+G.run_cells = lambda *a, **k: _RC(*a, **{"max_new_tokens": 1024, **k})
 
 vc = FakeVC()
 w = G.run_cells(vc, "llama3", "pilot", pilot, "s" * 64, mask, out_dir, "m" * 64, "mask.npy", decoder_layer_range=dlr)
@@ -236,8 +269,8 @@ ok(len(w) == 1 and "_a0.json" in w[0], "pilot writes exactly one cell (alpha=0)"
 c0 = json.load(open(w[0]))
 ok(c0["meta"]["steering_fires"] == 0 and c0["meta"]["alpha"] == 0, "alpha=0 -> zero injections")
 ok(len(c0["data"]) == 60 and c0["meta"]["n_rows"] == 60, "30 requests x 2 conditions = 60 replies")
-ok(all(c["prefill_only"] is True and c["tail"] == 1 and c["temp"] == 0.0 and c["mnt"] == 512 for c in vc.calls),
-   "regenerate always prefill_only, tail=1, greedy, 512 tokens")
+ok(all(c["prefill_only"] is True and c["tail"] == 1 and c["temp"] == 0.0 and c["mnt"] == 1024 for c in vc.calls),
+   "regenerate always prefill_only, tail=1, greedy, 1024 tokens")
 ok(c0["meta"]["extra_anchor_added"] is False and c0["meta"]["chat_template_applied"], "no extra anchor, chat template applied")
 ok(c0["data"][0]["messages"] == [{"role": "user", "content": pilot[0]["incomplete_text"]}], "single user message = Incomplete text")
 ok(c0["data"][1]["messages"][0]["content"] == pilot[0]["complete_text"], "Complete row follows Incomplete row")
@@ -272,6 +305,9 @@ ok(not [f for r, _, fs in os.walk(out_dir) for f in fs if f.endswith(".tmp")], "
 raises_exit(lambda: G.run_cells(FakeVC(), "llama3", "formal", formal, "s" * 64, mask, out_dir, "m" * 64, "mask.npy",
                                 decoder_layer_range=dlr, model_dir="other/weights"), "different actual model_dir -> refuse resume")
 ok(cells[0]["meta"]["model_dir"] == "meta-llama/Llama-3.1-8B-Instruct", "actual model_dir recorded")
+ok(cells[0]["meta"]["revision"] == "infoquest-v1-r2" and cells[0]["meta"]["max_new_tokens"] == 1024, "revision and max_new_tokens recorded")
+raises_exit(lambda: _RC(FakeVC(), "llama3", "formal", formal, "s" * 64, mask, out_dir, "m" * 64, "mask.npy",
+                        max_new_tokens=512, decoder_layer_range=dlr), "different max_new_tokens -> refuse to resume over existing cells")
 
 # freeze/export re-validation (monkeypatched paths, temp copies)
 import shutil
@@ -329,5 +365,54 @@ ok(cq["meta"]["L"] == 6 and cq["meta"]["steering_fires"] == 6 * n and cq["meta"]
    "qwen: band [16,22), L=6, fires 6*n")
 raises_exit(lambda: G.run_cells(FakeVC(n_dec=32), "qwen2.5", "pilot", pilot, "s" * 64, mask, os.path.join(tmp, "oq2"),
                                 "q" * 64, "m.npy", decoder_layer_range=dlr), "llama mask used for qwen -> refuse")
+
+# ----------------------------------------------------------------- migration from a pilot-time (r1) work dir
+import shutil
+MW = tempfile.mkdtemp()
+def fresh_old_workdir(edit=False, bench_sha_ok=True):
+    shutil.rmtree(MW); os.makedirs(MW)
+    P.WORK_DIR = MW
+    P.SAMPLING, P.ITEMS, P.SCENARIOS, P.STATE = (os.path.join(MW, f) for f in (
+        "sampling_v1.json", "scenario_items_v1.json", "scenarios_v1.json", "prepare_state.json"))
+    P.BENCH = os.path.join(MW, "bench", "infoquest_v1.json")
+    P.BACKUP_DIR = MW + "_backup"
+    shutil.rmtree(P.BACKUP_DIR, ignore_errors=True)
+    shutil.copy(os.path.join(TW, "sampling_v1.json"), P.SAMPLING)
+    old = P.derive_items_r1()
+    for v in old.values():
+        v["review_status"] = "reviewed"
+    if edit:
+        old["iq329"]["items"][0]["information_need"] = "HAND EDIT ON SERVER"
+    json.dump(old, open(P.ITEMS, "w"), ensure_ascii=False)
+    json.dump({"resources_sha256": "r1", "sampling_digest": "x", "reviewed_by": "old-reviewer", "reviewed_at": "t"}, open(P.STATE, "w"))
+    os.makedirs(os.path.dirname(P.BENCH)); open(P.BENCH, "w").write("OLD BENCHMARK r1")
+    rvf = os.path.join(MW, "r2_review_test.json")
+    d = json.load(open(real_review)); d["predecessor_benchmark_sha256"] = G.sha256_file(P.BENCH) if bench_sha_ok else "0" * 64
+    json.dump(d, open(rvf, "w")); P.R2_REVIEW = rvf
+real_review = P.R2_REVIEW
+fresh_old_workdir(bench_sha_ok=False)
+raises_exit(lambda: P.cmd_migrate(argparse.Namespace(src_dir=None, on_conflict="abort")), "migrate: benchmark sha != the one the pilot cells record -> refuse")
+ok(open(P.BENCH).read() == "OLD BENCHMARK r1" and not os.path.exists(P.BACKUP_DIR), "refused migrate touched nothing")
+raises_exit(lambda: P.cmd_prepare(NSP), "prepare on an r1 work dir points to migrate")
+fresh_old_workdir(edit=True)
+raises_exit(lambda: P.cmd_migrate(argparse.Namespace(src_dir=None, on_conflict="abort")), "migrate: hand-edited scenario -> conflict, abort")
+ok(os.path.exists(os.path.join(MW, "migration_conflicts.json")) and not os.path.exists(P.BACKUP_DIR)
+   and "HAND EDIT" in open(P.ITEMS).read(), "conflict report written; work file and benchmark untouched")
+P.cmd_migrate(argparse.Namespace(src_dir=None, on_conflict="r2"))
+ok(os.path.exists(os.path.join(P.BACKUP_DIR, "infoquest_v1.json")) and open(os.path.join(P.BACKUP_DIR, "infoquest_v1.json")).read() == "OLD BENCHMARK r1",
+   "old benchmark kept in the backup")
+ok("HAND EDIT" in open(os.path.join(P.BACKUP_DIR, "work", "scenario_items_v1.json")).read(), "hand-edited work file kept in the backup")
+ok(not os.path.exists(P.BENCH), "old benchmark moved away so export can write the new one")
+st = json.load(open(P.STATE))
+ok(st["revision"] == "infoquest-v1-r2" and "reviewed_by" not in st and st["migrated_from"]["old_reviewed_by"] == "old-reviewer",
+   "old sign-off is void but recorded")
+ok(all(v["review_status"] == "draft_unreviewed" for v in json.load(open(P.ITEMS)).values()), "migrated materials are unreviewed drafts")
+raises_exit(lambda: P.cmd_migrate(argparse.Namespace(src_dir=None, on_conflict="r2")), "second migrate refused")
+P.cmd_prepare(NSP)
+ok(True, "prepare accepts the migrated work dir")
+raises_exit(lambda: P.cmd_export(NSP), "export refused until the r2 materials are signed off")
+fresh_old_workdir()
+P.cmd_migrate(argparse.Namespace(src_dir=None, on_conflict="abort"))
+ok(os.path.exists(P.BACKUP_DIR) and not os.path.exists(P.BENCH), "unedited old work dir migrates without --on-conflict")
 
 print(f"\nALL {N_OK} CHECKS PASSED")
