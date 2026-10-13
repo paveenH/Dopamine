@@ -6,12 +6,15 @@ prepare_infoquest_v1.py -- data/scenario preparation for `infoquest-v1`
 
 Server workflow (everything under /data1/paveen/Dopamine, no local preparation):
   python prepare_infoquest_v1.py prepare     # download pinned source, sample, build drafts, validate, report
+  python prepare_infoquest_v1.py migrate     # ONLY on a server that already holds the pilot-time (r1) work dir/benchmark:
+                                             # backs everything up, keeps the old benchmark, moves to the r2 materials
   (review/edit components/benchmark/infoquest_v1_work/scenario_items_v1.json)
   python prepare_infoquest_v1.py review --confirm-reviewed --reviewer NAME   # explicit; never automatic
   python prepare_infoquest_v1.py export      # rebuild + validate + write components/benchmark/infoquest_v1.json
 
-The only shipped inputs are infoquest_v1/items_src_part*.txt (authored by us; the public data
-supplies constraints/checklist, not our facts or scoring items).
+The only shipped inputs are infoquest_v1/items_src_r2_part*.txt + r2_review.json (authored by us; the public data
+supplies constraints/checklist, not our facts or scoring items). infoquest_v1/r1/ keeps the pilot-time materials
+(used only by `migrate` to detect hand edits). Revision infoquest-v1-r2 = post-pilot, pre-formal material revision.
 
 Subcommands (all offline once the source files are cached):
   sample  Download seed_messages.jsonl + settings.jsonl at the PINNED revision,
@@ -48,6 +51,11 @@ SOURCE_FILES = ("seed_messages.jsonl", "settings.jsonl")
 SEED = 42
 N_PILOT, N_FORMAL = 30, 100
 RULE_VERSION = "infoquest-v1-sampling-1"
+BENCH_REVISION = "infoquest-v1-r2"      # material revision (post-pilot, pre-formal); see infoquest_v1/r2_review.json
+CATEGORIES = ("task_clarification", "constraint")      # scored target categories
+BACKGROUND = "background"                               # in the Complete text, never scored
+KNOWN_FLAGS = ("object_unspecified_in_incomplete", "object_unresolved_in_complete",
+               "object_weakly_identified", "request_infeasible")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "infoquest_v1")        # shipped build resources (authored items_src_part*.txt)
@@ -67,6 +75,9 @@ LEAK_PATTERNS = [
     r"\bclarif", r"\bchecklist\b", r"\bplease (answer|respond)\b",
 ]
 REVIEW_STATES = ("draft_unreviewed", "reviewed")
+R2_REVIEW = os.path.join(DATA_DIR, "r2_review.json")   # shipped: per-scenario flags, edit basis, predecessor hash
+R1_DIR = os.path.join(DATA_DIR, "r1")                  # shipped: the original (pilot-time) materials, for migration
+BACKUP_DIR = os.path.join(HERE, "components", "benchmark", "infoquest_v1_r1_backup")
 
 # Content-safety rule, defined BEFORE any model run and applied uniformly (it
 # never looks at model output). A sampled scenario whose request/setting text
@@ -260,14 +271,17 @@ def validate_items(sc: dict, it: dict) -> list:
             errs.append(f"supplement contains instruction-like wording /{pat}/")
     if it.get("review_status") not in REVIEW_STATES:
         errs.append(f"bad review_status {it.get('review_status')!r}")
+    for fl in it.get("flags") or []:
+        if fl not in KNOWN_FLAGS:
+            errs.append(f"unknown flag {fl!r}")
     items = it.get("items") or []
     targets = [x for x in items if x.get("role", "target") == "target"]
-    if not 2 <= len(targets) <= 5:
-        errs.append(f"{len(targets)} target items (need 2..5)")
+    if not 1 <= len(targets) <= 5:
+        errs.append(f"{len(targets)} target items (need 1..5; a scenario with none is a material problem)")
     ids = [x.get("item_id") for x in items]
     if len(set(ids)) != len(ids) or any(not i for i in ids):
         errs.append("item_id missing/duplicated")
-    need = {"item_id", "information_need", "fact", "why_relevant",
+    need = {"item_id", "information_need", "fact", "why_relevant", "category",
             "provided_in_incomplete", "provided_in_complete", "acceptable_question_examples"}
     inc = sc["incomplete_text"]
     for x in items:
@@ -275,9 +289,14 @@ def validate_items(sc: dict, it: dict) -> list:
         if miss:
             errs.append(f"{x.get('item_id')}: missing fields {sorted(miss)}")
             continue
-        if x.get("role", "target") == "target":
+        role = x.get("role", "target")
+        if role == "target" and x["category"] not in CATEGORIES:
+            errs.append(f"{x['item_id']}: target category {x['category']!r} not in {CATEGORIES}")
+        if role == "background" and x["category"] != BACKGROUND:
+            errs.append(f"{x['item_id']}: background item must have category 'background'")
+        if role in ("target", "background"):
             if x["provided_in_incomplete"] or not x["provided_in_complete"]:
-                errs.append(f"{x['item_id']}: target must be absent in Incomplete, present in Complete")
+                errs.append(f"{x['item_id']}: must be absent in Incomplete, present in Complete")
             span = x.get("complete_span", "")
             if not span or span not in sup:
                 errs.append(f"{x['item_id']}: complete_span not a substring of supplement")
@@ -291,31 +310,60 @@ def validate_items(sc: dict, it: dict) -> list:
     return errs
 
 
-def cmd_items(a):
-    """items_src_part*.txt (pipe-delimited, authored) -> scenario_items_v1.json.
-    supplement = the spans joined in order; fact = the span itself."""
-    import glob
-    if os.path.exists(ITEMS) and not a.rebuild_draft:
-        die(f"{ITEMS} exists; pass --rebuild_draft to regenerate (reviewed status would be reset)")
+def _read_rows(files, nfields):
     by = {}
-    for fp in sorted(glob.glob(os.path.join(DATA_DIR, "items_src_part*.txt"))):
+    for fp in files:
         for ln, line in enumerate(open(fp, encoding="utf-8"), 1):
             line = line.rstrip("\n")
             if not line.strip() or line.startswith("#"):
                 continue
             f = line.split("|")
-            if len(f) != 5:
-                die(f"{fp}:{ln}: expected 5 pipe-separated fields, got {len(f)}")
-            sid, need, span, why, ex = [x.strip() for x in f]
-            by.setdefault(sid, []).append((need, span, why, ex))
+            if len(f) != nfields:
+                die(f"{fp}:{ln}: expected {nfields} pipe-separated fields, got {len(f)}")
+            by.setdefault(f[0].strip(), []).append([x.strip() for x in f[1:]])
+    return by
+
+
+def derive_items_r2():
+    """items_src_r2_part*.txt (authored; id|category|need|span|why|example) + r2_review.json -> items dict.
+    supplement = ALL spans joined in order (background rows included); only non-background rows are targets."""
+    import glob
+    by = _read_rows(sorted(glob.glob(os.path.join(DATA_DIR, "items_src_r2_part*.txt"))), 6)
+    rv = json.load(open(R2_REVIEW, encoding="utf-8"))
+    out = {}
+    for sid, rows in by.items():
+        items = []
+        for k, (cat, need, span, why, ex) in enumerate(rows, 1):
+            if cat not in CATEGORIES + (BACKGROUND,):
+                die(f"{sid}: bad category {cat!r}")
+            items.append({"item_id": f"{sid}_i{k}", "role": "background" if cat == BACKGROUND else "target",
+                          "category": cat, "information_need": need, "fact": span, "complete_span": span,
+                          "why_relevant": why, "provided_in_incomplete": False, "provided_in_complete": True,
+                          "acceptable_question_examples": [ex]})
+        out[sid] = {"supplement": " ".join(r[2] for r in rows), "items": items,
+                    "flags": sorted(rv["flags"].get(sid, [])), "revision_note": rv["notes"].get(sid),
+                    "review_status": "draft_unreviewed"}
+    return out
+
+
+def derive_items_r1():
+    """The ORIGINAL pilot-time materials (infoquest_v1/r1/), in the r1 items-file shape; used only by `migrate`."""
+    import glob
+    by = _read_rows(sorted(glob.glob(os.path.join(R1_DIR, "items_src_part*.txt"))), 5)
     out = {}
     for sid, rows in by.items():
         items = [{"item_id": f"{sid}_i{k}", "role": "target", "information_need": need, "fact": span,
                   "complete_span": span, "why_relevant": why, "provided_in_incomplete": False,
                   "provided_in_complete": True, "acceptable_question_examples": [ex]}
                  for k, (need, span, why, ex) in enumerate(rows, 1)]
-        out[sid] = {"supplement": " ".join(r[1] for r in rows), "items": items,
-                    "review_status": "draft_unreviewed"}
+        out[sid] = {"supplement": " ".join(r[1] for r in rows), "items": items, "review_status": "draft_unreviewed"}
+    return out
+
+
+def cmd_items(a):
+    if os.path.exists(ITEMS) and not a.rebuild_draft:
+        die(f"{ITEMS} exists; pass --rebuild_draft to regenerate (reviewed status would be reset)")
+    out = derive_items_r2()
     with open(ITEMS, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(f"wrote {ITEMS}: {len(out)} scenarios, {sum(len(v['items']) for v in out.values())} items")
@@ -350,6 +398,8 @@ def cmd_build(a):
             "added_chars": len(sup),
             "items": it["items"],
             "target_item_ids": [x["item_id"] for x in it["items"] if x.get("role", "target") == "target"],
+            "flags": it.get("flags") or [],
+            "revision_note": it.get("revision_note"),
             "review_status": it["review_status"],
         })
     if problems:
@@ -357,7 +407,7 @@ def cmd_build(a):
         die(f"{len(problems)} validation problem(s); nothing written")
     os.makedirs(WORK_DIR, exist_ok=True)
     with open(SCENARIOS, "w", encoding="utf-8") as f:
-        json.dump({"protocol": "infoquest-v1", "sampling_digest": samp["request_id_digest"],
+        json.dump({"protocol": "infoquest-v1", "revision": BENCH_REVISION, "sampling_digest": samp["request_id_digest"],
                    "scenarios": out}, f, ensure_ascii=False, indent=1)
     rv = sum(s["review_status"] == "reviewed" for s in out)
     print(f"wrote {SCENARIOS}: {len(out)} scenarios, reviewed={rv}, draft={len(out) - rv}")
@@ -370,6 +420,8 @@ def cmd_freeze(a):
     samp = json.load(open(SAMPLING, encoding="utf-8"))
     if d.get("sampling_digest") != samp["request_id_digest"]:
         die("scenarios_v1.json was built from a different sampling manifest")
+    if d.get("revision") != BENCH_REVISION:
+        die(f"scenarios_v1.json is revision {d.get('revision')!r}, expected {BENCH_REVISION!r} (run `migrate` on an old work dir)")
     if [s["scenario_id"] for s in d["scenarios"]] != [s["scenario_id"] for s in samp["scenarios"]]:
         die("scenario ids/order differ from sampling_v1.json")
     probs = []
@@ -379,11 +431,14 @@ def cmd_freeze(a):
                 probs.append(f"{sc['scenario_id']}: {k} differs from sampling")
         if sc["complete_text"] != f"{sc['incomplete_text']} {sc['supplement']}":
             probs.append(f"{sc['scenario_id']}: complete_text != incomplete + supplement")
+        if "flags" not in sc:
+            probs.append(f"{sc['scenario_id']}: no flags field (stale r1 build?)")
         tids = [x["item_id"] for x in sc["items"] if x.get("role", "target") == "target"]
         if sc.get("target_item_ids") != tids:
             probs.append(f"{sc['scenario_id']}: target_item_ids {sc.get('target_item_ids')} != target items {tids}")
         probs += [f"{sc['scenario_id']}: {e}" for e in validate_items(
-            sc, {"supplement": sc["supplement"], "items": sc["items"], "review_status": sc["review_status"]})]
+            sc, {"supplement": sc["supplement"], "items": sc["items"], "review_status": sc["review_status"],
+                 "flags": sc.get("flags")})]
     if probs:
         print("\n".join(probs[:40]))
         die(f"{len(probs)} validation problem(s); cannot freeze")
@@ -394,7 +449,10 @@ def cmd_freeze(a):
     meta["selected_request_ids_in_order"] = [x["request_id"] for x in samp["scenarios"]]
     st = json.load(open(STATE)) if os.path.exists(STATE) else {}
     review = {k: st.get(k) for k in ("reviewed_by", "reviewed_at", "reviewed_content_sha256")}
-    out = {"protocol": "infoquest-v1", "status": "reviewed_export", "review": review, "n_pilot": N_PILOT, "n_formal": N_FORMAL,
+    rv = json.load(open(R2_REVIEW, encoding="utf-8"))
+    material = {k: rv[k] for k in ("revision", "timing", "predecessor_benchmark_sha256", "agent_review_note")}
+    out = {"protocol": "infoquest-v1", "revision": BENCH_REVISION, "status": "reviewed_export", "review": review,
+           "material_revision": material, "n_pilot": N_PILOT, "n_formal": N_FORMAL,
            "sampling": meta, "scenarios": d["scenarios"]}
     os.makedirs(os.path.dirname(BENCH), exist_ok=True)
     with open(BENCH, "w", encoding="utf-8") as f:
@@ -404,9 +462,9 @@ def cmd_freeze(a):
 
 def resources():
     import glob
-    fps = sorted(glob.glob(os.path.join(DATA_DIR, "items_src_part*.txt")))
-    if not fps:
-        die(f"build resources missing: no {DATA_DIR}/items_src_part*.txt (sync the code AND infoquest_v1/ resources)")
+    fps = sorted(glob.glob(os.path.join(DATA_DIR, "items_src_r2_part*.txt"))) + [R2_REVIEW]
+    if len(fps) < 2 or not all(os.path.isfile(f) for f in fps):
+        die(f"build resources missing: need {DATA_DIR}/items_src_r2_part*.txt and r2_review.json (sync the code AND infoquest_v1/ resources)")
     return sha256_bytes(b"".join(open(f, "rb").read() for f in fps))
 
 
@@ -424,13 +482,17 @@ def cmd_prepare(a):
     if os.path.exists(ITEMS):
         if state is None:
             die(f"{ITEMS} exists but {STATE} is missing; cannot tell which resources it came from")
+        if state.get("revision") != BENCH_REVISION:
+            die(f"{WORK_DIR} holds pilot-time (r1) materials; run `python prepare_infoquest_v1.py migrate` "
+                "(it backs everything up first and keeps the old benchmark)")
         if state["resources_sha256"] != rsha:
             die("shipped build resources changed since this draft was created. Your edits in "
                 f"{ITEMS} are kept untouched; move that file aside deliberately to re-derive it")
         print("[reuse] scenario_items_v1.json kept (manual edits are never overwritten)")
     else:
         cmd_items(argparse.Namespace(rebuild_draft=False))
-        state = {"resources_sha256": rsha, "sampling_digest": json.load(open(SAMPLING))["request_id_digest"]}
+        state = {"resources_sha256": rsha, "revision": BENCH_REVISION,
+                 "sampling_digest": json.load(open(SAMPLING))["request_id_digest"]}
         json.dump(state, open(STATE, "w"), indent=1)
     cmd_build(argparse.Namespace(rebuild_draft=True))
     d = json.load(open(SCENARIOS, encoding="utf-8"))["scenarios"]
@@ -444,6 +506,66 @@ def cmd_prepare(a):
               "        (nothing is marked reviewed automatically; pilot cannot start before export)")
     else:
         print("[next]  python prepare_infoquest_v1.py export")
+
+
+def cmd_migrate(a):
+    """Move an existing pilot-time (r1) work dir + benchmark to the r2 materials WITHOUT losing anything.
+    Everything is checked before anything is touched; old files are copied to BACKUP_DIR first."""
+    import datetime
+    import shutil
+    if not os.path.exists(ITEMS) or not os.path.exists(STATE):
+        die(f"no old work dir at {WORK_DIR}; use `prepare` on a fresh server instead")
+    state = json.load(open(STATE))
+    if state.get("revision") == BENCH_REVISION:
+        die("work dir is already revision " + BENCH_REVISION)
+    if os.path.exists(BACKUP_DIR):
+        die(f"{BACKUP_DIR} exists; refusing to overwrite an earlier backup")
+    if os.path.abspath(BACKUP_DIR).startswith(os.path.abspath(WORK_DIR) + os.sep):
+        die("backup directory must not be inside the work directory")
+    rv = json.load(open(R2_REVIEW, encoding="utf-8"))
+    old_bench_sha = sha256_file(BENCH) if os.path.exists(BENCH) else None
+    if old_bench_sha is None:
+        print("[warn] no components/benchmark/infoquest_v1.json found: cannot verify it against the pilot cells' benchmark_sha256")
+    elif old_bench_sha != rv["predecessor_benchmark_sha256"]:
+        die(f"existing benchmark sha256 {old_bench_sha} != the one the pilot cells record "
+            f"({rv['predecessor_benchmark_sha256']}); not touching anything. Find the file the pilot actually ran with.")
+    fresh = derive_sampling(fetch_source(a.src_dir))
+    if canon(fresh) != canon(json.load(open(SAMPLING, encoding="utf-8"))):
+        die(f"{SAMPLING} does not match a fresh derivation from the pinned source; not migrating")
+    old = json.load(open(ITEMS, encoding="utf-8"))
+    r1, r2 = derive_items_r1(), derive_items_r2()
+    strip = lambda v: canon({k: x for k, x in v.items() if k != "review_status"})
+    edited = sorted(sid for sid in r1 if sid in old and strip(old[sid]) != strip(r1[sid]))
+    missing = sorted(set(r2) ^ set(old))
+    if missing:
+        die(f"scenario ids differ between the old work file and the r2 materials: {missing[:6]}")
+    if edited and a.on_conflict != "r2":
+        rep = os.path.join(WORK_DIR, "migration_conflicts.json")
+        json.dump({sid: {"server_version": old[sid], "r2_version": r2[sid]} for sid in edited},
+                  open(rep, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        die(f"{len(edited)} scenario(s) were edited by hand on the server (e.g. {edited[:5]}). Both versions are in {rep}. "
+            "Re-run with `--on-conflict r2` to take the r2 material (the hand-edited version stays in the backup), "
+            "after porting by hand any edit you want to keep into infoquest_v1/items_src_r2_part*.txt")
+    os.makedirs(BACKUP_DIR)
+    shutil.copytree(WORK_DIR, os.path.join(BACKUP_DIR, "work"))
+    if old_bench_sha:
+        shutil.copy2(BENCH, os.path.join(BACKUP_DIR, "infoquest_v1.json"))
+        if sha256_file(os.path.join(BACKUP_DIR, "infoquest_v1.json")) != old_bench_sha:
+            die("backup copy of the benchmark does not match; aborting before any change")
+    json.dump({"migrated_at": datetime.datetime.now().isoformat(timespec="seconds"), "old_benchmark_sha256": old_bench_sha,
+               "old_state": state, "hand_edited_scenarios": edited, "on_conflict": a.on_conflict,
+               "old_items_sha256": sha256_file(ITEMS)}, open(os.path.join(BACKUP_DIR, "migration_report.json"), "w"), indent=1)
+    if old_bench_sha:
+        os.remove(BENCH)          # the backup holds it; export refuses to overwrite, so it must be gone
+    with open(ITEMS, "w", encoding="utf-8") as f:
+        json.dump(r2, f, ensure_ascii=False, indent=1)
+    new_state = {"resources_sha256": resources(), "revision": BENCH_REVISION, "sampling_digest": fresh["request_id_digest"],
+                 "migrated_from": {"old_benchmark_sha256": old_bench_sha, "old_reviewed_by": state.get("reviewed_by"),
+                                   "old_reviewed_at": state.get("reviewed_at"), "backup": BACKUP_DIR}}
+    json.dump(new_state, open(STATE, "w"), indent=1)
+    cmd_build(argparse.Namespace(rebuild_draft=True))
+    print(f"[migrated] old benchmark/work saved under {BACKUP_DIR}; the old sign-off is void (materials changed).\n"
+          "[next]  review the r2 materials, then: review --confirm-reviewed --reviewer <name>; export")
 
 
 def items_content_sha():
@@ -495,7 +617,7 @@ def cmd_check(a):
         n = 0
         for s in d["scenarios"]:
             errs = validate_items(s, {"supplement": s["supplement"], "items": s["items"],
-                                      "review_status": s["review_status"]})
+                                      "review_status": s["review_status"], "flags": s.get("flags")})
             if errs or s["complete_text"] != f"{s['incomplete_text']} {s['supplement']}":
                 die(f"{s['scenario_id']}: {errs or 'complete_text inconsistent'}")
             n += 1
@@ -512,12 +634,14 @@ def cmd_check(a):
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for n, fn in (("prepare", cmd_prepare), ("review", cmd_review), ("export", cmd_export), ("sample", cmd_sample), ("items", cmd_items), ("build", cmd_build), ("freeze", cmd_freeze), ("check", cmd_check)):
+    for n, fn in (("prepare", cmd_prepare), ("migrate", cmd_migrate), ("review", cmd_review), ("export", cmd_export), ("sample", cmd_sample), ("items", cmd_items), ("build", cmd_build), ("freeze", cmd_freeze), ("check", cmd_check)):
         p = sub.add_parser(n)
         p.add_argument("--src_dir", default=None, help="directory holding the source jsonl (offline)")
         if n == "review":
             p.add_argument("--confirm-reviewed", dest="confirm_reviewed", action="store_true")
             p.add_argument("--reviewer", required=True)
+        if n == "migrate":
+            p.add_argument("--on-conflict", dest="on_conflict", choices=("abort", "r2"), default="abort")
         if n in ("build", "items"):
             p.add_argument("--rebuild_draft", action="store_true")
         p.set_defaults(fn=fn)
