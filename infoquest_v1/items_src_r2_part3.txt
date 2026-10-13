@@ -43,7 +43,8 @@ iq409|constraint|language|I don't speak the local language.|It affects communica
 iq087|task_clarification|which structure|I mean the structure of professional esports leagues like League of Legends.|The history depends on the competition.|Which competitive structure do you mean?
 iq087|constraint|prior knowledge|I'm a complete beginner on esports.|The explanation level depends on it.|How much do you know about esports?
 iq087|task_clarification|intended use|I'm preparing a talk comparing it with traditional sports for a conference.|The framing depends on purpose.|What will you use this for?
-iq274|task_clarification|who and level|I'm helping my friend's younger brother, who is fifteen and plays competitive junior tennis.|Advice depends on the player and level.|Who is this for and at what level?
+iq274|task_clarification|player|I'm helping my friend's younger brother with his tennis.|Advice depends on who and what sport.|Who is this for?
+iq274|constraint|player level|He is fifteen and plays at a competitive junior level.|Advice must fit his level.|What level does he play at?
 iq274|constraint|facilities|He only has access to one public court.|It limits training design.|What facilities are available?
 iq274|constraint|coaching budget|We can't afford extra coaching.|It rules out paid help.|Do you have a budget for coaching?
 iq437|task_clarification|situation|I'm a biomechanics specialist trying to get consistent measurements from a new motion capture system for a basketball player's shooting form.|The fix depends on the setup.|What system and context are you working with?
@@ -59,7 +60,7 @@ iq237|task_clarification|which work|My recent work is a series of twelve abstrac
 iq237|constraint|promo budget|I have no advertising budget.|It rules out paid promotion.|What is your budget?
 iq237|constraint|online presence|I have no website or social media accounts yet.|It determines the starting point.|Do you have an online presence?
 iq412|task_clarification|the product|I mean a facial serum with hyaluronic acid and vitamin C that my cousin is launching.|Safety depends on the product.|What product are you asking about?
-iq412|constraint|testing budget|The testing budget is very small.|It limits testing.|What is your budget for testing?
+iq412|constraint|testing budget|My testing budget is only about $2,000.|It limits testing.|What is your budget for testing?
 iq412|constraint|launch date|The launch is in three months.|It sets the timeline.|When do you plan to launch?
 iq138|constraint|students|The activities are for a class of twelve-year-old students.|Activities depend on the age.|What age group are the students?
 iq138|constraint|subject|The subject is social studies.|Activities depend on the subject.|What subject are you teaching?
@@ -107,7 +108,7 @@ iq033|constraint|technology|I don't use computers, only paper.|It limits the too
 iq033|constraint|working capacity|I can only work about an hour a day for health reasons.|It limits the plan.|How much time can you spend each day?
 iq108|task_clarification|which situation|I mean the people involved in a proposed school merger in my district.|The key players depend on the situation.|What situation is this about?
 iq108|constraint|workshop timing|The stakeholder workshop is next month and several stakeholders have conflicting schedules.|It affects planning.|When is the workshop?
-iq108|constraint|workshop budget|My budget for the workshop is almost nothing.|It limits what is possible.|What is your budget?
+iq108|constraint|workshop budget|My budget for the workshop is about $150.|It limits what is possible.|What is your budget?
 iq291|task_clarification|the investment|I'm investing $300,000 in a startup that makes lab-grown diamonds.|Advice depends on the investment.|What investment are you considering?
 iq291|constraint|decision time|I have to decide within ten days.|It limits due diligence.|When do you have to decide?
 iq291|background|market trend|Lab-grown diamond prices have been falling.|It affects expected returns.|What is happening in the market?
@@ -122,7 +123,8 @@ iq374|constraint|budget|The budget is $600.|It limits options.|What is your budg
 iq374|constraint|venue|We only have a small courtyard.|It limits the size and type.|What space do you have?
 iq337|task_clarification|the codebase|I'm trying to remove mutable variables from a 200,000-line Scala codebase.|Approach depends on language and size.|What codebase are you working on?
 iq337|constraint|deadline|The refactor is due at the end of the sprint, in nine days.|It limits the approach.|When does it need to be done?
-iq337|constraint|documentation and style|There is almost no documentation and the team uses very different styles.|It makes automation harder.|What does the code look like?
+iq337|constraint|documentation|There is almost no documentation.|It makes finding mutable state harder.|How well is the code documented?
+iq337|constraint|coding styles|The team uses very different coding styles.|It makes automation harder.|Is the coding style consistent across the team?
 iq256|task_clarification|recipient|I'm writing to a famous sports broadcaster.|Framing depends on the recipient.|Who is the message to?
 iq256|task_clarification|purpose|I want to ask for mentorship.|Framing depends on the aim.|What do you want from them?
 iq256|constraint|length limit|The message has to stay under 200 words.|It limits structure.|Is there a length limit?
