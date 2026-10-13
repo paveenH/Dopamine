@@ -448,7 +448,7 @@ def cmd_freeze(a):
     meta = {k: v for k, v in samp.items() if k != "scenarios"}
     meta["selected_request_ids_in_order"] = [x["request_id"] for x in samp["scenarios"]]
     st = json.load(open(STATE)) if os.path.exists(STATE) else {}
-    review = {k: st.get(k) for k in ("reviewed_by", "reviewed_at", "reviewed_content_sha256")}
+    review = {k: st.get(k) for k in ("reviewed_by", "reviewer_kind", "reviewed_at", "reviewed_content_sha256")}
     rv = json.load(open(R2_REVIEW, encoding="utf-8"))
     material = {k: rv[k] for k in ("revision", "timing", "predecessor_benchmark_sha256", "agent_review_note")}
     out = {"protocol": "infoquest-v1", "revision": BENCH_REVISION, "status": "reviewed_export", "review": review,
@@ -584,10 +584,11 @@ def cmd_review(a):
     json.dump(items, open(ITEMS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     import datetime
     st = json.load(open(STATE)); st["reviewed_by"] = a.reviewer
+    st["reviewer_kind"] = a.reviewer_kind     # "human" | "automated": recorded as given, never inferred
     st["reviewed_content_sha256"] = items_content_sha()
     st["reviewed_at"] = datetime.datetime.now().isoformat(timespec="seconds")
     json.dump(st, open(STATE, "w"), indent=1)
-    print(f"marked {len(items)} scenarios reviewed by {a.reviewer}")
+    print(f"marked {len(items)} scenarios reviewed by {a.reviewer} ({a.reviewer_kind}{', NOT human-verified' if a.reviewer_kind != 'human' else ''})")
 
 
 def cmd_export(a):
@@ -639,7 +640,8 @@ def main():
         p.add_argument("--src_dir", default=None, help="directory holding the source jsonl (offline)")
         if n == "review":
             p.add_argument("--confirm-reviewed", dest="confirm_reviewed", action="store_true")
-            p.add_argument("--reviewer", required=True)
+            p.add_argument("--reviewer", required=True, help="name, or the actual model id for an automated review")
+            p.add_argument("--reviewer-kind", dest="reviewer_kind", choices=("human", "automated"), default="human")
         if n == "migrate":
             p.add_argument("--on-conflict", dest="on_conflict", choices=("abort", "r2"), default="abort")
         if n in ("build", "items"):
