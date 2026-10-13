@@ -14,12 +14,12 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ### Daily
 
-10.12 办理通行证签证；继续看实验应该怎么设计和改进
+10.12 周一 办理通行证签证；继续看实验应该怎么设计和改进
+10.13 周二 继续infoquestion的实验 + 继续看Paper
 
 准备多益考试
 看完瑜伽视频
 看完徐玉兰视频
-
 ---
 
 ### TO DO
@@ -28,6 +28,7 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 1. 重新看看willingness实验，统一模板，优化负向表达 -> v2，出现相反的结果 ✖
 2. 优化willingness的表述，再做一版本的结果 -> v3 还是很难解释 ✖
 3. 从MMLUE开始完善，弄清E选项降低的原因 -> 看起来结果还是很乱 ✖
+4. infoquestion: 弄清 RSN 改变的是模型“直接作答的倾向”，还是“根据信息是否足够，决定先问清楚再回答”的策略 ⏸
 
 ## Vector
 - 提取位置：当前 RSN 是 Role 提示在任务入口引起的综合状态差异。可以比较“身份描述结束处”和“生成入口”的 HS，区分身份编码与任务整合后的影响；目前还不能确定换位置会更好。
