@@ -494,13 +494,13 @@ CoT 在五个剂量下的点估计都提高约 5–6 pp。原始四剂量的 CoT
 
 ### 3.2 Dose-Dependent Output Behavior
 
-本节使用统一口径分析 MATH 输出。`first_acc` 是主要性能指标；`early_cand_rate`、`reason_first_rate` 和 candidate 前后字符数用于描述答案候选与可见推理的先后顺序。`posN_med` 只表示正式 `\boxed{}` marker 的位置，与第一个 answer candidate 不是同一事件。
+本节使用统一口径分析 MATH 输出。`first_acc` 是主要性能指标；`early_cand_rate`、`reason_first_rate` 和 candidate 前后字符数用于描述答案候选与可见推理的先后顺序。`first_boxed_posN_med` 只表示第一个 `\boxed{}` marker 的位置，与第一个 answer candidate 不是同一事件。
 
 所有条件均包含 300 个样本。`cond_acc` 只在存在有效正式答案 marker 的样本中计算，不替代总体 `first_acc`。
 
 **Table 3.5. Llama MATH performance and output behavior**
 
-| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_boxed_posN_med | multi_marker_rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | No-CoT | −8 | 39.33% | 41.00% | 90.67% | 42.65% | 15.33% | 79.86% | 344 | 4308 | 0.2776 | 69.00% |
 | No-CoT | −6 | **43.33%** | **44.00%** | 92.67% | **46.40%** | **6.33%** | 79.44% | **360** | **3449** | 0.3142 | 68.67% |
@@ -535,7 +535,7 @@ CoT 在所有共有剂量下都降低了 `early_cand_rate`，并提高了 `reaso
 
 `valid_sub_rate` 在 No-CoT 下为 85.33%–92.67%，CoT 下为 87.00%–94.33%；`cond_acc` 与总体准确率呈现相似排序。因此，主要曲线不能简单归因于某个剂量无法生成正式答案。
 
-`multi_marker_rate` 在全部条件下都较高（62.00%–69.00%），但没有随准确率呈现一致变化。`posN_med` 同样不与性能稳定对应。这两项更适合作为输出格式和答案修订的辅助指标，不能单独判断答案在内部何时形成。
+`multi_marker_rate` 在全部条件下都较高（62.00%–69.00%），但没有随准确率呈现一致变化。`first_boxed_posN_med` 同样不与性能稳定对应。这两项更适合作为输出格式和答案修订的辅助指标，不能单独判断答案在内部何时形成。
 
 **Conclusion.** Llama MATH 的较好表现与适度负向 α、较少 early candidate 和更多 candidate 前推理同时出现；正向 α 则更常先形成 candidate，再继续生成较长文本。CoT 能改善输出结构，但不会改变这一总体剂量方向。这些结果属于干预后的输出关联，不构成因果中介证据。
 
@@ -607,7 +607,7 @@ MATH 上的主要结果可以概括为：
 
 ### 4.1 Performance and Dose-Dependent Output Behavior
 
-本节使用 `first_acc` 作为主要性能指标，`last_acc` 用于观察后续答案修订。`early_cand_rate` 和 `reason_first_rate` 描述第一个 answer candidate 前后的可见输出顺序；`posN_med` 表示正式答案 marker 在全文中的位置。candidate 与 marker 不是同一事件，相关指标均为干预后的描述性读数。
+本节使用 `first_acc` 作为主要性能指标，`last_acc` 用于观察后续答案修订。`early_cand_rate` 和 `reason_first_rate` 描述第一个 answer candidate 前后的可见输出顺序；`first_parseable_marker_posN_med` 表示第一个后接可解析数值的 marker 在全文中的位置，在 `valid_sub_rate` 子集上计算；它与旧记录中的 bare-marker 位置（.003→.754）不是同一指标。candidate 与 marker 不是同一事件，相关指标均为干预后的描述性读数。
 
 所有条件均包含 300 个样本。`cond_acc` 只在存在有效正式答案 marker 的样本中计算，因此用于检查输出格式和条件准确率，不替代总体 `first_acc`。raw α 只表示对应实验中的干预强度，不应视为跨模型或跨任务的等效剂量。
 
@@ -615,7 +615,7 @@ MATH 上的主要结果可以概括为：
 
 **Table 4.1. Qwen GSM8K performance and output behavior**
 
-| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | No-CoT | −8 | 60.33% | 71.00% | 84.00% | 56.35% | 95.67% | 0.00% | 0 | 1127 | 0.4702 | 45.00% |
 | No-CoT | −6 | 64.00% | 68.67% | 83.67% | 60.96% | 95.67% | 0.00% | 0 | 1098 | 0.5655 | 40.67% |
@@ -646,7 +646,7 @@ CoT 的最高准确率出现在 `+6`，相对 α=0 的 Holm `p_adj=.0002`；`+8`
 
 **Table 4.2. Qwen MATH performance and output behavior**
 
-| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| Condition | α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_boxed_posN_med | multi_marker_rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | No-CoT | −8 | 54.00% | 50.00% | 98.00% | 55.10% | 85.00% | 0.67% | 0 | 1516 | 0.9772 | 21.00% |
 | No-CoT | −6 | 57.00% | 54.00% | 98.00% | 56.80% | 79.33% | 0.33% | 0 | 1573 | 0.9778 | 22.00% |
@@ -686,7 +686,7 @@ GSM8K 与 MATH 都出现了明显的 output reordering：随着正向 α 增加�
 
 但 reordering 与准确率的关系因任务而异。GSM8K 中，输出顺序变化与性能提升同时出现，并在 `+6/+8` 附近进入近优平台；MATH 中，准确率在 `+6` 达到较高点后回落，但 candidate ordering 在 `+8` 仍继续变化。因此，减少 early candidate 可能与更好的输出状态相关，但不是提高准确率的充分条件。
 
-MATH 的正式 `\boxed{}` marker 通常位于输出末尾，因此 `posN_med` 难以区分答案形成顺序。本节主要依据 candidate-based metrics 描述 output ordering。所有相关指标均为干预后的输出读数，不能作为因果中介证据。
+MATH 的正式 `\boxed{}` marker 通常位于输出末尾，因此 `first_boxed_posN_med` 难以区分答案形成顺序。本节主要依据 candidate-based metrics 描述 output ordering。所有相关指标均为干预后的输出读数，不能作为因果中介证据。
 
 **Conclusion.** 正向 α 会系统性改变 Qwen 的输出顺序，但性能结果具有明显的任务边界：GSM8K 在高剂量进入平台，MATH 则在 `+6` 后出现回落。
 
@@ -737,7 +737,7 @@ Llama3.1-8B 与 Qwen2.5-7B 使用相同的分析框架，但二者的有效 α �
 
 ### 5.1 Held-Out Correctness Prediction on GSM8K
 
-Predictor 使用 early candidate、commit state、标准化 commit position（`posN`）及其可观测性预测每道题是否正确。Raw α 不作为输入特征。同一道题的所有剂量始终位于同一个交叉验证 fold，避免同题信息泄漏。
+Predictor 使用 early candidate、commit state、标准化 commit position（`posN` = `first_parseable_marker_posN`，未后接数值时记为缺失并以 `posN_observed` 编码）及其可观测性预测每道题是否正确。Raw α 不作为输入特征。同一道题的所有剂量始终位于同一个交叉验证 fold，避免同题信息泄漏。
 
 **Table 5.1. Held-out correctness prediction on GSM8K**
 
@@ -843,14 +843,18 @@ Predictor 的有效性与答案形成位置的变化相一致。下表只比较�
 
 **Table 5.6. Association between accuracy and answer timing**
 
-| Model | Dose curve | `accuracy ~ posN` | `accuracy ~ early-candidate%` |
+| Model | Dose curve | `accuracy ~ first_bare_marker_posN` | `accuracy ~ early-candidate%` |
 |---|---|---:|---:|
-| Llama3.1-8B | 9 doses | ρ=**+.941**, `p=.0002` | — |
-| Qwen2.5-7B | 11 doses | ρ=**+.863**, `p=.0006` | ρ=**−.804**, `p=.0029` |
+| Llama3.1-8B | 9 doses | 未复现（见下注） | — |
+| Qwen2.5-7B | 11 doses | 不报告（并列值，见下） | ρ=**−.804**, `p=.0029` |
+
+Qwen 的 `first_bare_marker_posN`（第一个 `####` 的字符位置 ÷ 全文字符数，分母为含 `####` 的 300 个样本）在 α≤+4 时稳定在约 .003，+6 时为 .24，+8 时为 .75。准确率的提升与这一次跳变同时出现；相关系数由并列值决定，不予报告。
+
+Llama 的 ρ=+.941 在复核中未能复现：同一 182 批次上，`first_bare_marker_posN` 对 `first_acc` 的 Spearman ρ 为 +.950，`first_parseable_marker_posN` 为 +.917（九个剂量，原始值与三位小数舍入后相同）。在新结论确定前，该格留空，不用上述任一数值替代。
 
 Llama 的九档曲线没有与 Qwen 完全相同的 frozen early-candidate 指标，因此该格保留为空，不能用历史指标替代。
 
-这些结果不能解释为“答案越晚越好”。Qwen 在 `+8` 后准确率已经进入平台，但 `posN` 仍由 `.754` 上升至 `.802`。更准确的说法是，较好的工作点通常使模型摆脱过早回答；进入稳定区域后，继续推迟答案不会持续提高准确率。
+这些结果不能解释为“答案越晚越好”。Qwen 在 `+8` 后准确率已经进入平台，但 `first_bare_marker_posN` 仍由 `.754` 上升至 `.802`。更准确的说法是，较好的工作点通常使模型摆脱过早回答；进入稳定区域后，继续推迟答案不会持续提高准确率。
 
 所有 timing 指标都是 α 干预后的输出结果，因此只能作为关联证据，不构成因果中介证明。
 
@@ -885,10 +889,10 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 | `reason_first_rate` | 首次答案候选前出现 `=`、`Step 1` 或编号步骤等推理文本的比例；属于表面文本代理指标。 |
 | `pre_cand_chars_med`  | 首个答案候选之前的字符数中位数。                   |
 | `post_cand_chars_med` | 首个答案候选之后继续生成的字符数中位数。               |
-| `posN_med`            | 正式答案标记在全文中的归一化位置中位数，范围为 0–1。       |
+| `first_parseable_marker_posN_med` | 第一个后接可解析数值的 marker 在全文中的归一化位置中位数，范围为 0–1；在 `valid_sub_rate` 子集上计算。它与旧记录中的 bare-marker 位置（.003→.754）不是同一指标。 |
 | `multi_marker_rate`   | 同一输出中出现多个正式答案标记的比例。                |
 
-> **备注：**“答案候选（candidate）”与“正式答案标记（marker）”不是同一事件。candidate 是输出中最早出现的答案形态数值或表达式，例如开头的裸数字、等号右侧结果或 “the answer is …” 后的值；它不要求与正确答案匹配，也可能是中间结果。marker 则是 `####`（GSM8K）或 `\boxed{}`（MATH）等正式提交格式。因此，candidate 通常用于分析答案形成顺序，`posN_med` 用于分析正式提交位置。
+> **备注：**“答案候选（candidate）”与“正式答案标记（marker）”不是同一事件。candidate 是输出中最早出现的答案形态数值或表达式，例如开头的裸数字、等号右侧结果或 “the answer is …” 后的值；它不要求与正确答案匹配，也可能是中间结果。marker 则是 `####`（GSM8K）或 `\boxed{}`（MATH）等正式提交格式。因此，candidate 通常用于分析答案形成顺序，`first_parseable_marker_posN_med` 用于分析正式提交位置。
 
 本节以各模型在 GSM8K 中确定的 workpoint 或 near-optimal range 为起点，检验其在其他 benchmark 上的迁移表现。除明确标注的 local-stability points 外，不根据目标任务结果重新选择 α。整体 `first_acc` 为主要性能指标；行为指标采用各任务的原生答案格式，只用于描述干预后的输出状态，不作为内部 commitment 或准确率因果机制的直接证据。
 
@@ -908,7 +912,7 @@ GSM-Hard 是 fixed-workpoint transfer 中证据最完整的任务。No-CoT 剂�
 
 **Table 6.1. Llama GSM-Hard No-CoT performance and output behavior**
 
-| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate | evidence_status |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | −8 | 300 | 11.00% | 11.33% | 67.67% | 6.40% | 66.00% | 27.10% | 5 | 2162 | 0.0000 | 10.33% | prospective_blind_selection |
 | −6 | 300 | **24.33%** | **23.67%** | 54.67% | 20.73% | 28.67% | **61.82%** | **204** | 1877 | 0.2740 | 13.67% | prospective_blind_selection |
@@ -920,7 +924,7 @@ GSM-Hard 是 fixed-workpoint transfer 中证据最完整的任务。No-CoT 剂�
 
 **Table 6.2. Llama GSM-Hard CoT performance and output behavior**
 
-| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate | evidence_status |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | −6 | 300 | 26.00% | 27.00% | 52.00% | 17.95% | 30.33% | 63.74% | 234 | 1928 | 0.0000 | 17.00% | condition_transfer_supplement |
 | −4 | 300 | **30.00%** | **29.67%** | 45.67% | **27.01%** | **19.00%** | **74.63%** | **292** | 1864 | 0.3294 | 11.67% | post_hoc_local_stability |
@@ -932,7 +936,7 @@ CoT 中，固定工作点 `−6` 将准确率从 20.00% 提高至 26.00%（Δ=+6
 
 行为指标与性能变化大体一致。No-CoT 从 `0` 到 `−6` 时，`early_cand_rate` 从 45.67% 降至 28.67%，`reason_first_rate` 从 26.64% 升至 61.82%，candidate 前字符数中位数从 0 墠至 204。CoT 的 `−4` 进一步表现出更少的 early candidate（19.00%）和更高的 reason-first rate（74.63%）。
 
-`−8` 是明显的负向边界：准确率降至 11.00%，`early_cand_rate` 升至 66.00%，`posN_med` 降至 0。说明负向 α 并非越大越好；超过近优区域后，输出重新转向过早出现 candidate 或 marker。
+`−8` 是明显的负向边界：准确率降至 11.00%，`early_cand_rate` 升至 66.00%，`first_parseable_marker_posN_med`（第一个后接可解析数值的 marker，`valid_sub_rate` 子集）降至 0。说明负向 α 并非越大越好；超过近优区域后，输出重新转向过早出现 candidate 或 marker。
 
 #### Qwen2.5-7B
 
@@ -940,7 +944,7 @@ CoT 中，固定工作点 `−6` 将准确率从 20.00% 提高至 26.00%（Δ=+6
 
 **Table 6.3. Qwen GSM-Hard No-CoT performance and output behavior**
 
-| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate | evidence_status |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | −4 | 300 | 34.33% | 36.67% | 79.33% | 34.03% | 94.67% | 0.00% | 0 | 1321 | 0.8062 | 35.00% | prospective_blind_selection |
 | 0 | 300 | 34.00% | 34.67% | 72.67% | 36.24% | 93.67% | 0.00% | 0 | 1266 | 0.7680 | 29.00% | prospective_blind_selection |
@@ -953,7 +957,7 @@ CoT 中，固定工作点 `−6` 将准确率从 20.00% 提高至 26.00%（Δ=+6
 
 **Table 6.4. Qwen GSM-Hard CoT performance and output behavior**
 
-| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate | evidence_status |
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate | evidence_status |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | 0 | 300 | 38.00% | 36.67% | 72.00% | 37.96% | 96.00% | 0.33% | 0 | 1456 | 0.8611 | 30.67% | condition_transfer_supplement |
 | +6 | 300 | 49.00% | 47.33% | 91.00% | 50.92% | 48.00% | 59.33% | 108 | 812 | 0.8359 | 34.33% | post_hoc_local_stability |
@@ -980,14 +984,14 @@ GSM-Symbolic 汇总 `main`、`p1` 和 `p2` 三个配置，每个配置包含 300
 
 推断统计以 `original_id` 为 cluster，对三个配置等权，并在每个模型和 CoT 条件内执行 Holm `m=3` 校正。完整的数据修复、cluster bootstrap 和校验记录于 `CLAUDE.md`。
 
-`candidate_posN_med` 表示第一个 answer candidate 的归一化位置，`posN_med` 表示正式答案 marker 的位置。前者更直接描述 output ordering；两者均为干预后的输出读数。
+`candidate_posN_med` 表示第一个 answer candidate 的归一化位置，`first_parseable_marker_posN_med` 表示第一个后接可解析数值的 marker 的位置。前者更直接描述 output ordering；两者均为干预后的输出读数。
 
 #### Llama3.1-8B
 
 ##### No-CoT
 **Table 6.5. Llama GSM-Symbolic No-CoT performance and output behavior**
 
-| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 900 | **57.56%** | 71.00% | 60.67% | 41.00% | 55.56% | 50.89% | 53.98% | 17.89% | 60.07% | 167 | 1906 | 0.0751 | 0.3429 | 15.33% |
 | −4 | 900 | 52.34% | 62.67% | 56.67% | 37.67% | 50.33% | 55.44% | 52.81% | 19.78% | 27.92% | 0 | 1908 | 0.0000 | 0.3042 | 18.00% |
@@ -998,7 +1002,7 @@ GSM-Symbolic 汇总 `main`、`p1` 和 `p2` 三个配置，每个配置包含 300
 
 **Table 6.6. Llama GSM-Symbolic CoT performance and output behavior**
 
-| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 900 | 56.67% | 64.00% | 59.00% | 47.00% | 58.89% | 35.11% | 43.76% | 16.45% | 79.29% | 291 | 1895 | 0.1356 | 0.3204 | 13.11% |
 | −4 | 900 | **58.56%** | 70.67% | 63.67% | 41.33% | 59.33% | 31.00% | 50.05% | 14.00% | 70.35% | 272 | 1899 | 0.1267 | 0.3756 | 10.67% |
@@ -1019,7 +1023,7 @@ CoT 下，`−6` 和 `−4` 的点估计分别提高 1.11 pp 和 3.00 pp，但�
 
 **Table 6.7. Qwen GSM-Symbolic No-CoT performance and output behavior**
 
-| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 900 | 50.22% | 59.33% | 54.67% | 36.67% | 54.22% | 73.78% | 46.43% | 97.22% | 0.00% | 0 | 1593 | 0.0000 | 0.8368 | 34.33% |
 | 0 | 900 | 53.33% | 65.33% | 56.33% | 38.33% | 56.11% | 69.11% | 51.23% | 96.22% | 0.00% | 0 | 1599 | 0.0000 | 0.8624 | 28.67% |
@@ -1030,7 +1034,7 @@ CoT 下，`−6` 和 `−4` 的点估计分别提高 1.11 pp 和 3.00 pp，但�
 
 **Table 6.8. Qwen GSM-Symbolic CoT performance and output behavior**
 
-| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate |
+| α | n | first_acc | Main | P1 | P2 | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 900 | 56.44% | 66.00% | 64.33% | 39.00% | 57.78% | 79.89% | 55.37% | 99.33% | 0.00% | 0 | 1626 | 0.0000 | 0.9007 | 38.67% |
 | 0 | 900 | 52.89% | 63.33% | 56.33% | 39.00% | 53.11% | 85.22% | 52.52% | 99.11% | 0.00% | 0 | 1606 | 0.0000 | 0.9113 | 38.56% |
@@ -1065,7 +1069,7 @@ BBH Object Counting 每个条件包含 250 个样本。这里主要检验 GSM8K 
 
 **Table 6.9. Llama BBH Object Counting No-CoT performance and output behavior**
 
-| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 40.80% | 40.80% | 82.00% | 47.80% | 84.40% | 9.20% | 0 | 1922 | 0.0875 | 51.60% |
 | 0 | **41.60%** | **41.20%** | 86.80% | **46.54%** | 95.20% | 2.00% | 0 | 1983 | 0.0633 | 63.60% |
@@ -1075,7 +1079,7 @@ BBH Object Counting 每个条件包含 250 个样本。这里主要检验 GSM8K 
 
 **Table 6.10. Llama BBH Object Counting CoT performance and output behavior**
 
-| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | **56.80%** | **56.80%** | 92.00% | **54.35%** | **63.20%** | **39.92%** | 5 | 1790 | 0.0011 | 52.00% |
 | −4 | 44.80% | 44.80% | **97.20%** | 43.62% | 88.00% | 8.80% | 0 | 1790 | 0.0011 | 77.20% |
@@ -1094,7 +1098,7 @@ CoT 下结果明显不同。`−6` 将 `first_acc` 从 40.80% 提高至 56.80%�
 
 **Table 6.11. Qwen BBH Object Counting No-CoT performance and output behavior**
 
-| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 56.80% | 57.60% | 86.40% | 53.24% | 100.00% | 0.00% | 0 | 418 | 0.7428 | 20.00% |
 | 0 | 55.20% | 56.00% | 86.80% | 52.53% | 100.00% | 0.00% | 0 | 422 | 0.7568 | 15.60% |
@@ -1104,7 +1108,7 @@ CoT 下结果明显不同。`−6` 将 `first_acc` 从 40.80% 提高至 56.80%�
 
 **Table 6.12. Qwen BBH Object Counting CoT performance and output behavior**
 
-| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | posN_med | multi_marker_rate |
+| α | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | first_parseable_marker_posN_med | multi_marker_rate |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 45.60% | 46.00% | 43.20% | 62.04% | 100.00% | 0.00% | 0 | 20 | 0.6497 | 8.80% |
 | 0 | 52.80% | 54.00% | 38.40% | 62.50% | 100.00% | 0.00% | 0 | 18 | 0.3227 | 8.40% |
@@ -1266,7 +1270,7 @@ FinQA 的答案形式比 GSM8K 更复杂。`first_acc` 仍作为主要性能指�
 
 **Llama3.1-8B-Instruct — FinQA CoT**
 
-| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | first_parseable_marker_posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 300 | 8.67% | 8.00% | 99.67% | 8.70% | 34.67% | 3.97% | 5 | 828 | 0.0053 | 0.0000 | 10.33% | 93.33% | 100.00% | 868 |
 | −4 | 300 | 9.00% | 7.67% | 99.33% | 9.06% | 75.33% | 2.53% | 0 | 804 | 0.0000 | 0.0057 | 19.67% | 95.33% | 100.00% | 868 |
@@ -1283,7 +1287,7 @@ Llama 在所有剂量下都达到 100% `truncated_rate`，并伴随超过 93% �
 
 **Qwen2.5-7B-Instruct — FinQA CoT**
 
-| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
+| α | n | first_acc | last_acc | valid_sub_rate | cond_acc | early_cand_rate | reason_first_rate | pre_cand_chars_med | post_cand_chars_med | candidate_posN_med | first_parseable_marker_posN_med | multi_marker_rate | loop_rate | truncated_rate | gen_chars_med |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | −6 | 300 | 10.00% | 9.67% | 91.67% | 10.91% | 100.00% | 0.00% | 0 | 742 | 0.0000 | 0.5400 | 42.67% | 19.00% | 28.67% | 746 |
 | 0 | 300 | 20.67% | 20.67% | 92.67% | 22.30% | 99.33% | 0.00% | 0 | 512 | 0.0000 | 0.3773 | 36.33% | 15.33% | 20.67% | 516 |
@@ -1298,7 +1302,7 @@ Qwen 的正向 α 产生了较清晰的 output reordering。相对于 baseline�
 
 不过，`+6` 已产生明显的 output reordering，却没有提高准确率，说明这种变化本身并不充分。`+8` 的 `multi_marker_rate` 升至 48.67%，且 `last_acc` 低于 `first_acc`，也表明重复提交和后续修订仍可能破坏答案。
 
-> **Metric note.** `candidate_posN_med` 使用 GSM8K candidate detector，在 FinQA 上属于探索性指标；`posN_med` 测量的是第一个合法 `#### <value>` marker。两者检测的对象和统计子集不同，不能直接比较。长度指标还会受到循环与截断影响。
+> **Metric note.** `candidate_posN_med` 使用 GSM8K candidate detector，在 FinQA 上属于探索性指标；`first_parseable_marker_posN_med` 测量的是第一个合法 `#### <value>` marker。两者检测的对象和统计子集不同，不能直接比较。长度指标还会受到循环与截断影响。
 
 **Conclusion.** FinQA 没有表现出稳定的跨任务 workpoint transfer。Llama 的负向 workpoint 降低了准确率，并受到严重循环和截断影响；Qwen `+8` 的准确率点估计有所提高，并伴随较少的 early candidate 和更多的 reason-first output，但 `+6` 的行为反例说明 output reordering 不能单独预测性能。
     
