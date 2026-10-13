@@ -26,12 +26,13 @@ iq114|background|deadline|I'm writing an article about it that is due today.|It 
 iq114|constraint|period of interest|I mostly care about the years when Robert Kubica drove for them.|It narrows which part of the history matters.|Is there a specific period you are interested in?
 iq071|task_clarification|product category|I'm sourcing cleaning products for a large corporate office building.|Performance criteria and options depend on the category.|What kind of product are you sourcing?
 iq071|constraint|certification requirement|Anything I pick has to carry recognized green certifications like Green Seal or EPA Safer Choice.|Compliance requirements filter the candidates.|Are there specific certifications you need?
-iq071|constraint|budget limit|My budget doesn't allow for premium-priced options.|Cost sets which sustainable options are viable.|What budget are you working with?
+iq071|constraint|budget limit|I can spend at most about $4,000 a month on supplies, so premium-priced options are out.|Cost sets which sustainable options are viable.|What budget are you working with?
 iq379|task_clarification|what the sequence is|It's a sequence of coin-flip outcomes from a probability exercise in my cryptography course.|The analysis method depends on the kind of sequence.|What is the sequence you are analyzing?
 iq379|constraint|math background|I've only had an introductory probability course and haven't studied combinatorics yet.|The explanation level depends on prior knowledge.|What math background do you have?
 iq379|constraint|available tools|I don't have any statistical software, only a basic calculator and a spreadsheet.|Methods must be doable with the user's tools.|What tools or software do you have access to?
 iq052|task_clarification|what is distributed|I run a volunteer program that distributes donated food and supplies to three neighborhoods.|Allocation advice depends on what the resources and recipients are.|What resources are you allocating and to whom?
-iq052|constraint|storage and transport|We only have one small storage garage and one donated van.|Logistics capacity bounds any allocation plan.|What storage and transport capacity do you have?
+iq052|constraint|storage|We only have one small storage garage.|Storage bounds how much can be held.|What storage do you have?
+iq052|constraint|transport|We only have one donated van.|Transport bounds distribution.|What transport do you have?
 iq052|constraint|volunteer availability|Our volunteers can only work on weekends.|Scheduling and distribution frequency depend on it.|How much volunteer time is available and when?
 iq348|task_clarification|trip context|I'm visiting Uttar Pradesh for the first time next month, coming from Karnataka.|The advice depends on what the situation actually is.|What is the situation you are trying to approach?
 iq348|constraint|budget|My budget is tight, about 15,000 rupees in total for transport and lodging.|It limits transport and accommodation options.|What is your budget for the trip?
@@ -65,7 +66,7 @@ iq015|task_clarification|decision context|The decision is about a proposed road 
 iq015|constraint|archive access|I can't get into the state archives without a lengthy approval process.|Which sources are practical depends on access.|Do you have access to archives or records?
 iq015|constraint|deadline|The decision has to be made within two weeks.|It limits how deep the research can go.|How soon do you have to decide?
 iq047|task_clarification|nature of the problem|Weekday attendance at my sports bar has been dropping for several months.|Consequences and mitigation depend on the actual problem.|What exactly is the problem you are facing?
-iq047|constraint|marketing budget|I have almost no marketing budget this year.|It rules out paid mitigation options.|What budget do you have for dealing with this?
+iq047|constraint|marketing budget|I have only about $500 for marketing this year.|It rules out paid mitigation options.|What budget do you have for dealing with this?
 iq047|background|competition|A new bar with cheap drink specials opened two blocks away.|Competitive pressure changes the likely risks and responses.|Is there new competition nearby?
 iq111|task_clarification|what was created|What I created is a basketball statistical model that predicts Knicks game outcomes.|The way to measure impact depends on what it is.|What did you create?
 iq111|constraint|data access|I can only use publicly available stats.|It limits which impact measures are feasible.|What data can you use to evaluate it?
@@ -119,7 +120,7 @@ iq142|task_clarification|story premise|It's a short story about a girl growing u
 iq142|constraint|writing time|I can only write on weekends because of school.|It affects how elaborate a plan is realistic.|How much time do you have to write?
 iq142|constraint|audience and occasion|The story is for a national school writing contest, so readers will be a general audience.|Arc and tone depend on the audience.|Who is the story for?
 iq416|task_clarification|club situation|I coach a small bowling club on Montserrat that has only twelve members.|The recruitment approach depends on the club's situation.|What kind of group do you want more people for?
-iq416|constraint|promotion budget|We have almost no marketing budget.|It limits promotion channels.|What budget do you have for outreach?
+iq416|constraint|promotion budget|We have about $200 for outreach this season.|It limits promotion channels.|What budget do you have for outreach?
 iq416|constraint|venue capacity|Our venue only has four lanes.|It caps event size and the type of activity.|What are your facility limits?
 iq448|task_clarification|the two things|The two things are make-up artistry and film history, for a lecture in my film studies course.|Blending advice depends on what is being combined.|What are the two things you want to blend?
 iq448|constraint|class format|I teach a mix of in-person and online students.|The lecture design depends on the delivery format.|How will the lecture be delivered?
