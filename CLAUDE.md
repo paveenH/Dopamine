@@ -812,16 +812,38 @@ Evidence: md5 of all 8 math_2048 JSON identical to math_eot; math_1024 mdf_0 acc
   overload reading. Evidence: backup/qwen_step2/gsm8k_extended_curve.txt + highdose_overload.py.
   Scope: Qwen GSM8K only -- MATH DOES fall at +8. -->
   - **HIGH-DOSE RESULT (2026-08-21): the prediction was FALSIFIED — GSM8K has NO right arm in −8…+12; the curve SATURATES.** `first_acc` +6 78.00 / +8 86.00 / +10 88.33 / +12 88.67, with every high-dose pair n.s. (`+8→+10` p=.248, `+8→+12` p=.268, `+10→+12` p=1.000, exploratory uncorrected) while +10/+12 are both p_adj<1e−4 vs α=0. **The escape hatch is closed too**: contamination PLATEAUS at +8 (17.7→44.7→60.3→58.7→59.7%) rather than climbing, empty generation is 0.0% at every cell, truncation ~1%, and the clean-subset accuracy RISES (70.85→78.31→84.03→87.90→84.30) — so the flat total is a real plateau, not an average over a healthy and a broken half. Extreme repetition keeps falling (`####`-count p99 61→7). Mechanism variables are saturated by +10 (early candidate 2.7/3.7%, posN .79/.80, commit% 98.3), so more dose measures something else, not this curve. **Consequence for wording: the inverted-U is a MATH property (it falls 5pp at +8), NOT a general Qwen property** — write "the working point and usable band are task-dependent", never "there is a common right arm". Same monotone-saturating shape as betting's `mean_bet`. `+10/+12` come from a different batch than the frozen 0…+8 cells (cross-run, not strictly paired); at temperature=0 the drift is small — this run re-read +8 at exactly 86.00, matching the frozen cell.
-  <!-- Why: posN is the PRIMARY commitment readout on GSM8K (251x range) and a NEGATIVE
-  CONTROL on MATH (1.0x); reading MATH's flat posN as "no ordering change" is the error
-  that once retired the whole MATH ordering line.
+  <!-- Why: first_bare_marker_posN has the largest dynamic range on GSM8K (251x) and is a NEGATIVE
+  CONTROL on MATH (1.0x); reading MATH's flat boxed position as "no ordering change" is the error
+  that once retired the whole MATH ordering line. (Superseded 2026-10-13: a bare marker position is a
+  FORMAT readout, not the commit and not the primary indicator -- see the unified metric block below.)
   Evidence: ReasoningBare.md Table 4.3b; RoleAnswer/backup/qwen_step2/commit_columns.py.
   Scope: every commitment claim, both tasks. -->
-  - **Commit-position `posN` and `early-candidate%` are NOT interchangeable, and which one is the readout FLIPS between tasks.** Nine-alpha dynamic range: GSM8K `first_bare_marker_posN` (char position of the first `####`, number NOT required, ÷ total chars; denominator 300 on Qwen at every dose) .003→.754 (**251×**), GSM8K-CoT .003→.825 (**275×**) — it IS the commit, so it is the main readout there. MATH `first_boxed_posN` .960–.978 (**1.0×**, span .018), MATH-CoT .964–.973 — `\boxed{}` sits at the end by LaTeX convention, so its position is fixed by writing convention, not by when the model commits. **On MATH, `posN` is a NEGATIVE CONTROL and `early-candidate%` (85.0→10.3) is the commitment readout**; `first_acc ≈ last_acc` says only that later markers rarely flip correctness and must NEVER be read as "reasons before answering". Recompute with `RoleAnswer/backup/qwen_step2/commit_columns.py`.
+  - **Commit-position `posN` and `early-candidate%` are NOT interchangeable, and which one is the readout FLIPS between tasks.** Nine-alpha dynamic range: GSM8K `first_bare_marker_posN` (char position of the first `####`, number NOT required, ÷ total chars; denominator 300 on Qwen at every dose) .003→.754 (**251×**), GSM8K-CoT .003→.825 (**275×**) — the largest-range marker readout there, but a bare `####` only shows the marker was written, NOT that the model committed internally, and it is NOT the primary indicator (`early_candidate_rate` is, wherever the numeric detector is validated). MATH `first_boxed_posN` .960–.978 (**1.0×**, span .018), MATH-CoT .964–.973 — `\boxed{}` sits at the end by LaTeX convention, so its position is fixed by writing convention, not by when the model commits. **On MATH, the boxed position is a NEGATIVE CONTROL and `early-candidate%` (85.0→10.3) is the output-organization readout**; `first_acc ≈ last_acc` says only that later markers rarely flip correctness and must NEVER be read as "reasons before answering". Recompute with `RoleAnswer/backup/qwen_step2/commit_columns.py`.
   <!-- Why: the same name `posN` meant opposite things in two documents (Qwen α=0→+8: bare .003→.754 rises; parseable .808→.763 falls) and the unqualified word reached a manuscript draft.
   Evidence: 2026-10-13 recompute on Qwen GSM8K Bare — bare median .0031/.7540 (n=300/300), parseable .8077/.7632 (n=243/291); at α=0, 161 of 243 parseable outputs have a bare `####` BEFORE the first parseable marker; acc~posN Spearman +.800 (bare raw), +.863 (bare rounded to 3dp), +.345 (parseable).
   Scope: every GSM8K/MATH marker-position reading, both models. Use `first_bare_marker_posN` / `first_parseable_marker_posN` / `first_boxed_posN` / `commit_step_posN` and state the denominator; never put two definitions in one table, curve or correlation. `unified_behavior_*` and ReasoningBare Table 4.1 use `first_parseable_marker_posN` (via `p2_features.build_features`). Known unpatched inconsistency: `thinking_curve/extract_metrics.py` docstring (~line 28) says "first '####'" and "spans 251x", but the code (~line 111) uses the PARSEABLE regex — the docstring describes the bare readout the code does not compute. -->
   - **Marker-position naming rule (2026-10-13).** Four non-interchangeable quantities: `first_bare_marker_posN` (first `####`, no number required; `analyze_first_last_acc_qwen.py` `text.find`), `first_parseable_marker_posN` (first `#### <number>`; committed/`valid_sub_rate` subset only), `first_boxed_posN` (MATH `\boxed{}`), `commit_step_posN` (decode token step ÷ decode length, signal batch via `commit_aligned.commit_step`, `####`-only; ThinkingCurve §5 `.010→.828`). Never write an unqualified `posN`.
+  - **UNIFIED REASONING-OUTPUT METRICS (2026-10-13; documentation unification only — no detector, parser, script or stored number was changed).** Hierarchy: *primary performance* = offline `first_acc`; *primary output-organization* = `early_candidate_rate`; *auxiliary organization* = `reason_first_rate`; *denominator/format diagnostics* = `candidate_coverage`, `valid_sub_rate`, `cond_acc`; *auxiliary position diagnostics* = candidate-前/后 chars, every marker position; *generation health* = loop / truncation / natural EOS. **Frozen sentence: in numeric-answer conditions where the detector is validated, early-candidate is the main output-organization indicator and reason-first the auxiliary one; both describe the VISIBLE order in generated text and do not directly represent internal decision, stopping, or reasoning effort. No analysis so far establishes them as causal mediators of an accuracy change.** Names unified in docs do NOT make results across detector versions comparable — state the version.
+    <!-- Why: one name (`posN`) and one word ("commit") were covering four events and two batches, and "bare marker == commit" had hardened into a rule.
+    Evidence: unified_behavior_gsm8k_math.py docstring + compute_row (read 2026-10-13); the posN recompute in the rule above.
+    Scope: all GSM8K/MATH/GSM-Hard/GSM-Symbolic/BBH/FinQA/Neurons reasoning-output tables. Review if a detector version changes. -->
+
+    | Doc name | Event / implementation | Unit | Normaliser | Samples included | Aggregate |
+    |---|---|---|---|---|---|
+    | `early_cand_rate` | `earlycand-v1` (`early_candidate_detector.has_early_candidate`; first non-empty line ≤60 chars, has a number token, not a numbered opener / bare heading) | per-sample bool | — | all n (300) | rate |
+    | `reason_first_rate` | `=`/`Step` cue in text BEFORE the first candidate (`p3/precandidate_reasoning.first_candidate` for GSM8K-family; MATH composes the same regexes + a `\boxed{` cue, NOT independently frozen) | per-sample bool | — | **candidate-covered subset** (denominator = `candidate_coverage`·n, not 300) | rate |
+    | `candidate_coverage` | share of samples where the candidate locator finds a candidate | — | — | all n | rate |
+    | `valid_sub_rate` | `build_features(...).posN_observed`: committed AND a parseable formal marker exists (GSM8K family: `#### <number>`; MATH: non-empty `\boxed{}`) | per-sample bool | — | all n | rate |
+    | `cond_acc` | correctness of the FIRST parseable marker's answer (`extractor(text)[0]` normalised vs gold; no fallback is reachable inside this subset) | per-sample bool | — | **valid-submission subset** | rate. It is NOT `first_acc/valid_sub_rate`: `first_acc` also scores no-marker samples through the fallback chain |
+    | `first_bare_marker_posN` | first `####`, no answer required (`text.find`; `analyze_first_last_acc_qwen.py`) | char offset | ÷ total chars | samples containing `####` | `_med` |
+    | `first_parseable_marker_posN` (= legacy `posN`, `posN_median`, "Marker position", `extract_metrics.py` `posN`) | first `#### <number>` (`p2_features.build_features`; `extract_metrics.py` regex) | char offset | ÷ total chars | **valid-submission subset only** (`posN_observed`); missing is `None`/NaN, never filled with 0 or 1 in the tables | `_med` in `unified_behavior_*`; `_mean` in `thinking_curve/metrics_step1.json` and ThinkingCurve §5.8 tables (signal batch) |
+    | `first_boxed_posN` | first balanced `\boxed{}`; empty box is unparseable (MATH adapter) | char offset | ÷ total chars | samples with a non-empty box | `_med` |
+    | `candidate_posN` | start of the candidate located by the candidate locator | char offset | ÷ total chars | candidate-covered subset | `_med` |
+    | `commit_step_posN` | first `####` located by `commit_aligned.commit_step` (offset mapping, `####`-only, no fallback) | decode token step | ÷ decode length — **implementation UNVERIFIED** (`commit_aligned.py`/`suite34.py` not on the local disk 2026-10-13) | signal batch (bs=1); inclusion rule UNVERIFIED | `_med` (ThinkingCurve §5.3 table) |
+
+    Field map (CSV/JSON field → doc name; fields are NOT renamed): `valid_submission_rate`→`valid_sub_rate`, `conditional_accuracy`→`cond_acc`, `early_candidate_rate`→`early_cand_rate`, `pre/post_candidate_chars_median`→`pre/post_cand_chars_med`, `posN_median`→`first_parseable_marker_posN_med` (GSM8K-family) / `first_boxed_posN_med` (MATH), `candidate_posN_median`→`candidate_posN_med`. **Unqualified legacy `posN` in older entries of this file means `first_parseable_marker_posN` unless that entry defines it otherwise (the bare readout is always spelled `first_bare_marker_posN`).** `extract_metrics.py`'s docstring ("first '####'", "spans 251x") disagrees with its code (parseable regex) — recorded only, not edited.
+
+    Task exceptions that stay in force: **LogiQA** (letter answers) is not covered by the numeric detector — use its native `answer_first`/`naf` fields; **BBH** object_counting baselines sit at the early-candidate CEILING (llama .952, qwen 1.000) so only a decrease is observable, and the detector misses English number words ("three\n#### 3"); **MATH** `earlycand-v1` false negatives (3/180 audit rows) are all Qwen `math/+8`, first line >60 chars already containing `\boxed` — a LOWER-bound statement for those cells only, not for every MATH result; **CRUXEval-O** (Python-literal payload, `ast.literal_eval`) and **ProofWriter-OWA** (strict line-anchored `#### True|False|Unknown`) use their own marker/`nonliteral`/`answer_first` definitions and have NO candidate metrics — never apply the GSM8K numeric regex to them; **FinQA** marker position = first LEGAL marker (`first_legal_answer`, tolerant of `$`/`%`/units) and its candidate metrics are EXPLORATORY (locator not extended for FinQA surface forms); **ZebraLogic** uses solution-grid fields. For these tasks `posN_med` in a doc is that task's own marker position, not GSM8K's.
   - **MATH-CoT RESULT (2026-08-21, nine alphas, `--cot-full`, one card): the peak does NOT move — it stays at `+6` on both curves.** The pre-registered "CoT moves the peak to +4" is REJECTED (+4 is one of two negative-ΔCoT points). But per the pre-registered falsifiable form (right-arm position / compression point / candidate-suppression threshold — all three static ⇒ "raises the baseline only"), **two of three moved**, so it is not baseline-only: the suppression threshold shifted RIGHT (CoT keeps 9–12pp more early candidates at +2/+4/+6, converging only at +8) and compression is SHALLOWER (pre-commit chars at +8: CoT 1002 vs No-CoT 828); the right arm did not move (both +8). **Two Holm families, declared separately, never pooled** — Family A (CoT vs its own α=0, m=8): all eight p_adj=1.0000; Family B (CoT vs No-CoT per α, m=9): none survive, largest is −4 at +7.00pp, p=.0065, **p_adj=.0581**. Point estimates and the full curve are retained; failing correction limits claim strength, it does not delete the pattern. **The flattening is HEADROOM, not mechanism loss** — CoT's α=0 is already 63.00 against a shared 66–68 peak, and early-candidate still collapses 71.3→10.3 under CoT, so **never write "CoT eliminates the RSN effect"**. Say "可提升空间被明显压缩", NOT "接近能力上限" (no experiment approached the latter). Right-arm attribution, consistent across both curves: the Level-5 fall at +8 accompanies **pre-commit reasoning shortfall** (lost items' pre-commit chars 1398→886) and NOT post-commit rewriting (post-commit chars stay 27–34, truncation ~0%). Wording boundary: the overall +6→+8 fall is **DESCRIPTIVE only** (66.00→64.00); the clearer right arm is on **Level 5**, so do not write "CoT establishes a right arm across the whole curve". Recompute with `RoleAnswer/backup/qwen_step2/math_cot_curve.py` (nine-α table) + `math_cot_stats.py` (the two Holm families; it `exec`s the curve script, so keep them side by side) + `math_cot_rightarm.py` (Level-5 attribution) + `math_cot_boxed_tail.py` (the §4.3.2 tail). All import the extractor from `analyze_first_last_acc` rather than reimplementing it — an independent copy is how the inline/offline口径 gap opened on MATH.
   <!-- Why: precision 1.000 makes it tempting to treat the frozen rate as exact; the 3 FN are
   all one dose-dependent shape, so the high-alpha MAGNITUDE is understated even though the
@@ -1245,7 +1267,7 @@ Scope: every answer-formation-timing claim. -->
   - **`early-candidate` and `posN` are frozen operational definitions; the paper states them, this file states the implementation.** `early_candidate` comes from `early_candidate_detector.has_early_candidate` (frozen 2026-08-21, ONE definition for GSM8K and MATH, `MAX_LINE_CHARS=60`, sensitivity at 40/60/80 reported alongside) — **import it, never re-derive a first-line rule**, which is exactly the per-task divergence the freeze replaced. `posN` = char start of the FIRST PARSEABLE `#### <number>` divided by total generated chars, defined **only on `committed` samples**, so its denominator is a dose-dependent subset and it must be cited beside `cmt%`. Stratifying any outcome on `early_candidate` is POST-TREATMENT stratification (the flag is itself an outcome of α) — consistent-with evidence, never mediation.
   - **`commit_state` is a THREE-WAY EXHAUSTIVE partition keyed on marker PRESENCE — `committed` / `marker_unparsed` / `no_marker`** (Llama α=0: **177 / 66 / 57 = 300**). `is_loop` (≥4 markers) is a DESCRIPTIVE SUB-FLAG of `marker_unparsed` (52 of the 66), **not a fourth bucket**; counting the retired name `loop_commit` reads a silent 0.0 for every cell. A boolean version read a suspiciously flat ~41% at EVERY Llama α because it merged the degenerate-loop samples (tail writes `#### . 36#### . 36…`, so the regex misses the number — the model committed REPEATEDLY) with genuine no-marker samples; a later three-value version still tested `>= 4` and fell through, misfiling the 14 samples with 1–3 markers. **`curves.py` asserts the three sum to 100 at runtime.** **Qwen's `no_marker` is 0.0 in ALL 11 cells** — it always emits `####`, and its unparseable samples are all `marker_unparsed` (`70\n####\n\n`: marker emitted, no number after), the same fact as the GSM8K two-commit-count rule above. **Production applies the fallback chain to all of them and 63/123 still score correct, so commit-state is a BEHAVIOURAL readout and NEVER an accuracy proxy** — surface format failure is not the same as being wrong.
   - **The dose axis for cross-model comparison is `z`, standardized WITHIN each model** (`(x̄_prefill(α) − x̄_prefill(0))/SD_{α=0}`). Frozen wording: "compare the transfer curves on each model's own standardized entry coordinate" — **never** "the two models received an equal intervention".
-  - **Result.** Llama's early-candidate rate rises on BOTH arms (−8 77.0%, +8 69.3%, α=0 47.7%) with its MINIMUM at the accuracy peak −6 (19.3%), and at −8 `posN` collapses 0.298→0.043 with **95.7% of the generation after the commit** — premature lock-in, not shorter thinking. Qwen's negative arm does not move (95–97%) and only the high positive doses collapse it 96%→5%, after which the mechanism variables SATURATE at +8 (commit 98.0%, `n_markers` 2.1), which is why +10/+12 add nothing.
+  - **Result.** Llama's early-candidate rate rises on BOTH arms (−8 77.0%, +8 69.3%, α=0 47.7%) with its MINIMUM at the accuracy peak −6 (19.3%), and at −8 `first_parseable_marker_posN` (MEAN over committed samples, signal batch) collapses 0.298→0.043 with **95.7% of the generation after the commit** — premature lock-in, not shorter thinking. Qwen's negative arm does not move (95–97%) and only the high positive doses collapse it 96%→5%, after which the mechanism variables SATURATE at +8 (commit 98.0%, `n_markers` 2.1), which is why +10/+12 add nothing.
   - **Explanatory R² is CURVE-LEVEL DESCRIPTION, n=9/11 — not mediation and not a causal decomposition.** entry gain alone explains Llama's curve at .136 versus early-candidate at .945 (Qwen .898/.923). The robustness comes from the ITEM level instead: the early-candidate → error association holds in all 20 cells and survives question AND dose fixed effects nearly undiminished (Llama β=+0.297, cluster-robust SE .028, t=10.8; Qwen +0.200, .036, t=5.5), so difficulty confounding is excluded — but it stays an observational association.
   - **Premature commitment is NOT over-confidence — a negative result worth keeping.** On Llama's same-batch `metrics_*`, early-candidate samples are not more decisive (Δtop1 −0.058…+0.019), and among them the WRONG ones are not more decisive than the correct ones (−0.085…−0.001, the opposite direction). Word it as a commitment-TIMING failure, never a confidence-calibration failure. Qwen cannot be tested symmetrically (`metrics_hs` is 7 cells and a different batch — `PARTIALLY AVAILABLE / SPARSELY SAMPLED` per §5.5).
 
@@ -1293,7 +1315,7 @@ Scope: all of P3. Read before touching anything under gsm_hard_p3. -->
 
 - **Generation params match the frozen GSM8K main line, deliberately: `max_new_tokens
   =768`, `temperature=0.0`, `bs=24`.** The P2 predictor was fitted on GSM8K output
-  produced this way and `posN` / `early_candidate` are sensitive to length and
+  produced this way and `first_parseable_marker_posN` / `early_candidate` are sensitive to length and
   sampling. **Do NOT borrow MATH's 2048/bs=8** — GSM-Hard keeps GSM8K's structure and
   only enlarges the numbers.
 
@@ -1436,7 +1458,7 @@ Scope: every llama P3 selection claim. -->
   evaluator reports `direction_correct=False`, large regret and negative ρ rather than
   passing a bad result silently.
 
-<!-- Why: Qwen's posN rises again at +8, which reads as breaking the monotone
+<!-- Why: Qwen's first_parseable_marker_posN rises again at +8, which reads as breaking the monotone
 fall; it survives a fixed denominator, so the tempting "denominator effect"
 dismissal is wrong -- the actual split is absolute position vs generation length.
 Evidence: ReasoningBare.md §5.5; p3/commit_panel_gsm_hard.py.
@@ -1445,9 +1467,9 @@ Scope: every GSM-Hard posN claim. -->
   EXPLORATORY and permanently so** — the ten No-CoT cells were unsealed first. It imports
   P1's `per_sample` rather than reimplementing the three-way partition. Both models peak
   where `early_candidate` is lowest (Llama −6: 28.7%; Qwen +8: 6.0% against +6's 58.7%);
-  Llama −8 is extreme premature lock-in (`posN` 0.0000, **100%** of the generation after
+  Llama −8 is extreme premature lock-in (`first_parseable_marker_posN` 0.0000, **100%** of the generation after
   the commit, acc .110); the failure modes differ (Llama loops and drops the marker, Qwen
-  never loops and instead emits an unparseable `####`). **Qwen's `posN` rebound at +8
+  never loops and instead emits an unparseable `####`). **Qwen's `first_parseable_marker_posN` rebound at +8
   (0.597→0.777) is NOT a denominator effect** — it survives on the 153 questions committed
   in all five cells (0.566→0.758); the decomposition is `commit_char` rising 274→436 while
   `gen_chars` keeps shrinking 959→831, i.e. the same normalized-vs-absolute split §5.5
@@ -1474,7 +1496,7 @@ Scope: every llama GSM-Hard length or post-commit number, No-CoT and CoT alike. 
   exact McNemar p=.53), and that covers that pair only. **A corollary for ReasoningBare.md §5.5's Llama
   −8 reading: "generation length did not shorten" is a CEILING EFFECT, not an
   observation** — every dose is flattened against the same cap. The conclusion (the
-  collapse is not from generating less) still holds, but must rest on `posN med=0` and
+  collapse is not from generating less) still holds, but must rest on `first_parseable_marker_posN med=0` and
   `post-commit=100%`, which are length-independent. For the CoT supplement, generations
   are longer at the same cap, so a degraded CoT result must report truncation and the
   commitment reading side by side rather than resolving it in favour of either. **Do NOT
@@ -1546,7 +1568,7 @@ Scope: every supplement citation. -->
   **Qwen is NOT auto-included** (its No-CoT cap-hit is 13–23% against llama's 91–96%); it
   gets a 1024 arm on its own evidence, never for symmetry. **Predictor scores on 1024
   output are EXPLORATORY** — the coefficients were fitted on 768-token generations, and
-  `posN` is a normalized position while `early_candidate` is a first-line rule.
+  `first_parseable_marker_posN` is a normalized position while `early_candidate` is a first-line rule.
 
 - **PREFLIGHT PASSED 2026-08-30** (5 samples, format only): `protocol=p3-supp-v1`,
   `cot=true`, the template carries the CoT line, `####` parses, and
@@ -1582,17 +1604,17 @@ Scope: amendment 03 only. -->
   positive, the direction stage 1 predicted for accuracy. **The score is a
   descriptive commitment readout, NOT a calibrated accuracy estimate** — the
   predictor was fitted on 768-token No-CoT GSM8K output.
-<!-- Why: posN=0 reads as the premature-lock-in failure signature, but here it sits at
+<!-- Why: first_parseable_marker_posN=0 reads as the premature-lock-in failure signature, but here it sits at
 the WORKING point with accuracy improving, so the obvious reading is backwards.
 Evidence: docs/p3_supp_result_20260830.json llama_answer_first_pattern.
 Scope: llama GSM-Hard CoT; check before reusing posN as a degradation marker. -->
 - **EXPLORATORY: llama's answer-first pattern.** Under CoT α=−6, **91 of 156
   committed samples (58.3%) begin with a parseable `#### N`** and only then write
-  the Step-by-step reasoning — `posN` median exactly **0.0000**. The pattern is present
+  the Step-by-step reasoning — `first_parseable_marker_posN` median exactly **0.0000**. The pattern is present
   under both manipulations: No-CoT α=0/−6 reads 3.1%/24.4% of committed, while CoT
   α=0/−6 reads 11.3%/58.3%. This is ReasoningBare.md §5.5's premature-lock-in signature
   appearing at the **working point** rather than the overshoot point, **with accuracy
-  still improving +6.00 pp** — so a low `posN` is not by itself a degradation marker,
+  still improving +6.00 pp** — so a low `first_parseable_marker_posN` is not by itself a degradation marker,
   and the commitment score's rise must NOT be read as "reasons before answering".
   `answer-first` is frozen as the first non-whitespace content being a parseable
   `#### <number>`; it is deliberately NOT called the "first token" because the marker
@@ -1980,7 +2002,7 @@ moves the same direction far more weakly (95.2 → 84.4) while `+4` saturates it
 (99.2); its three cells' morphology is near-identical (digit → `Explanation:` →
 degenerate `####.####…` tail), representative `sid=7`.
 
-**`pre_marker_chars` (313 → 44) and `posN` (.757 → .699) are FORMAT DIAGNOSTICS
+**`pre_marker_chars` (313 → 44) and `first_parseable_marker_posN` (.757 → .699) are FORMAT DIAGNOSTICS
 ONLY and must never be cited as "the answer moved later" — they move the OTHER
 way.** They mix the "early empty `####`, first parseable marker later" case, so
 the fall is an artifact of marker bookkeeping. The timing reading rests on the
