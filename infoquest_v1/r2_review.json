@@ -6,8 +6,8 @@
  "agent_review_note": "Edits were made by Claude from the public source description/constraints and are NOT a human review. A human sign-off (prepare_infoquest_v1.py review) is still required.",
  "flags": {
   "iq453": [
-   "object_weakly_identified",
-   "object_unspecified_in_incomplete"
+   "object_unspecified_in_incomplete",
+   "object_weakly_identified"
   ],
   "iq125": [
    "object_unresolved_in_complete"
@@ -25,8 +25,8 @@
    "request_infeasible"
   ],
   "iq026": [
-   "object_weakly_identified",
-   "object_unspecified_in_incomplete"
+   "object_unspecified_in_incomplete",
+   "object_weakly_identified"
   ],
   "iq329": [
    "object_unspecified_in_incomplete"
@@ -80,7 +80,8 @@
    "object_unspecified_in_incomplete"
   ],
   "iq081": [
-   "object_unspecified_in_incomplete"
+   "object_unspecified_in_incomplete",
+   "object_weakly_identified"
   ],
   "iq359": [
    "object_unspecified_in_incomplete"
@@ -134,7 +135,8 @@
    "object_unspecified_in_incomplete"
   ],
   "iq098": [
-   "object_unspecified_in_incomplete"
+   "object_unspecified_in_incomplete",
+   "object_weakly_identified"
   ],
   "iq362": [
    "object_unspecified_in_incomplete"
@@ -234,6 +236,9 @@
   ],
   "iq334": [
    "object_unspecified_in_incomplete"
+  ],
+  "iq036": [
+   "object_weakly_identified"
   ]
  },
  "notes": {
@@ -254,8 +259,8 @@
    "basis": "Source names only 'Clayton' (a followed player); no surname/team exists, so identification cannot be completed without inventing facts."
   },
   "iq081": {
-   "change": "time frame demoted to background",
-   "basis": "demoted to background: does not change which answer is appropriate for this request"
+   "change": "time frame demoted to background; no change; flagged",
+   "basis": "demoted to background: does not change which answer is appropriate for this request | Source: a grandparent's role in 'an important legislative process' - no state/bill; the 1970s state education bill is our own authored detail and stays weakly identified."
   },
   "iq496": {
    "change": "split work vs purpose; deadline and medium demoted to background",
@@ -302,8 +307,8 @@
    "basis": "Role is not needed to choose the historical content."
   },
   "iq047": {
-   "change": "competition demoted to background",
-   "basis": "A factual cause of the problem, not a limit or a task-defining need."
+   "change": "competition demoted to background; amount given",
+   "basis": "A factual cause of the problem, not a limit or a task-defining need. | A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
   },
   "iq259": {
    "change": "split a compound item into independent information needs (staff vs space)",
@@ -338,12 +343,12 @@
    "basis": "demoted to background: does not change which answer is appropriate for this request"
   },
   "iq427": {
-   "change": "split a compound item into independent information needs (location vs speed)",
-   "basis": "Two independent limits."
+   "change": "split a compound item into independent information needs (location vs speed); amount given",
+   "basis": "Two independent limits. | A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
   },
   "iq035": {
-   "change": "split a compound item into independent information needs (starting point vs goal)",
-   "basis": "Two independent needs."
+   "change": "split a compound item into independent information needs (starting point vs goal); sport added (professional tennis player)",
+   "basis": "Two independent needs. | Source persona: professional tennis player."
   },
   "iq397": {
    "change": "split a compound item into independent information needs (route vs cargo)",
@@ -374,8 +379,8 @@
    "basis": "Previous item's span did not match its example question."
   },
   "iq036": {
-   "change": "split a compound item into independent information needs (connection vs storage)",
-   "basis": "Two independent limits."
+   "change": "split a compound item into independent information needs (connection vs storage); no change to wording; flagged",
+   "basis": "Two independent limits. | Source: 'a new language learning app' - no app name; cannot be added without inventing it."
   },
   "iq354": {
    "change": "split a compound item into independent information needs (product vs jurisdiction)",
@@ -392,6 +397,42 @@
   "iq494": {
    "change": "deadline demoted to background",
    "basis": "demoted to background: does not change which answer is appropriate for this request"
+  },
+  "iq098": {
+   "change": "regulation named as in the source (national environmental protection regulation)",
+   "basis": "Source gives no country or title; flagged weakly identified."
+  },
+  "iq052": {
+   "change": "storage and transport split",
+   "basis": "Two independent limits."
+  },
+  "iq274": {
+   "change": "player and level split",
+   "basis": "Two independent needs."
+  },
+  "iq337": {
+   "change": "documentation and coding style split",
+   "basis": "Two independent conditions."
+  },
+  "iq071": {
+   "change": "specific monthly ceiling ($4,000) given",
+   "basis": "A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
+  },
+  "iq412": {
+   "change": "specific amount ($2,000) given",
+   "basis": "A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
+  },
+  "iq108": {
+   "change": "amount given",
+   "basis": "A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
+  },
+  "iq416": {
+   "change": "amount given",
+   "basis": "A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
+  },
+  "iq236": {
+   "change": "amount given",
+   "basis": "A vague 'small/no premium budget' leaves the ceiling unknown, so asking for it would be new information rather than a repeat ask."
   }
  },
  "r1_items_sha256": {
