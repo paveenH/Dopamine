@@ -174,17 +174,17 @@ Llama 在 GSM8K 上的性能结果可以概括为：
 
 ### 2.1 Dose-Dependent Output Behavior
 
-本节使用统一的 candidate/marker 检测口径，比较 α 对答案候选出现顺序、正式提交和后续生成的影响。每个条件均包含 300 题，`first_acc` 仅作为行为变化的性能参照。
+本节使用统一的 candidate/marker 检测口径，比较 α 对答案候选出现顺序、正式提交和后续生成的影响。每个条件均包含 300 题。指标层次：主要性能指标为 offline `first_acc`；主要输出组织指标为 `early_candidate_rate`，`reason_first_rate` 为辅助；`candidate_coverage`、`valid_sub_rate`、`cond_acc` 用于核对分母与格式；candidate 前后字符数与各种 marker 位置为辅助位置诊断；loop、truncation、natural EOS 属生成健康度。在已验证检测有效的数值作答条件下，early-candidate 是主要输出组织指标。它们描述生成文本中的可见顺序，不直接代表内部决策、停止思考或推理投入；现有分析尚未建立这些指标对准确率变化的因果中介作用。指标的逐项定义见 `CLAUDE.md` 的统一定义表。
 
 “答案候选（candidate）”与“正式答案标记（marker）”是两个不同事件。Candidate 是输出中最早出现的答案形态数值或表达式，可能是最终答案，也可能只是中间结果；marker 则是 `####` 等正式提交格式。因此：
 
 - `Early candidate`、`Reason first` 和 candidate 前后字符数描述答案候选的出现顺序。
-- `Marker position` 描述正式答案标记在全文中的位置，不代表答案在模型内部形成的时间。
-- `Conditional acc` 只在存在有效正式答案标记的样本中计算，不能替代总体准确率。
+- `First parseable marker position (median)`（`first_parseable_marker_posN_med`，原表头 `Marker position`）：第一个后接可解析数值的 `####` 的字符位置 ÷ 全文字符数，仅在有效提交子集（`posN_observed`）上取中位数，缺失不补值；它是辅助位置诊断，不代表答案在模型内部形成的时间。它与 bare-marker 位置（第一个 `####`，不要求后接数值）是不同事件。
+- `Conditional acc` 只在有效提交子集中计算，判据是该子集内第一个可解析 marker 的答案与 gold 是否一致（该子集内不会用到 fallback）；它不等于 `first_acc` 除以有效提交率，因为 `first_acc` 还通过 fallback 链为无 marker 样本评分，因此不能替代总体准确率。`Reason first` 的分母是 candidate-covered 子集（见 `candidate_coverage`），不是 300。
 
 #### No-CoT Condition
 
-| α | First acc | Valid submission | Conditional acc | Early candidate | Reason first | Pre-candidate chars | Post-candidate chars | Marker position | Multiple markers |
+| α | First acc | Valid submission | Conditional acc | Early candidate | Reason first | Pre-candidate chars | Post-candidate chars | First parseable marker posN (median) | Multiple markers |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −8 | 40.33% | 60.67% | 23.63% | 76.67% | 45.39% | 5 | 2,259 | 0.0000 | 9.67% |
 | **−6** | **78.00%** | 60.67% | **79.67%** | **18.67%** | **66.55%** | **175** | 1,875 | 0.2613 | 19.00% |
@@ -208,7 +208,7 @@ Llama 在 GSM8K 上的性能结果可以概括为：
 
 #### CoT Condition
 
-| α | First acc | Valid submission | Conditional acc | Early candidate | Reason first | Pre-candidate chars | Post-candidate chars | Marker position | Multiple markers |
+| α | First acc | Valid submission | Conditional acc | Early candidate | Reason first | Pre-candidate chars | Post-candidate chars | First parseable marker posN (median) | Multiple markers |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | −6 | 75.33% | 37.67% | 57.52% | **18.67%** | **79.45%** | 228 | 1,861 | 0.2291 | 15.33% |
 | **−4** | **85.00%** | 31.67% | **81.05%** | 19.00% | 75.77% | **236** | 1,834 | 0.2732 | 11.67% |
@@ -230,7 +230,7 @@ CoT 下，`α=−4` 的准确率最高。该条件只有 19.00% 的输出较早�
 
 因此，CoT 没有消除正向 α 下的提前回答模式。`α=+4` 更常在推理文本之前出现答案候选，并在候选出现后继续生成较长内容。
 
-Valid submission rate 仅为 29.00%–40.67%，且没有随准确率同步变化。Marker position 和 multiple-marker rate 同样没有呈现清晰的性能曲线。相比之下，candidate ordering 更稳定地反映了 α 对可见输出顺序的影响。
+Valid submission rate 仅为 29.00%–40.67%，且没有随准确率同步变化。First parseable marker position 和 multiple-marker rate 同样没有呈现清晰的性能曲线。相比之下，candidate ordering 更稳定地反映了 α 对可见输出顺序的影响。
 
 总体而言，负向有效区域通常伴随更少的提前答案候选和更多候选前推理，正向 α 则呈现相反方向。但这些指标都是干预后的输出行为，只能作为相关证据，不能证明答案出现顺序是准确率变化的因果中介。
 
@@ -609,7 +609,7 @@ MATH 上的主要结果可以概括为：
 
 本节使用 `first_acc` 作为主要性能指标，`last_acc` 用于观察后续答案修订。`early_cand_rate` 和 `reason_first_rate` 描述第一个 answer candidate 前后的可见输出顺序；`first_parseable_marker_posN_med` 表示第一个后接可解析数值的 marker 在全文中的位置，在 `valid_sub_rate` 子集上计算；它与旧记录中的 bare-marker 位置（.003→.754）不是同一指标。candidate 与 marker 不是同一事件，相关指标均为干预后的描述性读数。
 
-所有条件均包含 300 个样本。`cond_acc` 只在存在有效正式答案 marker 的样本中计算，因此用于检查输出格式和条件准确率，不替代总体 `first_acc`。raw α 只表示对应实验中的干预强度，不应视为跨模型或跨任务的等效剂量。
+所有条件均包含 300 个样本。`cond_acc` 只在有效提交子集中计算（该子集内第一个可解析 marker 的答案与 gold 比较），因此用于检查输出格式和条件准确率，不替代总体 `first_acc`；`reason_first_rate` 的分母是 candidate-covered 子集。`first_parseable_marker_posN_med` 是辅助位置诊断。raw α 只表示对应实验中的干预强度，不应视为跨模型或跨任务的等效剂量。
 
 #### GSM8K
 
@@ -1178,7 +1178,7 @@ Qwen 的结果不同。No-CoT 在 `+8` 时，`first_acc` 从 29.33% 提高至 37
 | +6 | 43.00% | 24.67% | 0.00% | 474 | 0.9035 | 67.67% | 589 |
 | +8 | **54.00%** | 29.00% | 0.00% | 686 | 0.9490 | 69.67% | 804 |
 
-从 α=0 增加到 `+6/+8` 后，正式答案标记明显后移：`answer_first_rate` 降至0%，`pre_marker_chars_med` 从46增加至474和686，`posN_med` 也接近输出末尾。与此同时，`first_acc` 明显提高。
+从 α=0 增加到 `+6/+8` 后，正式答案标记明显后移：`answer_first_rate` 降至0%，`pre_marker_chars_med` 从46增加至474和686，`posN_med`（CRUXEval-O 的首个 `#### <Python literal>` marker 的字符位置，沿用该任务自己的 marker 解析，**实现细节待核实**，不套用 GSM8K 数值正则）也接近输出末尾。与此同时，`first_acc` 明显提高。
 
 但这组指标描述的是正式 `####` marker 的位置，而不是第一个答案 candidate 的形成时间，不能据此断言模型在内部“更晚决定答案”。此外，约七成输出含有多个 marker，且 `first_acc` 与 `last_acc` 明显分离，说明高剂量同时增加了后续修订的不稳定性。
 
