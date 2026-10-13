@@ -33,10 +33,6 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 6. 统一posN Qwen和llama的reasoning行为学分析指标 ####的定义  ✔
 
 
-## 第二步：离线分析，决定 C2 怎么写（1–2 天）
-
-1. **Chat α=0 基线状态。** 读出 Llama 和 Qwen 在 Chat 接口、α=0 时的 early-candidate 和 reason-first 比例。这项结果决定能不能把"Llama 在 Chat 下没有收益"解释为"基线已经不在过早提交状态"。这是评审最可能攻击的地方。
-2. **方向一致性表。** 把 Betting、CGT 和推理各自的输出读数，按各自的有效剂量窗放进一张表。
 
 ## 第三步：P2 预测器和简单基线比较（1 天）
 
