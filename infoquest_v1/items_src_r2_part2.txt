@@ -1,0 +1,149 @@
+# id|category|information_need|complete_span|why_relevant|acceptable_question_example
+# r2 (infoquest-v1-r2): post-pilot / pre-formal material revision. category in task_clarification|constraint|background;
+# 'background' rows are added to the Complete text but are NOT scored. Authored by Claude; review_status stays draft_unreviewed.
+iq174|task_clarification|project|It's for my final photography project, where I'm blending graphic design elements into landscape photos.|Allocation advice depends on what the project is.|What project are you allocating resources for?
+iq174|constraint|budget|I have about $100 for software and materials in total.|Money available limits what resources can be bought.|What is your budget?
+iq174|constraint|available time|I have exams for the next two weeks, so I can only work on it a few hours a week.|Time available shapes the plan.|How much time can you give it?
+iq463|task_clarification|which elements|The elements are the magic system and the political intrigue plot in my fantasy novel.|Advice depends on which elements need to be combined.|Which elements are you trying to bring together?
+iq463|constraint|publishing deadline|I'm publishing in six weeks.|It limits how much can be rewritten.|When do you plan to publish?
+iq463|task_clarification|lore conflict|Two of my characters' backstories conflict with established lore from book one.|It identifies the actual source of the clash.|What exactly is clashing?
+iq079|task_clarification|topic area|I mean Catholic-Jewish interfaith dialogue initiatives.|The landscape depends on the specific area.|Which area do you mean?
+iq079|constraint|format and length|I need a summary that I can present in ten minutes.|Length and level of detail depend on it.|How will you use this and how long should it be?
+iq079|constraint|approval requirement|Church officials must approve the material before I use it.|It affects tone and what can be included.|Are there review or approval requirements?
+iq110|task_clarification|the problem|My 1967 Mustang's engine misfires at idle and has done so for weeks.|Diagnosis needs the symptom and the vehicle.|What is the issue and which vehicle is it?
+iq110|constraint|diagnostic tools|I only have a basic code reader and a multimeter.|Diagnostic steps must fit the tools available.|What diagnostic tools do you have?
+iq110|constraint|time pressure|The car has to be ready for the club show in nine days.|It decides between quick fixes and full repairs.|When does it need to be fixed?
+iq392|task_clarification|position|My position is that the city should replace the old lead water mains.|Arguments must support the actual position.|What is your position?
+iq392|constraint|opposition|Several local industries oppose it because of the cost.|Arguments must answer the actual opponents.|Who opposes it and why?
+iq392|constraint|voter appeal|Voters will only back it if they see a clear personal benefit.|It determines which arguments are persuasive.|Who needs to be persuaded?
+iq172|task_clarification|which data|The spike is in our monthly employee satisfaction survey, which jumped 18 points in March.|Analysis depends on which data and what changed.|Which data and which period are you looking at?
+iq172|constraint|survey limit|We can't run a new survey right now.|It rules out collecting more data.|Can you collect more data?
+iq172|constraint|data access|Department-level results are confidential, so I can only see company-wide averages.|It limits which breakdowns are possible.|How detailed is the data you can access?
+iq489|task_clarification|current situation|I race in a lower Argentine touring category and my lap times have stalled at the same value for two months.|Advice depends on the situation and level.|What level do you race at and what are your current lap times?
+iq489|constraint|track time|I only get one track day a month.|It limits how practice can be structured.|How much track time do you have?
+iq489|constraint|coaching access|I can't afford a professional coach.|It rules out coaching-based advice.|Do you have access to coaching?
+iq479|task_clarification|what element|I'm talking about the medieval court costumes and traditions I want to use in my wedding theme.|Significance depends on the specific element.|Which element or tradition do you mean?
+iq479|constraint|wedding date|The wedding is in ten weeks.|It limits how much research and sourcing is possible.|When is the wedding?
+iq479|constraint|spending limit|I can't spend anything on authentic period items or a consultant.|It limits the accuracy options.|Do you have any budget for authenticity?
+iq194|task_clarification|the two activities|I'm doing a stock car exhibition lap that has to flow into a short performance set to Andrew Tuttle's music.|The transition depends on what the two things are.|What are the two things you are transitioning between?
+iq194|constraint|practice time|I have only two practice sessions before the event.|It limits how complex a transition can be.|How much time do you have to practice?
+iq194|constraint|audio setup|My helmet audio system has to sync with the track speakers.|Technical sync determines the approach.|What equipment is involved?
+iq049|task_clarification|what happened|My granddaughter posted a strong political opinion online and some relatives disagree with it.|The advice depends on the actual situation.|What is the situation you are dealing with?
+iq049|constraint|social media familiarity|I barely use social media myself.|It affects what practical guidance she can follow.|How familiar are you with social media?
+iq049|constraint|family priorities|I want to protect our family's good name.|It affects the balance of advice.|What matters most to you in handling this?
+iq183|task_clarification|situation|I work at a factory in West Java that dumps waste into the nearby river and I want to raise it with management.|The approach depends on the issue and workplace.|What is the situation and who are you dealing with?
+iq183|constraint|retaliation risk|I'm afraid I could be punished or lose my job for speaking up.|It shapes how safe approaches are chosen.|Are you worried about consequences at work?
+iq183|constraint|evidence|I don't have any measurements or documents yet to back it up.|It determines whether to build evidence first.|Do you have evidence or documentation?
+iq026|task_clarification|which system|I mean our company's CRM system.|The relationship depends on which system is meant.|Which system are you asking about?
+iq026|constraint|documentation access|I don't have access to the system documentation.|It limits what can be verified from the source.|Do you have documentation for the system?
+iq026|constraint|change restriction|I'm not allowed to change the system configuration.|It rules out suggestions that modify the setup.|Are you allowed to modify the system?
+iq176|background|which incident|I mean the recent violent incident against a woman in my town that has been in the news.|The context depends on the specific incident.|Which incident are you referring to?
+iq176|constraint|privacy concern|I want to respect the victim's privacy, so I'd rather not use anything that exposes her identity.|It limits which sources are acceptable.|Are there privacy limits on what sources you want to use?
+iq176|constraint|time pressure|I need this for a community meeting tomorrow.|It limits how deep the research can go.|When do you need this?
+iq310|task_clarification|scope|I'm asking about social media use by campaigns in national elections in my country.|The impact depends on scope.|What scope or context do you mean?
+iq310|constraint|source standard|I need credible sources, since my party colleagues will challenge anything I cite.|It sets the standard for evidence.|What kind of sources are acceptable to you?
+iq310|task_clarification|upcoming use|I'm preparing for a debate next week.|It sets how the information will be used.|What do you need this for?
+iq135|task_clarification|project|I'm making a hand-forged silver pendant with an engraved pattern.|Technique advice depends on the piece.|What piece are you making?
+iq135|constraint|tools|I only have a small torch, hand files and a basic hammer set.|Methods must fit the available tools.|What tools and materials do you have?
+iq135|constraint|experience|I haven't done anything more advanced than simple soldering before.|Technique difficulty must match skill.|What is your experience level?
+iq415|task_clarification|which principles|The principles are free will and fate in my novel's central belief system.|The reconciliation depends on the principles.|Which principles are in conflict?
+iq415|constraint|chapter deadline|The chapter is due to my editor in four days.|It limits how much revision is realistic.|When is it due?
+iq415|constraint|reader goal|Readers should connect with the characters rather than feel lectured.|It sets the tone of the reconciliation.|What effect do you want on readers?
+iq022|task_clarification|investment type|The investment I'm considering is a vacation home.|The options depend on the type of asset.|What kind of investment are you considering?
+iq022|constraint|budget|I have about $2 million to spend.|The set of options depends on the budget.|What is your budget?
+iq022|constraint|location|I'm looking at coastal areas in Florida or Spain.|ROI depends heavily on location.|Where are you considering buying?
+iq022|constraint|rental intent|I'd like to rent it out when I'm not using it.|Rental income changes the ROI calculation.|Do you plan to rent it out?
+iq375|task_clarification|project|It's for a mobile-first booking website for a small startup offering yoga classes.|Interface design depends on the product and users.|What are you designing the interface for?
+iq375|constraint|brand limits|The brand guidelines restrict me to navy blue and white.|It limits the visual choices.|Are there brand guidelines or restrictions?
+iq375|constraint|deadline|The first prototype is due to the client in a week.|It decides how detailed the process can be.|What is your timeline?
+iq236|task_clarification|what process|I run a platform that matches high school athletes with college scouts and the profile review is done by hand.|Streamlining depends on what the process is.|Which process do you want to streamline?
+iq236|constraint|software budget|I have little budget for new software.|It limits tooling choices.|What budget do you have for tools?
+iq236|constraint|privacy rules|The platform handles athletes' personal data, including minors, so privacy law applies.|It restricts which automation is allowed.|Are there data privacy requirements?
+iq275|background|which draft|It's the vinyl cover design draft for the album we discussed.|The assistant must know which file is meant.|Which draft do you mean?
+iq275|constraint|file format|I need it as a layered file I can edit, not a flat image.|The deliverable format matters for adjustments.|What file format do you need?
+iq275|constraint|deadline|The printer needs final files by Friday.|It sets urgency.|When do you need to submit it?
+iq063|task_clarification|platform|I'm updating my LinkedIn profile.|The advice depends on the platform.|Where are you presenting your skills?
+iq063|task_clarification|purpose|It's for applications to industry research roles.|The advice depends on the goal.|What is the goal?
+iq063|constraint|audience|The readers will be both hiring managers and academic colleagues.|Tone and detail depend on the audience.|Who will read it?
+iq063|constraint|time available|I can only spend an hour on it.|It limits how much can be reworked.|How much time do you have?
+iq193|task_clarification|room project|I'm redesigning a small gaming room in my apartment with a football theme.|Design advice depends on the space and theme.|What room or project is this about?
+iq193|constraint|budget|My budget is about $500.|It limits materials and decor.|What is your budget?
+iq193|constraint|room size|The room is only three by three meters and has to fit a desk and console setup.|Space limits layout options.|How large is the room and what must it hold?
+iq040|task_clarification|data|It's a dataset of student attendance, grades and online-course activity from my class project.|The method depends on the data.|What data do you have?
+iq040|constraint|tool skills|I only know basic Excel and haven't used visualization libraries.|Tool recommendations must fit skills.|What tools and skills do you have?
+iq040|constraint|deadline|The presentation is due Monday.|It limits how complex the approach can be.|When is it due?
+iq283|task_clarification|material|It's about 2,000 scanned documents and photographs from political archives, in PDF, Word and image formats.|Organization method depends on volume and formats.|What material do you need to organize?
+iq283|constraint|tool budget|We have no budget for paid software.|It restricts tooling.|What budget is there for tools?
+iq283|constraint|user group|Several of us will use it, including older members who aren't comfortable with technology.|The solution must suit all users.|Who will be using this system?
+iq150|task_clarification|events|The events are the voyages of Magellan's expedition from 1519 to 1522.|Mapping depends on which events.|Which events do you want to map?
+iq150|constraint|deadline|I'm presenting at the history society on Thursday.|It determines how much can be done.|When do you need it by?
+iq150|constraint|mapping tool|I have to use a digital mapping tool, but I've never used one.|Tool choice and tutorials depend on experience.|Are you familiar with mapping tools?
+iq427|task_clarification|scene|It's a chase scene for my film with vintage 1960s cars.|Techniques depend on the scene.|What kind of scene is this?
+iq427|constraint|effects budget|We have almost no budget for CGI.|It rules out effects-heavy solutions.|What is your budget for effects?
+iq427|constraint|shooting location|We're shooting on a narrow street.|Location limits camera options.|Where are you shooting?
+iq427|constraint|speed limit|For safety the cars can only go slowly.|Real speed limits push toward camera tricks.|Are there speed limits?
+iq322|task_clarification|mood|The mood I'm aiming for is calm and melancholic.|The shade depends on the mood.|What mood do you want?
+iq322|constraint|artwork context|It's for a digital illustration of a rainy city street that is part of my existing blue-toned collection.|The shade must fit the piece and collection.|What artwork is it for?
+iq322|background|deadline|I need to finalize it today.|It limits experimentation.|When do you need it?
+iq317|task_clarification|demographic|The demographic is women aged 25 to 40.|Connection strategies depend on the group.|Which demographic do you mean?
+iq317|task_clarification|event|We're sponsoring a charity fun run next spring.|Tactics depend on the event.|What event or initiative is involved?
+iq317|constraint|campaign budget|Our campaign budget is limited to $30,000.|It limits the scale of the campaign.|What is your budget?
+iq185|task_clarification|argument|My argument is that synagogues should invest in physical accessibility such as ramps and elevators.|Framing depends on the argument.|What is your argument?
+iq185|constraint|audience|The audience is a congregation of mostly non-disabled members of different ages.|Framing depends on the listeners.|Who is your audience?
+iq185|constraint|time limit|I only have ten minutes.|It limits the structure of the case.|How long do you have to present?
+iq296|task_clarification|what to manage|I'm a single parent planning a week-long vacation for me and my two kids.|Advice depends on what needs managing.|What are you trying to plan?
+iq296|constraint|childcare|I have no one to watch the kids if I travel without them.|Childcare availability constrains the plan.|Do you have childcare help?
+iq296|constraint|budget|My budget is $1,200 in total.|It limits destinations.|What is your budget?
+iq098|task_clarification|which regulation|I mean the new national regulation on wetland protection.|The timeline and players depend on the regulation.|Which regulation do you mean?
+iq098|constraint|deadline|I'm presenting to my department on Friday.|It limits depth.|When is the presentation?
+iq098|constraint|database access|I can't access the paid regulatory databases.|It limits which sources I can use.|What sources can you access?
+iq362|task_clarification|data|The data are counts of orientalist motifs across 300 paintings from 1850 to 1900.|Chart choice depends on the data.|What does the data look like?
+iq362|constraint|conference format|It's for a conference poster, and the guidelines allow only one figure.|It constrains the visualization.|Where will it be shown, and are there format limits?
+iq362|constraint|tooling|I mainly work in R.|Recommendations should match the tool.|What software do you use?
+iq035|task_clarification|current status|I'm 19 and ranked around 400 in the world.|A plan depends on the starting point.|Where are you now?
+iq035|task_clarification|goal|I want to reach the top 100 in five years.|A plan depends on the target.|What is your goal?
+iq035|constraint|funding|I can't fund international travel on my own.|It limits the tournament schedule.|How are you funding your travel?
+iq035|constraint|coaching|I train at a small club without a high-level coach.|It shapes what the plan can include.|What coaching and facilities do you have access to?
+iq023|task_clarification|item|The item is a two-meter-long sofa.|Transport options depend on size.|What are you moving?
+iq023|constraint|delivery window|It must be delivered within a three-hour window this afternoon.|It limits the options.|When does it need to arrive?
+iq023|constraint|transport budget|The company allows only $60 for transport.|It limits the options.|What is the budget?
+iq340|task_clarification|which results|The results I mean are shuttle pick-up times for staff, which vary a lot from day to day.|Advice depends on what is inconsistent.|What results are inconsistent?
+iq340|constraint|work start times|Different teams start at different times.|It complicates scheduling.|Do all employees start at the same time?
+iq340|constraint|transit reliability|Public transit schedules are unreliable in our area.|It changes the commute options.|How reliable is the transport?
+iq116|task_clarification|what flow|I mean electrical energy use in a 20-storey office building.|Methods depend on what is measured.|What are you measuring and where?
+iq116|constraint|existing system|The building runs a legacy building-management system that we can't replace.|New equipment must be compatible.|What existing systems must it work with?
+iq116|constraint|installation window|Installation can't disrupt tenants during business hours.|It affects the installation method.|Are there installation restrictions?
+iq397|task_clarification|route|I'm driving from Salinas, California to Denver.|The route depends on origin and destination.|Where are you going?
+iq397|constraint|cargo|I'm carrying fresh strawberries.|Perishable cargo changes the plan.|What are you carrying?
+iq397|constraint|delivery deadline|They have to arrive by 6 a.m. Thursday.|It limits route choices.|When do you have to arrive?
+iq397|constraint|driving hours|I can only drive eleven hours before my mandatory rest.|It limits the schedule.|How many hours can you drive per day?
+iq148|task_clarification|home lab goal|I'm building a home lab to run virtual machines and network experiments.|Planning depends on the purpose.|What do you want to use it for?
+iq148|constraint|space|I only have space for a small shelf in my apartment.|It limits hardware choices.|How much space do you have?
+iq148|constraint|budget|My budget is $800.|It limits equipment.|What is your budget?
+iq432|task_clarification|what company|I advise an independent record label with about twenty artists.|The status and projections depend on the entity.|Which company or label are you asking about?
+iq432|background|recent trend|Streaming revenue fell 12% last quarter.|The projection depends on current trends.|What do the current numbers look like?
+iq432|constraint|deadline|The investors' meeting is in five days.|It sets how much analysis is possible.|When do you need this?
+iq477|background|whose wedding|I mean the wedding of the actress who will be a guest on my show next week.|The details depend on whose wedding it is.|Whose wedding are you asking about?
+iq477|constraint|publicist access|I can only reach her through her publicist, who guards details closely.|It affects how to obtain the information.|Who can you get the details from?
+iq477|constraint|taping schedule|My show tapes the segment on Tuesday.|It sets the timeline.|When is the segment?
+iq051|task_clarification|data|The data are plant growth measurements from five trials under different lighting conditions.|Visualization depends on the data.|What data do you have?
+iq051|constraint|required software|My professor requires us to use GraphPad Prism.|It restricts the tool.|Is there software you have to use?
+iq051|constraint|deadline|The lab report is due tomorrow.|It limits the effort possible.|When is it due?
+iq446|task_clarification|event|I'm organizing a reunion dinner for sixty veterans.|Timing plans depend on the event.|What event are you organizing?
+iq446|constraint|caterer window|The caterer can only deliver between 5:00 and 5:30 p.m.|It anchors the schedule.|Are there fixed times for vendors?
+iq446|constraint|venue hours|The venue is ours only until 10 p.m. sharp.|It bounds the schedule.|How long do you have the venue?
+iq453|task_clarification|subject|I mean Lukinhas ba, the music artist from Salvador whose career I'm writing about.|The history depends on who or what is meant.|Who or what are you asking about?
+iq453|background|deadline|My article is due today.|It limits depth.|When do you need it?
+iq453|constraint|language|I read Portuguese only slowly, so English-language sources are best.|It limits which sources are usable.|What languages can you read sources in?
+iq233|task_clarification|current level|I'm a sixteen-year-old golfer with a 14 handicap.|Strategy depends on the starting level.|What is your current level?
+iq233|task_clarification|goal|I want to play college golf.|Strategy depends on the goal.|What is your goal?
+iq233|constraint|practice time|I can only practice after school for an hour, three days a week.|It limits training.|How much can you practice?
+iq233|constraint|coaching|We can't afford a coach.|It rules out paid help.|Do you have a coach?
+iq233|background|equipment|We can't afford new clubs.|Context.|Do you have budget for equipment?
+iq327|task_clarification|tool|I'm explaining our factory's digital inventory tool.|The explanation depends on the tool.|What tool are you explaining?
+iq327|constraint|audience|My audience is warehouse workers.|The explanation depends on the audience.|Who is the audience?
+iq327|constraint|tech familiarity|Some of them have never used a tablet.|It sets the level of the explanation.|How familiar are they with technology?
+iq327|constraint|time|I have only fifteen minutes before their shift starts.|It limits depth.|How much time do you have?
+iq186|task_clarification|campaign|The campaign is a social media push for equal pay that I'm running.|Effects depend on what is being evaluated.|What campaign or effect are you looking at?
+iq186|constraint|analytics tools|I can't afford paid analytics tools.|It limits measurement methods.|What tools do you have for measuring?
+iq186|constraint|report deadline|I need a report for my partners next week.|It limits depth.|When do you need the results?

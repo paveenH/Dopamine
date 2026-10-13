@@ -1,0 +1,529 @@
+{
+ "revision": "infoquest-v1-r2",
+ "timing": "post-pilot, pre-formal material revision (pilot outputs already existed when these edits were made)",
+ "predecessor_benchmark_sha256": "a66c778bafc11b5221dfdbac24785801cc8a4281f5bf813b671037c8a18b9b43",
+ "agent_review_only": true,
+ "agent_review_note": "Edits were made by Claude from the public source description/constraints and are NOT a human review. A human sign-off (prepare_infoquest_v1.py review) is still required.",
+ "flags": {
+  "iq453": [
+   "object_weakly_identified",
+   "object_unspecified_in_incomplete"
+  ],
+  "iq125": [
+   "object_unresolved_in_complete"
+  ],
+  "iq044": [
+   "object_unresolved_in_complete"
+  ],
+  "iq176": [
+   "object_unresolved_in_complete"
+  ],
+  "iq477": [
+   "object_unresolved_in_complete"
+  ],
+  "iq275": [
+   "request_infeasible"
+  ],
+  "iq026": [
+   "object_weakly_identified",
+   "object_unspecified_in_incomplete"
+  ],
+  "iq329": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq381": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq114": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq071": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq379": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq348": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq303": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq216": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq016": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq015": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq111": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq309": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq288": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq368": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq214": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq448": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq003": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq081": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq359": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq482": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq463": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq079": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq110": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq392": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq172": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq479": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq049": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq183": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq310": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq135": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq022": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq375": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq236": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq283": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq427": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq098": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq362": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq023": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq116": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq051": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq327": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq186": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq189": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq136": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq469": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq351": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq409": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq087": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq274": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq494": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq407": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq412": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq286": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq466": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq352": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq028": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq161": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq205": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq108": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq291": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq369": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq374": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq337": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq057": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq052": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq119": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq013": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq296": [
+   "object_unspecified_in_incomplete"
+  ],
+  "iq334": [
+   "object_unspecified_in_incomplete"
+  ]
+ },
+ "notes": {
+  "iq012": {
+   "change": "deadline demoted to background; no task_clarification target remains (request already names the argument)",
+   "basis": "Weithman's argument is named in the request; only constraints remain."
+  },
+  "iq114": {
+   "change": "deadline demoted to background (user-flagged); targets: subject, period of interest",
+   "basis": "demoted to background: does not change which answer is appropriate for this request"
+  },
+  "iq459": {
+   "change": "deadline demoted to background; targets: topic, five-minute time limit",
+   "basis": "demoted to background: does not change which answer is appropriate for this request"
+  },
+  "iq044": {
+   "change": "'which person' and deadline demoted to background; one target remains (data type)",
+   "basis": "Source names only 'Clayton' (a followed player); no surname/team exists, so identification cannot be completed without inventing facts."
+  },
+  "iq081": {
+   "change": "time frame demoted to background",
+   "basis": "demoted to background: does not change which answer is appropriate for this request"
+  },
+  "iq496": {
+   "change": "split work vs purpose; deadline and medium demoted to background",
+   "basis": "A symbolic-significance question is not decided by paint medium or due date."
+  },
+  "iq453": {
+   "change": "subject span now uses the source's exact name (Lukinhas ba); deadline demoted to background",
+   "basis": "Source persona/description: 'Lukinhas ba' from Salvador, influential music artist; no further identification exists in the source."
+  },
+  "iq381": {
+   "change": "split a compound item into independent information needs (destination vs origin/date); 'trouble' clarified as task_clarification",
+   "basis": "Request: 'get there ... without running into trouble': both 'there' and 'trouble' are undefined."
+  },
+  "iq125": {
+   "change": "'which system' demoted to background: the Complete text still names no concrete system; compound comfort/devices split",
+   "basis": "Source says only 'a new digital storytelling system' (no name); a concrete platform would be invented, so the object stays unresolved."
+  },
+  "iq176": {
+   "change": "'which incident' demoted to background",
+   "basis": "Source obstacle: the specific incident is deliberately unspecified; the Complete text cannot identify it without inventing one."
+  },
+  "iq477": {
+   "change": "'whose wedding' demoted to background",
+   "basis": "Source never names the actress; Complete cannot identify the wedding without inventing a person."
+  },
+  "iq275": {
+   "change": "'which draft' demoted to background; request flagged infeasible",
+   "basis": "The request asks the assistant to send a file from an earlier conversation; no condition can make that answerable. Kept (not deleted) for the owner to decide on exclusion."
+  },
+  "iq026": {
+   "change": "no change to targets; flagged",
+   "basis": "Source names only 'the CRM system'; a vendor cannot be added without inventing it."
+  },
+  "iq216": {
+   "change": "split a compound item into independent information needs (feature vs framework)",
+   "basis": "Two independent questions in one item."
+  },
+  "iq016": {
+   "change": "trailing purpose clause moved to background",
+   "basis": "Avoids bundling region and decision purpose in one item."
+  },
+  "iq015": {
+   "change": "role moved to background",
+   "basis": "Role is not needed to choose the historical content."
+  },
+  "iq047": {
+   "change": "competition demoted to background",
+   "basis": "A factual cause of the problem, not a limit or a task-defining need."
+  },
+  "iq259": {
+   "change": "split a compound item into independent information needs (staff vs space)",
+   "basis": "Two independent limits."
+  },
+  "iq013": {
+   "change": "case and audience separated (audience identity moved with its priorities)",
+   "basis": "Case item previously also carried the audience."
+  },
+  "iq288": {
+   "change": "split a compound item into independent information needs (budget vs experience)",
+   "basis": "Two independent needs."
+  },
+  "iq230": {
+   "change": "split a compound item into independent information needs (sport vs level)",
+   "basis": "Two independent needs."
+  },
+  "iq214": {
+   "change": "compound deadline/workload demoted to background",
+   "basis": "Request is to understand an effect; time pressure does not change the content."
+  },
+  "iq063": {
+   "change": "split a compound item into independent information needs (platform vs purpose)",
+   "basis": "Two independent needs."
+  },
+  "iq022": {
+   "change": "added task_clarification target (investment type); location kept as constraint",
+   "basis": "Incomplete never says what asset class; the Complete text only implied property through location/rental items."
+  },
+  "iq322": {
+   "change": "deadline demoted to background; artwork context treated as constraint (fit with existing collection)",
+   "basis": "demoted to background: does not change which answer is appropriate for this request"
+  },
+  "iq427": {
+   "change": "split a compound item into independent information needs (location vs speed)",
+   "basis": "Two independent limits."
+  },
+  "iq035": {
+   "change": "split a compound item into independent information needs (starting point vs goal)",
+   "basis": "Two independent needs."
+  },
+  "iq397": {
+   "change": "split a compound item into independent information needs (route vs cargo)",
+   "basis": "Two independent needs."
+  },
+  "iq432": {
+   "change": "recent trend demoted to background",
+   "basis": "A data point about the status, not a clarification or a limit."
+  },
+  "iq291": {
+   "change": "market trend demoted to background",
+   "basis": "A fact about the market, not a clarification or a limit."
+  },
+  "iq233": {
+   "change": "split a compound item into independent information needs (level vs goal; coach vs equipment)",
+   "basis": "Independent needs; equipment does not change strategy advice."
+  },
+  "iq327": {
+   "change": "split a compound item into independent information needs (tool vs audience)",
+   "basis": "Two independent needs."
+  },
+  "iq083": {
+   "change": "split a compound item into independent information needs (property vs weather threat)",
+   "basis": "Two independent needs."
+  },
+  "iq107": {
+   "change": "split a compound item into independent information needs (audience vs spoiler limit); work item no longer carries the assignment",
+   "basis": "Previous item's span did not match its example question."
+  },
+  "iq036": {
+   "change": "split a compound item into independent information needs (connection vs storage)",
+   "basis": "Two independent limits."
+  },
+  "iq354": {
+   "change": "split a compound item into independent information needs (product vs jurisdiction)",
+   "basis": "Two independent needs."
+  },
+  "iq352": {
+   "change": "split a compound item into independent information needs (goods vs restriction)",
+   "basis": "Two independent needs."
+  },
+  "iq256": {
+   "change": "split a compound item into independent information needs (recipient vs purpose)",
+   "basis": "Two independent needs."
+  },
+  "iq494": {
+   "change": "deadline demoted to background",
+   "basis": "demoted to background: does not change which answer is appropriate for this request"
+  }
+ },
+ "r1_items_sha256": {
+  "iq329": "4ac6c1119b83b19935825c6ebca42046e02b40616c126cb06f7be407e5c89507",
+  "iq057": "98fbb66fcfde4c96cb67fd416caedbd387b4ef5f79d542b025b4a23470161488",
+  "iq012": "c0dd4ac10449ea479b7e609a6d9989eee5f0d0aa145d17d275fdd5bdd1db229e",
+  "iq381": "0bbea31b2edbdd20c80d9f608a725ff3afbfa54c36984f565e39a5bd91c7d3e9",
+  "iq140": "920f0eca77c9e7c162236e14f200f7bd556d8d860b92f5d088446c8dc62fffb2",
+  "iq125": "421168d0b7df1fa01595eb9336801c31340fb83b76fea1f4035bb5356929da90",
+  "iq114": "9259b32176f60823db90389ae2122514a258b1d30457af5548662e0ff5cae111",
+  "iq071": "ee4bedc489709216f54f618028150ae27c5d544b7da114519f793e94d4521e27",
+  "iq379": "940cc3f91da57af5b8efffd63940f7fe550b4bfc1ad8a7c1ae534124bee8c3fb",
+  "iq052": "86adac418f32d2272738ea599448ed7289ceb61d03905494b5742c7dff68f29e",
+  "iq348": "328ccd49d1b989096cc53010e89d6fb8570bdb7cd26afc52569cf007e7eb1174",
+  "iq496": "092165d9231b05adefc02bb2abbef3c92e03ea58462f5063610e3c3d63349601",
+  "iq459": "df304969496cd7acae42f0cd10a11b9230d8c54db94f348ef9d6488e1cbd8fa3",
+  "iq280": "26cdcbe72b1ab83b77042ea459a02406550ac60547ed462c8ec29c8c7b417861",
+  "iq044": "6b634b672e406d68f07fd94808b59c37c2e6ea0d549d5327feb1f7c871c44071",
+  "iq303": "4705285b37b599f12072c78cc2334c3248e4768b44fa335a223ac84f1f44d230",
+  "iq216": "cfa86edef7b9fb1211a277bce6f15735aed0777d20056a70bac9b73e5fad5836",
+  "iq016": "d76ae8e2e45783780e4fe5df21c1ffbdef9938924919188a4628c224a293a45e",
+  "iq015": "495e5d84c1794ad44391ce0dd6c3c0093705fb9b1aea0deac854c7a80422c3a5",
+  "iq047": "4af5e4347b3de2a07592c7b502d2e1faa0cefc4fdf7704bc8d15f892f09901c9",
+  "iq111": "8a1488db1d27190a8b6f70908447a17572d27d66d3c841fc104f3526eec5e072",
+  "iq119": "2a7a72848b226c36e251372a2058ad2ea81d63031bb25579bd1a4b8e129d2ee1",
+  "iq259": "64ca98bc8b396253a8d5d3b383b6c10c07d3913e72e9474500e8a4ff3b46758e",
+  "iq309": "a6016c404bcb7d3642f0dfeaf3fb82cac7feca809adf1aa64f692acbcd8277fa",
+  "iq013": "a4d2c1f79338264a282771c2fcc3fecfc3a389e840cd89e708870c11824b787f",
+  "iq288": "096031c6540f45e67bbcc6d855e9307ea32d1e60b8c9a8e792fa9c12b88efed9",
+  "iq101": "8b8337c03b44050d9d88c7c948c66b59da14ced79c4ce32d1606b737c5685108",
+  "iq368": "056b2d94fe033404211d3d237e23e230daea29bb10531f48979e1745c0b502b3",
+  "iq334": "bbfd962b5366e9347d6179116c8796da2535a642081317ba37fae9db75fb3c88",
+  "iq361": "d6606071cc5902296b26d59c4a052b6300bddbf52f29cfedbe2f340274e71c59",
+  "iq485": "abacc86adb94b72e177dab3cef720deb88bd4d3d94a4df6ce4747d14a26acfee",
+  "iq214": "b8b912b4e3785f48d1fd2088944ac414ffb1946bbdd6adf5dd5e3625a11fa1ce",
+  "iq112": "ab858a6444dab6a03562f28342caefdbf19525d3ed40de8b7c294410c3663825",
+  "iq230": "f2a1e7693201a645e81a9b170d1789f552100ace42ae794befd9af99057d7feb",
+  "iq302": "c484139d100fc72629ad5f33d14247a2d9df3745c23690235dda8214eb07a384",
+  "iq142": "a7c830ec9fedfa5489ff4a5509ebd75fe0cddf8df8d721ca01e6fe1ebf0e155d",
+  "iq416": "6131c9fa39211c71465694f991e688ddcc5816e70f9aea51684031c26c07545b",
+  "iq448": "03049c92d5530403fe9742378f2b1504cf3b4c236eb79571bbc19236a4530611",
+  "iq003": "101c8790b4d3b659bc4d637df1411124b324da4a84bba41d3d4d9d944a742ef8",
+  "iq390": "0124a79fc35111093ca5572874b1c10af64d658d2eccb806b3354b64bb48c5ae",
+  "iq414": "e5ffc478c555db8205b4d63bd2068059d7b96fe068436bc96890349ce5959d38",
+  "iq081": "57c5137b77242bbf986981947235623d8c0bfdcad4a5839083af96993a860292",
+  "iq359": "2a71389dac85cbf4fa3f5de72e4142daf1fe1a21b0249577f1922851bde65f92",
+  "iq482": "33a091a067f83f45284bff2ab7cc517fd1dbd68f1b5a73c3feea3c20249f171b",
+  "iq174": "2b088302d90ec98f1bfa1f89679cac97de2837f88f57f7b85fccb48677e1875e",
+  "iq463": "c92f838c9871d0a6f2668b07ffd95db3d0092517d29b56e8f1e3c46aa7db41ec",
+  "iq079": "7b6b0eea0acb43c143cf8f00aa540698a75bfbf26a28bb69d453bf00db14727b",
+  "iq110": "b94540db4c4c7d16ee2462b5f4066cd8eb062971dc802d99e968eb4d24139b2d",
+  "iq392": "2eba6eab1d3e0887a288ab5f83aaf4026f8f30fac967a8807a677230b459fead",
+  "iq172": "e2a515be3b4ec7a8b581234d87874aecd27a6c265291d46d9358d6ec9e0b2f69",
+  "iq489": "7d17f80d3ed1e1d057b9cd77d2b1ac76fecc25b664f7574b0fc2feb076d90520",
+  "iq479": "dbc2b8cb6b37cd6382b4ca319fd6e243114cca0044b3c2ef98a26c3e45d6f00c",
+  "iq194": "91b54593a1e8922a8ac8c50e0ce3e97a0febf8d8228f578f8df2f19cf6c70d29",
+  "iq049": "4c856cb6069ad9956565acbc253d662517062f67e826f693b326c3ff09790648",
+  "iq183": "b816b87ac9810cb2e5d14b4e3cc9f3b861bac0537fd1274b5e92b29e1c299134",
+  "iq026": "d536ddd5302f9473f59d840a5fd1bf43444821993081593b9d23ecdb77c78d30",
+  "iq176": "250a2d9ce159f5da30bec2d7427c4b2c3ec37f6315ef3ba696c3bab7349c6a1c",
+  "iq310": "75b7659d8c66b7638ffa43b1cb35f789fecd4f064ffe87af6f7221bdc911c090",
+  "iq135": "c87f70b952327292463170f5461c0c9a96386ed8873a66ab69a097a7dfb68a17",
+  "iq415": "efbe04854f7a1abc81e8a080d019d8482bc11af3cc3b41b6cbff4d9a99e4c486",
+  "iq022": "87de558afe315c5a09c1e04e37ea21e581386460a6a51cb701f28ff11f6bb028",
+  "iq375": "fad74af0e8b39f67f85458b2081ae09c7d5e3097112c4e142e209d3c6e4d128c",
+  "iq236": "04b9e618adc3706277353f37272106c300a1b675edde4c7586afdb034b07c4b9",
+  "iq275": "ff09d87009a6f17f5ecde3a50b105b1d0bee372d9955a5d1c8bd9e33cec9b1e0",
+  "iq063": "dc0bbded30b8290b2ba8011da4eb1848198f44726b579ad8e2d54896a917f0fc",
+  "iq193": "ee22d98a9f25167e6e437674680479dc11ea7999ee2512e46675fe46e324346a",
+  "iq040": "5a95b906a26fb4ef4cb40bf9d41161e36fb830ec5bc19d51e161e54a11ed586b",
+  "iq283": "8383d45db504e5f9d45b51dcd4fcbe62440561d09eadf6e6c7ad9e9c2af0b6fd",
+  "iq150": "22ea2bfaf58d28ad8636ec1c6fc031b8149389b970a59106fb29e1fbce73df52",
+  "iq427": "db538349115d4679c40e29d8693eb25a4560bdf54b902a02e46bcfc46599eb2e",
+  "iq322": "0da5b011870fbcc5c387d7b56acb1ac35b8788231cc9eb939fd50cdaf7496db1",
+  "iq317": "ee1a78eade8bea9c0a6f7fcd5892ad3b2bf271324e1318696ed1a1cb38c69775",
+  "iq185": "32435aff6ef74a8d5cd4ed846a35018ce855f3a5e7a615e93fee452965e50bc6",
+  "iq296": "9edb599a44b5fbb9577dd4bf80dd0932bbc902d32afa48ac2ea221fc9a4585e0",
+  "iq098": "d4d8e8839266f9be355eb8b751e58081d82aa8d5c3c32d25e24fa141a0dd15c1",
+  "iq362": "31f97544e813fd7aae7a2f4d84c4b01bff5bd652bb021837952e8f781ef91372",
+  "iq035": "7897aa5d9ceed81a2aeb35329afd5cff1260adcc99b6f3ad25e5369f641ed480",
+  "iq023": "ad39ae37ac00da3c9fbccea9d73a02deb578e48dbd755b56ee5ba2199109ad27",
+  "iq340": "89d907bd4c01adea4a13a03138fd940a1443d70fd25c5162ae23b995b25f7d30",
+  "iq116": "de2e1e7404bc2e647c5c6f3afe730f43223e68c36608e49129e872820f6becbe",
+  "iq397": "894c007f689cf7a7f7b3dbe6e5b507305a7c8021577c38e109e57f7a048adc78",
+  "iq148": "f442dedc505d202f10b4b28140760e969c92bc3dad499efd6a166e6099631337",
+  "iq432": "ca49724de6f284df9259ecf164a7d6c011d733faa15aad623b26277eec482499",
+  "iq477": "bcd40944860f87fa52d2f331a62aae6acdb90375ee53cd3c61a3733d59870d0b",
+  "iq051": "eee7a1c8ca46f3735ff66d861e92c3695ab583ec248a79b23bd8baa32d47369f",
+  "iq446": "e73f798a118bb768d9f3cc43fbc4cfaad553c4f47aa8b3c31c28cb322c810125",
+  "iq453": "98ddf3bfa34c2f8eeb5795603e5b6a23d4251779b7a4fe85ce5daaeb97b08fb4",
+  "iq233": "1e4f5d6bf06cead96983becb2b27482521a89274799d3724f10e0b4c831cd00e",
+  "iq327": "d149d737dc55296ac6a9191db0594281c13212c03ce51123e429b7b4762b1037",
+  "iq186": "3225689a1250fbfd464001107a204d2342ab3885d93d0771dad6aa3881efbd1c",
+  "iq083": "d8ae8c3d26fb9ca06769a8037a84b1dc6f42d3986824b6b1c31c7f5e12e9d5af",
+  "iq189": "16a476a15de08285e1494af2e6616fcb5f098ad46893abc52a33f32da65c1b4d",
+  "iq181": "10bff5a589ca4b99567a17747f8b689f5204fa6d81f87ada1dcc170de3a1834f",
+  "iq107": "bf1c55064473f15408b3e0b775dc5a0cdf51e173533a34bc10fd178c7a483384",
+  "iq345": "b9c8af9550f99416a94bcc87cef7f9cf70edce4ecf71d6a17e0af303d6d509d9",
+  "iq136": "7486657b328eeb29020ed6d3fd49c929689a045c8c4cf709bf6651421e42c605",
+  "iq469": "b451d17c8afdda4c396fbfe2c0e76d94b289aea70eca055554e0612957e8e75f",
+  "iq351": "1f8f093a3861022562ffa46767c0559cd6c6bf978082e088a7b83af6fe919b14",
+  "iq333": "aba0f713c26c8f8abbdc7c861c9b90907b42316f72882a85fbef1700e6ba42c2",
+  "iq036": "3b80b37f591250e03ef5bb726834281f918840650f3a0c8501ebee2515440887",
+  "iq312": "af1809637112f743a32a9e0ab09c09e7f350c61ecbb2f421907022f6421e62df",
+  "iq409": "e52ef21b601cffcf4f44ab26735daa5d05170412278b1af2cd931542e52c0857",
+  "iq087": "0f29848409802794826c89923acb96d37c3aea416b7b0e7ea937b30da56f8c6e",
+  "iq274": "1a4f60eb3a7e7adb1812061e43c59ccc4b707728aa08231240f85e34e8003fa8",
+  "iq437": "85f6b3f928126931a3e92139bfa644cf8ef0c8b48ba98a195d32fb0364a537f0",
+  "iq494": "6dc80ab01da955d2f489c2cfc89122e8f949cf0712262e91f7622e4cf9802e77",
+  "iq407": "96f228346a95a3bbc48fbff57b0a9af3a87312af2416e4247f7c9d98db078fb8",
+  "iq237": "6715dec220d1d84b2f8a636a9637f7b593373eabb7042de417a8e0332d196d69",
+  "iq412": "1a4f0b57ce40107460e34473430a24b1a21a1debe9d0c95ecadd2c9dbd0a4d7b",
+  "iq138": "17bbf4212e3297e8e0a4e6a9713c5cb2a0ae199ea5e542ccfbbe42e96c59171b",
+  "iq499": "2304771ac70bf3610ba60ad4c6c1fcc718f1d87ec260269db6c4d038cb03d4be",
+  "iq354": "ce3bb76fb669ffe2339803fb39722dabca6d0342e1482c0638e6f6b57592b25c",
+  "iq286": "674444b416d71b887c31f1c33972937e63f079c8c1f5c8410b5fd6dbdd0ed2c9",
+  "iq466": "2f0d11dc29426930af37ed44c38dc61bfc36dce44c95d122dfab198ea06b5b6b",
+  "iq352": "ce54dbbab22925289ecb6bc88d5b4ce83d95a406b0e6b7062589f080c6218584",
+  "iq166": "4ccfa186d87de62db88e452a270becaccc4b63c47793ebd301dc5d4bc0eacc72",
+  "iq028": "70c1dccdd1ae5378d1c92450f410900ce82f75289ae067036ec45f5ea0447de4",
+  "iq117": "23c2e85f4fc7d56e3fde8cd99711b68b2aa2d6e1ad1df6d669cc03f713147775",
+  "iq481": "0fba24a2a2180ef4f00e62c5e096ddc1e18908ea04de9d6dbed4be21c850d2d9",
+  "iq161": "1a2d39857bc305c59fa1a90587d6003634c28befe74561666fce0ce17267ac76",
+  "iq205": "b732590909510bc21dd62625c5568d7834c76ba41cc0fdddd22ec9231f19dd2b",
+  "iq137": "ece43faa4ca164a8145d7b22f89dd9d4ce5307cd75d612e1a61bb52017641ecc",
+  "iq033": "9014f9b01f52eb5d83d3baf37b355b92f4a531228e425222064403bb62e08ab1",
+  "iq108": "81c64d83ea287e2333ccf23dea21f800691b045903106918fc2aec543cdd67db",
+  "iq291": "b0e05e8643799e85771427deb720af72ab2a0ed3699b2b0edead2aadef2a6edb",
+  "iq369": "52d7afe5145e89d809e1f56109ce6280938505be321eb8b5001432bd55c9acd5",
+  "iq378": "4a8d6e1ab8398a05455e8547bb8be2e56f09a35e06c22f71d1d9325b14d0f7fd",
+  "iq374": "85e21381040c36c7895c30f771780c61238b19219cf3fb2ef41a0ef49d443e68",
+  "iq337": "a51dd6d4ccf3a2d635c0c2f95bb1fbc73350af6cb9bde70be89724f06884710e",
+  "iq256": "4361c4b723d0b505c07062c26c75d91931c639a5fc83bd765a7f30fec357b79e"
+ }
+}
