@@ -11,6 +11,7 @@
 # pilot  = 30 requests x 2 conditions, alpha=0 only        (60 replies / model)
 # formal = 100 requests x 2 conditions, alpha=-4,0,+4      (600 replies / model)
 # Pilot does NOT chain into formal. No scoring happens on the server.
+# max_new_tokens=1024 is set HERE (MAX_NEW_TOKENS) and is the same for pilot and formal; results go to <model>/infoquest_v1_r2/.
 # Reads ONE file: ${BASE_DIR}/benchmark/infoquest_v1.json (reviewed export). Existing cells are resumed only with identical provenance.
 set -e
 
@@ -23,11 +24,13 @@ echo "[args] MODEL=${MODEL} STAGE=${STAGE}"
 WORK_DIR="${WORK_DIR:-/data1/paveen/Dopamine}"
 BASE_DIR="${BASE_DIR:-${WORK_DIR}/components}"
 PY="${PY:-python}"
+MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-1024}"
 cd "${WORK_DIR}"
 
 "${PY}" -c "import numpy, torch" || { echo "[x] ${PY} cannot import numpy/torch"; exit 1; }
 BENCH_FILE="${BASE_DIR}/benchmark/infoquest_v1.json"
 [ -f "${BENCH_FILE}" ] || { echo "[x] missing ${BENCH_FILE} (run on the server: prepare_infoquest_v1.py prepare, review, then export)"; exit 1; }
+echo "[env] MAX_NEW_TOKENS=${MAX_NEW_TOKENS}"
 echo "[env] host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
-"${PY}" get_answer_infoquest_v1.py --model "${MODEL}" --stage "${STAGE}" --base_dir "${BASE_DIR}" --benchmark "${BENCH_FILE}"
+"${PY}" get_answer_infoquest_v1.py --model "${MODEL}" --stage "${STAGE}" --base_dir "${BASE_DIR}" --benchmark "${BENCH_FILE}" --max_new_tokens "${MAX_NEW_TOKENS}"
