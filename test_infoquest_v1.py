@@ -73,7 +73,7 @@ raises_exit(lambda: P.cmd_prepare(NSP), "changed shipped resources vs existing d
 st["resources_sha256"] = P.resources(); json.dump(st, open(P.STATE, "w"))
 raises_exit(lambda: P.cmd_review(argparse.Namespace(confirm_reviewed=False, reviewer="x")), "review refuses without --confirm-reviewed")
 raises_exit(lambda: P.cmd_export(NSP), "export refuses without a sign-off")
-P.cmd_review(argparse.Namespace(confirm_reviewed=True, reviewer="tester"))
+P.cmd_review(argparse.Namespace(confirm_reviewed=True, reviewer="tester", reviewer_kind="automated"))
 ok(json.load(open(P.STATE))["reviewed_by"] == "tester", "explicit review recorded")
 it_ok = open(P.ITEMS).read()
 it = json.load(open(P.ITEMS)); it["iq329"]["items"][0]["why_relevant"] = "changed after sign-off"
@@ -86,7 +86,7 @@ raises_exit(lambda: P.cmd_export(NSP), "tampered sampling manifest -> export ref
 open(P.SAMPLING, "w").write(sam_ok)
 ok(not os.path.exists(P.BENCH), "no benchmark written by refused exports")
 P.cmd_export(NSP)
-ok(json.load(open(P.BENCH))["review"]["reviewed_by"] == "tester", "review record carried into the benchmark")
+ok(json.load(open(P.BENCH))["review"]["reviewed_by"] == "tester" and json.load(open(P.BENCH))["review"]["reviewer_kind"] == "automated", "review record (name + kind) carried into the benchmark")
 ok(os.path.exists(P.BENCH) and json.load(open(P.BENCH))["status"] == "reviewed_export", "export writes the single benchmark file")
 G.load_benchmark(P.BENCH, "pilot"); G.load_benchmark(P.BENCH, "formal")
 ok(True, "exported benchmark is accepted by the generator loader")
