@@ -38,6 +38,8 @@ an explicit request such as "tell me your budget" / "I need to know your budget 
 - **Repeat asking (Complete condition):** `asked=1` on an item whose fact is already in the message *is* the
   repeat ask. Asking about some OTHER information that was not provided is not a repeat ask and is not scored
   against these items.
+- **Vague vs specific:** asking for a detail the message did NOT give (e.g. an exact budget when the message only says
+  "small") is new information, not a repeat ask. Where a target needs a concrete value, the Complete text states it.
 - **Prerequisite clarification:** if a reply first asks only about the object/task (e.g. "which tool?") and
   postpones constraints, score exactly what was asked; do not infer that it ignored the constraints.
 
@@ -69,7 +71,9 @@ Items that bundle two independent needs are split during scenario review (r2 spl
    double- vs single-rated. With labels almost all 0 or all 1, kappa alone is not a reliability verdict.
 4. Formal rating uses the same frozen guide. A later revision keeps the old version and re-rates consistently.
 
-Scoring is human, blind, per (reply, item). Scripts, keyword matches or an AI reader are not a substitute.
+Scoring is blind, per (reply, item), by a reader who actually reads each reply. Scripts and keyword matches are not a substitute.
+Current round: ONE automated Claude scoring session (model id recorded, not human-verified); no second scorer, so no inter-rater
+agreement/kappa/consensus is reported. Do not describe automated ratings as human ratings.
 
 ## Revision log
 - r1 (pilot-time) → r2: items now carry a category; compound items were split; some items were demoted to
@@ -80,6 +84,6 @@ Scoring is human, blind, per (reply, item). Scripts, keyword matches or an AI re
 ## Where to edit scenarios (server workflow)
 - `python prepare_infoquest_v1.py prepare` builds drafts in `components/benchmark/infoquest_v1_work/`
   (or `migrate` for an existing r1 work directory); edit `scenario_items_v1.json` there.
-- Sign off explicitly: `review --confirm-reviewed --reviewer NAME`; then `export` writes the single runtime file
+- Record the review explicitly: `review --confirm-reviewed --reviewer <name or model id> --reviewer-kind human|automated`; then `export` writes the single runtime file
   `components/benchmark/infoquest_v1.json`.
 - This guide stays local; rating import takes `--guide` and `--guide_version`.
