@@ -1178,7 +1178,7 @@ Qwen 的结果不同。No-CoT 在 `+8` 时，`first_acc` 从 29.33% 提高至 37
 | +6 | 43.00% | 24.67% | 0.00% | 474 | 0.9035 | 67.67% | 589 |
 | +8 | **54.00%** | 29.00% | 0.00% | 686 | 0.9490 | 69.67% | 804 |
 
-从 α=0 增加到 `+6/+8` 后，正式答案标记明显后移：`answer_first_rate` 降至0%，`pre_marker_chars_med` 从46增加至474和686，`posN_med`（CRUXEval-O 的首个 `#### <Python literal>` marker 的字符位置，沿用该任务自己的 marker 解析，**实现细节待核实**，不套用 GSM8K 数值正则）也接近输出末尾。与此同时，`first_acc` 明显提高。
+从 α=0 增加到 `+6/+8` 后，正式答案标记明显后移：`answer_first_rate` 降至0%，`pre_marker_chars_med` 从46增加至474和686，`posN_med`（文档名 `first_any_marker_posN_med`：首个匹配 `####[ \t]*(.*)` 的位置 ÷ 全文字符数，不要求其后是合法 Python literal；在存在 marker 且文本非空的样本上取中位数，不限于有效 literal 提交子集；属 bare-marker 位置诊断，原字段名不变）也接近输出末尾。与此同时，`first_acc` 明显提高。
 
 但这组指标描述的是正式 `####` marker 的位置，而不是第一个答案 candidate 的形成时间，不能据此断言模型在内部“更晚决定答案”。此外，约七成输出含有多个 marker，且 `first_acc` 与 `last_acc` 明显分离，说明高剂量同时增加了后续修订的不稳定性。
 
