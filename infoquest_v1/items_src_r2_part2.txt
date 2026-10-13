@@ -57,7 +57,7 @@ iq375|task_clarification|project|It's for a mobile-first booking website for a s
 iq375|constraint|brand limits|The brand guidelines restrict me to navy blue and white.|It limits the visual choices.|Are there brand guidelines or restrictions?
 iq375|constraint|deadline|The first prototype is due to the client in a week.|It decides how detailed the process can be.|What is your timeline?
 iq236|task_clarification|what process|I run a platform that matches high school athletes with college scouts and the profile review is done by hand.|Streamlining depends on what the process is.|Which process do you want to streamline?
-iq236|constraint|software budget|I have little budget for new software.|It limits tooling choices.|What budget do you have for tools?
+iq236|constraint|software budget|I can spend about $1,000 on new software.|It limits tooling choices.|What budget do you have for tools?
 iq236|constraint|privacy rules|The platform handles athletes' personal data, including minors, so privacy law applies.|It restricts which automation is allowed.|Are there data privacy requirements?
 iq275|background|which draft|It's the vinyl cover design draft for the album we discussed.|The assistant must know which file is meant.|Which draft do you mean?
 iq275|constraint|file format|I need it as a layered file I can edit, not a flat image.|The deliverable format matters for adjustments.|What file format do you need?
@@ -79,7 +79,7 @@ iq150|task_clarification|events|The events are the voyages of Magellan's expedit
 iq150|constraint|deadline|I'm presenting at the history society on Thursday.|It determines how much can be done.|When do you need it by?
 iq150|constraint|mapping tool|I have to use a digital mapping tool, but I've never used one.|Tool choice and tutorials depend on experience.|Are you familiar with mapping tools?
 iq427|task_clarification|scene|It's a chase scene for my film with vintage 1960s cars.|Techniques depend on the scene.|What kind of scene is this?
-iq427|constraint|effects budget|We have almost no budget for CGI.|It rules out effects-heavy solutions.|What is your budget for effects?
+iq427|constraint|effects budget|We can spend about $500 on CGI.|It rules out effects-heavy solutions.|What is your budget for effects?
 iq427|constraint|shooting location|We're shooting on a narrow street.|Location limits camera options.|Where are you shooting?
 iq427|constraint|speed limit|For safety the cars can only go slowly.|Real speed limits push toward camera tricks.|Are there speed limits?
 iq322|task_clarification|mood|The mood I'm aiming for is calm and melancholic.|The shade depends on the mood.|What mood do you want?
@@ -94,13 +94,13 @@ iq185|constraint|time limit|I only have ten minutes.|It limits the structure of 
 iq296|task_clarification|what to manage|I'm a single parent planning a week-long vacation for me and my two kids.|Advice depends on what needs managing.|What are you trying to plan?
 iq296|constraint|childcare|I have no one to watch the kids if I travel without them.|Childcare availability constrains the plan.|Do you have childcare help?
 iq296|constraint|budget|My budget is $1,200 in total.|It limits destinations.|What is your budget?
-iq098|task_clarification|which regulation|I mean the new national regulation on wetland protection.|The timeline and players depend on the regulation.|Which regulation do you mean?
+iq098|task_clarification|which regulation|I mean the new national environmental protection regulation.|The timeline and players depend on the regulation.|Which regulation do you mean?
 iq098|constraint|deadline|I'm presenting to my department on Friday.|It limits depth.|When is the presentation?
 iq098|constraint|database access|I can't access the paid regulatory databases.|It limits which sources I can use.|What sources can you access?
 iq362|task_clarification|data|The data are counts of orientalist motifs across 300 paintings from 1850 to 1900.|Chart choice depends on the data.|What does the data look like?
 iq362|constraint|conference format|It's for a conference poster, and the guidelines allow only one figure.|It constrains the visualization.|Where will it be shown, and are there format limits?
 iq362|constraint|tooling|I mainly work in R.|Recommendations should match the tool.|What software do you use?
-iq035|task_clarification|current status|I'm 19 and ranked around 400 in the world.|A plan depends on the starting point.|Where are you now?
+iq035|task_clarification|current status|I'm 19, a professional tennis player ranked around 400 in the world.|A plan depends on the starting point.|Where are you now?
 iq035|task_clarification|goal|I want to reach the top 100 in five years.|A plan depends on the target.|What is your goal?
 iq035|constraint|funding|I can't fund international travel on my own.|It limits the tournament schedule.|How are you funding your travel?
 iq035|constraint|coaching|I train at a small club without a high-level coach.|It shapes what the plan can include.|What coaching and facilities do you have access to?
