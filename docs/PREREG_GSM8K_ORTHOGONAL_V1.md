@@ -51,11 +51,19 @@ bash run_gsm8k_orthogonal_v1.sh status qwen2.5
 
 Archive/sync the two `gsm8k_orthogonal_v1` result trees back to the analysis machine without merging them into legacy trees. Run the offline scorer from `/Users/paveenhuang/Documents/RSNResult/RoleAnswer` against the six formal cell JSON files and the frozen Llama/Qwen GSM8K references; inspect every manifest before scoring. The analysis command and scorer-provenance file are maintained alongside that frozen scorer directory.
 
-On the analysis machine, for each model, pass a root with `baseline/`, `rsn/`, and `seed1`–`seed3` subdirectories. `--reference_root` must likewise contain the two frozen reference cells and pass the published-count assertions. The per-model command writes raw paired contrasts; only after both succeed, form the fixed Holm family:
+On the analysis machine, set `SERVER` to the SSH host alias for the GPU machine, then sync each model tree and its two historical reference files. The reference files are the existing neutral No-CoT `mdf_0` and workpoint JSONs (`mdf_-6` for Llama, `mdf_8` for Qwen); the commands pass those files directly. The per-model command validates all five manifests against one another, checks 300 result rows, row order, result hashes, prompt/data/environment settings and injection counts, then writes direct control and baseline contrasts. Only the three RSN-versus-direction tests per model enter the fixed six-test Holm family; baseline contrasts are descriptive with paired bootstrap CIs.
 
 ```bash
 cd /Users/paveenhuang/Documents/RSNResult/RoleAnswer
-python3 analyze_gsm8k_orthogonal_v1.py --model llama3 --result_root /path/to/llama3/gsm8k_orthogonal_v1 --reference_root /path/to/frozen_llama_reference --out orthogonal_v1_llama3.json
-python3 analyze_gsm8k_orthogonal_v1.py --model qwen2.5 --result_root /path/to/qwen2.5/gsm8k_orthogonal_v1 --reference_root /path/to/frozen_qwen_reference --out orthogonal_v1_qwen25.json
+mkdir -p ./gsm8k_orthogonal_v1/{llama3,qwen2.5}
+rsync -av "$SERVER:/data1/paveen/Dopamine/components/llama3/gsm8k_orthogonal_v1/" ./gsm8k_orthogonal_v1/llama3/
+rsync -av "$SERVER:/data1/paveen/Dopamine/components/qwen2.5/gsm8k_orthogonal_v1/" ./gsm8k_orthogonal_v1/qwen2.5/
+mkdir -p ./gsm8k_orthogonal_v1/references
+rsync -av "$SERVER:/data1/paveen/Dopamine/components/llama3/answer_mdf_gsm8k/mdf_0/gsm8k_8B_answers_20_11_20.json" ./gsm8k_orthogonal_v1/references/llama3_baseline.json
+rsync -av "$SERVER:/data1/paveen/Dopamine/components/llama3/answer_mdf_gsm8k/mdf_-6/gsm8k_8B_answers_20_11_20.json" ./gsm8k_orthogonal_v1/references/llama3_rsn.json
+rsync -av "$SERVER:/data1/paveen/Dopamine/components/qwen2.5/answer_mdf_gsm8k/mdf_0/gsm8k_7B_answers_17_16_22.json" ./gsm8k_orthogonal_v1/references/qwen25_baseline.json
+rsync -av "$SERVER:/data1/paveen/Dopamine/components/qwen2.5/answer_mdf_gsm8k/mdf_8/gsm8k_7B_answers_17_16_22.json" ./gsm8k_orthogonal_v1/references/qwen25_rsn.json
+python3 analyze_gsm8k_orthogonal_v1.py --model llama3 --result_root ./gsm8k_orthogonal_v1/llama3 --baseline_reference ./gsm8k_orthogonal_v1/references/llama3_baseline.json --rsn_reference ./gsm8k_orthogonal_v1/references/llama3_rsn.json --out orthogonal_v1_llama3.json
+python3 analyze_gsm8k_orthogonal_v1.py --model qwen2.5 --result_root ./gsm8k_orthogonal_v1/qwen2.5 --baseline_reference ./gsm8k_orthogonal_v1/references/qwen25_baseline.json --rsn_reference ./gsm8k_orthogonal_v1/references/qwen25_rsn.json --out orthogonal_v1_qwen25.json
 python3 combine_gsm8k_orthogonal_v1.py --llama orthogonal_v1_llama3.json --qwen orthogonal_v1_qwen25.json --out orthogonal_v1_primary_contrasts.json
 ```
