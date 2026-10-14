@@ -13,7 +13,7 @@ At each model's frozen neutral Bare No-CoT GSM8K workpoint, test whether the obs
 
 All conditions use the same 300-item Bare No-CoT dataset, plain neutral prompt, greedy decoding, 768-token budget, batch 24, output-side prefill-only injection at the last prefill token (`tail=1`). Injection is `α × mask` exactly once. Expected fire counts are 2700 / 1800 for nonzero Llama / Qwen cells and 0 for baseline. Prompt token IDs are recorded from the actual tokenizer; token 220 is not assumed.
 
-The server-side `verify` command checks existing artifacts only and must stop on missing files or failed support, finite-value, band, norm, or dense-difference orthogonality checks. It does not rebuild masks. Original means are stored with embedding row 0; mask row `i` is checked against dense-difference row `i+1`. Float64 checks are the acceptance criterion; the report also records bf16 norm and dot-product errors because actual injection is approximate after dtype conversion.
+The server-side `verify` command checks existing artifacts only and must stop on missing files or failed support, finite-value, band, norm, or dense-difference orthogonality checks. It does not rebuild masks. The reference direction is reconstructed from the fixed RSN Paper MMLU means as `mmlue_expert_mean - mmlue_non_expert_mean`; both source files are hash-recorded. Original means are stored with embedding row 0; mask row `i` is checked against dense-difference row `i+1`. Float64 checks are the acceptance criterion; the report also records bf16 norm and dot-product errors because actual injection is approximate after dtype conversion.
 
 ## Matching, output, and analysis
 
