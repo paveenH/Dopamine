@@ -461,7 +461,51 @@ Answer:
 
 因此 HaluEval 應放在 **boundary / side-effect evidence**：它補充說明 α 會移動 action/commitment threshold，與候選的 engagement/commitment gain 相容；但它不獨立驗證 wanting，更不等於 factual calibration 提升。
 
-## 3.5 Cross-Task Evidence Summary — α-Sensitive Behavioral Readouts and Boundary Conditions
+## 3.5 InfoQuest — Targeted Follow-up Questions
+
+本实验观察 RSN 是否改变模型在自然对话中**针对缺失信息发起追问的倾向**。同一个请求设置两个版本：**Incomplete** 不提供预定义的关键背景，**Complete** 补齐这些背景。模型自由生成首轮回复，不直接询问其意愿或信心。
+
+正式实验使用 100 个场景，比较 α=−4、0、+4。Llama-3.1-8B-Instruct 和 Qwen2.5-7B-Instruct 各生成 600 条回复，共 1,200 条。
+
+合并对象／任务澄清与约束信息两类目标，报告两个读数：
+
+- **Follow-up rate**：回复是否至少向用户索取一个目标信息项。
+- **Follow-up coverage**：每个场景被追问的目标项比例，再在场景间平均。
+
+泛泛的“还需要帮助吗？”不计入；允许模型边给建议、边追问。
+
+**Table 1. Targeted Follow-up Rates and Coverage Across Conditions**
+
+| Model | Condition | Rate: α=−4 | Rate: α=0 | Rate: α=+4 | Coverage: α=−4 | Coverage: α=0 | Coverage: α=+4 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Llama-3.1-8B | Incomplete | 49% | 48% | 43% | 19.33% | 17.58% | 15.00% |
+| Llama-3.1-8B | Complete | 0% | 1% | 1% | 0.00% | 0.33% | 0.33% |
+| Qwen2.5-7B | Incomplete | 56% | 45% | 42% | 21.50% | 18.25% | 15.67% |
+| Qwen2.5-7B | Complete | 2% | 0% | 0% | 0.67% | 0.00% | 0.00% |
+
+**信息缺失时，两个模型的追问率和覆盖程度均呈现 −4 > 0 > +4。** Qwen 的追问率在 −4 下从 45% 增至 56%；Llama 在 +4 下从 48% 降至 43%。信息补齐后，各剂量的目标追问都很少。
+
+为判断干预变化是否主要发生在信息缺失条件，计算相对于 α=0 的覆盖程度变化差：
+
+$$
+D(\alpha)=\big[Q_{\mathrm{Incomplete},\alpha}-Q_{\mathrm{Incomplete},0}\big]
+-\big[Q_{\mathrm{Complete},\alpha}-Q_{\mathrm{Complete},0}\big]
+$$
+
+**Table 2. Changes in Follow-up Coverage Selectivity**
+
+| Model | D(−4), pp [95% CI] | D(+4), pp [95% CI] |
+|---|---:|---:|
+| Llama-3.1-8B | +2.08 [−0.75, +5.33] | −2.58 [−5.42, 0.00] |
+| Qwen2.5-7B | +2.58 [−1.50, +6.50] | −2.58 [−5.58, −0.17] |
+
+pp 表示百分点。区间来自场景级配对 bootstrap，未经多重比较校正，仅对应覆盖程度指标。
+
+**结论：RSN 对首轮追问呈现方向一致但幅度有限的调节迹象：负向干预倾向于增加追问，正向干预倾向于减少追问，变化主要发生在信息缺失条件。** 分类分析显示，主要信号来自对象／任务澄清，对预算、期限等约束信息的追问仍然很少。因此，这些结果尚不能说明 RSN 普遍增强了主动信息获取，也不能据此推断内部信心或推理机制。
+
+评分由单个 Claude 模型按固定指南完成，未经人工验证。12 条截断回复保留在分析中。合并指标用于总体展示，原冻结协议中的两类共同主指标分析仍保留；完整结果包含此前已查看的 20 个场景，不是独立重复实验。
+
+## 3.6 Cross-Task Evidence Summary — α-Sensitive Behavioral Readouts and Boundary Conditions
 
 跨任務最一致的觀察不是一組可排序的「最佳 α」，而是 α 能改變模型的 **engagement、commitment timing、輸出銳度與策略表達**。這些改變有時會伴隨符合預期的行為或局部績效改善，但能否轉化為構念有效的 wanting、directed exploration 或 learning effect，明顯依賴任務、模型、prompt、基線分布與有效劑量窗。因此目前證據與一個候選的 motivational gain mechanism **相容**，但尚不足以證明單一 latent wanting axis，也不足以建立通用的 task-specific optimal α 規律。
 
@@ -475,7 +519,6 @@ Answer:
 | **GSM8K** | α 會移動推理跨度與 commitment timing，特定設定下曾出現負側局部峰 | 它不是 behavioral-economics wanting assay，且不能由其峰位反推其他任務應有的 α | reasoning-task 對照；支持 task dependence，不獨立驗證 wanting |
 
 > **Evidence boundary.** The cross-task pattern is most consistent with an α-sensitive engagement/commitment gain that changes how strongly and how early a model expresses a policy. Its downstream consequences are task- and interface-dependent: some cells show construct-valid behavioral movement, others show only textual or distributional change, and others fail validity or outcome gates. We therefore treat a unified wanting axis and task-specific optimal α values as hypotheses motivated by the data, not conclusions established by the present behavioral suite.
-
 
 # 4. Human Behaviour Simulation
 
