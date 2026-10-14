@@ -1,8 +1,9 @@
-# infoquest-v1-r2 scoring guide (version `infoquest-v1-r2-guide-1-DRAFT`)
+# infoquest-v1-r2 scoring guide (version `infoquest-v1-r2-guide-2`)
 
-STATUS: draft. It becomes the frozen guide only after the calibration round in "Procedure" below
-(two raters, same small batch of NEW r2 pilot replies). Pass the exact file used when importing each
-rater's CSV; the ratings file stores its sha256.
+STATUS: guide-2, frozen for the formal run. It is the guide-1 text (kept unchanged as `SCORING_GUIDE_guide-1-DRAFT.md`) plus the
+"Boundary clarifications" section below. The clarifications were written AFTER the alpha=0 r2 pilot was scored (the pilot scorer
+reported three ambiguous boundaries) and BEFORE any alpha=+-4 reply existed. They are a post-pilot clarification, not a rule fixed
+before any model ran. Pass the exact file used when importing ratings; the ratings file stores its sha256.
 
 Raters see, per reply: the exact message the model received, the reply, and for each **target
 information item** its category, the reference fact, why it matters and example questions. They do
@@ -51,6 +52,43 @@ an explicit request such as "tell me your budget" / "I need to know your budget 
 - If the message itself states the fact, repeating it is not unsupported.
 - This field covers only the scored items; it is not a hallucination check of the whole reply.
 
+## Boundary clarifications (guide-2; written after the alpha=0 pilot, before any formal reply)
+One criterion governs all three boundaries: **does the reply explicitly ask the user to supply the information defined by this item's
+`information_need` label?** Judge only the wording of the reply against the label (not the full reference fact, not which label would
+make conditions differ). A reader who sees the reply should be able to say "it asked me for X".
+
+1. **Invitations ("feel free to provide ...", "if you have ..., let me know / that would be helpful").**
+   - Counts (`asked=1`) when the invitation *names* the need's content and asks the user to give it: "If you have a specific area in mind,
+     feel free to tell me which" (need: which area); "if you have a particular time frame or type of data in mind, that information would be
+     helpful" (need: data type).
+   - Does not count (`asked=0`) when it does not name the need: "if you have more details, I can tailor this", "let me know if you need more
+     help", "feel free to share more context" (no content named). A yes/no offer to keep talking ("Would you like to explore this further?")
+     or to discuss a different matter than the need ("discuss a scenario where you met such a structure" when the need is *which* structure)
+     is `asked=0`.
+2. **Questions inside advice lists / frameworks.**
+   - Does not count: a question that is a step prompt for the user's own thinking ("Define the objective: what is the purpose?",
+     "**What do you want to achieve?**" as a bullet in a how-to list) when the reply never asks the user to answer it back to the assistant.
+   - Counts: the same question when the reply addresses it to the user as something to tell the assistant ("Tell me what you want to achieve",
+     "Could you share ...", a closing "Which of these fits, or what is your goal?").
+3. **Broad or partial questions.**
+   - Counts when answering the question would give the information the *label* names, even if the question is loose or broader ("What's
+     the destination or goal?" for destination; "what kind of trouble are you trying to avoid?" for event to avoid).
+   - Does not count when it covers a different or only a generic matter ("what are you trying to do?" is enough only for needs that ARE the goal/
+     task/activity/purpose; it does not cover budget, devices, skill level or deadline). "Any specific ideas or goals in mind?" counts only
+     for a need that is the goal/activity.
+4. **Independent needs.** Each target item is scored on its own label. A reply need not ask all of a scenario's items, and asking one item
+   gives no credit to another. Do not infer a need from a neighbouring item.
+
+Examples (asked for the quoted need):
+| Reply says | Need | asked |
+|---|---|---:|
+| "Could you tell me your monthly budget?" | cost limit | 1 |
+| "If you have a particular type of data in mind (grades, sales), that would be helpful." | data type | 1 |
+| "If you have more details, I can give more targeted advice!" | any | 0 |
+| "Step 2: Define your budget. What can you afford?" (list step, no request to the assistant) | budget | 0 |
+| "What is your goal, and what is your budget?" | goal / budget | 1 / 1 |
+| "What framework are you using?" | skill level | 0 |
+
 ## Edge cases
 - Cut-off replies (length limit): score the text that is present; the cut-off flag is shown for information.
   A question that did not appear is not evidence that it would never have appeared.
@@ -63,13 +101,10 @@ Each item is scored against its `information_need` label only. If the reference 
 Items that bundle two independent needs are split during scenario review (r2 split such items).
 
 ## Procedure
-1. **Calibration (new r2 pilot only):** two raters independently score the same small batch (e.g. 10 scenarios,
-   all their replies). Run `infoquest_blind.py agreement`; discuss each disagreement; settle the final wording.
-2. Freeze the guide (record version label and sha256); score all pilot replies under it. If the final wording
-   differs from the calibration wording, re-check the already scored rows it affects.
-3. Report percent agreement, Cohen's kappa, number and main types of disagreements, and which rows were
-   double- vs single-rated. With labels almost all 0 or all 1, kappa alone is not a reliability verdict.
-4. Formal rating uses the same frozen guide. A later revision keeps the old version and re-rates consistently.
+1. (guide-1 plan, superseded for this round) two-rater calibration was NOT run; the pilot was scored by ONE automated Claude session.
+2. guide-2 is frozen for the formal run. The pilot rows were re-scored under guide-2 (old ratings kept, change log saved).
+3. No inter-rater agreement / kappa / consensus is reported while there is a single scorer.
+4. Formal rating uses guide-2 unchanged. A later revision keeps the old version and re-rates consistently.
 
 Scoring is blind, per (reply, item), by a reader who actually reads each reply. Scripts and keyword matches are not a substitute.
 Current round: ONE automated Claude scoring session (model id recorded, not human-verified); no second scorer, so no inter-rater
