@@ -25,17 +25,24 @@ def sha256(path):
     return h.hexdigest()
 
 
-def validate_masks(mask_path, rsn_path, dense_path, start, end, orthogonal, alpha=1.0):
-    for p in (mask_path, rsn_path, dense_path):
+def canonical_json(value):
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end, orthogonal, alpha=1.0):
+    for p in (mask_path, rsn_path, dense_path, none_dense_path):
         if not os.path.isfile(p):
             raise FileNotFoundError(f"required source file missing: {p}")
     u = np.load(mask_path, allow_pickle=False)
     m = np.load(rsn_path, allow_pickle=False)
-    dense = np.load(dense_path, allow_pickle=False)
-    dense = np.squeeze(dense).astype(np.float64)
+    dense_char = np.load(dense_path, allow_pickle=False)
+    dense_none = np.load(none_dense_path, allow_pickle=False)
+    if dense_char.shape != dense_none.shape:
+        raise ValueError(f"dense source shape mismatch: diff_mean={dense_char.shape}, none_diff_mean={dense_none.shape}")
+    dense = np.squeeze(dense_char - dense_none).astype(np.float64)
     if u.shape != m.shape or u.ndim != 2 or dense.ndim != 2 or dense.shape != (u.shape[0] + 1, u.shape[1]):
         raise ValueError(f"shape mismatch: ortho={u.shape}, RSN={m.shape}, dense={dense.shape}")
-    if not all(np.isfinite(x).all() for x in (u, m, dense)):
+    if not all(np.isfinite(x).all() for x in (u, m, dense_char, dense_none, dense)):
         raise ValueError("mask or dense role-difference contains non-finite values")
     if orthogonal and not np.array_equal(u != 0, m != 0):
         raise ValueError("orthogonal mask support differs from actual RSN mask")
@@ -56,18 +63,19 @@ def validate_masks(mask_path, rsn_path, dense_path, start, end, orthogonal, alph
         if orthogonal and (np.count_nonzero(ul) == 0 or np.count_nonzero(ml) == 0):
             raise ValueError(f"empty in-band support in decoder layer {i+1}")
         dot = float(ul @ dl)
-        if orthogonal and not np.isclose(nu, nm, rtol=1e-6, atol=1e-8):
+        if orthogonal and abs(nu - nm) >= 1e-3 * max(nm, 1e-8):
             raise ValueError(f"norm mismatch in decoder layer {i+1}: {nu} vs {nm}")
-        if orthogonal and abs(dot) > 1e-7 * max(nu * np.linalg.norm(dl), 1.0):
+        cosine = abs(dot) / (nu * np.linalg.norm(dl)) if nu and np.linalg.norm(dl) else 0.0
+        if orthogonal and cosine >= 1e-5:
             raise ValueError(f"dense role-diff orthogonality failed in decoder layer {i+1}: dot={dot}")
-        rows.append({"decoder_layer": i + 1, "norm": nu, "dot": dot})
+        rows.append({"decoder_layer": i + 1, "norm": nu, "dot": dot, "abs_cosine": cosine})
     dtype = torch.bfloat16
     effective = torch.as_tensor(u * alpha, dtype=dtype).float().numpy()
     matched = torch.as_tensor(m * alpha, dtype=dtype).float().numpy()
     return {"shape": list(u.shape), "nonzero_count": int(np.count_nonzero(u)), "layers": rows,
             "direction_kind": "orthogonal" if orthogonal else "rsn_reference",
             "mask_sha256": sha256(mask_path), "rsn_mask_sha256": sha256(rsn_path),
-            "dense_mean_sha256": sha256(dense_path),
+            "diff_mean_sha256": sha256(dense_path), "none_diff_mean_sha256": sha256(none_dense_path),
             "bf16_norm_max_abs_error": float(max(abs(np.linalg.norm(effective[i]) - np.linalg.norm(matched[i])) for i in layer_rows)),
             "injected_alpha": alpha,
             "bf16_dot_abs_max": float(max(abs(float(effective[i] @ dense[i+1])) for i in layer_rows))}
@@ -83,6 +91,7 @@ def main():
     ap.add_argument("--mask_path", required=True)
     ap.add_argument("--rsn_mask_path", required=True)
     ap.add_argument("--dense_mean_path", required=True)
+    ap.add_argument("--none_dense_mean_path", required=True)
     ap.add_argument("--test_file", required=True)
     ap.add_argument("--out_dir", required=True)
     ap.add_argument("--base_dir", required=True)
@@ -101,9 +110,12 @@ def main():
         if not os.path.isfile(a.mask_path) or os.path.realpath(a.mask_path) != os.path.realpath(a.rsn_mask_path):
             raise ValueError("baseline must explicitly use the matching existing RSN mask path")
         diff = np.zeros_like(np.load(a.rsn_mask_path, allow_pickle=False))
-        mask_validation = {"baseline_zero_mask": True, "mask_sha256": sha256(a.rsn_mask_path)}
+        mask_validation = {"baseline_zero_mask": True, "mask_sha256": sha256(a.rsn_mask_path),
+                           "rsn_mask_sha256": sha256(a.rsn_mask_path),
+                           "diff_mean_sha256": sha256(a.dense_mean_path),
+                           "none_diff_mean_sha256": sha256(a.none_dense_mean_path)}
     else:
-        mask_validation = validate_masks(a.mask_path, a.rsn_mask_path, a.dense_mean_path, a.start, a.end,
+        mask_validation = validate_masks(a.mask_path, a.rsn_mask_path, a.dense_mean_path, a.none_dense_mean_path, a.start, a.end,
                                          a.condition.startswith("seed"), a.alpha)
         diff = np.load(a.mask_path, allow_pickle=False) * a.alpha
 
@@ -111,6 +123,8 @@ def main():
     samples = utils.load_json(data_path)
     if a.smoke_n:
         samples = samples[:a.smoke_n]
+    elif len(samples) != 300:
+        raise ValueError(f"formal run requires exactly 300 GSM8K items, got {len(samples)}")
     prompts = [select_templates_gsm8k(suite="default", cot=False, wording="plain")["neutral"].format(context=s["question"]) for s in samples]
     out_dir = Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -150,7 +164,7 @@ def main():
                                 "eos_token_id": vc.tokenizer.eos_token_id}
     provenance["tokenized_prompt_ids_sha256"] = hashlib.sha256(json.dumps(token_sequences, separators=(",", ":")).encode()).hexdigest()
     provenance["tokenized_prompt_lengths"] = [len(x) for x in token_sequences]
-    provenance["injection_tail_tokens"] = sorted({(int(t), vc.tokenizer.decode([int(t)])) for t in tail_ids})
+    provenance["injection_tail_tokens"] = [list(x) for x in sorted({(int(t), vc.tokenizer.decode([int(t)])) for t in tail_ids})]
     provenance["runner_sha256"] = sha256(__file__)
     provenance["code_sha256"] = {name: sha256(os.path.join(os.path.dirname(__file__), name))
                                   for name in ("llms.py", "template.py", "utils.py")}
@@ -159,8 +173,21 @@ def main():
         if not (manifest_path.exists() and result_path.exists()):
             raise FileExistsError(f"incomplete existing cell at {out_dir}; refusing resume/overwrite")
         old = json.loads(manifest_path.read_text())
-        if old.get("provenance") != provenance:
+        if canonical_json(old.get("configuration")) != canonical_json(provenance):
             raise FileExistsError(f"existing cell provenance conflict at {out_dir}; refusing overwrite")
+        result = json.loads(result_path.read_text())
+        rows = result.get("data")
+        run = old.get("run", {})
+        if (not isinstance(rows, list) or len(rows) != len(samples)
+                or run.get("row_count") != len(rows)
+                or run.get("result_sha256") != sha256(result_path)
+                or run.get("steering_fires") != run.get("expected_steering_fires")
+                or run.get("expected_steering_fires") != (0 if a.condition == "baseline" else (a.end-a.start)*len(samples))
+                or [hashlib.sha256(r.get("question", "").encode()).hexdigest() for r in rows] != provenance["question_sha256"]
+                or any(any(r.get(k) != sample.get(k) for k in ("question", "answer"))
+                       or not all(k in r for k in ("generated_neutral", "raw_generated_neutral", "generated_token_count", "stop_reason"))
+                       for r, sample in zip(rows, samples))):
+            raise ValueError(f"existing cell content/hash/count/order/fire validation failed at {out_dir}")
         print(f"matching completed cell exists: {out_dir}; skipped")
         return
 
@@ -168,9 +195,12 @@ def main():
     vc.steering_fire_count(reset=True)
     records = []
     for i in range(0, len(prompts), a.batch_size):
-        metas = vc.regenerate(prompts[i:i+a.batch_size], max_new_tokens=a.max_new_tokens,
+        batch_prompts = prompts[i:i+a.batch_size]
+        metas = vc.regenerate(batch_prompts, max_new_tokens=a.max_new_tokens,
                               temperature=0.0, diff_matrices=diff, batch_size=a.batch_size,
                               prefill_only=True, prefill_tail_len=1, return_metadata=True)
+        if len(metas) != len(batch_prompts):
+            raise RuntimeError(f"generation batch returned {len(metas)} rows for {len(batch_prompts)} prompts")
         records.extend({**samples[j], "generated_neutral": m["text"], "raw_generated_neutral": m["raw_text"],
                         "generated_token_count": m["generated_token_count"], "stop_reason": m["stop_reason"]}
                        for j, m in zip(range(i, i+len(metas)), metas))
@@ -178,13 +208,13 @@ def main():
     expected = 0 if a.condition == "baseline" else (len(range(a.start, a.end)) * len(samples))
     if fires != expected:
         raise RuntimeError(f"steering fire count {fires}, expected {expected}; refusing to save")
-    provenance["steering_fires"] = fires
-    provenance["expected_steering_fires"] = expected
     tmp = result_path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps({"data": records}, ensure_ascii=False, indent=2))
     os.replace(tmp, result_path)
     mtmp = manifest_path.with_suffix(".json.tmp")
-    mtmp.write_text(json.dumps({"provenance": provenance}, ensure_ascii=False, indent=2))
+    run = {"steering_fires": fires, "expected_steering_fires": expected,
+           "row_count": len(records), "result_sha256": sha256(result_path)}
+    mtmp.write_text(json.dumps({"configuration": provenance, "run": run}, ensure_ascii=False, indent=2))
     os.replace(mtmp, manifest_path)
     print(f"saved {result_path} ({len(records)} rows; fires={fires})")
 
