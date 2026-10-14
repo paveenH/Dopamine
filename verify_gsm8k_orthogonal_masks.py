@@ -13,10 +13,10 @@ def main():
     a = ap.parse_args()
     if a.model == "llama3":
         folder, stem, size, start, end = "llama3_non_logits", "llama3", "8B", 11, 20
-        dense_dir = "llama3_non_logits"
+        dense_dir = "llama3"
     else:
         folder, stem, size, start, end = "qwen2.5_non_logits", "qwen2.5", "7B", 16, 22
-        dense_dir = "qwen2.5_non_logits"
+        dense_dir = "qwen2.5"
     mask_dir = f"{a.base_dir}/mask/{folder}"
     ortho = f"{mask_dir}/ortho_gauss_same_0.5_{start}_{end}_{size}_seed{a.seed}.npy"
     rsn = f"{mask_dir}/nmd_0.5_{start}_{end}_{size}.npy"
