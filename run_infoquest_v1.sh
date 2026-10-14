@@ -3,8 +3,7 @@
 # Usage (server, from /data1/paveen/Dopamine):
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_infoquest_v1.sh llama3  pilot  > iq_llama_pilot.log 2>&1 &
 #   CUDA_VISIBLE_DEVICES=1 nohup bash run_infoquest_v1.sh qwen2.5 pilot  > iq_qwen_pilot.log  2>&1 &
-# Formal is a SEPARATE invocation, run only after the pilot has been scored and
-# the scoring guide frozen:
+# Formal is a SEPARATE invocation (protocol: infoquest/FORMAL_PROTOCOL_r2.md; guide-2 frozen):
 #   CUDA_VISIBLE_DEVICES=0 nohup bash run_infoquest_v1.sh llama3  formal > iq_llama_formal.log 2>&1 &
 #   cat the log immediately: a wrong PY exits 127 and the log looks empty.
 #
@@ -30,6 +29,11 @@ cd "${WORK_DIR}"
 "${PY}" -c "import numpy, torch" || { echo "[x] ${PY} cannot import numpy/torch"; exit 1; }
 BENCH_FILE="${BASE_DIR}/benchmark/infoquest_v1.json"
 [ -f "${BENCH_FILE}" ] || { echo "[x] missing ${BENCH_FILE} (run on the server: prepare_infoquest_v1.py prepare, review, then export)"; exit 1; }
+# Frozen r2 benchmark (formal protocol): a different file would change every scenario/prompt. Override only deliberately.
+EXPECT_BENCH_SHA256="${EXPECT_BENCH_SHA256:-a212fdd67577d20d322a2b8b0e37470c437fc2e0efcbd659c38da2d65f7fd0bb}"
+if command -v sha256sum >/dev/null 2>&1; then GOT_SHA="$(sha256sum "${BENCH_FILE}" | cut -d' ' -f1)"; else GOT_SHA="$(shasum -a 256 "${BENCH_FILE}" | cut -d' ' -f1)"; fi
+[ "${GOT_SHA}" = "${EXPECT_BENCH_SHA256}" ] || { echo "[x] benchmark sha256 ${GOT_SHA} != frozen ${EXPECT_BENCH_SHA256}"; exit 1; }
+echo "[env] benchmark sha256 OK ${GOT_SHA:0:16}"
 echo "[env] MAX_NEW_TOKENS=${MAX_NEW_TOKENS}"
 echo "[env] host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
