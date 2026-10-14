@@ -32,7 +32,7 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 4. 重新整理思路 ✔
 5. 统一posN Qwen和llama的reasoning行为学分析指标 #### 的定义 ✔
 6. infoquestion: RSN 改变的是模型“直接作答的倾向”，还是“根据信息是否足够，决定先问清楚再回答”的策略 ✔
-7. 完成 Norm-Matched Orthogonal Injection Controls
+7. 完成 Norm-Matched Orthogonal Injection Controls @184
 
 ---
 
