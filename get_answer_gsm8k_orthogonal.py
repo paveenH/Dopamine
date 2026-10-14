@@ -75,7 +75,7 @@ def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end,
     return {"shape": list(u.shape), "nonzero_count": int(np.count_nonzero(u)), "layers": rows,
             "direction_kind": "orthogonal" if orthogonal else "rsn_reference",
             "mask_sha256": sha256(mask_path), "rsn_mask_sha256": sha256(rsn_path),
-            "diff_mean_sha256": sha256(dense_path), "none_diff_mean_sha256": sha256(none_dense_path),
+            "mmlue_expert_mean_sha256": sha256(dense_path), "mmlue_non_expert_mean_sha256": sha256(none_dense_path),
             "bf16_norm_max_abs_error": float(max(abs(np.linalg.norm(effective[i]) - np.linalg.norm(matched[i])) for i in layer_rows)),
             "injected_alpha": alpha,
             "bf16_dot_abs_max": float(max(abs(float(effective[i] @ dense[i+1])) for i in layer_rows))}
@@ -112,8 +112,8 @@ def main():
         diff = np.zeros_like(np.load(a.rsn_mask_path, allow_pickle=False))
         mask_validation = {"baseline_zero_mask": True, "mask_sha256": sha256(a.rsn_mask_path),
                            "rsn_mask_sha256": sha256(a.rsn_mask_path),
-                           "diff_mean_sha256": sha256(a.dense_mean_path),
-                           "none_diff_mean_sha256": sha256(a.none_dense_mean_path)}
+                           "mmlue_expert_mean_sha256": sha256(a.dense_mean_path),
+                           "mmlue_non_expert_mean_sha256": sha256(a.none_dense_mean_path)}
     else:
         mask_validation = validate_masks(a.mask_path, a.rsn_mask_path, a.dense_mean_path, a.none_dense_mean_path, a.start, a.end,
                                          a.condition.startswith("seed"), a.alpha)
