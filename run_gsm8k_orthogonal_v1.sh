@@ -24,8 +24,8 @@ else
   MASK_FOLDER="qwen2.5_non_logits"; DENSE_FOLDER="qwen2.5"; OUT="$BASE_DIR/qwen2.5/gsm8k_orthogonal_v1"
 fi
 RSN="$BASE_DIR/mask/$MASK_FOLDER/nmd_0.5_${START}_${END}_${SIZE}.npy"
-DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/diff_mean_${SIZE}.npy"
-NONE_DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/none_diff_mean_${SIZE}.npy"
+DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/mmlue_expert_mean_${SIZE}.npy"
+NONE_DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/mmlue_non_expert_mean_${SIZE}.npy"
 DATA="$BASE_DIR/benchmark/gsm8k_test_sample.json"
 MASK_DIR="$BASE_DIR/mask/$MASK_FOLDER"
 conditions=(baseline rsn seed1 seed2 seed3)
