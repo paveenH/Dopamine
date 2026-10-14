@@ -18,14 +18,14 @@ cd "$WORK_DIR"
 PY="${PY:-python}"
 if [[ "$MODEL" == "llama3" ]]; then
   MODEL_DIR="meta-llama/Llama-3.1-8B-Instruct"; SIZE="8B"; START=11; END=20; ALPHA=-6
-  MASK_FOLDER="llama3_non_logits"; OUT="$BASE_DIR/llama3/gsm8k_orthogonal_v1"
+  MASK_FOLDER="llama3_non_logits"; DENSE_FOLDER="llama3"; OUT="$BASE_DIR/llama3/gsm8k_orthogonal_v1"
 else
   MODEL_DIR="Qwen/Qwen2.5-7B-Instruct"; SIZE="7B"; START=16; END=22; ALPHA=8
-  MASK_FOLDER="qwen2.5_non_logits"; OUT="$BASE_DIR/qwen2.5/gsm8k_orthogonal_v1"
+  MASK_FOLDER="qwen2.5_non_logits"; DENSE_FOLDER="qwen2.5"; OUT="$BASE_DIR/qwen2.5/gsm8k_orthogonal_v1"
 fi
 RSN="$BASE_DIR/mask/$MASK_FOLDER/nmd_0.5_${START}_${END}_${SIZE}.npy"
-DENSE="$BASE_DIR/hidden_states_mean/${MASK_FOLDER}/diff_mean_${SIZE}.npy"
-NONE_DENSE="$BASE_DIR/hidden_states_mean/${MASK_FOLDER}/none_diff_mean_${SIZE}.npy"
+DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/diff_mean_${SIZE}.npy"
+NONE_DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/none_diff_mean_${SIZE}.npy"
 DATA="$BASE_DIR/benchmark/gsm8k_test_sample.json"
 MASK_DIR="$BASE_DIR/mask/$MASK_FOLDER"
 conditions=(baseline rsn seed1 seed2 seed3)
