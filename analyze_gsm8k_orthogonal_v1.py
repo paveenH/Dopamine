@@ -87,7 +87,7 @@ def main():
             raise ValueError(f"result hash mismatch: {rp}")
         mv = cfg.get("mask_validation", {})
         if (mv.get("mask_sha256") is None or mv.get("rsn_mask_sha256") is None
-                or mv.get("diff_mean_sha256") is None or mv.get("none_diff_mean_sha256") is None):
+                or mv.get("mmlue_expert_mean_sha256") is None or mv.get("mmlue_non_expert_mean_sha256") is None):
             raise ValueError(f"missing source-mask hashes: {mp}")
         if cell == "rsn" and mv["mask_sha256"] != mv["rsn_mask_sha256"]:
             raise ValueError(f"RSN condition does not use the declared RSN mask: {mp}")
@@ -101,7 +101,7 @@ def main():
             if configs[cell].get(field) != configs["baseline"].get(field):
                 raise ValueError(f"source/environment mismatch in {field}: baseline vs {cell}")
         mv, base_mv = configs[cell]["mask_validation"], configs["baseline"]["mask_validation"]
-        for field in ("rsn_mask_sha256", "diff_mean_sha256", "none_diff_mean_sha256"):
+        for field in ("rsn_mask_sha256", "mmlue_expert_mean_sha256", "mmlue_non_expert_mean_sha256"):
             if mv.get(field) != base_mv.get(field):
                 raise ValueError(f"reference source mismatch in {field}: baseline vs {cell}")
     control_hashes = [configs[c]["mask_validation"]["mask_sha256"] for c in ("seed1", "seed2", "seed3")]
