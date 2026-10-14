@@ -20,7 +20,8 @@ top -u $USER
 rm -rf /home/nas/d12922004/.cache/huggingface/hub
 rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 
-##### 182/184/185/177/178a
+##### 182/184/185/177/178
+
 rsync -avzP \
   "d12922004@140.112.31.185:/data1/paveen/Dopamine/components/{qwen2.5,llama3}" \
   /Users/paveenhuang/Downloads/
