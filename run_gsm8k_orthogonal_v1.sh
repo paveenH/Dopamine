@@ -25,6 +25,7 @@ else
 fi
 RSN="$BASE_DIR/mask/$MASK_FOLDER/nmd_0.5_${START}_${END}_${SIZE}.npy"
 DENSE="$BASE_DIR/hidden_states_mean/${MASK_FOLDER}/diff_mean_${SIZE}.npy"
+NONE_DENSE="$BASE_DIR/hidden_states_mean/${MASK_FOLDER}/none_diff_mean_${SIZE}.npy"
 DATA="$BASE_DIR/benchmark/gsm8k_test_sample.json"
 MASK_DIR="$BASE_DIR/mask/$MASK_FOLDER"
 conditions=(baseline rsn seed1 seed2 seed3)
@@ -42,6 +43,7 @@ run_cell() {
     --model "$MODEL" --model_dir "$MODEL_DIR" --size "$SIZE" --alpha "$alpha" \
     --condition "$condition" --mask_path "$mask" --rsn_mask_path "$RSN" \
     --dense_mean_path "$DENSE" --test_file "$DATA" --base_dir "$BASE_DIR" \
+    --none_dense_mean_path "$NONE_DENSE" \
     --out_dir "$root/$condition" --start "$START" --end "$END" \
     --batch_size 24 --max_new_tokens 768 "${extra[@]}"
 }
@@ -69,9 +71,31 @@ case "$MODE" in
     for condition in "${conditions[@]}"; do run_cell "$condition" "$root"; done
     ;;
   status)
-    for condition in "${conditions[@]}"; do
-      d="$OUT/$condition"
-      if [[ -f "$d/result.json" && -f "$d/manifest.json" ]]; then echo "COMPLETE $d"; else echo "MISSING $d"; fi
-    done
+    "$PY" - "$OUT" "$MODEL" "$ALPHA" "$START" "$END" <<'PY'
+import hashlib, json, pathlib, sys
+root, model, alpha, start, end = pathlib.Path(sys.argv[1]), sys.argv[2], float(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
+failed = False
+for condition in ("baseline", "rsn", "seed1", "seed2", "seed3"):
+    d = root / condition
+    try:
+        result_path, manifest_path = d / "result.json", d / "manifest.json"
+        result, manifest = json.loads(result_path.read_text()), json.loads(manifest_path.read_text())
+        rows, cfg, run = result["data"], manifest["configuration"], manifest["run"]
+        expected_alpha = 0.0 if condition == "baseline" else alpha
+        expected_fires = 0 if condition == "baseline" else (end-start)*300
+        qids = [hashlib.sha256(r["question"].encode()).hexdigest() for r in rows]
+        valid = (len(rows) == 300 and len(set(qids)) == 300 and cfg["model"] == model
+                 and cfg["condition"] == condition and cfg["alpha"] == expected_alpha
+                 and cfg["start"] == start and cfg["end"] == end
+                 and cfg["question_sha256"] == qids and cfg["question_order_sha256"] == hashlib.sha256("\n".join(qids).encode()).hexdigest()
+                 and run["row_count"] == 300 and run["result_sha256"] == hashlib.sha256(result_path.read_bytes()).hexdigest()
+                 and run["steering_fires"] == run["expected_steering_fires"] == expected_fires)
+        if not valid: raise ValueError("content, provenance, row, or fire checks failed")
+        print(f"COMPLETE {d}")
+    except Exception as exc:
+        print(f"INVALID {d}: {exc}", file=sys.stderr)
+        failed = True
+sys.exit(1 if failed else 0)
+PY
     ;;
 esac
