@@ -14,7 +14,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ### Daily
 
-10.16 group meeting
+10.14 周三 跑实验，再看看接下来做什么，看Paper
+10.16 周五 group meeting
 
 准备多益考试
 看完瑜伽视频
@@ -29,7 +30,7 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 2. 优化willingness的表述，再做一版本的结果 -> v3 还是很难解释 ✖
 3. 从MMLUE开始完善，弄清E选项降低的原因 -> 看起来结果还是很乱 ✖
 5. 重新整理思路 ✔
-6. 统一posN Qwen和llama的reasoning行为学分析指标 ####的定义  ✔
+6. 统一posN Qwen和llama的reasoning行为学分析指标 #### 的定义  ✔
 4. infoquestion: RSN 改变的是模型“直接作答的倾向”，还是“根据信息是否足够，决定先问清楚再回答”的策略 ⏸
 
 ---
