@@ -20,12 +20,12 @@ def main():
     mask_dir = f"{a.base_dir}/mask/{folder}"
     ortho = f"{mask_dir}/ortho_gauss_same_0.5_{start}_{end}_{size}_seed{a.seed}.npy"
     rsn = f"{mask_dir}/nmd_0.5_{start}_{end}_{size}.npy"
-    dense = f"{a.base_dir}/hidden_states_mean/{dense_dir}/diff_mean_{size}.npy"
-    none_dense = f"{a.base_dir}/hidden_states_mean/{dense_dir}/none_diff_mean_{size}.npy"
+    dense = f"{a.base_dir}/hidden_states_mean/{dense_dir}/mmlue_expert_mean_{size}.npy"
+    none_dense = f"{a.base_dir}/hidden_states_mean/{dense_dir}/mmlue_non_expert_mean_{size}.npy"
     alpha = -6 if a.model == "llama3" else 8
     report = validate_masks(ortho, rsn, dense, none_dense, start, end, True, alpha)
     report.update({"model": a.model, "seed": a.seed, "mask_path": ortho, "rsn_path": rsn,
-                   "diff_mean_path": dense, "none_diff_mean_path": none_dense})
+                   "mmlue_expert_mean_path": dense, "mmlue_non_expert_mean_path": none_dense})
     print(json.dumps(report, indent=2))
 
 
