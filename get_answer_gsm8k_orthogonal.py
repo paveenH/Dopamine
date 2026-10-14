@@ -68,7 +68,7 @@ def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end,
         cosine = abs(dot) / (nu * np.linalg.norm(dl)) if nu and np.linalg.norm(dl) else 0.0
         if orthogonal and cosine >= 1e-5:
             raise ValueError(f"dense role-diff orthogonality failed in decoder layer {i+1}: dot={dot}")
-        rows.append({"decoder_layer": i + 1, "norm": nu, "dot": dot, "abs_cosine": cosine})
+        rows.append({"decoder_layer": i, "norm": nu, "dot": dot, "abs_cosine": cosine})
     dtype = torch.bfloat16
     effective = torch.as_tensor(u * alpha, dtype=dtype).float().numpy()
     matched = torch.as_tensor(m * alpha, dtype=dtype).float().numpy()
