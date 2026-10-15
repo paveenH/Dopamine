@@ -3,102 +3,88 @@
 
 InfoQuest 即使完成，也主要增加一个行为读数，无法单独裁决上述解释。 如果接下来要优先回答“到底控制什么”，实验就必须让这些解释产生不同预测，而不能只再找一个 α 能改变的任务。我不应把行为证据的增加，等同于功能识别的推进。
 
----
+### GSM8K Base
 
-## Norm-Matched Orthogonal Injection Controls
+Qwen 的方向反转，是不是推理训练造成的。我看了驱动脚本，不用改代码就能跑。关键看 **Qwen2.5-7B Base 在 α=0 时会不会也"先答后算"**。Qwen-IT 的 early-candidate 是 96%。
 
-### Purpose
-
-本轮先检验一个问题：
-
-> **GSM8K 的推理收益是否依赖 RSN 的具体方向，还是相同强度的其他稀疏扰动也能产生类似收益？**
-
-“等范数”表示每层注入向量的长度与 RSN 相同；“正交”表示对照方向与该层的角色差异方向垂直。这样可以在控制扰动大小的条件下，比较不同方向的效果。
-
-该实验主要补强 **推理收益和注入特异性证据**，不能直接识别 neurons 控制的是 confidence、行动门槛还是其他功能，也不能单独验证 C1 的行为结果。
-
-### Existing Evidence
-
-原 RSN Paper 已在 MMLU-E 上比较 Random 稀疏对照、PCA、FV、T-test，并进行了双向 steering 和消融。因此，已有相关的随机对照与因果干预证据。但原论文未明确报告 Random 对照是否逐层范数匹配、是否与角色差异方向正交。这些结果也不能直接验证当前 GSM8K 工作点的推理收益。
-
-ThinkingCurve 中的随机／正交分析主要是**把已保存的 hidden states 投影到其他方向**，检验读出特异性。本轮需要**实际注入对照方向并重新生成答案**，检验注入效果的特异性。
-
-### Minimal Design
-
-本轮范围限定为 GSM8K Bare No-CoT，先完成 Llama，再用相同设计检查 Qwen。
-
-**Table 1. Minimal Control Design**
-
-| 项目 | Llama | Qwen |
-|---|---|---|
-| 任务 | GSM8K Bare No-CoT | GSM8K Bare No-CoT |
-| RSN 参考工作点 | α=−6 | α=+8 |
-| 题目 | 与参考结果相同的 300 题 | 与参考结果相同的 300 题 |
-| 对照类型 | `ortho_gauss_same` | `ortho_gauss_same` |
-| 随机方向数 | 3 个 seed | 3 个 seed |
-| 参照条件 | α=0、RSN 工作点 | α=0、RSN 工作点 |
-
-`ortho_gauss_same` 保留 RSN 的神经元坐标，随机构造权重，并逐层满足：
-
-- 与角色差异方向正交；
-- 与 RSN 向量范数匹配；
-- 非零坐标与 RSN 一致。
-
-每个模型先测试三个固定随机方向，使用该模型自己的参考 α。Seed 表示不同对照方向，不是重复生成的随机种子。第一轮不对每个随机方向另做剂量扫描。
-
-两个模型共 **6 个新增对照 cell**。已有 α=0 和 RSN 结果只有在模型、代码、提示、生成设置和运行环境可比时才能复用；否则补跑匹配参照。
-
-### Readouts and Interpretation
-
-沿用已有指标：
-
-- **`first_acc`**：使用冻结的离线答案抽取与计分规则。
-- **`early_candidate_rate`**：观察输出顺序是否改变。
-- **生成健康度**：检查截断、循环、空回复和格式退化，辅助解释性能变化。
-
-按同一道题配对比较 RSN、基线与各个对照，报告差值及不确定性。不能仅凭“RSN 显著、对照不显著”就认定两者存在差异。
-
-**Table 2. Possible Outcomes**
-
-| 结果 | 可以支持的解释 |
+| Qwen Base 的表现 | 含义 |
 |---|---|
-| RSN 收益明显高于所测试的对照 | 在相同强度下，具体权重方向对收益有贡献 |
-| 对照也改变 early-candidate，但没有类似准确率收益 | 输出重排可能较普遍，推理收益更依赖方向 |
-| 对照也获得类似收益 | 这些收益不能完全归为 RSN 独有，需要收紧特异性解释 |
-| 对照主要导致循环、格式退化或准确率下降 | 不同方向产生不同后果；需结合健康度评价，不能把对照失效直接当作机制证明 |
+| α=0 已经先答后算，+8 也让它改成先推理 | 反转在预训练阶段就存在，不是 IT 造成的。Qwen2.5 的预训练里本来就有大量合成数学数据，所以这个结果完全可能出现 |
+| α=0 先推理，或 +8 不起作用 | 反转和指令微调有关 |
+| 格式本身就不健康（续写新题、循环、不写 `####`） | 这个接口在 Base 上读不出结果，需要改用 few-shot |
 
-三个随机方向适合初步检查，**不能代表整个随机方向分布**。即使它们都没有复现收益，也不能断言所有其他方向均无效；即使某个方向有效，也不能直接认定收益是普遍扰动效应。
+Llama Base 作为对照：它应该保持 Llama-IT 的方向，即 −6 让它更晚给出候选答案。
 
-### Preparation and Scope
+## 最小设计
 
-运行前需要核对：
+- **模型：** `Qwen/Qwen2.5-7B` 和 `meta-llama/Llama-3.1-8B`，都是 Base。
+- **mask：** 用 IT 上提取的 mask，不另外提取。Base 和 IT 层数、维度相同。原论文在 MMLU-E 上已经证明这样能起作用。
+- **prompt：** 和 IT 的 Bare zero-shot 完全一样。这样 Base 和 IT 之间只有模型不同。先不用 few-shot，因为它会同时改变接口。
+- **α：** 0 和冻结工作点（Qwen +8，Llama −6）。一次加载跑两格，每个模型 2 格，共 4 格。
+- **读数：**
+  - 先看格式健康：no-marker、loop、截断，以及有没有续写出新题；
+  - 健康的话，再看 `early_candidate_rate` 和 `first_acc`。
 
-1. 每个模型的对照 mask 是否存在，并通过逐层范数、正交性和坐标检查。
-2. Runner 是否支持直接指定带 seed 的 mask 文件。
-3. 输出目录、文件名和 resume 标识是否区分 RSN 与对照，避免覆盖或混用。
-4. 参照与对照是否使用一致的题序、提示、注入位置和生成设置。
+## 启动命令
 
-Runner 的覆盖风险目前仍需读代码确认，不作为已核实事实。
+`--model` 只决定输出路径，所以设成 `qwen2.5_base` / `llama3_base` 就能和 IT 结果分开。`--hs` 不变，这样会读 IT 的 mask。
 
-本轮先完成上述最小设计。`ortho_gauss_off` 可作为后续补充，检查更换神经元坐标后的效果；暂不扩大到新的行为任务。
+```bash
+cd /data1/paveen/Dopamine
+CUDA_VISIBLE_DEVICES=0 nohup python get_answer_regenerate_gsm8k.py \
+  --model qwen2.5_base --model_dir Qwen/Qwen2.5-7B --hs qwen2.5 --size 7B \
+  --type non --percentage 0.5 --mask_type nmd --configs 0-16-22 8-16-22 \
+  --test_file benchmark/gsm8k_test_sample.json --ans_file answer_mdf_gsm8k \
+  --suite default --fmt_wording plain --base_dir /data1/paveen/Dopamine/components \
+  --roles neutral --max_new_tokens 768 --temperature 0 --batch_size 24 \
+  > qwen_base_gsm8k.log 2>&1 &
 
-**这个实验的价值是检验新增推理收益对方向的依赖，而不是重新证明 RSN 有作用，也不是替 neurons 确定心理学名称。**
+CUDA_VISIBLE_DEVICES=1 nohup python get_answer_regenerate_gsm8k.py \
+  --model llama3_base --model_dir meta-llama/Llama-3.1-8B --hs llama3 --size 8B \
+  --type non --percentage 0.5 --mask_type nmd --configs 0-11-20 neg6-11-20 \
+  --test_file benchmark/gsm8k_test_sample.json --ans_file answer_mdf_gsm8k \
+  --suite default --fmt_wording plain --base_dir /data1/paveen/Dopamine/components \
+  --roles neutral --max_new_tokens 768 --temperature 0 --batch_size 24 \
+  > llama_base_gsm8k.log 2>&1 &
+```
+
+输出会写到 `components/{qwen2.5_base,llama3_base}/answer_mdf_gsm8k/mdf_{0,8|-6}/`。启动后先 `cat` 两个 log，确认已经开始运行。
 
 ---
-### 第二优先：角色提示与 steering 的对应检验（大部分离线，GPU 开销小）
+### 第二优先：角色提示与 steering 的对应检验（先做一格，GPU 开销小）
 
-这是我认为最适合解决"行为学断开"的方向。它不预设心理功能，只问一个和 RSN 定义直接对应的问题：
+RSN 在定义上是 expert − non-expert 的表征差，所以最直接的检验不预设心理功能，只问：
 
-> 在每个任务上，+α 与 −α 的差异，是否复现 expert 与 non-expert 提示之间的差异？
+> 在同一模型、同一任务上，+α 与 −α 的差异，是否复现 expert 与 non-expert 提示之间的差异？
 
-- **Llama GSM8K 已有初步支持：** non-expert 提示和 −α 都降低过早作答、提高准确率；expert 提示和 +α 都相反。
-- **Qwen 的"方向相反"可以直接检验：** 在 CGT 和 GSM8K 上分别看 expert 提示把 Qwen 推向哪一边。如果两边都和 steering 同向，"方向相反"就不再是矛盾，而是"角色效应本身因任务而异"。
-- **它也能解释表 7a 的接口依赖：** 可以看 Chat 接口下，角色提示是否同样不再改变输出组织。
-- **数据：**
-  - Llama 的 GSM8K 可以离线完成。
-  - Betting 和 CGT 各需补 expert、non-expert 提示，两个模型都要，只跑 α=0。
-  - Qwen 的 GSM8K 需要补两格。
-  - 总量比一条剂量扫描少。
+**待检验的解释（"角色策略"）：** +α 把模型推向它自己学到的"专家行为"，而专家在某个情境下做什么是训练决定的。决策任务里两个模型学到的专家都"果断"，所以 Betting / CGT / InfoQuest 方向一致；数学推理里 Qwen2.5 可能因大量推理训练而把"专家"学成先推导再作答，所以只有 Qwen GSM8K 的方向和 Llama 相反。如果成立，"方向相反"不再是矛盾，而是角色效应本身因模型和任务而异。
+
+#### 第一步：只做 Qwen GSM8K（决定性的一格）
+
+整个方向矛盾集中在这里，先用它决定这条线是否值得扩展。
+
+- **设计：** Qwen2.5-7B-Instruct，GSM8K Bare No-CoT，α=0，同一次运行内跑 `an expert` / `a non expert` / `neutral` 三个提示（role 字符串与 Llama `run_gsm8k.sh` 一致），n=300，逐题配对。neutral 同批重跑，不与旧 `mdf_0` 跨批比较。输出写入新目录 `answer_mdf_gsm8k_role/`，不覆盖已有 cell。
+- **预先写定的预测（运行前冻结）：** Qwen expert 提示的 `early_candidate_rate` **低于** non-expert 提示，方向与 Qwen 自身 +α 一致、与 Llama 相反。
+- **读数：** 主读数 `early_candidate_rate`（`earlycand-v1`，冻结检测器，不重调）；辅助读数 offline `first_acc`；expert vs non-expert 用配对 exact McNemar，并报配对 bootstrap 区间。
+- **判定：**
+
+| 结果 | 解读 |
+|---|---|
+| 方向与预测一致，区间不含 0 | 支持"角色策略"解释，进入第二步 |
+| 方向相反 | 解释被否定；方向差异来自 steering 本身而非角色，需另找原因 |
+| 差异接近 0 / 区间跨 0 | 提示层面的角色效应太弱，本检验不能下结论，**不计为支持** |
+
+#### Llama 对照：离线重算
+
+此前的 Llama GSM8K 角色数字（expert 58.0% / ec 54.3%；neutral 60.0% / 48.0%；non-expert 68.0% / 41.7%）来自 inline 字段，**不能直接引用**。用冻结抽取器（`analyze_first_last_acc`）和 `earlycand-v1` 在 `llama3/gsm8k/bare/mdf_0` 上重算后，与 Qwen 用同一个分析脚本出对照表。纯离线。
+
+#### 第二步（仅当第一步支持时）：扩展到行为任务
+
+- Betting 和 CGT 各补 expert、non-expert 提示，两个模型，只跑 α=0。
+- **这些都是新协议，不是旧结果的补格：** Betting 的冻结 prompt 没有 role 位置，加入角色句会改变 prompt；Qwen CGT v5 已 CLOSED。两者都只能与同批重跑的 neutral 比较，不能与 §3.1 / §3.3 的冻结结果比较。
+- 可选：在 Chat 接口下看角色提示是否同样不再改变输出组织，用于解释表 7a 的接口依赖。
+
+**限制：** 角色提示与 steering 方向一致只说明两者对应，是 consistent-with 证据，不证明 steering 的效应"经由"角色表征产生；提示改变的是整个上下文，steering 只改一组神经元。
 
 ### 第三优先：草稿末尾新加的"核验工具"实验，暂缓
 
@@ -115,15 +101,3 @@ Runner 的覆盖风险目前仍需读代码确认，不作为已核实事实。
 - 草稿里的回退子集准确率还是反推出来的近似值，用冻结抽取器逐题重算一遍，大约十分钟。
 - 先提交这一轮指标统一的文档改动。
 - C1 里 Qwen CGT 降为附录里的边界证据，主文的行为证据以 Betting 为主。
-
-## 时间线
-
-| 顺序 | 工作 | GPU |
-|---|---|---|
-| 1 | 提交文档；逐题重算回退子集；修改 runner 输出路径 | 否 |
-| 2 | 正交注入对照，你在服务器上跑 | 是 |
-| 3 | 等待期间：Llama 角色对应检验的离线部分 | 否 |
-| 4 | 补跑角色提示格子（Betting、CGT、Qwen GSM8K，α=0） | 是，量小 |
-| 5 | 根据 2 和 4 的结果，决定 C1 和 §2.3 的写法 | 否 |
-
-你倾向先从哪一步开始？或者你对核验工具实验的优先级看法不同？
