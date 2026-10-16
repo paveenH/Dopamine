@@ -1391,3 +1391,72 @@ Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason
 行为结果同样没有形成统一的“先思考、再回答”规律。有效 α 经常伴随更少的 early candidate、更多的 reason-first output 或更晚的正式提交，但这些变化既不是性能提升的必要条件，也不是充分条件。部分任务出现明显的 output reordering 却没有准确率收益，另一些任务则受到截断、循环、格式崩溃或行为指标饱和的影响。
 
 **Conclusion.** Fixed-workpoint transfer 在 GSM-Hard、GSM-Symbolic、BBH Object Counting 和 Qwen CRUXEval-O 上获得不同程度的支持，但不能推广到所有任务。RSN 能够调节 commitment-related output behavior，但行为方向及其与准确率的关系具有明显的 model、task、condition 和 interface dependence。
+
+
+## 7. Norm-Matched Orthogonal Injection Controls
+
+本节检验：**GSM8K 的推理收益是否依赖 RSN 的具体权重方向，还是相同强度的其他稀疏扰动也能产生类似收益？**
+
+与此前对已有 hidden states 重新投影的分析不同，本实验实际注入对照方向并重新生成答案，因此提供的是注入效果的方向特异性证据。
+
+### 7.1 Design
+
+两个模型均使用同一批 GSM8K 300 题，在 Bare No-CoT、neutral、greedy decoding 和 768-token 预算下比较五个条件：baseline、RSN 工作点，以及三个正交方向。Llama 使用 α=−6，Qwen 使用 α=+8；同模型的所有条件保持题序、prompt、生成设置和运行环境一致。
+
+三个正交方向保留与 RSN **完全相同的非零神经元位置**，逐层匹配向量范数，但将权重替换为与原角色差异方向正交的随机权重。Seed 1–3 表示三个不同方向，不是同一方向的重复生成。正交性在高精度下验证，实际 bf16 注入仅近似正交。
+
+主要性能指标为冻结离线规则的 `first_acc`；`last_acc` 用作敏感性分析。`early_candidate_rate` 描述生成开头是否出现答案候选，不直接代表内部决策或推理过程。
+
+### 7.2 Accuracy and Output Behavior
+
+**Table 7.1. Accuracy, Output Organization, and Generation Health**
+
+| Model | Condition | First acc | Δ vs baseline | Last acc | Early candidate | Loop rate | Truncated rate |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Llama | Baseline | 60.00% | — | 55.33% | 48.00% | 77.33% | 98.00% |
+| Llama | RSN −6 | **78.00%** | **+18.00 pp** | **74.67%** | **18.67%** | 88.00% | 93.33% |
+| Llama | Orthogonal seed 1 | 71.00% | +11.00 pp | 68.33% | 31.67% | 86.00% | 97.00% |
+| Llama | Orthogonal seed 2 | 66.00% | +6.00 pp | 61.33% | 46.67% | 80.00% | 94.67% |
+| Llama | Orthogonal seed 3 | 56.67% | −3.33 pp | 54.33% | 52.00% | 79.67% | 95.67% |
+| Qwen | Baseline | 69.33% | — | 75.67% | 96.67% | 10.33% | 18.00% |
+| Qwen | RSN +8 | **85.00%** | **+15.67 pp** | **80.00%** | **5.00%** | **2.00%** | **9.00%** |
+| Qwen | Orthogonal seed 1 | 69.67% | +0.33 pp | 76.33% | 97.67% | 11.33% | 18.67% |
+| Qwen | Orthogonal seed 2 | 68.33% | −1.00 pp | 75.67% | 96.33% | 9.67% | 17.00% |
+| Qwen | Orthogonal seed 3 | 69.67% | +0.33 pp | 78.00% | 95.67% | 10.00% | 15.67% |
+
+每格 n=300，所有样本均保留，无空回复。截断表示生成耗尽 token 预算；循环与截断可能同时出现，两列不能相加。
+
+**Llama 的正交方向并非全部无效。** Seed 1 将准确率提高至 71.00%，同时减少 early candidate；seed 2 有较小的正向变化，seed 3 则低于 baseline。说明同一组神经元上的其他权重方向也可能产生收益，但效果因方向而异。
+
+**Qwen 的三个正交方向均接近 baseline。** 它们没有复现 RSN 的准确率提升，也没有复现 early-candidate rate 从 96.67% 降至 5.00% 的输出重排。RSN 同时减少了循环和截断。
+
+Llama 本轮 baseline 与 RSN 的全部生成文本均与历史对应结果一致。Qwen 本轮参照为 69.33%／85.00%，与历史的 68.00%／86.00% 略有差异，因此本节使用本轮匹配参照进行比较。
+
+### 7.3 Direct Paired Comparisons
+
+特异性判断直接比较 RSN 与各正交方向，而不是比较两者是否分别显著优于 baseline。两个模型共六项主要比较，使用双侧 exact McNemar，并统一进行 Holm 校正。
+
+**Table 7.2. Direct Accuracy Differences Between RSN and Orthogonal Controls**
+
+| Model | Control | RSN − control | Raw 95% CI | Holm p |
+|---|---|---:|---:|---:|
+| Llama | Seed 1 | +7.00 pp | [+1.67, +12.33] | .0154 |
+| Llama | Seed 2 | +12.00 pp | [+6.67, +17.67] | 1.11×10⁻⁴ |
+| Llama | Seed 3 | +21.33 pp | [+15.33, +27.33] | 2.17×10⁻¹⁰ |
+| Qwen | Seed 1 | +15.33 pp | [+9.00, +21.67] | 1.48×10⁻⁵ |
+| Qwen | Seed 2 | +16.67 pp | [+10.33, +23.00] | 2.82×10⁻⁶ |
+| Qwen | Seed 3 | +15.33 pp | [+9.00, +21.67] | 1.48×10⁻⁵ |
+
+CI 为逐题配对 bootstrap 区间（B=10,000，seed=0），未进行多重比较校正；p 值按六项比较统一校正。本次 CI 使用标准库实现复算，与原 NumPy 实现的端点可能略有差异。
+
+**RSN 在六项直接比较中均高于对照，Holm 校正后仍显著。** 因而，在相同稀疏坐标和逐层等范数构造下，具体权重方向对收益有贡献。
+
+### 7.4 Interpretation and Limits
+
+两个模型提供了不同的边界。Qwen 的三个对照均未复现 RSN 的准确率和输出组织变化；Llama 则显示部分正交方向也能改善表现。因此，结果支持 **RSN 优于所测试的三个方向**，不支持“只有 RSN 才能产生收益”。
+
+生成健康度也限制了解读。Llama 各条件均存在大量循环和截断，RSN 的准确率提升并未伴随循环减少，因此不能将其描述为整体生成质量改善。Qwen 的 RSN 条件生成健康度较好，但其 `last_acc` 增益只有 4.33 pp，小于 `first_acc` 的 15.67 pp，说明收益幅度依赖答案提取时点。
+
+此外，三个方向不足以代表整个随机方向分布。由于所有对照都使用 RSN 的神经元位置，本实验不能判断这些位置本身是否特殊，也不能把输出重排认定为准确率提升的因果中介。本轮还是原工作点数据上的检查，不构成新的 held-out 验证。
+
+**Conclusion.** 在 GSM8K Bare No-CoT 的固定工作点上，RSN 的首答准确率显著高于三个同坐标、逐层等范数的正交对照，支持收益对具体权重方向的依赖。不过，Llama 的一个正交方向也带来明显收益，因此方向依赖不等于 RSN 独有，更不能据此确定其心理学或生物学机制。
