@@ -73,9 +73,11 @@ echo "output           : ${OUT}/{${ALPHA_DIRS// /,}}"
 echo "configs          : ${CONFIGS}"
 echo "CUDA_VISIBLE_DEVICES = ${CUDA_VISIBLE_DEVICES:-(unset)}"
 echo "=================================================="
-if [ -z "${CUDA_VISIBLE_DEVICES}" ]; then
-  echo "[x] pin ONE card with CUDA_VISIBLE_DEVICES (both cells must share it)"; exit 2
-fi
+# Task-specific rule for THIS experiment (the two cells of a model must share one
+# card; device_map=auto would shard over every visible card): exactly one device.
+case "${CUDA_VISIBLE_DEVICES}" in
+  ""|*,*) echo "[x] CUDA_VISIBLE_DEVICES must name exactly ONE card (got '${CUDA_VISIBLE_DEVICES}')"; exit 2 ;;
+esac
 
 if [ "${STEP}" = "check" ]; then
   # Technical wiring check only (tokenizer/terminators, prompt + injection token,
@@ -119,7 +121,7 @@ ${PY} -u get_answer_regenerate_gsm8k.py \
     --ans_file "${ANS_FILE}" --suite "${SUITE}" --fmt_wording "${WORDING}" \
     --base_dir "${BASE_DIR}" --roles "${ROLES}" \
     --max_new_tokens ${MAX_NEW_TOKENS} --temperature ${TEMPERATURE} \
-    --batch_size ${BATCH_SIZE}
+    --batch_size ${BATCH_SIZE} --save_gen_meta
 rc=$?
 echo "EXIT_STATUS=${rc} $(date +%Y-%m-%dT%H:%M:%S%z)" | tee -a "${REC}"
 exit $rc
