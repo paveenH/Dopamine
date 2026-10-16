@@ -38,6 +38,9 @@ from utils import extract_gsm8k_answer, is_correct_gsm8k
 
 # ───────────────────── Per-config runner ─────────────────────
 
+GEN_RETURNED = [0]  # replies actually returned by vc.regenerate (summed over batches)
+
+
 def run_gsm8k_regenerate(
     vc: VicundaModel,
     samples: List[dict],
@@ -77,6 +80,10 @@ def run_gsm8k_regenerate(
                 batch_size=args.batch_size,
                 return_metadata=args.save_gen_meta,
             )
+            if len(batch_out) != len(batch_prompts):
+                raise SystemExit(f"[FATAL] regenerate returned {len(batch_out)} replies for "
+                                 f"{len(batch_prompts)} prompts (role={role}, batch@{i})")
+            GEN_RETURNED[0] += len(batch_out)
             if args.save_gen_meta:
                 gen_meta.extend(batch_out)
                 batch_out = [m["text"] for m in batch_out]
@@ -144,6 +151,7 @@ def main():
 
         if args.save_gen_meta:
             vc.steering_fire_count(reset=True)
+            GEN_RETURNED[0] = 0
         with torch.no_grad():
             updated_data, accuracy = run_gsm8k_regenerate(
                 vc=vc,
@@ -211,12 +219,19 @@ def main():
             # Run record + fail-closed injection check (opt-in; default schema unchanged).
             import hashlib
             fires = vc.steering_fire_count(reset=True)
-            n_steered = int(np.count_nonzero(np.any(diff_mtx != 0, axis=1)))
-            n_gen = len(updated_data)
-            expected = n_steered * n_gen * 1  # layers x generations x tail_len=1
+            # Independent of the mask file: expected comes from the CONFIGURED band.
+            want_rows = list(utils.decoder_layer_range(st, en))
+            raw_mask = np.load(mask_path)
+            mask_rows = sorted(int(r) for r in np.nonzero(np.any(raw_mask != 0, axis=1))[0])
+            n_pool = len(all_samples)
+            n_gen = GEN_RETURNED[0]
+            n_steered = len(want_rows) if alpha != 0 else 0
+            expected = n_steered * n_pool * len(roles) * 1  # layers x generations x tail_len=1
             hdm = getattr(vc.model, "hf_device_map", None)
             meta = {
                 "alpha": alpha, "layers": [st, en], "n_generated": n_gen,
+                "n_pool": n_pool, "expect_n": args.expect_n,
+                "mask_nonzero_rows": mask_rows, "configured_rows": want_rows,
                 "n_steered_layers": n_steered, "steering_fires": fires,
                 "steering_fires_expected": expected,
                 "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
@@ -229,9 +244,21 @@ def main():
             with open(meta_path, "w", encoding="utf-8") as fm:
                 json.dump(meta, fm, indent=2)
             print("[run_meta]", meta_path, "fires", fires, "expected", expected, "n_gen", n_gen)
-            if fires != expected or n_gen != len(all_samples) * len(roles):
-                raise SystemExit(f"[FATAL] steering fires {fires} != expected {expected} "
-                                 f"or n_generated {n_gen} != {len(all_samples) * len(roles)} (alpha={alpha})")
+            problems = []
+            if args.expect_n is None or n_pool != args.expect_n:
+                problems.append(f"pool {n_pool} != expect_n {args.expect_n}")
+            if mask_rows != want_rows:
+                problems.append(f"mask nonzero rows {mask_rows} != configured band rows {want_rows}")
+            if n_gen != n_pool * len(roles):
+                problems.append(f"replies returned {n_gen} != {n_pool * len(roles)}")
+            if fires != expected:
+                problems.append(f"steering fires {fires} != expected {expected}")
+            meta["checks_passed"] = not problems
+            meta["problems"] = problems
+            with open(meta_path, "w", encoding="utf-8") as fm:
+                json.dump(meta, fm, indent=2)
+            if problems:
+                raise SystemExit(f"[FATAL] alpha={alpha}: " + "; ".join(problems))
 
         del csv_rows, config_samples
         gc.collect()
@@ -265,6 +292,8 @@ if __name__ == "__main__":
     parser.add_argument("--base_dir", type=str, default=None)
     parser.add_argument("--roles", type=str, default=None)
     # Generation parameters
+    parser.add_argument("--expect_n", type=int, default=None,
+                        help="with --save_gen_meta: required pool size (run aborts if different)")
     parser.add_argument("--save_gen_meta", action="store_true",
                         help="store generation-time token count + stop_reason per sample (default off: output schema unchanged)")
     parser.add_argument("--max_new_tokens", type=int, default=512)
