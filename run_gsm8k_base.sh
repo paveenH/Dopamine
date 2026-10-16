@@ -14,8 +14,9 @@
 # <|endoftext|> / <|end_of_text|> as eos; the extra ids exist in the vocab and are
 # harmless (a Base model is not expected to emit them). Not changed.
 #
-# SAME-GPU RULE: the two cells of one model must run on one machine and one card.
-# Pin CUDA_VISIBLE_DEVICES; the run record stores host/GPU.
+# GPU: not enforced. The two cells of a model run in ONE process (one model load);
+# per-cell run_meta_gsm8k_*.json records CUDA_VISIBLE_DEVICES, device names and
+# whether the model was sharded, plus steering_fires vs expected (L x 300).
 #
 # Usage (model = qwen or llama; step = check or run):
 #   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_base.sh qwen  check
@@ -37,11 +38,11 @@ STEP="${2:-}"
 case "${WHICH}" in
   qwen)
     MODEL_NAME="qwen2.5_base"; MODEL_DIR="Qwen/Qwen2.5-7B"; HS_PREFIX="qwen2.5"
-    MODEL_SIZE="7B"; LS=16; LE=22; ALPHA_DIRS="mdf_0 mdf_8"
+    MODEL_SIZE="7B"; CHECK_ALPHA=8; LS=16; LE=22; ALPHA_DIRS="mdf_0 mdf_8"
     CONFIGS="0-16-22 8-16-22" ;;
   llama)
     MODEL_NAME="llama3_base"; MODEL_DIR="meta-llama/Llama-3.1-8B"; HS_PREFIX="llama3"
-    MODEL_SIZE="8B"; LS=11; LE=20; ALPHA_DIRS="mdf_0 mdf_-6"
+    MODEL_SIZE="8B"; CHECK_ALPHA=-6; LS=11; LE=20; ALPHA_DIRS="mdf_0 mdf_-6"
     CONFIGS="0-11-20 neg6-11-20" ;;
   *)
     echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run"; exit 2 ;;
@@ -71,13 +72,11 @@ echo "mask (IT, reused): ${MASK}"
 echo "benchmark        : ${DATA}"
 echo "output           : ${OUT}/{${ALPHA_DIRS// /,}}"
 echo "configs          : ${CONFIGS}"
-echo "CUDA_VISIBLE_DEVICES = ${CUDA_VISIBLE_DEVICES:-(unset)}"
+echo "CUDA_VISIBLE_DEVICES = ${CUDA_VISIBLE_DEVICES:-(unset)}  (recorded, not enforced)"
 echo "=================================================="
-# Task-specific rule for THIS experiment (the two cells of a model must share one
-# card; device_map=auto would shard over every visible card): exactly one device.
-case "${CUDA_VISIBLE_DEVICES}" in
-  ""|*,*) echo "[x] CUDA_VISIBLE_DEVICES must name exactly ONE card (got '${CUDA_VISIBLE_DEVICES}')"; exit 2 ;;
-esac
+# GPU placement is NOT enforced (repo policy). Device, host and sharding are
+# recorded per cell in run_meta_gsm8k_*.json. Both cells of a model are run in
+# ONE process, so they share whatever devices that process loaded onto.
 
 if [ "${STEP}" = "check" ]; then
   # Technical wiring check only (tokenizer/terminators, prompt + injection token,
@@ -87,7 +86,7 @@ if [ "${STEP}" = "check" ]; then
       --hs "${HS_PREFIX}" --type "${TYPE}" --size "${MODEL_SIZE}" \
       --mask_type "${MASK_TYPE}" --percentage "${PERCENTAGE}" \
       --layer_start ${LS} --layer_end ${LE} --test_file "${GSM8K_FILE}" \
-      --ans_file "${ANS_FILE}" --fmt_wording "${WORDING}"
+      --ans_file "${ANS_FILE}" --fmt_wording "${WORDING}" --alpha ${CHECK_ALPHA}
   rc=$?
   [ $rc -eq 0 ] && echo "[ok] check passed" || echo "[x] check failed (rc=$rc)"
   exit $rc
