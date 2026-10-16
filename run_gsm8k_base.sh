@@ -38,12 +38,12 @@ STEP="${2:-}"
 case "${WHICH}" in
   qwen)
     MODEL_NAME="qwen2.5_base"; MODEL_DIR="Qwen/Qwen2.5-7B"; HS_PREFIX="qwen2.5"
-    MODEL_SIZE="7B"; CHECK_ALPHA=8; LS=16; LE=22; ALPHA_DIRS="mdf_0 mdf_8"
-    CONFIGS="0-16-22 8-16-22" ;;
+    MODEL_SIZE="7B"; CHECK_ALPHA=8; LS=16; LE=22; ALPHA_DIRS="mdf_0 mdf_-6 mdf_6 mdf_-8 mdf_8"
+    CONFIGS="0-16-22 neg6-16-22 6-16-22 neg8-16-22 8-16-22" ;;
   llama)
     MODEL_NAME="llama3_base"; MODEL_DIR="meta-llama/Llama-3.1-8B"; HS_PREFIX="llama3"
-    MODEL_SIZE="8B"; CHECK_ALPHA=-6; LS=11; LE=20; ALPHA_DIRS="mdf_0 mdf_-6"
-    CONFIGS="0-11-20 neg6-11-20" ;;
+    MODEL_SIZE="8B"; CHECK_ALPHA=-6; LS=11; LE=20; ALPHA_DIRS="mdf_0 mdf_-6 mdf_6 mdf_-8 mdf_8"
+    CONFIGS="0-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20" ;;
   *)
     echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run"; exit 2 ;;
 esac
