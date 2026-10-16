@@ -65,6 +65,7 @@ def run_gsm8k_regenerate(
         else:
             prompts = [templates["neg"].format(character=role, context=s["question"]) for s in samples]
         generated_texts = []
+        gen_meta = []
         for i in tqdm(range(0, len(prompts), batch_size), desc=f"GSM8K-regen [{role}]"):
             batch_prompts = prompts[i : i + batch_size]
             batch_out = vc.regenerate(
@@ -74,11 +75,18 @@ def run_gsm8k_regenerate(
                 top_p=args.top_p,
                 diff_matrices=diff_mtx,
                 batch_size=args.batch_size,
+                return_metadata=args.save_gen_meta,
             )
+            if args.save_gen_meta:
+                gen_meta.extend(batch_out)
+                batch_out = [m["text"] for m in batch_out]
             generated_texts.extend(batch_out)
 
         rk = role.replace(" ", "_")
-        for sample, generated in zip(samples, generated_texts):
+        for j, (sample, generated) in enumerate(zip(samples, generated_texts)):
+            if args.save_gen_meta:
+                sample[f"gen_tokens_{rk}"] = gen_meta[j]["generated_token_count"]
+                sample[f"stop_reason_{rk}"] = gen_meta[j]["stop_reason"]
             pred_answer = extract_gsm8k_answer(generated)
             correct = is_correct_gsm8k(pred_answer, sample["answer"])
             sample[f"generated_{rk}"] = generated
@@ -134,6 +142,8 @@ def main():
         import copy
         config_samples = copy.deepcopy(all_samples)
 
+        if args.save_gen_meta:
+            vc.steering_fire_count(reset=True)
         with torch.no_grad():
             updated_data, accuracy = run_gsm8k_regenerate(
                 vc=vc,
@@ -197,6 +207,32 @@ def main():
             writer.writerows(csv_rows)
         print(f"[Saved CSV] {csv_path}")
 
+        if args.save_gen_meta:
+            # Run record + fail-closed injection check (opt-in; default schema unchanged).
+            import hashlib
+            fires = vc.steering_fire_count(reset=True)
+            n_steered = int(np.count_nonzero(np.any(diff_mtx != 0, axis=1)))
+            n_gen = len(updated_data)
+            expected = n_steered * n_gen * 1  # layers x generations x tail_len=1
+            hdm = getattr(vc.model, "hf_device_map", None)
+            meta = {
+                "alpha": alpha, "layers": [st, en], "n_generated": n_gen,
+                "n_steered_layers": n_steered, "steering_fires": fires,
+                "steering_fires_expected": expected,
+                "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+                "cuda_device_names": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
+                "sharded": bool(hdm) and len(set(map(str, hdm.values()))) > 1,
+                "devices_used": sorted(set(map(str, hdm.values()))) if hdm else None,
+                "mask_sha256": hashlib.sha256(open(mask_path, "rb").read()).hexdigest(),
+            }
+            meta_path = os.path.join(out_dir, f"run_meta_gsm8k_{args.size}_{TOP}_{st}_{en}.json")
+            with open(meta_path, "w", encoding="utf-8") as fm:
+                json.dump(meta, fm, indent=2)
+            print("[run_meta]", meta_path, "fires", fires, "expected", expected, "n_gen", n_gen)
+            if fires != expected or n_gen != len(all_samples) * len(roles):
+                raise SystemExit(f"[FATAL] steering fires {fires} != expected {expected} "
+                                 f"or n_generated {n_gen} != {len(all_samples) * len(roles)} (alpha={alpha})")
+
         del csv_rows, config_samples
         gc.collect()
         torch.cuda.empty_cache()
@@ -229,6 +265,8 @@ if __name__ == "__main__":
     parser.add_argument("--base_dir", type=str, default=None)
     parser.add_argument("--roles", type=str, default=None)
     # Generation parameters
+    parser.add_argument("--save_gen_meta", action="store_true",
+                        help="store generation-time token count + stop_reason per sample (default off: output schema unchanged)")
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top_p", type=float, default=0.9)
