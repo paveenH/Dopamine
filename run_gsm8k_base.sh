@@ -120,7 +120,7 @@ ${PY} -u get_answer_regenerate_gsm8k.py \
     --ans_file "${ANS_FILE}" --suite "${SUITE}" --fmt_wording "${WORDING}" \
     --base_dir "${BASE_DIR}" --roles "${ROLES}" \
     --max_new_tokens ${MAX_NEW_TOKENS} --temperature ${TEMPERATURE} \
-    --batch_size ${BATCH_SIZE} --save_gen_meta
+    --batch_size ${BATCH_SIZE} --save_gen_meta --expect_n 300
 rc=$?
 echo "EXIT_STATUS=${rc} $(date +%Y-%m-%dT%H:%M:%S%z)" | tee -a "${REC}"
 exit $rc
