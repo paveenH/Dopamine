@@ -1,3 +1,63 @@
+- Role Sensitive neurons
+  - 最初目的：找到模型中对应身份切换的neurons
+  - 实验过程：Expert vs. Non-expert -> Difference mean -> Top neurons 
+  - 结果：
+    - Role Sensitive neurons主要调控的是confidence/ willingness，而非Acc
+    - 在ARC-E/ CommonSense-E上验证了RSN泛化性（RNS从MMLUE得到并且固定）；
+    - confidence以logits作为代表，同时验证了vocabalized confidence（willingness）
+    - 验证了一些其他的neurons selection的方法，比如t-test
+    - 提出Dopamine的类比 -> 选择信心与承诺；
+    - 对应的mask可转移至Base Model；
+    - 双向干预
+  - 存在的问题：
+    - confidence/ wanting/ willingness没有进行区分；
+    - 对Dopamine的类比只是提出了假设，没有进行深入的论证；
+    - Role > Expert，没有验证是不是所有的角色切换都会走这些neurons。因为对neurons的overlapping解释不足，无法对单个的neurons进行消融或者说明；激活的neurons有交叉但是不完全相同，但是能达到同样的效果，只是需要的scaling不同（eg. teacher - student）；同时neurons存在“集群效应“，只需要一定量的neurons就可以实现效果的切换。
+    - 存在neurons集中在特定index的现象（比如有的index可以有达到20层的重复）但是找不到解释的原因，或许应该从MLP weight里面或者attention head来进行解释？
+    - 与confidence neurons的差异没有进行解释（即，如果我们落点在confidence，为什么不用 confident - unconfident）
+  - 其他做过的尝试：
+    - Model Analysis
+      - 目的：原本想要探索什么模型会出现RSN的效果
+      - 假设需要两个条件：①经过人类反馈 RLHF，②原本训练的资料集中有Role对应的dataset。这两个假设都对应到Role Sensitive是后天习得的本能，在模型中存在切换系统（类似人脑中存在自我身份认知的切换）
+      - 结果：有一些效应但是没有办法完全对应；Phi是一个比较好的反例，但是也存在很多例外。
+    - Logits lens：没有找到有价值的结果
+
+- Behaviour
+  - 设想：完善对于多巴胺的假设，假设RSN的调控能够在行为学上达到类似人类进行多巴胺实验的效果；最初设计的主要实验是Bandit和Gamble。
+  - 依据：自我认知决定对任务的投入程度；自我认知是社会化的成果（与他们的连接，强化学习）-> 管理身份切换的neurons与Dopamine相关
+  - 存在的问题：
+    - 模型在很多问题上不能胜任，比如Bandit；经过调研，大小模型都无法完成探索这一步，原因可能是模型被训练的非常的理性；
+    - 模型存在心口不一的问题，即选择的方式没有办法探索模型真正的内心所想，也就是模型很熟悉大体的方式，比如询问模型是否愿意的时候，模型都会表还愿意投入；只有在模型没有意识到自己在被test的时候，或许才能知道模型真正在思考什么，比如reasoning的前置推理过程；
+    - 模型对prompt敏感，不同的prompt会得到完全不同的结果；当前的一些实验也是在多次尝试prompt之后才得到规律，这和之前两点或许也有关系；实际上不应该是这样。
+    - 以上可能都是IT Model存在的问题，不确定是不是在Base Model上面能得到改善；
+    - 当前的结果剔除无法使用的结果之外，其实还是存在很多不规律的地方；比如ICG qwen的结果只限制在+-2；
+    - 如果不使用类似Dopamine的框架的话（或者类似的理论框架），那么所有的行为学结果将无法串联；
+
+-  Reasoning Task
+  - Commitment Time 的变化是目前最清晰的行为模式转变
+  - RSN的调控和COT可以叠加
+  - 存在的问题：
+    - Qwen和Llama的调整方向是相反的，且qwen的趋势和行为学实验不符合；Qwen在reasoning的表现比Llama好，但是在行为学实验上却不不容易理解规则。猜测Qwen有针对reasoning task的训练；-> 是不是要转移到Base Model上看看
+    - Llama3 Bare模式下存在无法收尾的问题；
+    - Llama Chat有类似的表现，但是已经没有提升的空间，只能提前commitment time，让表现变差;但是Chat的影响类似RSN提升效果时候的变化；
+    - 有一些泛化能力，但是限制在类似的任务上；还不确定是不是任务自身要出现类似commitment time的提交窗口；
+    - Llama3 做了一些Role prompt的分析，效应存在但是不是很明显，实在Bare上做的；
+    - 曾经试图由Dopamine引出一些强迫和焦虑的症状，做过一些陈述；也可以检测到。
+
+- Thinking Curve
+  - 设想：建立在Dopamine的基础上，模拟人体激素释放的过程；看Dopamine如何参与任务；
+  - 实验结果：仅在prompt的阶段检测到效应，在generation阶段很快就弹回；
+  - 做过一些控制曲线的实验，但是没有效果；
+  - 目前只能发现和commitment 前后相关的变化
+
+- Representation & Manifold
+  - 只有在这里区分MRSN和GRSN（from GSM8K），其余地方的RSN都是MRSN，固定的mask
+  - MRSN vs MCSN (Confidence Sentatice Neurons)：都来来自MMLUE task，相似度高；存在overlapping显著高于随机；但是function上效果不同，MCSN不存在对commitment的明显影响；在MMLUE上可以有类似的E ratio降低的效果；
+  - MRSN & GRSN/AGRSN ：相似度很低，且GRSN找不到明显的规律；感觉起来是GRSN没有MRSN来的纯粹，可能还涉及到整体的reasoning之类
+  - MRSN vs Chat neurons from GSM8K：相似度非常低。原本的设想是Chat template来自RL，本身就包含了对模型角色的设定，应该和RSN存在重叠的方向；理论和之前是一致的，也就RL是模型产生角色认知的原因之一。
+
+---
+
 | Experiment | Prompt Format | 主要测量 | Llama3 结果 | Qwen 结果 | 当前判断 |
 |---|---|---|---|---|---|
 | **Confidence Betting：GPQA** | **Chat + `Bet: ` 前缀**；两个模型相同 | 下注大小、准确率 | +4 平均下注 **5.20→7.78**；负侧并非全程单调。准确率差异均未通过 Holm 校正 | +4 平均下注 **5.57→7.11**；+6 几乎固定押 5，+8 无效下注 **51.6%**。准确率差异未显著 | 两个模型均有明确下注调节，但高剂量存在失效 |
@@ -13,54 +73,91 @@
 | **Fixed-Answer MMLU** | **Bare，Non-expert 提示**；仅读取候选 logits | 固定答案的正确性评分与条件提交倾向 | +4 条件提交读数 **.610→.682**；但 X/Y 概率质量极低，−4 受标签／位置偏好影响 | 当前文档未见对应结果 | 尚未成功分离 confidence 与实际提交行为 |
 
 ---
+
 ### GSM8K Base
 
-Qwen 的方向反转，是不是推理训练造成的。我看了驱动脚本，不用改代码就能跑。关键看 **Qwen2.5-7B Base 在 α=0 时会不会也"先答后算"**。Qwen-IT 的 early-candidate 是 96%。
+**从 Instruct 模型提取的 RSN 方向，在对应的 Base 模型上，能否改变答案候选的出现顺序和任务表现？**
 
-| Qwen Base 的表现 | 含义 |
+它可以帮助判断 Qwen 与 Llama 的行为差异是否已出现在 Base 检查点，但单凭 Base–Instruct 比较不能把差异归因于 RLHF，也不能把 Base 模型视为模型“真实意愿”的读数。结果应作为训练阶段相关的机制线索来解读。
+
+### Design
+
+| Item | Setup |
 |---|---|
-| α=0 已经先答后算，+8 也让它改成先推理 | 反转在预训练阶段就存在，不是 IT 造成的。Qwen2.5 的预训练里本来就有大量合成数学数据，所以这个结果完全可能出现 |
-| α=0 先推理，或 +8 不起作用 | 反转和指令微调有关 |
-| 格式本身就不健康（续写新题、循环、不写 `####`） | 这个接口在 Base 上读不出结果，需要改用 few-shot |
+| Models | `Qwen/Qwen2.5-7B` Base 和 `meta-llama/Llama-3.1-8B` Base |
+| Masks | 重用对应 Instruct 模型提取的 NMD mask，不重新提取 |
+| Prompt | 与 Instruct 的 Bare zero-shot GSM8K 使用相同接口 |
+| Conditions | Qwen：α=`0,+8`；Llama：α=`0,−6` |
+| Readouts | 先检查生成与格式健康；通过可解释性检查后，再报告 `early_candidate_rate` 和离线 `first_acc` |
 
-Llama Base 作为对照：它应该保持 Llama-IT 的方向，即 −6 让它更晚给出候选答案。
+每个模型一次加载运行两个条件，共四格。`--model` 用于隔离 Base 输出路径，`--hs` 保持为对应 Instruct mask 的目录名。
 
-## 最小设计
+### Interpretation
 
-- **模型：** `Qwen/Qwen2.5-7B` 和 `meta-llama/Llama-3.1-8B`，都是 Base。
-- **mask：** 用 IT 上提取的 mask，不另外提取。Base 和 IT 层数、维度相同。原论文在 MMLU-E 上已经证明这样能起作用。
-- **prompt：** 和 IT 的 Bare zero-shot 完全一样。这样 Base 和 IT 之间只有模型不同。先不用 few-shot，因为它会同时改变接口。
-- **α：** 0 和冻结工作点（Qwen +8，Llama −6）。一次加载跑两格，每个模型 2 格，共 4 格。
-- **读数：**
-  - 先看格式健康：no-marker、loop、截断，以及有没有续写出新题；
-  - 健康的话，再看 `early_candidate_rate` 和 `first_acc`。
+Qwen Instruct 的 `early_candidate_rate` 为 96%。Base 检查重点看这一输出组织特征在 α=0 时是否已出现，以及 α=+8 是否改变它：
 
-## 启动命令
+| Qwen Base pattern | Interpretation |
+|---|---|
+| α=0 已常在推理前出现候选答案，α=+8 又使输出转向先推理 | 这种方向关系在 Base 条件下也可观察到；不能据此单独断定其由预训练造成 |
+| α=0 先推理，或 α=+8 未改变输出组织 | 本次 Base 检查没有观察到 Instruct 中相同的方向关系；仍不能单独归因于指令微调 |
+| α=0 格式或生成不健康 | 当前接口下结果不可解释；先报告格式问题，不把 steering 的 null 当成有效的无效应证据 |
 
-`--model` 只决定输出路径，所以设成 `qwen2.5_base` / `llama3_base` 就能和 IT 结果分开。`--hs` 不变，这样会读 IT 的 mask。
+Llama Base 是方向对照：观察 α=−6 是否让候选答案更晚出现，方向是否与 Llama Instruct 的结果一致。
 
-```bash
-cd /data1/paveen/Dopamine
-CUDA_VISIBLE_DEVICES=0 nohup python get_answer_regenerate_gsm8k.py \
-  --model qwen2.5_base --model_dir Qwen/Qwen2.5-7B --hs qwen2.5 --size 7B \
-  --type non --percentage 0.5 --mask_type nmd --configs 0-16-22 8-16-22 \
-  --test_file benchmark/gsm8k_test_sample.json --ans_file answer_mdf_gsm8k \
-  --suite default --fmt_wording plain --base_dir /data1/paveen/Dopamine/components \
-  --roles neutral --max_new_tokens 768 --temperature 0 --batch_size 24 \
-  > qwen_base_gsm8k.log 2>&1 &
+### Validity and reporting
 
-CUDA_VISIBLE_DEVICES=1 nohup python get_answer_regenerate_gsm8k.py \
-  --model llama3_base --model_dir meta-llama/Llama-3.1-8B --hs llama3 --size 8B \
-  --type non --percentage 0.5 --mask_type nmd --configs 0-11-20 neg6-11-20 \
-  --test_file benchmark/gsm8k_test_sample.json --ans_file answer_mdf_gsm8k \
-  --suite default --fmt_wording plain --base_dir /data1/paveen/Dopamine/components \
-  --roles neutral --max_new_tokens 768 --temperature 0 --batch_size 24 \
-  > llama_base_gsm8k.log 2>&1 &
-```
+先检查 α=0 的生成健康，再判断 steering 条件是否可解释。至少报告 no-marker、循环、截断，以及是否续写出新题等情况。若基线输出无法稳定进入可评分的 GSM8K 答题格式，应将该模型标记为**当前接口下不可评估**，而不是把后续差异解读为 steering 的效果或 null。
 
-输出会写到 `components/{qwen2.5_base,llama3_base}/answer_mdf_gsm8k/mdf_{0,8|-6}/`。启动后先 `cat` 两个 log，确认已经开始运行。
+若格式健康，再报告 `early_candidate_rate` 和冻结离线解析器计算的 `first_acc`。两者是主要读数：前者描述生成文本中答案候选出现的顺序，后者衡量离线评分表现；它们都不能单独证明模型内部的决策过程或因果机制。预训练中存在合成数学数据可以作为解释这一结果的背景假设，但不应写成这项比较已经验证的原因。
+
+### Launch
+
+服务器上的 `run_gsm8k_base.sh` 提供 `check` 和 `run` 两步；运行前先执行相应模型的技术检查，再启动四格实验。运行后查看 `qwen_base_gsm8k.log` 和 `llama_base_gsm8k.log`，确认任务已开始，并检查输出与评分可解释性。
+
+输出目录为：
+
+- `components/qwen2.5_base/answer_mdf_gsm8k/mdf_{0,8}/`
+- `components/llama3_base/answer_mdf_gsm8k/mdf_{0,-6}/`
+
+启动前还需处理 launcher 顶部与现行 GPU 政策不一致的 `SAME-GPU RULE` 注释：改为说明运行记录会保存 host/GPU 信息。‌‌
 
 ---
+
+**2．新实验优先做：Qwen 的 Expert 提示，是否复现正向 RSN 的输出变化？**
+
+这是你在 `tmp.md` 中已有的思路，我认为现在值得优先落实。它直接检验一个解释：
+
+> 两个模型学到的“专家作答策略”不同，所以相同角色方向在数学推理中产生不同表现。
+
+最小设计是 Qwen GSM8K Bare No-CoT，α＝0，同批比较 **Expert／Non-Expert／Neutral**，固定模板、题目和评分。主要看 early-candidate rate，准确率作为辅助；Llama 已有角色输出可以先离线重算作对照。
+
+| 结果 | 对解释的影响 |
+|---|---|
+| Qwen Expert 比 Non-Expert 更少提前给候选答案，与 +α 一致 | 支持角色提示与 steering 的行为对应 |
+| 方向相反 | 削弱“steering 就是复现专家策略”的简单解释 |
+| 差异很小、区间较宽 | 该检验暂时不能区分解释 |
+
+**即使一致，也只是对应证据，不能证明效应经由身份表征产生。** 先冻结预测，不根据结果反复改 prompt。
+
+**3．随后优先解决 RSN 与 CSN 的区别。**
+
+这里需要修正你之前的一点理解：最新 [Neurons.md](/Users/paveenhuang/Downloads/Dopamine/Note/Neurons.md:162) 显示，**CSN 也会改变候选输出和提交行为**；小剂量有准确率改善趋势，但尚未通过多重比较校正。
+
+因此，下一步应先做**逐层范数匹配、有限剂量范围的功能比较**，再决定是否分解共享方向和剩余方向。现在直接把二者的差异命名为“confidence 与 commitment 的区别”，证据还不够。
+
+对比激活均值来改变行为已有 [CAA 等先例](https://aclanthology.org/2024.acl-long.828/)。我认为我们接下来的贡献应集中在：**用有区分力的预测，说明 RSN 的功能及边界。** 核验工具、新行为任务和更细的 MLP／attention 追踪，可以等这一步有结论后再决定。
+
+---
+
+2. 正交对照补一组 off-support（ortho_gauss_off）
+每个模型补 3 个 cell，生成方式和 §7 完全相同，只是把非零位置挪到 RSN 位置之外。
+和现有的 same-support 结果放在一起，就能把"位置"和"权重"两个因素拆开。Llama 尤其需要这组数据。
+如果 off-support 在 Llama 上也能涨分，那说明 Llama 在这个工作点上对稀疏扰动本身就比较敏感，§7 的结论要相应收窄。如果不涨，就能支持"RSN 的位置也是特殊的"。
+生成 mask 的工具 detection/nmd.py 里已经有，代价很小。
+是否给 Llama 加更多 seed（比如加到 10 个）可以放到后面再定。3 个 seed 只能说明"RSN 比这三个方向好"，加 seed 可以换来一个百分位式的说法，但不是必需的。
+
+---
+
 ### 第二优先：角色提示与 steering 的对应检验（先做一格，GPU 开销小）
 
 RSN 在定义上是 expert − non-expert 的表征差，所以最直接的检验不预设心理功能，只问：
