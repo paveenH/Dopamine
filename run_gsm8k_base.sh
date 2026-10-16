@@ -45,11 +45,18 @@ case "${WHICH}" in
     MODEL_SIZE="8B"; CHECK_ALPHA=-6; LS=11; LE=20; ALPHA_DIRS="mdf_0 mdf_-6 mdf_6 mdf_-8 mdf_8"
     CONFIGS="0-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20" ;;
   *)
-    echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run"; exit 2 ;;
+    echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run-or-run-extra"; exit 2 ;;
 esac
 case "${STEP}" in
   check|run) ;;
-  *) echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run"; exit 2 ;;
+  run-extra)
+    # Supplement: ONLY the one new cell per model; alpha=0 and earlier cells are not re-run.
+    case "${WHICH}" in
+      qwen)  ALPHA_DIRS="mdf_-8"; CONFIGS="neg8-16-22" ;;
+      llama) ALPHA_DIRS="mdf_6";  CONFIGS="6-11-20" ;;
+    esac
+    STEP="run" ;;
+  *) echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run-or-run-extra"; exit 2 ;;
 esac
 
 TYPE="non"; SUITE="default"; MASK_TYPE="nmd"; PERCENTAGE=0.5
