@@ -74,46 +74,6 @@
 | **Fixed-Answer MMLU** | **Bare，Non-expert 提示**；仅读取候选 logits | 固定答案的正确性评分与条件提交倾向 | +4 条件提交读数 **.610→.682**；但 X/Y 概率质量极低，−4 受标签／位置偏好影响 | 当前文档未见对应结果 | 尚未成功分离 confidence 与实际提交行为 |
 
 ---
-
-## 2. Off-Support Orthogonal Control
-
-### Rationale
-
-RSN mask 包含两类信息：**坐标位置**（每层选中的约 20 个神经元）和这些坐标上的**权重方向**。
-
-§7 的三个正交对照属于 on-support control：它们保留 RSN 选中的坐标位置，替换权重方向，使其与原方向正交，并逐层匹配范数。也就是说，位置不变，只改变在这些坐标上的推法。
-
-结果显示，Qwen 的三个 on-support 对照都接近基线；Llama 的结果则随方向而异，其中 seed 1 比基线高 11 pp。这意味着 Llama 的这一收益不能只靠“对照方向无效”来解释：它可能与 RSN 选中的坐标位置有关，也可能反映模型对某些等范数稀疏扰动敏感。现有 on-support 对照无法区分这两种解释。
-
-### Proposed Control
-
-off-support 对照将非零坐标移到 RSN 未选中的其他神经元上，同时使用正交随机权重并逐层匹配范数。它更换了坐标位置，并控制权重方向与干预强度。该 mask 可由 `detection/nmd.py` 中现有的 `ortho_gauss_off` 生成。
-
-| Condition | Coordinate Support | Weight Direction | Llama Result |
-|---|---|---|---:|
-| RSN | RSN-selected | RSN direction | +18 pp |
-| On-support orthogonal | RSN-selected | Random orthogonal direction | −3 to +11 pp |
-| Off-support orthogonal | Other coordinates | Random orthogonal direction | Pending |
-| Baseline | — | — | 0 |
-
-### Possible Outcomes
-
-- **Off-support 对照接近基线，而部分 on-support 对照有效：** 这将支持 RSN 选中的坐标位置对 Llama 的收益有贡献。结论仍限于本次测试的 off-support 方向和工作点。
-- **Off-support 对照也经常有效：** 这将提示 Llama 对本次测试的等范数稀疏扰动本身较敏感，需要收窄 §7 对 Llama 方向特异性的解释。Qwen 的已有结果不因此改变。
-
-这些对照不能代表所有可能的坐标位置或随机方向，因此应按实际测试的方向数报告结果，不推广为对所有稀疏扰动的结论。
-
-### Scope
-
-每个模型增加 3 个 off-support 条件，沿用 §7 的生成设置，只替换 mask。Llama 是主要目标；Qwen 可作为补充对照。若先进行抽样脚本开发，可在 `RoleAnswer/` 中完成，不需要服务器。
-
-## 3. Final GPU Experiment: Llama Off-Support Orthogonal Controls
-
-最后一项 GPU 实验聚焦 Llama 的 3 个 off-support 条件，用来检验 §7 留下的问题：**Llama 的收益是否部分依赖 RSN 选中的坐标位置？**
-
-实验沿用 §7 的生成设置，仅替换为 off-support 正交 mask。若 off-support 方向也能产生收益，结果会提示 Llama 对其他坐标上的稀疏扰动同样敏感；若这些对照接近基线，而 on-support 中部分方向仍有效，则会支持坐标位置参与收益形成。无论结果如何，结论都限于本次测试的坐标、方向和工作点；它可以部分回应“其他神经元组合是否也能起效”，但不能代表全部可能的神经元组合。
-
----
 ‌
 **2．新实验优先做：Qwen 的 Expert 提示，是否复现正向 RSN 的输出变化？**
 
