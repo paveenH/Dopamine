@@ -198,10 +198,17 @@ def main():
         print(f"     BOS count != 1 : {bad_bos} of {len(one_shot_prompts)}  (chat template not used)")
         print(f"     final token(s) : { {f'{k}:{tk.decode([k])!r}': v for k, v in tails.items()} }")
         print(f"     '####' count in prompt 0: {one_shot_prompts[0].count('####')}  (demo answer 1 + directive 2 = 3)")
-        print(f"     gold of test items in prompts: "
-              f"{sum(s['answer'] in p for s, p in zip(samples, one_shot_prompts))}  (expected 0)")
-        if bad_bos or sum(s['answer'] in p for s, p in zip(samples, one_shot_prompts)):
-            print("[FAIL] BOS / gold-leak check")
+        # Structural leak check (digit overlap is NOT a leak: the answer number often appears in the
+        # question itself). Each prompt must be exactly demo block + frozen template(question); the
+        # builder never receives a gold field, and this rebuild uses questions only.
+        demo_block = tmpl["neutral"].format(context=demo["question"]) + demo["answer"] + "\n\n"
+        bad_struct = sum(pr != demo_block + tmpl["neutral"].format(context=s_["question"])
+                         for s_, pr in zip(samples, one_shot_prompts))
+        print(f"     prompts != demo+template(question): {bad_struct}  (expected 0)")
+        space_ids = {k for k in tails if tk.decode([k]) == " "}
+        print(f"     final tokens all one id decoding to ' ': {len(tails) == 1 and set(tails) == space_ids}")
+        if bad_bos or bad_struct or len(tails) != 1 or set(tails) != space_ids:
+            print("[FAIL] BOS / structure / final-token check")
             return 1
         print("     injection site = LAST prefill token of the TARGET question's 'Answer: '"
               " (the demo's answer sits earlier in the sequence and is not steered).")
