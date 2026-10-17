@@ -74,55 +74,40 @@
 
 ---
 
-### GSM8K Base
+2. off-support 正交对照
+先回顾 §7 做了什么。 RSN 的 mask 有两部分信息：
 
-**从 Instruct 模型提取的 RSN 方向，在对应的 Base 模型上，能否改变答案候选的出现顺序和任务表现？**
+位置：每层选中了哪约 20 个神经元（support）；
+权重：在这些神经元上各加多少，也就是方向。
+§7 的三个正交对照属于 on-support：神经元位置和 RSN 完全一样，只把权重换成与原方向正交的随机值，并且逐层保持同样的总范数。打个比方，就是同一组琴键，换一种按法。
 
-它可以帮助判断 Qwen 与 Llama 的行为差异是否已出现在 Base 检查点，但单凭 Base–Instruct 比较不能把差异归因于 RLHF，也不能把 Base 模型视为模型“真实意愿”的读数。结果应作为训练阶段相关的机制线索来解读。
+结果是：Qwen 换了按法就完全没效果；Llama 换了按法有时也有效，seed 1 提高了 11 pp。
 
-### Design
+这留下了一个疑问。 Llama 的 seed 1 有效，可能有两种原因：
 
-| Item | Setup |
-|---|---|
-| Models | `Qwen/Qwen2.5-7B` Base 和 `meta-llama/Llama-3.1-8B` Base |
-| Masks | 重用对应 Instruct 模型提取的 NMD mask，不重新提取 |
-| Prompt | 与 Instruct 的 Bare zero-shot GSM8K 使用相同接口 |
-| Conditions | Qwen：α=`0,+8`；Llama：α=`0,−6` |
-| Readouts | 先检查生成与格式健康；通过可解释性检查后，再报告 `early_candidate_rate` 和离线 `first_acc` |
+(a) 这组神经元的位置本身就很特殊，在上面随便怎么推都会有些效果；
+(b) 位置并不特殊，Llama 只是在这个工作点上对任何同等大小的稀疏扰动都比较敏感。
+只用 on-support 对照，区分不了这两种情况。
 
-每个模型一次加载运行两个条件，共四格。`--model` 用于隔离 Base 输出路径，`--hs` 保持为对应 Instruct mask 的目录名。
+off-support 怎么区分。 把非零位置换到 RSN 没选中的其他神经元上，权重是正交随机的，范数照样逐层对齐。比方说，就是换一组琴键，用同样的力度按。这个 mask 由现有工具 detection/nmd.py 的 ortho_gauss_off 生成。
 
-### Interpretation
+四种情况放在一起看：
 
-Qwen Instruct 的 `early_candidate_rate` 为 96%。Base 检查重点看这一输出组织特征在 α=0 时是否已出现，以及 α=+8 是否改变它：
+条件	位置	权重	已有结果（Llama）
+RSN	RSN 选中的	RSN 方向	+18 pp
+on-support 正交	RSN 选中的	随机正交	−3 ~ +11 pp
+off-support 正交	其他神经元	随机正交	待测
+baseline	—	—	0
+两种可能的结果和解读：
 
-| Qwen Base pattern | Interpretation |
-|---|---|
-| α=0 已常在推理前出现候选答案，α=+8 又使输出转向先推理 | 这种方向关系在 Base 条件下也可观察到；不能据此单独断定其由预训练造成 |
-| α=0 先推理，或 α=+8 未改变输出组织 | 本次 Base 检查没有观察到 Instruct 中相同的方向关系；仍不能单独归因于指令微调 |
-| α=0 格式或生成不健康 | 当前接口下结果不可解释；先报告格式问题，不把 steering 的 null 当成有效的无效应证据 |
+off-support 基本无效，而 on-support 有时有效：说明 RSN 选中的位置本身是特殊的，Llama 的收益同时来自位置和方向。
+off-support 也经常有效：说明 Llama 对稀疏扰动本身就敏感，§7 关于 Llama 的结论需要收窄，Qwen 的结论不受影响。
+成本。 每个模型 3 个 cell，生成设置和 §7 完全相同，只是 mask 换掉。实际上 Llama 才最需要这组对照，Qwen 可以选做。
 
-Llama Base 是方向对照：观察 α=−6 是否让候选答案更晚出现，方向是否与 Llama Instruct 的结果一致。
-
-### Validity and reporting
-
-先检查 α=0 的生成健康，再判断 steering 条件是否可解释。至少报告 no-marker、循环、截断，以及是否续写出新题等情况。若基线输出无法稳定进入可评分的 GSM8K 答题格式，应将该模型标记为**当前接口下不可评估**，而不是把后续差异解读为 steering 的效果或 null。
-
-若格式健康，再报告 `early_candidate_rate` 和冻结离线解析器计算的 `first_acc`。两者是主要读数：前者描述生成文本中答案候选出现的顺序，后者衡量离线评分表现；它们都不能单独证明模型内部的决策过程或因果机制。预训练中存在合成数学数据可以作为解释这一结果的背景假设，但不应写成这项比较已经验证的原因。
-
-### Launch
-
-服务器上的 `run_gsm8k_base.sh` 提供 `check` 和 `run` 两步；运行前先执行相应模型的技术检查，再启动四格实验。运行后查看 `qwen_base_gsm8k.log` 和 `llama_base_gsm8k.log`，确认任务已开始，并检查输出与评分可解释性。
-
-输出目录为：
-
-- `components/qwen2.5_base/answer_mdf_gsm8k/mdf_{0,8}/`
-- `components/llama3_base/answer_mdf_gsm8k/mdf_{0,-6}/`
-
-启动前还需处理 launcher 顶部与现行 GPU 政策不一致的 `SAME-GPU RULE` 注释：改为说明运行记录会保存 host/GPU 信息。‌‌
+需要的话，我可以先写第 1 项的抽样脚本，放在 RoleAnswer/，不需要服务器。
 
 ---
-
+‌
 **2．新实验优先做：Qwen 的 Expert 提示，是否复现正向 RSN 的输出变化？**
 
 这是你在 `tmp.md` 中已有的思路，我认为现在值得优先落实。它直接检验一个解释：
