@@ -1463,39 +1463,47 @@ CI 为逐题配对 bootstrap 区间（B=10,000，seed=0），未进行多重比�
 
 ### 7.5 Off-Support Orthogonal Controls
 
-本实验进一步检查：**GSM8K 的收益是否依赖 RSN 选中的神经元坐标？**
+本节在 §7 的 on-support 对照之外，加入与 RSN 非零坐标完全不重叠的 off-support 随机正交方向。六个新条件沿用同一题目集和任务设置；每格 300 条回复、无空回复，注入计数符合预期。这里的 `early_candidate` 指**生成开头出现答案候选**，不等于“未经推导就给出最终答案”。
 
-沿用 §7 的 300 道题、Bare No-CoT 提示和生成设置，分别在 Llama α=−6、Qwen α=+8 下测试三个 `ortho_gauss_off` 方向。这些方向与 RSN 的非零坐标完全不重叠，逐层匹配非零数量和向量范数，并与 dense role-difference 方向正交。六个新增条件均生成了 300 条回复，没有空回复，注入计数符合预期。
+**Table 7.3. Accuracy and Early-Candidate Rates Across Injection Conditions**
 
-**Table 7.3. First-Answer Accuracy Across Injection Conditions**
+| Condition | Llama First Acc. | Llama Early Candidate | Qwen First Acc. | Qwen Early Candidate |
+|---|---:|---:|---:|---:|
+| Baseline | 60.00% | 48.00% | 69.33% | 96.67% |
+| RSN | **78.00%** | **18.67%** | **85.00%** | **5.00%** |
+| On-support seed 1 | 71.00% | 31.67% | 69.67% | 97.67% |
+| On-support seed 2 | 66.00% | 46.67% | 68.33% | 96.33% |
+| On-support seed 3 | 56.67% | 52.00% | 69.67% | 95.67% |
+| Off-support seed 1 | 75.33% | 23.67% | 72.33% | 89.00% |
+| Off-support seed 2 | 63.00% | 37.00% | 68.33% | 93.00% |
+| Off-support seed 3 | 62.67% | 37.67% | 72.00% | 88.33% |
 
-| Condition | Llama | Qwen |
-|---|---:|---:|
-| Baseline | 60.00% | 69.33% |
-| RSN | **78.00%** | **85.00%** |
-| On-support seed 1 | 71.00% | 69.67% |
-| On-support seed 2 | 66.00% | 68.33% |
-| On-support seed 3 | 56.67% | 69.67% |
-| Off-support seed 1 | **75.33%** | 72.33% |
-| Off-support seed 2 | 63.00% | 68.33% |
-| Off-support seed 3 | 62.67% | 72.00% |
+**Qwen：** 六个已测试随机正交方向均未复现 RSN 的准确率与输出组织变化，支持相对于这些已测试方向的方向特异性。该结论不表示收益完全来自 RSN 方向，也不表示坐标位置无关或所有随机方向都等同于基线。
 
-**Qwen 的结果继续支持具体方向对收益有贡献。** 三个 off-support 对照的准确率为 68.33%–72.33%，均低于 RSN 的 85.00%。它们的 early-candidate rate 仍为 88.3%–93.0%，而 RSN 为 5.0%。因此，本次测试的 on-support 和 off-support 随机方向都没有复现 RSN 的准确率与输出组织变化。
+**Llama：** 六个随机方向的平均准确率为 65.78%，比基线高 **5.78 pp**；RSN 比该平均值高 **12.22 pp**。对应的逐题 bootstrap 区间见 Table 7.4。区间未作多重比较校正，仅反映这六个固定方向下的题目抽样不确定性。不能将均值差解释为“部分收益来自通用扰动、其余来自 RSN”，也不能推广为任意等范数稀疏扰动都有效。
 
-**Llama 的 off-support seed 1 达到 75.33%，提示收益可能不严格依赖 RSN 坐标。** 其 early-candidate rate 为 23.7%，也接近 RSN 的 18.7%。但这一比较尚未通过冻结协议的来源兼容性检查：旧参照与新增结果的模型配置 hash 不同，Transformers 从 `5.1.0` 变为 `5.2.0.dev0`，运行机器也不同。因此，Llama 的跨批次差异目前仅作描述，不能直接归因于注入方向。
+Table 7.5 报告了六项 RSN 与 off-support 方向的逐题配对比较。Llama seed 1 的差异未检出显著；其余五项经 Holm 校正后显著。六项 off-support 配对构成独立的 Holm 家族，不与 §7.2 Table 7.2 合并。CI 未作多重比较校正。
 
-**Table 7.4. Mean Accuracy Across the Three Tested Directions**
+**Table 7.4. Mean Accuracy Across Random Directions**
 
-| Model | On-support | Off-support | On − Off [95% CI], pp |
-|---|---:|---:|---:|
-| Llama† | 64.56% | 67.00% | −2.44 [−6.22, +1.22] |
-| Qwen | 69.22% | 70.89% | −1.67 [−5.00, +1.67] |
+| Model | On-Support Mean | Off-Support Mean | Six-Direction Mean | Six-Direction Mean − Baseline | RSN − Six-Direction Mean | On − Off [95% CI], pp |
+|---|---:|---:|---:|---:|---:|---:|
+| Llama† | 64.56% | 67.00% | 65.78% | +5.78 [+1.61, +9.94] | +12.22 [+7.72, +16.61] | −2.44 [−6.22, +1.22] |
+| Qwen | 69.22% | 70.89% | 70.06% | +0.72 [−3.61, +5.06] | +14.94 [+9.94, +19.94] | −1.67 [−5.00, +1.67] |
 
-† Llama 未通过参照兼容性检查，仅作描述性比较。区间为逐题配对 bootstrap（B=10000，seed=0），未经多重比较校正，仅反映本次固定方向下的题目抽样不确定性。此次使用标准库随机数实现，与原分析脚本的 NumPy 实现不同。
+† Llama 的均值比较跨越来源不同的结果批次，作描述性呈现。六方向均值差的 CI 为逐题配对 bootstrap（B=10,000，seed=0），未经多重比较校正；仅反映这些固定方向下的题目抽样不确定性。该实现与其他表的 bootstrap 实现略有差别，端点可相差约 0.3 pp；on−off 区间沿用原报告值。
 
-两个模型均未显示 on-support 随机方向整体优于 off-support 随机方向。生成健康度仍需保留：Llama 新增条件有 94%–95% 的回复达到生成上限；Qwen 为 14.7%–21.3%，且新增条件使用两卡分片，与旧参照不同。
+**Table 7.5. RSN Versus Off-Support Directions**
 
-**Conclusion.** Qwen 的结果支持 RSN 优于本次测试的六个随机正交方向；Llama 的描述性结果提示，其他坐标上的扰动也可能有效，但需核清配置差异或补跑匹配参照。现有结果不足以证明 RSN 坐标具有独占性，也不能据此确定其心理学或生物学机制。
+| Model | Off-Support Direction | RSN − Control First Acc. [95% CI] | Discordant (RSN only / Control only) | Raw McNemar p | Holm p (m=6) |
+|---|---|---:|---:|---:|---:|
+| Llama† | Seed 1 | +2.67 pp [−3.00, +8.33] | 42 / 34 | .422 | .422 |
+| Llama† | Seed 2 | +15.00 pp [+8.67, +21.33] | 69 / 24 | 3.30×10⁻⁶ | 1.32×10⁻⁵ |
+| Llama† | Seed 3 | +15.33 pp [+9.33, +21.33] | 70 / 24 | 2.20×10⁻⁶ | 1.10×10⁻⁵ |
+| Qwen | Seed 1 | +12.67 pp [+6.67, +18.67] | 63 / 25 | 6.27×10⁻⁵ | 1.25×10⁻⁴ |
+| Qwen | Seed 2 | +16.67 pp [+10.67, +22.67] | 71 / 21 | 1.62×10⁻⁷ | 9.70×10⁻⁷ |
+| Qwen | Seed 3 | +13.00 pp [+7.00, +19.00] | 63 / 24 | 3.48×10⁻⁵ | 1.04×10⁻⁴ |
+
 
 ---
 ## 8. Transfer to Base Checkpoints
