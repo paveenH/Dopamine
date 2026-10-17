@@ -34,14 +34,14 @@
     - 如果不使用类似Dopamine的框架的话（或者类似的理论框架），那么所有的行为学结果将无法串联；
 
 -  Reasoning Task
-  - Commitment Time 的变化是目前最清晰的行为模式转变
-  - RSN的调控和COT可以叠加
-  - 存在的问题：
-    - Qwen和Llama的调整方向是相反的，且qwen的趋势和行为学实验不符合；Qwen在reasoning的表现比Llama好，但是在行为学实验上却不不容易理解规则。猜测Qwen有针对reasoning task的训练；-> 是不是要转移到Base Model上看看
-    - Llama3 Bare模式下存在无法收尾的问题；
-    - Llama Chat有类似的表现，但是已经没有提升的空间，只能提前commitment time，让表现变差;但是Chat的影响类似RSN提升效果时候的变化；
-    - 有一些泛化能力，但是限制在类似的任务上；还不确定是不是任务自身要出现类似commitment time的提交窗口；
-    - Llama3 做了一些Role prompt的分析，效应存在但是不是很明显，实在Bare上做的；
+      - Commitment Time 的变化是目前最清晰的行为模式转变
+      - RSN的调控和COT可以叠加
+      - 存在的问题：
+        - Qwen和Llama的调整方向是相反的，且qwen的趋势和行为学实验不符合；Qwen在reasoning的表现比Llama好，但是在行为学实验上却不不容易理解规则。猜测Qwen有针对reasoning task的训练；-> 是不是要转移到Base Model上看看
+        - Llama3 Bare模式下存在无法收尾的问题；
+        - Llama Chat有类似的表现，但是已经没有提升的空间，只能提前commitment time，让表现变差;但是Chat的影响类似RSN提升效果时候的变化；
+        - 有一些泛化能力，但是限制在类似的任务上；还不确定是不是任务自身要出现类似commitment time的提交窗口；
+        - Llama3 做了一些Role prompt的分析，效应存在但是不是很明显，实在Bare上做的；
     - 曾经试图由Dopamine引出一些强迫和焦虑的症状，做过一些陈述；也可以检测到。
 
 - Thinking Curve
