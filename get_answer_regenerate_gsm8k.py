@@ -30,6 +30,7 @@ from tqdm import tqdm
 from llms import VicundaModel
 from template import select_templates_gsm8k
 import utils
+import gsm8k_1shot
 
 
 # Answer extraction / correctness imported from utils (canonical, shared across scripts).
@@ -38,6 +39,7 @@ from utils import extract_gsm8k_answer, is_correct_gsm8k
 
 # ───────────────────── Per-config runner ─────────────────────
 
+FEWSHOT = {}  # filled in main() only when --fewshot_file is set
 GEN_RETURNED = [0]  # replies actually returned by vc.regenerate (summed over batches)
 
 
@@ -63,7 +65,25 @@ def run_gsm8k_regenerate(
         # construct_prompt's default(+honest) branch: neutral → neutral template,
         # any other role → neg template ("Now you are {role}."). This matches
         # track_dopamine_signal.py so the two scripts produce identical prompts.
-        if role in ("neutral", "norole"):
+        if args.fewshot_file:
+            if role not in ("neutral", "norole"):
+                raise SystemExit("[FATAL] --fewshot_file supports the neutral role only")
+            _prefix, prompts = gsm8k_1shot.build_prompts(
+                templates["neutral"], FEWSHOT["demo"], [s["question"] for s in samples])
+            FEWSHOT["prompts_sha256"] = gsm8k_1shot.prompts_sha256(prompts)
+            FEWSHOT["n_prompts"] = len(prompts)
+            if FEWSHOT.get("tok_checked") is None:
+                tk = vc.tokenizer
+                bos, tails = tk.bos_token_id, {}
+                for p_ in prompts:
+                    ids = tk(p_)["input_ids"]
+                    if bos is not None and ids.count(bos) != 1:
+                        raise SystemExit(f"[FATAL] prompt has {ids.count(bos)} BOS tokens, expected 1")
+                    tails[ids[-1]] = tails.get(ids[-1], 0) + 1
+                FEWSHOT["tok_checked"] = True
+                FEWSHOT["final_token_counts"] = {f"{k}:{tk.decode([k])!r}": v for k, v in tails.items()}
+                print("[1shot] final prefill token ids:", FEWSHOT["final_token_counts"])
+        elif role in ("neutral", "norole"):
             prompts = [templates["neutral"].format(context=s["question"]) for s in samples]
         else:
             prompts = [templates["neg"].format(character=role, context=s["question"]) for s in samples]
@@ -129,6 +149,13 @@ def main():
 
     # Templates
     templates = select_templates_gsm8k(suite=args.suite, cot=args.cot, wording=args.fmt_wording)
+
+    if args.fewshot_file:
+        FEWSHOT["demo"] = gsm8k_1shot.load_demo(os.path.join(BASE, args.fewshot_file), DATA_DIR)
+        print("[1shot] demo train row", FEWSHOT["demo"]["train_row_index"],
+              "sha", FEWSHOT["demo"]["content_sha256"][:16])
+        if args.cot or args.fmt_wording != "plain" or args.suite != "default":
+            raise SystemExit("[FATAL] 1-shot protocol is No-CoT / plain / default suite only")
 
     # Roles
     custom_roles = None
@@ -240,6 +267,25 @@ def main():
                 "devices_used": sorted(set(map(str, hdm.values()))) if hdm else None,
                 "mask_sha256": hashlib.sha256(open(mask_path, "rb").read()).hexdigest(),
             }
+            if args.fewshot_file:
+                demo = FEWSHOT["demo"]
+                gens = [x.get("generated_neutral", "") for x in config_samples]
+                meta.update({
+                    "protocol": gsm8k_1shot.PROTOCOL,
+                    "demo_source": {k: demo[k] for k in (
+                        "dataset", "config", "split", "dataset_revision", "train_row_index")},
+                    "demo_content_sha256": demo["content_sha256"],
+                    "demo_question": demo["question"], "demo_answer": demo["answer"],
+                    "prompt_template": templates["neutral"],
+                    "prompt_template_sha256": gsm8k_1shot.template_sha256(templates["neutral"], demo),
+                    "prompts_sha256": FEWSHOT["prompts_sha256"],
+                    "final_token_counts": FEWSHOT["final_token_counts"],
+                    "test_file_sha256": hashlib.sha256(open(DATA_DIR, "rb").read()).hexdigest(),
+                    "model_dir": args.model_dir,
+                    "generation": {"max_new_tokens": args.max_new_tokens, "temperature": args.temperature,
+                                   "top_p": args.top_p, "batch_size": args.batch_size},
+                    "n_generations_containing_demo_answer": sum(demo["answer"] in g for g in gens),
+                })
             meta_path = os.path.join(out_dir, f"run_meta_gsm8k_{args.size}_{TOP}_{st}_{en}.json")
             with open(meta_path, "w", encoding="utf-8") as fm:
                 json.dump(meta, fm, indent=2)
@@ -296,6 +342,10 @@ if __name__ == "__main__":
                         help="with --save_gen_meta: required pool size (run aborts if different)")
     parser.add_argument("--save_gen_meta", action="store_true",
                         help="store generation-time token count + stop_reason per sample (default off: output schema unchanged)")
+    parser.add_argument("--fewshot_file", type=str, default=None,
+                        help="gsm8k-base-1shot-v1: path (under base_dir) of the frozen demo JSON from "
+                             "prepare_gsm8k_1shot_demo.py. Default off = original prompts, unchanged. "
+                             "Requires --save_gen_meta.")
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top_p", type=float, default=0.9)
@@ -303,6 +353,8 @@ if __name__ == "__main__":
                         help="Number of prompts per forward pass (set >1 for speedup)")
 
     args = parser.parse_args()
+    if args.fewshot_file and not args.save_gen_meta:
+        parser.error("--fewshot_file requires --save_gen_meta (fail-closed run_meta)")
 
     print("Model:", args.model)
     print("Import model from:", args.model_dir)
