@@ -29,7 +29,14 @@ def canonical_json(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
 
-def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end, orthogonal, alpha=1.0):
+DEFAULT_PROTOCOL = "gsm8k-orthogonal-v1"
+
+
+def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end, orthogonal, alpha=1.0, support="same"):
+    """support="same": control support must equal the actual RSN support (default, v1 behaviour).
+    support="off": control support must be disjoint from it with equal per-layer count."""
+    if support not in ("same", "off"):
+        raise ValueError(f"unknown support kind: {support}")
     for p in (mask_path, rsn_path, dense_path, none_dense_path):
         if not os.path.isfile(p):
             raise FileNotFoundError(f"required source file missing: {p}")
@@ -44,7 +51,7 @@ def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end,
         raise ValueError(f"shape mismatch: ortho={u.shape}, RSN={m.shape}, dense={dense.shape}")
     if not all(np.isfinite(x).all() for x in (u, m, dense_char, dense_none, dense)):
         raise ValueError("mask or dense role-difference contains non-finite values")
-    if orthogonal and not np.array_equal(u != 0, m != 0):
+    if orthogonal and support == "same" and not np.array_equal(u != 0, m != 0):
         raise ValueError("orthogonal mask support differs from actual RSN mask")
     rows = []
     layer_rows = set(range(start - 1, end - 1))
@@ -57,8 +64,14 @@ def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end,
             continue
         # Saved row i corresponds to original dense-mean row i+1.
         ul, ml, dl = u[i].astype(np.float64), m[i].astype(np.float64), dense[i + 1]
-        if orthogonal and not np.array_equal(ul != 0, ml != 0):
+        if orthogonal and support == "same" and not np.array_equal(ul != 0, ml != 0):
             raise ValueError(f"support mismatch in decoder layer {i+1}")
+        overlap = int(np.count_nonzero((ul != 0) & (ml != 0)))
+        if orthogonal and support == "off":
+            if np.count_nonzero(ul) != np.count_nonzero(ml):
+                raise ValueError(f"off-support nonzero count differs from RSN in decoder layer {i+1}: {np.count_nonzero(ul)} vs {np.count_nonzero(ml)}")
+            if overlap:
+                raise ValueError(f"off-support mask overlaps actual RSN support in decoder layer {i+1}: {overlap} coordinates")
         nu, nm = np.linalg.norm(ul), np.linalg.norm(ml)
         if orthogonal and (np.count_nonzero(ul) == 0 or np.count_nonzero(ml) == 0):
             raise ValueError(f"empty in-band support in decoder layer {i+1}")
@@ -68,17 +81,23 @@ def validate_masks(mask_path, rsn_path, dense_path, none_dense_path, start, end,
         cosine = abs(dot) / (nu * np.linalg.norm(dl)) if nu and np.linalg.norm(dl) else 0.0
         if orthogonal and cosine >= 1e-5:
             raise ValueError(f"dense role-diff orthogonality failed in decoder layer {i+1}: dot={dot}")
-        rows.append({"decoder_layer": i, "norm": nu, "dot": dot, "abs_cosine": cosine})
+        row = {"decoder_layer": i, "norm": nu, "dot": dot, "abs_cosine": cosine}
+        if support == "off":
+            row.update({"nonzero": int(np.count_nonzero(ul)), "rsn_nonzero": int(np.count_nonzero(ml)), "support_overlap": overlap})
+        rows.append(row)
     dtype = torch.bfloat16
     effective = torch.as_tensor(u * alpha, dtype=dtype).float().numpy()
     matched = torch.as_tensor(m * alpha, dtype=dtype).float().numpy()
-    return {"shape": list(u.shape), "nonzero_count": int(np.count_nonzero(u)), "layers": rows,
+    report = {"shape": list(u.shape), "nonzero_count": int(np.count_nonzero(u)), "layers": rows,
             "direction_kind": "orthogonal" if orthogonal else "rsn_reference",
             "mask_sha256": sha256(mask_path), "rsn_mask_sha256": sha256(rsn_path),
             "mmlue_expert_mean_sha256": sha256(dense_path), "mmlue_non_expert_mean_sha256": sha256(none_dense_path),
             "bf16_norm_max_abs_error": float(max(abs(np.linalg.norm(effective[i]) - np.linalg.norm(matched[i])) for i in layer_rows)),
             "injected_alpha": alpha,
             "bf16_dot_abs_max": float(max(abs(float(effective[i] @ dense[i+1])) for i in layer_rows))}
+    if support == "off":
+        report["support_kind"] = "off"
+    return report
 
 
 def main():
@@ -100,6 +119,9 @@ def main():
     ap.add_argument("--batch_size", type=int, default=24)
     ap.add_argument("--max_new_tokens", type=int, default=768)
     ap.add_argument("--smoke_n", type=int, default=0)
+    ap.add_argument("--control_family", choices=["same", "off"], default="same",
+                    help="support relation of seed* masks to the actual RSN mask (default same = v1)")
+    ap.add_argument("--protocol", default=DEFAULT_PROTOCOL)
     a = ap.parse_args()
     if (a.model, a.size, a.start, a.end) not in (("llama3", "8B", 11, 20), ("qwen2.5", "7B", 16, 22)):
         ap.error("model/size/layer band must match the frozen Llama or Qwen protocol")
@@ -114,9 +136,17 @@ def main():
                            "rsn_mask_sha256": sha256(a.rsn_mask_path),
                            "mmlue_expert_mean_sha256": sha256(a.dense_mean_path),
                            "mmlue_non_expert_mean_sha256": sha256(a.none_dense_mean_path)}
-    else:
+    elif a.condition == "rsn":
+        if sha256(a.mask_path) != sha256(a.rsn_mask_path):
+            raise ValueError("rsn condition must inject exactly the reference RSN mask (sha256 differs)")
         mask_validation = validate_masks(a.mask_path, a.rsn_mask_path, a.dense_mean_path, a.none_dense_mean_path, a.start, a.end,
-                                         a.condition.startswith("seed"), a.alpha)
+                                         False, a.alpha)
+        diff = np.load(a.mask_path, allow_pickle=False) * a.alpha
+    else:
+        if sha256(a.mask_path) == sha256(a.rsn_mask_path):
+            raise ValueError("control mask is byte-identical to the RSN mask")
+        mask_validation = validate_masks(a.mask_path, a.rsn_mask_path, a.dense_mean_path, a.none_dense_mean_path, a.start, a.end,
+                                         a.condition.startswith("seed"), a.alpha, a.control_family)
         diff = np.load(a.mask_path, allow_pickle=False) * a.alpha
 
     data_path = a.test_file if os.path.isabs(a.test_file) else os.path.join(a.base_dir, a.test_file)
@@ -129,7 +159,7 @@ def main():
     out_dir = Path(a.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     result_path, manifest_path = out_dir / "result.json", out_dir / "manifest.json"
-    provenance = {"protocol": "gsm8k-orthogonal-v1", "model": a.model, "model_dir": a.model_dir,
+    provenance = {"protocol": a.protocol, "model": a.model, "model_dir": a.model_dir,
                   "condition": a.condition, "alpha": a.alpha, "start": a.start, "end": a.end,
                   "batch_size": a.batch_size, "max_new_tokens": a.max_new_tokens, "temperature": 0,
                   "top_p": 0.9, "prefill_only": True, "prefill_tail_len": 1,
@@ -139,11 +169,27 @@ def main():
                   "question_order_sha256": hashlib.sha256("\n".join(hashlib.sha256(s["question"].encode()).hexdigest() for s in samples).encode()).hexdigest(),
                   "host": socket.gethostname(), "platform": platform.platform(), "torch": torch.__version__,
                   "numpy": np.__version__, "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES")}
+    if a.protocol != DEFAULT_PROTOCOL:
+        provenance["control_family"] = a.control_family
     vc = VicundaModel(model_path=a.model_dir)
     vc.model.eval()
     tokenized = vc.tokenizer(prompts, padding=True, truncation=True, return_tensors="pt")
     tail_ids = tokenized.input_ids[:, -1].tolist()
     token_sequences = [vc.tokenizer(p, return_tensors=None)["input_ids"] for p in prompts]
+    # Per-model acceptance (values verified on the section-7 manifests): Llama adds exactly one BOS (128000),
+    # Qwen adds none; both end on id 220 ' ' (the "Answer: " anchor). Left padding keeps that token last.
+    expect_bos = {"llama3": 1, "qwen2.5": 0}[a.model]
+    bos_id = vc.tokenizer.bos_token_id
+    if (bos_id is None) != (expect_bos == 0):
+        raise RuntimeError(f"tokenizer bos_token_id={bos_id} inconsistent with expected {expect_bos} BOS for {a.model}")
+    for n, ids in enumerate(token_sequences):
+        n_bos = sum(t == bos_id for t in ids) if bos_id is not None else 0
+        if n_bos != expect_bos or (expect_bos and ids[0] != bos_id):
+            raise RuntimeError(f"prompt {n}: {n_bos} BOS tokens, expected {expect_bos} (leading)")
+        if ids[-1] != 220 or vc.tokenizer.decode([ids[-1]]) != " ":
+            raise RuntimeError(f"prompt {n}: last token {ids[-1]} {vc.tokenizer.decode([ids[-1]])!r}, expected 220 ' '")
+    if set(tail_ids) != {220}:
+        raise RuntimeError(f"batched injection tail tokens {sorted(set(tail_ids))} != [220]")
     provenance["model_config_sha256"] = hashlib.sha256(json.dumps(vc.model.config.to_dict(), sort_keys=True, default=str).encode()).hexdigest()
     provenance["model_config_identity"] = getattr(vc.model.config, "_name_or_path", None)
     provenance["device_map"] = str(getattr(vc.model, "hf_device_map", None))
