@@ -80,6 +80,8 @@ def run_gsm8k_regenerate(
                     if bos is not None and ids.count(bos) != 1:
                         raise SystemExit(f"[FATAL] prompt has {ids.count(bos)} BOS tokens, expected 1")
                     tails[ids[-1]] = tails.get(ids[-1], 0) + 1
+                if len(tails) != 1 or tk.decode([next(iter(tails))]) != " ":
+                    raise SystemExit(f"[FATAL] prompt final token(s) {sorted(tails)} are not one id decoding to ' '")
                 FEWSHOT["tok_checked"] = True
                 FEWSHOT["final_token_counts"] = {f"{k}:{tk.decode([k])!r}": v for k, v in tails.items()}
                 print("[1shot] final prefill token ids:", FEWSHOT["final_token_counts"])
