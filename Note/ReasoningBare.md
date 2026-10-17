@@ -1550,7 +1550,7 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 
 为改善 zero-shot 下的格式问题，在相同 300 道 GSM8K 测试题前加入一道固定的官方训练集“题目＋完整解答”。保持 Bare 接口及原有注入设置，重新运行 α=−6、0、+6。
 
-**Table. Llama Base GSM8K Results with One Worked Example**
+**Table 8.6. Llama Base GSM8K Results with One Worked Example**
 
 | Metric | α=−6 | α=0 | α=+6 |
 |---|---:|---:|---:|
@@ -1560,13 +1560,13 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 | Early-candidate rate | 78.67% | 78.00% | 76.67% |
 | Token-limit reached | 100% | 100% | 100% |
 
+本轮 1-shot 是在查看 zero-shot 结果后追加的独立探索。剂量为 α=−6、0、+6；−6 沿用 Instruct 实验的冻结工作点，+6 为事后加入的反方向剂量。
+
 1-shot 明显提高了合法 `####` 答案的输出比例，但所有回复均耗尽 768-token 上限，常在答完后重复原题或生成其他题目。因此，末答案准确率受到后续续写污染。Early-candidate 指标主要标记短计算式，不能直接解释为提前提交答案。
 
 α=±6 相对本轮 α=0 的首答案准确率变化均未达到显著水平（两项 McNemar 检验，Holm 校正后均为 p=1.00）。**本轮未解决生成健康问题，也未检出准确率收益，保留为接口探索记录，不作为 RSN 功能或机制的主要证据。**
 
-需要，主要是把“后续若追加 1-shot”更新为**已经完成的探索结果**，并说明它没有解决停止生成的问题。可以替换为：
-
-### 8.5 Interpretation
+### 8.6 Interpretation
 
 **Qwen 的结果支持：Instruct 提取的 RSN 方向能够迁移到对应 Base 检查点，在当前协议下改变输出组织并提高准确率。** 这一作用不局限于 Instruct 检查点，但不能仅凭 Base–Instruct 比较确定其来自预训练、指令微调或 RLHF，也不能把答案顺序变化认定为准确率提升的因果中介。
 
