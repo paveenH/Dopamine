@@ -14,8 +14,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ### Daily
 
-10.16 周五 group meeting（12：20）
-
 准备多益考试
 看完瑜伽视频
 看完徐玉兰视频
@@ -33,7 +31,8 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 6. infoquestion: RSN 改变的是模型“直接作答的倾向”，还是“根据信息是否足够，决定先问清楚再回答”的策略 ✔
 6. 重新梳理当前的思路和之前想到的理论之间的关系 ✔
 7. 完成 Norm-Matched Orthogonal Injection Controls ✔
-8. GSM8K Base
+8. GSM8K Base ✔
+9. llama3-base 1-shot gsm8k
 
 ---
 
