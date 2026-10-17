@@ -70,6 +70,8 @@ def main():
     ap.add_argument("--alpha", type=float, default=4.0,
                     help="non-zero alpha used for the fires read-out")
     ap.add_argument("--batch_size", type=int, default=2)
+    ap.add_argument("--fewshot_file", default=None,
+                    help="gsm8k-base-1shot-v1: check the REAL 1-shot prompts (default off)")
     ap.add_argument("--no_model", action="store_true",
                     help="skip everything needing the weights (checks 1,2,4)")
     a = ap.parse_args()
@@ -174,10 +176,42 @@ def main():
         print(f"  'Let's think step by step' present: {has_cot_line}  (expected {cot})")
         print(f"  '####' directive count: {prompt.count('####')}  (expected 1)")
 
+    # ---------------- 2b. 1-SHOT PROMPTS (opt-in) ----------------
+    tmpl = select_templates_gsm8k(suite="default", cot=False, wording=a.fmt_wording)
+    one_shot_prompts = None
+    if a.fewshot_file:
+        import gsm8k_1shot
+        hr("2b. 1-SHOT PROMPTS (gsm8k-base-1shot-v1)")
+        demo = gsm8k_1shot.load_demo(os.path.join(a.base_dir, a.fewshot_file), data_path)
+        print(f"[ok] demo: train row {demo['train_row_index']}  rev {demo['dataset_revision'][:12]}"
+              f"  sha {demo['content_sha256'][:16]}  (no overlap with the 300 test questions)")
+        _, one_shot_prompts = gsm8k_1shot.build_prompts(tmpl["neutral"], demo,
+                                                        [s["question"] for s in samples])
+        again = gsm8k_1shot.build_prompts(tmpl["neutral"], demo, [s["question"] for s in samples])[1]
+        assert again == one_shot_prompts   # same prompt for every alpha (alpha never enters the prompt)
+        tails, bad_bos = {}, 0
+        for pr in one_shot_prompts:
+            ids = tk(pr)["input_ids"]
+            bad_bos += (tk.bos_token_id is not None and ids.count(tk.bos_token_id) != 1)
+            tails[ids[-1]] = tails.get(ids[-1], 0) + 1
+        print(f"     prompts_sha256 : {gsm8k_1shot.prompts_sha256(one_shot_prompts)}")
+        print(f"     BOS count != 1 : {bad_bos} of {len(one_shot_prompts)}  (chat template not used)")
+        print(f"     final token(s) : { {f'{k}:{tk.decode([k])!r}': v for k, v in tails.items()} }")
+        print(f"     '####' count in prompt 0: {one_shot_prompts[0].count('####')}  (demo answer 1 + directive 2 = 3)")
+        print(f"     gold of test items in prompts: "
+              f"{sum(s['answer'] in p for s, p in zip(samples, one_shot_prompts))}  (expected 0)")
+        if bad_bos or sum(s['answer'] in p for s, p in zip(samples, one_shot_prompts)):
+            print("[FAIL] BOS / gold-leak check")
+            return 1
+        print("     injection site = LAST prefill token of the TARGET question's 'Answer: '"
+              " (the demo's answer sits earlier in the sequence and is not steered).")
+
     # ---------------- 4. FIRES ----------------
     hr("4. STEERING FIRES")
-    tmpl = select_templates_gsm8k(suite="default", cot=False, wording=a.fmt_wording)
-    probe = [tmpl["neutral"].format(context=s["question"]) for s in samples[: a.batch_size]]
+    if one_shot_prompts is not None:
+        probe = one_shot_prompts[: a.batch_size]
+    else:
+        probe = [tmpl["neutral"].format(context=s["question"]) for s in samples[: a.batch_size]]
     L, B, tail_len = len(want), len(probe), 1
 
     for alpha in (0.0, a.alpha):
