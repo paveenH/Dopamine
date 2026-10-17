@@ -32,7 +32,7 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 6. 重新梳理当前的思路和之前想到的理论之间的关系 ✔
 7. 完成 Norm-Matched Orthogonal Injection Controls ✔
 8. GSM8K Base ✔
-9. llama3-base 1-shot gsm8k -> 1-shot会破坏原本的格式 ✔
+9. llama3-base 1-shot gsm8k -> 1-shot会破坏commit的自然规律 ✔
 
 ---
 
