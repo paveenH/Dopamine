@@ -1460,3 +1460,98 @@ CI 为逐题配对 bootstrap 区间（B=10,000，seed=0），未进行多重比�
 此外，三个方向不足以代表整个随机方向分布。由于所有对照都使用 RSN 的神经元位置，本实验不能判断这些位置本身是否特殊，也不能把输出重排认定为准确率提升的因果中介。本轮还是原工作点数据上的检查，不构成新的 held-out 验证。
 
 **Conclusion.** 在 GSM8K Bare No-CoT 的固定工作点上，RSN 的首答准确率显著高于三个同坐标、逐层等范数的正交对照，支持收益对具体权重方向的依赖。不过，Llama 的一个正交方向也带来明显收益，因此方向依赖不等于 RSN 独有，更不能据此确定其心理学或生物学机制。
+
+---
+## 8. Transfer to Base Checkpoints
+
+本节检验：**从 Instruct 模型提取的 RSN 方向，能否在对应的 Base 模型上改变答案的出现顺序和 GSM8K 表现？**
+
+结果显示，Qwen Base 出现清楚的双向变化：−8 降低准确率，+8 提高准确率，并伴随更少的早期答案候选。Llama Base 的输出方式也受到干预，但答题格式、循环和答案冲突限制了效果判断。
+
+### 8.1 Design
+
+两个模型使用同一批 GSM8K 300 题，直接复用对应 Instruct 模型提取的 NMD mask，不重新提取方向。接口为 Bare zero-shot、neutral、No-CoT，不使用 chat template，也不要求生成推理过程。生成采用 greedy decoding，预算为 768 tokens；干预仅作用于最后一个 prefill 位置。
+
+**Table 8.1. Experimental Conditions**
+
+| Model | Checkpoint | Alpha | Mask source |
+|---|---|---|---|
+| Qwen Base | Qwen2.5-7B | −8, 0, +8 | Qwen2.5-7B-Instruct |
+| Llama Base | Llama-3.1-8B | −6, 0, +6 | Llama-3.1-8B-Instruct |
+
+### 8.2 Accuracy and Output Organization
+
+主要性能指标沿用冻结离线解析器的 `first_acc`，`last_acc` 作为敏感性分析。`early_candidate_rate` 使用既有检测器，描述生成开头是否出现候选答案或类似形式，不直接代表内部决策时刻。
+
+**Table 8.2. Accuracy and Early-Candidate Rates**
+
+| Model | α | First acc | Δ vs baseline | Last acc | Early candidate |
+|---|---:|---:|---:|---:|---:|
+| Qwen Base | −8 | 47.33% | −15.00 pp | 47.33% | 50.33% |
+| Qwen Base | 0 | 62.33% | — | 61.67% | 37.33% |
+| Qwen Base | +8 | **80.00%** | **+17.67 pp** | **80.00%** | **7.67%** |
+| Llama Base | −6 | 30.00%† | +3.67 pp† | 30.00%† | 49.33% |
+| Llama Base | 0 | 26.33%† | — | 26.33%† | 58.00% |
+| Llama Base | +6 | 31.00%† | +4.67 pp† | 31.00%† | 82.00% |
+
+每格 n=300，包含格式异常、截断和空回复。† Llama 的准确率为现有解析器给出的诊断值，受下述生成与提取问题限制，不能据此认定性能改善或无效应。
+
+**Qwen 的准确率与输出顺序呈双向变化。** 相比 α=0，−8 的 early-candidate rate 提高，准确率下降；+8 的 early-candidate rate 大幅降低，准确率提高。采用 `last_acc` 后，这一结论保持不变。
+
+**Table 8.3. Paired Accuracy Changes in Qwen Base**
+
+| Contrast | Wrong → correct | Correct → wrong | Accuracy difference | Raw 95% CI | Raw McNemar p |
+|---|---:|---:|---:|---:|---:|
+| −8 vs 0 | 19 | 64 | −15.00 pp | [−20.67, −9.33] | 7.39×10⁻⁷ |
+| +8 vs 0 | 67 | 14 | +17.67 pp | [+12.33, +23.00] | 1.89×10⁻⁹ |
+
+CI 为逐题配对 bootstrap（B=10,000，seed=0），采用标准库实现复算；表中 CI 和双侧 exact McNemar p 均未做多重比较校正。反方向条件为事后追加，因此完整双向分析按探索性结果报告。
+
+### 8.3 Generation Health and Scoring Limits
+
+**Table 8.4. Generation Health**
+
+| Model | α | Parseable answer marker | Tail loop | Truncated | Empty |
+|---|---:|---:|---:|---:|---:|
+| Qwen Base | −8 | 295/300 | 1/300 | 2/300 | 0 |
+| Qwen Base | 0 | 295/300 | 1/300 | 4/300 | 0 |
+| Qwen Base | +8 | 293/300 | 0/300 | 0/300 | 0 |
+| Llama Base | −6 | 1/300 | 52/300 | 82/300 | 2 |
+| Llama Base | 0 | 2/300 | 49/300 | 81/300 | 0 |
+| Llama Base | +6 | 6/300 | 57/300 | 97/300 | 0 |
+
+合法答案标记指可解析的 `#### 数字`。截断依据生成时记录的预算耗尽状态；循环与截断可能重叠，不能相加。
+
+**Qwen 的标记覆盖率较高，循环和截断较少。** 但自然结束不代表完全没有接口异常：部分回复会在答完原题后继续生成新题或指令文本。基线 `first_acc` 比 `last_acc` 高两题，正是因为后续新题的答案覆盖了原题的正确标记，而非模型修正了原题答案。
+
+**Llama 的问题同时涉及答案提取和生成过程。** 合法标记极少，约 27%–32% 的回复耗尽预算，还存在重复题目、修改已知条件、开头答案与后续解释冲突等现象。因此，不能把问题仅归结为解析器没有找到答案，也不能把当前数字当作稳定的推理表现。
+
+此外，现有 `first_acc`／`last_acc` 分别取第一个／最后一个合法标记；没有合法标记时，两者使用同一个 fallback。**Llama 两列相同，并不意味着它没有修改答案，也不意味着开头与最终结论一致。**
+
+### 8.4 Qualitative Patterns
+
+配对输出支持 Qwen 的变化主要表现为：**更少直接报数，更常完成计算后再给最终答案。** 但这一模式并非逐题成立。
+
+**Table 8.5. Representative Paired Outputs**
+
+| Model | Example | Negative α | α=0 | Positive α |
+|---|---|---|---|---|
+| Qwen | Iced coffee; gold 75 | Direct answer 15 | Direct answer 15 | Computes ice and cream contributions; answers 75 |
+| Qwen | Fish food in May; gold 93 | Direct answer 15 | Uses 30 days; answers 90 | Uses 31 days; answers 93 |
+| Qwen | Stickers; gold 17 | Correct calculation; answers 17 | Correct calculation; answers 17 | Omits the initial 10 stickers; answers 7 |
+| Llama | Fog coverage; gold 140 | Calculates 140; ends naturally | Answers 60, then repeats the question to the limit | Calculates 140; ends naturally |
+| Llama | Country totals; gold 79 | Opening answer 56, later conclusion 60 | Opening answer 55, later conclusion 60 | Opening answer 14, later calculation reaches 79 |
+
+这些例子不构成模式发生率的人工统计。它们说明，Qwen +8 可以纠正直接报数或遗漏计算的问题，也可能在更长解释中引入新错误；Llama 两个方向都可能修复个别输出，但也可能产生新的循环或答案冲突。
+
+Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发现，三个条件被检测器标记的首行中，严格为纯数字答案的数量分别为 **63／103／104**。因此，α=0 到 +6 的标记率上升主要来自其他短句或算式，不能直接解释为最终答案更早出现。
+
+### 8.5 Interpretation
+
+**Qwen 的结果支持：Instruct 提取的 RSN 方向能够迁移到对应 Base 检查点，在当前协议下改变输出组织并提高准确率。** 这一作用不局限于 Instruct 检查点，但不能仅凭 Base–Instruct 比较确定其来自预训练、指令微调或 RLHF，也不能把答案顺序变化认定为准确率提升的因果中介。
+
+**Llama 当前提供的是接口边界结果。** 干预确实改变了生成内容，但 zero-shot Bare 接口下的格式与生成异常，使我们无法可靠判断是否存在对应的推理收益。它既不是稳定的正结果，也不是证明 RSN 在 Base 上无效的结果。
+
+后续若追加 1-shot，应作为看到本轮问题后新增的独立探索：先检查 α=0 的格式、循环和截断是否改善，再决定是否运行干预。原 zero-shot 结果保留；示例本身会影响计算方式和答案顺序，不能与本节直接合并。
+
+**Conclusion.** Qwen Base 显示清楚的双向准确率变化，并伴随答案出现顺序的改变；Llama Base 的结果受到生成与评分接口限制。现有证据支持模型与接口特异的迁移，不支持统一的“思考开关”或训练阶段机制解释。
