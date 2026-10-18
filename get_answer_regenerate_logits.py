@@ -127,7 +127,7 @@ def _run_meta(vc):
 
 
 def _task_inputs(vc, task):
-    """Independent re-derivation of a cell's inputs (data, roles, prompt hash, data hash)
+    """Independent re-derivation of a cell's inputs (data, roles, prompt hash)
     from the CURRENT invocation -- used to validate existing cells before skipping them."""
     templates = select_templates(args.suite, args.use_E)
     data = utils.load_json(os.path.join(MMLU_DIR, f"{task}.json"))
@@ -135,12 +135,11 @@ def _task_inputs(vc, task):
         data = data[: args.smoke_n]
     custom = [r.strip() for r in args.roles.split(",")] if args.roles else None
     roles = utils.make_characters(task, custom)
-    ph, dh = hashlib.sha256(), hashlib.sha256()
+    ph = hashlib.sha256()
     for sample in data:
-        dh.update(json.dumps([sample.get("text", ""), sample.get("label", -1)], ensure_ascii=False).encode("utf-8"))
         for role in roles:
             ph.update(utils.construct_prompt(vc, templates, sample.get("text", ""), role, args.use_chat).encode("utf-8"))
-    return data, roles, ph.hexdigest(), dh.hexdigest()
+    return data, roles, ph.hexdigest()
 
 
 def _validate_existing(path, expect, vc, task, expected_fires):
@@ -150,7 +149,7 @@ def _validate_existing(path, expect, vc, task, expected_fires):
     for k, v in expect.items():
         if k not in meta or meta[k] != v:
             raise SystemExit(f"resume: meta field {k!r} missing or different in {path}")
-    data, roles, p_hash, d_hash = _task_inputs(vc, task)
+    data, roles, p_hash = _task_inputs(vc, task)
     if meta.get("rendered_prompt_sha256") != p_hash or meta.get("n_items") != len(data) or meta.get("roles") != roles:
         raise SystemExit(f"resume: prompts / item count / roles differ from current inputs in {path}")
     rows = j.get("data")
