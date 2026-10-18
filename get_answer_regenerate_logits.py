@@ -13,6 +13,9 @@ import numpy as np
 import torch
 from tqdm import tqdm
 import argparse
+import hashlib
+import platform
+import sys
 
 from llms import VicundaModel
 from detection.task_list import TASKS
@@ -37,6 +40,9 @@ def run_task(
     # load data
     data_path = os.path.join(MMLU_DIR, f"{task}.json")
     data = utils.load_json(data_path)
+    if args.smoke_n:
+        data = data[: args.smoke_n]
+    prompt_hash = hashlib.sha256()
 
     # Parse custom roles if provided
     custom_roles = None
@@ -56,6 +62,7 @@ def run_task(
 
         for role in roles:
             prompt = utils.construct_prompt(vc, templates, ctx, role, args.use_chat)
+            prompt_hash.update(prompt.encode("utf-8"))
 
             # get raw logits after hooking in diff
             raw_logits = vc.regenerate_logits([prompt], diff_mtx, tail_len=args.tail_len)[0]
@@ -94,13 +101,96 @@ def run_task(
         accuracy[role] = {**s, "accuracy_percentage": round(pct, 2)}
         print(f"{role:<25} acc={pct:5.2f}%  (correct {s['correct']}/{s['total']}), E={s['E_count']}")
 
-    return data, accuracy, tmp_record
+    return data, accuracy, tmp_record, prompt_hash.hexdigest(), list(roles)
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _run_meta(vc):
+    import transformers
+    dev_map = getattr(vc.model, "hf_device_map", None)
+    return {
+        "host": platform.node(),
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "devices": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
+        "sharded": bool(dev_map) and len(set(map(str, dev_map.values()))) > 1,
+        "torch": torch.__version__,
+        "transformers": transformers.__version__,
+        "python": sys.version.split()[0],
+    }
+
+
+def main_mask_set():
+    """Off-support controls: several named masks, one model load. Additive mode;
+    the default path in main() is untouched. Resume = skip a cell whose saved
+    meta matches this invocation exactly; any mismatch is fatal (never overwrite)."""
+    pairs = utils.parse_configs(args.configs)
+    named = [m.split("=", 1) for m in args.mask_set]
+    if any(len(x) != 2 or not x[0] for x in named) or len({x[0] for x in named}) != len(named):
+        raise SystemExit("--mask_set needs unique label=path entries")
+    for _, mp in named:
+        if not os.path.isfile(mp):
+            raise SystemExit(f"mask missing: {mp}")
+    tasks = TASKS[: args.smoke_tasks] if args.smoke_tasks else TASKS
+    vc = VicundaModel(model_path=args.model_dir)
+    vc.model.eval()
+    run_env = _run_meta(vc)
+    n_roles = len([r for r in args.roles.split(",") if r.strip()]) if args.roles else 1
+    for label, mp in named:
+        mask = np.load(mp)
+        mask_sha = _sha256_file(mp)
+        for alpha, (st, en) in pairs:
+            diff_mtx = mask * alpha
+            n_layers = int(np.count_nonzero(np.any(diff_mtx != 0, axis=1)))
+            TOP = max(1, int(args.percentage / 100 * diff_mtx.shape[1]))
+            for task in tasks:
+                out_dir = os.path.join(SAVE_ROOT, label, f"mdf_{alpha}")
+                os.makedirs(out_dir, exist_ok=True)
+                out_path = os.path.join(out_dir, f"{task}_{args.size}_answers_{TOP}_{st}_{en}.json")
+                expect = {"mask_sha256": mask_sha, "alpha": alpha, "layer_start": st, "layer_end": en,
+                          "model_dir": args.model_dir, "tail_len": args.tail_len, "roles_arg": args.roles,
+                          "suite": args.suite, "use_E": bool(args.use_E), "use_chat": bool(args.use_chat),
+                          "smoke_n": args.smoke_n}
+                if os.path.exists(out_path):
+                    old = utils.load_json(out_path).get("meta", {})
+                    if all(old.get(k) == v for k, v in expect.items()) and old.get("steering_fires") == old.get("steering_fires_expected"):
+                        print(f"[skip complete] {out_path}")
+                        continue
+                    raise SystemExit(f"existing cell does not match this invocation (never overwritten): {out_path}")
+                print(f"\n=== {label} | {task} | α={alpha} | layers={st}-{en} | steered_rows={n_layers} ===")
+                vc.steering_fire_count(reset=True)
+                with torch.no_grad():
+                    data, accuracy, tmp_record, p_hash, roles = run_task(vc, task, diff_mtx)
+                fires = vc.steering_fire_count(reset=True)
+                expected = n_layers * len(data) * len(roles) * args.tail_len if alpha != 0 else 0
+                if fires != expected:
+                    raise SystemExit(f"steering_fires {fires} != expected {expected} for {out_path}")
+                meta = {**expect, "protocol": "mmlue-orthogonal-off-v1", "model": args.model, "mask_label": label,
+                        "mask_path": mp, "n_items": len(data), "roles": roles, "steered_rows": n_layers,
+                        "steering_fires": fires, "steering_fires_expected": expected,
+                        "rendered_prompt_sha256": p_hash, "env": run_env}
+                with open(out_path, "w", encoding="utf-8") as fw:
+                    json.dump({"data": data, "accuracy": accuracy, "template": tmp_record, "meta": meta},
+                              fw, ensure_ascii=False, indent=2)
+                print("Saved →", out_path)
+                del data, accuracy, tmp_record
+                gc.collect()
+                torch.cuda.empty_cache()
+    print("\nAll cells finished.")
 
 
 # ─────────────────────────── Main ───────────────────────────────
 
 
 def main():
+    if args.mask_set:
+        return main_mask_set()
 
     ALPHAS_START_END_PAIRS = utils.parse_configs(args.configs)
     print("ALPHAS_START_END_PAIRS:", ALPHAS_START_END_PAIRS)
@@ -117,7 +207,7 @@ def main():
             print(f"\n=== {task} | α={alpha} | layers={st}-{en}| TOP={TOP} ===")
 
             with torch.no_grad():
-                updated_data, accuracy, tmp_record = run_task(vc, task, diff_mtx)
+                updated_data, accuracy, tmp_record, _, _ = run_task(vc, task, diff_mtx)
 
             # save JSON
             out_dir = os.path.join(SAVE_ROOT, f"mdf_{alpha}")
@@ -158,6 +248,11 @@ if __name__ == "__main__":
     parser.add_argument("--roles", type=str, default=None,
                         help="Comma-separated list of roles. Use {task} as placeholder for task name. "
                              "E.g., 'neutral,{task} expert,non {task} expert'")
+
+    parser.add_argument("--mask_set", nargs="*", default=None,
+                        help="label=path entries (explicit masks, one model load). Outputs go to <ans_file>/<label>/mdf_<alpha>/")
+    parser.add_argument("--smoke_n", type=int, default=0, help="mask_set mode only: first N items per task")
+    parser.add_argument("--smoke_tasks", type=int, default=0, help="mask_set mode only: first N tasks")
 
     args = parser.parse_args()
 
