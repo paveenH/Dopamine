@@ -126,6 +126,50 @@ def _run_meta(vc):
     }
 
 
+def _task_inputs(vc, task):
+    """Independent re-derivation of a cell's inputs (data, roles, prompt hash, data hash)
+    from the CURRENT invocation -- used to validate existing cells before skipping them."""
+    templates = select_templates(args.suite, args.use_E)
+    data = utils.load_json(os.path.join(MMLU_DIR, f"{task}.json"))
+    if args.smoke_n:
+        data = data[: args.smoke_n]
+    custom = [r.strip() for r in args.roles.split(",")] if args.roles else None
+    roles = utils.make_characters(task, custom)
+    ph, dh = hashlib.sha256(), hashlib.sha256()
+    for sample in data:
+        dh.update(json.dumps([sample.get("text", ""), sample.get("label", -1)], ensure_ascii=False).encode("utf-8"))
+        for role in roles:
+            ph.update(utils.construct_prompt(vc, templates, sample.get("text", ""), role, args.use_chat).encode("utf-8"))
+    return data, roles, ph.hexdigest(), dh.hexdigest()
+
+
+def _validate_existing(path, expect, vc, task, expected_fires):
+    """True iff the saved cell is complete and matches the current inputs; raises on any mismatch."""
+    j = utils.load_json(path)
+    meta = j.get("meta") or {}
+    for k, v in expect.items():
+        if k not in meta or meta[k] != v:
+            raise SystemExit(f"resume: meta field {k!r} missing or different in {path}")
+    data, roles, p_hash, d_hash = _task_inputs(vc, task)
+    if meta.get("rendered_prompt_sha256") != p_hash or meta.get("n_items") != len(data) or meta.get("roles") != roles:
+        raise SystemExit(f"resume: prompts / item count / roles differ from current inputs in {path}")
+    rows = j.get("data")
+    if not isinstance(rows, list) or len(rows) != len(data):
+        raise SystemExit(f"resume: result row count differs in {path}")
+    for old, cur in zip(rows, data):
+        if old.get("text") != cur.get("text") or old.get("label") != cur.get("label"):
+            raise SystemExit(f"resume: result items differ from current data in {path}")
+        for r in roles:
+            rk = r.replace(" ", "_")
+            lg = old.get(f"logits_{rk}")
+            if old.get(f"answer_{rk}") is None or old.get(f"prob_{rk}") is None or old.get(f"softmax_{rk}") is None \
+                    or not isinstance(lg, list) or len(lg) != 5:
+                raise SystemExit(f"resume: missing answer/logit fields in {path}")
+    if meta.get("steering_fires") != expected_fires or meta.get("steering_fires_expected") != expected_fires:
+        raise SystemExit(f"resume: recorded steering fires differ from independent expectation {expected_fires} in {path}")
+    return True
+
+
 def main_mask_set():
     """Off-support controls: several named masks, one model load. Additive mode;
     the default path in main() is untouched. Resume = skip a cell whose saved
@@ -145,9 +189,13 @@ def main_mask_set():
     for label, mp in named:
         mask = np.load(mp)
         mask_sha = _sha256_file(mp)
+        mask_rows = set(np.flatnonzero(np.any(mask != 0, axis=1)).tolist())
         for alpha, (st, en) in pairs:
             diff_mtx = mask * alpha
-            n_layers = int(np.count_nonzero(np.any(diff_mtx != 0, axis=1)))
+            cfg_rows = set(utils.decoder_layer_range(st, en))
+            if mask_rows != cfg_rows:
+                raise SystemExit(f"{mp}: non-zero rows {sorted(mask_rows)} != configured decoder layers {sorted(cfg_rows)}")
+            n_layers = len(cfg_rows)  # from the CONFIG, not from the mask
             TOP = max(1, int(args.percentage / 100 * diff_mtx.shape[1]))
             for task in tasks:
                 out_dir = os.path.join(SAVE_ROOT, label, f"mdf_{alpha}")
@@ -158,11 +206,11 @@ def main_mask_set():
                           "suite": args.suite, "use_E": bool(args.use_E), "use_chat": bool(args.use_chat),
                           "smoke_n": args.smoke_n}
                 if os.path.exists(out_path):
-                    old = utils.load_json(out_path).get("meta", {})
-                    if all(old.get(k) == v for k, v in expect.items()) and old.get("steering_fires") == old.get("steering_fires_expected"):
-                        print(f"[skip complete] {out_path}")
-                        continue
-                    raise SystemExit(f"existing cell does not match this invocation (never overwritten): {out_path}")
+                    n_it = len(_task_inputs(vc, task)[0])
+                    exp_f = n_layers * n_it * n_roles * args.tail_len if alpha != 0 else 0
+                    _validate_existing(out_path, expect, vc, task, exp_f)
+                    print(f"[skip complete, validated] {out_path}")
+                    continue
                 print(f"\n=== {label} | {task} | α={alpha} | layers={st}-{en} | steered_rows={n_layers} ===")
                 vc.steering_fire_count(reset=True)
                 with torch.no_grad():
