@@ -185,11 +185,20 @@ def main_mask_set():
     vc.model.eval()
     run_env = _run_meta(vc)
     n_roles = len([r for r in args.roles.split(",") if r.strip()]) if args.roles else 1
-    for label, mp in named:
+    jobs = [(label, mp, pairs) for label, mp in named]
+    if args.baseline_mask:
+        if not os.path.isfile(args.baseline_mask):
+            raise SystemExit(f"baseline mask missing: {args.baseline_mask}")
+        if any(a == 0 for a, _ in pairs):
+            raise SystemExit("--configs must not contain alpha=0 when --baseline_mask is used")
+        st0, en0 = pairs[0][1]
+        # one baseline per model: RSN mask x 0 (identical execution path, zero injection)
+        jobs.insert(0, ("baseline", args.baseline_mask, utils.parse_configs([f"0-{st0}-{en0}"])))
+    for label, mp, job_pairs in jobs:
         mask = np.load(mp)
         mask_sha = _sha256_file(mp)
         mask_rows = set(np.flatnonzero(np.any(mask != 0, axis=1)).tolist())
-        for alpha, (st, en) in pairs:
+        for alpha, (st, en) in job_pairs:
             diff_mtx = mask * alpha
             cfg_rows = set(utils.decoder_layer_range(st, en))
             if mask_rows != cfg_rows:
@@ -298,6 +307,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--mask_set", nargs="*", default=None,
                         help="label=path entries (explicit masks, one model load). Outputs go to <ans_file>/<label>/mdf_<alpha>/")
+    parser.add_argument("--baseline_mask", default=None,
+                        help="mask_set mode: add ONE alpha=0 'baseline' job using this (RSN) mask x 0")
     parser.add_argument("--smoke_n", type=int, default=0, help="mask_set mode only: first N items per task")
     parser.add_argument("--smoke_tasks", type=int, default=0, help="mask_set mode only: first N tasks")
 
