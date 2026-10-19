@@ -1504,8 +1504,31 @@ Table 7.5 报告了六项 RSN 与 off-support 方向的逐题配对比较。Llam
 | Qwen | Seed 2 | +16.67 pp [+10.67, +22.67] | 71 / 21 | 1.62×10⁻⁷ | 9.70×10⁻⁷ |
 | Qwen | Seed 3 | +13.00 pp [+7.00, +19.00] | 63 / 24 | 3.48×10⁻⁵ | 1.04×10⁻⁴ |
 
+### 7.6 MMLU-E Functional Check
+
+本节检查 Llama off-support 方向能否调节 MMLU-E 的弃答行为。以下只报告 Non-expert 条件，并统一使用 57 个任务的 task-macro 平均。当前轮 baseline 为 E-rate 44.79%、overall accuracy 38.65%；14,042 题直接汇总的 sample-micro 数值为 35.53% 和 43.43%，不能与 task-macro 混在同一比较中。
+
+**Table 7.6. Task-Macro Changes in Llama MMLU-E Non-Expert Condition**
+
+| Direction | α | Δ E-rate (pp) | Δ Overall Accuracy (pp) |
+|---|---:|---:|---:|
+| RSN† | +4 | **−41.04** | **+24.57** |
+| Off-support seed 1 | +4 | −0.74 | +1.26 |
+| Off-support seed 2 | +4 | +6.58 | −3.63 |
+| Off-support seed 3 | +4 | +1.96 | −0.96 |
+| RSN† | −3 | **+20.36** | −13.70 |
+| Off-support seed 1 | −4 | +4.06 | −3.83 |
+| Off-support seed 2 | −4 | −4.88 | +2.29 |
+| Off-support seed 3 | −4 | −1.16 | +0.47 |
+
+当前轮 baseline 的 task-macro E-rate（44.79%）与原论文 RSN 结果所用 baseline（44.77%）仅差 0.02 pp，说明两个 E-rate 汇总值接近；这不验证两轮的样本或提示完全兼容。† RSN 单元格取自原论文，属于历史结果、不是同批次对照；其 E-rate 变化相对原论文的 44.77% task-macro baseline 计算，accuracy 差值按本节所列的当前轮 task-macro baseline 报告。原论文 RSN 单元格的 role 写法和模板尚无法核实，不能据此作严格配对或复现性判断。
+
+三个 off-support seed 在 Qwen +4 时的 Δ E-rate 分别为 +6.87、+3.13、+1.08 pp；−4 时为 −1.01、+0.15、+1.68 pp。各项绝对变化均不超过 7 pp。由于没有经过核实、可直接比较的 Qwen RSN 参照，这些结果只描述 off-support 方向相对本轮 baseline 的变化。
+
+在 Llama 上，off-support 方向对 E-rate 的变化整体小于历史 RSN 单元格所示幅度；但历史 RSN 与本轮 off-support/baseline 不是同批次结果，不能据此断言 off-support 不能复现 RSN 的功能，也不能把它解释为严格的方向特异性检验。
 
 ---
+
 ## 8. Transfer to Base Checkpoints
 
 本节检验：**从 Instruct 模型提取的 RSN 方向，能否在对应的 Base 模型上改变答案的出现顺序和 GSM8K 表现？**
