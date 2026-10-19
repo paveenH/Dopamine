@@ -642,17 +642,26 @@ GSM8K 的主要性能变化集中在 `+6/+8`。No-CoT 中，`+6`（Holm `p_adj=.
 
 CoT 的最高准确率出现在 `+6`，相对 α=0 的 Holm `p_adj=.0002`；`+8` 同样显著（`p_adj=.0030`）。但 `+6` 与 `+8` 没有显著差异（探索性 `p=.371`），因此更适合将 `{+6,+8}` 视为近优区域。
 
-**Role Prompt–RSN Correspondence.** 固定同一批 300 道 GSM8K 题目，在 Bare、zero-shot、No-CoT、α=0 条件下，比较三种角色提示：
+**Role Prompts and RSN Workpoints.** 在 Bare、zero-shot、No-CoT、α=0 下，对两个模型的 Expert、Non-expert 和 Neutral 提示作逐题比较。每格 300 题；EC 为 frozen `early_candidate` 检测率，准确率使用冻结离线解析器，分母均为 300。
 
-| Role | Early-Candidate Rate | First Acc | Last Acc |
-|---|---:|---:|---:|
-| Expert | 97.00% | 55.33% | 67.00% |
-| Non-expert | 95.67% | 70.67% | 73.00% |
-| Neutral | 96.67% | 69.33% | 75.67% |
+**Table 4.1b. GSM8K Role-Prompt Outputs at α=0**
 
-Expert−Non-expert 的 early-candidate 差异仅为 **+1.33 pp**（95% CI [−0.33, +3.33]；配对 McNemar p=0.289），未检测到明确差异；Expert 的准确率也低于 Non-expert。相比之下，正向 RSN +8 将历史 Neutral 条件的 early-candidate rate 从 **96.33% 降至 5.00%**。因此，Qwen 的结果不支持将正向 RSN 简单解释为“增强 Expert 角色行为”：角色提示几乎没有改变答案出现顺序，而 steering 明显改变了这一顺序。
+| Model | Role | Early-Candidate Rate | First Acc. | Last Acc. |
+|---|---|---:|---:|---:|
+| Llama | Expert | 54.33% | 58.00% | 57.67% |
+| Llama | Non-expert | 41.67% | 68.00% | 65.67% |
+| Llama | Neutral | 48.00% | 60.00% | 55.33% |
+| Qwen | Expert | 97.00% | 55.33% | 67.00% |
+| Qwen | Non-expert | 95.67% | 70.67% | 73.00% |
+| Qwen | Neutral | 96.67% | 69.33% | 75.67% |
 
-表中准确率使用冻结的离线解析器，分母均为 300；循环与截断回复保留。RSN 数值来自历史剂量实验，作为描述性参照。
+Expert−Non-expert 的配对比较显示，两模型的 Expert 提示准确率都更低。Llama 的 `first_acc` 差为 **−10.00 pp**（expert-only/non-expert-only 正确题 23/53，exact McNemar `p=.000765`）；Qwen 为 **−15.33 pp**（20/66，`p=6.67×10⁻⁷`）。输出顺序则不同：Llama 的 EC 差为 **+12.67 pp**（95% CI [+8.33, +17.33]；Expert-only/Non-expert-only EC 45/7，`p=7.0×10⁻⁸`）；Qwen 仅为 **+1.33 pp**（95% CI [−0.33, +3.33]；6/2，`p=.289`），未检测到清晰差异。上述配对检验均为未校正的逐题 exact McNemar 检验。
+
+按各自 GSM8K 工作点作描述性并列时，Llama 的 Non-expert 提示相对 Expert 提示 EC 更低、准确率更高；RSN `α=−6` 相对 Neutral `α=0` 也使 EC 从 **48.00% 降至 18.67%**，`first_acc` 从 **60.00% 升至 78.00%**。两者在可见输出顺序和首答准确率上的变化方向一致。这一并列与事先确定的共同剂量 `α=+8` 比较不同，不替代后者。Llama 角色输出来自 `llama3/gsm8k/bare/mdf_0`，与主线 GSM8K 同属 182 批次；其生成循环率在各角色下均不低于 92%，因此该对应关系限于固定 768-token 预算内的可见输出。
+
+Qwen 呈现不同组合：Expert 与 Non-expert 提示的 EC 接近，但 Expert 提示的 `first_acc` 低 15.33 pp；其 `+8` 工作点则将剂量曲线中的 EC 从 **96.33% 降至 5.00%**，并将 `first_acc` 从 **68.00% 升至 86.00%**。角色提示与 steering 的可见行为不能互相替代；Qwen 的 EC 未显示角色差异，不等于已证明输出顺序不参与准确率差异。Qwen 的角色 Neutral 单元与剂量曲线 α=0 来自不同结果单元，以上跨条件对照仅作方向性描述。两模型的名义 α 不代表等强度干预。
+
+因此，这些结果支持 RSN 的行为效应具有模型依赖性：Llama 的负向工作点与 Non-expert 相对 Expert 提示的可见变化方向一致；Qwen 的正向工作点则明显不同于其角色提示对照。它们不证明两种操纵共享内部路径，也不支持把正向 RSN 简单解释为增强 Expert 角色行为。
 
 #### MATH
 
