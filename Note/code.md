@@ -54,7 +54,7 @@ CUDA_VISIBLE_DEVICES=0 nohup bash -c '
 ' > ccs_gpu0.log 2>&1 &
 
 # 卡 1：Qwen（先 GSM8K，再 GSM-Hard）
-CUDA_VISIBLE_DEVICES=1 nohup bash -c '
+CUDA_VISIBLE_DEVICES=3 nohup bash -c '
   bash run_chat_cot_sat.sh qwen2.5 gsm8k    run > ccs_qwen_gsm8k.log     2>&1
   bash run_chat_cot_sat.sh qwen2.5 gsm_hard run > ccs_qwen_gsm_hard.log  2>&1
 ' > ccs_gpu1.log 2>&1 &
