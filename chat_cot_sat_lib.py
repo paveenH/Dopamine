@@ -113,8 +113,17 @@ def check_prompt_tokens(tokenizer, texts):
 
 
 # ------------------------------------------------------------------ existing-cell verification
-def verify_existing_cell(path, model, task, alpha, n, mask_sha256, prompt_sha256):
-    """Problems (list of str) for an existing cell. Empty list => complete AND from the same provenance."""
+def item_identity(task, samples):
+    """Per-item identity the cell must carry, in order: GSM8K (question, gold); GSM-Hard (sample_id, question)."""
+    if task == "gsm8k":
+        return [[s["question"], str(s["answer"])] for s in samples]
+    return [[str(s["sample_id"]), s["question"]] for s in samples]
+
+
+def verify_existing_cell(path, model, task, alpha, n, mask_sha256, prompt_sha256, model_dir, q_file_sha256,
+                         order_sha256, identity):
+    """Problems (list of str) for an existing cell. Empty list => complete AND from the same provenance
+    (model repo id, data file hash, per-item question/gold/ID order, prefill/top_p settings included)."""
     try:
         d = json.load(open(path, encoding="utf-8"))
     except Exception as e:                      # unreadable == failed
@@ -131,12 +140,20 @@ def verify_existing_cell(path, model, task, alpha, n, mask_sha256, prompt_sha256
     need(tuple(m.get("layers", ())) == tuple(cfg["band"]), f"layers {m.get('layers')}")
     need(m.get("mask_sha256") == mask_sha256, "mask_sha256")
     need(m.get("prompt_sha256") == prompt_sha256, "prompt_sha256 (different prompts)")
-    need((m.get("max_new_tokens"), m.get("temperature"), m.get("batch_size"), m.get("prefill_tail_len")) ==
-         (MAX_NEW_TOKENS, TEMPERATURE, BATCH_SIZE, 1), "generation settings")
+    need((m.get("max_new_tokens"), m.get("temperature"), m.get("top_p"), m.get("batch_size"),
+          m.get("prefill_tail_len"), m.get("prefill_only")) ==
+         (MAX_NEW_TOKENS, TEMPERATURE, TOP_P, BATCH_SIZE, 1, True), "generation settings")
+    need(m.get("model_dir") == model_dir, f"model_dir {m.get('model_dir')} != {model_dir}")
+    need(m.get("questions_file_sha256") == q_file_sha256, "questions_file_sha256")
+    need(m.get("sample_order_sha256") == order_sha256, "sample_order_sha256")
+    need((m.get("suite"), m.get("fmt_wording"), m.get("role")) == ("default", "plain", "neutral"), "suite/wording/role")
     need(m.get("steering_fires") == expected_fires(model, alpha, n) == m.get("steering_fires_expected"),
          f"steering_fires {m.get('steering_fires')} vs expected {expected_fires(model, alpha, n)}")
     need(len(rows) == n == m.get("n"), f"rows {len(rows)} meta.n {m.get('n')} expected {n}")
     tk = TASKS[task]["text_key"]
+    got_id = [[r.get("question"), str(r.get("answer"))] if task == "gsm8k"
+              else [str(r.get("sample_id")), r.get("question")] for r in rows]
+    need(got_id == identity, "per-item question/gold/sample_id order differs from the current data file")
     for i, r in enumerate(rows):
         if not isinstance(r.get(tk), str) or r.get("stop_reason") not in STOP_REASONS \
                 or not isinstance(r.get("generated_token_count"), int) or r["generated_token_count"] < 0:
