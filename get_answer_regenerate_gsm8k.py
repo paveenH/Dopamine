@@ -41,6 +41,36 @@ from utils import extract_gsm8k_answer, is_correct_gsm8k
 
 FEWSHOT = {}  # filled in main() only when --fewshot_file is set
 GEN_RETURNED = [0]  # replies actually returned by vc.regenerate (summed over batches)
+PROMPT_AUDIT = {}  # filled only with --save_prompt_audit: role -> rendered-prompt record
+
+
+def audit_prompts(vc, role, prompts):
+    """--save_prompt_audit: hash the RENDERED prompts and read the real tokenisation.
+    Fail-closed: one BOS (when the tokenizer has one) and ONE uniform final token that
+    decodes to the ASCII space of the `Answer: ` anchor. Does not touch generation."""
+    import hashlib
+    tk = vc.tokenizer
+    bos, tails, bos_counts = tk.bos_token_id, {}, set()
+    for p_ in prompts:
+        ids = tk(p_)["input_ids"]
+        bos_counts.add(ids.count(bos) if bos is not None else 0)
+        tails[ids[-1]] = tails.get(ids[-1], 0) + 1
+    if bos is not None and bos_counts != {1}:
+        raise SystemExit(f"[FATAL] role={role}: BOS counts per prompt {sorted(bos_counts)}, expected exactly 1")
+    if len(tails) != 1 or tk.decode([next(iter(tails))]) != " ":
+        raise SystemExit(f"[FATAL] role={role}: final prompt token(s) {sorted(tails)} are not one id decoding to ' '")
+    if not all(p_.endswith("Answer: ") and not p_.endswith("Answer:  ") for p_ in prompts):
+        raise SystemExit(f"[FATAL] role={role}: prompts must end in exactly one ASCII space after 'Answer:'")
+    PROMPT_AUDIT[role] = {
+        "n_prompts": len(prompts),
+        "prompts_sha256": hashlib.sha256("\x1f".join(prompts).encode("utf-8")).hexdigest(),
+        "first_prompt": prompts[0],
+        "bos_token_id": bos,
+        "final_token": {f"{k}:{tk.decode([k])!r}": v for k, v in tails.items()},
+        "prompts": prompts,
+    }
+    print(f"[prompt-audit] {role!r}: n={len(prompts)} final={PROMPT_AUDIT[role]['final_token']} "
+          f"sha={PROMPT_AUDIT[role]['prompts_sha256'][:16]}")
 
 
 def run_gsm8k_regenerate(
@@ -89,6 +119,8 @@ def run_gsm8k_regenerate(
             prompts = [templates["neutral"].format(context=s["question"]) for s in samples]
         else:
             prompts = [templates["neg"].format(character=role, context=s["question"]) for s in samples]
+        if args.save_prompt_audit:
+            audit_prompts(vc, role, prompts)
         generated_texts = []
         gen_meta = []
         for i in tqdm(range(0, len(prompts), batch_size), desc=f"GSM8K-regen [{role}]"):
@@ -288,6 +320,22 @@ def main():
                                    "top_p": args.top_p, "batch_size": args.batch_size},
                     "n_generations_containing_demo_answer": sum(demo["answer"] in g for g in gens),
                 })
+            if args.save_prompt_audit:
+                import transformers
+                meta["host"] = os.uname().nodename
+                meta["library_versions"] = {"torch": torch.__version__, "transformers": transformers.__version__}
+                meta["model_dir"] = args.model_dir
+                meta["generation"] = {"max_new_tokens": args.max_new_tokens, "temperature": args.temperature,
+                                      "top_p": args.top_p, "batch_size": args.batch_size}
+                meta["suite"], meta["fmt_wording"], meta["cot"] = args.suite, args.fmt_wording, bool(args.cot)
+                meta["roles"] = list(roles)
+                meta["templates_used"] = {
+                    r: (templates["neutral"] if r in ("neutral", "norole") else templates["neg"]) for r in roles}
+                meta["test_file_sha256"] = hashlib.sha256(open(DATA_DIR, "rb").read()).hexdigest()
+                meta["prompt_audit"] = {r: {k: v for k, v in a.items() if k != "prompts"}
+                                        for r, a in PROMPT_AUDIT.items()}
+                with open(os.path.join(out_dir, "rendered_prompts_gsm8k.json"), "w", encoding="utf-8") as fp_:
+                    json.dump({r: a["prompts"] for r, a in PROMPT_AUDIT.items()}, fp_, ensure_ascii=False)
             meta_path = os.path.join(out_dir, f"run_meta_gsm8k_{args.size}_{TOP}_{st}_{en}.json")
             with open(meta_path, "w", encoding="utf-8") as fm:
                 json.dump(meta, fm, indent=2)
@@ -348,6 +396,11 @@ if __name__ == "__main__":
                         help="gsm8k-base-1shot-v1: path (under base_dir) of the frozen demo JSON from "
                              "prepare_gsm8k_1shot_demo.py. Default off = original prompts, unchanged. "
                              "Requires --save_gen_meta.")
+    parser.add_argument("--save_prompt_audit", action="store_true",
+                        help="role-correspondence-v1: hash + tokenise the rendered prompts per role (fail-closed on "
+                             "BOS / final-token / trailing-space) and record host, library versions, templates in "
+                             "run_meta; writes rendered_prompts_gsm8k.json. Default off: output unchanged. "
+                             "Requires --save_gen_meta.")
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top_p", type=float, default=0.9)
@@ -357,6 +410,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.fewshot_file and not args.save_gen_meta:
         parser.error("--fewshot_file requires --save_gen_meta (fail-closed run_meta)")
+    if args.save_prompt_audit and not args.save_gen_meta:
+        parser.error("--save_prompt_audit requires --save_gen_meta (fail-closed run_meta)")
 
     print("Model:", args.model)
     print("Import model from:", args.model_dir)
