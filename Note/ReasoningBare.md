@@ -642,6 +642,18 @@ GSM8K 的主要性能变化集中在 `+6/+8`。No-CoT 中，`+6`（Holm `p_adj=.
 
 CoT 的最高准确率出现在 `+6`，相对 α=0 的 Holm `p_adj=.0002`；`+8` 同样显著（`p_adj=.0030`）。但 `+6` 与 `+8` 没有显著差异（探索性 `p=.371`），因此更适合将 `{+6,+8}` 视为近优区域。
 
+**Role Prompt–RSN Correspondence.** 固定同一批 300 道 GSM8K 题目，在 Bare、zero-shot、No-CoT、α=0 条件下，比较三种角色提示：
+
+| Role | Early-Candidate Rate | First Acc | Last Acc |
+|---|---:|---:|---:|
+| Expert | 97.00% | 55.33% | 67.00% |
+| Non-expert | 95.67% | 70.67% | 73.00% |
+| Neutral | 96.67% | 69.33% | 75.67% |
+
+Expert−Non-expert 的 early-candidate 差异仅为 **+1.33 pp**（95% CI [−0.33, +3.33]；配对 McNemar p=0.289），未检测到明确差异；Expert 的准确率也低于 Non-expert。相比之下，正向 RSN +8 将历史 Neutral 条件的 early-candidate rate 从 **96.33% 降至 5.00%**。因此，Qwen 的结果不支持将正向 RSN 简单解释为“增强 Expert 角色行为”：角色提示几乎没有改变答案出现顺序，而 steering 明显改变了这一顺序。
+
+表中准确率使用冻结的离线解析器，分母均为 300；循环与截断回复保留。RSN 数值来自历史剂量实验，作为描述性参照。
+
 #### MATH
 
 **Table 4.2. Qwen MATH performance and output behavior**
