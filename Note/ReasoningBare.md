@@ -1521,11 +1521,11 @@ Table 7.5 报告了六项 RSN 与 off-support 方向的逐题配对比较。Llam
 | Off-support seed 2 | −4 | −4.88 | +2.29 |
 | Off-support seed 3 | −4 | −1.16 | +0.47 |
 
-当前轮 baseline 的 task-macro E-rate（44.79%）与原论文 RSN 结果所用 baseline（44.77%）仅差 0.02 pp，说明两个 E-rate 汇总值接近；这不验证两轮的样本或提示完全兼容。† RSN 单元格取自原论文，属于历史结果、不是同批次对照；其 E-rate 变化相对原论文的 44.77% task-macro baseline 计算，accuracy 差值按本节所列的当前轮 task-macro baseline 报告。原论文 RSN 单元格的 role 写法和模板尚无法核实，不能据此作严格配对或复现性判断。
+当前轮 baseline 的 task-macro E-rate（44.79%）与原论文 baseline（44.77%）仅差 0.02 pp；overall accuracy 两轮均为 38.65%。† RSN 单元格取自原论文，属于历史结果、不是同批次对照；两项变化均相对原论文 baseline（E-rate 44.77%、overall accuracy 38.65%）计算。数值相近不验证两轮的样本或提示完全兼容；原论文 RSN 单元格的 role 写法和模板尚无法核实，不能据此作严格配对或复现性判断。
 
 三个 off-support seed 在 Qwen +4 时的 Δ E-rate 分别为 +6.87、+3.13、+1.08 pp；−4 时为 −1.01、+0.15、+1.68 pp。各项绝对变化均不超过 7 pp。由于没有经过核实、可直接比较的 Qwen RSN 参照，这些结果只描述 off-support 方向相对本轮 baseline 的变化。
 
-在 Llama 上，off-support 方向对 E-rate 的变化整体小于历史 RSN 单元格所示幅度；但历史 RSN 与本轮 off-support/baseline 不是同批次结果，不能据此断言 off-support 不能复现 RSN 的功能，也不能把它解释为严格的方向特异性检验。
+在 Llama 上，三个等范数 off-support 方向在 ±4 下的 |Δ E-rate| 均不超过 7 pp，且变化方向不一致；历史 RSN 单元格在 +4 下为 −41.04 pp。两轮 baseline 的 task-macro E-rate 仅差 0.02 pp，但 RSN 单元格并非同批次结果，因此这里只陈述幅度差距：**未观察到 off-support 方向产生与 RSN 相当的弃答调节**。这不构成严格的同批次方向特异性检验。
 
 ---
 
