@@ -37,6 +37,7 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 11. Off-Support Orthogonal Control ✔
 12. Off-Support Orthogonal MMLUE ✔
 13. Qwen2.5 expert vs non-expert ⏸
+14. Chat-CoT Saturation Check (GSM8K / GSM-Hard)
 
 ---
 
