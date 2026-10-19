@@ -32,6 +32,8 @@ def verify(cell_dir, test_file, expect_n=300, quiet=False):
         prob.append(f"n data={len(data)} test={len(test)} expect {expect_n}")
     if [x["question"] for x in data] != [x["question"] for x in test]:
         prob.append("question order differs from the test file")
+    if [str(x.get("answer")) for x in data] != [str(x.get("answer")) for x in test]:
+        prob.append("per-item gold answer differs from the test file")
     for r in ROLES:
         k = f"generated_{KEYS[r]}"
         if any(not isinstance(x.get(k), str) for x in data):
