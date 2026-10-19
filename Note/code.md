@@ -41,8 +41,6 @@ rsync -avzh --partial --info=progress2 \
 
 ---
 
-## MMLU-E off-support controls vs same-round baseline (mmlue-orthogonal-off-v1) — NOT YET RUN
-Per model: 1 baseline (alpha=0, RSN mask x 0, both roles) + seeds 1-3 x alpha -4/+4 = 7 configs (399 files). RSN not run.
 ```bash
 # 0) local -> server code sync (repo files only)
 rsync -avzP get_answer_regenerate_logits.py run_mmlue_orthogonal_off_v1.sh \
@@ -54,8 +52,8 @@ bash run_mmlue_orthogonal_off_v1.sh verify qwen2.5
 CUDA_VISIBLE_DEVICES=0 bash run_mmlue_orthogonal_off_v1.sh smoke llama3    # -> components/llama3/mmlue_orthogonal_off_v1_smoke
 CUDA_VISIBLE_DEVICES=1 bash run_mmlue_orthogonal_off_v1.sh smoke qwen2.5
 # inspect smoke outputs, then:
-CUDA_VISIBLE_DEVICES=0 nohup bash run_mmlue_orthogonal_off_v1.sh full llama3 > mmlue_off_llama3.log 2>&1 &
-CUDA_VISIBLE_DEVICES=1 nohup bash run_mmlue_orthogonal_off_v1.sh full qwen2.5 > mmlue_off_qwen25.log 2>&1 &
+CUDA_VISIBLE_DEVICES=4 nohup bash run_mmlue_orthogonal_off_v1.sh full llama3 > mmlue_off_llama3.log 2>&1 &
+CUDA_VISIBLE_DEVICES=5 nohup bash run_mmlue_orthogonal_off_v1.sh full qwen2.5 > mmlue_off_qwen25.log 2>&1 &
 head mmlue_off_llama3.log mmlue_off_qwen25.log
 bash run_mmlue_orthogonal_off_v1.sh status llama3     # expect 399
 bash run_mmlue_orthogonal_off_v1.sh status qwen2.5
