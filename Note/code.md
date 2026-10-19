@@ -71,9 +71,12 @@ rsync -avzP \
   "d12922004@140.112.31.184:/data1/paveen/Dopamine/components/qwen2.5/answer_gsm8k_role_correspondence_v1/" \
   /Users/paveenhuang/Documents/RSNResult/RoleAnswer/AdarResult/qwen2.5/gsm8k/role_correspondence_v1/
 
+rsync -avzP d12922004@140.112.31.184:/data1/paveen/Dopamine/components/benchmark/gsm8k_test_sample.json \
+  /Users/paveenhuang/Documents/RSNResult/RoleAnswer/benchmark/
+
 # 6. 本机: 离线分析 (Llama 已有结果 + Qwen 新 cell; 输出不覆盖)
 cd /Users/paveenhuang/Documents/RSNResult/RoleAnswer
-python3 analyze_role_correspondence_v1.py
+python3 analyze_role_correspondence_v1.py --test_file benchmark/gsm8k_test_sample.json
 #   -> role_correspondence_v1_result.{json,md}
 ```
 
