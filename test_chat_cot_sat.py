@@ -44,17 +44,23 @@ check(L.expected_fires("llama3", -6, 300) == 2700 and L.expected_fires("qwen2.5"
       and L.expected_fires("qwen2.5", 0, 300) == 0, "fires")
 check(L.alpha_dir(-6) == "mdf_-6" and L.alpha_dir(0) == "mdf_0", "dir naming")
 
+ID = [["q%d" % i, "%d" % i] for i in range(300)]
 def cell(model="qwen2.5", task="gsm8k", alpha=8, n=3):
     tk = L.TASKS[task]["text_key"]
     meta = {"protocol": L.PROTOCOL, "model": model, "task": task, "alpha": alpha, "cot": True, "chat_template_applied": True,
             "layers": list(L.MODELS[model]["band"]), "mask_sha256": "m", "prompt_sha256": "p", "max_new_tokens": 768,
-            "temperature": 0.0, "batch_size": 24, "prefill_tail_len": 1, "n": n,
+            "temperature": 0.0, "top_p": 1.0, "batch_size": 24, "prefill_tail_len": 1, "prefill_only": True, "n": n,
+            "model_dir": "MD", "questions_file_sha256": "qf", "sample_order_sha256": "so", "suite": "default",
+            "fmt_wording": "plain", "role": "neutral",
             "steering_fires": L.expected_fires(model, alpha, n), "steering_fires_expected": L.expected_fires(model, alpha, n)}
-    rows = [{tk: "x", "stop_reason": "natural_eos", "generated_token_count": 5} for _ in range(n)]
+    rows = [{tk: "x", "stop_reason": "natural_eos", "generated_token_count": 5,
+             **({"question": ID[i][0], "answer": ID[i][1]} if task == "gsm8k" else {"sample_id": ID[i][0], "question": ID[i][1]})}
+            for i in range(n)]
     return {"meta": meta, "data": rows}
 def verify(d, **kw):
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f: json.dump(d, f); p = f.name
-    a = dict(model="qwen2.5", task="gsm8k", alpha=8, n=3, mask_sha256="m", prompt_sha256="p"); a.update(kw)
+    a = dict(model="qwen2.5", task="gsm8k", alpha=8, n=3, mask_sha256="m", prompt_sha256="p",
+             model_dir="MD", q_file_sha256="qf", order_sha256="so", identity=ID[:kw.get("n", 3)]); a.update(kw)
     r = L.verify_existing_cell(p, **a); os.unlink(p); return r
 check(verify(cell()) == [], "good cell passes")
 d = cell(); d["meta"]["steering_fires"] = 0; check(verify(d), "wrong fires fails")
@@ -62,6 +68,13 @@ d = cell(); d["data"].pop(); check(verify(d), "short rows fails")
 d = cell(); d["meta"]["prompt_sha256"] = "q"; check(verify(d), "different prompts fails")
 d = cell(); d["meta"]["mask_sha256"] = "z"; check(verify(d), "different mask fails")
 d = cell(); d["data"][1]["stop_reason"] = None; check(verify(d), "bad stop reason fails")
+check(verify(cell(), model_dir="other/model"), "different model_dir fails")
+check(verify(cell(), q_file_sha256="zz"), "different data file fails")
+d = cell(); d["data"][1]["answer"] = "999"; check(verify(d), "modified gold fails")
+d = cell(); d["data"][0], d["data"][1] = d["data"][1], d["data"][0]; check(verify(d), "reordered items fails")
+d = cell(); d["meta"]["prefill_only"] = False; check(verify(d), "prefill_only false fails")
+d = cell(); d["meta"]["top_p"] = 0.9; check(verify(d), "top_p differs fails")
+d = cell(task="gsm_hard"); check(verify(d, task="gsm_hard", identity=ID[:3]) == [], "hard identity passes")
 d = cell(alpha=0); check(verify(d, alpha=0) == [], "alpha0 fires 0 passes")
 d = cell(model="llama3", alpha=-6, n=300); check(verify(d, model="llama3", alpha=-6, n=300) == [], "llama 2700 passes")
 print(f"all {ok} checks passed")
