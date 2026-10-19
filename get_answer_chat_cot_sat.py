@@ -132,13 +132,15 @@ def main():
     if nz != want:
         die(f"mask non-zero rows {nz} != configured band rows {want}")
 
+    identity = L.item_identity(args.task, samples)
     alphas = L.alphas_for(args.model)
     fname = L.cell_filename(args.model, args.task, cfg["band"])
     paths = {a: os.path.join(out_dir, L.alpha_dir(a), fname) for a in alphas}
     todo = []
     for a in alphas:
         if os.path.exists(paths[a]):
-            probs = L.verify_existing_cell(paths[a], args.model, args.task, a, n, mask_sha, prompt_sha)
+            probs = L.verify_existing_cell(paths[a], args.model, args.task, a, n, mask_sha, prompt_sha,
+                                          model_dir, q_file_sha, order_sha, identity)
             if probs:
                 die(f"existing cell {paths[a]} FAILED verification ({'; '.join(probs)}); refusing to skip or overwrite")
             print(f"[skip] alpha={a}: existing cell verified")
@@ -217,6 +219,7 @@ def main():
         }
         if not tcfg["label_free"]:
             meta["accuracy_inline_pct"] = round(sum(r["correct_neutral"] for r in rows) / n * 100, 2)
+        os.makedirs(os.path.dirname(paths[a]), exist_ok=True)
         L.atomic_write_json({"meta": meta, "data": rows}, paths[a])
         print(f"  wrote {paths[a]}  fires={fires}/{expect}")
     print("\nFinished. Score OFFLINE with RoleAnswer/analyze_chat_cot_sat_v1.py (inline fields are process state).")
