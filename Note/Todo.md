@@ -35,7 +35,7 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 9. llama3-base 1-shot gsm8k -> 1-shot会破坏commit的自然规律 ✔
 10. Qwen Base 的 early-candidate 小盲审 ✔
 11. Off-Support Orthogonal Control ✔
-12. Llama3 betting在随机seed上的对照实验
+12. Off-Support Orthogonal MMLUE 
 
 ---
 
