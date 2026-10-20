@@ -37,7 +37,19 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 11. Off-Support Orthogonal Control ✔
 12. Off-Support Orthogonal MMLUE ✔
 13. Qwen2.5 expert vs non-expert ✔
-14. Chat-CoT Saturation Check (GSM8K / GSM-Hard)
+14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
+
+
+---
+Week Report
+核心问题：能不能定义神经元的功能？描绘出这批神经元是做什么？
+存在的问题：
+1）从行为学的角度 很难定义出模型是是什么，只能“侧写模型的行为“（infoQuestion）
+2）模型的选择结果收到prompt的影响（willingness） + 简单的问答很难测出来模型实际的内心（MMLUE）
+Reasoning Task的优化：
+1）如果BaseModel可以follow指令的话，RSN也可以起到类似的作用（qwen Base）
+2）Qwen方向相反的问题不是因为Expert和Non-expert (Qwen2.5 expert vs non-expert)
+3）CoT 也需要作用空间（COT在Chat的情况下表现更好）这里需要查看COT在Bare的表现，之前没有做
 
 ---
 
