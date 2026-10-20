@@ -28,7 +28,7 @@ rsync -avzP \
 
 
 rsync -avzP \
-  "d12922004@140.112.31.184:/data1/paveen/Dopamine/components/qwen2.5/answer_gsm8k_role_correspondence_v1" \
+  "d12922004@140.112.31.184:/data1/paveen/Dopamine/components/llama3" \
   /Users/paveenhuang/Downloads/
 
 
