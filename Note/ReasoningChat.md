@@ -271,7 +271,71 @@ Bare 的开场较不统一，也更容易先给答案、重复 marker 或出现�
 
 candidate 不等于正式 marker，reasoning-first 是表面输出模式。行为指标不是内部 commitment 的直接测量；行为变化与准确率共同出现，不等于行为变化造成准确率变化。
 
-## 5. Conclusions
+
+## 5. Chat-CoT Saturation Check
+
+在现有 Native Chat No-CoT 提示中，仅增加一句 `Let's think step by step.`，检验显式 CoT 是否改变输出组织，以及 RSN 是否仍能带来额外准确率收益。
+
+两个模型分别测试 GSM8K 和 GSM-Hard，每个任务固定 300 题。保持 greedy decoding、768-token 上限及最后一个 prefill token 注入不变。Llama 比较 α=0／−6，Qwen 比较 α=0／+8，共新增 8 个单元格、2,400 条回复。题目配对、提示和生成设置核对通过，非零条件的注入计数分别为 2,700 和 1,800。
+
+### 5.1 Accuracy and Output Organisation
+
+**Table 5.1. Accuracy and Early-Candidate Rates With and Without CoT**
+
+| Model | Task | Condition | First Acc: α=0 | First Acc: Workpoint | Δ Acc (pp) | Early Candidate: α=0 | Early Candidate: Workpoint |
+|---|---|---|---:|---:|---:|---:|---:|
+| Llama | GSM8K | No-CoT | 89.67% | 88.67% | −1.00 | 0.00% | 0.00% |
+| Llama | GSM8K | CoT | 89.67% | 90.00% | +0.33 | 0.00% | 0.00% |
+| Llama | GSM-Hard | No-CoT | 31.00% | 32.00% | +1.00 | 0.33% | 0.33% |
+| Llama | GSM-Hard | CoT | 34.67% | 33.33% | −1.33 | 0.33% | 0.33% |
+| Qwen | GSM8K | No-CoT | 63.33% | 93.00% | +29.67 | 50.00% | 2.00% |
+| Qwen | GSM8K | CoT | 93.00% | 94.67% | +1.67 | 1.33% | 0.67% |
+| Qwen | GSM-Hard | No-CoT | 40.00% | 54.67% | +14.67 | 31.00% | 5.33% |
+| Qwen | GSM-Hard | CoT | 57.00% | 54.33% | −2.67 | 0.33% | 0.33% |
+
+注：每格分母均为 300；工作点为 Llama α=−6、Qwen α=+8。准确率使用冻结离线解析器的 `first_acc`，保留循环、截断和无标准标记的回复。No-CoT 为已有结果，与新 CoT 结果的比较只作描述。
+
+**Qwen 的变化最清楚。** No-CoT 下，+8 同时显著减少提前给出答案并提高准确率；加入 CoT 后，α=0 已基本转为先计算、后给答案，准确率达到或超过原 No-CoT 的 +8 水平，此时 steering 的额外收益明显缩小。
+
+**Llama 在两种提示下都几乎没有提前答案。** 加入 CoT 后，−6 仍未带来明确收益。尤其在 GSM-Hard 上，准确率仅约三成，说明这一结果不能仅用准确率接近天花板解释。
+
+### 5.2 Paired Steering Effects
+
+**Table 5.2. Steering Effects Within Chat-CoT**
+
+| Model | Task | α | Δ First Acc [95% CI], pp | Baseline-Only / Steering-Only Correct | Holm p |
+|---|---|---:|---:|---:|---:|
+| Llama | GSM8K | −6 | +0.33 [−2.00, +3.00] | 7 / 8 | 1.000 |
+| Llama | GSM-Hard | −6 | −1.33 [−3.67, +1.00] | 8 / 4 | 0.388 |
+| Qwen | GSM8K | +8 | +1.67 [−0.33, +3.67] | 2 / 7 | 0.359 |
+| Qwen | GSM-Hard | +8 | −2.67 [−5.67, +0.33] | 15 / 7 | 0.268 |
+
+注：与同模型、同任务的 CoT α=0 逐题配对；bootstrap B=10,000、seed=0，报告百分位 95% CI。双侧 exact McNemar 检验，每个任务内对两个模型采用 Holm 校正（m=2），两任务分别构成比较家族。
+
+**四项比较均未检出 CoT 下的额外 steering 收益。** No-CoT 与 CoT 的 steering 增益没有进行交互检验，因此不能仅凭一边显著、另一边不显著，断定两者的效应存在显著差异。
+
+### 5.3 Generation Quality
+
+**Table 5.3. Generation Health Under Chat-CoT**
+
+| Model | Task | Loop: α=0 → Workpoint | Truncation: α=0 → Workpoint | No Parseable Marker: α=0 → Workpoint |
+|---|---|---:|---:|---:|
+| Llama | GSM8K | 0.00% → 0.00% | 1.33% → 0.00% | 25.67% → 25.00% |
+| Llama | GSM-Hard | 1.33% → 0.67% | 7.33% → 6.00% | 29.33% → 25.67% |
+| Qwen | GSM8K | 0.00% → 0.00% | 0.33% → 0.33% | 2.33% → 2.00% |
+| Qwen | GSM-Hard | 0.00% → 0.33% | 0.67% → 0.67% | 3.67% → 7.67% |
+
+整体循环和截断比例较低。不过，Llama 约四分之一的回复没有可解析的 `####` 数字标记，准确率依赖冻结解析器的回退规则。CoT 下，候选位置可识别回复中的 `reason_first_rate` 为 99.67%–100%；该指标与 early-candidate 使用不同判据和分母，并非互补比例。
+
+### 5.4 Interpretation
+
+**结果与 CoT 和 RSN 在输出组织上存在部分功能重叠的解释相容。** Qwen 在 No-CoT 下有较多提前答案，steering 收益较大；CoT 已使模型倾向先计算、后提交答案，此时继续 steering 的收益很小。
+
+但答案顺序并不能解释全部表现：Llama GSM-Hard 仍有明显准确率空间，却没有检出 steering 收益。因此，更合适的结论是：**RSN 的收益依赖模型与提示条件；当显式 CoT 已改变输出组织时，其额外收益可能缩小。**
+
+新旧结果来自不同运行环境，跨提示比较为描述性结果。本实验尚不能证明 CoT 与 RSN 使用同一内部机制，也不能把可见答案顺序的变化认定为准确率提升的因果中介。
+
+## 6. Conclusions
 
 1. Chat interface 会显著改变模型的基础输出方式。
 2. Bare 中发现的 workpoint 不能直接迁移到 Chat。
