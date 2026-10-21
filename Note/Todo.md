@@ -47,7 +47,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 13. Qwen2.5 expert vs non-expert ✔
 14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
 ---
-15. ProofWriter-OWA的补充实验 Chat 0-shot
+15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
 
 ---
 ## TO DO
