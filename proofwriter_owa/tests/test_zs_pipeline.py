@@ -115,7 +115,16 @@ gb = json.load(open(os.path.join(TMP, "g_bad.json")))
 check(rc == 3 and gb["passed"] is False and not gb["checks"]["valid_submission_rate"], "gate FAILS on missing markers (exit 3, file kept)")
 trunc = make_cell("llama3", "a0", trunc=60)
 rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", trunc, "--out", os.path.join(TMP, "g_tr.json")])
-check(rc == 3 and not json.load(open(os.path.join(TMP, "g_tr.json")))["checks"]["truncation_rate"], "gate FAILS on truncation")
+gt = json.load(open(os.path.join(TMP, "g_tr.json")))
+check(rc == 0 and gt["passed"] and set(gt["checks"]) == {"valid_submission_rate"}, "20% truncation among VALID submissions does not fail the gate")
+check(gt["diagnostics_not_gated"]["truncation_by_validity"]["with_valid_submission"]["n"] == 60
+      and gt["diagnostics_not_gated"]["truncation_by_validity"]["without_valid_submission"]["denominator"] == 0,
+      "truncation reported split by validity (60 valid+truncated, 0 invalid)")
+lp = make_cell("llama3", "a0", mutate=lambda d: [r.__setitem__("generated", "#### True\n" + "xyz abc loop block here 1234567890. " * 12) for r in d["data"][:50]])
+rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", lp, "--out", os.path.join(TMP, "g_lp.json")])
+gl = json.load(open(os.path.join(TMP, "g_lp.json")))
+check(rc == 0 and gl["diagnostics_not_gated"]["loop_by_validity"]["with_valid_submission"]["n"] == 50,
+      "loop after a valid marker: gate passes, loop reported under 'with_valid_submission'")
 check(raises(lambda: gen.load_gate(os.path.join(TMP, "g_bad.json"), "llama3", "nocot", bad)) is not None,
       "generation refuses a FAILED gate")
 check(raises(lambda: gen.load_gate(g_out, "llama3", "nocot", make_cell("llama3", "a0", n_wrong=5))) is not None,
@@ -212,6 +221,19 @@ rc, err = run_main(ev, ["--stage", "eval", "--manifest_blind", bm, "--gold", gbp
                         "--cells", *[cells[k] for k in sorted(cells)], "--gates", *gates,
                         "--out", os.path.join(TMP, "e_gb.json")])
 check(rc == 2, "gold file identity mismatch -> refused")
+# required-field completeness: both cells missing the same field must NOT pass
+for fld in ("mask_sha256", "chat_template_hash", "injection_site", "prompt_sha256", "provenance"):
+    def dropper(d, fld=fld): d["meta"].pop(fld, None)
+    c2, g2 = four("nocot", {("llama3", "a0"): {"mutate": dropper}, ("llama3", "wp"): {"mutate": dropper}}) if False else (None, None)
+    ca = make_cell("llama3", "a0", mutate=dropper); cb = make_cell("llama3", "wp", mutate=dropper)
+    ma = json.load(open(ca))["meta"]; mb = json.load(open(cb))["meta"]
+    check("missing or empty" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""),
+          f"both cells missing {fld} -> cross-cell check refuses")
+for fld, val in (("mask_sha256", ""), ("injection_site", {})):
+    ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma[fld] = val; mb = json.loads(json.dumps(ma))
+    check("missing or empty" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), f"both cells with empty {fld} -> refused")
+ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma["injection_site"] = {"x": 1}; mb = json.loads(json.dumps(ma))
+check("final_token_id" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), "injection_site without final_token_id -> refused")
 # failed gate blocks eval
 rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", make_cell("llama3", "a0", style="none"),
                       "--out", os.path.join(TMP, "gate_failed_l.json")])
