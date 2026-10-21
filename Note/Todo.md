@@ -14,14 +14,24 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ### Daily
 
+10.21 
+看學習的實驗結果；
+看科技新聞；
+
+
+辦理長期居留證
+   • 依親居留證正本（就是這張到 2028 年的卡片）。
+   • 大通證（大陸居民往來台灣通行證）正本。
+   • 最近 3 個月內的戶籍謄本正本（「記事欄不能省略」，裡面必須有結婚登記紀錄）。
+   • 2,600 元新台幣現金（現場繳交的規費）。
+   • 1 張白底 2 吋彩色照片（留在現場貼申請書用）。
+
 准备多益考试
 看完瑜伽视频
 看完徐玉兰视频
 
 ---
-
 ### TO DO
-Dopamine：调控的到底是什么怎么定位？和confidence的区分？practical？
 
 1. 重新看看willingness实验，统一模板，优化负向表达 -> v2，出现相反的结果 ✖
 2. 优化willingness的表述，再做一版本的结果 -> v3 还是很难解释 ✖
@@ -38,87 +48,6 @@ Dopamine：调控的到底是什么怎么定位？和confidence的区分？pract
 12. Off-Support Orthogonal MMLUE ✔
 13. Qwen2.5 expert vs non-expert ✔
 14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
-
-
----
-Week Report
-核心问题：能不能定义神经元的功能？描绘出这批神经元是做什么？
-存在的问题：
-1）从行为学的角度 很难定义出模型是是什么，只能“侧写模型的行为“（infoQuestion）
-2）模型的选择结果收到prompt的影响（willingness） + 简单的问答很难测出来模型实际的内心（MMLUE）
-Reasoning Task的优化：
-1）如果BaseModel可以follow指令的话，RSN也可以起到类似的作用（qwen Base）
-2）Qwen方向相反的问题不是因为Expert和Non-expert (Qwen2.5 expert vs non-expert)
-3）CoT 也需要作用空间（COT在Chat的情况下表现更好）这里需要查看COT在Bare的表现，之前没有做
-
----
-
-## Vector
-- 提取位置：当前 RSN 是 Role 提示在任务入口引起的综合状态差异。可以比较“身份描述结束处”和“生成入口”的 HS，区分身份编码与任务整合后的影响；目前还不能确定换位置会更好。
-- 与 confidence 的差异方向：可以提取 Role 中无法被 confidence 方向解释的 residual。它可能帮助定位额外的功能成分，但不能直接叫“更纯粹的 Role”，因为仍可能包含其他提示和任务效应。
-- Manifold reasoning Chat & MMLUE RSN
-
-## Representation
-
-| 层次 | 要回答的问题 | 推荐指标 |
-|---|---|---|
-| 几何结构 | 两组 activation 的空间布局是否相似？ | centered CKA、mCCA/SVCCA、正交 Procrustes residual、子空间夹角 |
-| 可读出功能 | 在 A 中线性可读的信息，B 中是否仍可读？ | 同一标签/状态的线性 probe；跨条件训练-测试（train A → test B） |
-| 因果功能 | 两个表征是否能产生同一种干预效果？ | norm-matched cross-steering / cross-ablation 矩阵 |
-
-| Layer | Input | Core metrics | 回答的问题 |
-| --- | --- | --- | --- |
-| Mean Direction | 每个实验的全量均值差 $r=\mu_{\text{expert}}-\mu_{\text{non-expert}}$ | signed cosine、norm、逐层 cosine | 两个角色方向是否指向相近的位置？ |
-| Sparse Coordinates | 均值方向的逐层 top-$k$ 坐标 | overlap、Jaccard、enrichment、符号一致性、双向能量包含率 | 是否涉及相同神经元？共享部分有多重要？ |
-| Role-Transition CKA | 两个实验在相同题目上的逐题配对差 $d_i=h_{i,\text{expert}}-h_{i,\text{non-expert}}$ | **Centered linear CKA**；题目配对打乱作为 null | 不同题目的 role 变化之间，整体几何关系是否相似？ |
-| Role-Transition Subspace | 各实验的逐题配对差 $d_i$ | 对 $d_i-\bar d$ 拟合 PCA；比较子空间夹角、交叉重建率 | 除平均方向外，role 对不同题目的影响模式是否相似？ |
-| Direction–Subspace | 一个实验的均值方向 $r$ 与另一个实验的 role-transition PCA 子空间 $V_k$ | 投影比例 $R^2=\lVert V_k^\top r\rVert^2/\lVert r\rVert^2$，及随机基线 | 一个实验的平均角色方向在多大程度上落入另一个实验的变化空间？ |
-
-## Brain
-
-**Steingroever 健康常模对齐**
-
-公开数据确实包含 617 名参与者的逐 trial 选择、收益与损失。不过数据混合了 95/100/150 trials 和三种 payoff scheme，因此必须只选与我们 IGT 协议完全匹配的子集。[Steingroever et al. 数据说明](https://openpsychologydata.metajnl.com/articles/jopd.ak)
-
-建议检验：
-
-- `net_block1–5` 学习曲线；
-- net score 分布；
-- deck preference；
-- Wasserstein distance / RMSE；
-- 按原始 study 做 held-out，而不是把所有参与者混在一起挑最佳 α。
-
-它能支持的结论是：某个 RSN 条件产生的 IGT 行为最接近健康人常模。行为相似不能识别神经递质水平。因此建议称为 **human behavioural calibration**，而不是 dopamine-axis calibration。
-
-
-**已有药理学方向对照：保留即可**
-
-现在的定性文献结论已经够用了：
-
-- α+ 与较早承诺、较高下注或 reward seeking 的方向相似；
-- α− 与较保守行为的方向相似。
-
-把它作为 Discussion 中的 correspondence table，不必继续寻找无法获得的三组相关系数。措辞停在：
-
-> RSN manipulation exhibits behavioural correspondence with reported dopaminergic pharmacology effects.
-
-**fMRI RSA：有潜力，但暂不作为当前投稿必做项**
-
-NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BIDS 数据和公开预处理结果，技术上适合开展共享刺激分析。[NARPS 数据说明](https://pmc.ncbi.nlm.nih.gov/articles/PMC6602933/)
-
-- 必须把 NARPS 中完全相同的 gain/loss gamble 输入 LLM，才能构建可比较的 RDM；现有 MCQ/Betting 刺激不能直接与 fMRI trial 做 RSA。
-- 即使 vmPFC/striatum RSA 显著，也只能说明 **representational correspondence**，不能“直接证明 RSN 操纵 reward representation”。
-- Broca/Wernicke 不显著也不能证明“不是语言表征”；ROI 功效、刺激语言量和噪声都会造成 null。
-- 还需要控制 gain、loss、accept/reject、RT 等 nuisance RDM，否则相关性可能只是两个系统都编码金额。
-
-因此这会变成一个独立而完整的 brain–LLM 项目，不太可能只是附加分析。
-
-我的建议优先级是：
-
-1. 完成 Thinking Curve、GSM-Hard 和 causal direction control。
-2. 并行做 Steingroever 健康常模的小型定量对齐。
-3. 将药理学方向一致性放进 Discussion。
-4. NARPS RSA 放入 future work；如果前面的行为对齐很漂亮，再考虑扩成后续论文。
 
 ---
 ## TO DO
