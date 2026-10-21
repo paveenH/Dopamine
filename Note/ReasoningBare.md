@@ -1438,7 +1438,7 @@ Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason
 | GSM-Symbolic | Supported in No-CoT; not stable in CoT | Supported in No-CoT and CoT | Transfer depends on model and prompting condition |
 | BBH Object Counting | CoT only | CoT only | CoT-dependent transfer; No-CoT reordering is insufficient |
 | CRUXEval-O | No stable gain | Supported mainly under CoT | Clear model boundary; revision remains unstable |
-| ProofWriter-OWA | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: no workpoint gain detected | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: strict score rises with format recovery, while relaxed label accuracy is unchanged | Results depend on prompt condition; Bare and Chat format failures remain important boundaries |
+| ProofWriter-OWA | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: no workpoint gain detected | Chat 1-shot CoT: significant gain at `+8` (Holm `p_adj=.0303`); zero-shot No-CoT: strict score rises with format recovery, while relaxed label accuracy is unchanged | Results depend on prompt condition; Bare and Chat format failures remain important boundaries |
 | LogiQA 2.0 | No stable gain | No stable gain | Multiple-choice output does not show reliable transfer |
 | ZebraLogic-Easy | No stable gain | No stable gain; `+8` collapses | Reason-before-solution is saturated and not predictive |
 | FinQA | No stable gain | Modest descriptive gain at `+8` | Reordering appears in Qwen but does not establish stable transfer |
