@@ -6,7 +6,7 @@
 # Stages (MODEL = llama3 or qwen2.5; CONDITION = nocot (default) or cot):
 #   check      MODEL [CONDITION]   tokenizer only, no GPU: prompt + injection-site report
 #   base       MODEL [CONDITION]   generate the alpha=0 cell (needs a GPU)
-#   workpoint  MODEL [CONDITION]   llama3: alpha -6;  qwen2.5: alpha +8 AND -6 in one process
+#   workpoint  MODEL [CONDITION]   llama3: alpha -6 AND +6;  qwen2.5: alpha +8 AND -6 (one process each, alpha=0 excluded)
 #   eval       [CONDITION]         score all cells (reads gold)
 # There is no format gate. The CoT condition is a later stage and is never started by another stage.
 set -euo pipefail
@@ -54,18 +54,18 @@ case "$STAGE" in
       --mask_path "$MASK" --out_root "$BASE_DIR";;
   workpoint)
     model_vars "$MODEL"; need_py; need_gpu_var
-    CELLS="wp"; [[ "$MODEL" == "qwen2.5" ]] && CELLS="wp rev"
+    CELLS="wp rev"   # llama3: -6 and +6; qwen2.5: +8 and -6
     "$PY" proofwriter_owa/get_answer_proofwriter_owa_zeroshot.py --mode run \
       --model "$MODEL" --condition "$CONDITION" --cell $CELLS --manifest "$BLIND" \
       --mask_path "$MASK" --out_root "$BASE_DIR";;
   eval)
     model_vars llama3; L0="$(cell_path llama3 0 "$SIZE" "$BAND")"; L1="$(cell_path llama3 "$WP" "$SIZE" "$BAND")"
     model_vars qwen2.5; Q0="$(cell_path qwen2.5 0 "$SIZE" "$BAND")"; Q1="$(cell_path qwen2.5 "$WP" "$SIZE" "$BAND")"
-    Q2="$(cell_path qwen2.5 neg6 "$SIZE" "$BAND")"
+    Q2="$(cell_path qwen2.5 neg6 "$SIZE" "$BAND")"; L2="$(cell_path llama3 6 8B 11_20)"
     mkdir -p "$RES"
     "$PY" proofwriter_owa/eval_proofwriter_owa_zeroshot.py \
       --condition "$CONDITION" --manifest_blind "$BLIND" --gold "$GOLD" \
-      --cells "$L0" "$L1" "$Q0" "$Q1" "$Q2" \
+      --cells "$L0" "$L1" "$L2" "$Q0" "$Q1" "$Q2" \
       --out "$RES/eval_${CONDITION}.json";;
   *) echo "[FATAL] unknown stage '$STAGE'" >&2; exit 1;;
 esac
