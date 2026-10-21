@@ -48,6 +48,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
 ---
 15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
+16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8`：补做宽松标签正确率与配对比较，检查显著结果是否主要受严格 marker 格式影响；保留冻结严格评分为主结果。
 
 ---
 ## TO DO
