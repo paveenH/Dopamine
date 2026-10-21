@@ -1327,11 +1327,11 @@ Qwen 的正向 α 产生了较清晰的 output reordering。相对于 baseline�
 
 **Conclusion.** FinQA 没有表现出稳定的跨任务 workpoint transfer。Llama 的负向 workpoint 降低了准确率，并受到严重循环和截断影响；Qwen `+8` 的准确率点估计有所提高，并伴随较少的 early candidate 和更多的 reason-first output，但 `+6` 的行为反例说明 output reordering 不能单独预测性能。
     
-### 6.4 ZebraLogic-Easy
+### 6.7 ZebraLogic-Easy: Dose Sweep
 
 ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答案的样本计错，并在每个模型内对三个非零剂量执行 Holm 校正。
 
-**Table 6.4. ZebraLogic-Easy task-specific dose sweep**
+**Table 6.19. ZebraLogic-Easy task-specific dose sweep**
 
 | Model | α | Puzzle accuracy | Δ vs 0 | No answer | Raw p | Holm `p_adj` |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1348,7 +1348,7 @@ ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答�
 
 因此，ZebraLogic-Easy 没有提供正向迁移证据，但明确显示了 Qwen 的高剂量失败边界。
 
-### 6.7 ZebraLogic-Easy
+### 6.8 ZebraLogic-Easy: Output Behavior
 
 ZebraLogic-Easy 的答案是完整逻辑网格，因此行为指标围绕 solution grid 的出现位置和修订情况定义。行为指标采用 gold-free 分析；准确率来自冻结的正式评测，未由本次行为脚本重新计算。每个条件均包含 280 个样本。
 
