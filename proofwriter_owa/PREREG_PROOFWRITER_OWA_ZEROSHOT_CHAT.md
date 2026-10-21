@@ -34,7 +34,7 @@ registered in `answer_parser.MARKER_FAMILIES` -> v2 `####` family). `n_shot=0`.
 | item | value |
 |---|---|
 | data | the existing 300 items, same order (`manifest_blind.json`) |
-| llama3 | Llama-3.1-8B-Instruct, alpha {0, -6}, band [11,20), L=9 |
+| llama3 | Llama-3.1-8B-Instruct, alpha {0, -6, +6}, band [11,20), L=9 (+6 = extra reverse dose, exploratory) |
 | qwen2.5 | Qwen2.5-7B-Instruct, alpha {0, +8, -6}, band [16,22), L=6 (-6 = extra reverse dose, exploratory) |
 | generation | greedy, temperature 0, top_p 1, 1024 new tokens, batch 8 |
 | injection | last token of the wrapped prompt, prefill-only, tail 1, full-length diff matrix; alpha=0 uses the same path with an all-zero matrix |
@@ -46,7 +46,7 @@ tokenizer and stored in `meta.injection_site`; they are not assumed equal across
 ## Stages
 
 1. `check` (tokenizer only) -> 2. `base`: alpha=0 for both models -> 3. `workpoint`:
-llama3 -6; qwen2.5 +8 and -6 in one process -> 4. `eval`. CoT is a later stage;
+llama3 -6 and +6; qwen2.5 +8 and -6, one process per model -> 4. `eval`. CoT is a later stage;
 nothing starts it automatically.
 
 **No format gate** (removed 2026-10-21 by decision. A valid-submission>=0.90 gate existed first;
@@ -69,7 +69,7 @@ distributions. The prompt has no stop instruction, so post-marker text is observ
 
 Per model, workpoint vs the same model's alpha=0, paired by sample identity: exact
 McNemar + question-paired bootstrap CI (B=10000, seed 0). The two models'
-workpoint contrasts (llama -6, qwen +8) are ONE Holm family, m=2, per condition; qwen -6 vs 0 is exploratory, unadjusted; separate from the m=3
+workpoint contrasts (llama -6, qwen +8) are ONE Holm family, m=2, per condition; the reverse doses (llama +6, qwen -6) vs 0 are exploratory, unadjusted; separate from the m=3
 families of the older lines. Early-candidate contrasts are exploratory (unadjusted).
 The evaluator accepts only this experiment's own four cells and aborts on any
 config / provenance / identity / fire-count mismatch.
