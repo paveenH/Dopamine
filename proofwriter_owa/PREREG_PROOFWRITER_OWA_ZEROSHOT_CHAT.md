@@ -35,7 +35,7 @@ registered in `answer_parser.MARKER_FAMILIES` -> v2 `####` family). `n_shot=0`.
 |---|---|
 | data | the existing 300 items, same order (`manifest_blind.json`) |
 | llama3 | Llama-3.1-8B-Instruct, alpha {0, -6}, band [11,20), L=9 |
-| qwen2.5 | Qwen2.5-7B-Instruct, alpha {0, +8}, band [16,22), L=6 |
+| qwen2.5 | Qwen2.5-7B-Instruct, alpha {0, +8, -6}, band [16,22), L=6 (-6 = extra reverse dose, exploratory) |
 | generation | greedy, temperature 0, top_p 1, 1024 new tokens, batch 8 |
 | injection | last token of the wrapped prompt, prefill-only, tail 1, full-length diff matrix; alpha=0 uses the same path with an all-zero matrix |
 | fires (n=300) | alpha=0: 0; llama -6: 2700; qwen +8: 1800 (mismatch = cell not written / not analysed) |
@@ -45,18 +45,16 @@ tokenizer and stored in `meta.injection_site`; they are not assumed equal across
 
 ## Stages
 
-1. `check` (tokenizer only) -> 2. No-CoT alpha=0 for both models (**format gate**) ->
-3. each model that passes: its own workpoint cell -> 4. `eval`.
-CoT (4 cells) is a later stage with its own gate/eval; nothing starts it automatically.
+1. `check` (tokenizer only) -> 2. `base`: alpha=0 for both models -> 3. `workpoint`:
+llama3 -6; qwen2.5 +8 and -6 in one process -> 4. `eval`. CoT is a later stage;
+nothing starts it automatically.
 
-**Format gate (frozen; revised 2026-10-21 before any cell existed; decided on valid
-submission only, never on accuracy or early-candidate):** valid_submission_rate >= 0.90
-(>=1 strict line-anchored `#### True|False|Unknown`). Loop (strict final-40-char-block
-test) and truncation are health diagnostics reported separately for samples with and
-without a valid submission; they do not gate, and `post_marker` does not locate where a
-loop starts, so no "loop only after the answer" claim is made. On
-failure the result is kept; the prompt, token budget and scoring are not changed
-automatically, and that model's workpoint cell is refused.
+**No format gate** (removed 2026-10-21 by decision. A valid-submission>=0.90 gate existed first;
+qwen2.5 No-CoT alpha=0 did not pass it, which blocked that model's workpoint run. The gate
+was then removed, and that alpha=0 cell is kept and reused unchanged). Every cell is generated and
+analysed; valid-submission rate, loop and truncation (the last two split by whether a
+valid answer was submitted) are reported as health diagnostics only. `post_marker` does
+not locate loop onset.
 
 ## Scoring and readouts
 
@@ -71,7 +69,7 @@ distributions. The prompt has no stop instruction, so post-marker text is observ
 
 Per model, workpoint vs the same model's alpha=0, paired by sample identity: exact
 McNemar + question-paired bootstrap CI (B=10000, seed 0). The two models'
-workpoint contrasts are ONE Holm family, m=2, per condition; separate from the m=3
+workpoint contrasts (llama -6, qwen +8) are ONE Holm family, m=2, per condition; qwen -6 vs 0 is exploratory, unadjusted; separate from the m=3
 families of the older lines. Early-candidate contrasts are exploratory (unadjusted).
 The evaluator accepts only this experiment's own four cells and aborts on any
 config / provenance / identity / fire-count mismatch.
