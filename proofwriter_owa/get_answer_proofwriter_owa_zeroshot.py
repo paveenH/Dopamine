@@ -12,7 +12,8 @@ and the frozen parser are shared.
 DESIGN (all fixed in code, none a CLI knob)
   prompt   : prompt_zeroshot.build_user_prompt -- 0-shot, no exemplar.
              No-CoT = rules + Theory/Question + answer-line instruction;
-             CoT    = the same string + "Let's think step by step.\n".
+             CoT    = the same with "Let's think step by step." inserted just
+                      before the answer-line instruction. No stop instruction.
   wrapping : ONE user message through tokenizer.apply_chat_template(...,
              add_generation_prompt=True); no assistant prefix. A leading BOS
              already serialised as text is stripped (vc.regenerate re-adds it
