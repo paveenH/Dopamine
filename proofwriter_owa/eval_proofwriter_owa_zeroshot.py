@@ -7,17 +7,13 @@ zero-shot experiment (protocol `proofwriter-owa-zs-chat-v1`).
 This is NOT the old four-point-sweep evaluator and does not pretend to be one:
 it validates THIS experiment's own condition set and refuses anything else.
 
---stage gate   GOLD-FREE format-stability gate on one model's No-CoT (or CoT)
-               alpha=0 cell. Reads generations only (no gold file is opened),
-               applies zs_common.GATE_THRESHOLDS, writes a gate JSON.
-               Accuracy and early-candidate are not inputs to the verdict.
---stage eval   Needs EXACTLY four cells of one condition:
-                 llama3 alpha 0, llama3 -6, qwen2.5 alpha 0, qwen2.5 +8
-               plus both models' PASSED gate files. Any missing / extra /
-               mismatched cell, config drift, host/GPU/software difference
-               between a model's two cells, wrong fire count, or
-               identity/order mismatch against the blind manifest and the gold
-               file aborts with no output.
+Needs the experiment's own cells of one condition:
+    llama3 alpha 0 and -6; qwen2.5 alpha 0, +8 and -6 (reverse dose).
+Any missing / extra / mismatched cell, config drift, host/GPU/software
+difference between a model's cells, wrong fire count, or identity/order
+mismatch against the blind manifest and the gold file aborts with no output.
+There is no format gate; valid-submission / loop / truncation are reported
+per cell (loop and truncation split by whether a valid answer was submitted).
 
 STATISTICS (eval). Per model, workpoint vs the SAME model's alpha=0, paired by
 sample identity: exact two-sided McNemar on first_acc (no-marker = incorrect,
@@ -56,7 +52,8 @@ from scoring import mcnemar_exact, holm, question_paired_bootstrap_ci  # noqa: E
 from answer_parser import is_correct, parse_final_answer_v2  # noqa: E402
 import label_early_candidate as lec  # noqa: E402
 
-EXPECTED_SET = {("llama3", "a0"), ("llama3", "wp"), ("qwen2.5", "a0"), ("qwen2.5", "wp")}
+EXPECTED_SET = {("llama3", "a0"), ("llama3", "wp"),
+                ("qwen2.5", "a0"), ("qwen2.5", "wp"), ("qwen2.5", "rev")}
 
 
 def die(msg):
@@ -73,7 +70,9 @@ def cell_id_from_meta(meta):
         return model, "a0"
     if a == zc.MODEL_CONFIG[model]["workpoint"]:
         return model, "wp"
-    raise zc.ZSError(f"{model}: alpha {a!r} is neither 0 nor the frozen workpoint "
+    if a == zc.MODEL_CONFIG[model].get("reverse"):
+        return model, "rev"
+    raise zc.ZSError(f"{model}: alpha {a!r} is not one of this experiment's alphas; workpoint is "
                      f"{zc.MODEL_CONFIG[model]['workpoint']}")
 
 
@@ -94,48 +93,18 @@ def load_gold_checked(path, samples):
     return gold
 
 
-def run_gate(args):
-    samples = zc.load_blind_manifest(args.manifest_blind)[1]
-    if len(args.cells) != 1:
-        die("--stage gate takes exactly one --cells path (the alpha=0 cell)")
-    path = args.cells[0]
-    meta = json.load(open(path, encoding="utf-8"))["meta"]
-    model, cell = cell_id_from_meta(meta)
-    if cell != "a0":
-        die("the gate is defined on the alpha=0 cell only")
-    _, rows = zc.validate_cell(path, model, args.condition, 0, samples)
-    stats = zc.cell_stats(rows, gold=None)          # gold never opened
-    v = zc.gate_verdict(stats)
-    out = {"protocol": zc.PROTOCOL, "stage": "gate", "model": model,
-           "condition": args.condition, "passed": v["passed"],
-           "checks": v["checks"], "observed": v["observed"],
-           "thresholds": v["thresholds"], "gold_read": False,
-           "cell_path": os.path.abspath(path), "cell_sha256": zc.sha256_file(path),
-           "format_stats": stats,
-           "diagnostics_not_gated": v["diagnostics_not_gated"],
-           "rule": ("decided on valid-submission rate only; loop/truncation "
-                    "are reported by validity but not gated; accuracy and "
-                    "early-candidate are not read. On failure the result is "
-                    "kept; the prompt, token budget and scoring are NOT "
-                    "changed automatically.")}
-    zc.atomic_write_json(args.out, out)
-    print(json.dumps({"model": model, "condition": args.condition,
-                      "passed": v["passed"], "observed": v["observed"],
-                      "thresholds": v["thresholds"]}, indent=2))
-    return 0 if v["passed"] else 3
-
-
-def check_gate_file(path, model, condition, a0_path):
-    g = json.load(open(path, encoding="utf-8"))
-    if (g.get("protocol"), g.get("stage"), g.get("model"), g.get("condition")) != \
-            (zc.PROTOCOL, "gate", model, condition):
-        raise zc.ZSError(f"{path}: not a {model}/{condition} gate file")
-    if g.get("passed") is not True:
-        raise zc.ZSError(f"{path}: gate did not pass")
-    if g.get("thresholds") != zc.GATE_THRESHOLDS:
-        raise zc.ZSError(f"{path}: thresholds differ from the frozen ones")
-    if g.get("cell_sha256") != zc.sha256_file(a0_path):
-        raise zc.ZSError(f"{path}: gate belongs to a different alpha=0 file")
+def paired_vs_base(base, other, gold):
+    def v(rows):
+        return [1 if is_correct(parse_final_answer_v2(r["generated"]).label,
+                                gold[r["sample_id"]]) else 0 for r in rows]
+    a, b = v(base), v(other)
+    g01, l10, p = mcnemar_exact(a, b)
+    lo, hi = question_paired_bootstrap_ci(a, b)
+    return {"delta_first_acc_pp": (sum(b) - sum(a)) / len(a) * 100.0,
+            "alpha0_correct": sum(a), "other_correct": sum(b),
+            "wrong_to_right": g01, "right_to_wrong": l10,
+            "mcnemar_exact_p_unadjusted": p, "bootstrap_ci95_pp": [lo, hi],
+            "note": "outside the Holm family (m=2 = the two GSM8K workpoints)"}
 
 
 def run_eval(args):
@@ -153,20 +122,10 @@ def run_eval(args):
                          f"{sorted(EXPECTED_SET)} (missing: "
                          f"{sorted(EXPECTED_SET - set(found))}, extra: "
                          f"{sorted(set(found) - EXPECTED_SET)})")
-    if len(args.gates) != 2:
-        raise zc.ZSError("--gates needs both models' passed gate files")
-    gates = {}
-    for gp in args.gates:
-        g = json.load(open(gp, encoding="utf-8"))
-        gates[g.get("model")] = gp
-    if set(gates) != set(zc.MODEL_CONFIG):
-        raise zc.ZSError(f"gate files cover {sorted(gates)}, need both models")
-
     cells, metas, per_model = {}, {}, {}
     for model in zc.MODEL_CONFIG:
-        check_gate_file(gates[model], model, args.condition, found[(model, "a0")])
         mm = []
-        for cell in zc.CELLS:
+        for cell in [c for c in zc.CELLS if (model, c) in EXPECTED_SET]:
             alpha = zc.alpha_of(model, cell)
             meta, rows = zc.validate_cell(found[(model, cell)], model,
                                           args.condition, alpha, samples)
@@ -192,6 +151,10 @@ def run_eval(args):
             "alpha_workpoint": zc.MODEL_CONFIG[model]["workpoint"],
             "cells": {"alpha0": zc.cell_stats(base, gold),
                       "workpoint": zc.cell_stats(wp, gold)},
+            **({"reverse_alpha": zc.MODEL_CONFIG[model]["reverse"],
+                "cells_reverse": zc.cell_stats(cells[(model, "rev")], gold),
+                "reverse_vs_alpha0_EXPLORATORY": paired_vs_base(base, cells[(model, "rev")], gold)}
+               if (model, "rev") in cells else {}),
             "workpoint_vs_alpha0": {
                 "delta_first_acc_pp": (sum(b) - sum(a)) / len(a) * 100.0,
                 "alpha0_correct": sum(a), "workpoint_correct": sum(b),
@@ -229,9 +192,7 @@ def run_eval(args):
                                           "sha256": zc.sha256_file(found[(m, c)])}
                              for m, c in sorted(found)},
                    "gold_sha256": zc.sha256_file(args.gold),
-                   "manifest_blind_sha256": zc.sha256_file(args.manifest_blind),
-                   "gates": {m: zc.sha256_file(gp) for m, gp in gates.items()}},
-        "gate_thresholds": zc.GATE_THRESHOLDS,
+                   "manifest_blind_sha256": zc.sha256_file(args.manifest_blind)},
         "interpretation_limits": [
             "Order change with an accuracy rise is co-variation, not causal mediation.",
             "Order change without a detected accuracy gain does not show errors are not due to premature answering.",
@@ -253,12 +214,10 @@ def run_eval(args):
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser()
-    p.add_argument("--stage", choices=("gate", "eval"), required=True)
     p.add_argument("--condition", choices=sorted(pz.TEMPLATE_IDS), default="nocot")
     p.add_argument("--manifest_blind", required=True)
     p.add_argument("--cells", nargs="+", required=True)
-    p.add_argument("--gold", help="eval stage only")
-    p.add_argument("--gates", nargs="*", default=[], help="eval stage: both models' gate JSONs")
+    p.add_argument("--gold", required=True)
     p.add_argument("--out", required=True)
     return p.parse_args(argv)
 
@@ -268,12 +227,6 @@ def main(argv=None):
     if os.path.exists(args.out):
         die(f"{args.out} exists; refusing to overwrite")
     try:
-        if args.stage == "gate":
-            if args.gold:
-                die("--gold must not be given to the gate stage (gold-free by design)")
-            return run_gate(args)
-        if not args.gold:
-            die("--gold is required for --stage eval")
         return run_eval(args)
     except zc.ZSError as e:
         die(str(e))
