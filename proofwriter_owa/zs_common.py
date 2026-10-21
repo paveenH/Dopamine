@@ -234,7 +234,7 @@ def check_cross_cell(metas: list[dict], label: str) -> None:
             if m["injection_site"].get(k) in (None, [], ""):
                 raise ZSError(f"{label}: injection_site.{k} is missing or empty")
         for k in PROVENANCE_FIELDS:
-            if k not in m["provenance"] or m["provenance"][k] in (None, ""):
+            if k not in m["provenance"] or m["provenance"][k] in (None, "", []):
                 if k in ("sharded",) and m["provenance"].get(k) is False:
                     continue
                 raise ZSError(f"{label}: provenance.{k} is missing or empty")
