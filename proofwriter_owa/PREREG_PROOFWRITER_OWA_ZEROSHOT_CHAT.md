@@ -17,15 +17,15 @@ a label is stated?
 Theory: {theory}
 Question: {question}
 
-Do not write code or restate the theory.
 Include exactly one answer line using one of these three forms:
 #### True
 #### False
 #### Unknown
-Stop immediately after that line.
 ```
 
-CoT variant = the same string + one final line `Let's think step by step.`
+CoT variant = the same string with one line, `Let's think step by step.`, inserted
+immediately before `Include exactly one answer line...`. There is no "do not write
+code" and no "stop immediately" instruction (removed 2026-10-21).
 Template ids: `proofwriter-owa-zs-nocot-v1`, `proofwriter-owa-zs-cot-v1` (both
 registered in `answer_parser.MARKER_FAMILIES` -> v2 `####` family). `n_shot=0`.
 
@@ -49,9 +49,12 @@ tokenizer and stored in `meta.injection_site`; they are not assumed equal across
 3. each model that passes: its own workpoint cell -> 4. `eval`.
 CoT (4 cells) is a later stage with its own gate/eval; nothing starts it automatically.
 
-**Format gate (frozen; decided on submission format only, never on accuracy or early-candidate):**
-valid_submission_rate >= 0.90 (>=1 strict line-anchored `#### True|False|Unknown`),
-truncation_rate <= 0.10, loop_rate <= 0.10 (strict final-40-char-block test). On
+**Format gate (frozen; revised 2026-10-21 before any cell existed; decided on valid
+submission only, never on accuracy or early-candidate):** valid_submission_rate >= 0.90
+(>=1 strict line-anchored `#### True|False|Unknown`). Loop (strict final-40-char-block
+test) and truncation are health diagnostics reported separately for samples with and
+without a valid submission; they do not gate, and `post_marker` does not locate where a
+loop starts, so no "loop only after the answer" claim is made. On
 failure the result is kept; the prompt, token budget and scoring are not changed
 automatically, and that model's workpoint cell is refused.
 
@@ -62,7 +65,7 @@ no bare-label fallback. Reported per cell: `first_acc`; valid submission; condit
 accuracy; label early candidate (`pw-label-early-v1`, all 300; 40/80 as sensitivity);
 `answer_first` (valid subset); post-marker fate (`clean_stop` / `trailing_text` /
 `additional_marker`, valid subset); loop; truncation; natural EOS; token length; label
-distributions. Marker-first alone does not show the stop instruction was obeyed.
+distributions. The prompt has no stop instruction, so post-marker text is observed behaviour.
 
 ## Statistics
 
