@@ -8,7 +8,7 @@ This is NOT the old four-point-sweep evaluator and does not pretend to be one:
 it validates THIS experiment's own condition set and refuses anything else.
 
 Needs the experiment's own cells of one condition:
-    llama3 alpha 0 and -6; qwen2.5 alpha 0, +8 and -6 (reverse dose).
+    llama3 alpha 0, -6 and +6; qwen2.5 alpha 0, +8 and -6 (reverse doses).
 Any missing / extra / mismatched cell, config drift, host/GPU/software
 difference between a model's cells, wrong fire count, or identity/order
 mismatch against the blind manifest and the gold file aborts with no output.
@@ -52,7 +52,7 @@ from scoring import mcnemar_exact, holm, question_paired_bootstrap_ci  # noqa: E
 from answer_parser import is_correct, parse_final_answer_v2  # noqa: E402
 import label_early_candidate as lec  # noqa: E402
 
-EXPECTED_SET = {("llama3", "a0"), ("llama3", "wp"),
+EXPECTED_SET = {("llama3", "a0"), ("llama3", "wp"), ("llama3", "rev"),
                 ("qwen2.5", "a0"), ("qwen2.5", "wp"), ("qwen2.5", "rev")}
 
 
