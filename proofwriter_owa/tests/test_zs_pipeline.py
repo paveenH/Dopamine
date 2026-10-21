@@ -2,7 +2,7 @@
 """End-to-end local checks for the zero-shot chat pipeline with SYNTHETIC cells
 and fakes (no GPU, no model, no tokenizer download, stdlib only):
 generation core (fires / atomic write / reuse validation), injection-site
-report, the 5-cell evaluator and its refusals, strict scoring
+report, the 6-cell evaluator and its refusals, strict scoring
 and denominators.   python3 proofwriter_owa/tests/test_zs_pipeline.py"""
 import contextlib, copy, io, json, os, re, shutil, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -123,7 +123,6 @@ def four(cond="nocot", kw=None):
     cells = {}
     for m in zc.MODEL_CONFIG:
         for c in zc.CELLS:
-            if c == "rev" and m != "qwen2.5": continue
             nw = 60 if c == "a0" else 30
             cells[(m, c)] = make_cell(m, c, cond, n_wrong=nw, **kw.get((m, c), {}))
     return cells, None
@@ -143,7 +142,7 @@ check(rc == 0, f"evaluator accepts the complete, consistent set ({err.strip()[:8
 if R:
     rv = R["results"]["qwen2.5"]["reverse_vs_alpha0_EXPLORATORY"]
     check(R["results"]["qwen2.5"]["reverse_alpha"] == -6 and rv["alpha0_correct"] == 240 and "mcnemar_exact_p_unadjusted" in rv
-          and "reverse_vs_alpha0_EXPLORATORY" not in R["results"]["llama3"], "qwen -6 reported as exploratory unadjusted contrast; llama has none")
+          and R["results"]["llama3"]["reverse_alpha"] == 6, "reverse doses (qwen -6, llama +6) reported as exploratory unadjusted contrasts")
     check(R["holm_family"]["m"] == 2 and "holm_p_adj" not in rv, "Holm stays m=2 (the two workpoints); -6 outside it")
     w = R["results"]["llama3"]["workpoint_vs_alpha0"]
     check(w["alpha0_correct"] == 240 and w["workpoint_correct"] == 270 and w["wrong_to_right"] == 30 and w["right_to_wrong"] == 0,
@@ -152,7 +151,7 @@ if R:
     check(R["holm_family"]["m"] == 2 and w["holm_p_adj"] >= w["mcnemar_exact_p"], "Holm family m=2 and p_adj >= raw p")
     check(R["protocol"] == zc.PROTOCOL and R["n_shot"] == 0 and R["cot"] is False and R["condition"] == "nocot",
           "output records protocol / n_shot / cot / condition")
-    check(len(R["conditions"]) == 5, "output lists its own 5 conditions")
+    check(len(R["conditions"]) == 6, "output lists its own 6 conditions")
 rc, err, _ = run_eval(cells, gates, out=out)
 check(rc == 2 and "refusing to overwrite" in err, "evaluator refuses to overwrite")
 
@@ -287,6 +286,7 @@ src = open(os.path.join(PW, "get_answer_proofwriter_owa.py")).read()
 m = re.search(r"MAX_NEW_TOKENS_FROZEN\s*=\s*(\d+)", src)
 check(m and int(m.group(1)) == zc.GEN_FIXED["max_new_tokens"], "1024 token budget equals the frozen bare-line constant")
 check({k: v["workpoint"] for k, v in zc.MODEL_CONFIG.items()} == {"llama3": -6, "qwen2.5": 8}, "workpoints = GSM8K record (-6 / +8)")
+check({k: v["reverse"] for k, v in zc.MODEL_CONFIG.items()} == {"llama3": 6, "qwen2.5": -6}, "reverse doses = llama +6 / qwen -6")
 check({k: v["L"] for k, v in zc.MODEL_CONFIG.items()} == {"llama3": 9, "qwen2.5": 6}, "layer counts 9 / 6")
 check([zc.expected_fires(m_, a_) for m_, a_ in (("llama3", 0), ("llama3", -6), ("qwen2.5", 0), ("qwen2.5", 8))] == [0, 2700, 0, 1800],
       "expected fires 0 / 2700 / 0 / 1800")
