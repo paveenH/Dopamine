@@ -1247,6 +1247,25 @@ ProofWriter-OWA 要求模型使用严格格式 `#### True/False/Unknown` 提交�
 
 Llama Bare 的所有剂量均发生 100% 截断，并伴随 90% 以上的循环生成。整体准确率因而主要受到能否完成严格提交的限制，不能用于可靠的行为解释。Qwen Bare 的有效提交率较高，但循环和截断仍随剂量变化，因此也只作为接口对照。
 
+#### Chat Zero-shot No-CoT
+
+这组六格是独立的 Chat zero-shot No-CoT 补充实验，与下文保留的 1-shot CoT 结果分开报告。严格准确率按首个严格 `#### True/False/Unknown` marker 计算；early candidate 沿用 `pw-label-early-v1`，每格分母均为 300。
+
+| Model | α | Strict `first_acc` | Valid Submission | Early Candidate | Loop / Truncated |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Llama | −6 | 35.33% | 65.33% | 0.00% | 24.67% / 31.33% |
+| Llama | 0 | 36.00% | 69.00% | 0.00% | 22.67% / 29.67% |
+| Llama | +6 | 32.00% | 59.33% | 0.00% | 25.67% / 34.33% |
+| Qwen | −6 | 0.00% | 0.00% | 100.00% | 0.00% / 0.00% |
+| Qwen | 0 | 2.00% | 3.67% | 100.00% | 0.00% / 0.00% |
+| Qwen | +8 | 23.67% | 57.33% | 37.33% | 0.00% / 0.00% |
+
+Qwen `+8` 的严格 `first_acc` 虽比 α=0 高 21.67 pp，但补充的宽松标签评分从 37.67%（113/300）变为 38.00%（114/300），只多答对 1 题，配对 McNemar `p=1.00`，未检测到标签正确率提升。宽松评分接受开头的裸标签、冒号标签和明确答案句，也允许先复述原问题；它是事后格式诊断，不替代严格评分。
+
+`pw-label-early-v1` 对 Qwen `+8` 的 early candidate 有明显漏检：236/300 的首行已有标签，包括 `: Unknown`、`: #### True` 等未命中形式；另有 48/300 先复述题目、随后立即给出标签。合计 284/300 在解释前已给标签，因此不能把 early-candidate 从 100% 降至 37.33% 直接解读为输出转成“先推理后回答”。Llama −6 与 α=0 相差 −0.67 pp（配对 `p=.916`）；三个剂量均未检出短标签候选。
+
+六格样本身份、提示哈希和模型内来源一致性检查通过，注入计数符合预期。原始回复位于 `/Users/paveenhuang/Documents/RSNResult/RoleAnswer/AdarResult/{llama3,qwen2.5}/proofwriter_owa/chat_0shot_noncot/`。宽松标签诊断目前没有独立报告或逐题标注文件；以上数值按已完成的离线复核记录。
+
 #### Llama3.1-8B Chat CoT
 
 **Table 6.17. Llama Chat CoT performance and output behavior**
@@ -1298,7 +1317,7 @@ Qwen Chat 对 α 表现出明显的非线性接口响应。`−6` 几乎完全�
 
 Qwen `−6` 的 297 个候选都是没有严格 marker 的裸标签（False 275 条、Unknown 22 条），伴随格式崩溃。Llama 的 0% 只表示未检出短首行标签，不排除命题式提前判断。完整分析见 `CLAUDE.md` 所列离线报告。
 
-**Conclusion.** Chat 接口修复了 Llama Bare 中的大部分输出问题，并在 `−6` 获得较高的准确率和有效提交率；Qwen 则在 `+8` 获得最高准确率。两种模型的有效方向与 GSM8K-derived workpoint 一致，但 ProofWriter-O​​WA 的行为变化高度依赖模型与接口，不能概括为统一的“先思考、再回答”效应。
+**Conclusion.** ProofWriter-OWA 的 Chat 结果依赖提示条件。旧的 1-shot CoT 结果保留其原有结论；新 zero-shot No-CoT 结果中，Llama 未见工作点收益，Qwen `+8` 的严格分数上升主要伴随提交格式恢复，宽松标签评分未检出准确率提升。两组结果的差异不能单独归因于 CoT，因为示例数也不同。
 
 ### 6.6 FinQA
 
@@ -1419,7 +1438,7 @@ Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason
 | GSM-Symbolic | Supported in No-CoT; not stable in CoT | Supported in No-CoT and CoT | Transfer depends on model and prompting condition |
 | BBH Object Counting | CoT only | CoT only | CoT-dependent transfer; No-CoT reordering is insufficient |
 | CRUXEval-O | No stable gain | Supported mainly under CoT | Clear model boundary; revision remains unstable |
-| ProofWriter-OWA | Descriptive gain at `−6` under Chat | Descriptive gain at `+8` under Chat | Strong interface dependence; Bare results are format-limited |
+| ProofWriter-OWA | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: no workpoint gain detected | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: strict score rises with format recovery, while relaxed label accuracy is unchanged | Results depend on prompt condition; Bare and Chat format failures remain important boundaries |
 | LogiQA 2.0 | No stable gain | No stable gain | Multiple-choice output does not show reliable transfer |
 | ZebraLogic-Easy | No stable gain | No stable gain; `+8` collapses | Reason-before-solution is saturated and not predictive |
 | FinQA | No stable gain | Modest descriptive gain at `+8` | Reordering appears in Qwen but does not establish stable transfer |
