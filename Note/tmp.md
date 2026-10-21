@@ -75,7 +75,60 @@
 
 ---
 
-Commitment 这里要不要再深入一下
+| Type | Cells | Baseline answer-first | Change at workpoint | Acc change |
+|---|---|---|---|---|
+| **A. 有空间，被移动，有收益** | GSM8K / GSM-Hard / GSM-Symbolic No-CoT（两个模型）；MATH；BBH CoT（两个模型）；Qwen CRUXEval CoT；Qwen Chat GSM8K / GSM-Hard；Qwen ProofWriter Chat | Qwen EC 93–100%；Llama EC 45–50% | EC 降到 5–30% | +6 到 +19 pp |
+| **B. 没有空间，没有收益** | Llama Chat GSM8K / MATH / GSM-Hard；Qwen Chat MATH；Chat-CoT 四格；Qwen LogiQA；ZebraLogic；Llama CRUXEval Chat | EC ≈ 0%，或 reason-first 已饱和（Zebra Qwen 100%，Qwen LogiQA 270/300 在给答案前比较过选项） | 无可移动 | ≈ 0 |
+| **C. 有空间，被移动，但没有收益** | BBH No-CoT（Qwen EC 100→44%，+2.4 ns）；LogiQA Llama（naf .76→.33，−4.3 pp）；FinQA Qwen（EC 99→43%，+5 ns）；FinQA Llama（EC 90→35%，−5.7 pp）；Qwen MATH +6→+8；Llama CRUXEval CoT | 高 | 明显下降 | 0 或负 |
+| **D. 生成失效，无法读数** | ProofWriter Bare Llama（no-answer 79%）；FinQA Llama（loop 97%，截断 100%）；Zebra Qwen +8；ProofWriter Chat Qwen −6 | — | 格式崩溃 | — |
+
+**Bare — Experimental Coverage**
+
+| Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | 简短分析 |
+|---|:---:|:---:|:---:|:---:|---|
+| **GSM8K** | ✓ | ✓ | ✓ | ✓ | 均有收益；有效方向因模型而异 |
+| **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | 两模型均支持近域迁移 |
+| **MATH** | ✓ | ✓ | ✓ | ✓ | Llama CoT、Qwen No-CoT 有显著收益 |
+| **GSM-Symbolic** | ✓ | ✓ | ✓ | ✓ | Llama 仅 No-CoT 稳定；Qwen 两条件均有收益 |
+| **BBH Counting** | ✓ | ✓ | ✓ | ✓ | 两模型均仅 CoT 下有显著收益 |
+| **CRUXEval-O** | ✓ | ✓ | ✓ | ✓ | Qwen 首答改善；Llama 未检出收益 |
+| **LogiQA 2.0** | ✓ | ✓ | ✓ | ✓ | 两模型、两条件均未检出收益 |
+| **FinQA** | — | ✓ | — | ✓ | Llama 严重循环；Qwen 仅正向趋势 |
+| **ProofWriter-OWA** | — | ✓¹ | — | ✓¹ | Llama 收益伴随提交恢复；Qwen 未检出收益 |
+| **ZebraLogic-Easy** | — | ✓¹ | — | ✓¹ | 均未检出收益；Qwen 高剂量格式崩溃 |
+
+**Native Chat — Experimental Coverage**
+
+| Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | 简短分析 |
+|---|:---:|:---:|:---:|:---:|---|
+| **GSM8K** | ✓ | ✓ | ✓ | ✓ | Qwen 仅 No-CoT 有显著收益；Llama 未检出收益 |
+| **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | Qwen 仅 No-CoT 有显著收益；Llama 未检出收益 |
+| **MATH** | ✓ | — | ✓ | — | No-CoT 基线已高度先推理后作答；均未检出收益 |
+| **GSM-Symbolic** | — | — | — | — | 尚无 Chat 结果 |
+| **BBH Counting** | — | — | — | — | 尚无 Chat 结果 |
+| **CRUXEval-O** | ✓ | ✓ | — | — | Llama 接口健康，仍未检出收益 |
+| **LogiQA 2.0** | — | — | — | — | 尚无 Chat 结果 |
+| **FinQA** | — | — | — | — | 尚无 Chat 结果 |
+| **ProofWriter-OWA** | — | ✓¹ | — | ✓¹ | Qwen +8 显著改善；Llama −6 仅正向趋势 |
+| **ZebraLogic-Easy** | — | — | — | — | 尚无 Chat 结果 |
+
+¹ **1-shot CoT**；其余已做条件为 zero-shot。
+
+另有 **Chat Matched-Anchor**：仅 Llama 的 **GSM8K、MATH No-CoT** 已做，未恢复 Bare 负向收益；与 Native Chat 分开记录。
+
+主要依据：[ReasoningBare](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md:888)、[ReasoningChat](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:7)、[LogiQA CoT launcher](/Users/paveenhuang/Downloads/Dopamine/run_logiqa2_cot.sh:35)、[ZebraLogic 协议](/Users/paveenhuang/Downloads/Dopamine/docs/PREREG_ZEBRALOGIC_EASY.md:54)。
+
+### Proposed Analysis
+
+| Metric | Definition | 回答的问题 |
+|---|---|---|
+| **Ordering headroom** | α=0 时各任务原生的 answer-first 比例。数值任务用 EC；LogiQA 用 naf；CRUXEval / ProofWriter 用 answer_first；Zebra 用 1 − reason_before_solution | 有没有可以移动的顺序 |
+| **Addressable error share** | α=0 答错的题里，属于提前给出候选的比例 | 错误是否来自过早承诺 |
+| **Conversion rate** | 在可纠正的错题中，到工作点时 EC 被关掉并且答对的比例；同时报告原本答对的题被改错的比例 | 顺序改变之后，有没有转成收益 |
+| **Health gate** | loop、截断、no-answer 超过阈值的格子单独列出，不参与判断 | 排除 D 类 |
+
+预期结论的形式是：收益需要两个条件同时成立，一是有顺序空间，二是错误主要来自过早承诺；只有前者时（C 类）不足以带来收益。这样能把 C3 里"迁移失败"的各个任务统一成一条有解释的边界，而不是一张零散的列表。
+
 
 ---
 3．随后优先解决 RSN 与 CSN 的区别。
