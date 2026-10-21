@@ -1281,6 +1281,23 @@ Qwen Chat 对 α 表现出明显的非线性接口响应。`−6` 几乎完全�
 
 > **Metric note.** `answer_first_rate`、`pre_marker_chars_med` 和 `marker_posN_med` 均以严格答案 marker 为基准，只描述可观察的输出顺序，不等同于答案 candidate 的形成时间或内部 commitment。长度和位置指标还会受到循环、截断及无有效提交的影响。
 
+#### Exploratory Label-based Early Candidates
+
+新增探索性检测在首个非空行（≤60 字符）中查找明确的 True / False / Unknown 答案标签，共 8 格、2400 条回复；分母为每格全部 300 条。该标签规则不同于 GSM8K 数值检测器。
+
+| Model | α | Early Candidate |
+| --- | ---: | ---: |
+| Llama | −6 | 0/300 (0.00%) |
+| Llama | −4 | 0/300 (0.00%) |
+| Llama | 0 | 0/300 (0.00%) |
+| Llama | +4 | 0/300 (0.00%) |
+| Qwen | −6 | 297/300 (99.00%) |
+| Qwen | 0 | 151/300 (50.33%) |
+| Qwen | +6 | 288/300 (96.00%) |
+| Qwen | +8 | 12/300 (4.00%) |
+
+Qwen `−6` 的 297 个候选都是没有严格 marker 的裸标签（False 275 条、Unknown 22 条），伴随格式崩溃。Llama 的 0% 只表示未检出短首行标签，不排除命题式提前判断。完整分析见 `CLAUDE.md` 所列离线报告。
+
 **Conclusion.** Chat 接口修复了 Llama Bare 中的大部分输出问题，并在 `−6` 获得较高的准确率和有效提交率；Qwen 则在 `+8` 获得最高准确率。两种模型的有效方向与 GSM8K-derived workpoint 一致，但 ProofWriter-O​​WA 的行为变化高度依赖模型与接口，不能概括为统一的“先思考、再回答”效应。
 
 ### 6.6 FinQA
