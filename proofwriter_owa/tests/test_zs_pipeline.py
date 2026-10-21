@@ -2,7 +2,7 @@
 """End-to-end local checks for the zero-shot chat pipeline with SYNTHETIC cells
 and fakes (no GPU, no model, no tokenizer download, stdlib only):
 generation core (fires / atomic write / reuse validation), injection-site
-report, format gate, the 4-cell evaluator and its refusals, strict scoring
+report, the 5-cell evaluator and its refusals, strict scoring
 and denominators.   python3 proofwriter_owa/tests/test_zs_pipeline.py"""
 import contextlib, copy, io, json, os, re, shutil, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -93,7 +93,6 @@ check(zc.post_marker_class("#### True\nBecause x") == "trailing_text", "explanat
 check(zc.post_marker_class("#### True. ") == "clean_stop", "trailing period/whitespace = clean_stop")
 check(st["post_marker"]["answer_first_clean_stop"]["n"] == 1, "answer-first compliance counted separately from marker-first")
 
-# ── gate (gold-free) ──────────────────────────────────────────────────────
 def run_main(mod, argv):
     buf, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
@@ -101,36 +100,22 @@ def run_main(mod, argv):
         except SystemExit as e: rc = e.code
     return rc, err.getvalue()
 
-a0 = make_cell("llama3", "a0")
-g_out = os.path.join(TMP, "gate_ok.json")
-rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", a0, "--out", g_out])
-gj = json.load(open(g_out))
-check(rc == 0 and gj["passed"] and gj["gold_read"] is False and "first_acc" not in gj["format_stats"],
-      "gate passes on a healthy cell and never touches gold")
-rc, err = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", a0, "--gold", gm, "--out", os.path.join(TMP, "g2.json")])
-check(rc == 2 and "gold-free" in err, "gate refuses a --gold argument")
-bad = make_cell("llama3", "a0", style="none")                       # no strict marker anywhere
-rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", bad, "--out", os.path.join(TMP, "g_bad.json")])
-gb = json.load(open(os.path.join(TMP, "g_bad.json")))
-check(rc == 3 and gb["passed"] is False and not gb["checks"]["valid_submission_rate"], "gate FAILS on missing markers (exit 3, file kept)")
+# ── no gate: loop/truncation are reported split by validity, never gating ──
 trunc = make_cell("llama3", "a0", trunc=60)
-rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", trunc, "--out", os.path.join(TMP, "g_tr.json")])
-gt = json.load(open(os.path.join(TMP, "g_tr.json")))
-check(rc == 0 and gt["passed"] and set(gt["checks"]) == {"valid_submission_rate"}, "20% truncation among VALID submissions does not fail the gate")
-check(gt["diagnostics_not_gated"]["truncation_by_validity"]["with_valid_submission"]["n"] == 60
-      and gt["diagnostics_not_gated"]["truncation_by_validity"]["without_valid_submission"]["denominator"] == 0,
+rows_t = json.load(open(trunc))["data"]
+stt = zc.cell_stats(rows_t)
+check(stt["truncation_by_validity"]["with_valid_submission"]["n"] == 60
+      and stt["truncation_by_validity"]["without_valid_submission"]["denominator"] == 0,
       "truncation reported split by validity (60 valid+truncated, 0 invalid)")
-lp = make_cell("llama3", "a0", mutate=lambda d: [r.__setitem__("generated", "#### True\n" + "xyz abc loop block here 1234567890. " * 12) for r in d["data"][:50]])
-rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", lp, "--out", os.path.join(TMP, "g_lp.json")])
-gl = json.load(open(os.path.join(TMP, "g_lp.json")))
-check(rc == 0 and gl["diagnostics_not_gated"]["loop_by_validity"]["with_valid_submission"]["n"] == 50,
-      "loop after a valid marker: gate passes, loop reported under 'with_valid_submission'")
-check(raises(lambda: gen.load_gate(os.path.join(TMP, "g_bad.json"), "llama3", "nocot", bad)) is not None,
-      "generation refuses a FAILED gate")
-check(raises(lambda: gen.load_gate(g_out, "llama3", "nocot", make_cell("llama3", "a0", n_wrong=5))) is not None,
-      "generation refuses a gate computed on a different alpha=0 file")
-check(raises(lambda: gen.load_gate(g_out, "qwen2.5", "nocot", a0)) is not None, "gate model mismatch refused")
-check(gen.load_gate(g_out, "llama3", "nocot", a0)["passed"], "valid gate accepted")
+lp_rows = json.load(open(make_cell("llama3", "a0")))["data"]
+for r in lp_rows[:50]: r["generated"] = "#### True\n" + "xyz abc loop block here 1234567890. " * 12
+stl = zc.cell_stats(lp_rows)
+check(stl["loop_by_validity"]["with_valid_submission"]["n"] == 50 and stl["loop_by_validity"]["without_valid_submission"]["n"] == 0,
+      "loop after a valid marker counted under 'with_valid_submission'")
+check(not hasattr(zc, "GATE_THRESHOLDS") and not hasattr(zc, "gate_verdict") and not hasattr(gen, "load_gate")
+      and not hasattr(ev, "run_gate") and not hasattr(ev, "check_gate_file"), "gate code is gone")
+badcell = make_cell("qwen2.5", "wp", style="none")
+check(zc.validate_cell(badcell, "qwen2.5", "nocot", 8, S)[1] is not None, "a cell with NO valid submissions is still accepted (no gate)")
 
 # ── 4-cell evaluator ──────────────────────────────────────────────────────
 def four(cond="nocot", kw=None):
@@ -138,22 +123,16 @@ def four(cond="nocot", kw=None):
     cells = {}
     for m in zc.MODEL_CONFIG:
         for c in zc.CELLS:
+            if c == "rev" and m != "qwen2.5": continue
             nw = 60 if c == "a0" else 30
             cells[(m, c)] = make_cell(m, c, cond, n_wrong=nw, **kw.get((m, c), {}))
-    gates = []
-    for m in zc.MODEL_CONFIG:
-        p = os.path.join(TMP, f"gate_{cond}_{m}_{len(os.listdir(TMP))}.json")
-        rc, _ = run_main(ev, ["--stage", "gate", "--condition", cond, "--manifest_blind", bm,
-                              "--cells", cells[(m, "a0")], "--out", p])
-        assert rc == 0, rc
-        gates.append(p)
-    return cells, gates
+    return cells, None
 
-def run_eval(cells, gates, cond="nocot", out=None, drop=None, extra=None):
+def run_eval(cells, gates=None, cond="nocot", out=None, drop=None, extra=None):
     order = [cells[k] for k in sorted(cells) if k != drop] + (extra or [])
     out = out or os.path.join(TMP, f"eval_{len(os.listdir(TMP))}.json")
-    rc, err = run_main(ev, ["--stage", "eval", "--condition", cond, "--manifest_blind", bm, "--gold", gm,
-                            "--cells", *order, "--gates", *gates, "--out", out])
+    rc, err = run_main(ev, ["--condition", cond, "--manifest_blind", bm, "--gold", gm,
+                            "--cells", *order, "--out", out])
     if os.environ.get("ZS_VERBOSE") and rc: print("      refusal:", err.strip()[:150])
     return rc, err, out
 
@@ -162,6 +141,10 @@ rc, err, out = run_eval(cells, gates)
 R = json.load(open(out)) if rc == 0 else {}
 check(rc == 0, f"evaluator accepts the complete, consistent set ({err.strip()[:80]})")
 if R:
+    rv = R["results"]["qwen2.5"]["reverse_vs_alpha0_EXPLORATORY"]
+    check(R["results"]["qwen2.5"]["reverse_alpha"] == -6 and rv["alpha0_correct"] == 240 and "mcnemar_exact_p_unadjusted" in rv
+          and "reverse_vs_alpha0_EXPLORATORY" not in R["results"]["llama3"], "qwen -6 reported as exploratory unadjusted contrast; llama has none")
+    check(R["holm_family"]["m"] == 2 and "holm_p_adj" not in rv, "Holm stays m=2 (the two workpoints); -6 outside it")
     w = R["results"]["llama3"]["workpoint_vs_alpha0"]
     check(w["alpha0_correct"] == 240 and w["workpoint_correct"] == 270 and w["wrong_to_right"] == 30 and w["right_to_wrong"] == 0,
           "paired counts: 240 -> 270, 30 gained / 0 lost")
@@ -169,13 +152,15 @@ if R:
     check(R["holm_family"]["m"] == 2 and w["holm_p_adj"] >= w["mcnemar_exact_p"], "Holm family m=2 and p_adj >= raw p")
     check(R["protocol"] == zc.PROTOCOL and R["n_shot"] == 0 and R["cot"] is False and R["condition"] == "nocot",
           "output records protocol / n_shot / cot / condition")
-    check(len(R["conditions"]) == 4 and "old" not in json.dumps(R["holm_family"]["id"]), "output lists its own 4 conditions")
+    check(len(R["conditions"]) == 5, "output lists its own 5 conditions")
 rc, err, _ = run_eval(cells, gates, out=out)
 check(rc == 2 and "refusing to overwrite" in err, "evaluator refuses to overwrite")
 
 # refusals
 rc, err, _ = run_eval(cells, gates, drop=("qwen2.5", "wp"))
 check(rc == 2 and "missing" in err, "missing cell -> refused")
+rc, err, _ = run_eval(cells, gates, drop=("qwen2.5", "rev"))
+check(rc == 2 and "missing" in err, "missing qwen -6 cell -> refused")
 old_style = make_cell("llama3", "a0", mutate=lambda d: d["meta"].__setitem__("alpha", -4))
 rc, err, _ = run_eval(cells, gates, extra=[old_style])
 check(rc == 2, "an out-of-family alpha (old -4 cell) -> refused")
@@ -208,17 +193,14 @@ c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"][0].__se
 rc, err, _ = run_eval(c2, g2); check(rc == 2, "identity (key) mismatch vs manifest -> refused")
 c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"][0].__setitem__("truncated", True)}})
 rc, err, _ = run_eval(c2, g2); check(rc == 2, "truncated flag disagreeing with stop_reason -> refused")
-rc, err, _ = run_eval(cells, gates[:1]); check(rc == 2, "missing a model's gate -> refused")
-rc, err, _ = run_eval(cells, [gates[0], gates[0]]); check(rc == 2, "duplicate gate (one model twice) -> refused")
 cells_cot, gates_cot = four("cot")
-rc, err, _ = run_eval(cells, gates_cot); check(rc == 2, "CoT gates with No-CoT cells -> refused")
 rc, err, _ = run_eval(cells_cot, gates_cot, cond="nocot"); check(rc == 2, "CoT cells scored as No-CoT -> refused")
 rc, err, _ = run_eval(cells_cot, gates_cot, cond="cot"); check(rc == 0, "CoT set scored as its own family")
 # gold mismatch
 gbad = json.load(open(gm)); gbad["data"][5]["official_qid"] = "bad"
 gbp = os.path.join(TMP, "gold_bad.json"); json.dump(gbad, open(gbp, "w"))
 rc, err = run_main(ev, ["--stage", "eval", "--manifest_blind", bm, "--gold", gbp,
-                        "--cells", *[cells[k] for k in sorted(cells)], "--gates", *gates,
+                        "--cells", *[cells[k] for k in sorted(cells)],
                         "--out", os.path.join(TMP, "e_gb.json")])
 check(rc == 2, "gold file identity mismatch -> refused")
 # required-field completeness: both cells missing the same field must NOT pass
@@ -236,10 +218,6 @@ ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma["provenance"]["gpu_n
 check("gpu_names" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), "both cells with gpu_names=[] -> refused")
 ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma["injection_site"] = {"x": 1}; mb = json.loads(json.dumps(ma))
 check("final_token_id" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), "injection_site without final_token_id -> refused")
-# failed gate blocks eval
-rc, _ = run_main(ev, ["--stage", "gate", "--manifest_blind", bm, "--cells", make_cell("llama3", "a0", style="none"),
-                      "--out", os.path.join(TMP, "gate_failed_l.json")])
-rc, err, _ = run_eval(cells, [os.path.join(TMP, "gate_failed_l.json"), gates[1]]); check(rc == 2, "failed gate blocks eval")
 
 # ── generation core with fakes ────────────────────────────────────────────
 class FakeMask(list):
