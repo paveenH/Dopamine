@@ -46,13 +46,14 @@ MODEL_CONFIG = {
         "wrapper_id": "llama3-chat-template-v1",
         "layer_start": 11, "layer_end": 20, "L": 9, "workpoint": -6,
         "mask_rel": "llama3_non_logits/nmd_0.5_11_20_8B.npy",
+        "reverse": 6,   # extra opposite-sign dose (user decision 2026-10-21)
     },
     "qwen2.5": {
         "size": "7B", "model_dir": "Qwen/Qwen2.5-7B-Instruct",
         "wrapper_id": "qwen2.5-chat-template-v1",
         "layer_start": 16, "layer_end": 22, "L": 6, "workpoint": 8,
         "mask_rel": "qwen2.5_non_logits/nmd_0.5_16_22_7B.npy",
-        # extra dose run alongside the workpoint (user decision 2026-10-21)
+        # extra opposite-sign dose run alongside the workpoint (user decision 2026-10-21)
         "reverse": -6,
     },
 }
