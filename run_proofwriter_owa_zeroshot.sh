@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# ProofWriter-OWA CHAT ZERO-SHOT (protocol proofwriter-owa-zs-chat-v1).
+# Independent of the closed bare line and of the 1-shot chat line; writes only
+# under <components>/<model>/proofwriter_owa_zs/ and proofwriter_owa/results/zs_chat_v1/.
+#
+# Stages (MODEL = llama3 or qwen2.5; CONDITION = nocot (default) or cot):
+#   check        MODEL [CONDITION]   tokenizer only, no GPU: prompt + injection-site report
+#   gate         MODEL [CONDITION]   generate the alpha=0 cell (needs a GPU)
+#   gate-eval    MODEL [CONDITION]   gold-free format gate on that cell
+#   workpoint    MODEL [CONDITION]   generate the GSM8K workpoint cell; refused unless the gate passed
+#   eval         [CONDITION]         score all four cells (needs both gates; reads gold)
+# The CoT condition is a later stage and is never started by another stage.
+set -euo pipefail
+
+STAGE="${1:?usage: run_proofwriter_owa_zeroshot.sh stage model condition}"
+if [[ "$STAGE" == "eval" ]]; then MODEL=""; CONDITION="${2:-nocot}"
+else MODEL="${2:?model is required (llama3 or qwen2.5)}"; CONDITION="${3:-nocot}"; fi
+
+PY="${PY:-python}"
+WORK_DIR="${WORK_DIR:-/data1/paveen/Dopamine}"
+BASE_DIR="${BASE_DIR:-$WORK_DIR/components}"
+BENCH="${BENCH:-$BASE_DIR/benchmark/proofwriter_owa}"
+PW="$WORK_DIR/proofwriter_owa"
+RES="$PW/results/zs_chat_v1"
+BLIND="$BENCH/manifest_blind.json"; GOLD="$BENCH/manifest_gold.json"
+case "$CONDITION" in nocot|cot) ;; *) echo "[FATAL] condition must be nocot or cot" >&2; exit 1;; esac
+
+cell_path() {  # model alpha_tag size band
+  echo "$BASE_DIR/$1/proofwriter_owa_zs/${CONDITION}_mdf_$2/proofwriter_owa_zs_$3_$4.json"; }
+model_vars() {
+  case "$1" in
+    llama3)  SIZE=8B; BAND=11_20; WP=neg6; MASK="$BASE_DIR/mask/llama3_non_logits/nmd_0.5_11_20_8B.npy";;
+    qwen2.5) SIZE=7B; BAND=16_22; WP=8;    MASK="$BASE_DIR/mask/qwen2.5_non_logits/nmd_0.5_16_22_7B.npy";;
+    *) echo "[FATAL] unknown model '$1' (llama3 or qwen2.5)" >&2; exit 1;;
+  esac; }
+need_py() { "$PY" -c "import numpy, torch, transformers" >/dev/null 2>&1 || {
+  echo "[FATAL] '$PY' cannot import numpy/torch/transformers (server interpreter is 'python')" >&2; exit 1; }; }
+need_gpu_var() { [[ -n "${CUDA_VISIBLE_DEVICES:-}" ]] || {
+  echo "[FATAL] set CUDA_VISIBLE_DEVICES (recorded as provenance; both cells of a model should use the same host/GPU model)" >&2; exit 1; }; }
+
+[[ -z "$MODEL" ]] || model_vars "$MODEL"   # reject an unknown model before anything else
+cd "$WORK_DIR"
+case "$STAGE" in
+  check)
+    model_vars "$MODEL"
+    "$PY" -c "import transformers" >/dev/null 2>&1 || { echo "[FATAL] transformers missing" >&2; exit 1; }
+    mkdir -p "$RES"
+    "$PY" proofwriter_owa/get_answer_proofwriter_owa_zeroshot.py --mode check \
+      --model "$MODEL" --condition "$CONDITION" --cell a0 --manifest "$BLIND" \
+      --report "$RES/check_${CONDITION}_${MODEL}.json";;
+  gate)
+    model_vars "$MODEL"; need_py; need_gpu_var
+    "$PY" proofwriter_owa/get_answer_proofwriter_owa_zeroshot.py --mode run \
+      --model "$MODEL" --condition "$CONDITION" --cell a0 --manifest "$BLIND" \
+      --mask_path "$MASK" --out_root "$BASE_DIR"
+    echo "next: bash run_proofwriter_owa_zeroshot.sh gate-eval $MODEL $CONDITION";;
+  gate-eval)
+    model_vars "$MODEL"; mkdir -p "$RES"
+    "$PY" proofwriter_owa/eval_proofwriter_owa_zeroshot.py --stage gate \
+      --condition "$CONDITION" --manifest_blind "$BLIND" \
+      --cells "$(cell_path "$MODEL" 0 "$SIZE" "$BAND")" \
+      --out "$RES/gate_${CONDITION}_${MODEL}.json";;
+  workpoint)
+    model_vars "$MODEL"; need_py; need_gpu_var
+    "$PY" proofwriter_owa/get_answer_proofwriter_owa_zeroshot.py --mode run \
+      --model "$MODEL" --condition "$CONDITION" --cell wp --manifest "$BLIND" \
+      --mask_path "$MASK" --out_root "$BASE_DIR" \
+      --gate_file "$RES/gate_${CONDITION}_${MODEL}.json";;
+  eval)
+    model_vars llama3; L0="$(cell_path llama3 0 "$SIZE" "$BAND")"; L1="$(cell_path llama3 "$WP" "$SIZE" "$BAND")"
+    model_vars qwen2.5; Q0="$(cell_path qwen2.5 0 "$SIZE" "$BAND")"; Q1="$(cell_path qwen2.5 "$WP" "$SIZE" "$BAND")"
+    "$PY" proofwriter_owa/eval_proofwriter_owa_zeroshot.py --stage eval \
+      --condition "$CONDITION" --manifest_blind "$BLIND" --gold "$GOLD" \
+      --cells "$L0" "$L1" "$Q0" "$Q1" \
+      --gates "$RES/gate_${CONDITION}_llama3.json" "$RES/gate_${CONDITION}_qwen2.5.json" \
+      --out "$RES/eval_${CONDITION}.json";;
+  *) echo "[FATAL] unknown stage '$STAGE'" >&2; exit 1;;
+esac

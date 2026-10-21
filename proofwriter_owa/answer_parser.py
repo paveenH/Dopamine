@@ -327,3 +327,14 @@ MARKER_FAMILIES["proofwriter-owa-cot-v2"].update({
     "find_all_markers": find_all_markers_v2,
     "find_all_markers_loose": find_all_markers_loose_v2,
 })
+
+
+# Zero-shot chat experiment (protocol proofwriter-owa-zs-chat-v1, added
+# 2026-10-21). ADDITIVE: the two new prompt_template_ids request the SAME
+# "#### <Label>" marker as v2, so they map to the v2 family (identical parse
+# and commitment functions). Each id is registered explicitly rather than
+# falling back to a default, per get_marker_family's fail-closed contract.
+# prompt_zeroshot.TEMPLATE_IDS must equal these keys (tests/test_zs_prompt.py).
+for _zs_id in ("proofwriter-owa-zs-nocot-v1", "proofwriter-owa-zs-cot-v1"):
+    MARKER_FAMILIES[_zs_id] = dict(MARKER_FAMILIES["proofwriter-owa-cot-v2"])
+del _zs_id

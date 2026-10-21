@@ -242,8 +242,13 @@ def test_unregistered_prompt_template_id_raises():
 
 
 def test_registry_has_exactly_v1_and_v2():
-    check(set(MARKER_FAMILIES) == {"proofwriter-owa-cot-v1", "proofwriter-owa-cot-v2"},
-          f"expected exactly the v1/v2 template ids registered, got {sorted(MARKER_FAMILIES)}")
+    # 2026-10-21: the zero-shot chat protocol (proofwriter-owa-zs-chat-v1) adds
+    # two template ids that map to the v2 "####" family. Nothing else may appear.
+    zs_ids = {"proofwriter-owa-zs-nocot-v1", "proofwriter-owa-zs-cot-v1"}
+    check(set(MARKER_FAMILIES) == {"proofwriter-owa-cot-v1", "proofwriter-owa-cot-v2"} | zs_ids,
+          f"expected exactly v1/v2 + the two zero-shot template ids, got {sorted(MARKER_FAMILIES)}")
+    check(all(MARKER_FAMILIES[i]["marker_family"] == "v2" for i in zs_ids),
+          "zero-shot template ids map to the v2 marker family")
     for tpl_id, fam in MARKER_FAMILIES.items():
         check(callable(fam["parse_final_answer"]),
               f"{tpl_id}: parse_final_answer must be a real function, not the "
