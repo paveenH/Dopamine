@@ -3,7 +3,7 @@
 """
 Shared, STDLIB-ONLY logic for the ProofWriter-OWA chat zero-shot experiment
 (protocol `proofwriter-owa-zs-chat-v1`): frozen configuration, cell
-validation, per-cell metrics and the format gate. Kept free of numpy / torch
+validation and per-cell metrics. Kept free of numpy / torch
 so it runs (and is tested) on a box without them; the generation entry point
 imports the heavy libraries itself.
 
@@ -52,19 +52,11 @@ MODEL_CONFIG = {
         "wrapper_id": "qwen2.5-chat-template-v1",
         "layer_start": 16, "layer_end": 22, "L": 6, "workpoint": 8,
         "mask_rel": "qwen2.5_non_logits/nmd_0.5_16_22_7B.npy",
+        # extra dose run alongside the workpoint (user decision 2026-10-21)
+        "reverse": -6,
     },
 }
-CELLS = ("a0", "wp")
-
-# FORMAT-STABILITY GATE (frozen 2026-10-21, BEFORE any zero-shot cell exists).
-# Applied to each model's No-CoT alpha=0 cell and decided on submission
-# format only -- accuracy and early-candidate are never read by the gate.
-# Only the valid-submission rate gates. Loop / truncation are health
-# DIAGNOSTICS split by whether the sample submitted a valid answer: a cell that
-# submits validly and loops/truncates afterwards must not be blocked.
-GATE_THRESHOLDS = {
-    "valid_submission_rate_min": 0.90,   # >=1 strict line-anchored "#### label"
-}
+CELLS = ("a0", "wp", "rev")
 
 ROW_KEYS = ("sample_id", "key", "dataset", "official_theory_id", "official_qid",
             "generated", "generated_token_count", "stop_reason", "truncated")
@@ -75,7 +67,13 @@ class ZSError(Exception):
 
 
 def alpha_of(model: str, cell: str) -> int:
-    return 0 if cell == "a0" else MODEL_CONFIG[model]["workpoint"]
+    if cell == "a0":
+        return 0
+    if cell == "wp":
+        return MODEL_CONFIG[model]["workpoint"]
+    if cell == "rev" and "reverse" in MODEL_CONFIG[model]:
+        return MODEL_CONFIG[model]["reverse"]
+    raise ZSError(f"{model} has no cell {cell!r}")
 
 
 def alpha_tag(alpha) -> str:
@@ -287,7 +285,7 @@ def _split_rate(flags, valid):
 
 
 def cell_stats(rows: list[dict], gold: dict | None = None) -> dict:
-    """gold: {sample_id: label}; None = gold-free (gate) mode."""
+    """gold: {sample_id: label}; None = gold-free mode."""
     n = len(rows)
     parsed = [parse_final_answer_v2(r["generated"]) for r in rows]
     valid = [p.label is not None for p in parsed]
@@ -358,16 +356,3 @@ def cell_stats(rows: list[dict], gold: dict | None = None) -> dict:
         out["gold_label_counts"] = {k: sum(1 for r in rows
                                            if gold[r["sample_id"]] == k) for k in LABELS}
     return out
-
-
-def gate_verdict(stats: dict) -> dict:
-    t = GATE_THRESHOLDS
-    obs = {"valid_submission_rate": stats["valid_submission"]["rate"]}
-    checks = {"valid_submission_rate":
-              obs["valid_submission_rate"] >= t["valid_submission_rate_min"]}
-    diag = {"truncation_rate": stats["truncation"]["rate"],
-            "loop_rate": stats["loop"]["rate"],
-            "truncation_by_validity": stats["truncation_by_validity"],
-            "loop_by_validity": stats["loop_by_validity"]}
-    return {"passed": all(checks.values()), "checks": checks, "observed": obs,
-            "diagnostics_not_gated": diag, "thresholds": dict(t)}
