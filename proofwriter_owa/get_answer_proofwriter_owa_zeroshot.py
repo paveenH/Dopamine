@@ -19,10 +19,11 @@ DESIGN (all fixed in code, none a CLI knob)
              already serialised as text is stripped (vc.regenerate re-adds it
              via add_special_tokens=True) and double-BOS is a hard stop.
   cells    : per model, "a0" (alpha=0) and "wp" (the GSM8K workpoint:
-             llama3 -6 band [11,20), qwen2.5 +8 band [16,22)). No other alpha
-             can be requested. The workpoint cell is refused until a PASSED
-             format-gate file exists for that model/condition (gold-free; see
-             eval_proofwriter_owa_zeroshot.py --stage gate).
+             llama3 -6 band [11,20), qwen2.5 +8 band [16,22)); qwen2.5 also
+             has "rev" (-6). Several cells may be requested in ONE process
+             (one model load). No other alpha can be requested. There is no
+             format gate: every cell is generated and format health is only
+             reported.
   generate : greedy, temperature 0, top_p 1, 1024 new tokens, batch 8,
              prefill-only, tail 1 -> injection on the LAST token of the
              wrapped prompt. alpha=0 takes the same path with an all-zero
@@ -229,38 +230,150 @@ def parse_args(argv=None):
     p.add_argument("--mode", choices=("check", "run"), required=True)
     p.add_argument("--model", choices=sorted(zc.MODEL_CONFIG), required=True)
     p.add_argument("--condition", choices=sorted(pz.TEMPLATE_IDS), default="nocot")
-    p.add_argument("--cell", choices=zc.CELLS, required=True,
-                   help="a0 = alpha 0; wp = this model's GSM8K workpoint")
+    p.add_argument("--cell", choices=zc.CELLS, nargs="+", required=True,
+                   help="a0 = alpha 0; wp = GSM8K workpoint; rev = qwen2.5 -6")
     p.add_argument("--manifest", required=True, help="manifest_blind.json")
     p.add_argument("--mask_path", help="required for --mode run")
     p.add_argument("--out_root", help="components dir; cells go under "
                    "<out_root>/<model>/proofwriter_owa_zs/ (run mode)")
-    p.add_argument("--gate_file", help="passed gate JSON; required for --cell wp")
     p.add_argument("--model_dir", help="override HF id (default: model's own)")
     p.add_argument("--report", help="check mode: also write the report JSON here")
     return p.parse_args(argv)
 
 
-def load_gate(path, model, condition, a0_path):
-    g = json.load(open(path, encoding="utf-8"))
-    if (g.get("protocol") != zc.PROTOCOL or g.get("model") != model
-            or g.get("condition") != condition or g.get("stage") != "gate"):
-        raise zc.ZSError(f"{path}: not a gate file for {model}/{condition}")
-    if g.get("passed") is not True:
-        raise zc.ZSError(f"{path}: format gate did NOT pass; the workpoint cell "
-                         "is not run (no prompt/budget/scoring changes are made "
-                         "automatically)")
-    if g.get("thresholds") != zc.GATE_THRESHOLDS:
-        raise zc.ZSError(f"{path}: gate thresholds differ from the frozen ones")
-    if g.get("cell_sha256") != zc.sha256_file(a0_path):
-        raise zc.ZSError(f"{path}: gate was computed on a different alpha=0 file")
-    return g
+def main(argv=None):
+    args = parse_args(argv)
+    cfg = zc.MODEL_CONFIG[args.model]
+    try:
+        alphas = [zc.alpha_of(args.model, c) for c in args.cell]
+    except zc.ZSError as e:
+        die(str(e))
+    if len(set(alphas)) != len(alphas):
+        die("duplicate cells requested")
+    model_dir = args.model_dir or cfg["model_dir"]
+    manifest_meta, samples = zc.load_blind_manifest(args.manifest)
+    bare = zc.bare_prompts_for(samples, args.condition)
+
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained(model_dir)
+    chat_prompts = wrap_prompts(tok, bare)
+    try:
+        site = injection_site_report(tok, chat_prompts)
+    except zc.ZSError as e:
+        die(str(e))
+    prompt_sha = zc.sha256_text("\n".join(chat_prompts))
+    template_hash = zc.sha256_text(getattr(tok, "chat_template", None) or "")
+    report = {"protocol": zc.PROTOCOL, "model": args.model,
+              "condition": args.condition, "model_dir": model_dir,
+              "prompt_template_id": pz.TEMPLATE_IDS[args.condition],
+              "injection_site": site, "prompt_sha256": prompt_sha,
+              "bare_prompt_sha256": zc.bare_prompt_sha256(samples, args.condition),
+              "chat_template_hash": template_hash,
+              "example_wrapped_prompt_0": chat_prompts[0],
+              "example_wrapped_tail_0": chat_prompts[0][-120:]}
+    if args.mode == "check":
+        print(json.dumps({k: v for k, v in report.items()
+                          if k != "example_wrapped_prompt_0"},
+                         ensure_ascii=False, indent=2))
+        if args.report:
+            zc.atomic_write_json(args.report, report)
+        return 0
+
+    # ───────────────────────── run ─────────────────────────
+    if not (args.mask_path and args.out_root):
+        die("--mask_path and --out_root are required for --mode run")
+    import numpy as np
+    c = zc.MODEL_CONFIG[model]
+    if raw_mask.ndim != 2 or raw_mask.shape[0] != n_decoder_layers:
+        raise zc.ZSError(f"mask shape {raw_mask.shape} != ({n_decoder_layers}, H)")
+    nz = [int(i) for i in np.nonzero(np.any(raw_mask != 0, axis=1))[0]]
+    want = list(decoder_range)
+    if nz != want:
+        raise zc.ZSError(f"mask non-zero rows {nz} != decoder layers {want} for "
+                         f"band [{c['layer_start']},{c['layer_end']})")
+    return nz
+
+
+def generate_cell(vc, *, model, condition, alpha, samples, chat_prompts,
+                  raw_mask, mask_nz_rows, mask_sha, mask_path, site,
+                  chat_template_hash, prompt_sha, manifest_meta, out_path,
+                  prov):
+    """Generate one cell, verify fires, write atomically. Returns meta."""
+    c = zc.MODEL_CONFIG[model]
+    g = zc.GEN_FIXED
+    diff = raw_mask * alpha                       # full length; alpha=0 -> all-zero
+    vc.steering_fire_count(reset=True)
+    gen = []
+    for i in range(0, len(chat_prompts), g["batch_size"]):
+        gen.extend(vc.regenerate(
+            chat_prompts[i: i + g["batch_size"]],
+            max_new_tokens=g["max_new_tokens"], temperature=g["temperature"],
+            top_p=g["top_p"], diff_matrices=list(diff),
+            batch_size=g["batch_size"], return_metadata=True))
+    if len(gen) != len(samples):
+        raise zc.ZSError(f"generation returned {len(gen)} rows for {len(samples)} prompts")
+    fires = vc.steering_fire_count()
+    want = zc.expected_fires(model, alpha, len(samples))
+    if fires != want:
+        raise zc.ZSError(f"steering_fires {fires} != expected {want} "
+                         f"(L={c['L']}, n={len(samples)}, alpha={alpha}); cell not usable")
+    rows = []
+    for s, r in zip(samples, gen):
+        rows.append({
+            "sample_id": s["sample_id"], "key": s["key"], "dataset": s["dataset"],
+            "official_theory_id": s["official_theory_id"],
+            "official_qid": s["official_qid"],
+            "generated": r["text"],
+            "generated_token_count": r["generated_token_count"],
+            "stop_reason": r["stop_reason"],
+            "truncated": r["stop_reason"] == "budget_exhausted",
+        })
+    meta = zc.expected_fixed_meta(model, condition, alpha)
+    meta.update({
+        "steering_fires": fires,
+        "cot_note": ("own construction, NOT an official ProofWriter LLM prompt; "
+                     "0-shot, no exemplar"),
+        "mask_path": mask_path, "mask_sha256": mask_sha,
+        "mask_nonzero_rows": mask_nz_rows,
+        "prompt_sha256": prompt_sha,
+        "bare_prompt_sha256": zc.bare_prompt_sha256(samples, condition),
+        "chat_template_hash": chat_template_hash,
+        "injection_site": site,
+        "manifest_sha256_16": manifest_meta.get("manifest_sha256_16"),
+        "n_truncated": sum(1 for x in rows if x["truncated"]),
+        "provenance": prov,
+        "not_a_transfer_test": True,
+        "workpoint_source": "GSM8K frozen record; not re-selected on ProofWriter",
+    })
+    zc.atomic_write_json(out_path, {"meta": meta, "data": rows})
+    return meta
+
+
+def parse_args(argv=None):
+    p = argparse.ArgumentParser()
+    p.add_argument("--mode", choices=("check", "run"), required=True)
+    p.add_argument("--model", choices=sorted(zc.MODEL_CONFIG), required=True)
+    p.add_argument("--condition", choices=sorted(pz.TEMPLATE_IDS), default="nocot")
+    p.add_argument("--cell", choices=zc.CELLS, nargs="+", required=True,
+                   help="a0 = alpha 0; wp = GSM8K workpoint; rev = qwen2.5 -6")
+    p.add_argument("--manifest", required=True, help="manifest_blind.json")
+    p.add_argument("--mask_path", help="required for --mode run")
+    p.add_argument("--out_root", help="components dir; cells go under "
+                   "<out_root>/<model>/proofwriter_owa_zs/ (run mode)")
+    p.add_argument("--model_dir", help="override HF id (default: model's own)")
+    p.add_argument("--report", help="check mode: also write the report JSON here")
+    return p.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
     cfg = zc.MODEL_CONFIG[args.model]
-    alpha = zc.alpha_of(args.model, args.cell)
+    try:
+        alphas = [zc.alpha_of(args.model, c) for c in args.cell]
+    except zc.ZSError as e:
+        die(str(e))
+    if len(set(alphas)) != len(alphas):
+        die("duplicate cells requested")
     model_dir = args.model_dir or cfg["model_dir"]
     manifest_meta, samples = zc.load_blind_manifest(args.manifest)
     bare = zc.bare_prompts_for(samples, args.condition)
@@ -312,14 +425,20 @@ def main(argv=None):
                       "chat_template_hash": template_hash,
                       "manifest_sha256_16": manifest_meta.get("manifest_sha256_16"),
                       "mask_path": args.mask_path, "injection_site": site}
-    if os.path.exists(out_path):
-        try:
-            zc.validate_cell(out_path, args.model, args.condition, alpha,
-                             samples, expected_extra)
-        except zc.ZSError as e:
-            die(f"existing output is NOT reusable ({e}); it is left untouched. "
-                "Move it away deliberately if you intend to regenerate.")
-        print(f"reuse validated existing cell {out_path}")
+    todo = []
+    for alpha in alphas:
+        out_path = os.path.join(args.out_root, zc.cell_relpath(args.model, args.condition, alpha))
+        if os.path.exists(out_path):
+            try:
+                zc.validate_cell(out_path, args.model, args.condition, alpha,
+                                 samples, expected_extra)
+            except zc.ZSError as e:
+                die(f"existing output is NOT reusable ({e}); it is left untouched. "
+                    "Move it away deliberately if you intend to regenerate.")
+            print(f"reuse validated existing cell {out_path}")
+        else:
+            todo.append((alpha, out_path))
+    if not todo:
         return 0
 
     from llms import VicundaModel
@@ -332,19 +451,20 @@ def main(argv=None):
         nz = check_mask(raw_mask, args.model,
                         utils.decoder_layer_range(cfg["layer_start"], cfg["layer_end"]),
                         len(vc._find_decoder_layers()))
-        meta = generate_cell(
-            vc, model=args.model, condition=args.condition, alpha=alpha,
-            samples=samples, chat_prompts=chat_prompts, raw_mask=raw_mask,
-            mask_nz_rows=nz, mask_sha=mask_sha, mask_path=args.mask_path,
-            site=site, chat_template_hash=template_hash, prompt_sha=prompt_sha,
-            manifest_meta=manifest_meta, out_path=out_path, prov=provenance(vc))
-        # same validator the analysis uses, on the file just written
-        zc.validate_cell(out_path, args.model, args.condition, alpha, samples,
-                         expected_extra)
+        for alpha, out_path in todo:       # one model load, same host/GPU for all cells
+            meta = generate_cell(
+                vc, model=args.model, condition=args.condition, alpha=alpha,
+                samples=samples, chat_prompts=chat_prompts, raw_mask=raw_mask,
+                mask_nz_rows=nz, mask_sha=mask_sha, mask_path=args.mask_path,
+                site=site, chat_template_hash=template_hash, prompt_sha=prompt_sha,
+                manifest_meta=manifest_meta, out_path=out_path, prov=provenance(vc))
+            # same validator the analysis uses, on the file just written
+            zc.validate_cell(out_path, args.model, args.condition, alpha, samples,
+                             expected_extra)
+            print(f"wrote {out_path}  alpha={alpha}  steering_fires={meta['steering_fires']}  "
+                  f"truncated={meta['n_truncated']}/{meta['n']}")
     except zc.ZSError as e:
         die(str(e))
-    print(f"wrote {out_path}  steering_fires={meta['steering_fires']}  "
-          f"truncated={meta['n_truncated']}/{meta['n']}")
     print("NO accuracy computed (generation is gold-free by construction).")
     return 0
 
