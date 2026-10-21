@@ -17,16 +17,16 @@ TH, Q = "Anne is big. If someone is big then they are round.", "Anne is round."
 no, co = pz.build_user_prompt(TH, Q, False), pz.build_user_prompt(TH, Q, True)
 
 SPEC_NOCOT = (SYSTEM_RULES + "\nTheory: " + TH + "\nQuestion: " + Q + "\n\n"
-  "Do not write code or restate the theory.\n"
   "Include exactly one answer line using one of these three forms:\n"
-  "#### True\n#### False\n#### Unknown\n"
-  "Stop immediately after that line.\n")
+  "#### True\n#### False\n#### Unknown\n")
 check(no == SPEC_NOCOT, "No-CoT prompt equals the frozen text exactly")
-check(co == no + "Let's think step by step.\n", "CoT = No-CoT + exactly one trailing line")
-check(co.splitlines()[:-1] == no.splitlines() and co.splitlines()[-1] == "Let's think step by step.",
-      "line-wise diff is that single line")
+_i = no.index("Include exactly one")
+check(co == no[:_i] + "Let's think step by step.\n" + no[_i:], "CoT = No-CoT with one line inserted before 'Include exactly one'")
+_l = co.splitlines(); _n = no.splitlines(); _k = _l.index("Let's think step by step.")
+check(_l[:_k] + _l[_k + 1:] == _n and _l[_k + 1].startswith("Include exactly one"), "line-wise diff is that single line, placed right before the answer-line instruction")
+check(co.endswith("#### Unknown\n") and no.endswith("#### Unknown\n"), "both end at the last answer form")
 for bad in ("Reason briefly", "at most 5 steps", "After reasoning", "worked example",
-            "Answer:", "DIFFERENT theories", "Now answer the theory", "repeat previous"):
+            "Answer:", "Stop immediately", "stop", "Do not write code", "restate the theory", "DIFFERENT theories", "Now answer the theory", "repeat previous"):
     check(bad not in no and bad not in co, f"no residue of old wording: {bad!r}")
 check("step by step" not in no, "No-CoT carries no reasoning instruction")
 check(no.count("Theory:") == 1 and no.count("Question:") == 1, "single Theory/Question, no exemplar")
