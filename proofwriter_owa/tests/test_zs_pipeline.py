@@ -232,6 +232,8 @@ for fld in ("mask_sha256", "chat_template_hash", "injection_site", "prompt_sha25
 for fld, val in (("mask_sha256", ""), ("injection_site", {})):
     ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma[fld] = val; mb = json.loads(json.dumps(ma))
     check("missing or empty" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), f"both cells with empty {fld} -> refused")
+ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma["provenance"]["gpu_names"] = []; mb = json.loads(json.dumps(ma))
+check("gpu_names" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), "both cells with gpu_names=[] -> refused")
 ma = json.load(open(make_cell("llama3", "a0")))["meta"]; ma["injection_site"] = {"x": 1}; mb = json.loads(json.dumps(ma))
 check("final_token_id" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""), "injection_site without final_token_id -> refused")
 # failed gate blocks eval
