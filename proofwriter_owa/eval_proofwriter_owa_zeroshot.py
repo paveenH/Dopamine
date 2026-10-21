@@ -34,8 +34,8 @@ INTERPRETATION LIMITS (also written into the output JSON)
   * A near-zero alpha=0 early-candidate rate only means the indicator has
     little room to move; it does not predict that steering cannot help.
   * Early-candidate / answer-first describe VISIBLE output order, not internal
-    commitment. Marker-first does not imply the stop instruction was obeyed;
-    see post_marker.
+    commitment. The prompt has no stop instruction; post_marker reports what
+    follows the first marker and does not locate loop onset.
   * No-CoT vs CoT differ by one line, so that contrast is a CoT-instruction
     contrast. Comparisons with the old 1-shot CoT line still differ in other
     wording and cannot be attributed to the exemplar alone.
@@ -112,7 +112,9 @@ def run_gate(args):
            "thresholds": v["thresholds"], "gold_read": False,
            "cell_path": os.path.abspath(path), "cell_sha256": zc.sha256_file(path),
            "format_stats": stats,
-           "rule": ("decided on submission format only; accuracy and "
+           "diagnostics_not_gated": v["diagnostics_not_gated"],
+           "rule": ("decided on valid-submission rate only; loop/truncation "
+                    "are reported by validity but not gated; accuracy and "
                     "early-candidate are not read. On failure the result is "
                     "kept; the prompt, token budget and scoring are NOT "
                     "changed automatically.")}
@@ -234,7 +236,7 @@ def run_eval(args):
             "Order change with an accuracy rise is co-variation, not causal mediation.",
             "Order change without a detected accuracy gain does not show errors are not due to premature answering.",
             "A near-zero alpha=0 early-candidate rate only means the indicator has little room to move; it does not predict that steering cannot help.",
-            "Early-candidate / answer-first describe visible output order, not internal commitment; marker-first does not imply the stop instruction was obeyed (see post_marker).",
+            "Early-candidate / answer-first describe visible output order, not internal commitment; the prompt has no stop instruction, post_marker reports what follows the first marker and does not locate loop onset.",
             "No-CoT vs CoT differ by one line; comparisons with the old 1-shot CoT line still differ in other wording and are not attributable to the exemplar alone.",
         ],
     }
