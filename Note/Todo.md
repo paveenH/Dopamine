@@ -46,6 +46,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 12. Off-Support Orthogonal MMLUE ✔
 13. Qwen2.5 expert vs non-expert ✔
 14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
+---
+15. ProofWriter-OWA的补充实验 Chat 0-shot
 
 ---
 ## TO DO
