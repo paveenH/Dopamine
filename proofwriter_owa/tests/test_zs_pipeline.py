@@ -127,7 +127,7 @@ def four(cond="nocot", kw=None):
             cells[(m, c)] = make_cell(m, c, cond, n_wrong=nw, **kw.get((m, c), {}))
     return cells, None
 
-def run_eval(cells, gates=None, cond="nocot", out=None, drop=None, extra=None):
+def run_eval(cells, cond="nocot", out=None, drop=None, extra=None):
     order = [cells[k] for k in sorted(cells) if k != drop] + (extra or [])
     out = out or os.path.join(TMP, f"eval_{len(os.listdir(TMP))}.json")
     rc, err = run_main(ev, ["--condition", cond, "--manifest_blind", bm, "--gold", gm,
@@ -135,8 +135,8 @@ def run_eval(cells, gates=None, cond="nocot", out=None, drop=None, extra=None):
     if os.environ.get("ZS_VERBOSE") and rc: print("      refusal:", err.strip()[:150])
     return rc, err, out
 
-cells, gates = four()
-rc, err, out = run_eval(cells, gates)
+cells, _ = four()
+rc, err, out = run_eval(cells)
 R = json.load(open(out)) if rc == 0 else {}
 check(rc == 0, f"evaluator accepts the complete, consistent set ({err.strip()[:80]})")
 if R:
@@ -152,16 +152,16 @@ if R:
     check(R["protocol"] == zc.PROTOCOL and R["n_shot"] == 0 and R["cot"] is False and R["condition"] == "nocot",
           "output records protocol / n_shot / cot / condition")
     check(len(R["conditions"]) == 6, "output lists its own 6 conditions")
-rc, err, _ = run_eval(cells, gates, out=out)
+rc, err, _ = run_eval(cells, out=out)
 check(rc == 2 and "refusing to overwrite" in err, "evaluator refuses to overwrite")
 
 # refusals
-rc, err, _ = run_eval(cells, gates, drop=("qwen2.5", "wp"))
+rc, err, _ = run_eval(cells, drop=("qwen2.5", "wp"))
 check(rc == 2 and "missing" in err, "missing cell -> refused")
-rc, err, _ = run_eval(cells, gates, drop=("qwen2.5", "rev"))
+rc, err, _ = run_eval(cells, drop=("qwen2.5", "rev"))
 check(rc == 2 and "missing" in err, "missing qwen -6 cell -> refused")
 old_style = make_cell("llama3", "a0", mutate=lambda d: d["meta"].__setitem__("alpha", -4))
-rc, err, _ = run_eval(cells, gates, extra=[old_style])
+rc, err, _ = run_eval(cells, extra=[old_style])
 check(rc == 2, "an out-of-family alpha (old -4 cell) -> refused")
 def mut(field, val):
     def f(d): d["meta"][field] = val
@@ -171,30 +171,30 @@ for field, val in [("protocol", "proofwriter-owa-chat-v1"), ("n_shot", 1), ("cot
                    ("batch_size", 24), ("prefill_tail_len", 4), ("temperature", 0.7),
                    ("chat_template_applied", False), ("steering_fires", 123), ("model_dir", "x/y"),
                    ("bare_prompt_sha256", "deadbeef")]:
-    c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": mut(field, val)}})
-    rc, err, _ = run_eval(c2, g2)
+    c2, _ = four("nocot", {("llama3", "wp"): {"mutate": mut(field, val)}})
+    rc, err, _ = run_eval(c2)
     check(rc == 2, f"meta.{field} mismatch -> refused")
 for k, kw in {"fires": {"fires": 2699}, "provenance host": {"host": "other"}}.items():
-    c2, g2 = four("nocot", {("qwen2.5", "wp"): kw})
-    rc, err, _ = run_eval(c2, g2)
+    c2, _ = four("nocot", {("qwen2.5", "wp"): kw})
+    rc, err, _ = run_eval(c2)
     check(rc == 2, f"{k} wrong -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["meta"].__setitem__("mask_sha256", "other")}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2 and "mask_sha256" in err, "mask hash differs between a model's cells -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["meta"]["provenance"].__setitem__("gpu_names", ["H100"])}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2 and "gpu_names" in err, "different GPU model between cells -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["meta"]["injection_site"].__setitem__("final_token_id", 9)}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2 and "injection_site" in err, "different injection site -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"].reverse()}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2 and "order" in err, "sample order differs -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"].pop()}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2, "short cell -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"][0].__setitem__("key", "zzz")}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2, "identity (key) mismatch vs manifest -> refused")
-c2, g2 = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"][0].__setitem__("truncated", True)}})
-rc, err, _ = run_eval(c2, g2); check(rc == 2, "truncated flag disagreeing with stop_reason -> refused")
-cells_cot, gates_cot = four("cot")
-rc, err, _ = run_eval(cells_cot, gates_cot, cond="nocot"); check(rc == 2, "CoT cells scored as No-CoT -> refused")
-rc, err, _ = run_eval(cells_cot, gates_cot, cond="cot"); check(rc == 0, "CoT set scored as its own family")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["meta"].__setitem__("mask_sha256", "other")}})
+rc, err, _ = run_eval(c2); check(rc == 2 and "mask_sha256" in err, "mask hash differs between a model's cells -> refused")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["meta"]["provenance"].__setitem__("gpu_names", ["H100"])}})
+rc, err, _ = run_eval(c2); check(rc == 2 and "gpu_names" in err, "different GPU model between cells -> refused")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["meta"]["injection_site"].__setitem__("final_token_id", 9)}})
+rc, err, _ = run_eval(c2); check(rc == 2 and "injection_site" in err, "different injection site -> refused")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"].reverse()}})
+rc, err, _ = run_eval(c2); check(rc == 2 and "order" in err, "sample order differs -> refused")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"].pop()}})
+rc, err, _ = run_eval(c2); check(rc == 2, "short cell -> refused")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"][0].__setitem__("key", "zzz")}})
+rc, err, _ = run_eval(c2); check(rc == 2, "identity (key) mismatch vs manifest -> refused")
+c2, _ = four("nocot", {("llama3", "wp"): {"mutate": lambda d: d["data"][0].__setitem__("truncated", True)}})
+rc, err, _ = run_eval(c2); check(rc == 2, "truncated flag disagreeing with stop_reason -> refused")
+cells_cot, _ = four("cot")
+rc, err, _ = run_eval(cells_cot, cond="nocot"); check(rc == 2, "CoT cells scored as No-CoT -> refused")
+rc, err, _ = run_eval(cells_cot, cond="cot"); check(rc == 0, "CoT set scored as its own family")
 # gold mismatch
 gbad = json.load(open(gm)); gbad["data"][5]["official_qid"] = "bad"
 gbp = os.path.join(TMP, "gold_bad.json"); json.dump(gbad, open(gbp, "w"))
@@ -205,7 +205,7 @@ check(rc == 2, "gold file identity mismatch -> refused")
 # required-field completeness: both cells missing the same field must NOT pass
 for fld in ("mask_sha256", "chat_template_hash", "injection_site", "prompt_sha256", "provenance"):
     def dropper(d, fld=fld): d["meta"].pop(fld, None)
-    c2, g2 = four("nocot", {("llama3", "a0"): {"mutate": dropper}, ("llama3", "wp"): {"mutate": dropper}}) if False else (None, None)
+    c2, _ = four("nocot", {("llama3", "a0"): {"mutate": dropper}, ("llama3", "wp"): {"mutate": dropper}}) if False else (None, None)
     ca = make_cell("llama3", "a0", mutate=dropper); cb = make_cell("llama3", "wp", mutate=dropper)
     ma = json.load(open(ca))["meta"]; mb = json.load(open(cb))["meta"]
     check("missing or empty" in (raises(lambda: zc.check_cross_cell([ma, mb], "llama3")) or ""),
