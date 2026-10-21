@@ -23,7 +23,7 @@ rm -rf /home/nas/d12922004/.hf_cache/huggingface/hub
 ##### 182/184/185/177/178
 
 rsync -avzP \
-  "d12922004@140.112.31.184:/data1/paveen/Dopamine/components/{qwen2.5,llama3}" \
+  "d12922004@140.112.31.182:/data1/paveen/Dopamine/components/{qwen2.5,llama3}" \
   /Users/paveenhuang/Downloads/
 
 
@@ -57,9 +57,12 @@ CUDA_VISIBLE_DEVICES=2 nohup bash run_proofwriter_owa_zeroshot.sh gate llama3  >
 CUDA_VISIBLE_DEVICES=5 nohup bash run_proofwriter_owa_zeroshot.sh gate qwen2.5 > zs_gate_qwen.log 2>&1 &
 cat zs_gate_llama3.log zs_gate_qwen.log      # 确认进程已启动
 
-# 2. 过了门槛的模型，再跑它自己的工作点（llama -6，qwen +8）
-CUDA_VISIBLE_DEVICES=0 nohup bash run_proofwriter_owa_zeroshot.sh workpoint llama3  > zs_wp_llama3.log 2>&1 &
+cd /data1/paveen/Dopamine && git pull
+
 CUDA_VISIBLE_DEVICES=5 nohup bash run_proofwriter_owa_zeroshot.sh workpoint qwen2.5 > zs_wp_qwen.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 nohup bash run_proofwriter_owa_zeroshot.sh workpoint llama3  > zs_wp_llama3.log 2>&1 &
+cat zs_wp_qwen.log zs_wp_llama3.log
+
 
 # 3. 四格齐了后评分（读 gold，Holm m=2）
 bash run_proofwriter_owa_zeroshot.sh eval
