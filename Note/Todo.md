@@ -14,9 +14,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ### Daily
 
-10.21 
-看學習的實驗結果；
-看科技新聞；
+10.21 周三 看学弟的實驗結果；看科技新聞；重新构思Paper的思路
 
 
 辦理長期居留證
