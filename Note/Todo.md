@@ -50,7 +50,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 ---
 15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
 16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8` ✔ -> 冻结严格收益 +6.67 pp（Holm p=.03027）；宽松标签 41.00%→48.00%，+7.00 pp（配对 p=.00985，独立 Holm m=3 p=.02956），不由严格 marker 格式恢复解释；主结果不变，见 ReasoningBare §6.5。
-17. ProofWriter-OWA 0-shot cot ⏸
+17. ProofWriter-OWA Chat zero-shot CoT ✔ -> Qwen +8 严格 +18.00 pp（Holm p=1.28×10⁻⁹），但宽松标签口径仅 +1.67 pp（p=.487）或 +3.67 pp（p=.0614）；260/300 在解释前给标签。Llama −6 未检出提升。
 18. FinQA Chat 0-shot CoT ✔ -> Llama −6 未检出提升；Qwen +8 严格准确率下降 12.33 pp（Holm p=4.74×10⁻⁷），宽松数值评分无净变化，主要受 marker 格式影响。
 ---
 
@@ -79,9 +79,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 不建议为了把 Chat 覆盖表填满而补 Qwen Chat 的 GSM-Symbolic、BBH、LogiQA、FinQA。填格子不会让边界更清楚。只有当某一格能区分两种预测时才值得补，比如 Qwen Chat BBH No-CoT，可以测"Bare 下是 C 类，换 Chat 以后会不会变"。
 
-## 分类表里有三处需要先修正
+## 分类表里有两处需要先修正
 
-- **Qwen ProofWriter Chat 1-shot 列在 A 类，但还没有用宽松评分复核。** 0-shot 已经说明严格评分会把格式变化算进准确率。
 - **LogiQA Llama 的 naf .76→.33 有一部分是 marker 本身造成的。** 按 CLAUDE.md，用文本扫描是 86.7%→54.3%，仍然属于 C 类，但"移动幅度"要用后面这组数字。
 - **A 类里的 "MATH" 要写明是哪个模型、哪个条件。** 也就是 Llama CoT 和 Qwen No-CoT。
 
