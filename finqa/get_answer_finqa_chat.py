@@ -19,10 +19,7 @@ own assistant header; its id is READ from the real tokenizer for all prompts
 content, so the trailing space of `Answer: ` may not survive wrapping; the
 wrapped-prompt hash recorded in meta is what was actually fed.
 
-Modes (all share one validation path; only `smoke`/`run` load for generation):
-    check  everything except generation; writes nothing
-    smoke  the 30 frozen preflight items, both alphas -> <root>/smoke
-    run    full 300 items, both alphas -> <root>/formal
+Runs the full 300 items, both alphas, in one model load -> <root>/formal.
 This script never reads gold and never computes accuracy.
 """
 from __future__ import annotations
@@ -99,7 +96,7 @@ def prompt_digest(samples):
         ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
 
 
-def load_samples(path, smoke_n_check=True):
+def load_samples(path):
     """Load finqa_formal.json, validate it against its own manifest, return (meta, all 300 samples)."""
     d = json.load(open(path, encoding="utf-8"))
     meta, data = d["meta"], d["data"]
@@ -116,18 +113,7 @@ def load_samples(path, smoke_n_check=True):
     if prompt_digest(data) != meta.get("prompt_content_sha256_16"):
         raise FQError(f"{path}: recomputed prompt_content_sha256_16 {prompt_digest(data)} != "
                       f"manifest {meta.get('prompt_content_sha256_16')} (file edited or built by other code)")
-    pf = meta.get("preflight_indices")
-    if not (isinstance(pf, list) and len(pf) == 30 and len(set(pf)) == 30
-            and all(isinstance(i, int) and 0 <= i < N_ITEMS for i in pf)):
-        raise FQError(f"{path}: meta.preflight_indices is not 30 distinct in-range ints")
     return meta, data
-
-
-def subset_for_mode(meta, data, mode):
-    if mode != "smoke":
-        return list(data)
-    keep = set(meta["preflight_indices"])
-    return [s for s in data if int(s["sample_id"]) in keep]
 
 
 def order_sha(samples):
@@ -223,7 +209,7 @@ def build_meta(model, alpha, n, qmeta, q_path, model_dir, mask_path, nz, tok, ch
     return {
         "protocol": PROTOCOL, "model": model, "size": cfg["size"], "alpha": alpha,
         "layers": [ls, le], "L": cfg["L"], "n_samples": n, "mode": expect["mode"],
-        "restricted_indices": qmeta["preflight_indices"] if expect["mode"] == "smoke" else None,
+        "restricted_indices": None,
         "model_dir": model_dir, "mask_path": mask_path, "mask_sha256": expect["mask_sha256"],
         "mask_nonzero_rows": nz, "max_new_tokens": MAX_NEW_TOKENS, "temperature": TEMPERATURE,
         "top_p": TOP_P, "batch_size": BATCH_SIZE, "prefill_only": True, "prefill_tail_len": 1,
@@ -257,7 +243,6 @@ def provenance(np, torch, transformers, vc):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=sorted(MODELS))
-    ap.add_argument("--mode", required=True, choices=["check", "smoke", "run"])
     ap.add_argument("--base_dir", required=True, help="components/ (benchmark/, mask/, <model>/ live here)")
     ap.add_argument("--questions", default=None, help="default <base_dir>/benchmark/finqa_formal.json")
     ap.add_argument("--model_dir", default=None)
@@ -274,14 +259,13 @@ def main(argv=None):
     model_dir = args.model_dir or cfg["model_dir"]
     q_path = args.questions or os.path.join(args.base_dir, "benchmark", "finqa_formal.json")
     mask_path = os.path.join(args.base_dir, cfg["mask_rel"])
-    out_dir = os.path.join(args.base_dir, args.model, OUT_SUBDIR,
-                           "smoke" if args.mode == "smoke" else "formal")
+    out_dir = os.path.join(args.base_dir, args.model, OUT_SUBDIR, "formal")
     ls, le = cfg["band"]
     try:
         qmeta, all_samples = load_samples(q_path)
     except FQError as e:
         die(str(e))
-    samples = subset_for_mode(qmeta, all_samples, "smoke" if args.mode == "smoke" else "run")
+    samples = all_samples
     n = len(samples)
 
     vc = VicundaModel(model_path=model_dir)
@@ -319,7 +303,7 @@ def main(argv=None):
               "model_dir": model_dir, "questions_file_sha256": file_sha256(q_path),
               "sample_order_sha256": order_sha(samples),
               "prompt_content_sha256_16": qmeta["prompt_content_sha256_16"],
-              "mode": "smoke" if args.mode == "smoke" else "formal", "final_token_id": tok["final_token_id"]}
+              "mode": "formal", "final_token_id": tok["final_token_id"]}
     fname = cell_filename(args.model)
     paths = {a: os.path.join(out_dir, alpha_dir(a), fname) for a in alphas_for(args.model)}
     todo = []
@@ -331,10 +315,6 @@ def main(argv=None):
             print(f"[skip] alpha={a}: existing cell verified")
         else:
             todo.append(a)
-    if args.mode == "check":
-        print(f"[check] OK. cells to generate: {todo}; nothing written.")
-        return 0
-
     prov = provenance(np, torch, transformers, vc)
     os.makedirs(out_dir, exist_ok=True)
     for a in todo:

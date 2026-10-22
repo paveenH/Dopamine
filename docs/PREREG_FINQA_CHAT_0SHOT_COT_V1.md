@@ -34,19 +34,15 @@ the Llama-3.1 template trims user content (so the trailing space of `Answer: ` m
 template may add its default system turn. The wrapped-prompt sha256 in each cell's meta records what was fed.
 
 ## Files
-`finqa/get_answer_finqa_chat.py` (check/smoke/run), `finqa/run_finqa_chat.sh`, `finqa/eval_finqa_chat.py`,
+`finqa/get_answer_finqa_chat.py` (run), `finqa/run_finqa_chat.sh`, `finqa/eval_finqa_chat.py`,
 `finqa/test_finqa_chat.py`. Reused unchanged: `prompt_finqa.py`, `finqa_scoring.py`, `chat_cot_sat_lib.py`
 (stdlib helpers), `proofwriter_owa/scoring.py` (McNemar / Holm / bootstrap).
-Output: `<components>/<model>/finqa/chat_0shot_cot_v1/{smoke,formal}/mdf_<alpha>/finqa_chat_<size>_<ls>_<le>.json`;
+Output: `<components>/<model>/finqa/chat_0shot_cot_v1/formal/mdf_<alpha>/finqa_chat_<size>_<ls>_<le>.json`;
 evaluation `docs/finqa_chat_0shot_cot_v1_evaluation.json`. Nothing existing is overwritten.
 
 ## Stages
-- `check`: data, prompt, chat tokens, mask, model config and output paths; no generation, nothing written.
-- `smoke`: the 30 frozen `preflight_indices`, both alphas, separate `smoke/` directory. Used only to inspect
-  format, stop behaviour and injection. **Prompt, doses and settings are not changed on the basis of smoke
-  accuracy.**
-- `run`: 300 items, both alphas.
-- `eval`: CPU, offline; the only stage that reads gold. Smoke cells are refused.
+`run` (300 items, both alphas, one model load) then `eval` (CPU, offline; the only stage that reads gold).
+No separate check/smoke stage.
 
 Existing files are skipped only after full validation (protocol, alpha, band, generation settings, mask / prompt /
 chat-template / data-file hashes, model repo id, per-item `sample_id`/`id`/`question` order, fire count, row
@@ -75,5 +71,4 @@ outside Holm, not internal commitment.
 
 ## Verification status (fill in; do not pre-write results)
 - Local (stdlib, fakes): `python3 finqa/test_finqa_chat.py` — see delivery note.
-- Server `check` / `smoke`: not run.
 - Formal GPU run: not run. No result is recorded in this document.

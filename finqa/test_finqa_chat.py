@@ -42,9 +42,6 @@ bad = copy.deepcopy(raw); bad["data"][9]["id"] = bad["data"][8]["id"]
 check(raises(lambda: G.load_samples(dump(bad, "a3.json"))), "duplicate official id rejected")
 bad = copy.deepcopy(raw); bad["data"] = bad["data"][:299]
 check(raises(lambda: G.load_samples(dump(bad, "a4.json"))), "299 rows rejected")
-bad = copy.deepcopy(raw); bad["meta"]["preflight_indices"] = bad["meta"]["preflight_indices"][:29]
-check(raises(lambda: G.load_samples(dump(bad, "a5.json"))), "29-item preflight subset rejected")
-check(len(G.subset_for_mode(meta, samples, "smoke")) == 30 and len(G.subset_for_mode(meta, samples, "run")) == 300, "smoke=30 frozen items, run=300")
 
 # ---- B. prompt / chat wrapping with a fake tokenizer
 check(PF.FINQA_TEMPLATE.count("Let's think step by step.") == 1 and "Answer: " in PF.FINQA_TEMPLATE, "reused prompt keeps the CoT line and Answer: once")
@@ -166,7 +163,6 @@ check(refused("d_maskcell", {("llama3", -6): setm("mask_sha256", "z" * 64)}), "d
 check(refused("d_prov", {("qwen2.5", 8): lambda d: d["meta"]["provenance"].__setitem__("host", "other")}), "different host between cells refused")
 check(refused("d_gpu", {("qwen2.5", 0): lambda d: d["meta"]["provenance"].__setitem__("cuda_device_names", []),
                          ("qwen2.5", 8): lambda d: d["meta"]["provenance"].__setitem__("cuda_device_names", [])}), "empty GPU names refused")
-check(refused("d_smoke", {("llama3", 0): lambda d: d["meta"].update(mode="smoke")}), "smoke cell never scored")
 check(refused("d_proto", {("llama3", 0): setm("protocol", "finqa-v0")}), "wrong protocol refused")
 check(refused("d_cot", {("llama3", 0): setm("cot", False)}), "non-CoT cell refused")
 check(refused("d_missing", skip=[("qwen2.5", 8)]), "missing cell refused")

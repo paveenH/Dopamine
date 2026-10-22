@@ -4,7 +4,7 @@
 FinQA Chat 0-shot CoT offline evaluation, protocol `finqa-chat-0shot-cot-v1`.
 CPU only. The ONLY script of this line that reads gold.
 
-Requires EXACTLY four formal cells: llama3 alpha {0,-6}, qwen2.5 alpha {0,+8}. Anything else (smoke cells,
+Requires EXACTLY four formal cells: llama3 alpha {0,-6}, qwen2.5 alpha {0,+8}. Anything else (
 missing/extra/duplicate cell, another protocol, config/provenance drift inside a model, wrong fire count,
 identity/order mismatch against the gold file, stored diagnostics that disagree with the text) aborts with
 no output. Output goes to its own file and an existing --out is never overwritten.
@@ -130,7 +130,7 @@ def validate(paths, gold_path):
         if meta.get("protocol") != PROTOCOL:
             die(f"{p}: protocol {meta.get('protocol')!r} != {PROTOCOL!r}")
         if meta.get("mode") != "formal" or meta.get("restricted_indices") is not None:
-            die(f"{p}: not a formal full-300 cell (mode={meta.get('mode')!r}); smoke cells are never scored")
+            die(f"{p}: not a formal full-300 cell (mode={meta.get('mode')!r})")
         key = (meta.get("model"), meta.get("alpha"))
         if key not in EXPECTED:
             die(f"{p}: cell {key} is not one of the experiment's four cells {sorted(EXPECTED, key=str)}")
