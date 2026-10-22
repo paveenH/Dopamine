@@ -78,9 +78,10 @@
 | Type | Cells | Baseline answer-first | Change at workpoint | Acc change |
 |---|---|---|---|---|
 | **A. 有空间，被移动，有收益** | GSM8K / GSM-Hard / GSM-Symbolic No-CoT（两个模型）；MATH；BBH CoT（两个模型）；Qwen CRUXEval CoT；Qwen Chat GSM8K / GSM-Hard；Qwen ProofWriter Chat 1-shot CoT | Qwen EC 93–100%；Llama EC 45–50% | EC 降到 5–30% | +6 到 +19 pp |
-| **B. 没有空间，没有收益** | Llama Chat GSM8K / MATH / GSM-Hard；Qwen Chat MATH；Chat-CoT 四格；Qwen LogiQA；ZebraLogic；Llama CRUXEval Chat | EC ≈ 0%，或 reason-first 已饱和（Zebra Qwen 100%，Qwen LogiQA 270/300 在给答案前比较过选项） | 无可移动 | ≈ 0 |
+| **B. 没有空间，没有收益** | Llama Chat GSM8K / MATH / GSM-Hard；Llama Chat FinQA；Qwen Chat MATH；Chat-CoT 四格；Qwen LogiQA；ZebraLogic；Llama CRUXEval Chat | EC ≈ 0%，或 reason-first 已饱和（Zebra Qwen 100%，Qwen LogiQA 270/300 在给答案前比较过选项） | 无可移动 | ≈ 0 |
 | **C. 有空间，被移动，但没有收益** | BBH No-CoT（Qwen EC 100→44%，+2.4 ns）；LogiQA Llama（naf .76→.33，−4.3 pp）；FinQA Qwen（EC 99→43%，+5 ns）；FinQA Llama（EC 90→35%，−5.7 pp）；Qwen MATH +6→+8；Llama CRUXEval CoT | 高 | 明显下降 | 0 或负 |
 | **D. 生成失效，无法读数** | ProofWriter Bare Llama（no-answer 79%）；FinQA Llama（loop 97%，截断 100%）；Zebra Qwen +8；ProofWriter Chat Qwen −6（1-shot CoT 与 zero-shot No-CoT 均格式崩溃） | — | 格式崩溃 | — |
+| **E. 严格分数受格式影响，宽松评分未见变化** | Qwen FinQA Chat 0-shot CoT；Qwen ProofWriter Chat zero-shot No-CoT | 基线答案常在解释前出现 | marker/检测器读数受格式变化影响 | 宽松评分未检出净变化 |
 
 **Bare — Experimental Coverage**
 
@@ -108,7 +109,7 @@
 | **BBH Counting** | — | — | — | — | 尚无 Chat 结果 |
 | **CRUXEval-O** | ✓ | ✓ | — | — | Llama 接口健康，仍未检出收益 |
 | **LogiQA 2.0** | — | — | — | — | 尚无 Chat 结果 |
-| **FinQA** | — | — | — | — | 尚无 Chat 结果 |
+| **FinQA** | — | ✓ | — | ✓ | Chat 0-shot CoT：Llama 未检出提升；Qwen 严格分数下降，宽松数值评分不变 |
 | **ProofWriter-OWA** | ✓² | ✓¹ | ✓² | ✓¹ | 1-shot CoT：Qwen +8 显著、Llama 为正向趋势；0-shot No-CoT：Llama 未见收益，Qwen 严格分数主要反映格式恢复 |
 | **ZebraLogic-Easy** | — | — | — | — | 尚无 Chat 结果 |
 
