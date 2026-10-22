@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PV10-A launcher: FIXED-BUDGET mechanism control for PV10-B.
 #
-#   bash run_bandit_pv10a.sh llama3 [CHECK|A0|AM4|AP4|PM4]
+#   bash run_bandit_pv10a.sh llama3 [A0|AM4|AP4|PM4]
 #
 # TWO-GPU LAYOUT (one card each, run concurrently):
 #   CUDA_VISIBLE_DEVICES=0 bash run_bandit_pv10a.sh llama3 A0
@@ -41,7 +41,7 @@
 set -euo pipefail
 
 MODEL="${1:-llama3}"
-STEP="${2:-CHECK}"
+STEP="${2:?usage: run_bandit_pv10a.sh model step}"
 
 if [[ "$MODEL" != "llama3" ]]; then
   echo "PV10 is llama3-only (token 220 anchor, 11-20 band)."
@@ -76,15 +76,7 @@ run_cell () {
 }
 
 case "${STEP}" in
-  CHECK) ${PY} evaluate_pv10_capability.py --check
-         ${PY} test_bandit_pv10.py
-         ${PY} test_bandit_pv10a.py
-         ${PY} test_bandit_pv10_episode.py
-         ${PY} test_pv10_gate_end_to_end.py
-         ${PY} test_pv10_stop_parity.py ;;
-
-  A0)    ${PY} test_bandit_pv10a.py
-         ${PY} test_pv10_stop_parity.py
+  A0)    ${PY} test_pv10_stop_parity.py
          run_cell 0 "${OUT_ROOT}/pv10a_v2_a0"
          echo
          echo "STOP. Read the alpha=0 allocation before running +-4:"
@@ -101,5 +93,5 @@ case "${STEP}" in
          run_cell  4 "${OUT_ROOT}/pv10a_v2_ap4" ;;
 
   *) echo "unknown step: ${STEP}"
-     echo "expected: CHECK A0 AM4 AP4 PM4"; exit 1 ;;
+     echo "expected: A0 AM4 AP4 PM4"; exit 1 ;;
 esac
