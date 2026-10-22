@@ -54,6 +54,13 @@ import label_early_candidate as lec  # noqa: E402
 
 EXPECTED_SET = {("llama3", "a0"), ("llama3", "wp"), ("llama3", "rev"),
                 ("qwen2.5", "a0"), ("qwen2.5", "wp"), ("qwen2.5", "rev")}
+# CoT (added 2026-10-22): the four-cell workpoint-only design; no reverse cells.
+EXPECTED_SET_COT = {("llama3", "a0"), ("llama3", "wp"),
+                    ("qwen2.5", "a0"), ("qwen2.5", "wp")}
+
+
+def expected_set(condition):
+    return EXPECTED_SET_COT if condition == "cot" else EXPECTED_SET
 
 
 def die(msg):
@@ -117,15 +124,16 @@ def run_eval(args):
         if cid in found:
             raise zc.ZSError(f"duplicate cell {cid}")
         found[cid] = p
-    if set(found) != EXPECTED_SET:
+    EXPECTED = expected_set(args.condition)
+    if set(found) != EXPECTED:
         raise zc.ZSError(f"cell set {sorted(found)} != the experiment's own set "
-                         f"{sorted(EXPECTED_SET)} (missing: "
-                         f"{sorted(EXPECTED_SET - set(found))}, extra: "
-                         f"{sorted(set(found) - EXPECTED_SET)})")
+                         f"{sorted(EXPECTED)} (missing: "
+                         f"{sorted(EXPECTED - set(found))}, extra: "
+                         f"{sorted(set(found) - EXPECTED)})")
     cells, metas, per_model = {}, {}, {}
     for model in zc.MODEL_CONFIG:
         mm = []
-        for cell in [c for c in zc.CELLS if (model, c) in EXPECTED_SET]:
+        for cell in [c for c in zc.CELLS if (model, c) in EXPECTED]:
             alpha = zc.alpha_of(model, cell)
             meta, rows = zc.validate_cell(found[(model, cell)], model,
                                           args.condition, alpha, samples)
@@ -176,7 +184,7 @@ def run_eval(args):
         "protocol": zc.PROTOCOL, "stage": "eval", "condition": args.condition,
         "prompt_template_id": pz.TEMPLATE_IDS[args.condition],
         "n_shot": 0, "cot": pz.condition_to_cot(args.condition),
-        "conditions": sorted(f"{m}:{c}" for m, c in EXPECTED_SET),
+        "conditions": sorted(f"{m}:{c}" for m, c in EXPECTED),
         "holm_family": {
             "id": f"zs-chat-v1-{args.condition}-workpoint", "m": 2,
             "members": ["llama3 -6 vs 0", "qwen2.5 +8 vs 0"],
