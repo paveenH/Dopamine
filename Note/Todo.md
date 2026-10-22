@@ -15,6 +15,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 ### Daily
 
 10.21 周三 看学弟的實驗結果；看科技新聞；重新构思Paper的思路
+10.22 周四 继续收尾看有什么需要补充的实验
 
 
 辦理長期居留證
@@ -48,7 +49,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
 ---
 15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
-16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8`：补做宽松标签正确率与配对比较，检查显著结果是否主要受严格 marker 格式影响；保留冻结严格评分为主结果。
+16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8` ✔ -> 冻结严格收益 +6.67 pp（Holm p=.03027）；宽松标签 41.00%→48.00%，+7.00 pp（配对 p=.00985，独立 Holm m=3 p=.02956），不由严格 marker 格式恢复解释；主结果不变，见 ReasoningBare §6.5。
+17. 尝试做FInQA
 
 ---
 
