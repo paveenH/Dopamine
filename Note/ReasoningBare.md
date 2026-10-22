@@ -1328,7 +1328,35 @@ Qwen Chat 对 α 表现出明显的非线性接口响应。`−6` 几乎完全�
 
 Qwen `−6` 的 297 个候选都是没有严格 marker 的裸标签（False 275 条、Unknown 22 条），伴随格式崩溃。Llama 的 0% 只表示未检出短首行标签，不排除命题式提前判断。完整分析见 `CLAUDE.md` 所列离线报告。
 
-**Conclusion.** ProofWriter-OWA 的 Chat 结果依赖提示条件。1-shot CoT 下 Qwen `+8` 的严格评分显著收益在宽松标签诊断中仍成立，不能由严格 marker 提交格式恢复解释；zero-shot No-CoT 中，Llama 未见工作点收益，Qwen `+8` 的严格分数上升主要伴随提交格式恢复，宽松标签评分未检出准确率提升。两组结果的差异不能单独归因于 CoT，因为示例数及其他提示措辞也不同。
+#### Chat Zero-shot CoT
+
+这四格是独立的 Chat zero-shot CoT 补充实验，每格 300 题。严格评分仍取首个严格 `#### True/False/Unknown` 标签，缺失记错；`pw-label-early-v1` 只作探索性输出指标。
+
+**Table 6.19. ProofWriter-OWA Chat Zero-shot CoT Results**
+
+| Model | α | Strict `first_acc` | Valid Submission | Conditional Accuracy | Early Candidate¹ | Loop / Truncated |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Llama | 0 | 35.33% (106/300) | 68.67% | 51.46% | 0.00% | 23.33% / 31.33% |
+| Llama | −6 | 38.33% (115/300) | 70.67% | 54.25% | 0.00% | 18.33% / 29.00% |
+| Qwen | 0 | 25.33% (76/300) | 67.00% | 37.81% | 99.67% | 0.00% / 0.00% |
+| Qwen | +8 | 43.33% (130/300) | 99.67% | 43.48% | 86.67% | 0.33% / 0.33% |
+
+¹ `pw-label-early-v1`，每格分母为 300；它是任务特定的可见输出指标。
+
+**Table 6.20. Paired Workpoint Comparisons**
+
+| Comparison | Accuracy Change | Wrong→Correct / Correct→Wrong | 95% CI | Holm p (m=2) |
+| --- | ---: | ---: | ---: | ---: |
+| Llama −6 vs 0 | +3.00 pp | 49 / 40 | [−3.00, +9.33] pp | .397 |
+| Qwen +8 vs 0 | +18.00 pp | 67 / 13 | [+12.67, +23.67] pp | 1.28×10⁻⁹ |
+
+Qwen 的严格分数提高 18 pp，但宽松标签复核显示增幅大多来自 marker 格式恢复。保留严格答案优先、缺失时才回退到明确标签，正确率为 41.67%（125/300）→43.33%（130/300），+1.67 pp，配对 `p=.487`。改用全文最早的明确标签，正确率为 39.67%（119/300）→43.33%（130/300），+3.67 pp，配对 `p=.0614`；两种补充口径均未检出显著提升，且不替代冻结严格评分。基线 99 条无严格 marker 的回复中有 49 条显式标签正确；`+8` 仅剩 1 条无严格 marker，且该标签错误。
+
+输出顺序也没有普遍转为先推理：Qwen `+8` 有 260/300 条在开头直接给出标签，多数随后再解释。虽然 `pw-label-early-v1` 从 99.67% 降到 86.67%，该指标仍漏掉不少答案开头标签，不能据此推断输出顺序发生了同等幅度的改变。Llama 的 early candidate 为 0%，但 loop/truncation 仍约三成；其 −6 的严格准确率变化未通过校正。
+
+零样本 CoT 与零样本 No-CoT 的 prompt 只差 `Let's think step by step.` 这一行；两种条件下 Qwen 的标签先出比例和工作点收益都变化很小。1-shot CoT 与 zero-shot CoT 还同时改变了示例和少量指令措辞，因此不能将两者差异单独归因于 CoT 或示例。
+
+**Conclusion.** ProofWriter-OWA 的 Chat 结果随提示条件和输出格式而变。1-shot CoT 下，Qwen `+8` 的 +6.67 pp 收益在宽松评分下仍成立；zero-shot CoT 下，严格分数虽提高 18 pp，宽松标签口径未检出显著净收益，且 260/300 条仍在解释前给出标签；zero-shot No-CoT 下，Qwen 的严格分数提高也主要伴随格式恢复。Llama 在这三组 Chat 条件下均未检出显著工作点收益。CoT 指令本身（zero-shot CoT 对 No-CoT）几乎没有改变作答顺序或收益；1-shot 与 zero-shot CoT 的差异还包含示例和少量措辞变化。
 
 ### 6.6 FinQA
 
@@ -1376,7 +1404,7 @@ Qwen 的正向 α 产生了较清晰的 output reordering。相对于 baseline�
 
 这四格是 Bare 结果之后补做的 Chat 0-shot CoT 检查。严格评分沿用首个合法数值 marker；每格 300 题。FinQA 使用项目自定义的直接数值评分，不是官方程序执行评分。
 
-**Table 6.19. FinQA Chat Zero-shot CoT Performance and Output Health**
+**Table 6.21. FinQA Chat Zero-shot CoT Performance and Output Health**
 
 | Model | α | `first_acc` | Valid Submission | Conditional Accuracy | Early Candidate¹ | Loop / Truncation |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1385,7 +1413,7 @@ Qwen 的正向 α 产生了较清晰的 output reordering。相对于 baseline�
 | Qwen | 0 | 18.00% (54) | 77.00% | 23.38% | 99.33% | 0.00% / 0.00% |
 | Qwen | +8 | 5.67% (17) | 38.33% | 14.78% | 97.67% | 0.00% / 0.00% |
 
-**Table 6.20. Paired First-Accuracy Comparisons**
+**Table 6.22. Paired First-Accuracy Comparisons**
 
 | Model comparison | Δ `first_acc` | Wrong→Correct / Correct→Wrong | 95% CI | Holm `p` (m=2) |
 |---|---:|---:|---:|---:|
@@ -1402,7 +1430,7 @@ Llama `−6` 未检出准确率提升。Qwen `+8` 的严格准确率显著下降
 
 ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答案的样本计错，并在每个模型内对三个非零剂量执行 Holm 校正。
 
-**Table 6.21. ZebraLogic-Easy task-specific dose sweep**
+**Table 6.23. ZebraLogic-Easy task-specific dose sweep**
 
 | Model | α | Puzzle accuracy | Δ vs 0 | No answer | Raw p | Holm `p_adj` |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1473,7 +1501,7 @@ Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason
 | GSM-Symbolic | Supported in No-CoT; not stable in CoT | Supported in No-CoT and CoT | Transfer depends on model and prompting condition |
 | BBH Object Counting | CoT only | CoT only | CoT-dependent transfer; No-CoT reordering is insufficient |
 | CRUXEval-O | No stable gain | Supported mainly under CoT | Clear model boundary; revision remains unstable |
-| ProofWriter-OWA | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: no workpoint gain detected | Chat 1-shot CoT: significant gain at `+8` (Holm `p_adj=.0303`); zero-shot No-CoT: strict score rises with format recovery, while relaxed label accuracy is unchanged | Results depend on prompt condition; Bare and Chat format failures remain important boundaries |
+| ProofWriter-OWA | Chat 1-shot CoT: Llama no detected gain; zero-shot CoT and No-CoT: neither model has a robust accuracy gain after format-aware review | Qwen 1-shot CoT `+8`: +6.67 pp, Holm `p_adj=.0303`, retained under relaxed labels; zero-shot CoT strict +18.00 pp but relaxed +1.67 pp (`p=.487`) / +3.67 pp (`p=.0614`); zero-shot No-CoT relaxed label accuracy unchanged | 0-shot CoT and No-CoT differ by one instruction line and show little ordering/gain change; 1-shot vs 0-shot CoT also changes an example and minor wording |
 | LogiQA 2.0 | No stable gain | No stable gain | Multiple-choice output does not show reliable transfer |
 | ZebraLogic-Easy | No stable gain | No stable gain; `+8` collapses | Reason-before-solution is saturated and not predictive |
 | FinQA | Bare: no stable gain; Chat 0-shot CoT: no gain detected | Bare: descriptive `+8` trend; Chat 0-shot CoT: strict score decreases, relaxed score unchanged | Chat Qwen decline is format-sensitive; scorer is custom numeric, not official program execution |
