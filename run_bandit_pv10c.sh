@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PV10-C: PV10-B + a competitor/falsification cue in the sampling clause.
 #
-#   bash run_bandit_pv10c.sh llama3 [CHECK|B0|C0]
+#   bash run_bandit_pv10c.sh llama3 [B0|C0]
 #
 # TWO-GPU LAYOUT (one card each, concurrently):
 #   CUDA_VISIBLE_DEVICES=0 bash run_bandit_pv10c.sh llama3 B0
@@ -30,7 +30,7 @@
 set -euo pipefail
 
 MODEL="${1:-llama3}"
-STEP="${2:-CHECK}"
+STEP="${2:?usage: run_bandit_pv10c.sh model step}"
 
 if [[ "$MODEL" != "llama3" ]]; then
   echo "PV10 is llama3-only (token 220 anchor, 11-20 band)."
@@ -66,16 +66,12 @@ run_cell () {
 }
 
 case "${STEP}" in
-  CHECK) ${PY} test_bandit_pv10c.py ;;
-
   # Baseline: PV10-B prompt under parser v2.
-  B0)    ${PY} test_bandit_pv10c.py
-         run_cell B "${OUT_ROOT}/pv10b_v2_a0" ;;
+  B0)    run_cell B "${OUT_ROOT}/pv10b_v2_a0" ;;
 
   # Intervention: + competitor cue.
-  C0)    ${PY} test_bandit_pv10c.py
-         run_cell C "${OUT_ROOT}/pv10c_a0" ;;
+  C0)    run_cell C "${OUT_ROOT}/pv10c_a0" ;;
 
   *) echo "unknown step: ${STEP}"
-     echo "expected: CHECK B0 C0"; exit 1 ;;
+     echo "expected: B0 C0"; exit 1 ;;
 esac
