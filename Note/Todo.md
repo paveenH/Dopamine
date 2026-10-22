@@ -50,16 +50,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 ---
 15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
 16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8` ✔ -> 冻结严格收益 +6.67 pp（Holm p=.03027）；宽松标签 41.00%→48.00%，+7.00 pp（配对 p=.00985，独立 Holm m=3 p=.02956），不由严格 marker 格式恢复解释；主结果不变，见 ReasoningBare §6.5。
-17. 尝试做FInQA
-
+17. ProofWriter-OWA 0-shot cot 
 ---
-我看完 tmp.md 里 Reasoning 部分的整理，觉得 A/B/C/D 分类的方向是对的。但要把它写成"RSN 什么时候能用"的实用结论，还缺三样东西：
-
-1. **两个条件还只是事后分类，没有被操纵过。** "有顺序空间"和"错误来自过早作答"目前只是看结果去归类。不同任务之间混着题型、答案空间、难度、接口等很多差异，现在没法说清是哪一个起了作用。
-2. **"错误来自过早作答"还没有不循环的定义。** 如果用"转向后答对了"来定义，就等于拿结果解释结果。
-3. **缺一条事先能用的规则。** 用户拿到一个新任务和新模型，需要在不跑全剂量扫描、不看 gold 的情况下判断：用不用 RSN，往哪个方向调。
-
-## 建议补充的分析和实验
 
 ### 第一层：只用现有数据，不跑 GPU
 
