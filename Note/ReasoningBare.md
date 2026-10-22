@@ -1372,13 +1372,37 @@ Qwen 的正向 α 产生了较清晰的 output reordering。相对于 baseline�
 
 > **Metric note.** `candidate_posN_med` 使用 GSM8K candidate detector，在 FinQA 上属于探索性指标；`first_parseable_marker_posN_med` 测量的是第一个合法 `#### <value>` marker。两者检测的对象和统计子集不同，不能直接比较。长度指标还会受到循环与截断影响。
 
-**Conclusion.** FinQA 没有表现出稳定的跨任务 workpoint transfer。Llama 的负向 workpoint 降低了准确率，并受到严重循环和截断影响；Qwen `+8` 的准确率点估计有所提高，并伴随较少的 early candidate 和更多的 reason-first output，但 `+6` 的行为反例说明 output reordering 不能单独预测性能。
+#### Chat Zero-shot CoT
+
+这四格是 Bare 结果之后补做的 Chat 0-shot CoT 检查。严格评分沿用首个合法数值 marker；每格 300 题。FinQA 使用项目自定义的直接数值评分，不是官方程序执行评分。
+
+**Table 6.19. FinQA Chat Zero-shot CoT Performance and Output Health**
+
+| Model | α | `first_acc` | Valid Submission | Conditional Accuracy | Early Candidate¹ | Loop / Truncation |
+|---|---:|---:|---:|---:|---:|---:|
+| Llama | 0 | 27.33% (82) | 91.67% | 29.82% | 0.00% | 2.33% / 7.33% |
+| Llama | −6 | 25.33% (76) | 90.00% | 28.15% | 0.33% | 1.00% / 8.00% |
+| Qwen | 0 | 18.00% (54) | 77.00% | 23.38% | 99.33% | 0.00% / 0.00% |
+| Qwen | +8 | 5.67% (17) | 38.33% | 14.78% | 97.67% | 0.00% / 0.00% |
+
+**Table 6.20. Paired First-Accuracy Comparisons**
+
+| Model comparison | Δ `first_acc` | Wrong→Correct / Correct→Wrong | 95% CI | Holm `p` (m=2) |
+|---|---:|---:|---:|---:|
+| Llama −6 vs 0 | −2.00 pp | 15 / 21 | [−6.00, +1.67] pp | .405 |
+| Qwen +8 vs 0 | −12.33 pp | 8 / 45 | [−17.00, −7.67] pp | 4.74×10⁻⁷ |
+
+Llama `−6` 未检出准确率提升。Qwen `+8` 的严格准确率显著下降，但两格都自然结束、没有循环或截断；其中 294/300 条回复以冒号开头（如 `: -6.7%`），常缺少合法 marker。事后宽松诊断在保留合法 marker 优先的前提下，允许从首个非空行读取单一数值，结果 α=0 与 `+8` 均为 70/300（23.33%）；配对变化为 13 改对、13 改错，`p=1.00`。因此，严格分数下降不能直接解读为数值答题能力下降；宽松诊断也不替代冻结严格评分。
+
+¹ `earlycand-v1` 在 FinQA 上仅作探索性描述。Qwen `+8` 的 `answer_shaped_first_line_rate` 为 0%，是因为检测规则漏掉冒号前缀；不能据此声称提前作答消失。宽松诊断和评分均为自定义直接数值评估，不是官方 FinQA 程序执行评分。
+
+**Conclusion.** FinQA 没有显示稳定的跨任务收益。Bare Qwen `+8` 仅是未通过校正的正向趋势；Chat 中 Llama 未检出提升，Qwen 的严格分数下降主要受 marker 格式影响，宽松数值评分未检出净变化。两种接口的并列是描述性比较。
     
 ### 6.7 ZebraLogic-Easy: Dose Sweep
 
 ZebraLogic-Easy 使用 280 题和 first-answer JSON 主评分。缺少完整答案的样本计错，并在每个模型内对三个非零剂量执行 Holm 校正。
 
-**Table 6.19. ZebraLogic-Easy task-specific dose sweep**
+**Table 6.21. ZebraLogic-Easy task-specific dose sweep**
 
 | Model | α | Puzzle accuracy | Δ vs 0 | No answer | Raw p | Holm `p_adj` |
 |---|---:|---:|---:|---:|---:|---:|
@@ -1452,7 +1476,7 @@ Qwen 在 `−6`、baseline 和 `+6` 下几乎总能生成答案，并且 `reason
 | ProofWriter-OWA | Chat 1-shot CoT: descriptive gain; zero-shot No-CoT: no workpoint gain detected | Chat 1-shot CoT: significant gain at `+8` (Holm `p_adj=.0303`); zero-shot No-CoT: strict score rises with format recovery, while relaxed label accuracy is unchanged | Results depend on prompt condition; Bare and Chat format failures remain important boundaries |
 | LogiQA 2.0 | No stable gain | No stable gain | Multiple-choice output does not show reliable transfer |
 | ZebraLogic-Easy | No stable gain | No stable gain; `+8` collapses | Reason-before-solution is saturated and not predictive |
-| FinQA | No stable gain | Modest descriptive gain at `+8` | Reordering appears in Qwen but does not establish stable transfer |
+| FinQA | Bare: no stable gain; Chat 0-shot CoT: no gain detected | Bare: descriptive `+8` trend; Chat 0-shot CoT: strict score decreases, relaxed score unchanged | Chat Qwen decline is format-sensitive; scorer is custom numeric, not official program execution |
 
 跨任务结果不支持一个对所有任务都有效的单点 workpoint。更合适的结论是：每个模型存在一个在部分相近任务中可迁移的 workpoint range，但其效果受到 benchmark、prompting condition 和输出接口的共同限制。
 
