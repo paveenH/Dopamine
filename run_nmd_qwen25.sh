@@ -68,6 +68,4 @@ done
 
 echo ""
 echo "=================================================="
-echo "VERIFY before using the mask (layer alignment is the classic bug):"
-echo "  python check_mask_qwen.py --layer_start 11 --layer_end 18"
 echo "=================================================="

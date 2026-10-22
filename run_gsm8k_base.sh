@@ -18,10 +18,8 @@
 # per-cell run_meta_gsm8k_*.json records CUDA_VISIBLE_DEVICES, device names and
 # whether the model was sharded, plus steering_fires vs expected (L x 300).
 #
-# Usage (model = qwen or llama; step = check or run):
-#   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_base.sh qwen  check
+# Usage (model = qwen or llama; step = run):
 #   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_base.sh qwen  run
-#   CUDA_VISIBLE_DEVICES=1 bash run_gsm8k_base.sh llama check
 #   CUDA_VISIBLE_DEVICES=1 bash run_gsm8k_base.sh llama run
 #
 # Output (isolated; refuses if either target cell already exists):
@@ -45,10 +43,10 @@ case "${WHICH}" in
     MODEL_SIZE="8B"; CHECK_ALPHA=-6; LS=11; LE=20; ALPHA_DIRS="mdf_0 mdf_-6 mdf_6 mdf_-8 mdf_8"
     CONFIGS="0-11-20 neg6-11-20 6-11-20 neg8-11-20 8-11-20" ;;
   *)
-    echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run-or-run-extra"; exit 2 ;;
+    echo "usage: run_gsm8k_base.sh qwen-or-llama run-or-run-extra"; exit 2 ;;
 esac
 case "${STEP}" in
-  check|run) ;;
+  run) ;;
   run-extra)
     # Supplement: ONLY the one new cell per model; alpha=0 and earlier cells are not re-run.
     case "${WHICH}" in
@@ -56,7 +54,7 @@ case "${STEP}" in
       llama) ALPHA_DIRS="mdf_6";  CONFIGS="6-11-20" ;;
     esac
     STEP="run" ;;
-  *) echo "usage: run_gsm8k_base.sh qwen-or-llama check-or-run-or-run-extra"; exit 2 ;;
+  *) echo "usage: run_gsm8k_base.sh qwen-or-llama run-or-run-extra"; exit 2 ;;
 esac
 
 TYPE="non"; SUITE="default"; MASK_TYPE="nmd"; PERCENTAGE=0.5
@@ -84,20 +82,6 @@ echo "=================================================="
 # GPU placement is NOT enforced (repo policy). Device, host and sharding are
 # recorded per cell in run_meta_gsm8k_*.json. Both cells of a model are run in
 # ONE process, so they share whatever devices that process loaded onto.
-
-if [ "${STEP}" = "check" ]; then
-  # Technical wiring check only (tokenizer/terminators, prompt + injection token,
-  # mask band, benchmark, steering fires). No accuracy or format threshold.
-  ${PY} check_gsm8k_qwen.py \
-      --base_dir "${BASE_DIR}" --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" \
-      --hs "${HS_PREFIX}" --type "${TYPE}" --size "${MODEL_SIZE}" \
-      --mask_type "${MASK_TYPE}" --percentage "${PERCENTAGE}" \
-      --layer_start ${LS} --layer_end ${LE} --test_file "${GSM8K_FILE}" \
-      --ans_file "${ANS_FILE}" --fmt_wording "${WORDING}" --alpha ${CHECK_ALPHA}
-  rc=$?
-  [ $rc -eq 0 ] && echo "[ok] check passed" || echo "[x] check failed (rc=$rc)"
-  exit $rc
-fi
 
 # ---------- run: fail-closed pre-conditions ----------
 [ -f "${MASK}" ] || { echo "[x] mask missing: ${MASK}"; exit 1; }

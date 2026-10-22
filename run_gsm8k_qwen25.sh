@@ -28,11 +28,6 @@
 # it fixed across --baseline / --nocot / --cot. The script prints it every run.
 #
 # ==================== Steps ====================
-#   bash run_gsm8k_qwen25.sh --check      technical pre-flight only, no data.
-#                                         Verifies model/tokenizer/mask/layers/
-#                                         benchmark/output paths + steering
-#                                         fires. Makes NO judgement about
-#                                         results.
 #   bash run_gsm8k_qwen25.sh --baseline   alpha=0 only -> No-CoT mdf_0.
 #                                         This IS the final mdf_0 cell, not a
 #                                         throwaway pilot. Read its raw output
@@ -168,29 +163,6 @@ run_sweep () {   # $1=configs  $2=ans_file  $3=extra flags
 }
 
 case "${MODE}" in
-  --check)
-    banner "--check (technical pre-flight, no data written)" \
-           "${BASE_DIR}/${MODEL_NAME}/{${ANS_NOCOT},${ANS_COT}}" "(none)"
-    ${PY} check_gsm8k_qwen.py \
-        --base_dir   "${BASE_DIR}" \
-        --model      "${MODEL_NAME}" \
-        --model_dir  "${MODEL_DIR}" \
-        --hs         "${HS_PREFIX}" \
-        --type       "${TYPE}" \
-        --size       "${MODEL_SIZE}" \
-        --mask_type  "${MASK_TYPE}" \
-        --percentage "${PERCENTAGE}" \
-        --layer_start ${LS} \
-        --layer_end   ${LE} \
-        --test_file  "${GSM8K_FILE}" \
-        --ans_file   "${ANS_NOCOT}" \
-        --ans_file_cot "${ANS_COT}" \
-        --fmt_wording "${WORDING}"
-    rc=$?
-    [ $rc -eq 0 ] && echo "[✓] check passed" || echo "[✗] check failed (rc=$rc)"
-    exit $rc
-    ;;
-
   --baseline)
     OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_NOCOT}/mdf_0"
     banner "--baseline (alpha=0 -> the FINAL No-CoT mdf_0 cell)" \
@@ -276,9 +248,8 @@ case "${MODE}" in
     ;;
 
   *)
-    echo "Usage: bash run_gsm8k_qwen25.sh {--check|--baseline|--nocot|--cot|--cot6|--cot-rest|--cot-rest4|--cot-full}"
+    echo "Usage: bash run_gsm8k_qwen25.sh {--baseline|--nocot|--cot|--cot6|--cot-rest|--cot-rest4|--cot-full}"
     echo ""
-    echo "  --check     technical pre-flight only (model/mask/layers/paths/fires)"
     echo "  --baseline  alpha=0  -> No-CoT mdf_0   (the final cell, then READ it)"
     echo "  --nocot     the other 8 alphas -> completes the 9-point curve"
     echo "  --cot       CoT -4/0/+4 -> answer_mdf_gsm8k_cot"

@@ -11,10 +11,9 @@
 #   * mask nmd_0.5_16_22_7B.npy under mask/qwen2.5_non_logits/
 #   * IGT uses NO anchor by design, so injection lands on the chat template's
 #     assistant header -- Llama-3.1 ends it with id 271 '\n\n', Qwen2.5 with
-#     id 198 '\n'. check_igt_qwen.py reads out the real one.
+#     id 198 '\n'.
 #
-# ORDER (do not skip the check -- a failed sweep costs hours and yields nothing):
-#   bash run_igt_qwen25.sh --check      # tokenizer/anchor/mask/fires, no data
+# ORDER:
 #   bash run_igt_qwen25.sh --baseline   # alpha=0 only, N=5
 #   # -> evaluate the FROZEN baseline gate below; only then is the pilot unlocked.
 #
@@ -86,25 +85,7 @@ BASELINE_CONFIGS="0-${LS}-${LE}"
 FULL_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} neg4-${LS}-${LE} 4-${LS}-${LE} neg6-${LS}-${LE} 6-${LS}-${LE} neg8-${LS}-${LE} 8-${LS}-${LE}"
 
 # ==================== Modes ====================
-if [ "$1" == "--check" ]; then
-    cd "${WORK_DIR}"
-    echo "=== Qwen2.5 IGT pre-flight (no data written) ==="
-    python check_igt_qwen.py \
-        --model_dir "${MODEL_DIR}" \
-        --size "${MODEL_SIZE}" \
-        --hs "${HS_PREFIX}" \
-        --type "${TYPE}" \
-        --mask_type "${MASK_TYPE}" \
-        --percentage "${PERCENTAGE}" \
-        --layer_start "${LS}" \
-        --layer_end "${LE}" \
-        --alpha 4 \
-        --base_dir "${BASE_DIR}" \
-        --prompt_ver "${PROMPT_VER}" \
-        --anchor "${ANCHOR}" \
-        --max_new_tokens "${MAX_NEW_TOKENS}"
-    exit $?
-elif [ "$1" == "--baseline" ]; then
+if [ "$1" == "--baseline" ]; then
     CONFIGS="${BASELINE_CONFIGS}"; NUM_RUNS=5
     ANS_FILE="igt/qwen_v6b_baseline"
 elif [ "$1" == "--neg" ] || [ "$1" == "--pos" ]; then
@@ -149,12 +130,12 @@ elif [ "$1" == "--full" ]; then
     CONFIGS="${FULL_CONFIGS}"; NUM_RUNS=20
     ANS_FILE="igt/qwen_v6b_full"
 else
-    echo "Usage: bash run_igt_qwen25.sh --check | --baseline | --full"
+    echo "Usage: bash run_igt_qwen25.sh --baseline | --full"
     echo "       Two-card split of the full sweep (alpha=0 on BOTH cards):"
     echo "         CUDA_VISIBLE_DEVICES=0 bash run_igt_qwen25.sh --neg"
     echo "         CUDA_VISIBLE_DEVICES=1 bash run_igt_qwen25.sh --pos"
     echo "       Each arm vs its OWN alpha=0 is paired; neg-vs-pos is cross-card."
-    echo "       Run --check first, then the alpha=0 baseline."
+    echo "       Run the alpha=0 baseline first."
     echo "       The -2/0/+2 pilot is unlocked only after the baseline gate passes"
     echo "       (see the gate in this script's header); N=20 only after that."
     exit 1

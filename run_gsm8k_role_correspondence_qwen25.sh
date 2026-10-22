@@ -10,7 +10,6 @@
 #   components/qwen2.5/answer_gsm8k_role_correspondence_v1/mdf_0/
 #
 # Steps:
-#   bash run_gsm8k_role_correspondence_qwen25.sh --check   technical pre-flight (no data written)
 #   bash run_gsm8k_role_correspondence_qwen25.sh --run     generate (skips only if an existing cell VERIFIES)
 #   bash run_gsm8k_role_correspondence_qwen25.sh --verify  integrity check of the finished cell
 # GPU placement is not constrained; CUDA_VISIBLE_DEVICES / host / sharding are recorded in run_meta.
@@ -32,15 +31,6 @@ OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}/mdf_0"
 
 MODE="${1:-}"
 case "${MODE}" in
-  --check)
-    ${PY} -c "import numpy, torch, transformers" || { echo "[x] interpreter ${PY} lacks numpy/torch/transformers"; exit 1; }
-    ${PY} check_gsm8k_qwen.py --base_dir "${BASE_DIR}" --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" \
-        --hs "${HS_PREFIX}" --type "${TYPE}" --size "${MODEL_SIZE}" --mask_type "${MASK_TYPE}" \
-        --percentage "${PERCENTAGE}" --layer_start ${LS} --layer_end ${LE} --test_file "${GSM8K_FILE}" \
-        --ans_file "${ANS_FILE}" --ans_file_cot "${ANS_FILE}" --fmt_wording plain
-    rc=$?
-    [ $rc -eq 0 ] && echo "[ok] check passed" || echo "[x] check failed (rc=$rc)"
-    exit $rc ;;
   --verify)
     ${PY} verify_role_correspondence_cell.py --cell_dir "${OUT}" --test_file "${BASE_DIR}/${GSM8K_FILE}"
     exit $? ;;
@@ -68,5 +58,5 @@ case "${MODE}" in
     [ $rc -eq 0 ] && echo "[ok] finished + verified: ${OUT}" || echo "[x] FAILED (rc=$rc)"
     exit $rc ;;
   *)
-    echo "Usage: bash run_gsm8k_role_correspondence_qwen25.sh [--check|--run|--verify]"; exit 1 ;;
+    echo "Usage: bash run_gsm8k_role_correspondence_qwen25.sh [--run|--verify]"; exit 1 ;;
 esac

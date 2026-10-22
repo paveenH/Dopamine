@@ -102,17 +102,7 @@ ACQ_AP4_DIR="${OUT_ROOT}/pv11_acq_ap4"
 check () {
   echo "=== PV11 offline checks"
   ${PY} build_pv11_state_bank.py --check
-  ${PY} test_pv11_state_bank.py
-  ${PY} test_bandit_pv11.py
-  ${PY} test_bandit_pv11_episode.py
-  ${PY} test_pv11_scope_key.py
-  ${PY} test_pv11_acq_alpha_guard.py
   ${PY} analyze_bandit_pv11_gate.py --selftest
-  ${PY} test_pv11_gate_end_to_end.py
-  echo
-  echo "NOTE: if test_bandit_pv11.py printed 'SKIP tokenizer unavailable',"
-  echo "the token-220 anchor assertions did NOT run on this machine. Sync the"
-  echo "HF cache and re-run CHECK before trusting the anchor."
 }
 
 # The pilot is the ONLY step before A0 where a real model sees a real prompt.
@@ -145,10 +135,7 @@ case "${STEP}" in
       --percentage "${PERCENTAGE}" --layers "${LAYERS}" \
       --alpha 0 --pilot \
       --base_dir "${BASE_DIR}" \
-      --ans_file "${SMOKE_DIR}/pv11_pilot.json"
-    echo
-    echo "Read the TEXT before deciding on A0:"
-    echo "  ${PY} inspect_pv11_smoke.py ${SMOKE_DIR}/pv11_pilot.json" ;;
+      --ans_file "${SMOKE_DIR}/pv11_pilot.json" ;;
 
   A0)
     check

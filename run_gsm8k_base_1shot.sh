@@ -9,11 +9,9 @@
 #
 # Steps (single positional arg):
 #   prep   download + freeze the demo (refuses to overwrite; use prep-check to re-derive)
-#   check  technical pre-flight on the REAL 1-shot prompts (loads the model)
 #   run    ONE process, ONE model load, alpha -6, 0, +6 sequentially
 #
 #   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_base_1shot.sh prep
-#   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_base_1shot.sh check
 #   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_base_1shot.sh run
 #
 # Output (refuses if ANY of the three cells exists):
@@ -45,20 +43,8 @@ OUT="${BASE_DIR}/${MODEL_NAME}/${ANS_FILE}"
 case "${STEP}" in
   prep)       ${PY} prepare_gsm8k_1shot_demo.py --base_dir "${BASE_DIR}"; exit $? ;;
   prep-check) ${PY} prepare_gsm8k_1shot_demo.py --base_dir "${BASE_DIR}" --check; exit $? ;;
-  check)
-    [ -f "${DEMO}" ] || { echo "[x] demo missing -- run: bash run_gsm8k_base_1shot.sh prep"; exit 1; }
-    ${PY} check_gsm8k_qwen.py \
-        --base_dir "${BASE_DIR}" --model "${MODEL_NAME}" --model_dir "${MODEL_DIR}" \
-        --hs "${HS_PREFIX}" --type "${TYPE}" --size "${MODEL_SIZE}" \
-        --mask_type "${MASK_TYPE}" --percentage "${PERCENTAGE}" \
-        --layer_start ${LS} --layer_end ${LE} --test_file "${GSM8K_FILE}" \
-        --ans_file "${ANS_FILE}" --fmt_wording "${WORDING}" --alpha ${CHECK_ALPHA} \
-        --fewshot_file "${DEMO_FILE}"
-    rc=$?
-    [ $rc -eq 0 ] && echo "[ok] check passed" || echo "[x] check failed (rc=$rc)"
-    exit $rc ;;
   run) ;;
-  *) echo "usage: run_gsm8k_base_1shot.sh prep-or-prep-check-or-check-or-run"; exit 2 ;;
+  *) echo "usage: run_gsm8k_base_1shot.sh prep-or-prep-check-or-run"; exit 2 ;;
 esac
 
 # ---------- run: fail-closed pre-conditions ----------

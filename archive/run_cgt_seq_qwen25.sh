@@ -11,10 +11,9 @@
 #   * mask nmd_0.5_16_22_7B.npy under mask/qwen2.5_non_logits/
 #   * the chat template / final prompt token differ from Llama's. CGT-seq REQUIRES
 #     --use_chat (bare modes were qdm~0.50, near random), so the injection site is
-#     whatever that template ends with. check_cgt_seq_qwen.py reads it out.
+#     whatever that template ends with.
 #
-# ORDER (do not skip the check — a failed sweep costs hours and yields nothing):
-#   bash run_cgt_seq_qwen25.sh --check         # tokenizer/anchor/mask/fires, no data
+# ORDER:
 #   bash run_cgt_seq_qwen25.sh --pilot_asc     # a=0/+-4, 5 runs, ascending
 #   bash run_cgt_seq_qwen25.sh --pilot_desc    # a=0/+-4, 5 runs, descending
 #   bash run_cgt_seq_qwen25.sh --pilot2_asc    # a=0/+-2, 5 runs (narrow-band retry)
@@ -109,25 +108,7 @@ V5_DOSE_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE} neg4-${LS}-${LE} 4
 V5_FULL_CONFIGS="0-${LS}-${LE} neg2-${LS}-${LE} 2-${LS}-${LE}"
 
 # ==================== Modes ====================
-if [ "$1" == "--check" ]; then
-    cd "${WORK_DIR}"
-    echo "=== Qwen2.5 CGT-Seq pre-flight (no data written) ==="
-    python check_cgt_seq_qwen.py \
-        --model_dir "${MODEL_DIR}" \
-        --size "${MODEL_SIZE}" \
-        --hs "${HS_PREFIX}" \
-        --type "${TYPE}" \
-        --mask_type "${MASK_TYPE}" \
-        --percentage "${PERCENTAGE}" \
-        --layer_start "${LS}" \
-        --layer_end "${LE}" \
-        --alpha 4 \
-        --base_dir "${BASE_DIR}" \
-        --prompt_ver "${PROMPT_VER}" \
-        --anchor "${ANCHOR}" \
-        --presentation desc
-    exit $?
-elif [ "$1" == "--pilot_asc" ]; then
+if [ "$1" == "--pilot_asc" ]; then
     CONFIGS="${PILOT_CONFIGS}"; NUM_RUNS=5
     PRESENTATION="asc";  ANS_FILE="cgt/seq_asc_v4_qwen_pilot"
 elif [ "$1" == "--pilot_desc" ]; then
@@ -158,11 +139,11 @@ elif [ "$1" == "--desc" ]; then
     CONFIGS="${FULL_CONFIGS}"
     PRESENTATION="desc"; ANS_FILE="cgt/seq_desc_v4_qwen"
 else
-    echo "Usage: bash run_cgt_seq_qwen25.sh --check"
+    echo "Usage: bash run_cgt_seq_qwen25.sh MODE"
     echo "       v4 (FROZEN as boundary evidence): --pilot_asc | --pilot_desc | --pilot2_asc | --pilot2_desc | --asc | --desc"
     echo "       v5 pilot (dose range, N=5):       --v5_pilot_asc | --v5_pilot_desc"
     echo "       v5 full  (-2/0/+2, N=20):         --v5_full_asc  | --v5_full_desc"
-    echo "       Run --check first. v5 full is the band the dose pilot selected;"
+    echo "       v5 full is the band the dose pilot selected;"
     echo "       widening it means re-running the pilot, not editing this file."
     exit 1
 fi

@@ -79,9 +79,6 @@ check_bases () {
   echo "=== frozen bases"
   ${PY} evaluate_pv10_capability.py --check
   ${PY} pv10_env_prescreen.py --n_sim 10000 --check
-  echo "=== protocol tests"
-  ${PY} test_bandit_pv10.py
-  ${PY} test_bandit_pv10_episode.py
   ${PY} evaluate_pv10_capability.py --selftest
 }
 

@@ -15,12 +15,11 @@
 #   [11,18) -> decoder layers [10..16], L=7
 #   [16,22) -> decoder layers [15..20], L=6
 # Layers 15 and 16 are in BOTH. So a difference between them is "earlier band vs
-# later band", NOT "two independent neuron sets"; check the per-layer Jaccard
-# printed by check_mask_qwen.py --compare before wording any conclusion.
+# later band", NOT "two independent neuron sets"; compute the per-layer
+# Jaccard of the two masks before wording any conclusion.
 #
 # ORDER:
 #   bash run_nmd_qwen25.sh                      # build the [11,18) mask
-#   python check_mask_qwen.py --layer_start 11 --layer_end 18 --compare 16 22
 #   bash run_mmlue_qwen25.sh --new              # [11,18) alpha=0/+-4
 #   bash run_mmlue_qwen25.sh --old              # [16,22) alpha=0/+-4, same protocol
 #

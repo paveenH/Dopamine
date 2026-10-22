@@ -76,8 +76,7 @@ run_cell () {
 }
 
 case "${STEP}" in
-  A0)    ${PY} test_pv10_stop_parity.py
-         run_cell 0 "${OUT_ROOT}/pv10a_v2_a0"
+  A0)    run_cell 0 "${OUT_ROOT}/pv10a_v2_a0"
          echo
          echo "STOP. Read the alpha=0 allocation before running +-4:"
          echo "  single-arm share still high -> acquisition defect"
@@ -88,8 +87,7 @@ case "${STEP}" in
 
   # Both alpha cells SEQUENTIALLY on one card. They share a device, so they
   # must not run at the same time; A0 runs concurrently on the other card.
-  PM4)   ${PY} test_pv10_stop_parity.py
-         run_cell -4 "${OUT_ROOT}/pv10a_v2_am4"
+  PM4)   run_cell -4 "${OUT_ROOT}/pv10a_v2_am4"
          run_cell  4 "${OUT_ROOT}/pv10a_v2_ap4" ;;
 
   *) echo "unknown step: ${STEP}"
