@@ -86,6 +86,8 @@ Markdown/HTML comments are still visible context to an agent — they are not st
 
 ## Project
 
+**`archive/` (2026-10-22).** Closed/shelved/dropped lines (Bandit pv1-PV11 + manifests, CGT-simultaneous/sequential, SciWorld/Reversal/CRT/Trait/Capitulation/effort-choice/GPQA-delay, SocialIQA/HaluEval/TruthfulQA-gen, Phase-2 closed loop, Manifold pilot, ZebraLogic-Easy) were moved there unedited; see `archive/README.md`. Every path in this file for those lines now resolves under `archive/`. They do not run from there (root imports); `git mv` back to re-run. Kept at root: `bandit_pv6_episode.py`, `bandit_reference.py` (shared chat helpers), `get_answer_cgt.py` (IGT).
+
 **Role-Sensitive Networks (RSN)** — dopaminergic adaptive calibration of LLM reasoning via hidden-state steering. The user-level `~/CLAUDE.md` contains the full theory map and phase plan; this file covers repo-local conventions and the per-experiment record.
 
 **How to use this file.** It is long because most of it is a per-experiment ledger of frozen results, retracted readings and 口径 traps — things that CANNOT be re-derived from the code and that have each already cost a wrong conclusion. Read the section for the experiment you are touching; do not read it end to end.
