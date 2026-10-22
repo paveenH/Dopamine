@@ -109,7 +109,7 @@
 | **CRUXEval-O** | ✓ | ✓ | — | — | Llama 接口健康，仍未检出收益 |
 | **LogiQA 2.0** | — | — | — | — | 尚无 Chat 结果 |
 | **FinQA** | — | — | — | — | 尚无 Chat 结果 |
-| **ProofWriter-OWA** | ✓² | ✓¹ | ✓² | ✓¹ | 1-shot CoT：Qwen +8 显著、Llama 为正向趋势；zero-shot No-CoT：Llama 未见收益，Qwen 严格分数主要反映格式恢复 |
+| **ProofWriter-OWA** | ✓² | ✓¹ | ✓² | ✓¹ | 1-shot CoT：Qwen +8 显著、Llama 为正向趋势；0-shot No-CoT：Llama 未见收益，Qwen 严格分数主要反映格式恢复 |
 | **ZebraLogic-Easy** | — | — | — | — | 尚无 Chat 结果 |
 
 ¹ **1-shot CoT**；² **zero-shot No-CoT**。两种提示条件的差异不能单独归因于 CoT；其余已做条件为 zero-shot。
