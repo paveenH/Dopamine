@@ -50,7 +50,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 ---
 15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
 16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8` ✔ -> 冻结严格收益 +6.67 pp（Holm p=.03027）；宽松标签 41.00%→48.00%，+7.00 pp（配对 p=.00985，独立 Holm m=3 p=.02956），不由严格 marker 格式恢复解释；主结果不变，见 ReasoningBare §6.5。
-17. ProofWriter-OWA 0-shot cot 
+17. ProofWriter-OWA 0-shot cot ⏸
+18. FinQA 0-shot cot ⏸
 ---
 
 ### 第一层：只用现有数据，不跑 GPU
