@@ -90,7 +90,7 @@
 | **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | 两模型均支持近域迁移 |
 | **MATH** | ✓ | ✓ | ✓ | ✓ | Llama CoT、Qwen No-CoT 有显著收益 |
 | **GSM-Symbolic** | ✓ | ✓ | ✓ | ✓ | Llama 仅 No-CoT 稳定；Qwen 两条件均有收益 |
-| **BBH Counting** | ✓ | ✓ | ✓ | ✓ | 两模型均仅 CoT 下有显著收益 |
+| **BBH Counting** | ✓ | ✓ | ✓ | ✓ | 两模型均**仅 CoT**下有显著收益 |
 | **CRUXEval-O** | ✓ | ✓ | ✓| ✓ | Qwen 首答改善；Llama 未检出收益 |
 | **LogiQA 2.0** | ✓ | ✓ | ✓ | ✓ | 两模型、两条件均未检出收益 |
 | **FinQA** | — | ✓ | — | ✓ | Llama 严重循环；Qwen 仅正向趋势 |
