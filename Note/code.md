@@ -40,7 +40,6 @@ rsync -avzh --partial --info=progress2 \
 ```
 
 
----**服务器命令**（先 `git pull`，`LLAMA_GPU` 和 `QWEN_GPU` 换成你空闲的两张不同的卡）：
 ```bash
 cd /data1/paveen/Dopamine && git pull
 
