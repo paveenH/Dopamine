@@ -194,3 +194,35 @@ base that did not reproduce makes every contrast above it uninterpretable.
 Individual checks are plain `if` statements inside those scripts, so to run one in
 isolation, import the module and call the function directly rather than looking for
 a test-selection flag.
+
+## CLAUDE.md text rewritten 2026-10-22 (check/test steps removed)
+
+Original text, byte-identical, of the rules that prescribed a check/test step.
+
+### §0.0 closing sentences
+
+Evidence: CLAUDE.md's own RR/CC and P4 entries; "Local checks" section's
+three "bash -n is NOT sufficient" reminders.
+
+**Before writing a new `${N:?...}` line, grep this rule and the "Local
+checks" section's `${1:?` reminders — do not rediscover this from a failed
+server run.** After writing one, verify it by actually invoking the script
+with real arguments and printing the resolved variable, not just `bash -n`.
+
+### §0.4 bullets
+
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+### Phase 1 / GSM8K bullets
+
+Evidence: the 2026-05-30 offset bug; check_igt_qwen.py / check_mask_qwen.py docstrings.
+
+- **Cross-model PORT pre-flight: run the matching `check_*.py` BEFORE any sweep.** Five exist, all read-only and none needing a full sweep: `check_mask_qwen.py` (mask only, **no GPU and no model weights** — file/dtype, row count == the model's decoder-layer count, non-zero rows EXACTLY `decoder_layer_range(start,end)`, uniform `top_k` sparsity, plus `--compare` to answer "different band or the same neurons relabelled"), and the four paradigm ports `check_gsm8k_qwen.py` / `check_cgt_seq_qwen.py` / `check_igt_qwen.py` / `check_signal_qwen.py` (tokenizer + chat template + double-BOS, the ACTUAL final prompt token at each injection site, mask/band alignment, observed `steering_fires` vs `L*B*t`, and the α=0 execution path). **The injection token is model-specific and must be READ OUT, never assumed** — e.g. IGT's anchor is deliberately EMPTY (an anchor there suppresses the reasoning span both the learning readout and prefill steering need — the CGT-simple4 failure), so injection lands on the assistant header's last token: Llama-3.1 `id 271 '\n\n'` vs Qwen2.5 `id 198 '\n'`. A wrong band or wrong site does not raise; it produces uninterpretable data hours later.
+
+- **Qwen HS backfill is COLLECTED AND ACCEPTED (2026-08-24). Acceptance runs through `check_hs_qwen25.py`, which is READ-ONLY and must pass before any geometry work.** Seven cells under `hidden_states/gsm8k/qwen25_signal_v1/`, ~33.9 GB, frozen by `ACCEPTANCE_20260824.txt` + `HS_MANIFEST_20260824.txt` (sha256 + size per cell). Three checks: integrity (n=300, `n_stored_layers=7`, band `[16,22)`, `mnt=768`, metadata α/CoT agreeing with the filename, per-sample `decode_hs`≡`x_decode_proj`≡`ema_decode_proj` lengths, `question_idx` a full 0..299 cover), projection reproduction, and per-question agreement vs the lightweight cell. Mutation-tested 16/16 against real defects.
+
+- **Cross-model Qwen2.5 GSM8K** (2026-08-20). `run_gsm8k_qwen25.sh` + `check_gsm8k_qwen.py` — its own launcher for the same reason as Mistral's (Llama's `run_gsm8k.sh` plain/pushy/4-role/182-backfill matrix is Llama-specific and frozen). This is a **direct replication** of the Llama dose curve, not a redesign: same 300-question benchmark, same driver, same templates, neutral / plain / greedy / `max_new_tokens=768` / bs=24. Four Qwen-specific facts, none inherited: layers **16–21** written as the exclusive `16-22` (**L=6**; Llama's `11-20` is L=9 and does NOT transfer), mask `nmd_0.5_16_22_7B.npy`, `size=7B` (28 decoder layers), and Qwen's `<|im_end|>` + LIST `generation_config.eos_token_id` (already unioned by `_build_terminators()` — verify, do not "fix"). Steps: `--check` (technical pre-flight only — model/tokenizer/mask/band/paths/fires; makes **no** judgement about results and has no pass/fail-then-block gate), `--baseline` (α=0 → the FINAL No-CoT `mdf_0`, read its raw output by hand), `--nocot` (the other 8 α; deliberately excludes α=0 so `mdf_0` is never re-run or overwritten), `--cot` (−4/0/+4), `--cot6` (−6/+6, extends that same curve). **Every α of one curve must stay on ONE card** (bf16 greedy is not byte-reproducible across GPUs); No-CoT and CoT write different `--ans_file`s (`answer_mdf_gsm8k` / `_cot`) so the two curves can run on two cards in parallel.
+
+  - **The prefill path DOES count fires** (`_regenerate_prefill_only` increments `_steering_fire_count += B * n`), so `--check` verifies `L × B × tail` (6×B×1) for real. α=0 passes a REAL all-zero matrix (`diff = np.load(mask) * alpha`, unconditional at `get_answer_regenerate_gsm8k.py:129`) — hooks DO register and the zero add DOES execute; fires read 0 only because `_layer_is_steered` is False on an all-zero row. **This differs from `get_action_regenerate_gsm8k.py`, whose α=0 really does take a no-mask `get_logits` path** — do not generalize one to the other. Practical consequence: a missing mask file blocks the α=0 cell too.
