@@ -40,5 +40,14 @@ rsync -avzh --partial --info=progress2 \
 ```
 
 
----
+---**服务器命令**（先 `git pull`，`LLAMA_GPU` 和 `QWEN_GPU` 换成你空闲的两张不同的卡）：
+```bash
+cd /data1/paveen/Dopamine && git pull
 
+# 1. 两卡并行：Llama(0,−6) 与 Qwen(0,+8)，每个模型只加载一次，断开终端后继续运行
+nohup env LLAMA_GPU=1 QWEN_GPU=2 bash run_proofwriter_owa_zeroshot_cot_4cell.sh > zs_cot_4cell.log 2>&1 &
+sleep 10; cat zs_cot_4cell.log zs_cot_llama3_*.log zs_cot_qwen25_*.log   # 确认两个进程都已启动
+
+# 2. 两个进程都结束后（zs_cot_4cell.log 末行出现 done），离线统计，不用 GPU
+bash run_proofwriter_owa_zeroshot_cot_4cell_eval.sh
+```
