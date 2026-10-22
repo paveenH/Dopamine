@@ -77,11 +77,13 @@
 
 | Type | Cells | Baseline answer-first | Change at workpoint | Acc change |
 |---|---|---|---|---|
-| **A. 有空间，被移动，有收益** | GSM8K / GSM-Hard / GSM-Symbolic No-CoT（两个模型）；MATH；BBH CoT（两个模型）；Qwen CRUXEval CoT；Qwen Chat GSM8K / GSM-Hard；Qwen ProofWriter Chat 1-shot CoT | Qwen EC 93–100%；Llama EC 45–50% | EC 降到 5–30% | +6 到 +19 pp |
+| **A. 有空间，被移动，有收益** | GSM8K / GSM-Hard / GSM-Symbolic No-CoT（两个模型）；MATH；BBH CoT（两个模型）；Qwen CRUXEval CoT；Qwen Chat GSM8K / GSM-Hard No-CoT；Qwen ProofWriter Chat 1-shot CoT（宽松评分复核通过） | Qwen EC 93–100%；Llama EC 45–50% | EC 降到 5–30% | +6 到 +19 pp |
 | **B. 没有空间，没有收益** | Llama Chat GSM8K / MATH / GSM-Hard；Llama Chat FinQA；Qwen Chat MATH；Chat-CoT 四格；Qwen LogiQA；ZebraLogic；Llama CRUXEval Chat | EC ≈ 0%，或 reason-first 已饱和（Zebra Qwen 100%，Qwen LogiQA 270/300 在给答案前比较过选项） | 无可移动 | ≈ 0 |
-| **C. 有空间，被移动，但没有收益** | BBH No-CoT（Qwen EC 100→44%，+2.4 ns）；LogiQA Llama（naf .76→.33，−4.3 pp）；FinQA Qwen（EC 99→43%，+5 ns）；FinQA Llama（EC 90→35%，−5.7 pp）；Qwen MATH +6→+8；Llama CRUXEval CoT | 高 | 明显下降 | 0 或负 |
+| **C. 有空间，被移动，但没有收益** | BBH No-CoT（Qwen EC 100→44%，+2.4 ns）；LogiQA Llama（naf .76→.33，−4.3 pp）；FinQA Qwen（EC 99→43%，+5 ns）；Qwen MATH +6→+8；Llama CRUXEval CoT | 高 | 明显下降 | 0 或负 |
 | **D. 生成失效，无法读数** | ProofWriter Bare Llama（no-answer 79%）；FinQA Llama（loop 97%，截断 100%）；Zebra Qwen +8；ProofWriter Chat Qwen −6（1-shot CoT 与 zero-shot No-CoT 均格式崩溃） | — | 格式崩溃 | — |
-| **E. 严格分数受格式影响，宽松评分未见变化** | Qwen FinQA Chat 0-shot CoT；Qwen ProofWriter Chat zero-shot No-CoT | 基线答案常在解释前出现 | marker/检测器读数受格式变化影响 | 宽松评分未检出净变化 |
+| **E. 严格分数受格式影响，宽松评分未见变化** | Qwen FinQA Chat 0-shot CoT；Qwen ProofWriter Chat zero-shot No-CoT | 基线答案常在解释前出现 | 顺序未移动：FinQA `+8` EC 97.67%；ProofWriter `+8` 有 284/300 在解释前给出标签；主要变化是格式 | 宽松评分未检出净变化 |
+
+同为 Qwen Chat，ProofWriter 1-shot CoT `+8` 的 `answer_first` 从 50% 降至 4%，宽松标签正确率提高 7.00 pp（41%→48%，Holm `p=.0296`）；FinQA 与 ProofWriter zero-shot No-CoT 则没有显示答案顺序移动，宽松评分也未见净变化。这组并列支持“有空间且顺序真实移动”与收益相伴，但任务和 shot 条件不同，仍是描述性对照，不能单独证明因果。
 
 **Bare — Experimental Coverage**
 
