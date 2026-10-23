@@ -47,12 +47,15 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 19. 一些统计分析
 ---
 
-推理任务部分已经接近收尾，不需要再跑新的 GPU 实验。剩下的都是离线工作：
+## Remaining work
+| 项目 | 作用 | 必要性 |
+|---|---|---|
+| **CoT 叠加表**：列出所有 CoT 格子的 α=0 先答比例和 RSN 收益 | 决定"CoT 与 RSN 部分重叠、可叠加"能不能写进论文 | 建议做；这是本部分唯一还没定的论点 |
+| **长度对比**：Qwen Chat GSM8K 和 GSM-Hard 上，No-CoT +8 对 CoT α=0 的 token 数 | 决定能不能写"接近 CoT 准确率、成本更低" | 可选；如果放弃实用性的表述，可以不做 |
+| **文档同步**：ProofWriter 0-shot CoT 的结果和 tmp.md 的分类修正 | 收尾 | ReasoningBare §6.9 已经包含 0-shot CoT；其余文件请确认是否已经更新 |
 
-项目	作用	必要性
-CoT 叠加表：列出所有 CoT 格子的 α=0 先答比例和 RSN 收益	决定"CoT 与 RSN 部分重叠、可叠加"能不能写进论文	建议做；这是本部分唯一还没定的论点
-长度对比：Qwen Chat GSM8K 和 GSM-Hard 上，No-CoT +8 对 CoT α=0 的 token 数	决定能不能写"接近 CoT 准确率、成本更低"	可选；如果放弃实用性的表述，可以不做
-文档同步：ProofWriter 0-shot CoT 的结果和 tmp.md 的分类修正	收尾	ReasoningBare §6.9 已经包含 0-shot CoT；其余文件请确认是否已经更新
+
+---
 
 ### 第一层：只用现有数据，不跑 GPU
 
