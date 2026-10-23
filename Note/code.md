@@ -1,9 +1,13 @@
 
 ```text
 #### Tmux
-conda activate dopamine
+conda activate dopamine26
 conda activate roleplaying
+conda activate RolePlaying
 conda deactivate
+
+conda env list
+ls /data1/paveen/conda_envs
 
 tmux new -s da
 tmux attach -t da
@@ -34,7 +38,7 @@ rsync -avzP \
 
 rsync -avzh --partial --info=progress2 \
   --exclude '/hidden_states' \
-  d12922004@140.112.31.184:/data1/paveen/Dopamine/components/ \
+  d12922004@140.112.31.182:/data1/paveen/Dopamine/components/ \
   /data1/paveen/Dopamine/components/
 
 ```
@@ -43,7 +47,9 @@ rsync -avzh --partial --info=progress2 \
 ```bash
 cd /data1/paveen/Dopamine && git pull
 
-nohup env CUDA_VISIBLE_DEVICES=0 \
+nohup env CUDA_VISIBLE_DEVICES=3 \
   bash run_gsm8k_openchat_bare_sweep.sh \
   > gsm8k_openchat_bare_sweep.log 2>&1 &
+  
+cat gsm8k_openchat_bare_sweep.log
 ```
