@@ -109,4 +109,20 @@
 
 另有 **Chat Matched-Anchor**：仅 Llama 的 **GSM8K、MATH No-CoT** 已做，未恢复 Bare 负向收益；与 Native Chat 分开记录。
 
-主要依据：[ReasoningBare](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md:888)、[ReasoningChat](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:7)、[LogiQA CoT launcher](/Users/paveenhuang/Downloads/Dopamine/run_logiqa2_cot.sh:35)、[ZebraLogic 协议](/Users/paveenhuang/Downloads/Dopamine/docs/PREREG_ZEBRALOGIC_EASY.md:54)。
+主要依据：[ReasoningBare](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md:888)、[ReasoningChat](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:7)、[LogiQA CoT launcher]
+(/Users/paveenhuang/Downloads/Dopamine/run_logiqa2_cot.sh:35)、[ZebraLogic 协议](/Users/paveenhuang/Downloads/Dopamine/docs/PREREG_ZEBRALOGIC_EASY.md:54)。
+
+### Current conclusions
+
+1. **RSN 稳定地改变推理输出的组织方式。** 在工作点上，提前给出答案的比例下降，先推理的比例上升。Qwen 的变化最明显；Llama 的负向 α 主要减少过早锁定答案。
+2. **多数推理任务至少在一种条件下有准确率收益：**
+   - 两个模型都有：GSM8K、MATH、GSM-Hard、GSM-Symbolic；BBH（CoT 下）。
+   - 只有 Qwen：CRUXEval（CoT 下更强）；ProofWriter（Chat 1-shot）。
+   - 正向趋势：Qwen FinQA Bare +5；Qwen MATH CoT +3。
+   - 没有收益：LogiQA、ZebraLogic、FinQA Chat、Llama 在 Chat 下的大部分任务。
+3. **接口和 CoT 会改变收益大小：**
+   - Chat 本身就抬高了基线，在 Llama 上基本替代了 RSN。
+   - CoT 已经让输出先推理时，RSN 不再叠加；CoT 没有改变作答顺序时，两者可以叠加（待叠加表确认）。
+4. **作答顺序的变化不是收益的充分条件。** Qwen BBH No-CoT 和 Qwen MATH +8 的顺序都变了，但准确率没有相应提高。在非数值任务上，严格评分下的大幅变化可能只是格式变化（ProofWriter 0-shot、FinQA Chat），要先用宽松评分复核。
+5. **工作点是一个区域，不是一个通用的点。** 它能在相近任务之间迁移，但峰值位置因任务而异（例如 MATH Qwen 是 +6，GSM8K 是 +8）。
+
