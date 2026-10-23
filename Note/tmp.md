@@ -92,18 +92,18 @@
 
 **Native Chat — Experimental Coverage**
 
-| Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | 简短分析 |
-|---|:---:|:---:|:---:|:---:|---|
-| **GSM8K** | ✓ | ✓ | ✓ | ✓ | Qwen No-CoT 显著、CoT 为正向趋势（+1.67）；Llama 未检出收益 |
-| **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | Qwen 仅 No-CoT 有显著收益；Llama 未检出收益 |
-| **MATH** | ✓ | — | ✓ | — | Qwen +8 基本持平（+0.67），+6 为正向趋势（+2.00）；α=0 基线已先推理后作答仅适用于 Qwen |
-| **GSM-Symbolic** | — | — | — | — | 尚无 Chat 结果 |
-| **BBH Counting** | — | — | — | — | 尚无 Chat 结果 |
-| **CRUXEval-O** | ✓ | ✓ | — | — | Llama 接口健康，仍未检出收益 |
-| **LogiQA 2.0** | — | — | — | — | 尚无 Chat 结果 |
-| **FinQA** | — | ✓ | — | ✓ | Chat 0-shot CoT：Llama 未检出提升；Qwen 严格分数下降，宽松数值评分不变 |
-| **ProofWriter-OWA** | ✓² | ✓¹,³ | ✓² | ✓¹,³ | Llama：1-shot CoT（+6.33）与 0-shot CoT（+3.00）为正向趋势，No-CoT 无；Qwen：1-shot CoT +8 收益经宽松评分复核通过，0-shot CoT 宽松评分为正向趋势（+1.67 pp，p=.49；严格 +18 pp 主要是格式效应），No-CoT 无 |
-| **ZebraLogic-Easy** | — | — | — | — | 尚无 Chat 结果 |
+| Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | Mistral No-CoT | 简短分析 |
+|---|:---:|:---:|:---:|:---:|:---:|---|
+| **GSM8K** | ✓ | ✓ | ✓ | ✓ | ✓ | Qwen No-CoT 显著、CoT 为正向趋势（+1.67）；Llama 未检出收益。Mistral 九点扫描中 −4 为候选工作点（+8.33 pp，Holm p=.0459），尚未经独立验证 |
+| **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | — | Qwen 仅 No-CoT 有显著收益；Llama 未检出收益 |
+| **MATH** | ✓ | — | ✓ | — | — | Qwen +8 基本持平（+0.67），+6 为正向趋势（+2.00）；α=0 基线已先推理后作答仅适用于 Qwen |
+| **GSM-Symbolic** | — | — | — | — | — | 尚无 Chat 结果 |
+| **BBH Counting** | — | — | — | — | — | 尚无 Chat 结果 |
+| **CRUXEval-O** | ✓ | ✓ | — | — | — | Llama 接口健康，仍未检出收益 |
+| **LogiQA 2.0** | — | — | — | — | — | 尚无 Chat 结果 |
+| **FinQA** | — | ✓ | — | ✓ | — | Chat 0-shot CoT：Llama 未检出提升；Qwen 严格分数下降，宽松数值评分不变 |
+| **ProofWriter-OWA** | ✓² | ✓¹,³ | ✓² | ✓¹,³ | — | Llama：1-shot CoT（+6.33）与 0-shot CoT（+3.00）为正向趋势，No-CoT 无；Qwen：1-shot CoT +8 收益经宽松评分复核通过，0-shot CoT 宽松评分为正向趋势（+1.67 pp，p=.49；严格 +18 pp 主要是格式效应），No-CoT 无 |
+| **ZebraLogic-Easy** | — | — | — | — | — | 尚无 Chat 结果 |
 
 注：覆盖表中的 ✓ 只表示「已有实验」，不代表「显著收益」；是否有收益见「简短分析」。
 
