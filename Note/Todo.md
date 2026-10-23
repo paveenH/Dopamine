@@ -15,15 +15,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 ### Daily
 
 10.21 周三 看学弟的實驗結果；看科技新聞；重新构思Paper的思路
-10.22 周四 继续收尾看有什么需要补充的实验
-
-
-辦理長期居留證
-   • 依親居留證正本（就是這張到 2028 年的卡片）。
-   • 大通證（大陸居民往來台灣通行證）正本。
-   • 最近 3 個月內的戶籍謄本正本（「記事欄不能省略」，裡面必須有結婚登記紀錄）。
-   • 2,600 元新台幣現金（現場繳交的規費）。
-   • 1 張白底 2 吋彩色照片（留在現場貼申請書用）。
+10.22 周四 继续收尾看有什么需要补充的实验；办理居留证
 
 准备多益考试
 看完瑜伽视频
@@ -52,7 +44,15 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8` ✔ -> 冻结严格收益 +6.67 pp（Holm p=.03027）；宽松标签 41.00%→48.00%，+7.00 pp（配对 p=.00985，独立 Holm m=3 p=.02956），不由严格 marker 格式恢复解释；主结果不变，见 ReasoningBare §6.5。
 17. ProofWriter-OWA Chat zero-shot CoT ✔ -> Qwen +8 严格 +18.00 pp（Holm p=1.28×10⁻⁹），但宽松标签口径仅 +1.67 pp（p=.487）或 +3.67 pp（p=.0614）；260/300 在解释前给标签。Llama −6 未检出提升。
 18. FinQA Chat 0-shot CoT ✔ -> Llama −6 未检出提升；Qwen +8 严格准确率下降 12.33 pp（Holm p=4.74×10⁻⁷），宽松数值评分无净变化，主要受 marker 格式影响。
+19. 一些统计分析
 ---
+
+推理任务部分已经接近收尾，不需要再跑新的 GPU 实验。剩下的都是离线工作：
+
+项目	作用	必要性
+CoT 叠加表：列出所有 CoT 格子的 α=0 先答比例和 RSN 收益	决定"CoT 与 RSN 部分重叠、可叠加"能不能写进论文	建议做；这是本部分唯一还没定的论点
+长度对比：Qwen Chat GSM8K 和 GSM-Hard 上，No-CoT +8 对 CoT α=0 的 token 数	决定能不能写"接近 CoT 准确率、成本更低"	可选；如果放弃实用性的表述，可以不做
+文档同步：ProofWriter 0-shot CoT 的结果和 tmp.md 的分类修正	收尾	ReasoningBare §6.9 已经包含 0-shot CoT；其余文件请确认是否已经更新
 
 ### 第一层：只用现有数据，不跑 GPU
 
