@@ -43,13 +43,7 @@ rsync -avzh --partial --info=progress2 \
 ```bash
 cd /data1/paveen/Dopamine && git pull
 
-nohup env LLAMA_GPU=2 QWEN_GPU=3 \
-  bash run_gsm8k_chat_pushy_4cell.sh \
-  > gsm8k_chat_pushy_4cell.log 2>&1 &
-
-
-cd /data1/paveen/Dopamine
 nohup env CUDA_VISIBLE_DEVICES=0 \
-  bash run_gsm8k_mistral_chat_sweep.sh \
-  > gsm8k_mistral_chat_sweep.log 2>&1 &
+  bash run_gsm8k_openchat_bare_sweep.sh \
+  > gsm8k_openchat_bare_sweep.log 2>&1 &
 ```
