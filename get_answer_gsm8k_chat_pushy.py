@@ -57,7 +57,7 @@ def verify_existing(path, model, alpha, n, mask_sha, prompt_sha, model_dir, q_sh
     need(m.get("steering_fires") == L.expected_fires(model, alpha, n) == m.get("steering_fires_expected"), "steering_fires")
     need(len(rows) == n == m.get("n"), "row count")
     old = m.get("provenance", {})
-    need(all(old.get(k) == prov[k] for k in ("host", "cuda_device_names", "param_devices", "sharded", "library_versions")),
+    need(all(old.get(k) == prov[k] for k in ("host", "cuda_visible_devices", "cuda_device_names", "param_devices", "sharded", "library_versions")),
          "run environment (host/GPU/devices/libraries) differs from this run; reuse would mix environments")
     need([[r.get("question"), str(r.get("answer"))] for r in rows] == identity, "item order/gold")
     for r in rows:
