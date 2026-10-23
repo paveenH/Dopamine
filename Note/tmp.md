@@ -102,7 +102,7 @@
 | **CRUXEval-O** | ✓ | ✓ | — | — | Llama 接口健康，仍未检出收益 |
 | **LogiQA 2.0** | — | — | — | — | 尚无 Chat 结果 |
 | **FinQA** | — | ✓ | — | ✓ | Chat 0-shot CoT：Llama 未检出提升；Qwen 严格分数下降，宽松数值评分不变 |
-| **ProofWriter-OWA** | ✓² | ✓¹,³ | ✓² | ✓¹,³ | Llama：1-shot CoT（+6.33）与 0-shot CoT（+3.00）为正向趋势，No-CoT 无；Qwen：1-shot CoT +8 收益经宽松评分复核通过，0-shot CoT 宽松评分未检出净收益（+1.67 pp，p=.49），No-CoT 无 |
+| **ProofWriter-OWA** | ✓² | ✓¹,³ | ✓² | ✓¹,³ | Llama：1-shot CoT（+6.33）与 0-shot CoT（+3.00）为正向趋势，No-CoT 无；Qwen：1-shot CoT +8 收益经宽松评分复核通过，0-shot CoT 宽松评分为正向趋势（+1.67 pp，p=.49；严格 +18 pp 主要是格式效应），No-CoT 无 |
 | **ZebraLogic-Easy** | — | — | — | — | 尚无 Chat 结果 |
 
 注：覆盖表中的 ✓ 只表示「已有实验」，不代表「显著收益」；是否有收益见「简短分析」。
