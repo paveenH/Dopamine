@@ -48,31 +48,33 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 20. Inducing answer-first ordering -> pushy chat GSM8K
 21. 
 
-
----
 ---
 
+#### Stage 1: GSM8K dose sweep (required)
 
-### 6. Inducing answer-first ordering
+| 实验 | 格数 | 目的 |
+|---|---|---|
+| GSM8K Chat No-CoT，α = −8…+8 九点 | 9 | 确定 Mistral 有没有有效方向和工作点区域。α=0 先跑，过了阈值再跑其余 8 格 |
 
-- **在做什么：** 在 RSN 原本无效的 Chat 格子里，用 prompt 让模型先给答案、再解释，人为制造"可移动的顺序"，再看 RSN 的收益会不会回来。
-- **现在的意义变了。** 原方案是为了检验"headroom 是收益的条件"，审计已经说明这条规则不成立，我们也不写门控规则了。但它仍可以检验另一个论点：**RSN 和 prompt 作用在同一维度。** 如果用 prompt 制造出的抢答能被 RSN 纠回来，"部分重叠"就从相关变成了操纵证据，这是目前叙述里最核心的一点。
-- **风险：** 如果是 null，解释会比较模糊，因为 Llama 在 Chat 下本来就全部是 null，原因不一定是顺序。
-- **成本：** 4 格。也可以先用现成的 pushy 数据（第 5 项）离线看一下：如果 Llama Bare 在 pushy 措辞下 −4 的收益变大，就已经是同类证据，可以省掉这一项。
+**决策点：**
 
+- 九点全部 null：停止，记为"Mistral 在 Chat 下无收益"，与 Llama Chat 归为一类。
+- 有显著剂量或正向趋势：取最佳剂量作为工作点，进入 Stage 2。
 
-### 分类表里有两处需要先修正
+#### Stage 2: transfer to neighbouring tasks (if Stage 1 is positive)
 
-- **LogiQA Llama 的 naf .76→.33 有一部分是 marker 本身造成的。** 按 CLAUDE.md，用文本扫描是 86.7%→54.3%，仍然属于 C 类，但"移动幅度"要用后面这组数字。
-- **A 类里的 "MATH" 要写明是哪个模型、哪个条件。** 也就是 Llama CoT 和 Qwen No-CoT。
+| 实验 | 剂量 | 格数 | 目的 |
+|---|---|---|---|
+| GSM-Hard Chat No-CoT | 0、工作点、两个邻点 | 4 | 检验能否迁移到更难的算术题 |
+| MATH Chat No-CoT | 0、工作点、两个邻点 | 4 | 检验能否迁移到数学题。MATH 的峰值可能和 GSM8K 不同（Qwen 是 +6 对 +8），所以要带邻点。生成上限用 2048 token、bs=8 |
 
-## 补完之后可以写成的实用结论
+#### Stage 3: CoT relation (if Stage 1 is positive)
 
-> 当模型在默认接口下倾向于在推理前提交答案，而这类题目它在推理后能够做对时，RSN 有效。可以只用 α=0 的输出诊断来判断是否值得转向，并选择能降低提前提交的方向。如果基线已经先推理后作答，转向不会带来收益，并可能造成损失。
+| 实验 | 剂量 | 格数 | 目的 |
+|---|---|---|---|
+| GSM8K 和 GSM-Hard Chat-CoT | 0、工作点 | 4 | 和 Llama、Qwen 的 Chat-CoT 饱和检验对齐，看 CoT 和 RSN 在 Mistral 上是替代还是叠加 |
 
-第一层的五项都可以离线做完，建议先从第 1、2、3 项开始，因为门控评估依赖前两项的定义。要的话我先写第 2 项"可纠正错误"的精确定义，以及每个任务配对的是哪一格 CoT。
-#### 
-符合条件、且不属于 Llama/Qwen 家族的候选
+---
 
 | 候选 | RSN 等级 | 优势 | 风险 |
 |---|---|---|---|
