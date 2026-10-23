@@ -335,6 +335,8 @@ candidate 不等于正式 marker，reasoning-first 是表面输出模式。行�
 
 新旧结果来自不同运行环境，跨提示比较为描述性结果。本实验尚不能证明 CoT 与 RSN 使用同一内部机制，也不能把可见答案顺序的变化认定为准确率提升的因果中介。
 
+全部 CoT 配置的 RSN 增量汇总，以及 Qwen Chat GSM8K／GSM-Hard 中 No-CoT +8 对 CoT α=0 的生成 token 比较（GSM8K 约少 21%、GSM-Hard 约少 16%；准确率差 0.00／−2.33 pp，未建立相当），见 `RoleAnswer/reasoningTaskAnalysis/cot_incremental_review_v1/REPORT.md`；那里比较的是生成 token 数，不是延迟或总成本。
+
 ## 6. Conclusions
 
 1. Chat interface 会显著改变模型的基础输出方式。
