@@ -45,7 +45,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 17. ProofWriter-OWA Chat zero-shot CoT ✔ -> Qwen +8 严格 +18.00 pp（Holm p=1.28×10⁻⁹），但宽松标签口径仅 +1.67 pp（p=.487）或 +3.67 pp（p=.0614）；260/300 在解释前给标签。Llama −6 未检出提升。
 18. FinQA Chat 0-shot CoT ✔ -> Llama −6 未检出提升；Qwen +8 严格准确率下降 12.33 pp（Holm p=4.74×10⁻⁷），宽松数值评分无净变化，主要受 marker 格式影响。
 19. 一些统计分析 ✔
-20. Inducing answer-first ordering -> pushy chat GSM8K
+20. Inducing answer-first ordering -> pushy chat GSM8K ✔ -> pushy 未诱发更多 early-candidate；Qwen +8 显著提高 7.00 pp，Llama −6 未检出显著收益，见 ReasoningChat §6。
 21. 
 
 ---
