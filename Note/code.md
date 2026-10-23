@@ -28,7 +28,7 @@ rsync -avzP \
 
 
 rsync -avzP \
-  "d12922004@140.112.31.182:/data1/paveen/Dopamine/components/qwen2.5" \
+  "d12922004@140.112.31.185:/data1/paveen/Dopamine/components/mistral" \
   /Users/paveenhuang/Downloads/
 
 
@@ -47,4 +47,9 @@ nohup env LLAMA_GPU=2 QWEN_GPU=3 \
   bash run_gsm8k_chat_pushy_4cell.sh \
   > gsm8k_chat_pushy_4cell.log 2>&1 &
 
+
+cd /data1/paveen/Dopamine
+nohup env CUDA_VISIBLE_DEVICES=0 \
+  bash run_gsm8k_mistral_chat_sweep.sh \
+  > gsm8k_mistral_chat_sweep.log 2>&1 &
 ```
