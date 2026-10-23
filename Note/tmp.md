@@ -95,7 +95,6 @@
 | Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | 简短分析 |
 |---|:---:|:---:|:---:|:---:|---|
 | **GSM8K** | ✓ | ✓ | ✓ | ✓ | Qwen No-CoT 显著、CoT 为正向趋势（+1.67）；Llama 未检出收益 |
-| **GSM8K (pushy prompt)** | ✓ | — | ✓ | — | pushy 未诱发更多抢答；Qwen +8 显著提高（+7.00 pp）且 EC 下降；Llama −6 为正向趋势（+3.00 pp） |
 | **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | Qwen 仅 No-CoT 有显著收益；Llama 未检出收益 |
 | **MATH** | ✓ | — | ✓ | — | Qwen +8 基本持平（+0.67），+6 为正向趋势（+2.00）；α=0 基线已先推理后作答仅适用于 Qwen |
 | **GSM-Symbolic** | — | — | — | — | 尚无 Chat 结果 |
