@@ -32,7 +32,7 @@ OUT_SUBDIR = "gsm8k_chat_pushy_v1"
 QUESTIONS_REL = "benchmark/gsm8k_test_sample.json"
 
 
-def verify_existing(path, model, alpha, n, mask_sha, prompt_sha, model_dir, q_sha, order_sha, identity):
+def verify_existing(path, model, alpha, n, mask_sha, prompt_sha, model_dir, q_sha, order_sha, identity, prov):
     try:
         d = json.load(open(path, encoding="utf-8"))
     except Exception as e:
@@ -56,6 +56,9 @@ def verify_existing(path, model, alpha, n, mask_sha, prompt_sha, model_dir, q_sh
     need(m.get("questions_file_sha256") == q_sha and m.get("sample_order_sha256") == order_sha, "question data")
     need(m.get("steering_fires") == L.expected_fires(model, alpha, n) == m.get("steering_fires_expected"), "steering_fires")
     need(len(rows) == n == m.get("n"), "row count")
+    old = m.get("provenance", {})
+    need(all(old.get(k) == prov[k] for k in ("host", "cuda_device_names", "param_devices", "sharded", "library_versions")),
+         "run environment (host/GPU/devices/libraries) differs from this run; reuse would mix environments")
     need([[r.get("question"), str(r.get("answer"))] for r in rows] == identity, "item order/gold")
     for r in rows:
         if not isinstance(r.get("generated_neutral"), str) or r.get("stop_reason") not in L.STOP_REASONS \
@@ -137,20 +140,6 @@ def main():
     if nz != sorted(utils.decoder_layer_range(ls, le)):
         die(f"mask non-zero rows {nz} != configured band")
 
-    identity = [[s["question"], str(s["answer"])] for s in samples]
-    fname = f"gsm8k_chat_pushy_{cfg['size']}_answers_{ls}_{le}.json"
-    alphas = L.alphas_for(args.model)
-    paths = {a: os.path.join(out_dir, L.alpha_dir(a), fname) for a in alphas}
-    todo = []
-    for a in alphas:
-        if os.path.exists(paths[a]):
-            probs = verify_existing(paths[a], args.model, a, n, mask_sha, prompt_sha, model_dir, q_sha, order_sha, identity)
-            if probs:
-                die(f"existing cell {paths[a]} failed verification ({'; '.join(probs)}); refusing to skip or overwrite")
-            print(f"[skip] alpha={a}: existing cell verified")
-        else:
-            todo.append(a)
-
     try:
         devs = sorted({str(p.device) for p in vc.model.parameters()})
     except Exception:
@@ -160,6 +149,20 @@ def main():
             "cuda_device_names": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())],
             "library_versions": {"torch": torch.__version__, "transformers": transformers.__version__, "numpy": np.__version__},
             "code_version": L.code_version(os.path.dirname(os.path.abspath(__file__)))}
+    identity = [[s["question"], str(s["answer"])] for s in samples]
+    fname = f"gsm8k_chat_pushy_{cfg['size']}_answers_{ls}_{le}.json"
+    alphas = L.alphas_for(args.model)
+    paths = {a: os.path.join(out_dir, L.alpha_dir(a), fname) for a in alphas}
+    todo = []
+    for a in alphas:
+        if os.path.exists(paths[a]):
+            probs = verify_existing(paths[a], args.model, a, n, mask_sha, prompt_sha, model_dir, q_sha, order_sha, identity, prov)
+            if probs:
+                die(f"existing cell {paths[a]} failed verification ({'; '.join(probs)}); refusing to skip or overwrite")
+            print(f"[skip] alpha={a}: existing cell verified")
+        else:
+            todo.append(a)
+
     os.makedirs(out_dir, exist_ok=True)
     diff_file = os.path.join(out_dir, "prompt_diff.json")
     if not os.path.exists(diff_file):
