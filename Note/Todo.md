@@ -47,6 +47,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 19. 一些统计分析 ✔
 20. Inducing answer-first ordering -> pushy chat GSM8K ✔ -> pushy 未诱发更多 early-candidate
 21. Mistral实验补充 ✔ -> Mistral在Bare常无法回答GSM8K 在Chat上有趋势但是没有commitment change
+22. Openchat GSM8K 实验补充
 
 ---
 
