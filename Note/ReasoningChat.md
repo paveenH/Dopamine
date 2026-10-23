@@ -337,7 +337,33 @@ candidate 不等于正式 marker，reasoning-first 是表面输出模式。行�
 
 全部 CoT 配置的 RSN 增量汇总，以及 Qwen Chat GSM8K／GSM-Hard 中 No-CoT +8 对 CoT α=0 的生成 token 比较（GSM8K 约少 21%、GSM-Hard 约少 16%；准确率差 0.00／−2.33 pp，未建立相当），见 `RoleAnswer/reasoningTaskAnalysis/cot_incremental_review_v1/REPORT.md`；那里比较的是生成 token 数，不是延迟或总成本。
 
-## 6. Conclusions
+## 6. Pushy Chat Prompt Check
+
+本补充检验用更直接的答案指令，尝试在 Native Chat 中提高 Qwen 的 early-candidate，再观察 RSN 是否改变输出。四格各 300 题；同模型配对条件的运行环境、题序和注入计数一致。准确率沿用冻结评分及原有 fallback，分母均为 300。
+
+**Table 6.1. GSM8K Results under the Pushy Chat Prompt**
+
+| Model | α | `first_acc` | Early Candidate | Valid Marker | Loop / Truncated |
+|---|---:|---:|---:|---:|---:|
+| Llama | 0 | 86.33% | 0.00% | 94.33% | 0.00% / 0.33% |
+| Llama | −6 | 89.33% | 0.00% | 93.33% | 0.00% / 0.33% |
+| Qwen | 0 | 87.67% | 12.67% | 97.00% | 0.00% / 0.33% |
+| Qwen | +8 | **94.67%** | **2.67%** | 96.67% | 0.00% / 0.00% |
+
+**Table 6.2. Paired Workpoint Comparisons**
+
+| Model | Contrast | Accuracy Change | 95% Paired CI | Wrong→Correct / Correct→Wrong | Holm p (m=2) |
+|---|---|---:|---:|---:|---:|
+| Llama | −6 vs 0 | +3.00 pp | [−0.33, +6.33] pp | 17 / 8 | .108 |
+| Qwen | +8 vs 0 | **+7.00 pp** | **[+3.67, +10.33] pp** | **24 / 3** | **.0000985** |
+
+这版措辞没有在 Llama 上诱发 early-candidate，基线率仍为 0%，因此不能检验“先诱发抢答，再由 RSN 纠回”。Llama −6 的准确率点估计为正，但未检出显著收益。
+
+Qwen +8 的准确率显著提高，同时 early-candidate 从 12.67% 降至 2.67%；24 道纠错中有 16 道也从检测到 early-candidate 变为未检测到。该重叠是描述性关联，不能解释为因果中介。有效 marker 率没有提高（97.00%→96.67%），所以收益没有伴随提交格式恢复。Qwen 基线的 38 条 early-candidate 中有 37 条以 `####` 开头；+8 剩下的 8 条都是含数字的短叙述，不能一概视为明确抢答。
+
+与历史 plain Chat 相比，pushy Chat 的 Qwen 基线 early-candidate 从 50.00% 降至 12.67%，准确率从 63.33% 升至 87.67%。这是同题、不同批次的描述性比较，不是正式交互检验。总体上，本轮支持 Qwen 在该措辞下仍可从 +8 获益，但没有实现“先诱发抢答，再由 RSN 纠回”的操纵目标。
+
+## 7. Conclusions
 
 1. Chat interface 会显著改变模型的基础输出方式。
 2. Bare 中发现的 workpoint 不能直接迁移到 Chat。
@@ -346,4 +372,4 @@ candidate 不等于正式 marker，reasoning-first 是表面输出模式。行�
 5. Qwen MATH 没有明显收益，说明干预效果存在 task boundary。
 6. Steering 效果取决于 model、task、interface 和 baseline output state。
 
-**Conclusion.** Chat interface 改变了 steering 的剂量响应。有效方向并不跨模型和任务统一：Qwen 在 GSM8K 与 GSM-Hard 上可通过正向 α 获得明显收益，但在已经稳定 reasoning-first 的 MATH 上没有进一步改善；Llama 的结果则主要表现为高正向剂量导致输出提前和性能下降。因此，workpoint 必须在具体的 model–task–interface 条件下确定。
+**Conclusion.** Chat interface 改变了 steering 的剂量响应。有效方向并不跨模型和任务统一：Qwen 在 GSM8K 与 GSM-Hard 上可通过正向 α 获得明显收益，但在已经稳定 reasoning-first 的 MATH 上没有进一步改善；Llama 的结果则主要表现为高正向剂量导致输出提前和性能下降。Pushy Chat 补充中 Qwen +8 仍有收益，但预期的抢答诱发未实现。因此，workpoint 必须在具体的 model–task–interface 条件下确定。
