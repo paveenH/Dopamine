@@ -35,11 +35,11 @@
 
 -  Reasoning Task
       - Commitment Time 的变化是目前最清晰的行为模式转变
-      - RSN的调控和COT可以叠加
+      - RSN的调控和COT在部分配置中可以叠加（Qwen Bare 的 GSM8K、GSM-Hard、GSM-Symbolic、BBH、CRUXEval，以及 Llama BBH：CoT 下仍有严格准确率增量，审计 Holm 通过，但伴随提交格式改善）；在 Qwen Native Chat 的 GSM8K／GSM-Hard 中，CoT 已使提前作答读数接近 0，RSN 额外收益未检出；这不是普遍可加性，详见 reasoningTaskAnalysis/cot_incremental_review_v1/REPORT.md
       - 存在的问题：
         - Qwen和Llama的调整方向是相反的，且qwen的趋势和行为学实验不符合；Qwen在reasoning的表现比Llama好，但是在行为学实验上却不不容易理解规则。猜测Qwen有针对reasoning task的训练；-> 是不是要转移到Base Model上看看
         - Llama3 Bare模式下存在无法收尾的问题；
-        - Llama Chat有类似的表现，但是已经没有提升的空间，只能提前commitment time，让表现变差;但是Chat的影响类似RSN提升效果时候的变化；
+        - Llama Chat 的基线输出已接近先推理（提前作答读数几乎为 0），未检出工作点收益；GSM8K 准确率约 90% 接近上限，但 GSM-Hard 仍有明显准确率空间，所以不能说没有提升空间，只能说未检出收益；Chat 的影响类似 RSN 提升效果时候的变化；
         - 有一些泛化能力，但是限制在类似的任务上；还不确定是不是任务自身要出现类似commitment time的提交窗口；
         - Llama3 做了一些Role prompt的分析，效应存在但是不是很明显，实在Bare上做的；
     - 曾经试图由Dopamine引出一些强迫和焦虑的症状，做过一些陈述；也可以检测到。
@@ -102,8 +102,10 @@
 | **CRUXEval-O** | ✓ | ✓ | — | — | Llama 接口健康，仍未检出收益 |
 | **LogiQA 2.0** | — | — | — | — | 尚无 Chat 结果 |
 | **FinQA** | — | ✓ | — | ✓ | Chat 0-shot CoT：Llama 未检出提升；Qwen 严格分数下降，宽松数值评分不变 |
-| **ProofWriter-OWA** | ✓² | ✓¹,³ | ✓² | ✓¹,³ | Llama：1-shot CoT（+6.33）与 0-shot CoT（+3.00）为正向趋势，No-CoT 无；Qwen：1-shot CoT +8 收益经宽松评分复核通过，0-shot CoT 宽松评分为正向趋势（+1.67），No-CoT 无 |
+| **ProofWriter-OWA** | ✓² | ✓¹,³ | ✓² | ✓¹,³ | Llama：1-shot CoT（+6.33）与 0-shot CoT（+3.00）为正向趋势，No-CoT 无；Qwen：1-shot CoT +8 收益经宽松评分复核通过，0-shot CoT 宽松评分未检出净收益（+1.67 pp，p=.49），No-CoT 无 |
 | **ZebraLogic-Easy** | — | — | — | — | 尚无 Chat 结果 |
+
+注：覆盖表中的 ✓ 只表示「已有实验」，不代表「显著收益」；是否有收益见「简短分析」。
 
 ¹ **1-shot CoT**；² **zero-shot No-CoT**；³ **zero-shot CoT**。Zero-shot CoT 与 No-CoT 仅差 `Let's think step by step.` 一行；1-shot 与 zero-shot CoT 还改变了示例及少量指令措辞。
 
@@ -122,7 +124,7 @@
    - 没有收益：LogiQA、ZebraLogic、FinQA Chat、Llama 在 Chat 下的大部分任务。
 3. **接口和 CoT 会改变收益大小：**
    - Chat 本身就抬高了基线，在 Llama 上基本替代了 RSN。
-   - CoT 已经让输出先推理时，RSN 不再叠加；CoT 没有改变作答顺序时，两者可以叠加（待叠加表确认）。
+   - 在 Qwen Native Chat 的 GSM8K／GSM-Hard 中，CoT 已使提前作答读数接近 0，RSN 的额外收益未检出（+29.67→+1.67、+14.67→−2.67 pp）；CoT 没有改变作答顺序的配置（如 Qwen Bare 数值任务）仍有额外收益，但同时伴随有效提交率上升。两种提示来自不同运行，只是描述性比较，没有交互检验；与「部分功能重叠」相容，不是同一机制或普遍替代。
 4. **作答顺序的变化不是收益的充分条件。** Qwen BBH No-CoT 和 Qwen MATH +8 的顺序都变了，但准确率没有相应提高。在非数值任务上，严格评分下的大幅变化可能只是格式变化（ProofWriter 0-shot、FinQA Chat），要先用宽松评分复核。
 5. **工作点是一个区域，不是一个通用的点。** 它能在相近任务之间迁移，但峰值位置因任务而异（例如 MATH Qwen 是 +6，GSM8K 是 +8）。
 
