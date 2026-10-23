@@ -45,49 +45,21 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 17. ProofWriter-OWA Chat zero-shot CoT ✔ -> Qwen +8 严格 +18.00 pp（Holm p=1.28×10⁻⁹），但宽松标签口径仅 +1.67 pp（p=.487）或 +3.67 pp（p=.0614）；260/300 在解释前给标签。Llama −6 未检出提升。
 18. FinQA Chat 0-shot CoT ✔ -> Llama −6 未检出提升；Qwen +8 严格准确率下降 12.33 pp（Holm p=4.74×10⁻⁷），宽松数值评分无净变化，主要受 marker 格式影响。
 19. 一些统计分析 ✔
-20. Inducing answer-first ordering -> pushy chat GSM8K ✔ -> pushy 未诱发更多 early-candidate；Qwen +8 显著提高 7.00 pp，Llama −6 未检出显著收益，见 ReasoningChat §6。
-21. 
+20. Inducing answer-first ordering -> pushy chat GSM8K ✔ -> pushy 未诱发更多 early-candidate
+21. Mistral实验补充 ✔ -> Mistral在Bare常无法回答GSM8K 在Chat上有趋势但是没有commitment change
 
 ---
 
-#### Stage 1: GSM8K dose sweep (required)
-
-| 实验 | 格数 | 目的 |
-|---|---|---|
-| GSM8K Chat No-CoT，α = −8…+8 九点 | 9 | 确定 Mistral 有没有有效方向和工作点区域。α=0 先跑，过了阈值再跑其余 8 格 |
-
-**决策点：**
-
-- 九点全部 null：停止，记为"Mistral 在 Chat 下无收益"，与 Llama Chat 归为一类。
-- 有显著剂量或正向趋势：取最佳剂量作为工作点，进入 Stage 2。
-
-#### Stage 2: transfer to neighbouring tasks (if Stage 1 is positive)
-
-| 实验 | 剂量 | 格数 | 目的 |
-|---|---|---|---|
-| GSM-Hard Chat No-CoT | 0、工作点、两个邻点 | 4 | 检验能否迁移到更难的算术题 |
-| MATH Chat No-CoT | 0、工作点、两个邻点 | 4 | 检验能否迁移到数学题。MATH 的峰值可能和 GSM8K 不同（Qwen 是 +6 对 +8），所以要带邻点。生成上限用 2048 token、bs=8 |
-
-#### Stage 3: CoT relation (if Stage 1 is positive)
-
-| 实验 | 剂量 | 格数 | 目的 |
-|---|---|---|---|
-| GSM8K 和 GSM-Hard Chat-CoT | 0、工作点 | 4 | 和 Llama、Qwen 的 Chat-CoT 饱和检验对齐，看 CoT 和 RSN 在 Mistral 上是替代还是叠加 |
-
----
-
-| 候选 | RSN 等级 | 优势 | 风险 |
-|---|---|---|---|
-| **Mistral-7B-Instruct-v0.3** | ①～ | mask 已有（层 14–22）；α=0 几乎 100% 先答后解释，按框架预测 RSN **应该有效**，是很好的预测检验 | Bare 下忽略 `####`，准确率卡在 14–19%，读不出数 |
-| **OpenHermes-2.5-Mistral-7B** | ①，gain .433（全表最高之一），中层优于全层 | RSN 最强，用 ChatML 格式 | mask 要重新提取，格式表现未知 |
-| Qwen3-8B | ① | RSN 明确 | 和 Qwen 同一家族；thinking 模式需要处理，增加的独立性有限 |
-
-先做两个便宜的检查，都只需要 α=0、不跑剂量扫描：
-
-1. **Mistral-7B-IT 在 Chat 接口下的 GSM8K α=0：** 看 `####` 提交率能否恢复。如果能，它就是最理想的第三个模型（mask 现成，又有现成的预测可以验证）。
-2. 如果第 1 步过不了，就换 **OpenHermes-2.5**：先做 MMLU-E 的 role effect 和 mask 提取，再跑 Bare GSM8K α=0 看格式。
-
-需要注意的一点：如果 Mistral 只在 Chat 下才能用，那它和论文主线的 Bare 结果并不平行，只能作为 Chat 条件下的第三个模型来报告。
+1. **OpenChat-3.5**：Mistral 架构，可以补上主线缺的第三个家族；数学最强；② 类
+2. **Qwen3-8B**：技术上最稳（① 类，Bare 下明确先作答），但和 Qwen2.5 同厂商
+3. **StableLM-2-12B-chat**：全新家族；② 类；推理能力未知
+4. **Nous-Hermes-2-Mistral-7B-DPO**：① 类
+5. **OpenHermes-2.5-Mistral-7B**：① 类
+6. **Hermes-3-Llama-3.1-8B**：② 类，Llama 家族
+7. **Zephyr-7B-beta**：② 类
+8. **Qwen3-14B**：规模对照
+9. **Qwen2.5-3B-Instruct**：小规模，role gain 弱
+10. **Qwen3-32B**
 
 ---
 
