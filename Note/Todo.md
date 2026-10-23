@@ -45,7 +45,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 17. ProofWriter-OWA Chat zero-shot CoT ✔ -> Qwen +8 严格 +18.00 pp（Holm p=1.28×10⁻⁹），但宽松标签口径仅 +1.67 pp（p=.487）或 +3.67 pp（p=.0614）；260/300 在解释前给标签。Llama −6 未检出提升。
 18. FinQA Chat 0-shot CoT ✔ -> Llama −6 未检出提升；Qwen +8 严格准确率下降 12.33 pp（Holm p=4.74×10⁻⁷），宽松数值评分无净变化，主要受 marker 格式影响。
 19. 一些统计分析 ✔
-20. Inducing answer-first ordering
+20. Inducing answer-first ordering -> pushy chat GSM8K
+21. 
 
 
 ---
@@ -59,15 +60,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 - **风险：** 如果是 null，解释会比较模糊，因为 Llama 在 Chat 下本来就全部是 null，原因不一定是顺序。
 - **成本：** 4 格。也可以先用现成的 pushy 数据（第 5 项）离线看一下：如果 Llama Bare 在 pushy 措辞下 −4 的收益变大，就已经是同类证据，可以省掉这一项。
 
-### 7. With-options vs without-options
 
-- **在做什么：** 同一批 GSM8K 题，一组配 4 个数值选项，一组不配，只改变答案空间，以此解释 LogiQA 为什么是 null。
-- **意义：** 这是 P4/P4b 一直留下的问题。现在论文里只能写"去掉选项不足以恢复迁移"，不能区分是答案空间还是推理类型造成的。做了之后，C3 的边界可以多一条有因果支撑的解释。
-- **但它是边界上的一个细节，**不影响主叙述。审稿人可能会问选择题为什么无效，目前的写法也能应付。
-- **成本：** 4 格。
-
-
-## 分类表里有两处需要先修正
+### 分类表里有两处需要先修正
 
 - **LogiQA Llama 的 naf .76→.33 有一部分是 marker 本身造成的。** 按 CLAUDE.md，用文本扫描是 86.7%→54.3%，仍然属于 C 类，但"移动幅度"要用后面这组数字。
 - **A 类里的 "MATH" 要写明是哪个模型、哪个条件。** 也就是 Llama CoT 和 Qwen No-CoT。
