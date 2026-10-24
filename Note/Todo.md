@@ -16,6 +16,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 10.21 周三 看学弟的實驗結果；看科技新聞；重新构思Paper的思路
 10.22 周四 继续收尾看有什么需要补充的实验；办理居留证
+10.24 周六 补充模型
 
 准备多益考试
 看完瑜伽视频
@@ -49,6 +50,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 21. Mistral实验补充 ✔ -> Mistral在Bare常无法回答GSM8K 在Chat上有趋势但是没有commitment change
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
 23. 把Qwen3 测完整
+24. New model: OLMo-3-7B-Instruct
 
 ---
 
@@ -61,7 +63,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 7. **Zephyr-7B-beta**：② 类
 8. **Qwen3-14B**：规模对照
 9. **Qwen2.5-3B-Instruct**：小规模，role gain 弱
-10. **Qwen3-32B
+10. **Qwen3-32B**
 11. OLMo-2-1124-7B-Instruct（AllenAI）新家族，不属于 Llama、Qwen 或 Mistral。训练数据和 post-training 配方（Tulu 3：SFT → DPO → RLVR）完全公开。ModelAnalysis 的统计显示 role data 是 RSN 被激活的主要因素，而 OLMo 可以直接查证训练里有没有 role/persona 数据（Tulu 3 用过 persona 驱动的合成数据），这一点其他模型都做不到。风险：RLVR 用过 GSM8K 训练集，baseline 可能偏高，提升空间偏小。
 12. Llama-3.1-Tulu-3-8B 和 OLMo-2 是同一套公开配方，但基座是 Llama-3.1。和我们的 Llama-3.1-8B-Instruct 放在一起，是"同基座、不同 post-training"的对照。不增加家族多样性，只在要讨论训练阶段时才有价值。
 13. Gemma-2-9B-it 或 Gemma-3-12B-it Google 家族，推理能力强。风险：ModelAnalysis 里 Gemma-7B（第一代）属于 ④ 类，没有 role effect。新一代未必一样，但有失败的先例。
@@ -86,6 +88,23 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 - C4：工作点能否跨任务沿用。
 
 ---
+
+| 家族 | 最新版本（发布时间） | 是否纯文本 |
+|---|---|---|
+| Qwen | Qwen3.5（2026-03） | 否，image-text-to-text |
+| Gemma | Gemma 4（2026-03～06）；Gemma 3（2025-03，12B/27B） | 否 |
+| Mistral | Ministral 3（2025-10） | 否（mistral3，就是之前试过的版本） |
+| Llama | Llama 4（2025-04） | 否，而且是超大 MoE，跑不动 |
+| **OLMo** | **OLMo-3-7B-Instruct（2025-11）** | **是，dense，7B** |
+| Granite | granite-3.3-8b-instruct（2025-04） | 是，dense，8B |
+| Qwen | Qwen3-8B（2025-04） | 是（正在跑） |
+
+#### OLMo-3-7B-Instruct
+
+- **够新**：2025 年 11 月发布，是这一档里最新的纯文本 dense 模型。
+- **新家族**：不属于 Llama、Qwen 或 Mistral。
+- **完全公开**：训练数据（Dolci 系列）和配方都公开，可以直接查证有没有 role/persona 数据。
+- **独有的优势**：AllenAI 同时发布了 **Instruct-SFT、Instruct-DPO 和最终的 Instruct** 三个阶段的 checkpoint。如果以后想看"post-training 各阶段对 RSN 的影响"，这是唯一能在同一个模型内部做的地方，比 ModelAnalysis 那种跨模型比较干净得多。不过这条线现在先不做，只是一个备选。
 
 3．随后优先解决 RSN 与 CSN 的区别。
 
