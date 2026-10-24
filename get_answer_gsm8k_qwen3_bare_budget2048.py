@@ -74,12 +74,12 @@ def verify_existing(path, alpha, n, mask_sha, prompt_sha, q_sha, order_sha, iden
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base_dir", required=True, help="components/ directory")
-    ap.add_argument("--workpoint", type=int, default=None, help="steering alpha (explicit; never defaulted)")
+    ap.add_argument("--workpoint", type=int, nargs="+", default=None, help="steering alpha(s), e.g. 8 10 (explicit; never defaulted)")
     args = ap.parse_args()
     if args.workpoint is not None:
-        if args.workpoint == 0:
-            die("--workpoint must be non-zero")
-        ALPHAS.append(args.workpoint)
+        if 0 in args.workpoint or len(set(args.workpoint)) != len(args.workpoint):
+            die("--workpoint values must be non-zero and distinct")
+        ALPHAS.extend(args.workpoint)
 
     import numpy as np
     import torch
