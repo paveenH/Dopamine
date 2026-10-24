@@ -49,26 +49,29 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 20. Inducing answer-first ordering -> pushy chat GSM8K ✔ -> pushy 未诱发更多 early-candidate
 21. Mistral实验补充 ✔ -> Mistral在Bare常无法回答GSM8K 在Chat上有趋势但是没有commitment change
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
-23. 把Qwen3 测完整
-24. New model: OLMo-3-7B-Instruct
+23. 把Qwen3 测完整 ⏸
+24. New model: OLMo-3-7B-Instruct ✖
+25. New Model
 
 ---
 
-1. **OpenChat-3.5**：Mistral 架构，可以补上主线缺的第三个家族；数学最强；② 类
-2. **Qwen3-8B**：技术上最稳（① 类，Bare 下明确先作答），但和 Qwen2.5 同厂商
+1. **OpenChat-3.5**：Mistral 架构，可以补上主线缺的第三个家族；数学最强；② 类  ✖ GSM8K提交不了
+2. **Qwen3-8B**：技术上最稳（① 类，Bare 下明确先作答）✔ 可用
 3. **StableLM-2-12B-chat**：全新家族；② 类；推理能力未知
 4. **Nous-Hermes-2-Mistral-7B-DPO**：① 类
 5. **OpenHermes-2.5-Mistral-7B**：① 类
 6. **Hermes-3-Llama-3.1-8B**：② 类，Llama 家族
-7. **Zephyr-7B-beta**：② 类
+7. **Zephyr-7B-beta**：② 类 
 8. **Qwen3-14B**：规模对照
 9. **Qwen2.5-3B-Instruct**：小规模，role gain 弱
 10. **Qwen3-32B**
-11. OLMo-2-1124-7B-Instruct（AllenAI）新家族，不属于 Llama、Qwen 或 Mistral。训练数据和 post-training 配方（Tulu 3：SFT → DPO → RLVR）完全公开。ModelAnalysis 的统计显示 role data 是 RSN 被激活的主要因素，而 OLMo 可以直接查证训练里有没有 role/persona 数据（Tulu 3 用过 persona 驱动的合成数据），这一点其他模型都做不到。风险：RLVR 用过 GSM8K 训练集，baseline 可能偏高，提升空间偏小。
+11. OLMo-2-1124-7B-Instruct（AllenAI）✖ MMLUE都选E 偏置太多
 12. Llama-3.1-Tulu-3-8B 和 OLMo-2 是同一套公开配方，但基座是 Llama-3.1。和我们的 Llama-3.1-8B-Instruct 放在一起，是"同基座、不同 post-training"的对照。不增加家族多样性，只在要讨论训练阶段时才有价值。
 13. Gemma-2-9B-it 或 Gemma-3-12B-it Google 家族，推理能力强。风险：ModelAnalysis 里 Gemma-7B（第一代）属于 ④ 类，没有 role effect。新一代未必一样，但有失败的先例。
 14. Ministral-8B-Instruct 或 Mistral-Nemo-12B-Instruct Mistral 的新版本，推理能力比 7B-v0.3 强。但仍是 Mistral 家族，而 Mistral 已经放在附录。
-15. Granite-3.x-8B-Instruct（IBM）、GLM-4-9B-chat、InternLM2.5-7B-chat
+15. granite-3.3-8b-instruct（2025-04）
+16. GLM-4-9B-chat
+17. InternLM2.5-7B-chat
 
 ---
 
@@ -89,22 +92,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ---
 
-| 家族 | 最新版本（发布时间） | 是否纯文本 |
-|---|---|---|
-| Qwen | Qwen3.5（2026-03） | 否，image-text-to-text |
-| Gemma | Gemma 4（2026-03～06）；Gemma 3（2025-03，12B/27B） | 否 |
-| Mistral | Ministral 3（2025-10） | 否（mistral3，就是之前试过的版本） |
-| Llama | Llama 4（2025-04） | 否，而且是超大 MoE，跑不动 |
-| **OLMo** | **OLMo-3-7B-Instruct（2025-11）** | **是，dense，7B** |
-| Granite | granite-3.3-8b-instruct（2025-04） | 是，dense，8B |
-| Qwen | Qwen3-8B（2025-04） | 是（正在跑） |
-
-#### OLMo-3-7B-Instruct
-
-- **够新**：2025 年 11 月发布，是这一档里最新的纯文本 dense 模型。
-- **新家族**：不属于 Llama、Qwen 或 Mistral。
-- **完全公开**：训练数据（Dolci 系列）和配方都公开，可以直接查证有没有 role/persona 数据。
-- **独有的优势**：AllenAI 同时发布了 **Instruct-SFT、Instruct-DPO 和最终的 Instruct** 三个阶段的 checkpoint。如果以后想看"post-training 各阶段对 RSN 的影响"，这是唯一能在同一个模型内部做的地方，比 ModelAnalysis 那种跨模型比较干净得多。不过这条线现在先不做，只是一个备选。
 
 3．随后优先解决 RSN 与 CSN 的区别。
 
