@@ -46,28 +46,10 @@ rsync -avzh --partial --info=progress2 \
 
 ```bash
 cd /data1/paveen/Dopamine && git pull
-
-nohup env CUDA_VISIBLE_DEVICES=0 \
-  bash run_gsm8k_openchat_bare_sweep.sh \
-  > gsm8k_openchat_bare_sweep.log 2>&1 &
-  
-cat gsm8k_openchat_bare_sweep.log
-P26=/data1/paveen/conda_envs/dopamine26/bin/python
-$P26 -m pip install sentencepiece protobuf
-$P26 -c "import sentencepiece; print(sentencepiece.__version__)"
-
-cd /data1/paveen/Dopamine
-nohup env CUDA_VISIBLE_DEVICES=0 PY=$P26 bash run_gsm8k_openchat_bare_sweep.sh > gsm8k_openchat_bare_sweep.log 2>&1 &
-cat gsm8k_openchat_bare_sweep.log
-
-
-cd /data1/paveen/Dopamine && git pull
-
-nohup env CUDA_VISIBLE_DEVICES=1 \
+nohup env CUDA_VISIBLE_DEVICES=0 
   bash run_gsm8k_qwen3_bare_sweep.sh \
-  > gsm8k_qwen3_bare_sweep.log 2>&1 &
-cat gsm8k_qwen3_bare_sweep.log
-
+  > gsm8k_qwen3_bare_sweep_cont3.log 2>&1 &
+sleep 10; cat gsm8k_qwen3_bare_sweep_cont3.log
 
 
 ```
