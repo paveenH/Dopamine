@@ -10,7 +10,7 @@ ANS_FILE="mmlue/role_bare_v1"
 OUT="${BASE_DIR}/granite33/${ANS_FILE}"
 ROLES="{task} expert,non {task} expert"
 cd "${WORK_DIR}" || { echo "[x] cannot cd ${WORK_DIR}"; exit 1; }
-if ls "${OUT}"/*_answers.json "${OUT}"/summary_*.csv >/dev/null 2>&1; then
+if compgen -G "${OUT}/*_answers.json" >/dev/null || compgen -G "${OUT}/summary_*.csv" >/dev/null; then
   echo "[x] ${OUT} already holds results; refusing to overwrite"; exit 1
 fi
 echo "granite33 mmlue roles bare | CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-(unset)} | host=$(hostname) | $(date)"
@@ -23,7 +23,7 @@ from transformers import AutoTokenizer
 import utils
 from template import select_templates
 labels = select_templates(suite="default", use_E=True, cot=False)["labels"]
-class _V: tokenizer = AutoTokenizer.from_pretrained(model_dir)
+class _V: tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False, trust_remote_code=True)   # same args as VicundaModel
 opt_ids = utils.option_token_ids(_V, labels)      # same single-token assertion as the entry point
 try: commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 except Exception: commit = None
