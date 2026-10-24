@@ -75,27 +75,10 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 | 3 | GSM-Hard Bare，α=0 和工作点 | 2 | 固定工作点迁移。Llama 和 Qwen2.5 在这个任务上都迁移成功，是最直接的对照 |
 | 4 | MATH Bare，α=0 和工作点，2048 token，bs=8 | 2 | 第二个迁移任务。Qwen2.5 的 MATH 峰值比 GSM8K 低一档，看 Qwen3 是否也这样 |
 
-一共 8 格。3 和 4 的工作点由第 1 步确定，之后不再重新搜索，两个迁移检验放在同一个 Holm 家族（m=2）。
-
 **做完这些，Qwen3 就能覆盖主线的三条主张：**
 - C2：剂量响应的方向和形状。
 - C3：迁移。
 - C4：工作点能否跨任务沿用。
-
-这和 Llama、Qwen2.5 在主线里的证据结构对齐。
-
-## 不需要
-
-- **−8：** 负向臂已经显著下降，再加一点不会增加信息。
-- **CoT、Chat、thinking：** 主线的 CoT/Chat 结论由 Llama 和 Qwen2.5 承担，第三个模型只需支撑 Bare 主线。
-- **BBH、CRUXEval、LogiQA 等边界任务：** 这些任务在原来两个模型上已经刻画了边界，第三个模型不需要重复。
-- **正交方向对照：** 方向特异性已经在两个模型上做过。
-
-## 先后顺序
-
-先跑 1 和 2，共 4 格，可以并行。
-- 如果 2048 下收益消失，说明 768 的结果主要来自截断，Qwen3 放附录，不跑 3 和 4。
-- 如果收益保留，再按选定的工作点跑 3 和 4。
 
 ---
 Recommendations（按推荐度）
