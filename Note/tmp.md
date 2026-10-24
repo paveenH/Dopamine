@@ -94,7 +94,7 @@
 
 | Model | Coverage | Result |
 |---|---|---|
-| Qwen3-8B | No-CoT | +6 为正向趋势（+7.67 pp，Holm p=.063）；负向剂量显著下降；截断率 >94% |
+| Qwen3-8B | No-CoT | 八点扫描最高为 +10（73.00%，+23.67 pp，Holm p=4.76×10⁻⁹）；+8/+10 为近似候选区，+10 待 2048-token 检查；所有格截断率 >92% |
 | OpenChat-3.5 | No-CoT | 五个剂量均未检出收益；early-candidate 接近天花板，循环与截断严重 |
 
 **Native Chat — Experimental Coverage**
