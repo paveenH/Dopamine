@@ -32,7 +32,7 @@ rsync -avzP \
 
 
 rsync -avzP \
-  "d12922004@140.112.31.182:/data1/paveen/Dopamine/components/qwen3" \
+  "d12922004@140.112.31.185:/data1/paveen/Dopamine/components/olmo3" \
   /Users/paveenhuang/Downloads/
 
 
@@ -47,26 +47,9 @@ rsync -avzh --partial --info=progress2 \
 ```bash
 cd /data1/paveen/Dopamine && git pull
  
-
-nohup env CUDA_VISIBLE_DEVICES=0 \
-  bash run_gsm8k_qwen3_bare_sweep.sh \
-  > gsm8k_qwen3_bare_sweep_cont3.log 2>&1 &
-sleep 10; cat gsm8k_qwen3_bare_sweep_cont3.log
-
-
-cd /data1/paveen/Dopamine
-git pull
-nohup env CUDA_VISIBLE_DEVICES=6 \
+nohup env CUDA_VISIBLE_DEVICES=6 WORKPOINT="8 10" \
   bash run_gsm8k_qwen3_bare_budget2048.sh \
-  > gsm8k_qwen3_budget2048_a0.log 2>&1 &
-sleep 10; cat gsm8k_qwen3_budget2048_a0.log
-
-cd /data1/paveen/Dopamine
-git pull
-nohup env CUDA_VISIBLE_DEVICES=3 \
-  bash run_mmlue_olmo3_roles.sh > mmlue_olmo3_roles.log 2>&1 &
-sleep 10; cat mmlue_olmo3_roles.log
-
-
+  > gsm8k_qwen3_budget2048_a8_a10.log 2>&1 &
+sleep 10; cat gsm8k_qwen3_budget2048_a8_a10.log
 
 ```
