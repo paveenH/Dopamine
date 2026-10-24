@@ -121,37 +121,3 @@
 主要依据：[ReasoningBare](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md:888)、[ReasoningChat](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:7)、[LogiQA CoT launcher]
 (/Users/paveenhuang/Downloads/Dopamine/run_logiqa2_cot.sh:35)、[ZebraLogic 协议](/Users/paveenhuang/Downloads/Dopamine/docs/PREREG_ZEBRALOGIC_EASY.md:54)。
 
-### Overall conclusions on reasoning tasks
-
-**1. Dose–response is model-specific (C2).** RSN 在 GSM8K 和 MATH 上对两个模型都有准确率收益，但有效方向和曲线形状不同：
-
-- **Llama：** 负向 α 有效，峰值在 −6 附近，呈不对称的峰形。
-- **Qwen：** 正向 α 有效。GSM8K 在高剂量进入平台；MATH 的峰在 +6，之后回落。
-
-工作点是一个近优区域，不是唯一的点。
-
-**2. Steering reorganizes visible output (C2).** 在有效工作点上，提前给出答案的比例下降，先推理的比例上升；这种变化在多数任务上伴随收益或正向趋势。但它不是充分条件：Qwen BBH No-CoT 和 Qwen MATH +8 的作答顺序都变了，准确率没有相应提高。这些都只说明可见输出的组织方式变了，不说明内部决策机制。
-
-**3. Direction specificity (C2).**
-
-- **Qwen：** RSN 优于六个范数匹配的随机方向，随机方向基本没有效果。
-- **Llama：** RSN 同样优于这些随机方向，但部分随机方向本身也能提分。
-
-所以只能写"RSN 优于所测试的正交方向"，不能写"只有 RSN 有效"。
-
-**4. Transfer across tasks (C3).** 多数推理任务至少在一种条件下有收益或正向趋势：
-
-- **两个模型：** GSM-Hard、GSM-Symbolic、MATH；BBH 只在 CoT 下有收益。
-- **只有 Qwen：** CRUXEval；ProofWriter（Chat 1-shot）。
-- **正向趋势：** Qwen FinQA Bare。
-- **没有收益：** LogiQA、ZebraLogic、FinQA Chat、Llama CRUXEval。
-
-**5. Interface and CoT modulate the gain (C3).**
-
-- Chat 模板会抬高基线；在 Llama 上，它基本替代了 RSN 的收益。
-- CoT 已经让输出先推理时，RSN 不再增加收益（Qwen Chat GSM8K、GSM-Hard）。
-- CoT 没有改变作答顺序时，两者可以叠加，其中一部分体现为提交格式的恢复。
-- 在非数值任务上，严格评分下的大幅变化可能只是格式效应（ProofWriter 0-shot、FinQA Chat）。
-
-**6. Prediction (C4).** 输出特征能预测答案正确性，并能在剂量曲线上选出较优的工作点：MATH 和 GSM-Hard 上方向都选对，regret 为 0。但跨任务的绝对概率校准不可靠。
-
