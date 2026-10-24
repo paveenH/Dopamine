@@ -54,4 +54,13 @@ nohup env CUDA_VISIBLE_DEVICES=0 \
 sleep 10; cat gsm8k_qwen3_bare_sweep_cont3.log
 
 
+cd /data1/paveen/Dopamine
+git pull
+nohup env CUDA_VISIBLE_DEVICES=6 \
+  bash run_gsm8k_qwen3_bare_budget2048.sh \
+  > gsm8k_qwen3_budget2048_a0.log 2>&1 &
+sleep 10; cat gsm8k_qwen3_budget2048_a0.log
+
+
+
 ```
