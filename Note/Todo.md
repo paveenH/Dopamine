@@ -61,7 +61,12 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 7. **Zephyr-7B-beta**：② 类
 8. **Qwen3-14B**：规模对照
 9. **Qwen2.5-3B-Instruct**：小规模，role gain 弱
-10. **Qwen3-32B**
+10. **Qwen3-32B
+11. OLMo-2-1124-7B-Instruct（AllenAI）新家族，不属于 Llama、Qwen 或 Mistral。训练数据和 post-training 配方（Tulu 3：SFT → DPO → RLVR）完全公开。ModelAnalysis 的统计显示 role data 是 RSN 被激活的主要因素，而 OLMo 可以直接查证训练里有没有 role/persona 数据（Tulu 3 用过 persona 驱动的合成数据），这一点其他模型都做不到。风险：RLVR 用过 GSM8K 训练集，baseline 可能偏高，提升空间偏小。
+12. Llama-3.1-Tulu-3-8B 和 OLMo-2 是同一套公开配方，但基座是 Llama-3.1。和我们的 Llama-3.1-8B-Instruct 放在一起，是"同基座、不同 post-training"的对照。不增加家族多样性，只在要讨论训练阶段时才有价值。
+13. Gemma-2-9B-it 或 Gemma-3-12B-it Google 家族，推理能力强。风险：ModelAnalysis 里 Gemma-7B（第一代）属于 ④ 类，没有 role effect。新一代未必一样，但有失败的先例。
+14. Ministral-8B-Instruct 或 Mistral-Nemo-12B-Instruct Mistral 的新版本，推理能力比 7B-v0.3 强。但仍是 Mistral 家族，而 Mistral 已经放在附录。
+15. Granite-3.x-8B-Instruct（IBM）、GLM-4-9B-chat、InternLM2.5-7B-chat
 
 ---
 
@@ -79,24 +84,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 - C2：剂量响应的方向和形状。
 - C3：迁移。
 - C4：工作点能否跨任务沿用。
-
----
-Recommendations（按推荐度）
-OLMo-2-1124-7B-Instruct（AllenAI）
-新家族，不属于 Llama、Qwen 或 Mistral。
-训练数据和 post-training 配方（Tulu 3：SFT → DPO → RLVR）完全公开。ModelAnalysis 的统计显示 role data 是 RSN 被激活的主要因素，而 OLMo 可以直接查证训练里有没有 role/persona 数据（Tulu 3 用过 persona 驱动的合成数据），这一点其他模型都做不到。
-风险：RLVR 用过 GSM8K 训练集，baseline 可能偏高，提升空间偏小。
-Llama-3.1-Tulu-3-8B
-和 OLMo-2 是同一套公开配方，但基座是 Llama-3.1。和我们的 Llama-3.1-8B-Instruct 放在一起，是"同基座、不同 post-training"的对照。
-不增加家族多样性，只在要讨论训练阶段时才有价值。
-Gemma-2-9B-it 或 Gemma-3-12B-it
-Google 家族，推理能力强。
-风险：ModelAnalysis 里 Gemma-7B（第一代）属于 ④ 类，没有 role effect。新一代未必一样，但有失败的先例。
-Ministral-8B-Instruct 或 Mistral-Nemo-12B-Instruct
-Mistral 的新版本，推理能力比 7B-v0.3 强。
-但仍是 Mistral 家族，而 Mistral 已经放在附录。
-Granite-3.x-8B-Instruct（IBM）、GLM-4-9B-chat、InternLM2.5-7B-chat
-都是新家族，但训练数据里有没有 role data 都不清楚，RSN 能否激活完全未知。
 
 ---
 
