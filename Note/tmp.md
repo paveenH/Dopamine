@@ -79,7 +79,7 @@
 
 | Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | 简短分析 |
 |---|:---:|:---:|:---:|:---:|---|
-| **GSM8K** | ✓ | ✓ | ✓ | ✓ | 均有收益；有效方向因模型而异 |
+| **GSM8K** | ✓ | ✓ | ✓ | ✓ | 主线两模型均有收益，方向因模型而异；Qwen3 与 OpenChat 补充结果见下表 |
 | **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | 两模型均支持近域迁移 |
 | **MATH** | ✓ | ✓ | ✓ | ✓ | 两模型、两条件均为正向；Llama CoT 与 Qwen No-CoT（+6）显著，其余为正向趋势；Qwen 在 +6 达峰、+8 回落 |
 | **GSM-Symbolic** | ✓ | ✓ | ✓ | ✓ | Llama No-CoT 显著、CoT 为正向趋势；Qwen 两条件均显著 |
@@ -90,11 +90,18 @@
 | **ProofWriter-OWA** | — | ✓¹ | — | ✓¹ | Llama 收益伴随提交恢复；Qwen +8 为正向趋势（+5.67，Holm p=.257） |
 | **ZebraLogic-Easy** | — | ✓¹ | — | ✓¹ | Llama 未检出收益；Qwen +6 为正向趋势（+1.43），+8 格式崩溃 |
 
+**Supplemental Bare GSM8K Models**
+
+| Model | Coverage | Result |
+|---|---|---|
+| Qwen3-8B | No-CoT | +6 为正向趋势（+7.67 pp，Holm p=.063）；负向剂量显著下降；截断率 >94% |
+| OpenChat-3.5 | No-CoT | 五个剂量均未检出收益；early-candidate 接近天花板，循环与截断严重 |
+
 **Native Chat — Experimental Coverage**
 
 | Task | Llama No-CoT | Llama CoT | Qwen No-CoT | Qwen CoT | Mistral No-CoT | 简短分析 |
 |---|:---:|:---:|:---:|:---:|:---:|---|
-| **GSM8K** | ✓ | ✓ | ✓ | ✓ | ✓ | Qwen No-CoT 显著、CoT 为正向趋势（+1.67）；Llama 未检出收益。Mistral 九点扫描中 −4 为候选工作点（+8.33 pp，Holm p=.0459），尚未经独立验证 |
+| **GSM8K** | ✓ | ✓ | ✓ | ✓ | ✓ | Qwen No-CoT 显著、CoT 为正向趋势（+1.67）；Llama 未检出收益。Mistral 九点扫描中 −4 为候选工作点（+8.33 pp，Holm p=.0459），尚未经独立验证，作为附录接口边界例子 |
 | **GSM-Hard** | ✓ | ✓ | ✓ | ✓ | — | Qwen 仅 No-CoT 有显著收益；Llama 未检出收益 |
 | **MATH** | ✓ | — | ✓ | — | — | Qwen +8 基本持平（+0.67），+6 为正向趋势（+2.00）；α=0 基线已先推理后作答仅适用于 Qwen |
 | **GSM-Symbolic** | — | — | — | — | — | 尚无 Chat 结果 |
