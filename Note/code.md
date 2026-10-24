@@ -45,11 +45,11 @@ rsync -avzh --partial --info=progress2 \
 
 
 ```bash
-cd /data1/paveen/Dopamine && git pull
- 
-nohup env CUDA_VISIBLE_DEVICES=6 WORKPOINT="8 10" \
-  bash run_gsm8k_qwen3_bare_budget2048.sh \
-  > gsm8k_qwen3_budget2048_a8_a10.log 2>&1 &
-sleep 10; cat gsm8k_qwen3_budget2048_a8_a10.log
+cd /data1/paveen/Dopamine
+git pull
+nohup env CUDA_VISIBLE_DEVICES=3 \
+  bash run_mmlue_granite33_roles.sh \
+  > mmlue_granite33_roles.log 2>&1 &
+sleep 10; cat mmlue_granite33_roles.log
 
 ```
