@@ -5,7 +5,7 @@ get_answer_gsm8k_qwen3_bare_sweep.py -- Qwen3-8B GSM8K Bare No-CoT five-point sw
 
 Qwen/Qwen3-8B (not Base), BARE string (no chat template), neutral/plain/zero-shot/No-CoT. The NMD mask is built first (before
 model load) from Qwen3's own hidden_states_mean/qwen3/{diff_mean,none_diff_mean}_8B.npy via detection.nmd.get_nmd_mask
-(top_k = int(H*0.5/100), hidden range [17,26) -> decoder rows 16..24, L=9). alpha order 0,-4,4,-6,6 in ONE process / one model
+(top_k = int(H*0.5/100), hidden range [17,26) -> decoder rows 16..24, L=9). alpha order -8,8,10 (continuation of 0,-4,4,-6,6) in ONE process / one model
 load; no gating. Injection = prefill-only, tail 1, last prompt token (id/text recorded). Score OFFLINE; inline fields are process state.
 Existing complete + identity/environment-matching cells are skipped; a mismatching one aborts (never overwritten).
 """
@@ -30,7 +30,7 @@ MASK_REL = "mask/qwen3_non_logits/nmd_0.5_17_26_8B.npy"
 MEAN_REL = "hidden_states_mean/qwen3"
 QUESTIONS_REL = "benchmark/gsm8k_test_sample.json"
 OUT_SUBDIR = "qwen3/gsm8k_bare_sweep_v1"
-ALPHAS = [0, -4, 4, -6, 6]
+ALPHAS = [-8, 8, 10]      # continuation; 0,-4,4,-6,6 were run earlier and are not re-run
 FNAME = "gsm8k_qwen3_bare_8B_answers_17_26.json"
 
 
