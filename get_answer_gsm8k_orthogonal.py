@@ -118,7 +118,6 @@ def main():
     ap.add_argument("--end", type=int, required=True)
     ap.add_argument("--batch_size", type=int, default=24)
     ap.add_argument("--max_new_tokens", type=int, default=768)
-    ap.add_argument("--smoke_n", type=int, default=0)
     ap.add_argument("--control_family", choices=["same", "off"], default="same",
                     help="support relation of seed* masks to the actual RSN mask (default same = v1)")
     ap.add_argument("--protocol", default=DEFAULT_PROTOCOL)
@@ -151,9 +150,7 @@ def main():
 
     data_path = a.test_file if os.path.isabs(a.test_file) else os.path.join(a.base_dir, a.test_file)
     samples = utils.load_json(data_path)
-    if a.smoke_n:
-        samples = samples[:a.smoke_n]
-    elif len(samples) != 300:
+    if len(samples) != 300:
         raise ValueError(f"formal run requires exactly 300 GSM8K items, got {len(samples)}")
     prompts = [select_templates_gsm8k(suite="default", cot=False, wording="plain")["neutral"].format(context=s["question"]) for s in samples]
     out_dir = Path(a.out_dir)
