@@ -40,8 +40,6 @@ def run_task(
     # load data
     data_path = os.path.join(MMLU_DIR, f"{task}.json")
     data = utils.load_json(data_path)
-    if args.smoke_n:
-        data = data[: args.smoke_n]
     prompt_hash = hashlib.sha256()
 
     # Parse custom roles if provided
@@ -131,8 +129,6 @@ def _task_inputs(vc, task):
     from the CURRENT invocation -- used to validate existing cells before skipping them."""
     templates = select_templates(args.suite, args.use_E)
     data = utils.load_json(os.path.join(MMLU_DIR, f"{task}.json"))
-    if args.smoke_n:
-        data = data[: args.smoke_n]
     custom = [r.strip() for r in args.roles.split(",")] if args.roles else None
     roles = utils.make_characters(task, custom)
     ph = hashlib.sha256()
@@ -180,7 +176,7 @@ def main_mask_set():
     for _, mp in named:
         if not os.path.isfile(mp):
             raise SystemExit(f"mask missing: {mp}")
-    tasks = TASKS[: args.smoke_tasks] if args.smoke_tasks else TASKS
+    tasks = TASKS
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
     run_env = _run_meta(vc)
@@ -211,8 +207,7 @@ def main_mask_set():
                 out_path = os.path.join(out_dir, f"{task}_{args.size}_answers_{TOP}_{st}_{en}.json")
                 expect = {"mask_sha256": mask_sha, "alpha": alpha, "layer_start": st, "layer_end": en,
                           "model_dir": args.model_dir, "tail_len": args.tail_len, "roles_arg": args.roles,
-                          "suite": args.suite, "use_E": bool(args.use_E), "use_chat": bool(args.use_chat),
-                          "smoke_n": args.smoke_n}
+                          "suite": args.suite, "use_E": bool(args.use_E), "use_chat": bool(args.use_chat)}
                 if os.path.exists(out_path):
                     n_it = len(_task_inputs(vc, task)[0])
                     exp_f = n_layers * n_it * n_roles * args.tail_len if alpha != 0 else 0
@@ -309,8 +304,6 @@ if __name__ == "__main__":
                         help="label=path entries (explicit masks, one model load). Outputs go to <ans_file>/<label>/mdf_<alpha>/")
     parser.add_argument("--baseline_mask", default=None,
                         help="mask_set mode: add ONE alpha=0 'baseline' job using this (RSN) mask x 0")
-    parser.add_argument("--smoke_n", type=int, default=0, help="mask_set mode only: first N items per task")
-    parser.add_argument("--smoke_tasks", type=int, default=0, help="mask_set mode only: first N tasks")
 
     args = parser.parse_args()
 
