@@ -238,3 +238,29 @@ Notes:
     - 结果强烈支持 Hypothesis2: “Explicit roleplaying data 激活了 role-sensitive neurons (RSNs)”。
     - Human feedback 并不足以激活 RSN（至少在当前样本下），更多是对其他维度（安全性、拒答、风格）的优化。
     - 最佳解释：Roleplaying data 是主要驱动力；HF 是次要或条件性因素。
+
+---
+
+## 2026-10 New-Model Screening (Bare MMLU-E, no steering)
+
+### OLMo-3-7B-Instruct — FAIL (dropped)
+
+| Pooled (n=14,042/role) | Expert | Non-expert | Expert − Non |
+|---|---:|---:|---:|
+| Accuracy | 17.20% | 10.53% | +6.67 pp |
+| E-rate | 44.38% | 69.01% | −24.63 pp |
+| Non-E cond. acc | 30.92% | 33.99% | −3.07 pp |
+
+- 角色信号存在（55/57 学科 Expert 更少选 E；同题 Non 选 E / Expert 作答 3,743 vs 反向 284）。
+- 但非 E 条件准确率接近随机，B、D 几乎不被选择，而 gold 中 B、D 各约 26%。逐题答案与 logits argmax 一致，问题在 Bare 提示与选项 token 读数的适配，原因未确定。
+- 因后续测试需在 Bare 上完成，**不再使用**。
+- Report：`RoleAnswer/reasoningTaskAnalysis/olmo3_mmlue_roles_v1/`（含 `choice_bias_comparison_20261024/REPORT.md`）。
+
+### granite-3.3-8b-instruct — PASS
+
+| Pooled (n=14,042/role) | Expert | Non-expert | Expert − Non |
+|---|---:|---:|---:|
+| Accuracy | 51.88% | 41.25% | +10.63 pp |
+| E-rate | 19.76% | 39.11% | −19.35 pp |
+| Wrong non-E | 28.36% | 19.63% | +8.72 pp |
+| Non-E cond. acc | 64.66% | 67.75% | −3.10 pp |
