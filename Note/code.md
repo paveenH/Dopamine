@@ -56,4 +56,9 @@ nohup env CUDA_VISIBLE_DEVICES=2 PY=python \
   bash run_mmlue_granite33_rsn_19_30.sh > mmlue_granite33_rsn_19_30.log 2>&1 &
 sleep 60; cat mmlue_granite33_rsn_19_30.log
 
+cd /data1/paveen/Dopamine && git pull
+nohup env CUDA_VISIBLE_DEVICES=0 PY=python \
+  bash run_mmlue_granite33_rsn_34_40.sh > mmlue_granite33_rsn_34_40.log 2>&1 &
+sleep 10; cat mmlue_granite33_rsn_34_40.log
+
 ```
