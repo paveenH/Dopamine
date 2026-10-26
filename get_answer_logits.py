@@ -20,6 +20,17 @@ import utils
 # ─────────────────────────── Main ───────────────────────────────
 
 def main():
+    if args.answer_dir:
+        # formal paired run: refuse to overwrite answers or target H5 BEFORE loading the model
+        if any(ANS_DIR.glob("*_answers.json")) or any(ANS_DIR.glob("summary_*.csv")):
+            raise SystemExit(f"[x] {ANS_DIR} already holds answers/summary; refusing to overwrite")
+        if args.save:
+            custom = [r.strip() for r in args.roles.split(",")] if args.roles else None
+            clash = [str(HS_DIR / f"{ro.replace(' ', '_').replace('-', '_')}_{t}_{args.size}.h5")
+                     for t in TASKS for ro in utils.make_characters(t, custom)
+                     if (HS_DIR / f"{ro.replace(' ', '_').replace('-', '_')}_{t}_{args.size}.h5").exists()]
+            if clash:
+                raise SystemExit(f"[x] {len(clash)} target H5 already exist (e.g. {clash[0]}); refusing to overwrite")
     vc = VicundaModel(model_path=args.model_dir)
     vc.model.eval()
     
@@ -149,7 +160,10 @@ if __name__ == "__main__":
     parser.add_argument("--size", "-s", required=True, help="Model size, e.g., `8B`")
     parser.add_argument("--type", type=str, default="non", help="Role type identifier (deprecated, use --roles instead)")
     parser.add_argument("--model_dir", required=True, help="LLM checkpoint/model directory")
-    parser.add_argument("--ans_file", required=True, help="LLM checkpoint/model directory")
+    parser.add_argument("--ans_file", default=None, help="Answer subdir under {base}/{model}/ (legacy; not needed with --answer_dir)")
+    parser.add_argument("--answer_dir", type=str, default=None,
+                        help="Explicit answer output directory (e.g. {base}/answer/granite33). Overrides {base}/{model}/{ans_file} "
+                             "and enables the no-overwrite guard for answers and target H5 files.")
     parser.add_argument("--suite", type=str, default="default", choices=["default","vanilla", "action"])
     parser.add_argument("--data", type=str, default="data1", choices=["data1", "data2"])
     parser.add_argument("--use_E", action="store_true", help="Use five-choice template (A–E); otherwise use four-choice (A–D)")
@@ -183,7 +197,12 @@ if __name__ == "__main__":
         BASE = Path(f"/{args.data}/paveen/RolePlaying/components")
 
     MMLU_DIR = Path(args.mmlu_dir) if args.mmlu_dir else BASE / "mmlu"
-    ANS_DIR = BASE / args.model / args.ans_file
+    if args.answer_dir:
+        ANS_DIR = Path(args.answer_dir)
+    elif args.ans_file:
+        ANS_DIR = BASE / args.model / args.ans_file
+    else:
+        parser.error("one of --ans_file / --answer_dir is required")
     if args.hs_dir:
         HS_DIR = Path(args.hs_dir) / args.model / args.task_name
     else:
