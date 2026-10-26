@@ -11,10 +11,20 @@ OUT="${BASE_DIR}/answer/granite33"
 HS_DIR="${BASE_DIR}/hidden_states"
 ROLES="{task} expert,non {task} expert"
 cd "${WORK_DIR}" || { echo "[x] cannot cd ${WORK_DIR}"; exit 1; }
+# optional: BACKUP_PRESCREEN=1 renames an earlier answer/granite33 to answer/granite33_prescreen_v1 first (stops if the target exists or mv fails)
+if [ "${BACKUP_PRESCREEN:-0}" = "1" ] && [ -e "${OUT}" ]; then
+  BK="${BASE_DIR}/answer/granite33_prescreen_v1"
+  [ ! -e "${BK}" ] || { echo "[x] backup target ${BK} exists; stopping"; exit 1; }
+  mv "${OUT}" "${BK}" || { echo "[x] backup mv failed; stopping"; exit 1; }
+  echo "[backup] ${OUT} -> ${BK}"
+fi
 if compgen -G "${OUT}/*_answers.json" >/dev/null || compgen -G "${OUT}/summary_*.csv" >/dev/null; then
   echo "[x] ${OUT} already holds results; refusing to overwrite"; exit 1
 fi
 echo "granite33 mmlue roles bare | CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-(unset)} | host=$(hostname) | $(date)"
+if compgen -G "${HS_DIR}/granite33/mmlue/*_8B.h5" >/dev/null; then
+  echo "[x] ${HS_DIR}/granite33/mmlue already holds H5 files; refusing to overwrite"; exit 1
+fi
 mkdir -p "${OUT}"
 "${PY}" - "${OUT}" "${MODEL_DIR}" "${ROLES}" <<'PYEOF'
 import json, os, platform, subprocess, sys
