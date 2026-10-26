@@ -80,8 +80,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 | # | 实验 | 格数 | 目的 |
 |---|---|---|---|
-| 1 | GSM8K Bare，+8 和 +10，768 token | 2 | 补全正向臂，确定是峰值还是平台；确定工作点 |
-| 2 | GSM8K Bare，α=0 和工作点，2048 token | 2 | 检查预算：截断率下降后，收益是否还在 |
+| 1 | GSM8K Bare，+8 和 +10，768 token | 2 | ✔ 八点扫描完成；`+10` 为固定下游工作点，`{+8,+10}` 为已测近优区域 |
+| 2 | GSM8K Bare，α=0 和工作点，2048 token | 2 | ✔ 收益在长预算下保留；生成截断仍高 |
 | 3 | GSM-Hard Bare，Qwen3 α=0 和 +10 | 2 | ✔ Qwen3 +10 提高 11.33 pp，Holm m=2 p=.000634；52/60 纠错由 fallback 转为 marker，生成截断约 97% |
 | 4 | MATH Bare，Qwen3 α=0、+8、+10，2048 token，bs=8 | 3 | ✔ +10 提高 8.00 pp（Holm m=2 p=.003690）；+8 比 +10 高 18.67 pp，探索性邻点比较 |
 
