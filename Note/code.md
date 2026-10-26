@@ -32,7 +32,7 @@ rsync -avzP \
 
 
 rsync -avzP \
-  "d12922004@140.112.31.185:/data1/paveen/Dopamine/components/granite33" \
+  "d12922004@140.112.31.182:/data1/paveen/Dopamine/components/qwen3" \
   /Users/paveenhuang/Downloads/
 
 
@@ -52,5 +52,13 @@ ls components/answer/granite33 components/hidden_states/granite33/mmlue 2>&1 | h
 nohup env CUDA_VISIBLE_DEVICES=3 \
   bash run_mmlue_granite33_roles.sh > mmlue_granite33_roles.log 2>&1 &
 sleep 10; cat mmlue_granite33_roles.log
+
+
+
+cd /data1/paveen/Dopamine && git pull
+nohup env CUDA_VISIBLE_DEVICES=6 PY=python \
+  bash run_qwen3_bare_transfer.sh > qwen3_bare_transfer.log 2>&1 &
+sleep 10; cat qwen3_bare_transfer.log
+
 
 ```
