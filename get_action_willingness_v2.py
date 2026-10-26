@@ -95,7 +95,7 @@ def softmax_digits(raw_logits, opt_ids):
     return d, p, digit_mass
 
 
-def load_task_samples(task, path, text_key, kind, limit):
+def load_task_samples(task, path, text_key, kind):
     """Return a list of dicts {idx, sub, text, text_sha256}.  Order = file order (original order)."""
     rows = []
     if kind == "dir":
@@ -116,9 +116,6 @@ def load_task_samples(task, path, text_key, kind, limit):
         if text_key not in s:
             raise KeyError(f"[{task}] sample {i} lacks field '{text_key}' (has {sorted(s)})")
         out.append({"idx": i, "sub": str(sub), "text": s[text_key], "text_sha256": sha256_text(s[text_key])})
-    if limit:
-        # smoke only: first `limit` in original order -- never a re-draw
-        out = out[:limit]
     return out
 
 
@@ -186,7 +183,6 @@ def main():
     ap.add_argument("--task_file", nargs="*", default=[], help="override: NAME=PATH")
     ap.add_argument("--out_root", required=True, help="NEW output root (never an old results dir)")
     ap.add_argument("--tail_len", type=int, default=1)
-    ap.add_argument("--limit", type=int, default=0, help="smoke only: first N samples per task")
     ap.add_argument("--skip_missing", action="store_true", help="record + skip a task whose data is absent (default: die)")
     args = ap.parse_args()
 
@@ -206,7 +202,7 @@ def main():
         rel, key, kind = TASK_DEFAULTS[t]
         path = overrides.get(t, os.path.normpath(os.path.join(args.data_root, rel)))
         try:
-            smp = load_task_samples(t, path, key, kind, args.limit)
+            smp = load_task_samples(t, path, key, kind)
         except (FileNotFoundError, KeyError) as e:
             if args.skip_missing and isinstance(e, FileNotFoundError):
                 missing[t] = str(e)
@@ -270,7 +266,7 @@ def main():
                 "prompt_template_sha256": sha256_text(PROMPT_V2), "prompts_digest": prompts_digest,
                 "alpha": alpha, "model": args.model, "model_dir": args.model_dir, "size": args.size,
                 "tail_len": args.tail_len, "layer_start": a_st, "layer_end": a_en,
-                "limit": args.limit or None, "host": env["host"], "gpu": env["gpu"],
+                "host": env["host"], "gpu": env["gpu"],
                 "CUDA_VISIBLE_DEVICES": env["CUDA_VISIBLE_DEVICES"], "torch": env["torch"],
                 "transformers": env["transformers"],
             }
@@ -291,7 +287,7 @@ def main():
                 "prompt_template": PROMPT_V2, "prompt_template_sha256": sha256_text(PROMPT_V2),
                 "example_prompt": prompts[0], "prompts_digest": prompts_digest,
                 "task": t, "data_path": td["path"], "data_file_sha256": td["file_sha256"],
-                "n_samples": len(samples), "samples_digest": td["digest"], "limit": args.limit or None,
+                "n_samples": len(samples), "samples_digest": td["digest"],
                 "model": args.model, "model_dir": args.model_dir, "size": args.size,
                 "role": "neutral", "cot": False, "use_chat": False, "bare_string": True,
                 "alpha": alpha, "layer_start": a_st, "layer_end": a_en,
