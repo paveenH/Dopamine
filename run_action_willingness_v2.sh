@@ -77,4 +77,4 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset} host=$(hostname)"
   --out_root "${OUT_ROOT}" ${EXTRA}
 
 echo "== done $(date) =="
-echo "next: rsync -a server:${OUT_ROOT}/ <local RoleAnswer>/llama3/willingness_v2/ ; python3.10 analyze_willingness_v2.py"
+echo "next: rsync -a server:${OUT_ROOT}/ <local RoleAnswer>/llama3/willingness_v2/ ; ~/.venvs/rsn-analysis/bin/python analyze_willingness_v2.py"
