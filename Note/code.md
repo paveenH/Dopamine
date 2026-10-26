@@ -45,14 +45,15 @@ rsync -avzh --partial --info=progress2 \
 
 
 ```bash
-cd /data1/paveen/Dopamine
-git pull
 
-ls components/answer/granite33 components/hidden_states/granite33/mmlue 2>&1 | head
-nohup env CUDA_VISIBLE_DEVICES=3 \
-  bash run_mmlue_granite33_roles.sh > mmlue_granite33_roles.log 2>&1 &
-sleep 10; cat mmlue_granite33_roles.log
+cd /data1/paveen/Dopamine && git pull
+nohup env CUDA_VISIBLE_DEVICES=6 PY=python \
+  bash run_mmlue_granite33_rsn.sh > mmlue_granite33_rsn.log 2>&1 &
+sleep 10; cat mmlue_granite33_rsn.log
 
-
+cd /data1/paveen/Dopamine && git pull
+nohup env CUDA_VISIBLE_DEVICES=2 PY=python \
+  bash run_mmlue_granite33_rsn_19_30.sh > mmlue_granite33_rsn_19_30.log 2>&1 &
+sleep 60; cat mmlue_granite33_rsn_19_30.log
 
 ```
