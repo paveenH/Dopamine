@@ -1765,7 +1765,6 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 
 ## 9. Additional Models: Bare GSM8K
 
-本节记录 Qwen3-8B 与 OpenChat-3.5 的 Bare No-CoT GSM8K 结果。Qwen3 的 2048-token 检查已完成；OpenChat 仍作为模型范围的补充边界结果。
 
 ### 9.1 Qwen3-8B Dose Sweep
 
@@ -1822,9 +1821,9 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 | Fallback → fallback | 31 | 6 | 12 | 10 | 4 | +6 |
 | **Total** | **300** | **175** | **260** | **101** | **16** | **+85** |
 
-冻结评分下的净增 85 题主要来自 fallback → marker 路径，说明收益主要表现为更多题目产生正确的 marker 提交；在已提交子集上只观察到小幅正向趋势。对这 86 条纠错的 baseline 文本做离线核查，85 条能找到与 gold 相符的算术结果；固定抽查的 12 条均确认了相应计算。另有 82 条首行直接给出错误数字，4 条首行没有可解析的数值候选。唯一未找到正确 gold 计算的是 idx 89：baseline 文本算得 7，gold 为 8。可见文本中出现正确计算不等于模型已稳定接受该结果，也不能单凭这些分组证明 RSN 改变了内部推理或因果地解决了收口问题。完整逐题诊断见 [marker-subset review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_budget2048_v1/review_20261026_3cell/marker_subset_sensitivity/REPORT.md)。
+冻结评分下的净增 85 题主要来自 fallback → marker 路径，说明收益主要表现为更多题目产生正确的 marker 提交；在已提交子集上只观察到小幅正向趋势。对这 86 条纠错的 baseline 文本做离线核查，85 条能找到与 gold 相符的算术结果；固定抽查的 12 条均确认了相应计算。首行有 83 条给出错误数值候选（82 条直接以数字开头，另 1 条写成错误答案句），其余 3 条只有 marker、没有数值。唯一未找到正确 gold 计算的是 idx 89：baseline 文本算得 7，gold 为 8。可见文本中出现正确计算不等于模型已稳定接受该结果，也不能单凭这些分组证明 RSN 改变了内部推理或因果地解决了收口问题。完整逐题诊断见 [marker-subset review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_budget2048_v1/review_20261026_3cell/marker_subset_sensitivity/REPORT.md)。
 
-来源限制：768-token 八点扫描的旧五格在 Turing GPU 1，新加的 −8、+8、+10 在 GPU 0；两边均为 RTX 3090，库版本一致，但代码版本不同。跨卡结果保留为扩展扫描的探索性比较；+8 与 +10 来自同一新环境。完整统计见 [Qwen3 eight-point review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_sweep_v1/review_20261024_8pt/REPORT.md) 和 [Qwen3 2048-token review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_budget2048_v1/review_20261026_3cell/REPORT.md)。
+完整统计见 [Qwen3 eight-point review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_sweep_v1/review_20261024_8pt/REPORT.md) 和 [Qwen3 2048-token review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_budget2048_v1/review_20261026_3cell/REPORT.md)。
 
 ### 9.2 Qwen3-8B Output Patterns
 
