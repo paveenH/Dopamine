@@ -81,7 +81,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 |---|---|---|---|
 | 0 | MMLU-E 角色数据 + H5（`--save`） | `run_mmlue_granite33_roles.sh` | **done**；答案已同步到本地，H5 在服务器 |
 | 1 | Expert / Non-expert 均值，只取 divergent pairs | `mean/mean_diff.py --input_format h5`（已有，fail-closed） | ✔ |
-| 2 | 逐层 Pearson 曲线，取开始下降的层段作 band | `RoleHidden/analyze_granite33_layer_similarity.py`| ⏸ |
+| 2 | 逐层 Pearson 曲线，取开始下降的层段作 band | `RoleHidden/analyze_granite33_layer_similarity.py`| zan't |
 | 3 | NMD mask，0.5% | `detection/nmd.py --logits` | 等 band |
 | 4 | 激活检验：MMLU-E α ∈ {−4, 0, +4}，看 E-rate 是否双向移动 | 仿 `run_mmlue_qwen25.sh` 写 Granite 版 | 需新 launcher |
 | 5 | Bare GSM8K α=0（768 / bs=24），看格式健康 | 仿 `run_gsm8k_qwen3_bare_sweep.sh` | 需新 launcher |
