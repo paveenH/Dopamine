@@ -51,7 +51,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
 23. 把Qwen3 测完整 ⏸
 24. New model: OLMo-3-7B-Instruct ✖
-25. New Model
+25. New Model: granite-3.3-8b-instruct
 
 ---
 
