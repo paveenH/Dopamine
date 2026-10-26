@@ -51,7 +51,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
 23. 把Qwen3 测完整 ✔ -> GSM8K 768/2048、GSM-Hard 与 MATH 完成；固定 `+10` 在两项迁移比较中均通过 Holm m=2，MATH 的 `+8` 高于 `+10`。
 24. New model: OLMo-3-7B-Instruct ✖
-25. New Model: granite-3.3-8b-instruct
+25. New Model: granite-3.3-8b-instruct ⏸
 
 ---
 
@@ -75,15 +75,18 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ---
 
+#### Granite pipeline
 
-## 必需
-
-| # | 实验 | 格数 | 目的 |
+| Step | What | Tooling | Status |
 |---|---|---|---|
-| 1 | GSM8K Bare，+8 和 +10，768 token | 2 | ✔ 八点扫描完成；`+10` 为固定下游工作点，`{+8,+10}` 为已测近优区域 |
-| 2 | GSM8K Bare，α=0 和工作点，2048 token | 2 | ✔ 收益在长预算下保留；生成截断仍高 |
-| 3 | GSM-Hard Bare，Qwen3 α=0 和 +10 | 2 | ✔ Qwen3 +10 提高 11.33 pp，Holm m=2 p=.000634；52/60 纠错由 fallback 转为 marker，生成截断约 97% |
-| 4 | MATH Bare，Qwen3 α=0、+8、+10，2048 token，bs=8 | 3 | ✔ +10 提高 8.00 pp（Holm m=2 p=.003690）；+8 比 +10 高 18.67 pp，探索性邻点比较 |
+| 0 | MMLU-E 角色数据 + H5（`--save`） | `run_mmlue_granite33_roles.sh` | **done**；答案已同步到本地，H5 在服务器 |
+| 1 | Expert / Non-expert 均值，只取 divergent pairs | `mean/mean_diff.py --input_format h5`（已有，fail-closed） | ✔ |
+| 2 | 逐层 Pearson 曲线，取开始下降的层段作 band | `RoleHidden/analyze_granite33_layer_similarity.py`| ⏸ |
+| 3 | NMD mask，0.5% | `detection/nmd.py --logits` | 等 band |
+| 4 | 激活检验：MMLU-E α ∈ {−4, 0, +4}，看 E-rate 是否双向移动 | 仿 `run_mmlue_qwen25.sh` 写 Granite 版 | 需新 launcher |
+| 5 | Bare GSM8K α=0（768 / bs=24），看格式健康 | 仿 `run_gsm8k_qwen3_bare_sweep.sh` | 需新 launcher |
+| 6 | GSM8K 剂量扫描 | 同上 | 剂量网格等 step 3–4 后定 |
+| 7 | 固定工作点迁移：GSM-Hard {0, wp}，MATH {0, wp±1档, wp} | 仿 `run_qwen3_bare_transfer.sh` | 最后 |
 
 ---
 
