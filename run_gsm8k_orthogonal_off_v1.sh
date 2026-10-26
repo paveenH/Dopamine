@@ -3,8 +3,6 @@
 # Exploratory extension of the on-support check (gsm8k-orthogonal-v1). Prebuilt
 # ortho_gauss_off seeds 1-3 only; masks are NEVER generated or changed here.
 #   verify    read-only mask checks (off-support, norm, dense orthogonality, 3 distinct masks)
-#   preflight 1 item per condition, isolated dir
-#   smoke     4 items per condition, isolated dir
 #   full      formal 300-item cells: seed1 seed2 seed3  -> $OUT/seedN
 #   refs      OPTIONAL: re-run baseline, rsn and the three on-support seeds in THIS
 #             environment -> $OUT/ref/*  (only when the old section-7 cells are not comparable)
@@ -14,8 +12,8 @@ set -euo pipefail
 MODE="${1:-}"
 MODEL="${2:-}"
 SCOPE="${3:-}"
-case "$MODE" in verify|preflight|smoke|full|refs|status) ;; *)
-  echo "usage: bash run_gsm8k_orthogonal_off_v1.sh verify-preflight-smoke-full-refs-or-status llama3-or-qwen2.5 [refs]" >&2; exit 2;;
+case "$MODE" in verify|full|refs|status) ;; *)
+  echo "usage: bash run_gsm8k_orthogonal_off_v1.sh verify-full-refs-or-status llama3-or-qwen2.5 [refs]" >&2; exit 2;;
 esac
 case "$MODEL" in llama3|qwen2.5) ;; *) echo "model must be llama3 or qwen2.5" >&2; exit 2;; esac
 
@@ -37,22 +35,20 @@ NONE_DENSE="$BASE_DIR/hidden_states_mean/${DENSE_FOLDER}/mmlue_non_expert_mean_$
 DATA="$BASE_DIR/benchmark/gsm8k_test_sample.json"
 MASK_DIR="$BASE_DIR/mask/$MASK_FOLDER"
 
-# run_cell condition family root smoke_n
+# run_cell condition family root
 run_cell() {
-  local condition="$1" family="$2" root="$3" smoke_n="${4:-0}" mask="$RSN" alpha="$ALPHA"
-  local -a extra=()
+  local condition="$1" family="$2" root="$3" mask="$RSN" alpha="$ALPHA"
   if [[ "$condition" == "baseline" ]]; then alpha=0; fi
   if [[ "$condition" == seed* ]]; then
     mask="$MASK_DIR/ortho_gauss_${family}_0.5_${START}_${END}_${SIZE}_seed${condition#seed}.npy"
   fi
-  if [[ "$smoke_n" != "0" ]]; then extra=(--smoke_n "$smoke_n"); fi
   "$PY" get_answer_gsm8k_orthogonal.py \
     --model "$MODEL" --model_dir "$MODEL_DIR" --size "$SIZE" --alpha "$alpha" \
     --condition "$condition" --control_family "$family" --protocol "$PROTOCOL" \
     --mask_path "$mask" --rsn_mask_path "$RSN" \
     --dense_mean_path "$DENSE" --none_dense_mean_path "$NONE_DENSE" --test_file "$DATA" --base_dir "$BASE_DIR" \
     --out_dir "$root/$condition" --start "$START" --end "$END" \
-    --batch_size 24 --max_new_tokens 768 "${extra[@]}"
+    --batch_size 24 --max_new_tokens 768
 }
 
 case "$MODE" in
@@ -61,10 +57,6 @@ case "$MODE" in
     "$PY" verify_gsm8k_orthogonal_masks.py --model "$MODEL" --base_dir "$BASE_DIR" --family off --seed all
     echo "[ok] Read-only off-support mask/data checks passed. No mask was generated or changed."
     ;;
-  preflight)
-    for c in rsn seed1 seed2 seed3; do run_cell "$c" off "$OUT/preflight" 1; done ;;
-  smoke)
-    for c in rsn seed1 seed2 seed3; do run_cell "$c" off "$OUT/smoke" 4; done ;;
   full)
     for c in seed1 seed2 seed3; do run_cell "$c" off "$OUT"; done ;;
   refs)
