@@ -22,10 +22,6 @@
 #
 # Usage (server, from /data1/paveen/Dopamine):
 #   CUDA_VISIBLE_DEVICES=0 bash run_gsm8k_chat_sweep.sh
-#
-# Local smoke test (no GPU sweep -- do NOT run this against the full 9-alpha
-# CONFIGS list without explicit confirmation):
-#   bash -n run_gsm8k_chat_sweep.sh
 
 set -e
 
