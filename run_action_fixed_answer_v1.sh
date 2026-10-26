@@ -38,4 +38,4 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset} host=$(hostname)"
   --mask_dir "${MASK_DIR}" --mask_type nmd --percentage 0.5 \
   --configs ${CONFIGS} --mmlu_dir "${MMLU_DIR}" --out_root "${OUT_ROOT}"
 echo "== done $(date) =="
-echo "next: rsync -a server:${OUT_ROOT}/ <local RoleAnswer>/AdarResult/llama3/fixed_answer_v1/ ; python3.10 analyze_fixed_answer_v1.py --root <that dir>"
+echo "next: rsync -a server:${OUT_ROOT}/ <local RoleAnswer>/AdarResult/llama3/fixed_answer_v1/ ; ~/.venvs/rsn-analysis/bin/python analyze_fixed_answer_v1.py --root <that dir>"
