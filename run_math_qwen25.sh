@@ -155,7 +155,7 @@ if [ $rc -eq 0 ]; then
   echo ""
   echo "[Done] MATH ${MODEL_NAME} — $(date)"
   echo "ACC offline (MAIN = FIRST \\boxed{}; last = sensitivity only):"
-  echo "  python3.10 analyze_first_last_acc.py   # MATH branch, in RoleAnswer/"
+  echo "  ~/.venvs/rsn-analysis/bin/python analyze_first_last_acc.py   # MATH branch, in RoleAnswer/"
   if [ "$1" == "--baseline" ]; then
     echo ""
     echo "NEXT: read the \\boxed{} POSITION in ${OUT}/mdf_0 before running --nocot."

@@ -99,7 +99,7 @@ if [ $rc -eq 0 ]; then
   echo ""
   echo "[Done] high-dose sequence — $(date)"
   echo "Read it with the Qwen analyzer pointed at this dir, e.g."
-  echo "  python3.10 analyze_first_last_acc_qwen.py --nocot_dir ${ANS_HIGH}"
+  echo "  ~/.venvs/rsn-analysis/bin/python analyze_first_last_acc_qwen.py --nocot_dir ${ANS_HIGH}"
   echo "(its DOSE list will need the mdf_10 / mdf_12 cells added)"
 else
   echo "[FAILED] high-dose sequence — $(date)"

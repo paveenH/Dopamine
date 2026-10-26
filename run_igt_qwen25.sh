@@ -123,7 +123,7 @@ elif [ "$1" == "--full" ]; then
     # NOTE (user decision, 2026-08-19): run WITHOUT waiting on the alpha=0
     # baseline gate. The gate still applies to the RESULT -- evaluate it on this
     # sweep's own mdf_0 cell before reading any steered cell:
-    #   python3.10 analyze_igt.py --dir qwen2.5/igt/qwen_v6b_full \
+    #   ~/.venvs/rsn-analysis/bin/python analyze_igt.py --dir qwen2.5/igt/qwen_v6b_full \
     #       --tokenizer Qwen/Qwen2.5-7B-Instruct --baseline_gate
     # If alpha=0 fails there, the eight steered cells stand on an invalid
     # baseline and are not interpretable, whatever their behaviour looks like.
@@ -177,7 +177,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "[Done] IGT ${MODEL_NAME} — $(date)"
     echo "Evaluate the baseline gate (from RoleAnswer/), with Qwen's OWN tokenizer:"
-    echo "  python3.10 analyze_igt.py --dir ${MODEL_NAME}/${ANS_FILE} \\"
+    echo "  ~/.venvs/rsn-analysis/bin/python analyze_igt.py --dir ${MODEL_NAME}/${ANS_FILE} \\"
     echo "      --tokenizer ${MODEL_DIR} --baseline_gate"
     echo ""
     echo "  --baseline_gate prints PASS/FAIL for each of the six frozen rules."
