@@ -1,5 +1,5 @@
 #!/bin/bash
-# Granite-3.3-8B-Instruct MMLU-E RSN activation (Bare, No-CoT): role "non {task} expert", alpha 0 then +4, hidden band [11,20), 57 tasks, one model load.
+# Granite-3.3-8B-Instruct MMLU-E RSN activation (Bare, No-CoT): roles "{task} expert" + "non {task} expert", alpha 0 then +4, hidden band [11,20), 57 tasks, one model load.
 # Usage: nohup env CUDA_VISIBLE_DEVICES=0 PY=python bash run_mmlue_granite33_rsn.sh > mmlue_granite33_rsn.log 2>&1 &
 # Mask: components/mask/granite33_non_logits/nmd_0.5_11_20_8B.npy (built from hidden_states_mean/granite33/mmlue; reused only if identical).
 # Output: components/granite33/mmlue/rsn_11_20_v1/mdf_{0,4}/ ; exits if either already holds answers. Score OFFLINE (reasoningTaskAnalysis/granite33_mmlue_rsn_v1).
@@ -42,7 +42,7 @@ import torch, transformers
 try: commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 except Exception: commit = None
 meta = {"experiment": "granite33-mmlue-rsn-11-20-v1", "model": "granite33", "model_dir": model_dir, "size": "8B", "suite": "default",
-        "use_E": True, "cot": False, "use_chat": False, "role": "non {task} expert", "alphas": [0, 4], "hidden_band": [11, 20],
+        "use_E": True, "cot": False, "use_chat": False, "roles": "{task} expert,non {task} expert", "alphas": [0, 4], "hidden_band": [11, 20],
         "decoder_rows": nz, "top_k": top_k, "tail_len": 1, "mask_path": mask_path, "mask_sha256": sha(mask_path),
         "mask_inputs_sha256": {"diff_mean_8B.npy": sha(f_exp), "none_diff_mean_8B.npy": sha(f_non)}, "direction": "Expert - Non-expert (signed)",
         "host": platform.node(), "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
@@ -57,7 +57,7 @@ PYEOF
   --hs granite33 --size 8B --type non \
   --percentage 0.5 --mask_type nmd \
   --configs 0-11-20 4-11-20 \
-  --roles "non {task} expert" \
+  --roles "{task} expert,non {task} expert" \
   --suite default --E --tail_len 1 \
   --base_dir "${BASE_DIR}" --ans_file "${ANS_FILE}"
 rc=$?
