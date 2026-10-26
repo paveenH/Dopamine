@@ -156,7 +156,7 @@ def main():
     ap.add_argument("--tasks", nargs="+", default=ALL_TASKS, choices=ALL_TASKS)
     ap.add_argument("--data_root", required=True)
     ap.add_argument("--task_file", nargs="*", default=[], help="override: NAME=PATH")
-    ap.add_argument("--out_root", required=True, help="formal: components/llama3 ; smoke: a /tmp dir")
+    ap.add_argument("--out_root", required=True, help="formal: components/llama3")
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--n", type=int, default=N_PER_TASK)
     ap.add_argument("--tail_len", type=int, default=1)
