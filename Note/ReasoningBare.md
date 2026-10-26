@@ -1825,7 +1825,36 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 
 完整统计见 [Qwen3 eight-point review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_sweep_v1/review_20261024_8pt/REPORT.md) 和 [Qwen3 2048-token review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_budget2048_v1/review_20261026_3cell/REPORT.md)。
 
-### 9.2 Qwen3-8B Output Patterns
+### 9.2 Qwen3-8B Fixed-Workpoint Transfer
+
+固定工作点 `+10` 从 GSM8K 沿用到 GSM-Hard 和 MATH。两项主比较组成 Holm `m=2` 家族；GSM-Hard 使用 768-token，MATH 使用 2048-token。每格 300 题，分别沿用冻结的 first-marker + fallback 与 first-box + fallback 评分。
+
+**Table 9.5. Qwen3-8B Fixed-Workpoint Transfer Results**
+
+| Task | α | `first_acc` | Δ vs 0 | `last_acc` | Valid Marker | `cond_acc` | Early Candidate | Loop | Truncated |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| GSM-Hard, 768 tokens | 0 | 20.33% (61/300) | — | 19.00% | 21.67% | 75.38% | 55.33% | 9.00% | 97.33% |
+| GSM-Hard, 768 tokens | **+10** | **31.67% (95/300)** | **+11.33 pp** | 29.00% | 40.00% | 68.33% | 10.67% | 14.67% | 97.67% |
+| MATH, 2048 tokens | 0 | 27.33% (82/300) | — | 31.67% | 97.67% | 27.65% | 93.00% | 18.67% | 98.67% |
+| MATH, 2048 tokens | +8 | **54.00% (162/300)** | **+26.67 pp** | 56.33% | 83.33% | 64.80% | 40.00% | 46.00% | 96.67% |
+| MATH, 2048 tokens | **+10** | **35.33% (106/300)** | **+8.00 pp** | 42.00% | 86.67% | 40.38% | 54.33% | 28.00% | 100.00% |
+
+**Table 9.6. Holm-Corrected Fixed-Workpoint Comparisons**
+
+| Task | Comparison | Accuracy Change | 95% Paired CI | Wrong→Correct / Correct→Wrong | Holm `p` (m=2) |
+|---|---|---:|---:|---:|---:|
+| GSM-Hard | +10 vs 0 | +11.33 pp | [+5.33, +17.33] pp | 60 / 26 | .000634 |
+| MATH | +10 vs 0 | +8.00 pp | [+2.67, +13.33] pp | 44 / 20 | .003690 |
+
+两项预定迁移比较均通过 Holm 校正。GSM-Hard 的 60 道纠错中有 52 道从 fallback 转为 marker；两格都有有效 marker 的 32 题上，准确率为 25/32→26/32（McNemar `p=1.00`），未检出明确变化。`cond_acc` 两格使用不同题目子集，不能作配对比较。
+
+MATH 的 marker 覆盖率从 97.67% 降至 86.67%，因此准确率上升不是由提交覆盖增加所解释。在两格都有有效 marker 的 255 题上，准确率为 29.02%→40.39%（纠错 41、损伤 12；raw `p=.0000817`）。这是匹配子集中的描述性证据，不单独证明推理能力提升。`+8` 比 `+10` 高 18.67 pp（探索性邻点比较，raw `p=1.09×10⁻⁸`），所以 GSM8K 的 `+10` 收益迁移到了 MATH，但最佳剂量没有随之迁移；`+10` 仍是预先固定的迁移工作点。
+
+MATH 上准确率上升同时伴随 early-candidate 从 93.00% 降至 54.33%、`cond_acc` 从 27.65% 升至 40.38%；这是输出组织与准确率的共变，不能解释为因果中介。生成健康仍受限：GSM-Hard 两格截断约 97%，MATH 截断为 96.67%–100%，结论限定于各自固定 token 预算。GSM-Hard 的 768-token 比较与 MATH 的 2048-token 比较不可用于直接比较任务间效应大小。
+
+完整报告见 [GSM-Hard transfer](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_transfer_v1/review_20261026_gsm_hard/REPORT.md) 和 [GSM-Hard + MATH transfer](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_transfer_v1/review_20261026_all5/REPORT.md)。
+
+### 9.3 Qwen3-8B Output Patterns
 
 Qwen3 的常见输出是先给候选数字，再展开计算并反复核查。即使没有 CoT 指令，模型也常写较长的分步说明。基线有 260/300 条回复出现 `Wait`；这只是词面统计，不能直接当作无效推理率。
 
@@ -1833,7 +1862,7 @@ Qwen3 的常见输出是先给候选数字，再展开计算并反复核查。�
 
 羊群题展示了答案来源混淆：基线先输出 `140`，随后算出正确结果 `260`，却把自己先前生成的 `140` 称为题目给出的答案，并反复复核直至截断。`+6` 则从推导开始并提交 `#### 260`，但之后仍可能重复答案。它们是可见文本模式，不能据此确定内部机制。
 
-**Table 9.5. Qwen3-8B Output Diagnostics at α=0 and +6**
+**Table 9.7. Qwen3-8B Output Diagnostics at α=0 and +6**
 
 | Feature | α=0 | α=+6 |
 |---|---:|---:|
@@ -1848,11 +1877,11 @@ Qwen3 的常见输出是先给候选数字，再展开计算并反复核查。�
 
 因此，`+6` 降低了部分开头候选和反复质疑读数，并伴随准确率正向趋势；尾部循环反而增加，截断没有变化。不能把 early-candidate 的下降概括为整段输出都改善，也不能说停止困难已解决。截断样本中有些已出现可解析 marker，有些尚未提交；高截断率不能简单等同于“没有解出”。
 
-### 9.3 OpenChat-3.5 Dose Sweep
+### 9.4 OpenChat-3.5 Dose Sweep
 
 五格均为 300 题。没有剂量通过 Holm 校正检出准确率提升；early-candidate 多在 83%–98%，同时循环和截断普遍偏高。
 
-**Table 9.6. OpenChat-3.5 Bare GSM8K Results**
+**Table 9.8. OpenChat-3.5 Bare GSM8K Results**
 
 | α | `first_acc` | `last_acc` | Δ vs 0 | Early Candidate | Valid Marker | Loop | Truncated | Holm p vs 0 (m=4) |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
