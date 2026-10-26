@@ -4,14 +4,13 @@
 # Per model: ONE alpha=0 baseline (RSN mask x 0, both roles) + seeds 1-3 x alpha -4/+4 = 7 configs.
 # RSN conditions are NOT run. Old baseline/RSN results are not used.
 #   verify   read-only mask checks (off-support, norm, dense orthogonality, 3 distinct masks)
-#   smoke    2 tasks x 5 items, all 3 masks, isolated dir
 #   full     57 tasks, seeds 1-3, alpha -4/+4, Expert + Non-expert roles (one model load)
 #   status   count completed cells (expect 7 configs x 57 tasks = 399)
 set -euo pipefail
 MODE="${1:-}"
 MODEL="${2:-}"
-case "$MODE" in verify|smoke|full|status) ;; *)
-  echo "usage: bash run_mmlue_orthogonal_off_v1.sh verify-smoke-full-or-status llama3-or-qwen2.5" >&2; exit 2;;
+case "$MODE" in verify|full|status) ;; *)
+  echo "usage: bash run_mmlue_orthogonal_off_v1.sh verify-full-or-status llama3-or-qwen2.5" >&2; exit 2;;
 esac
 case "$MODEL" in llama3|qwen2.5) ;; *) echo "model must be llama3 or qwen2.5" >&2; exit 2;; esac
 
@@ -44,7 +43,6 @@ case "$MODE" in
     [[ -f "$RSN_MASK" ]] || { echo "missing RSN mask (used x0 for baseline): $RSN_MASK" >&2; exit 1; }
     "$PY" verify_gsm8k_orthogonal_masks.py --model "$MODEL" --base_dir "$BASE_DIR" --family off --seed all
     echo "[ok] Read-only off-support mask checks passed. No mask was generated or changed." ;;
-  smoke) run "${OUT_REL}_smoke" --smoke_tasks 2 --smoke_n 5 ;;
   full)  run "$OUT_REL" ;;
   status)
     n=$(find "$BASE_DIR/$MODEL/$OUT_REL" -name "*_answers_*.json" 2>/dev/null | wc -l)
