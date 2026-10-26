@@ -94,7 +94,7 @@
 
 | Model | Coverage | Result |
 |---|---|---|
-| Qwen3-8B | No-CoT | 八点扫描最高为 +10（73.00%，+23.67 pp，Holm p=4.76×10⁻⁹）；+8/+10 为近似候选区，+10 待 2048-token 检查；所有格截断率 >92% |
+| Qwen3-8B | No-CoT | 2048-token 检查保留收益：+10 为 86.67%（+28.33 pp，Holm p=5.73×10⁻¹⁶），定为固定工作点；{+8,+10} 为已测近似最优区，仍非峰值验证；截断与格式敏感性见 ReasoningBare §9.1 |
 | OpenChat-3.5 | No-CoT | 五个剂量均未检出收益；early-candidate 接近天花板，循环与截断严重 |
 
 **Native Chat — Experimental Coverage**
