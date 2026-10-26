@@ -1765,7 +1765,7 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 
 ## 9. Additional Models: Bare GSM8K
 
-本节记录 Qwen3-8B 与 OpenChat-3.5 的 Bare No-CoT GSM8K 补充扫描。它们用于界定模型范围，不与 Llama／Qwen2.5 主线合并。
+本节记录 Qwen3-8B 与 OpenChat-3.5 的 Bare No-CoT GSM8K 结果。Qwen3 的 2048-token 检查已完成；OpenChat 仍作为模型范围的补充边界结果。
 
 ### 9.1 Qwen3-8B Dose Sweep
 
@@ -1784,11 +1784,33 @@ Llama 的 early-candidate rate 还受到首行形式影响。探索性检查发�
 | +8 | 67.00% | 62.67% | +17.67 pp | 32.67% | 57.00% | 36.67% | 96.33% | 7.74×10⁻⁶ |
 | **+10** | **73.00%** | **69.00%** | **+23.67 pp** | **9.00%** | **62.67%** | **27.67%** | **92.67%** | **4.76×10⁻⁹** |
 
-`+10` 是当前八点扫描中的最高点，较 α=0 提高 23.67 pp；纠错 103 题、损伤 32 题，配对 bootstrap 95% CI 为 [+16.33, +30.67] pp，McNemar raw p=6.80×10⁻¹⁰，七项基线比较 Holm 校正后 p=4.76×10⁻⁹。`+8` 也显著高于基线（纠错 88、损伤 35，+17.67 pp，Holm p=7.74×10⁻⁶）。`+6` 提高 7.67 pp（纠错 64、损伤 41；95% CI [+1.00, +14.33] pp；raw p=.0313，Holm p=.0626），属于正向趋势。`+10` 比 `+8` 再高 6 pp，但差异未检出显著（纠错 55、损伤 37；95% CI [−0.33, +12.33] pp；raw p=.0758，事后 Holm m=3 p=.0758）；因此 `{+8, +10}` 可作为后续 2048-token 检查的近似候选区域，+10 是当前候选工作点，尚未确认最优点或平台。正向剂量间比较属于事后分析。
+`+10` 是当前八点扫描中的最高点，较 α=0 提高 23.67 pp；纠错 103 题、损伤 32 题，配对 bootstrap 95% CI 为 [+16.33, +30.67] pp，McNemar raw p=6.80×10⁻¹⁰，七项基线比较 Holm 校正后 p=4.76×10⁻⁹。`+8` 也显著高于基线（纠错 88、损伤 35，+17.67 pp，Holm p=7.74×10⁻⁶）。`+6` 提高 7.67 pp（纠错 64、损伤 41；95% CI [+1.00, +14.33] pp；raw p=.0313，Holm p=.0626），属于正向趋势。`+10` 比 `+8` 再高 6 pp，但差异未检出显著（纠错 55、损伤 37；95% CI [−0.33, +12.33] pp；raw p=.0758，事后 Holm m=3 p=.0758）；因此 `{+8, +10}` 是当前近似最优候选区域，+10 是待后续沿用的固定工作点，不代表已确认峰值或平台。正向剂量间比较属于事后分析。
 
 `−8`、`−6`、`−4` 均在与 α=0 的比较中通过 Holm 校正，准确率显著下降。Early-candidate 随正向剂量下降并与准确率上升共同出现，不能据此推断因果中介。生成仍受严重截断影响：所有格截断率均超过 92%；+10 的 278 条截断回复中，170 条已有有效 marker、108 条没有，不能把全部截断视为答题失败。冻结 fallback 偶尔会把孤立逗号解析为空值；跳过这类匹配的事后诊断下，α=0/+6/+8/+10 分别为 50.67%/58.33%/68.33%/75.33%，0→+6 差值仍为 +7.67 pp（raw p=.0297，补充 Holm m=4 p=.0594）；该诊断不替代主评分。
 
-来源限制：旧五格在 Turing 的 GPU 1，新加的 −8、+8、+10 在 GPU 0；两边均为 RTX 3090，库版本一致，但代码版本不同。跨卡结果保留为扩展扫描的探索性比较；+8 与 +10 来自同一新环境。完整统计见 [Qwen3 eight-point review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_sweep_v1/review_20261024_8pt/REPORT.md)。
+**2048-token follow-up.** 三格均为 300 题，使用同一冻结评分。
+
+**Table 9.2. Qwen3-8B Bare GSM8K at 2048 Tokens**
+
+| α | `first_acc` | Δ vs 0 | Valid Marker | Early Candidate | Loop | Truncated |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 58.33% | — | 51.00% | 64.00% | 33.33% | 93.00% |
+| +8 | 77.67% | +19.33 pp | 71.00% | 32.67% | 54.67% | 95.00% |
+| **+10** | **86.67%** | **+28.33 pp** | 80.33% | **8.67%** | 48.33% | 88.33% |
+
++8 对 0 纠错 87、损伤 29，95% CI [+12.67, +26.33] pp，Holm m=2 p=6.47×10⁻⁸；+10 对 0 纠错 101、损伤 16，CI [+22.00, +34.67] pp，Holm p=5.73×10⁻¹⁶。+10 对 +8 再高 9.00 pp，CI [+3.67, +14.33] pp，探索性 raw p=.00131。较长预算下收益保留，且 +10 是当前更合适的固定工作点；这不是独立题集验证，也不能确认峰值或平台。
+
+**Table 9.3. Qwen3-8B Accuracy by Generation Budget**
+
+| α | 768-token `first_acc` | 2048-token `first_acc` | Steering gain vs 0 (768 → 2048) |
+|---:|---:|---:|---:|
+| 0 | 49.33% | 58.33% | — |
+| +8 | 67.00% | 77.67% | +17.67 → +19.33 pp |
+| +10 | 73.00% | 86.67% | +23.67 → +28.33 pp |
+
+2048-token 下，+10 仍有 265/300 条截断，其中 210 条已有有效 marker、55 条没有；截断不能直接视为答题失败。其 101 个纠错中，86 个同时由 baseline fallback 转为工作点 marker 评分，因此格式变化参与了冻结评分收益，不能把全部增益解释为推理能力提升。生成健康仍有限：α=0/+8/+10 的截断率为 93.00%/95.00%/88.33%。2048 三格使用 Turing GPU 6 A6000；768-token 结果使用 RTX 3090，跨预算绝对变化还包含硬件差异。
+
+来源限制：768-token 八点扫描的旧五格在 Turing GPU 1，新加的 −8、+8、+10 在 GPU 0；两边均为 RTX 3090，库版本一致，但代码版本不同。跨卡结果保留为扩展扫描的探索性比较；+8 与 +10 来自同一新环境。完整统计见 [Qwen3 eight-point review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_sweep_v1/review_20261024_8pt/REPORT.md) 和 [Qwen3 2048-token review](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/qwen3_bare_budget2048_v1/review_20261026_3cell/REPORT.md)。
 
 ### 9.2 Qwen3-8B Output Patterns
 
@@ -1798,7 +1820,7 @@ Qwen3 的常见输出是先给候选数字，再展开计算并反复核查。�
 
 羊群题展示了答案来源混淆：基线先输出 `140`，随后算出正确结果 `260`，却把自己先前生成的 `140` 称为题目给出的答案，并反复复核直至截断。`+6` 则从推导开始并提交 `#### 260`，但之后仍可能重复答案。它们是可见文本模式，不能据此确定内部机制。
 
-**Table 9.2. Qwen3-8B Output Diagnostics at α=0 and +6**
+**Table 9.4. Qwen3-8B Output Diagnostics at α=0 and +6**
 
 | Feature | α=0 | α=+6 |
 |---|---:|---:|
@@ -1817,7 +1839,7 @@ Qwen3 的常见输出是先给候选数字，再展开计算并反复核查。�
 
 五格均为 300 题。没有剂量通过 Holm 校正检出准确率提升；early-candidate 多在 83%–98%，同时循环和截断普遍偏高。
 
-**Table 9.3. OpenChat-3.5 Bare GSM8K Results**
+**Table 9.5. OpenChat-3.5 Bare GSM8K Results**
 
 | α | `first_acc` | `last_acc` | Δ vs 0 | Early Candidate | Valid Marker | Loop | Truncated | Holm p vs 0 (m=4) |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
