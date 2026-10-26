@@ -49,7 +49,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 20. Inducing answer-first ordering -> pushy chat GSM8K ✔ -> pushy 未诱发更多 early-candidate
 21. Mistral实验补充 ✔ -> Mistral在Bare常无法回答GSM8K 在Chat上有趋势但是没有commitment change
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
-23. 把Qwen3 测完整 ⏸
+23. 把Qwen3 测完整 ✔ -> GSM8K 768/2048、GSM-Hard 与 MATH 完成；固定 `+10` 在两项迁移比较中均通过 Holm m=2，MATH 的 `+8` 高于 `+10`。
 24. New model: OLMo-3-7B-Instruct ✖
 25. New Model: granite-3.3-8b-instruct
 
@@ -82,8 +82,8 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 |---|---|---|---|
 | 1 | GSM8K Bare，+8 和 +10，768 token | 2 | 补全正向臂，确定是峰值还是平台；确定工作点 |
 | 2 | GSM8K Bare，α=0 和工作点，2048 token | 2 | 检查预算：截断率下降后，收益是否还在 |
-| 3 | GSM-Hard Bare，α=0 和工作点 | 2 | 固定工作点迁移。Llama 和 Qwen2.5 在这个任务上都迁移成功，是最直接的对照 |
-| 4 | MATH Bare，α=0 和工作点，2048 token，bs=8 | 2 | 第二个迁移任务。Qwen2.5 的 MATH 峰值比 GSM8K 低一档，看 Qwen3 是否也这样 |
+| 3 | GSM-Hard Bare，Qwen3 α=0 和 +10 | 2 | ✔ Qwen3 +10 提高 11.33 pp，Holm m=2 p=.000634；52/60 纠错由 fallback 转为 marker，生成截断约 97% |
+| 4 | MATH Bare，Qwen3 α=0、+8、+10，2048 token，bs=8 | 3 | ✔ +10 提高 8.00 pp（Holm m=2 p=.003690）；+8 比 +10 高 18.67 pp，探索性邻点比较 |
 
 ---
 
