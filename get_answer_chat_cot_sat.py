@@ -21,7 +21,6 @@ Injection = prefill-only, tail_len=1, i.e. the LAST token of the assistant heade
 tokenizer for ALL prompts (never the Bare token 220).
 
 Modes:  --mode check  (everything except generation; writes nothing)
-        --mode smoke  (first --smoke_n items, both alphas, to a SEPARATE _smoke dir)
         --mode run    (full 300 x 2 alphas, one model load)
 Existing cells are skipped ONLY if verify_existing_cell() passes (same protocol/alpha/mask/prompts/fires/rows);
 otherwise the run dies.  Hardware is recorded, never enforced.
@@ -45,9 +44,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, choices=sorted(L.MODELS))
     ap.add_argument("--task", required=True, choices=sorted(L.TASKS))
-    ap.add_argument("--mode", required=True, choices=["check", "smoke", "run"])
+    ap.add_argument("--mode", required=True, choices=["check", "run"])
     ap.add_argument("--base_dir", required=True, help="components/ directory (benchmark/, mask/, <model>/ live here)")
-    ap.add_argument("--smoke_n", type=int, default=8)
     ap.add_argument("--model_dir", default=None, help="override HF repo id (default from MODELS)")
     args = ap.parse_args()
 
@@ -57,10 +55,9 @@ def main():
 
     cfg, tcfg = L.MODELS[args.model], L.TASKS[args.task]
     model_dir = args.model_dir or cfg["model_dir"]
-    smoke = args.mode == "smoke"
     q_path = os.path.join(args.base_dir, tcfg["questions_rel"])
     mask_path = os.path.join(args.base_dir, cfg["mask_rel"])
-    out_dir = os.path.join(args.base_dir, cfg["out_name"], tcfg["out_subdir"] + ("_smoke" if smoke else ""))
+    out_dir = os.path.join(args.base_dir, cfg["out_name"], tcfg["out_subdir"])
     ls, le = cfg["band"]
 
     # ---- questions (GSM-Hard: label-free loader reused verbatim)
@@ -74,8 +71,6 @@ def main():
         order_sha = hashlib.sha256("\n".join(s["question"] for s in samples).encode()).hexdigest()
     if len(samples) != L.N_ITEMS:
         die(f"{len(samples)} questions in {q_path}, expected {L.N_ITEMS}")
-    if smoke:
-        samples = samples[:args.smoke_n]
     n = len(samples)
     q_file_sha = hashlib.sha256(open(q_path, "rb").read()).hexdigest()
 
@@ -202,7 +197,7 @@ def main():
                              "generated_token_count": g["generated_token_count"], "stop_reason": g["stop_reason"]})
         meta = {
             "protocol": L.PROTOCOL, "model": args.model, "size": cfg["size"], "task": args.task, "alpha": a,
-            "layers": list(cfg["band"]), "L": cfg["L"], "model_dir": model_dir, "smoke": smoke, "n": n,
+            "layers": list(cfg["band"]), "L": cfg["L"], "model_dir": model_dir, "n": n,
             "mask_path": mask_path, "mask_sha256": mask_sha, "mask_nonzero_rows": nz,
             "max_new_tokens": L.MAX_NEW_TOKENS, "temperature": L.TEMPERATURE, "top_p": L.TOP_P,
             "batch_size": L.BATCH_SIZE, "suite": "default", "cot": True, "fmt_wording": "plain", "role": "neutral",
