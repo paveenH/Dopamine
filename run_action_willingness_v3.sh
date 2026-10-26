@@ -3,9 +3,7 @@
 # Llama-3.1-8B-Instruct, neutral, no CoT, bare string, NMD mask 11-20, prefill last-token injection.
 #
 # usage:  bash run_action_willingness_v3.sh MODE [task ...]
-#   MODE = smoke   3 items per task from the FIXED 300-item list, all 9 doses, in this process,
-#                  output /tmp/willingness_v3_smoke (throwaway, separate from the formal tree)
-#          full    given tasks (default all 8) in THIS process = one worker
+#   MODE = full    given tasks (default all 8) in THIS process = one worker
 #          full3   3 background workers (GPUS="0 1 2"): GPU a = mmlupro medqa gsm8k,
 #                  GPU b = mmlu logiqa truthfulqa, GPU c = gpqa arlsat; plus a watcher that
 #                  writes the final summary.  A task's nine doses always stay on ONE worker/GPU.
@@ -15,7 +13,7 @@
 # analyze_willingness_v3.py).
 set -euo pipefail
 
-MODE="${1:?usage: run_action_willingness_v3.sh smoke-or-full-or-full3-or-status [task ...]}"
+MODE="${1:?usage: run_action_willingness_v3.sh full-or-full3-or-status [task ...]}"
 shift || true
 ALL_TASKS="mmlu mmlupro gpqa arlsat logiqa medqa truthfulqa gsm8k"
 TASKS="${*:-${ALL_TASKS}}"
@@ -90,9 +88,8 @@ case "${MODE}" in
     nohup bash "${SELF}" watch > "${LOG_DIR}/watch.log" 2>&1 &
     echo "watcher pid $! ; check:  bash ${SELF} status"
     exit 0 ;;
-  smoke) OUT_ROOT="/tmp/willingness_v3_smoke"; EXTRA="--limit 3" ;;
-  full)  OUT_ROOT="${FORMAL_ROOT}"; EXTRA="" ;;
-  *) echo "MODE must be smoke, full, full3 or status, got '${MODE}'"; exit 2 ;;
+  full)  OUT_ROOT="${FORMAL_ROOT}" ;;
+  *) echo "MODE must be full, full3 or status, got '${MODE}'"; exit 2 ;;
 esac
 
 cd "${WORK_DIR}"
@@ -111,5 +108,5 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset} host=$(hostname)"
   --mask_dir "${MASK_DIR}" --mask_type nmd --percentage 0.5 \
   --configs ${CONFIGS} --tasks ${TASKS} \
   --data_root "${BASE_DIR}" --task_file "${TASK_FILES[@]}" \
-  --out_root "${OUT_ROOT}" ${EXTRA}
+  --out_root "${OUT_ROOT}"
 echo "== done $(date) =="
