@@ -97,8 +97,8 @@ Markdown/HTML comments are still visible context to an agent — they are not st
 | adding a benchmark | the standalone-pipeline pattern at the end of the Behavioral-economics suite |
 | working on fixed-workpoint transfer (P3/P4/P4b/P4c) | the **FIXED-WORKPOINT TRANSFER SCOREBOARD** in **Active status** FIRST — it carries the five-row reading that no single section states — then that task's own section |
 | touching layer indexing / masks / hooks | **Editing guidance** + Phase 1's steering hook-alignment bullet |
-| analysing stored results offline | **Offline analysis workspace** (`RoleAnswer/`, `python3.10`, not in git) |
-| working on the confidence-neuron line (MMLU-E / masks / means) | **`~/Documents/RSNResult/RoleHidden/`** — a SECOND off-repo workspace, also not in git, holding the six `analyze_*confidence*` scripts, `build_confidence_nmd_mask_for_steering.py`, and the mean/mask artifacts. It is **not** `RoleAnswer/`. Its line records `/opt/anaconda3/bin/python`, which on this box is a symlink to `python3.10` — the same interpreter `RoleAnswer/` uses, under a different name |
+| analysing stored results offline | **Offline analysis workspace** (`RoleAnswer/`, local interpreter below, not in git) |
+| working on the confidence-neuron line (MMLU-E / masks / means) | **`~/Documents/RSNResult/RoleHidden/`** — a SECOND off-repo workspace, also not in git, holding the six `analyze_*confidence*` scripts, `build_confidence_nmd_mask_for_steering.py`, and the mean/mask artifacts. It is **not** `RoleAnswer/`. Use the local interpreter recorded below; older `/opt/anaconda3/bin/python` references describe the previous environment. |
 | verifying a change without a GPU | **Local checks** |
 | writing up a result | the frozen-wording rules in **Active status** and the relevant experiment section |
 
@@ -807,6 +807,8 @@ Evidence: md5 of all 8 math_2048 JSON identical to math_eot; math_1024 mdf_0 acc
 - **Phase-2 controllers need their own bs=1 baseline**: compare `closed_loop_gsm8k.py --plan {static,A,...}` against `closed_loop_gsm8k.py --plan none` with identical generation args. Do not treat the batched regenerate baseline as controller-comparable.
 
 ## Offline analysis workspace path
+
+**Local Python (2026-10-26).** Use `/Users/paveenhuang/.venvs/rsn-analysis/bin/python` (Python 3.12, with numpy and matplotlib) for current local offline analysis, or activate it with `source ~/.venvs/rsn-analysis/bin/activate`. The system `python3` is `/usr/bin/python3` (3.9.6); `python3.10` and the historical `/opt/anaconda3/bin/python` are unavailable in the current environment. The base `python3.12` is externally managed; install analysis dependencies into the virtual environment. Older interpreter names below are historical commands, not the current local default. This convention does not change server environments. For Granite's manually reviewed layer-similarity curve, use `RoleHidden/pearson_aclarr.py` on `RoleHidden/granite33/mmlue/{diff_mean,none_diff_mean}_8B.npy`; exclude embedding row 0 and do not automatically select a layer band.
 
 The offline analysis workspace was renamed `RoleAnswer_non/` → **`RoleAnswer/`**, now at **`/Users/paveenhuang/Documents/RSNResult/RoleAnswer/`** (relocated 2026-07-16 from `~/Downloads/RSNResult/`). Scripts there (e.g. `analyze_multi_metric.py`) and older doc references that still say `RoleAnswer_non/` or the Downloads path are stale — use the Documents path. The **superseded** `signal_eot/` tree (dated 5/30, old layer-offset mask + noisy prompts) has been replaced by the current **`llama3/dopamine/signal/`** set: output-side prefill steering, correct layer alignment, α-dose + roles + CoT, three file classes (see the workspace section above). Cite `signal/`, not `signal_eot/`.
 
