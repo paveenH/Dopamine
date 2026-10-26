@@ -32,7 +32,7 @@ rsync -avzP \
 
 
 rsync -avzP \
-  "d12922004@140.112.31.185:/data1/paveen/Dopamine/components/olmo3" \
+  "d12922004@140.112.31.185:/data1/paveen/Dopamine/components/granite33" \
   /Users/paveenhuang/Downloads/
 
 
