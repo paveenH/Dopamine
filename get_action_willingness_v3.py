@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-import get_action_willingness_v2 as v2  # constants + verified helpers only; v2 itself is not modified
+import get_action_willingness_v2 as v2  # constants + verified helpers only; v2 itself is not modified (except its smoke-only `limit` arg, removed 2026-10-26)
 
 PROTOCOL = "willingness-v3"
 PROMPT_VERSION = "willingness-v3-prompt-1"
@@ -160,7 +160,6 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--n", type=int, default=N_PER_TASK)
     ap.add_argument("--tail_len", type=int, default=1)
-    ap.add_argument("--limit", type=int, default=0, help="smoke only: first N of the FIXED selected items")
     ap.add_argument("--v2_check", choices=["strict", "off"], default="strict",
                     help="'off' exists for fake-data unit tests only")
     args = ap.parse_args()
@@ -182,7 +181,7 @@ def main():
         rel, key, kind = TASK_DEFAULTS[t]
         path = overrides.get(t, os.path.normpath(os.path.join(args.data_root, rel)))
         try:
-            pool = v2.load_task_samples(t, path, key, kind, 0)
+            pool = v2.load_task_samples(t, path, key, kind)
         except (FileNotFoundError, KeyError) as e:
             sys.exit(f"[FATAL] {e}")
         file_sha = v2.sha256_file(path) if kind == "file" else None
@@ -203,7 +202,7 @@ def main():
                     sys.exit(f"[FATAL] {man_path} exists with different {k}; refusing to overwrite the sampling manifest")
         else:
             write_json_atomic(man_path, man)
-        used = sel[:args.limit] if args.limit else sel
+        used = sel
         task_data[t] = {"path": path, "file_sha": file_sha, "selected": used, "man": man}
         print(f"[data] {t}: pool={len(pool)} pool_digest={man['pool_digest'][:16]} selected={len(sel)} "
               f"selection_digest={man['selection_digest'][:16]} using={len(used)} path={path}")
@@ -260,7 +259,7 @@ def main():
             want = {
                 "protocol": PROTOCOL, "prompt_version": PROMPT_VERSION,
                 "prompt_template_sha256": v2.sha256_text(PROMPT_V3), "prompts_digest": prompts_digest,
-                "seed": args.seed, "n_samples": len(samples), "sample_limit": args.limit or None,
+                "seed": args.seed, "n_samples": len(samples),
                 "selection_digest": td["man"]["selection_digest"], "pool_digest": td["man"]["pool_digest"],
                 "data_file_sha256": td["file_sha"], "mask_sha256": mask_sha, "alpha": alpha,
                 "model": args.model, "model_dir": args.model_dir, "size": args.size,
