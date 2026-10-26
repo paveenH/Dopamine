@@ -3,17 +3,16 @@
 # Llama-3.1-8B-Instruct, neutral, no CoT, bare string, NMD mask 11-20, prefill last token.
 # Doses: alpha = -4, 0, +4 (alpha=0 is RE-RUN under the new prompt).
 #
-# usage:  bash run_action_willingness_v2.sh smoke-or-full-or-full3 [task ...]
+# usage:  bash run_action_willingness_v2.sh full-or-full3 [task ...]
 #   full3  splits the 8 tasks over 3 GPUs (GPUS="0 1 2", override via env), 3 background jobs,
 #          logs wv2_full_g0/1/2.log.  A task (all its alphas) always stays in ONE process/GPU.
-#   smoke  first 20 samples per task -> willingness_v2_smoke (separate dir, throwaway)
 #   full   all samples               -> willingness_v2
 # Every alpha of a task runs in ONE process on ONE machine/GPU set (paired design).
 # Do not set --skip_missing silently: SKIP_MISSING=1 records + skips absent tasks.
 # Analysis is OFFLINE: rsync ${OUT_ROOT} to RoleAnswer/ and run analyze_willingness_v2.py there.
 set -euo pipefail
 
-MODE="${1:?usage: run_action_willingness_v2.sh smoke-or-full-or-full3 [task ...]}"
+MODE="${1:?usage: run_action_willingness_v2.sh full-or-full3 [task ...]}"
 shift || true
 TASKS="${*:-mmlu mmlupro gpqa arlsat logiqa medqa truthfulqa gsm8k}"
 
@@ -53,9 +52,8 @@ TASK_FILES=(
 )
 
 case "${MODE}" in
-  smoke) OUT_ROOT="${BASE_DIR}/llama3/willingness_v2_smoke"; EXTRA="--limit 20" ;;
   full)  OUT_ROOT="${BASE_DIR}/llama3/willingness_v2";       EXTRA="" ;;
-  *) echo "MODE must be smoke, full or full3, got '${MODE}'"; exit 2 ;;
+  *) echo "MODE must be full or full3, got '${MODE}'"; exit 2 ;;
 esac
 [ "${SKIP_MISSING:-0}" = "1" ] && EXTRA="${EXTRA} --skip_missing"
 
