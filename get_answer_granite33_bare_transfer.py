@@ -3,11 +3,11 @@
 """
 get_answer_granite33_bare_transfer.py -- Granite33-8B Bare No-CoT fixed-workpoint transfer (granite33-bare-transfer-v1).
 
---task gsm_hard : alpha 0,-6      768 tok  bs 24  top_p 1.0  GSM8K plain neutral template  (####)
---task math     : alpha 0,-6      2048 tok bs 8   top_p 0.9  build_math_suite(cot=False)    (\\boxed{})
+--task gsm_hard : alpha 0,-6,-4,+6  768 tok  bs 24  top_p 1.0  GSM8K plain neutral template  (####)
+--task math     : alpha 0,-6,-4,+6  2048 tok bs 8   top_p 0.9  build_math_suite(cot=False)    (\\boxed{})
 ibm-granite/granite-3.3-8b-instruct, BARE string (no chat template), prefill-only tail 1, greedy. Mask = the existing Granite33 NMD mask
 (hidden [11,20) -> decoder rows 10..18, L=9), rebuilt from Granite33's own means and required identical to the stored file.
-Fixed candidate dose -6 comes from the GSM8K sweep; nothing is re-searched. One model load per task, all alphas of the task in one process.
+Fixed candidate doses -6,-4,+6 (-6 from the GSM8K sweep; -4/+6 added as extra doses); nothing is re-searched. One model load per task, all alphas of the task in one process.
 Generation reads questions only (no gold scoring here); score OFFLINE. Existing cells are reused only when settings/data/mask/prompt match
 (environment differences, incl. CUDA_VISIBLE_DEVICES, only warn), otherwise abort (never overwritten).
 """
@@ -30,9 +30,9 @@ BAND, N_LAYERS, N_DECODER = (11, 20), 9, 40
 MASK_REL = "mask/granite33_non_logits/nmd_0.5_11_20_8B.npy"
 MEAN_REL = "hidden_states_mean/granite33/mmlue"
 TASKS = {
-    "gsm_hard": dict(alphas=[0, -6], max_new=768, bs=24, top_p=1.0, q_rel="benchmark/gsm_hard_p3_questions.json",
+    "gsm_hard": dict(alphas=[0, -6, -4, 6], max_new=768, bs=24, top_p=1.0, q_rel="benchmark/gsm_hard_p3_questions.json",
                      out="granite33/gsm_hard_bare_transfer_v1", fname="gsm_hard_granite33_bare_8B_11_20.json"),
-    "math": dict(alphas=[0, -6], max_new=2048, bs=8, top_p=0.9, q_rel="benchmark/math_test_sample.json",
+    "math": dict(alphas=[0, -6, -4, 6], max_new=2048, bs=8, top_p=0.9, q_rel="benchmark/math_test_sample.json",
                  out="granite33/math_bare_transfer_v1", fname="math_granite33_bare_8B_11_20.json"),
 }
 
@@ -94,9 +94,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base_dir", required=True, help="components/ directory")
     ap.add_argument("--task", required=True, choices=sorted(TASKS))
+    ap.add_argument("--alphas", type=int, nargs="+", default=None, help="subset of the task alphas for this process (split across GPUs)")
     args = ap.parse_args()
     task, C = args.task, TASKS[args.task]
-    ALPHAS = C["alphas"]
+    ALPHAS = list(C["alphas"])
+    if args.alphas is not None:
+        if any(a not in ALPHAS for a in args.alphas) or len(set(args.alphas)) != len(args.alphas):
+            die(f"--alphas must be distinct members of {ALPHAS}")
+        ALPHAS = [a for a in ALPHAS if a in args.alphas]
 
     import numpy as np
     import torch
