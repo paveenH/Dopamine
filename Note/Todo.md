@@ -31,7 +31,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
 23. 把Qwen3 测完整 ✔ -> GSM8K 768/2048、GSM-Hard 与 MATH 完成；固定 `+10` 在两项迁移比较中均通过 Holm m=2，MATH 的 `+8` 高于 `+10`。
 24. New model: OLMo-3-7B-Instruct ✖
-25. New Model: granite-3.3-8b-instruct ⏸
+25. New Model: granite-3.3-8b-instruct ⏳ -> MMLU-E 筛选通过；Bare GSM8K sweep 已完成，`−6` 为未通过校正的正向趋势、`+6` 显著下降；固定工作点迁移待测。
 
 ---
 
@@ -54,22 +54,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 17. InternLM2.5-7B-chat
 
 ---
-
-#### Granite pipeline
-
-| Step | What | Tooling | Status |
-|---|---|---|---|
-| 0 | MMLU-E 角色数据 + H5（`--save`） | `run_mmlue_granite33_roles.sh` | ✔|
-| 1 | Expert / Non-expert 均值，只取 divergent pairs | `mean/mean_diff.py --input_format h5`（已有，fail-closed） | ✔ |
-| 2 | 逐层 Pearson 曲线，取开始下降的层段作 band | `RoleHidden/analyze_granite33_layer_similarity.py`| ✔ |
-| 3 | NMD mask，0.5% | `detection/nmd.py --logits` | ✔ |
-| 4 | 激活检验：MMLU-E α ∈ {−4, 0, +4}，看 E-rate 是否双向移动 | 仿 `run_mmlue_qwen25.sh` 写 Granite 版 | ✔ |
-| 5 | Bare GSM8K α=0（768 / bs=24），看格式健康 | 仿 `run_gsm8k_qwen3_bare_sweep.sh` | ⏸ |
-| 6 | GSM8K 剂量扫描 | 同上 | ⏸ |
-| 7 | 固定工作点迁移：GSM-Hard {0, wp}，MATH {0, wp±1档, wp} | 仿 `run_qwen3_bare_transfer.sh` | 最后 |
-
----
-
 
 3．随后优先解决 RSN 与 CSN 的区别。
 
