@@ -47,18 +47,10 @@ rsync -avzh --partial --info=progress2 \
 ```bash
 
 cd /data1/paveen/Dopamine && git pull
-nohup env CUDA_VISIBLE_DEVICES=6 PY=python \
-  bash run_mmlue_granite33_rsn.sh > mmlue_granite33_rsn.log 2>&1 &
-sleep 10; cat mmlue_granite33_rsn.log
+nohup env GPUS="3 5" PY=python \
+  bash run_gsm8k_granite33_bare_sweep.sh \
+  > gsm8k_granite33_bare_sweep.log 2>&1 &
+sleep 10; cat gsm8k_granite33_bare_sweep.gpu0.log gsm8k_granite33_bare_sweep.gpu1.log
 
-cd /data1/paveen/Dopamine && git pull
-nohup env CUDA_VISIBLE_DEVICES=2 PY=python \
-  bash run_mmlue_granite33_rsn_19_30.sh > mmlue_granite33_rsn_19_30.log 2>&1 &
-sleep 60; cat mmlue_granite33_rsn_19_30.log
-
-cd /data1/paveen/Dopamine && git pull
-nohup env CUDA_VISIBLE_DEVICES=0 PY=python \
-  bash run_mmlue_granite33_rsn_34_40.sh > mmlue_granite33_rsn_34_40.log 2>&1 &
-sleep 10; cat mmlue_granite33_rsn_34_40.log
 
 ```
