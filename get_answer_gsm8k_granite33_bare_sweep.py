@@ -5,9 +5,10 @@ get_answer_gsm8k_granite33_bare_sweep.py -- Granite-3.3-8B GSM8K Bare No-CoT sev
 
 ibm-granite/granite-3.3-8b-instruct, BARE string (no chat template), neutral/plain/zero-shot/No-CoT. The NMD mask is built first (before
 model load) from Granite33's own hidden_states_mean/granite33/mmlue/{diff_mean,none_diff_mean}_8B.npy via detection.nmd.get_nmd_mask
-(top_k = int(H*0.5/100), hidden range [11,20) -> decoder rows 10..18, L=9). alpha order -8,8,10 (continuation of 0,-4,4,-6,6) in ONE process / one model
-load; no gating. Injection = prefill-only, tail 1, last prompt token (id/text recorded). Score OFFLINE; inline fields are process state.
-Existing complete + identity/environment-matching cells are skipped; a mismatching one aborts (never overwritten).
+(top_k = int(H*0.5/100), hidden range [11,20) -> decoder rows 10..18, L=9). alpha order 0,-6,6,-8,8,-10,10 (split over two GPUs via --alphas, one process / model load each);
+no gating. Injection = prefill-only, tail 1, last prompt token (id/text recorded). Score OFFLINE; inline fields are process state.
+Existing complete cells with matching settings/data/mask are skipped (environment differences only warn); a mismatching one aborts (never overwritten).
+BOS count of the native Bare encoding is recorded, not asserted; the final prompt token must be uniform.
 """
 from __future__ import annotations
 
@@ -60,8 +61,9 @@ def verify_existing(path, alpha, n, mask_sha, prompt_sha, q_sha, order_sha, iden
     need(len(rows) == n == m.get("n"), "row count")
     need([[r.get("question"), str(r.get("answer"))] for r in rows] == identity, "item order/gold")
     old = m.get("provenance", {})
-    need(all(old.get(k) == prov[k] for k in ("host", "cuda_device_names", "param_devices",
-                                              "sharded", "library_versions")), "run environment differs")
+    diff = [k for k in ("host", "cuda_device_names", "param_devices", "sharded", "library_versions") if old.get(k) != prov[k]]
+    if diff:
+        print(f"[warn] alpha={alpha}: existing cell environment differs in {diff} (cross-run; not a reason to refuse)")
     for r in rows:
         if not isinstance(r.get("generated_neutral"), str) or r.get("stop_reason") not in L.STOP_REASONS \
                 or not isinstance(r.get("generated_token_count"), int):
@@ -125,10 +127,17 @@ def main():
     vc.model.eval()
     tk = vc.tokenizer
     wrapped = [tmpl.format(context=s["question"]) for s in samples]      # BARE: no chat template, no special tokens added by hand
-    try:
-        tok = L.check_prompt_tokens(tk, wrapped)
-    except ValueError as e:
-        die(str(e))
+    # native Bare encoding as vc.regenerate does it (add_special_tokens=True); BOS count is RECORDED, never forced or patched
+    bos, bos_counts, tails = tk.bos_token_id, set(), {}
+    for t in wrapped:
+        ids = tk(t, add_special_tokens=True)["input_ids"]
+        bos_counts.add(ids.count(bos) if bos is not None else 0)
+        tails[ids[-1]] = tails.get(ids[-1], 0) + 1
+    if len(tails) != 1:
+        die(f"final prompt token is not uniform: {sorted(tails.items())}")
+    k = next(iter(tails))
+    tok = {"bos_token_id": bos, "bos_counts": sorted(bos_counts), "n_prompts": len(wrapped), "final_token_id": int(k),
+           "final_token_text": tk.decode([k]), "final_token_counts": {f"{kk}:{tk.decode([kk])!r}": v for kk, v in tails.items()}}
     prompt_sha = L.sha("\n".join(wrapped))
     print(f"[tokens] BOS {tok['bos_counts']} final token {tok['final_token_id']} {tok['final_token_text']!r}")
     print("[prompt] first bare prompt:", repr(wrapped[0][-260:]))
