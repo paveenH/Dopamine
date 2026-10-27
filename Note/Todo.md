@@ -14,10 +14,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ### Daily
 
-10.21 周三 看学弟的實驗結果；看科技新聞；重新构思Paper的思路
-10.22 周四 继续收尾看有什么需要补充的实验；办理居留证
-10.24 周六 补充模型
-
 准备多益考试
 看完瑜伽视频
 看完徐玉兰视频
@@ -25,22 +21,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 ---
 ### TO DO
 
-1. 重新看看willingness实验，统一模板，优化负向表达 -> v2，出现相反的结果 ✖
-2. 优化willingness的表述，再做一版本的结果 -> v3 还是很难解释 ✖
-3. 从MMLUE开始完善，弄清E选项降低的原因 -> 看起来结果还是很乱 ✖
-4. 重新整理思路 ✔
-5. 统一posN Qwen和llama的reasoning行为学分析指标 #### 的定义 ✔
-6. infoquestion: RSN 改变的是模型“直接作答的倾向”，还是“根据信息是否足够，决定先问清楚再回答”的策略 ✔
-6. 重新梳理当前的思路和之前想到的理论之间的关系 ✔
-7. 完成 Norm-Matched Orthogonal Injection Controls ✔
-8. GSM8K Base ✔
-9. llama3-base 1-shot gsm8k -> 1-shot会破坏commit的自然规律 ✔
-10. Qwen Base 的 early-candidate 小盲审 ✔
-11. Off-Support Orthogonal Control ✔
-12. Off-Support Orthogonal MMLUE ✔
-13. Qwen2.5 expert vs non-expert ✔
-14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
----
 15. ProofWriter-OWA 补充实验 Chat zero-shot No-CoT ✔ -> Llama 未检出工作点收益；Qwen 严格分数上升主要伴随格式恢复，宽松标签正确率未见提升。
 16. 复核 ProofWriter-OWA Qwen Chat 1-shot CoT `+8` ✔ -> 冻结严格收益 +6.67 pp（Holm p=.03027）；宽松标签 41.00%→48.00%，+7.00 pp（配对 p=.00985，独立 Holm m=3 p=.02956），不由严格 marker 格式恢复解释；主结果不变，见 ReasoningBare §6.5。
 17. ProofWriter-OWA Chat zero-shot CoT ✔ -> Qwen +8 严格 +18.00 pp（Holm p=1.28×10⁻⁹），但宽松标签口径仅 +1.67 pp（p=.487）或 +3.67 pp（p=.0614）；260/300 在解释前给标签。Llama −6 未检出提升。
@@ -79,47 +59,14 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 | Step | What | Tooling | Status |
 |---|---|---|---|
-| 0 | MMLU-E 角色数据 + H5（`--save`） | `run_mmlue_granite33_roles.sh` | **done**；答案已同步到本地，H5 在服务器 |
+| 0 | MMLU-E 角色数据 + H5（`--save`） | `run_mmlue_granite33_roles.sh` | ✔|
 | 1 | Expert / Non-expert 均值，只取 divergent pairs | `mean/mean_diff.py --input_format h5`（已有，fail-closed） | ✔ |
-| 2 | 逐层 Pearson 曲线，取开始下降的层段作 band | `RoleHidden/analyze_granite33_layer_similarity.py`| zan't |
-| 3 | NMD mask，0.5% | `detection/nmd.py --logits` | 等 band |
-| 4 | 激活检验：MMLU-E α ∈ {−4, 0, +4}，看 E-rate 是否双向移动 | 仿 `run_mmlue_qwen25.sh` 写 Granite 版 | 需新 launcher |
-| 5 | Bare GSM8K α=0（768 / bs=24），看格式健康 | 仿 `run_gsm8k_qwen3_bare_sweep.sh` | 需新 launcher |
-| 6 | GSM8K 剂量扫描 | 同上 | 剂量网格等 step 3–4 后定 |
+| 2 | 逐层 Pearson 曲线，取开始下降的层段作 band | `RoleHidden/analyze_granite33_layer_similarity.py`| ✔ |
+| 3 | NMD mask，0.5% | `detection/nmd.py --logits` | ✔ |
+| 4 | 激活检验：MMLU-E α ∈ {−4, 0, +4}，看 E-rate 是否双向移动 | 仿 `run_mmlue_qwen25.sh` 写 Granite 版 | ✔ |
+| 5 | Bare GSM8K α=0（768 / bs=24），看格式健康 | 仿 `run_gsm8k_qwen3_bare_sweep.sh` | ⏸ |
+| 6 | GSM8K 剂量扫描 | 同上 | ⏸ |
 | 7 | 固定工作点迁移：GSM-Hard {0, wp}，MATH {0, wp±1档, wp} | 仿 `run_qwen3_bare_transfer.sh` | 最后 |
-
----
-
-作为**解释**还不够，作为**描述性背景**可以用。主要有四个问题：
-
-**1. 独立的数据点太少。** Qwen2.5 和 Qwen3 同属一个家族，方向又相同，所以真正独立的只有两个点：Llama 是 −α，Qwen 是 +α。只有两个点，几乎任何"风格差异"都能讲通，无法检验。
-
-**2. 没有一个统一的指标能同时对上三个模型。** 我刚才的描述是针对每个模型分别挑了最能说明问题的特征。如果换成单一指标逐个检验：
-
-| 指标 | Llama（−α） | Qwen2.5（+α） | Qwen3（+α） | 能否区分方向 |
-|---|---|---|---|---|
-| EC（先给候选答案） | 48% | 96% | 64% | 勉强可以，但 Mistral Bare 也约 99% 先答，最优方向却是 −α，是反例 |
-| first − last（后面的改动是变好还是变坏） | 正（后改变坏） | 负（后改变好） | **正**（49.33 > 46.67） | **不能**，Qwen3 和 Llama 同号，方向却相反 |
-| 犹豫和自我纠正用词 | 很低 | 未统计 | 很高 | 可能可以，但缺 Qwen2.5 的数据 |
-
-**3. 风格随接口变化，但最优方向不随接口变化。** Qwen2.5 的 EC 在 Bare 下是 96%，在 Chat 下是 50%，最优方向都是 +α。如果是风格决定方向，风格大幅变化时方向至少应该有所反映。这说明方向更可能是 mask 和模型本身的属性，风格只是伴随现象。
-
-**4. 叙事很灵活。** "冲的往回调、犹豫的往前推"听起来通顺，但 Qwen3 的 +α 让 EC 下降，也就是更不冲了。这时只能改口说"+α 让它更有条理"。每遇到一个新情况就换一种说法，这种解释就没有约束力。
-
-## 怎样让它变成有解释力的结论
-
-**Granite 是现成的检验机会。** 做法：
-1. 事先定好**一个**指标，所有模型用同一个定义计算。候选：犹豫和自我纠正用词的密度（每 1000 字符，用冻结的词表）。这一项能先在 Llama、Qwen2.5、Qwen3、Mistral 的 α=0 数据上离线算出来，不需要 GPU。
-2. 先看这一个指标能否把已有模型按方向分开，Mistral 也要算进去。
-3. 在 Granite 跑完 α=0、还没做九点扫描之前，用这个指标写下它的方向预测，然后用扫描结果检验。
-
-预测对了，就是"同一规则在新模型上复现"，可以写成一个较弱但真实的结论；预测错了，就说明风格和方向没有简单的对应关系，这句话就只留在讨论部分。
-
-## 现在论文里怎么写
-
-最多在讨论部分写一句描述："The models also differ in their default response style at α=0 (e.g., early lock-in and repetition in Llama vs. extended self-verification in Qwen3), which may relate to their opposite optimal steering directions; with three models from two families, we do not treat this as an explanation." 不放进 C1–C4。
-
-需要我先离线算一下各模型 α=0 的用词密度吗？可以看看第 2 步能不能成立。
 
 ---
 
@@ -393,3 +340,19 @@ NARPS 确实有 108 名参与者、四个 mixed-gamble runs、trial timing、BID
    2) 优化prompt v2 -> 有差异但是都会回答 ✖
 53. 全量 1319 题 GSM8K Role 方向：GRSN & AGRSN ✔
 54. 相似度 GRSN & AGRSN -> 相似度也不是很高 ✖
+---
+1. 重新看看willingness实验，统一模板，优化负向表达 -> v2，出现相反的结果 ✖
+2. 优化willingness的表述，再做一版本的结果 -> v3 还是很难解释 ✖
+3. 从MMLUE开始完善，弄清E选项降低的原因 -> 看起来结果还是很乱 ✖
+4. 重新整理思路 ✔
+5. 统一posN Qwen和llama的reasoning行为学分析指标 #### 的定义 ✔
+6. infoquestion: RSN 改变的是模型“直接作答的倾向”，还是“根据信息是否足够，决定先问清楚再回答”的策略 ✔
+6. 重新梳理当前的思路和之前想到的理论之间的关系 ✔
+7. 完成 Norm-Matched Orthogonal Injection Controls ✔
+8. GSM8K Base ✔
+9. llama3-base 1-shot gsm8k -> 1-shot会破坏commit的自然规律 ✔
+10. Qwen Base 的 early-candidate 小盲审 ✔
+11. Off-Support Orthogonal Control ✔
+12. Off-Support Orthogonal MMLUE ✔
+13. Qwen2.5 expert vs non-expert ✔
+14. Chat-CoT Saturation Check (GSM8K / GSM-Hard) ✔
