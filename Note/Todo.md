@@ -35,26 +35,6 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ---
 
-1. **OpenChat-3.5**：Mistral 架构，可以补上主线缺的第三个家族；数学最强；② 类  ✖ GSM8K提交不了
-2. **Qwen3-8B**：技术上最稳（① 类，Bare 下明确先作答）✔ 可用
-3. **StableLM-2-12B-chat**：全新家族；② 类；推理能力未知
-4. **Nous-Hermes-2-Mistral-7B-DPO**：① 类
-5. **OpenHermes-2.5-Mistral-7B**：① 类
-6. **Hermes-3-Llama-3.1-8B**：② 类，Llama 家族
-7. **Zephyr-7B-beta**：② 类 
-8. **Qwen3-14B**：规模对照
-9. **Qwen2.5-3B-Instruct**：小规模，role gain 弱
-10. **Qwen3-32B**
-11. OLMo-2-1124-7B-Instruct（AllenAI）✖ MMLUE都选E 偏置太多
-12. Llama-3.1-Tulu-3-8B 和 OLMo-2 是同一套公开配方，但基座是 Llama-3.1。和我们的 Llama-3.1-8B-Instruct 放在一起，是"同基座、不同 post-training"的对照。不增加家族多样性，只在要讨论训练阶段时才有价值。
-13. Gemma-2-9B-it 或 Gemma-3-12B-it Google 家族，推理能力强。风险：ModelAnalysis 里 Gemma-7B（第一代）属于 ④ 类，没有 role effect。新一代未必一样，但有失败的先例。
-14. Ministral-8B-Instruct 或 Mistral-Nemo-12B-Instruct Mistral 的新版本，推理能力比 7B-v0.3 强。但仍是 Mistral 家族，而 Mistral 已经放在附录。
-15. granite-3.3-8b-instruct（2025-04）
-16. GLM-4-9B-chat
-17. InternLM2.5-7B-chat
-
----
-
 3．随后优先解决 RSN 与 CSN 的区别。
 
 这里需要修正你之前的一点理解：最新 [Neurons.md](/Users/paveenhuang/Downloads/Dopamine/Note/Neurons.md:162) 显示，**CSN 也会改变候选输出和提交行为**；小剂量有准确率改善趋势，但尚未通过多重比较校正。
