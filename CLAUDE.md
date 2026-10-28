@@ -146,6 +146,7 @@ Scope: every Qwen2.5-7B CGT-seq number. -->
 | Qwen band-position probe `[11,18)` vs `[16,22)` | **PREPARED, NOT RUN** — launchers exist, zero artifacts; see the mask/pre-flight block |
 | Manifold pilot | **COMPLETE + CLOSED 2026-08-28.** Full chain: **symmetric injection → layer-wise divergence → last-layer piecewise-scalar geometry**, which still does NOT explain Llama's peak vs Qwen's plateau. Each arm is a 1-D scalar family; the two arms coincide at the first steered layer and separate monotonically with depth, so the fixed cross-arm angle is EMERGENT, not an input property. Qwen's positive arm does not saturate while its behaviour plateaus → entry-state saturation EXCLUDED, difference located downstream. Incremental prediction NOT DETECTED; decode did not extend. **Do not extend** — next line is commit-aligned Z_t/s_t + commitment dynamics |
 | P2 commitment prediction + MATH transfer | **COMPLETE + FROZEN** 2026-08-28 — both gates pass; MATH locked transfer selects the true best dose on both models. Retrospective, NOT blind |
+| EC-only dose selection audit (`ec-only-dose-audit-v1`) | **COMPLETE (2026-10-28), retrospective offline audit; no generation rerun.** Across 13 Bare No-CoT configurations / 76 cells (four models, three tasks), all existing accuracies reproduced. Selecting the tested dose with minimum frozen early-candidate rate gives zero regret in 10/13 configurations and regret ≤1 question in 12/13; the sole material miss is Qwen2.5 MATH (+8 selected vs +6 best, 5.00 pp). In 10 bidirectional configurations, EC-preferred and accuracy-preferred signs agree. On four shared candidate sets, frozen P2 has zero regret in all four; versus EC-only it avoids the one-question Llama GSM-Hard miss and the Qwen2.5 MATH miss. This small comparison does not establish P2's general superiority. Preserve all 17 lower-EC/lower-accuracy dose pairs and their descriptive categories; do not add thresholds or alter the detector. Qwen2.5 MATH +8 has 44/300 long first non-empty lines (>60 chars) containing `\boxed`; possible detector coverage limitation, not confirmed misses. Qwen3 GSM8K 768/2048 reuse the same question set. Full results, source metadata, health and sensitivity: `Note/ReasoningBare.md` §5.7 and `RoleAnswer/reasoningTaskAnalysis/ec_only_dose_audit_v1/REPORT.md`. |
 | P3 blind validation (GSM-Hard) | **COMPLETE + CLOSED** 2026-08-30 — gold unsealed once; direction + workpoint correct on both models, regret 0.00 pp; calibration did NOT transfer. Main analysis 口径 closed; further work is exploratory |
 | P3 supplement (CoT condition transfer) | **COMPLETE + FROZEN** 2026-08-30 — both models matched the locked direction and survive Holm (llama −6 +6.00 pp p=.0039; qwen +8 +13.33 pp p=9.4e−06); interaction NOT DETECTED. Locked prospective on the CONDITION, not a new blind test |
 | P4 fixed-workpoint transfer (LogiQA 2.0) | **COMPLETE + FROZEN** 2026-09-01 — **DOUBLE NULL**, neither model survives Holm m=2 (llama −6 −4.33 pp raw p=.0533 p_adj=.107; qwen +8 +1.00 pp p_adj=.801). NOT a blind validation — LogiQA gold is public |
@@ -1002,10 +1003,10 @@ validation beside P2B/P3.
   is available only for the GSM8K entry-only and combined supplementary comparisons;
   it is not part of the transferable MATH predictor.
 
-- **MATH output-format adapter.** GSM8K `####` and MATH `\\boxed{}` implement the same
+- **MATH output-format adapter.** GSM8K `####` and MATH `\boxed{}` implement the same
   operational semantics: final-answer marker, first parseable commit position, and
   repeated submission. MATH reuses the frozen balanced-brace `all_boxed` extractor; an
-  empty `\\boxed{}` is an unparseable marker, not a parseable commit. This adapter was
+  empty `\boxed{}` is an unparseable marker, not a parseable commit. This adapter was
   frozen before MATH accuracy was read and was not adjusted in response to the result.
 
 - **Question-grouped cross-validation.** P2 uses a deterministic five-fold manifest
