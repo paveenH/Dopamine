@@ -18,18 +18,18 @@
 
 ### 3.2 Models and Coverage
 
-We study four instruction-tuned models with 7–8B parameters. Table 1 summarizes the experimental coverage. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. The remaining tasks probe the boundaries of the effect (§5.5).
+We study four instruction-tuned models with 7–8B parameters. Table 1 lists the models and their steered layer ranges. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. Additional tasks are introduced in §5.5.
 
-**Table 1. Coverage.** Bare No-CoT unless noted. $n$ is items per cell; every cell is paired by item with its own $\alpha=0$ cell.
+**Table 1. Models and intervention settings.** Decoder layers are indexed from zero, and both endpoints of each steered range are included.
 
-| Model | Steered decoder layers (of total) | GSM8K sweep (n=300, 768 tok) | GSM-Hard (n=300, 768 tok) | MATH (n=300, 2048 tok) | Other |
-|---|---|---|---|---|---|
-| Llama-3.1-8B-Instruct | 10–18 (9 of 32) | −8…+8, step 2; CoT −6…+4 | −8, −6, −4, 0, +4; CoT 0, −6 | −6, −4, 0, +4; CoT same | Native Chat (9 doses; GSM8K, GSM-Hard, MATH); Chat-CoT; boundary tasks; Base checkpoint |
-| Qwen2.5-7B-Instruct | 15–20 (6 of 28) | −8…+12, step 2; CoT −8…+8 | −4, 0, +4, +6, +8; CoT 0, +8 | −8…+8, step 2; CoT same | Native Chat (−8, 0, +6, +8); Chat-CoT; boundary tasks; Base checkpoint |
-| Qwen3-8B | 16–24 (9 of 36) | −8, −6, −4, 0, +4, +6, +8, +10; 2048 tok: 0, +8, +10 | 0, +10 | 0, +8, +10 | — |
-| Granite-3.3-8B-Instruct | 10–18 (9 of 40) | −10, −8, −6, 0, +6, +8, +10 | 0, −6, −4, +6 | 0, −6, −4, +6 | — |
+| Model | Total decoder layers | Steered decoder layers |
+|---|---:|---|
+| Llama-3.1-8B-Instruct | 32 | 10–18 |
+| Qwen2.5-7B-Instruct | 28 | 15–20 |
+| Qwen3-8B | 36 | 16–24 |
+| Granite-3.3-8B-Instruct | 40 | 10–18 |
 
-Workpoints: Llama −6, Qwen2.5 +8, Qwen3 +10, Granite −6. Boundary tasks for Llama and Qwen2.5 (Appendix F): LogiQA 2.0 (n=300), BBH object counting (n=250), CRUXEval-O (n=300), GSM-Symbolic (n=900 per cell), ProofWriter-OWA, FinQA and ZebraLogic. All GSM8K cells for all four models use the same 300 test items in the same order.
+For GSM8K, GSM-Hard, and MATH, each experimental cell contains 300 items. All four models use the same 300 GSM8K test items in the same order. The standard generation budgets are 768 tokens for GSM8K and GSM-Hard and 2048 tokens for MATH; Qwen3 is additionally evaluated on GSM8K with a 2048-token budget. Detailed dose grids and task-specific settings are provided in Appendix A.
 
 ### 3.3 Interfaces
 
