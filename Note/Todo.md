@@ -34,6 +34,24 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 25. New Model: granite-3.3-8b-instruct ✔
 
 ---
+
+画一张跨条件图：横轴是 α=0 时的 early-candidate rate（EC），纵轴是固定工作点相对 α=0 的准确率变化。这张图把新主线"收益取决于基线提交状态"变成可以检验的预测，也是对"只是在修补 Bare 接口"这一质疑最直接的回应。
+
+- **工作点统一用各模型的固定点**（Llama −6、Qwen2.5 +8、Qwen3 +10、Granite −6），不用每个条件里表现最好的剂量，以免挑选偏差把收益放大。
+- **每个点是一个条件**：模型 × 任务 × 接口（Bare/Chat）× 是否 CoT。只放 EC 检测器适用的数值任务：GSM8K、GSM-Hard、MATH、GSM-Symbolic、BBH。
+
+从文档里已有的数字看，模式大致是这样：
+
+- **基线 EC 低的条件几乎都没有收益。** Llama 在 Chat 下三个任务的 EC ≤0.33%，变化在 −1 到 +1 pp 之间；Qwen Chat MATH 的 EC 为 0%，只有 +2 pp；Qwen Chat-CoT 的 EC 不到 1.5%，收益 +1.67 / −2.67 pp；Granite 的 EC 为 6.67%，是 +4.67 pp 的正向趋势。
+- **基线 EC 高的条件，有的有收益、有的没有。** Qwen Chat GSM8K 的 EC 为 50%，提升 +29.67 pp，而且这是原生 Chat 接口。BBH No-CoT 的 EC 接近 100%，却没有收益。
+
+所以图要支持的说法是：**提前作答是收益出现的前提，但不保证一定有收益。** 这是单向的预测；BBH 作为反例一并画在图上。
+
+### 可选补充
+
+加一个更大的模型，例如 Qwen2.5-14B-Instruct。流程是：先提取 RSN mask 并扫描 GSM8K，然后只按"EC 最低"选出剂量（不看答案），最后在 GSM8K、GSM-Hard、MATH 上检验准确率。
+
+---
 ### TO DO
 0. 测试一下qwen中间一点的mask ✖
 1. Qwen25-7B ICG实验结果整理 ✔ 
