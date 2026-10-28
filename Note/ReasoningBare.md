@@ -1912,3 +1912,35 @@ Qwen3 的常见输出是先给候选数字，再展开计算并反复核查。�
 负向剂量均呈正向准确率变化，`−6` 最高，但均未通过 Holm 校正；`−6` 相对基线纠错 32 题、损伤 18 题（净增 14；raw `p=.0649`，未校正配对 bootstrap 95% CI `[0.00, +9.00]` pp），因此只作为探索性候选。两格都有 marker 的 251 题中，正确数为 215→226（净增 11，raw `p=.099`）；这提示趋势不只伴随 marker 覆盖增加，但该子集比较也未检出显著差异。
 
 基线准确率已达 84.00%，early-candidate 为 6.67%，生成也较稳定：七格 loop 均为 0，截断率为 3.00%–4.67%。这与 Qwen3 的高 early-candidate、高截断输出不同。Baseline 与负向剂量在 GPU 3、正向剂量在 GPU 5 运行（均为 Turing RTX 3090），所以正向比较保留跨卡生成差异的限制。完整统计见 [Granite GSM8K sweep report](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/granite33_bare_sweep_v1/review_20261027/REPORT.md)。
+
+### 9.6 Granite-3.3-8B Fixed-Workpoint Transfer
+
+将 GSM8K 选出的固定候选工作点 `−6` 用于 GSM-Hard 和 MATH；两项任务各 300 题，Bare No-CoT，使用同一 `[11,20)` mask。GSM-Hard 为 768 tokens／bs=24，MATH 为 2048 tokens／bs=8。准确率沿用冻结的 first-marker／first-box + fallback 评分。下表同时报告三个剂量与基线的扩展比较；六项比较采用 Holm `m=6`。
+
+**Table 9.10. Granite-3.3-8B Transfer Results**
+
+| Task | α | `first_acc` | Δ vs 0 | `last_acc` | Valid Marker | `cond_acc` | Early Candidate | Loop | Truncated | Holm p vs 0 (m=6) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| GSM-Hard, 768 tokens | 0 | 43.00% | — | 42.33% | 86.33% | 45.56% | 6.33% | 0% | 5.00% | — |
+| GSM-Hard, 768 tokens | **−6** | **45.33%** | **+2.33 pp** | 45.00% | 83.67% | 49.80% | 1.00% | 0% | 4.00% | .674 |
+| GSM-Hard, 768 tokens | −4 | 45.00% | +2.00 pp | 45.00% | 87.33% | 48.09% | 2.67% | 0% | 2.67% | .674 |
+| GSM-Hard, 768 tokens | +6 | 33.67% | −9.33 pp | 36.00% | 83.00% | 34.94% | 36.67% | 0.67% | 8.67% | .000153 |
+| MATH, 2048 tokens | 0 | 52.67% | — | 52.33% | 91.33% | 57.30% | 34.00% | 1.00% | 23.00% | — |
+| MATH, 2048 tokens | **−6** | **60.00%** | **+7.33 pp** | 57.00% | 95.33% | 62.94% | 6.67% | 1.00% | 14.33% | .01845 |
+| MATH, 2048 tokens | −4 | 56.00% | +3.33 pp | 55.33% | 96.00% | 58.33% | 17.67% | 0.67% | 18.67% | .580 |
+| MATH, 2048 tokens | +6 | 44.67% | −8.00 pp | 42.00% | 88.33% | 49.81% | 58.00% | 0.67% | 29.33% | .01845 |
+
+**Table 9.11. Fixed-Workpoint Comparisons at α=−6**
+
+| Task | Δ Accuracy | Wrong→Correct / Correct→Wrong | 95% Paired CI | Raw McNemar p | Holm p (m=2) | Holm p (m=6) | Reading |
+|---|---:|---:|---:|---:|---:|---:|---|
+| GSM-Hard | +2.33 pp | 23 / 16 | [−1.67, +6.33] pp | .337 | .337 | .674 | Positive trend; not significant |
+| MATH | +7.33 pp | 39 / 17 | [+2.67, +12.00] pp | .00456 | .0091 | .01845 | Significant under both families |
+
+固定工作点主比较只检验两项任务的 `−6` vs `0`（Holm `m=2`）；扩展家族则纳入两任务的 `−6`、`−4`、`+6` 六项比较（Holm `m=6`）。两种校正下，MATH `−6` 均显著，GSM-Hard `−6` 均未检出显著增益。GSM-Hard 的 `−4` 也是未显著的正向变化；两项任务的 `+6` 均显著下降。
+
+GSM-Hard 上，`−6` 的 marker 覆盖率低于基线；两格都有 marker 的 234 题中，准确率为 47.86%→51.28%，仍未检出明确提升。MATH 的提交覆盖率上升，但收益不只来自更多提交：两格都有有效 box 的 266 题上，准确率为 58.65%→64.66%（31 纠错、15 损伤，raw `p=.0259`，事后选择子集）；评分路径分解中 marker→marker 的净增为 18 题，fallback→marker 净增 5 题，marker→fallback 净减 1 题。该子集分析不证明推理能力改善或中介机制。
+
+三项任务在 `−6` 的准确率点估计均为正：GSM8K +4.67 pp、GSM-Hard +2.33 pp、MATH +7.33 pp；只有 MATH 的迁移比较通过校正。GSM-Hard baseline EC 为 6.33%，MATH 为 34.00%；`−6` 下分别降至 1.00% 和 6.67%。这是任务间的描述性共变，不说明 EC 起点解释或中介了准确率差异。MATH 的已测剂量呈 `−6 > −4 > 0 > +6`，但未测 `−8`，所以 `−6` 只是当前候选集合中的最高点，不能称为全局最优。生成长度、EC 和截断率也随剂量变化，但不是因果解释。
+
+所有运行均使用 RTX 3090，但每个条件来自不同 GPU；跨卡生成差异仍是限制。完整合并分析见 [Granite transfer report](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/granite33_bare_transfer_v1/review_20261028_all8/REPORT.md)；GSM-Hard 分析见 [GSM-Hard report](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/granite33_bare_transfer_v1/review_20261028_gsm_hard/REPORT.md)。
