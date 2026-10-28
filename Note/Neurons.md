@@ -232,6 +232,8 @@ GSM8K 与 GSM-Hard 的 Chat–Bare 方向高度一致：Llama3 cosine 为 **0.98
 
 Task-matched cosine 的符号并不一致，MATH 与 GSM 类任务的模式不同。因此，Role direction 与 Chat–Bare mean direction 不是同一条 dense axis；MMLU-E 的构建口径也不支持将其与 reasoning Role direction 直接混合。
 
+用全量 1319 题的 GSM8K Bare 角色方向（GRSN）复核 MMLU-E RSN 对 GSM8K Role 的关系，逐层 cosine 均值为 **0.190**、band 拼接 cosine 为 **0.150**，top-20 重合为 **3.44/20（约 35 倍随机基线）**；与旧 300 题构造方向的结果一致（逐层均值 0.185、top-20 重合 3.67/20）。这表示方向有部分共享结构，但并不等同；完整算法与范围见 `CLAUDE.md` 的 GRSN 记录。
+
 ### 3.4 Sparse Coordinate Overlap
 
 尽管 dense cosine 很低，Role 与 Chat 的 absolute top-0.5% coordinates 存在远高于随机的重合。下表报告 task-matched comparisons；Holm 显著性是 coordinate-overlap random-mask null，而不是样本级总体推断。
