@@ -32,10 +32,42 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 23. 把Qwen3 测完整 ✔ -> GSM8K 768/2048、GSM-Hard 与 MATH 完成；固定 `+10` 在两项迁移比较中均通过 Holm m=2，MATH 的 `+8` 高于 `+10`。
 24. New model: OLMo-3-7B-Instruct ✖
 25. New Model: granite-3.3-8b-instruct ✔
+---
+26. 
 
 ---
 
-3．随后优先解决 RSN 与 CSN 的区别。
+**A. 离线分析，不用 GPU，价值最高**
+
+1. **EC 方向规则的 4 模型检验。** 覆盖 GSM8K、GSM-Hard、MATH 三个 Bare No-CoT 任务，统一用 `earlycand-v1`，不针对任务调整。检验三件事：
+   - 压低 EC 的符号和提升准确率的符号是否一致。
+   - 选 EC 最低的剂量，regret 有多大。
+   - baseline EC 和最大增益之间的描述性关系。
+
+   已知会有反例，比如 Qwen2.5 MATH 的 +8 比 +6 的 EC 更低，但准确率反而更低。这类反例照实报告。这项分析把 C4 从 2 个模型扩到 4 个，也给 C2 提供了解释。
+2. **把正文 Table 4 和迁移表扩成 4 模型**，即上面那张 8 格表。这是整理文档，不用跑实验。
+
+**B. GPU 实验，可选，能在两种解释之间做出区分**
+
+3. **Granite Native Chat MATH {0, −6}**，共 2 格。
+   - 规则给出的预测：Chat 下 baseline EC 应该接近 0，所以不应有增益，Llama 在 Chat 下就是这样。
+   - 如果确实没有增益，说明 EC 起点决定收益，这是一次先写下预测再看结果的检验。
+   - 如果仍然有增益，"Bare 收益只是在补偿非原生接口"这个质疑就被削弱了。
+   - 两种结果都有信息量，成本也低。
+4. **CRUXEval-O 上测 Qwen3 和 Granite 的固定工作点**，共 4 格。
+   - 远域迁移目前只有 Llama 和 Qwen2.5，结果是 Llama 不迁移、Qwen2.5 迁移。
+   - 补这一项能检验这个分裂是否和方向分组对应。
+   - 缺点是打破了之前定下的"每个模型都只做近域"的对称；而且 CRUXEval 是 Python 字面量答案，EC 检测器不适用。
+
+**C. 不建议补**
+
+- **RSN 和 CSN 的等范数比较**：论文没有声称两者功能分离，§1.8 已经把它列为边界，不是必需的。
+- **Betting 加 seed**：重复运行时趋势已经稳定（±0.2），不影响结论。
+
+我的建议是先做 A1。它不用 GPU，又能决定 C2/C4 的写法。如果规则在 4 个模型上成立，再决定要不要用 B3 做一次先写预测的检验。要我先把 A1 的分析口径写出来，交给你或另一个 agent 去跑吗？
+
+
+ RSN 与 CSN 的区别。
 
 这里需要修正你之前的一点理解：最新 [Neurons.md](/Users/paveenhuang/Downloads/Dopamine/Note/Neurons.md:162) 显示，**CSN 也会改变候选输出和提交行为**；小剂量有准确率改善趋势，但尚未通过多重比较校正。
 
