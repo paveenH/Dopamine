@@ -8,17 +8,17 @@
 
 ### 3.1 Intervention
 
-**Direction.** We reuse the Role-Sensitive Neuron (RSN) direction of prior work [cite parent paper]. For each model, the direction is extracted once on MMLU-E, a multiple-choice format with an added "I am not sure" option. The extraction keeps the items on which an expert and a non-expert role prompt lead to different answers. For each layer $l$ it averages the difference between the two prompts' final-token hidden states, giving $\Delta\mu^{(l)}$. It then keeps the top 0.5% of dimensions by $|\Delta\mu^{(l)}_i|$ and zeroes the rest. The result is a sparse, signed vector $m_l$ per layer. We do not re-extract or modify the direction for any task in this paper, and we report none of the prior work's results.
+**Direction.** We reuse the Role-Sensitive Neuron (RSN) direction of prior work [cite parent paper]. For each model, the direction is extracted once on MMLU-E, a multiple-choice format with an added "I am not sure" option. The extraction keeps the items on which an expert and a non-expert role prompt lead to different answers. For each layer $l$ it averages the difference between the two prompts' final-token hidden states, giving $\Delta\mu^{(l)}$. It then keeps the top 0.5% of dimensions by $|\Delta\mu^{(l)}_i|$ and zeroes the rest. The result is a sparse, signed vector $m_l$ per layer. We reuse each model’s existing RSN direction without recomputing it and keep it fixed across tasks.
 
-**Injection.** At inference we add $\alpha\, m_l$ to the output hidden state of each steered decoder layer $l$. The addition is made at a single position: the last prompt token, during prefill only. Decoding is unmodified, so every generated token is produced by the unsteered model, conditioned on a perturbed prompt state. For the Bare prompts used throughout (§3.3), the last prompt token is the trailing space of `Answer: `; we verified this token on the Llama and Qwen2.5 tokenizers. Every run logs the number of injection events and checks it against layers × items. At $\alpha=0$ the same code path runs with an all-zero vector.
+**Injection.** At inference we add $\alpha\, m_l$ to the output hidden state of each steered decoder layer $l$. The addition is made at a single position: the last prompt token, during prefill only. Decoding is unmodified, so every generated token is produced by the unsteered model, conditioned on a perturbed prompt state. Every run logs the number of injection events and checks it against layers × items. At $\alpha=0$ the same code path runs with an all-zero vector.
 
 **Steered layers.** For each model the steered band is a contiguous block of middle layers. Following the prior work, it is placed where the layer-wise similarity between expert and non-expert hidden states begins to fall (Table 1).
 
-**Dose scale.** $\alpha$ is a nominal multiplier on a model-specific vector. Masks, band widths and activation scales differ across models, so equal values of $\alpha$ are not equal interventions. We therefore compare models by the shape of their responses, not by raw $\alpha$. Each model's *workpoint* is the dose selected on its own GSM8K sweep. It is then held fixed on every other task.
+**Dose scale.** $\alpha$ scales a model-specific steering vector. Masks, band widths, and activation scales differ across models, so equal values of $\alpha$ do not represent equal interventions. We therefore compare dose-response patterns across models, since the numerical values of $\alpha$ are not directly comparable.
 
 ### 3.2 Models and Coverage
 
-We study four instruction-tuned models of 7–8B parameters. The experiments do not form a full cross of models, tasks and interfaces; Table 1 lists what was run. GSM8K is used to select each model's workpoint, and GSM-Hard and MATH test whether that workpoint transfers. The remaining tasks probe the boundaries of the effect (§5.5).
+We study four instruction-tuned models with 7–8B parameters. Table 1 summarizes the experimental coverage. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. The remaining tasks probe the boundaries of the effect (§5.5).
 
 **Table 1. Coverage.** Bare No-CoT unless noted. $n$ is items per cell; every cell is paired by item with its own $\alpha=0$ cell.
 
