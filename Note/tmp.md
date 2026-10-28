@@ -121,3 +121,13 @@
 主要依据：[ReasoningBare](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningBare.md:888)、[ReasoningChat](/Users/paveenhuang/Downloads/Dopamine/Note/ReasoningChat.md:7)、[LogiQA CoT launcher]
 (/Users/paveenhuang/Downloads/Dopamine/run_logiqa2_cot.sh:35)、[ZebraLogic 协议](/Users/paveenhuang/Downloads/Dopamine/docs/PREREG_ZEBRALOGIC_EASY.md:54)。
 
+---
+
+
+| Model (α) | GSM-Hard | MATH |
+|---|---|---|
+| Llama (−6) | **+6.33 pp** | **+6.67 pp** |
+| Qwen2.5 (+8) | **+16.33 pp** | +2.67 pp（正向趋势） |
+| Qwen3 (+10) | **+11.33 pp** | **+8.00 pp** |
+| Granite (−6) | +2.33 pp（正向趋势） | **+7.33 pp** |
+
