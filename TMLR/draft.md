@@ -33,7 +33,7 @@ For GSM8K, GSM-Hard, and MATH, each experimental cell contains 300 items. All fo
 
 ### 3.3 Interfaces
 
-**Bare** wraps the task prompt as a plain string with no chat template. The GSM8K No-CoT prompt is
+**Bare.** For reasoning tasks, we provide the task prompt as a plain string without a chat template. The GSM8K No-CoT prompt is. For GSM8K, the CoT variant adds `Let's think step by step.` before the final-answer instruction. MATH prompts request the final answer in `\boxed{}`. We use Bare as a simple setting for examining how steering changes the model’s answer organization.
 
 ```
 Solve the following math problem.
@@ -42,9 +42,7 @@ Provide your final numeric answer after '####'.
 Answer: 
 ```
 
-The CoT variant adds the single line `Let's think step by step.` before the answer instruction and is otherwise byte-identical. MATH asks for the final answer in `\boxed{}`. The RSN direction was extracted from bare-string prompts, so Bare places the injection in the activation distribution the direction was measured in, and it is our main interface.
-
-**Native Chat** wraps the same instruction with the model's own chat template. The last prompt token is then the assistant header rather than `Answer: `, so injection lands at a different position. Chat results are reported separately and never pooled with Bare (§5.3).
+**Native Chat** presents the task instruction using each model’s native chat template, allowing us to examine steering under standard conversational use (§5.3).
 
 All runs use greedy decoding with a fixed token budget: 768 tokens for the GSM8K family and 2048 for MATH. All conclusions are conditional on these budgets.
 
