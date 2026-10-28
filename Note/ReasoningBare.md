@@ -885,6 +885,38 @@ Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH �
 
 总体而言，predictor 更适合判断 steering 方向并找到低-regret 的近优区域，而不是精确命中唯一 argmax，也不能直接预测新任务的绝对准确率。当目标任务本身没有可检测的剂量效应时，predictor 的排序也缺乏明确的验证依据。
 
+### 5.7 EC-Only Dose Selection Audit
+
+这项回顾性离线审计比较了只按 `early-candidate` 最低值选剂量，与冻结的多特征 P2 选择器。选择规则不使用目标任务准确率标签；准确率仅用于事后计算当前候选集中的 regret，因此这不是盲测。覆盖四个模型的 13 个 Bare No-CoT 数学配置、76 格；所有准确率均复现已有结果。配置间不视为独立验证，Qwen3 GSM8K 的 768 与 2048 两组还复用了同一题集。
+
+**Table 5.7. EC-Only Workpoint Selection Across 13 Configurations**
+
+| Model | Task / Budget | EC-Selected α | Observed Best α | EC Regret | Frozen P2 α | P2 Regret |
+|---|---|---:|---:|---:|---:|---:|
+| Llama | GSM8K / 768 | −6 | −6 | 0.00 pp | — | — |
+| Llama | GSM-Hard / 768 | −4 | −6 | 0.33 pp | −6 | 0.00 pp |
+| Llama | MATH / 2048 | −6 | −6 | 0.00 pp | −6 | 0.00 pp |
+| Qwen2.5 | GSM8K / 768 | +10 | +12 | 0.33 pp | — | — |
+| Qwen2.5 | GSM-Hard / 768 | +10 | +8, +10 | 0.00 pp | +8 | 0.00 pp |
+| Qwen2.5 | MATH / 2048 | +8 | +6 | 5.00 pp | +6 | 0.00 pp |
+| Qwen3 | GSM8K / 768 | +10 | +10 | 0.00 pp | — | — |
+| Qwen3 | GSM8K / 2048 | +10 | +10 | 0.00 pp | — | — |
+| Qwen3 | GSM-Hard / 768 | +10 | +10 | 0.00 pp | — | — |
+| Qwen3 | MATH / 2048 | +8 | +8 | 0.00 pp | — | — |
+| Granite | GSM8K / 768 | −6 | −6 | 0.00 pp | — | — |
+| Granite | GSM-Hard / 768 | −6 | −6 | 0.00 pp | — | — |
+| Granite | MATH / 2048 | −6 | −6 | 0.00 pp | — | — |
+
+EC-only 在 13 个配置中 10 个准确选中当前观察最佳点；若将差一题（0.33 pp）视为接近，12/13 距最佳不超过一题。13 格等权平均 regret 为 0.44 pp。唯一超过一题的损失出现在 Qwen2.5 MATH：EC 选 `+8`（63.33%），观察最佳为 `+6`（68.33%），相差 5.00 pp。regret 仅针对当前候选集和样本，不代表全局最优。
+
+在四个与 P2 使用相同候选集的配置中，P2 为 4/4 零 regret，EC-only 为 2/4 零 regret、3/4 距最佳不超过一题。两种方法仅在两格选点不同：Llama GSM-Hard 相差一题；Qwen2.5 MATH 中 P2 避免了 5.00 pp 的选点损失。其余两格所选准确率相同。配置数有限，不能据此判断 P2 普遍优于 EC，或 EC 不能替代 P2。
+
+在 10 个双向配置中，EC 最低值所在符号与准确率最高值所在符号均一致；这只说明方向对应，不代表同方向的剂量都有效。17 个“EC 更低、准确率也更低”的剂量对保留在完整报告中。按位置归类：9 对位于 EC 接近上限处；2 对位于低 EC 处；3 对都在准确率低于基线的不利剂量一侧；另有 2 对准确率仅差一题；剩下 1 对是 Qwen2.5 MATH `+8/+6`，EC 从 19.33% 降至 10.33%，准确率却从 68.33% 降至 63.33%。这些类别是对已观测位置的描述，不是新的筛选规则；剂量对共享题目，不能当作独立样本。
+
+MATH 的两个 Qwen 结果方向相反：Qwen3 的 EC 选择 `+8`（54.00%），高于 GSM8K 固定点 `+10`（35.33%），捕捉到工作点右移；Qwen2.5 的 EC 选择 `+8`，却低于 `+6` 5.00 pp。Qwen2.5 MATH `+8` 还有 44/300 条首个非空行超过 60 字符且含 `\boxed`，冻结 EC 因长度规则未计入；这提示高剂量下输出形式变化可能降低检测覆盖，但这些长行不都能确认是提前候选，不能作为已确认漏检或事后改动检测器的依据。
+
+**Conclusion.** 在现有配置中，只用 EC 已能完成大部分选点：12/13 个配置距已测最高点不超过一题。四个可比配置里，多特征 P2 多纠正了一个 Qwen2.5 MATH 的过量调控选点。EC 下降并非准确率收益的必要或充分条件；其选点效果仍需在更多独立配置中检验。完整 76 格、17 个反例对、生成健康和敏感度结果见[审计报告](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/ec_only_dose_audit_v1/REPORT.md)。
+
 ## 6. Cross-Benchmark Workpoint Performance and Behavioral Boundaries
 
 本节按 benchmark 分别汇总 workpoint performance、local stability 和 output behavior。实验包含两类设计：
