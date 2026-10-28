@@ -879,6 +879,33 @@ Llama 的九档曲线没有与 Qwen 完全相同的 frozen early-candidate 指�
 
 所有 timing 指标都是 α 干预后的输出结果，因此只能作为关联证据，不构成因果中介证明。
 
+#### Baseline Text in Corrected Items
+
+对四个工作点比较中所有 baseline 错、工作点对的题目做了离线文本审阅。至少确认到 129 题的 baseline 正文包含与 gold 一致的目标计算，但冻结评分取到的答案仍然错误；这不是模型“原本已经知道答案”的证据，也不能说明这些文本现象占收益的比例。
+
+**Table 5.6a. Confirmed Gold-Consistent Target Calculations**
+
+| Model and Task | All Corrections | Confirmed in Baseline Text | Weaker Cases Listed Separately |
+|---|---:|---:|---:|
+| Llama GSM8K, 0 → −6 | 76 | 43 | 1 |
+| Llama GSM-Hard, 0 → −6 | 32 | 14 | 0 |
+| Qwen2.5 GSM8K, 0 → +8 | 78 | 47 | 1 |
+| Qwen2.5 GSM-Hard, 0 → +8 | 63 | 25 | 1 |
+| **Total** | **249** | **129** | **3** |
+
+独立数字定位器找到 146 条 gold 字面值命中；上下文审阅排除其中 14 条仅为题目复述、中间量、算式操作数或无关内容的案例，另将 3 条较弱案例单列，其余 129 条作为保守确认数。未命中字面 gold 不代表没有算出正确结果，因此以上数字是“至少确认到”的下界，不是机制占比。审阅由助手逐条完成，不是盲审，也没有双人标注。
+
+**Table 5.6b. Confirmed Calculations by Paired Score Path**
+
+| Model and Task | Marker → Marker (MM) | Fallback → Marker (FM) | Marker → Fallback (MF) | Fallback → Fallback (FF) |
+|---|---:|---:|---:|---:|
+| Llama GSM8K | 13 | 13 | 5 | 12 |
+| Llama GSM-Hard | 3 | 6 | 2 | 3 |
+| Qwen2.5 GSM8K | 41 | 6 | 0 | 0 |
+| Qwen2.5 GSM-Hard | 19 | 6 | 0 | 0 |
+
+Qwen2.5 的已确认案例主要落在两格都有 marker 的题目（MM）；Llama 的确认案例分布在四条评分路径中。两者的文本顺序不同：Llama 常先写错误候选，再在正文算出正确目标结果，但评分仍取到错误值；Qwen2.5 还常在错误首个 marker 后出现正确 marker。Qwen2.5 GSM8K/GSM-Hard 分别有 20/9 题出现后续正确 marker。Qwen3 GSM8K 2048-token 的既有审阅也有相似可见文本证据：85/86 条 fallback→marker 纠错中找到 gold 一致的计算，见 §9.1。完整逐题证据、审阅规则与较弱案例见 [score-path audit report](/Users/paveenhuang/Documents/RSNResult/RoleAnswer/reasoningTaskAnalysis/score_path_audit_v1/review_20261028/REPORT.md)。
+
 ### 5.6 Conclusion
 
 Commitment features 能预测 GSM8K 未见题目的正确率，也能为 MATH 和 GSM-Hard 提供有用的剂量排序。MATH 是回顾性验证，GSM-Hard 则是前瞻性盲测。
