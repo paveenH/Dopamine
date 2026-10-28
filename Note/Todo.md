@@ -31,7 +31,7 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 22. Openchat/ Qwen3 GSM8K 实验补充 ✔
 23. 把Qwen3 测完整 ✔ -> GSM8K 768/2048、GSM-Hard 与 MATH 完成；固定 `+10` 在两项迁移比较中均通过 Holm m=2，MATH 的 `+8` 高于 `+10`。
 24. New model: OLMo-3-7B-Instruct ✖
-25. New Model: granite-3.3-8b-instruct ⏳ -> MMLU-E 筛选通过；Bare GSM8K sweep 已完成，`−6` 为未通过校正的正向趋势、`+6` 显著下降；固定工作点迁移待测。
+25. New Model: granite-3.3-8b-instruct ✔
 
 ---
 
