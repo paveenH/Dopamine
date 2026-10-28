@@ -37,35 +37,29 @@ Bandit.NatureCommunications2026.[Foraging models explain human exploration in un
 
 ---
 
-**A. 离线分析，不用 GPU，价值最高**
+| 顺序 | 任务 | 要不要 GPU | 产出 |
+|---|---|---|---|
+| **1** | 整理 4 模型主表和迁移表 | 否 | 在 TMLR1005 里改两处：Table 4 补上 Qwen3 和 Granite 两行；迁移表合成 4 模型 × {GSM-Hard, MATH}，表注写明 8 项各属不同的校正族。顺手把 C1 改成"行为变化未伴随可检出的准确率变化"，再修掉两处 post-hoc 措辞 |
+| **2** | A1：EC-only 选剂量，和冻结 P2 predictor 对比 | 否 | 先写一份固定的分析口径，再离线计算，最后出一份报告，内容包括每个配置的 regret 和反例清单 |
+| **3** | 根据 A1 的结果，决定是否做 Granite Native Chat MATH {0, −6} | 是，2 格 | 只有 A1 显示 EC 规则在 Granite 上有参考价值时才做 |
 
-1. **EC 方向规则的 4 模型检验。** 覆盖 GSM8K、GSM-Hard、MATH 三个 Bare No-CoT 任务，统一用 `earlycand-v1`，不针对任务调整。检验三件事：
-   - 压低 EC 的符号和提升准确率的符号是否一致。
-   - 选 EC 最低的剂量，regret 有多大。
-   - baseline EC 和最大增益之间的描述性关系。
+#### A1 分析口径
 
-   已知会有反例，比如 Qwen2.5 MATH 的 +8 比 +6 的 EC 更低，但准确率反而更低。这类反例照实报告。这项分析把 C4 从 2 个模型扩到 4 个，也给 C2 提供了解释。
-2. **把正文 Table 4 和迁移表扩成 4 模型**，即上面那张 8 格表。这是整理文档，不用跑实验。
+- **配置范围**：4 个模型 × GSM8K、GSM-Hard、MATH，全部是 Bare No-CoT。每个模型用它已有的全部剂量格子。
+- **选择规则**：
+  - 候选集包含 α=0。
+  - 选 `earlycand-v1` 最低的剂量，主分析用 cap=60，cap=40 和 80 做敏感度分析。
+  - EC 并列时选 |α| 较小的剂量。
+  - 不排除任何格子，崩溃格子被选中也照实报告。
+- **三类证据分开写**：
+  1. 双向 sweep 能检验方向：Llama 和 Qwen2.5 的三个任务、Qwen3 和 Granite 的 GSM8K，再加上 Granite 的 GSM-Hard 和 MATH。
+  2. 在已测候选集内计算 regret。
+  3. 只有 `{0, 工作点}` 的迁移任务只看剂量强度，不计入方向检验。
+- **P2 对比**：只在 Llama 和 Qwen2.5 的 MATH、GSM-Hard 上做，因为 GSM8K 是 P2 的拟合数据，属于样本内。Qwen3 和 Granite 没有自己的 predictor，这部分标为不适用。
+- **报告表**：每个配置一行，列出候选剂量、EC 选中的剂量、观察到的最佳剂量、regret、相对 α=0 的收益、生成健康状况。另附一张图，同时画出 baseline EC 和 baseline 准确率，只做描述。
+- **工作区和数据**：在 `RoleAnswer/` 下离线运行，复用 `early_candidate_detector`、`analyze_first_last_acc` 和 `prediction/p2_features`，不重写这些函数。准确率必须先复现每个格子已发表的数值，复现不了就停。
 
-**B. GPU 实验，可选，能在两种解释之间做出区分**
-
-3. **Granite Native Chat MATH {0, −6}**，共 2 格。
-   - 规则给出的预测：Chat 下 baseline EC 应该接近 0，所以不应有增益，Llama 在 Chat 下就是这样。
-   - 如果确实没有增益，说明 EC 起点决定收益，这是一次先写下预测再看结果的检验。
-   - 如果仍然有增益，"Bare 收益只是在补偿非原生接口"这个质疑就被削弱了。
-   - 两种结果都有信息量，成本也低。
-4. **CRUXEval-O 上测 Qwen3 和 Granite 的固定工作点**，共 4 格。
-   - 远域迁移目前只有 Llama 和 Qwen2.5，结果是 Llama 不迁移、Qwen2.5 迁移。
-   - 补这一项能检验这个分裂是否和方向分组对应。
-   - 缺点是打破了之前定下的"每个模型都只做近域"的对称；而且 CRUXEval 是 Python 字面量答案，EC 检测器不适用。
-
-**C. 不建议补**
-
-- **RSN 和 CSN 的等范数比较**：论文没有声称两者功能分离，§1.8 已经把它列为边界，不是必需的。
-- **Betting 加 seed**：重复运行时趋势已经稳定（±0.2），不影响结论。
-
-我的建议是先做 A1。它不用 GPU，又能决定 C2/C4 的写法。如果规则在 4 个模型上成立，再决定要不要用 B3 做一次先写预测的检验。要我先把 A1 的分析口径写出来，交给你或另一个 agent 去跑吗？
-
+---
 
  RSN 与 CSN 的区别。
 
