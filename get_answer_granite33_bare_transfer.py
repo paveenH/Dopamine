@@ -7,7 +7,7 @@ get_answer_granite33_bare_transfer.py -- Granite33-8B Bare No-CoT fixed-workpoin
 --task math     : alpha 0,-6,-4,+6  2048 tok bs 8   top_p 0.9  build_math_suite(cot=False)    (\\boxed{})
 ibm-granite/granite-3.3-8b-instruct, BARE string (no chat template), prefill-only tail 1, greedy. Mask = the existing Granite33 NMD mask
 (hidden [11,20) -> decoder rows 10..18, L=9), rebuilt from Granite33's own means and required identical to the stored file.
-Fixed candidate dose -6 is carried over from the GSM8K sweep; -4 and +6 are additional diagnostic doses and do not redefine it. Primary transfer family: -6 vs 0 on GSM-Hard and MATH (Holm m=2). An expanded post-hoc family includes -4 and +6 on both tasks (Holm m=6). No dose is re-searched. One model load per task, all alphas of the task in one process.
+Fixed candidate dose -6 is carried over from the GSM8K sweep; -4 and +6 are additional diagnostic doses and do not redefine it. Primary transfer family: -6 vs 0 on GSM-Hard and MATH (Holm m=2). An expanded family includes -4 and +6 on both tasks (Holm m=6). No dose is re-searched. One model load per task, all alphas of the task in one process.
 Generation reads questions only (no gold scoring here); score OFFLINE. Existing cells are reused only when settings/data/mask/prompt match
 (environment differences, incl. CUDA_VISIBLE_DEVICES, only warn), otherwise abort (never overwritten).
 """
