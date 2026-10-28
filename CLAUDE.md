@@ -227,7 +227,7 @@ read from each model's GSM8K result and NEVER re-searched — llama `−6`, qwen
 `+8`, qwen3 `+10`, Granite `−6`).** Nominal α values are model-specific interventions, not a common dose:
 
 | Task | Answer space | llama `−6` | qwen2.5 `+8` | qwen3 `+10` | Granite `−6` | Verdict |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | GSM-Hard (P3; prior models) | constructed integer | **+6.33 pp** p=.0066 | **+16.33 pp** p=1.4e−08 | — | — | prior pair: both transfer |
 | GSM-Hard CoT (P3-supp) | constructed integer | **+6.00 pp** p=.0039 | **+13.33 pp** p=9.4e−06 | — | — | prior pair: both transfer |
 | GSM-Hard (Qwen3; 768 tokens) | constructed integer | — | — | **+11.33 pp**, Holm p=.000634 (m=2) | — | Qwen3 transfers |
