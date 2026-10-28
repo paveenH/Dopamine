@@ -201,7 +201,7 @@ Conditional accuracy 衡量模型没有选择 E 时的正确率。它有助于�
 
 - RSN steering 可以在降低不确定性表达的同时保留 MMLU-E 准确率，并在 GSM8K 形成有效工作点。
 - CSN steering 的小剂量区间可以较低代价地减少 E 选择，但较大剂量迅速损害答案质量。
-- CSN 在 GSM8K 上改变多种 commitment-related outputs，却没有带来对应的准确率提升。
+- CSN 在 GSM8K 上改变多种 commitment-related outputs；小剂量（α≈±1）呈约 5–6 pp 的正向趋势但未通过校正，且正负方向表现相近，未形成 RSN 那样方向明确的工作点。
 
 因此，当前证据支持“**结构相关、功能有别**”。是否存在真正可互换的因果通路，仍需要 norm-matched cross-steering 与相应控制实验验证。
 
