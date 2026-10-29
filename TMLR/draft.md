@@ -99,7 +99,7 @@ The dose-response curves reveal distinct regimes as intervention strength increa
 
 **Saturation in Qwen2.5.** On GSM8K, accuracy levels off at high doses, reaching 86.00% at $+8$ and 88.33% at $+10$, with no detected difference between them. On MATH, accuracy reaches 68.33% at $+6$ and falls to 63.33% at $+8$, even as EC decreases from 19.33% to 10.33% and reason-first increases from 77.59% to 86.16%. Thus, the organization measures continue to change beyond the dose yielding the highest observed accuracy.
 
-Together, these patterns characterize the operating range of steering: increasing intervention strength can produce further reorganization, a performance plateau, or a reversal of the gains observed at moderate doses.
+Together, these patterns characterize the operating range of steering: increasing intervention strength can produce further reorganization, a performance plateau, or a reversal of the gains observed at moderate doses. For Llama and Qwen2.5, the measured RSN projection at the prompt boundary remains approximately linear in dose, including the ranges where accuracy declines or plateaus (Appendix H).
 
 **Example. Immediate submission followed by answer switching (Llama, $\alpha=-8$).**  
 Brian has 20 video games and loses 5. Bobby has 5 fewer than three times Brian’s remaining number. The correct answer is 40. Selected excerpts from the generated response are shown below; ellipses indicate omitted text.
@@ -151,8 +151,3 @@ Qwen2.5, Qwen3, and Granite all show lower EC at their instruction-tuned referen
 
 These transfers reveal a controllable aspect of answer organization already present in pretrained base models. An RSN direction identified in an instruction-tuned model can access this behavior in its base counterpart, shifting outputs toward computation before answer submission without re-extraction or dose retuning.
 
-### 4.5 Entry State and Generated Behavior
-
-Because the intervention is a single additive change at one position, its immediate effect on the prompt state is simple. Projecting the last-token prefill state of the steered layers onto the RSN direction gives a quantity that is linear in $\alpha$ ($R^2$ = .999 across nine doses for Llama, .9998 across eleven for Qwen2.5; Appendix H). The behavior that follows is not linear: Llama's accuracy peaks at −6 and collapses at −8, while the entry projection keeps moving at a constant rate. Across doses, EC tracks the accuracy curve far more closely than the entry projection does (Appendix H).
-
-The size of the prompt-state perturbation therefore does not stand in for its behavioral effect. What the effect looks like depends on how the model's generation unfolds from that state, which the organization metrics capture. Section 6.1 returns to this point: entry gain alone predicts item-level correctness weakly, and adds nothing once output features are included.
