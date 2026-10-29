@@ -6,6 +6,8 @@ offline metrics:
   data/gsm8k_org_llama_qwen25.csv  <- RoleAnswer/unified_behavior_gsm8k_math.csv
   data/gsm8k_org_qwen3_granite.csv <- scripts/compute_qwen3_granite_org.py
 Qwen3 uses the 768-token sweep (same budget as the other three models).
+Plotted range: -8..+8 (Llama, Granite) and -8..+10 (Qwen2.5, Qwen3); Granite +-10 and
+Qwen2.5 +12 are omitted from the figure only (full grid in Appendix A).
 reason_first_rate is computed on the candidate-covered subset (>=93% of 300 in
 every cell); the other two use all 300 items.
 
@@ -21,11 +23,11 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "Figures" / "fig2_dose_organization"
 
-PANELS = [  # (key, title, workpoint)
-    ("llama3", "Llama-3.1-8B", -6),
-    ("granite", "Granite-3.3-8B", -6),
-    ("qwen2.5", "Qwen2.5-7B", 8),
-    ("qwen3", "Qwen3-8B", 10),
+PANELS = [  # (key, title, workpoint, plotted alpha range)
+    ("llama3", "Llama-3.1-8B", -6, (-8, 8)),
+    ("granite", "Granite-3.3-8B", -6, (-8, 8)),
+    ("qwen2.5", "Qwen2.5-7B", 8, (-8, 10)),
+    ("qwen3", "Qwen3-8B", 10, (-8, 10)),
 ]
 SERIES = [  # (column, label, color, marker, linestyle)
     ("first_acc", "Accuracy (first_acc)", "#2a78d6", "o", "-"),
@@ -56,8 +58,8 @@ def main():
                          "axes.labelcolor": INK, "xtick.color": MUTED,
                          "ytick.color": MUTED})
     fig, axes = plt.subplots(1, 4, figsize=(12, 3.0), sharey=True)
-    for ax, (key, title, wp) in zip(axes, PANELS):
-        data = rows[key]
+    for ax, (key, title, wp, (lo, hi)) in zip(axes, PANELS):
+        data = [r for r in rows[key] if lo <= float(r["alpha"]) <= hi]
         x = [float(r["alpha"]) for r in data]
         ax.axvspan(wp - 0.8, wp + 0.8, color="#f1efe8", zorder=0)
         ax.axvline(0, color=GRID, lw=1, zorder=0)
