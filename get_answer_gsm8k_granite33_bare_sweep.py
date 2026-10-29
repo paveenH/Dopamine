@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-get_answer_gsm8k_granite33_bare_sweep.py -- Granite-3.3-8B GSM8K Bare No-CoT seven-point sweep (gsm8k-granite33-bare-sweep-v1).
+get_answer_gsm8k_granite33_bare_sweep.py -- Granite-3.3-8B GSM8K Bare No-CoT sweep (gsm8k-granite33-bare-sweep-v1).
 
 ibm-granite/granite-3.3-8b-instruct, BARE string (no chat template), neutral/plain/zero-shot/No-CoT. The NMD mask is built first (before
 model load) from Granite33's own hidden_states_mean/granite33/mmlue/{diff_mean,none_diff_mean}_8B.npy via detection.nmd.get_nmd_mask
-(top_k = int(H*0.5/100), hidden range [11,20) -> decoder rows 10..18, L=9). alpha order 0,-6,6,-8,8,-10,10 (split over two GPUs via --alphas, one process / model load each);
+(top_k = int(H*0.5/100), hidden range [11,20) -> decoder rows 10..18, L=9). alpha order 0,-6,6,-8,8,-10,10,-4,4,-2,2 (+-2/+-4 added 2026-10-29; split over two GPUs via --alphas, one process / model load each);
 no gating. Injection = prefill-only, tail 1, last prompt token (id/text recorded). Score OFFLINE; inline fields are process state.
 Existing complete cells with matching settings/data/mask are skipped (environment differences only warn); a mismatching one aborts (never overwritten).
 BOS count of the native Bare encoding is recorded, not asserted; the final prompt token must be uniform.
@@ -31,7 +31,7 @@ MASK_REL = "mask/granite33_non_logits/nmd_0.5_11_20_8B.npy"
 MEAN_REL = "hidden_states_mean/granite33/mmlue"
 QUESTIONS_REL = "benchmark/gsm8k_test_sample.json"
 OUT_SUBDIR = "granite33/gsm8k_bare_sweep_v1"
-ALPHAS = [0, -6, 6, -8, 8, -10, 10]      # fixed order, no gating
+ALPHAS = [0, -6, 6, -8, 8, -10, 10, -4, 4, -2, 2]      # fixed order, no gating
 FNAME = "gsm8k_granite33_bare_8B_answers_11_20.json"
 
 
