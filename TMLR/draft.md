@@ -136,7 +136,7 @@ Together, these results support a contribution from the RSN weight direction bey
 
 To examine whether the organizational effects extend to base models, we apply each instruction-tuned model’s RSN direction unchanged to its corresponding base model. We retain the same sparse support, layer band, and reference workpoint, evaluating the same 300 GSM8K items under Bare, zero-shot prompting with a 768-token budget.
 
-**Table N. Transfer of instruction-tuned RSN directions to base models.** Values show baseline ($\alpha=0$) → reference workpoint, in percent. Accuracy differences are in percentage points. Asterisks indicate unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. Exact values and complete results are provided in Appendix K.
+**Table 3. Transfer of instruction-tuned RSN directions to base models.** Values show baseline ($\alpha=0$) → reference workpoint, in percent. Accuracy differences are in percentage points. Asterisks indicate unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. Exact values and complete results are provided in Appendix K.
 
 | Base model | $\alpha$ | Accuracy | Δ (pp) | EC | Valid marker |
 |---|---:|---:|---:|---:|---:|
