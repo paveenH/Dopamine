@@ -32,7 +32,7 @@ rsync -avzP \
 
 
 rsync -avzP \
-  "d12922004@140.112.31.182:/data1/paveen/Dopamine/components/qwen3" \
+  "d12922004@140.112.31.182:/data1/paveen/Dopamine/components/qwen3_base" \
   /Users/paveenhuang/Downloads/
 
 
@@ -46,12 +46,15 @@ rsync -avzh --partial --info=progress2 \
 
 ```bash
 
-cd /data1/paveen/Dopamine && git pull
-GPUS="0 1" SPLIT_A="-4 -2" SPLIT_B="2 4" nohup bash run_gsm8k_granite33_bare_sweep.sh > granite_gsm8k_pm24.log 2>&1 &
+cd /data1/paveen/Dopamine && git pull && mkdir -p tmp  
+export HUGGINGFACE_HUB_TOKEN=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
+CUDA_VISIBLE_DEVICES=3 nohup bash run_gsm8k_base_qwen3_granite.sh qwen3 > tmp/gsm8k_base_qwen3.log 2>&1 &
+CUDA_VISIBLE_DEVICES=5 nohup bash run_gsm8k_base_qwen3_granite.sh granite33 > tmp/gsm8k_base_granite33.log 2>&1 &
+sleep 10; cat tmp/gsm8k_base_qwen3.log tmp/gsm8k_base_granite33.log
 
-cat granite_gsm8k_pm24.log
+CUDA_VISIBLE_DEVICES=5 nohup bash run_gsm8k_base_qwen3_granite.sh granite33 > tmp/gsm8k_base_granite33.log 2>&1 &
+sleep 10; tail -c 400 tmp/gsm8k_base_granite33.log
 
-CUDA_VISIBLE_DEVICES=5 nohup bash run_gsm8k_qwen3_bare_sweep.sh > tmp/qwen3_gsm8k_pm2.log 2>&1 &
 
 
 ```
