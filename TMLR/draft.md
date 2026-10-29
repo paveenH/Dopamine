@@ -141,7 +141,7 @@ Llama-3.1-8B Base does not give an interpretable test under this interface. Only
 
 ### 4.5 Entry State and Generated Behavior
 
-Because the intervention is a single additive change at one position, its immediate effect on the prompt state is simple. In a separate collection on the same 300 items (batch size 1), we projected the last-token prefill state of the steered layers onto the RSN direction. This projection is linear in $\alpha$: $R^2$ = .999 across nine doses for Llama and .9998 across eleven for Qwen2.5. The behavior that follows is not linear. Llama's accuracy peaks at −6 and collapses at −8, while the entry projection keeps moving at a constant rate. Across Llama's nine doses, the entry projection describes the accuracy curve poorly ($R^2$ = .136), whereas EC describes it closely ($R^2$ = .945). Both fits are curve-level descriptions over nine points (Appendix H).
+Because the intervention is a single additive change at one position, its immediate effect on the prompt state is simple. To examine this, we use a separate signal collection: the same 300 GSM8K items regenerated one item at a time (batch size 1) while recording the steered layers' hidden states. All numbers in this subsection come from that collection, including its own accuracy and EC; they are not paired item-by-item with the batched runs used elsewhere. Projecting the last-token prefill state onto the RSN direction gives a quantity that is linear in $\alpha$: $R^2$ = .999 across nine doses for Llama and .9998 across eleven for Qwen2.5. The behavior that follows is not linear. In both collections Llama's accuracy peaks at −6 and collapses at −8, while the entry projection keeps moving at a constant rate. Across Llama's nine doses in the signal collection, the entry projection describes the accuracy curve poorly ($R^2$ = .136), whereas EC describes it closely ($R^2$ = .945). Both fits are curve-level descriptions over nine points (Appendix H).
 
 The size of the prompt-state perturbation therefore does not stand in for its behavioral effect. What the effect looks like depends on how the model's generation unfolds from that state, which the organization metrics capture. Section 6.1 returns to this point: entry gain alone predicts item-level correctness weakly, and adds nothing once output features are included.
 
@@ -149,9 +149,7 @@ The size of the prompt-state perturbation therefore does not stand in for its be
 
 ## Notes for authors (remove before submission)
 
-1. **§4.2 Llama −8 用了 182 批次的数字。** 提纲原写"首个 marker 位置 0.298→0.043、约 96% 文本在提交之后"，那组数来自 signal 批次（bs=1，取均值），而 40.33% 准确率来自 182 批次（bs=24）。为了同一段内批次一致，草稿改用 182 批次：marker 开头 171/300、首个可解析 marker 位置中位数 0.000（基线 0.177）、`cond_acc` 23.63%、≥2 次换答 41 题。
-2. **Granite 写法。** Granite 的工作点在 GSM8K 上不显著（+4.67 pp，Holm p=.195），EC 基线只有 6.67%（地板），主要变化体现在 reason-first（58.11→95.92%）。正向一侧 EC 和 reason-first 同时上升，两项组织指标不同步，已在 §4.1 如实写出。C1 里"Granite 为负向"目前主要靠 reason-first 和正向侧的 EC 上升支撑。
-3. **新算的数。** Qwen3、Granite 的 reason-first 和候选前字符数是这次用冻结实现新算的（`scripts/compute_qwen3_granite_org.py` → `data/gsm8k_org_qwen3_granite.csv`）；`first_acc` 和 EC 与 ReasoningBare 表 9.1、9.2、9.9 完全一致。提纲"Before Drafting"第 1 项已完成。
-4. **Table 1 待核对。** Llama/Qwen2.5 的 Native Chat 和 Chat-CoT 预算、GSM-Symbolic 的 token 预算、ProofWriter/FinQA/ZebraLogic 的 n，写 §5 时再对一遍。Qwen3 和 Granite 的总层数（36、40）按公开配置填写，未从本地文件核对。
-5. **Qwen2.5 正交对照的批次。** 正交那轮的基线和 RSN（69.33/85.00）与剂量扫描（68.00/86.00）不同，§4.3 已注明比较用的是同一轮的配对数据。
-6. **§4.5 的 R² 来自 signal 批次**，与 182 批次的准确率曲线是两次采集；正文写成同一批 300 题上的另一次采集。如果想更保守，可以只留线性 R²，把 .136/.945 移到附录 H。
+1. **Granite 写法。** Granite 的工作点在 GSM8K 上不显著（+4.67 pp，Holm p=.195），EC 基线只有 6.67%（地板），主要变化体现在 reason-first（58.11→95.92%）。正向一侧 EC 和 reason-first 同时上升，两项组织指标不同步，已在 §4.1 如实写出。C1 里"Granite 为负向"目前主要靠 reason-first 和正向侧的 EC 上升支撑。
+2. **新算的数。** Qwen3、Granite 的 reason-first 和候选前字符数是这次用冻结实现新算的（`scripts/compute_qwen3_granite_org.py` → `data/gsm8k_org_qwen3_granite.csv`）；`first_acc` 和 EC 与 ReasoningBare 表 9.1、9.2、9.9 完全一致。提纲"Before Drafting"第 1 项已完成。
+3. **Table 1 待核对。** Llama/Qwen2.5 的 Native Chat 和 Chat-CoT 预算、GSM-Symbolic 的 token 预算、ProofWriter/FinQA/ZebraLogic 的 n，写 §5 时再对一遍。Qwen3 和 Granite 的总层数（36、40）按公开配置填写，未从本地文件核对。
+4. **Qwen2.5 正交对照的批次。** 正交那轮的基线和 RSN（69.33/85.00）与剂量扫描（68.00/86.00）不同，§4.3 已注明比较用的是同一轮的配对数据。
