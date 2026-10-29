@@ -91,15 +91,32 @@ Accuracy increases alongside these organizational changes. The gains are signifi
 
 Steering in the opposite direction can instead favor early candidates. EC rises to 75.67% for Llama at $+6$, 26.33% for Granite at $+6$, and 86.00% for Qwen3 at $-8$. Together, these results show that steering systematically changes visible answer organization, with model-specific dose-response patterns. The following section examines how these responses saturate or reverse at stronger doses.
 
-### 4.2 Non-Monotone Responses
+### 4.2 Saturation and Oversteering
 
-Organization and accuracy decouple in two ways: when the dose overshoots, and when the reorganization saturates.
+The dose-response curves reveal distinct regimes as intervention strength increases: a reversal in answer organization for Llama and saturation of performance gains for Qwen2.5.
 
-**Overshoot (Llama, −8).** Going one step past Llama's workpoint collapses accuracy to 40.33%, below the 60.00% baseline. The failure is not a return to the baseline pattern. At −8, 171 of 300 generations begin directly with a formal `#### N` submission. The median position of the first parseable marker is 0.000 of the generation (0.177 at baseline). Accuracy among items with a marker is 23.63%. The model submits at once and then keeps generating: 41 items switch between two or more different answer values, and the median length after the first candidate is 2,259 characters. EC is high here (76.67%), as on the positive side, but the visible pattern differs. Positive doses produce an early candidate followed by continued checking; −8 produces an early formal submission followed by unstable answer values.
+**Oversteering in Llama.** Increasing the magnitude of the negative dose from $\alpha=-6$ to $-8$ reduces accuracy from 78.00% to 40.33%, below the 60.00% baseline. This change accompanies a marked shift toward immediate answer submission: 171 of 300 outputs begin directly with a `####` marker. Some then continue generating and repeatedly alternate between answer values. The example below illustrates this pattern: the model first submits 55, subsequently calculates the correct answer of 40, and continues switching between the two values.
 
-**Saturation (Qwen2.5).** On GSM8K, accuracy levels off beyond the workpoint: 86.00% at +8 and 88.33% at +10, with no detected difference between them. EC is already at 2.67–5.00%. On MATH, the same model's accuracy peaks at +6 (68.33%, +7.67 pp over baseline, Holm $p$ = .0087) and falls at +8 (63.33%; exploratory $p$ = .040 against +6), while EC keeps falling (19.33% → 10.33%) and reason-first keeps rising (77.59% → 86.16%). Further delaying the first candidate does not keep improving accuracy. The MATH decline is concentrated in Level-5 problems (47.2% → 36.0%).
+**Saturation in Qwen2.5.** On GSM8K, accuracy levels off at high doses, reaching 86.00% at $+8$ and 88.33% at $+10$, with no detected difference between them. On MATH, accuracy reaches 68.33% at $+6$ and falls to 63.33% at $+8$, even as EC decreases from 19.33% to 10.33% and reason-first increases from 77.59% to 86.16%. Thus, the organization measures continue to change beyond the dose yielding the highest observed accuracy.
 
-Both cases show that the organization metrics describe an output pattern, not a quantity to be pushed to its extreme. Low EC accompanies the best-performing doses in every model, but it is not sufficient for them.
+Together, these patterns characterize the operating range of steering: increasing intervention strength can produce further reorganization, a performance plateau, or a reversal of the gains observed at moderate doses.
+
+**Example. Immediate submission followed by answer switching (Llama, $\alpha=-8$).**  
+Brian has 20 video games and loses 5. Bobby has 5 fewer than three times Brian’s remaining number. The correct answer is 40. Selected excerpts from the generated response are shown below; ellipses indicate omitted text.
+
+```text
+#### 55
+Explanation: Brian has 20 video games, but lost 5,
+so he has 20 - 5 = 15 video games.
+...
+Therefore, Bobby has 40 video games.
+The answer is 55. I made a mistake.
+The answer is 40. I made another mistake.
+The answer is 55. I made another mistake.
+The answer is 40.
+...
+```
+
 
 ### 4.3 Specificity
 
