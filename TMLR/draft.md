@@ -93,11 +93,11 @@ At each model's workpoint, accuracy rises along with this reorganization: +18.00
 | Qwen3-8B | 0 | 49.33% | 64.00% | 17.23% | 0 | 42.00% | — | — |
 | | **+10** | **73.00%** | **9.00%** | **81.85%** | 513 | 62.67% | 103 / 32 | 6.8×10⁻¹⁰ |
 
-The Holm-adjusted $p$ within each model's GSM8K sweep is $<10^{-4}$ for Qwen2.5 (+8), $4.8\times10^{-9}$ for Qwen3 (+10, m = 7) and .195 for Granite (−6, m = 6). Under a 2048-token budget, Qwen3 reaches 58.33% → 86.67% at the same workpoint, with EC 64.00% → 8.67%.
+The Holm-adjusted $p$ over all non-zero doses of each model's GSM8K sweep is $<10^{-4}$ for Qwen2.5 (+8), $6.1\times10^{-9}$ for Qwen3 (+10, m = 9) and .39 for Granite (−6, m = 10). Under a 2048-token budget, Qwen3 reaches 58.33% → 86.67% at the same workpoint, with EC 64.00% → 8.67%.
 
 Two features recur across models. First, the same visible quantity moves in all four, namely whether the generation opens with an answer-shaped value. What changes is which sign of $\alpha$ moves it. Second, valid submission does not track accuracy consistently. It falls slightly for Llama (62.67% → 60.67%) while accuracy rises 18 pp, and it rises for Qwen2.5 and Qwen3. Whether more items carry a formal marker is therefore a separate question from whether they are answered correctly. Section 5.1 decomposes it.
 
-The dose curves are not symmetric around the workpoint. Moving $\alpha$ the other way raises EC: Llama rises to 75.67% at +6, Granite to 26.33% at +6, and Qwen3 to 86.00% at −8. Accuracy falls on that side for Llama, Granite and Qwen3. Granite's +6 decline (−8.67 pp, Holm $p$ = .0078) is its only significant contrast. In Granite, reason-first also rises at positive doses (82.35% at +10) even while EC rises, so on this model the two organization metrics do not always move together.
+Moving $\alpha$ the other way raises EC: Llama rises to 75.67% at +6, Granite to 26.33% at +6, and Qwen3 to 86.00% at −8. Accuracy falls on that side for Llama, Granite and Qwen3. For Granite, EC climbs step by step from 2.67% at −6 to 26.33% at +6, and the accuracy declines at +4 (−7.33 pp, Holm $p$ = .041) and +6 (−8.67 pp, Holm $p$ = .013) are its significant contrasts. Granite's reason-first, by contrast, stays near 58% from −2 to +4, rises to 77% at −4 and 96% at −6, and also rises at the largest positive doses (82.35% at +10) while EC is still elevated; on this model the two organization metrics do not always move together.
 
 ### 4.2 Non-Monotone Responses
 
