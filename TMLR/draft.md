@@ -132,17 +132,24 @@ We assess whether the observed gains depend on the RSN direction by comparing it
 
 Together, these results support a contribution from the RSN weight direction beyond sparse support and intervention magnitude. RSN achieves the highest observed accuracy in both models, with significant advantages over every tested on-support direction. Higher-performing control directions also tend to have lower EC, extending the association between answer organization and accuracy across intervention directions.
 
-### 4.4 Transfer to Base Checkpoints
+### 4.4 Transfer to Base Models
 
-The RSN direction is extracted from instruction-tuned models. We applied each model's instruction-tuned mask, unchanged, to its pretrained base checkpoint on the same 300 GSM8K items (Bare, zero-shot, 768 tokens).
+To examine whether the organizational effects extend to base models, we apply each instruction-tuned model’s RSN direction unchanged to its corresponding base model. We retain the same sparse support, layer band, and reference workpoint, evaluating the same 300 GSM8K items under Bare, zero-shot prompting with a 768-token budget.
 
-On Qwen2.5-7B Base, the effect is two-sided. Relative to $\alpha=0$ (62.33%, EC 37.33%):
-- At +8, accuracy rises to 80.00% (+17.67 pp; 67 fixed / 14 broke; $p$ = 1.9×10⁻⁹) and EC falls to 7.67%.
-- At −8, accuracy falls to 47.33% (−15.00 pp; $p$ = 7.4×10⁻⁷) and EC rises to 50.33%.
+**Table N. Transfer of instruction-tuned RSN directions to base models.** Values show baseline ($\alpha=0$) → reference workpoint, in percent. Accuracy differences are in percentage points. Asterisks indicate unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. Exact values and complete results are provided in Appendix K.
 
-Marker coverage stays at 293–295 of 300 in all three cells, with at most four truncated generations. The organization effect and the accuracy gain both survive the move from the instruction-tuned to the base checkpoint, and the direction of each matches the instruction-tuned model.
+| Base model | $\alpha$ | Accuracy | Δ (pp) | EC | Valid marker |
+|---|---:|---:|---:|---:|---:|
+| Qwen2.5-7B | +8 | 62.33 → 80.00 | $+17.67^{***}$ | 37.33 → 7.67 | 98.3 → 97.7 |
+| Qwen3-8B | +10 | 69.00 → 73.67 | +4.67 | 35.00 → 17.33 | 96.0 → 99.0 |
+| Granite-3.3-8B | −6 | 39.00 → 49.33 | $+10.33^{**}$ | 41.00 → 28.67 | 57.0 → 76.0 |
+| Llama-3.1-8B | −6 | 26.33 → 30.00† | +3.67† | 58.00 → 49.33† | 0.7 → 0.3 |
 
-Llama-3.1-8B Base does not give an interpretable test under this interface. Only 1–6 of 300 generations carry a parseable marker, and about 27–32% exhaust the budget. Opening answers often conflict with later conclusions. A one-shot follow-up raised marker coverage to 94–97% but left every generation at the budget limit, with no detected accuracy change (Appendix K). We treat Llama Base as an interface limitation, not evidence for or against transfer.
+† Llama results are diagnostic under this interface: only two baseline outputs and one steered output contain a parseable answer marker. Accuracy includes the fixed fallback procedure; interpretation and output diagnostics are detailed in Appendix K.
+
+Qwen2.5, Qwen3, and Granite all show lower EC at their instruction-tuned reference workpoints, matching the direction of change in the corresponding instruction-tuned models. Accuracy increases alongside these shifts: Qwen2.5 gains 17.67 percentage points and Granite gains 10.33, both statistically significant, while Qwen3 shows a positive trend of 4.67 percentage points. Granite’s gain also accompanies increased marker coverage; the paired scoring-path analysis is provided in Appendix K. An exploratory reverse-direction condition in Qwen2.5 provides a complementary result: at $\alpha=-8$, accuracy falls from 62.33% to 47.33%, while EC rises from 37.33% to 50.33%.
+
+These transfers reveal a controllable aspect of answer organization already present in pretrained base models. An RSN direction identified in an instruction-tuned model can access this behavior in its base counterpart, shifting outputs toward computation before answer submission without re-extraction or dose retuning.
 
 ### 4.5 Entry State and Generated Behavior
 
