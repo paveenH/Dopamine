@@ -47,9 +47,8 @@ rsync -avzh --partial --info=progress2 \
 ```bash
 
 cd /data1/paveen/Dopamine && git pull
-nohup env PYTHONNOUSERSITE=1 GPUS="0 1 5 3" PY=python \
-  bash run_granite33_bare_transfer.sh > granite33_bare_transfer.log 2>&1 &
-cat granite33_bare_transfer.gpu*.log
+GPUS="0 1" SPLIT_A="-4 -2" SPLIT_B="2 4" nohup bash run_gsm8k_granite33_bare_sweep.sh > granite_gsm8k_pm24.log 2>&1 &
 
+cat granite_gsm8k_pm24.log
 
 ```
