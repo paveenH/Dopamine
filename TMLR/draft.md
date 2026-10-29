@@ -1,26 +1,26 @@
 # Steering Answer Organization in Language Models: Conditional Gains and Label-Free Dose Selection
 
-*Draft — Sections 3 and 4. Outline: [TMLR1028.md](TMLR1028.md).*
-
----
-
 ## 3. Setup
 
 ### 3.1 Intervention
 
-**Direction.** We reuse the Role-Sensitive Neuron (RSN) direction of prior work [cite parent paper]. For each model, the direction is extracted once on MMLU-E, a multiple-choice format with an added "I am not sure" option. The extraction keeps the items on which an expert and a non-expert role prompt lead to different answers. For each layer $l$ it averages the difference between the two prompts' final-token hidden states, giving $\Delta\mu^{(l)}$. It then keeps the top 0.5% of dimensions by $|\Delta\mu^{(l)}_i|$ and zeroes the rest. The result is a sparse, signed vector $m_l$ per layer. We reuse each model’s existing RSN direction without recomputing it and keep it fixed across tasks.
+**RSN direction.** We use the model-specific Role-Sensitive Neuron (RSN) directions identified in prior work **[cite parent paper]**. These directions were extracted on MMLU-E, a multiple-choice benchmark with an additional “I am not sure” option, using items for which expert and non-expert role prompts produced different answers. For each layer $l$, the mean difference between the two prompts’ final-token hidden states defines $\Delta\mu^{(l)}$. Retaining the top 0.5% of dimensions by $|\Delta\mu^{(l)}_i|$ and setting the remainder to zero yields a sparse, signed vector $m_l$. We reuse these directions without recomputing them and keep them fixed across tasks.
 
-**Injection.** At inference we add $\alpha\, m_l$ to the output hidden state of each steered decoder layer $l$. The addition is made at a single position: the last prompt token, during prefill only. Decoding is unmodified, so every generated token is produced by the unsteered model, conditioned on a perturbed prompt state. Every run logs the number of injection events and checks it against layers × items. At $\alpha=0$ the same code path runs with an all-zero vector.
+**Intervention.** During prefill, we add $\alpha m_l$ to the output hidden state at the final prompt position in each steered decoder layer:
 
-**Steered layers.** For each model the steered band is a contiguous block of middle layers. Following the prior work, it is placed where the layer-wise similarity between expert and non-expert hidden states begins to fall (Table 1).
+$$
+h^{(l)}_{\mathrm{last}} \leftarrow h^{(l)}_{\mathrm{last}}+\alpha m_l.
+$$
 
-**Dose scale.** $\alpha$ scales a model-specific steering vector. Masks, band widths, and activation scales differ across models, so equal values of $\alpha$ do not represent equal interventions. We therefore compare dose-response patterns across models, since the numerical values of $\alpha$ are not directly comparable.
+No further intervention is applied during decoding. Each model uses a contiguous band of middle layers, following the prior work’s layer-wise analysis of expert–non-expert activation similarity (Table 1).
+
+**Dose scale.** The multiplier $\alpha$ controls intervention strength within each model. Because the sparse vectors, layer bands, and activation scales differ across models, equal values of $\alpha$ do not represent equal interventions. Cross-model comparisons therefore focus on dose-response patterns.
 
 ### 3.2 Models and Coverage
 
-We study four instruction-tuned models with 7–8B parameters. Table 1 lists the models and their steered layer ranges. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. Additional tasks are introduced in §5.5.
+We study four instruction-tuned models with 7–8B parameters. Table 1 lists their architectures and steered layer ranges. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. Additional tasks are introduced in §5.5.
 
-**Table 1. Models and intervention settings.** Decoder layers are indexed from zero, and both endpoints of each steered range are included.
+**Table 1. Models and intervention settings.** Decoder-layer indices are zero-based, and both endpoints of each steered range are included.
 
 | Model | Total decoder layers | Steered decoder layers |
 |---|---:|---|
@@ -29,44 +29,40 @@ We study four instruction-tuned models with 7–8B parameters. Table 1 lists the
 | Qwen3-8B | 36 | 16–24 |
 | Granite-3.3-8B-Instruct | 40 | 10–18 |
 
-For GSM8K, GSM-Hard, and MATH, each experimental cell contains 300 items. All four models use the same 300 GSM8K test items in the same order. The standard generation budgets are 768 tokens for GSM8K and GSM-Hard and 2048 tokens for MATH; Qwen3 is additionally evaluated on GSM8K with a 2048-token budget. Detailed dose grids and task-specific settings are provided in Appendix A.
+Each condition on GSM8K, GSM-Hard, and MATH contains 300 items. All four models use the same GSM8K test items in the same order. Reasoning experiments use greedy decoding, with standard generation budgets of 768 tokens for GSM8K and GSM-Hard and 2048 tokens for MATH. Qwen3 is additionally evaluated on GSM8K with a 2048-token budget. Detailed dose grids and task-specific settings are provided in Appendix A.
 
 ### 3.3 Interfaces
 
-**Bare.** For reasoning tasks, we provide the task prompt as a plain string without a chat template. GSM8K prompts request a final numeric answer after `####`, with the CoT variant adding `Let's think step by step.` before the final-answer instruction. MATH prompts request the final answer in `\boxed{}`. We use Bare as a simple setting for examining how steering changes the model’s answer organization.
+**Bare.** For reasoning tasks, we provide the task prompt as a plain string without a chat template. This provides a simple setting for examining how steering changes answer organization. GSM8K prompts request a final numeric answer after `####`; the No-CoT prompt is:
 
-```
+```text
 Solve the following math problem.
 Question: {question}
 Provide your final numeric answer after '####'.
 Answer: 
 ```
 
-**Native Chat** presents the task instruction using each model’s native chat template, allowing us to examine steering under standard conversational use (§5.3).
+The CoT variant adds `Let's think step by step.` before the final-answer instruction. MATH prompts request the final answer in `\boxed{}`. Full prompts are provided in Appendix B.
 
-All runs use greedy decoding with a fixed token budget: 768 tokens for the GSM8K family and 2048 for MATH. All conclusions are conditional on these budgets.
+**Native Chat.** We present the task instruction using each model’s native chat template to examine steering under standard conversational use (§5.3).
 
 ### 3.4 Metrics
 
-We separate how well the model answers from how it organizes its answer. 
+We evaluate task performance, answer organization, submission behavior, and generation quality.
 
-**Performance.** Our primary metric is first-answer accuracy, which evaluates the first parseable final answer in each output. A fixed fallback procedure handles outputs without a parseable answer marker, and all items remain in the denominator. We also report last-answer accuracy to assess sensitivity to answer revisions. Scoring details are provided in Appendix C.
+**Performance.** Our primary metric is first-answer accuracy, which scores the first parseable final answer in each output. A fixed fallback procedure handles outputs without a parseable answer marker, retaining all items in the denominator. We also report last-answer accuracy to assess sensitivity to answer revisions.
 
-**Answer organization.** The two organization metrics describe the visible order of the generated text.
-- Early-candidate rate (EC) measures the proportion of outputs that open with an answer-like numerical candidate before presenting a derivation. We compute this rate over all items using a fixed text-based detector, with detection criteria and validation results provided in Appendix C.
-- **Reason-first rate** measures the proportion of outputs that contain explicit reasoning cues before the first answer-like numerical candidate, among outputs where such a candidate can be identified. Detection criteria are provided in Appendix C.
+**Answer organization.** We use two complementary measures of visible output order. *Early-candidate rate* (EC) measures the proportion of outputs that begin with an answer-like numerical candidate, using all items as the denominator. *Reason-first rate* measures the proportion containing explicit reasoning cues before the first answer-like numerical candidate, among outputs where such a candidate can be identified. Candidate coverage documents the fraction of outputs included in this latter measure.
 
-**Answer submission.** We report the valid-submission rate, the proportion of outputs containing a parseable final-answer marker, and conditional accuracy among those outputs. Conditional accuracy is descriptive because the submitted-item subset varies with $\alpha$.
+**Answer submission.** Valid-submission rate measures the proportion of outputs containing a parseable final-answer marker. Conditional accuracy measures correctness among those outputs and is reported descriptively, since the submitted-item subset varies with $\alpha$.
 
-**Generation quality.** We track repetitive looping, token-budget truncation, and natural termination. Operational definitions are provided in Appendix C.
+**Generation quality.** We track repetitive looping, token-budget truncation, and natural termination to characterize the generated outputs under the specified budgets.
 
-### 3.5 Statistics
+Scoring procedures, detector definitions, and validation results are provided in Appendix C.
 
-All comparisons are paired by item. We report the exact two-sided McNemar test on discordant items and a paired bootstrap 95% CI for the accuracy difference (B = 10,000, seed 0, percentile). Holm correction is applied within each family of comparisons, and the family is declared with each result. We distinguish three kinds of evaluation:
+### 3.5 Statistical Analysis
 
-1. *Dose sweeps on GSM8K*, where the workpoint is chosen. Workpoint-versus-baseline contrasts on these items are in-sample.
-2. *Fixed-workpoint transfer*, where the GSM8K workpoint is applied unchanged to another task. These are the main tests of whether a gain holds up.
-3. *A prospective test*, where dose predictions were frozen before GSM-Hard gold answers were unsealed (§6.2).
+Accuracy comparisons are paired by item. We use two-sided exact McNemar tests and report paired bootstrap 95% confidence intervals for accuracy differences. Holm correction is applied within the comparison families specified for each experiment. Dose-selection procedures are described alongside the corresponding evaluations, distinguishing fixed-workpoint transfer, target-task dose sweeps, and prospective prediction. Bootstrap settings and complete comparison families are provided in Appendix D.
 
 ---
 
