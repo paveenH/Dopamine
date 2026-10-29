@@ -70,34 +70,26 @@ Accuracy comparisons are paired by item. We use two-sided exact McNemar tests an
 
 ### 4.1 Dose Response
 
-Figure 2 shows, for each model, how EC, reason-first and accuracy change with dose on GSM8K. In all four models, $\alpha$ moves the position of the first answer candidate. The sign of the effective direction depends on the model. For Llama and Granite, negative $\alpha$ lowers EC and raises reason-first. For Qwen2.5 and Qwen3, positive $\alpha$ does.
+Figure 2 shows how steering changes answer organization on GSM8K. Across all four models, the dose-response curves reveal shifts in whether an answer candidate appears at the beginning of the output or follows explicit reasoning. The direction associated with lower EC and higher reason-first differs across models: negative doses produce this shift in Llama and Granite, whereas positive doses do so in Qwen2.5 and Qwen3.
 
 ![Figure 2](Figures/fig2_dose_organization.png)
 
-**Figure 2.** GSM8K dose response (Bare, No-CoT, 300 items per point, 768 tokens). Accuracy (`first_acc`) and early-candidate rate use all items. Reason-first uses the candidate-covered items. The shaded band marks each model's workpoint. The $\alpha$ axes are model-specific and are not comparable across panels.
+**Figure 2.** Dose-response curves for answer organization and accuracy on GSM8K (Bare, No-CoT; 300 items per dose, 768-token budget). Shaded bands indicate the reference workpoints.
 
-The change is largest where the baseline opens with an answer most often (Table 2). Qwen2.5 opens with an answer on 96.33% of items at $\alpha=0$; at +8 this falls to 5.00%, and reason-first rises from 0% to 98.00%. Qwen3 moves from 64.00% to 9.00% EC at +10. Llama starts at 48.00% EC and falls to 18.67% at −6. Granite already reasons first on most items at baseline (EC 6.67%). Its workpoint lowers EC only slightly but raises reason-first from 58.11% to 95.92%.
+Table 2 summarizes the changes from baseline to each model’s reference workpoint. Qwen2.5 exhibits the largest reduction in early candidates: EC falls from 96.33% to 5.00% at $\alpha=+8$, while reason-first rises from 0.00% to 98.00%. Qwen3 shows a similar shift at $+10$, with EC falling from 64.00% to 9.00% and reason-first rising from 17.23% to 81.85%. For Llama, $\alpha=-6$ reduces EC from 48.00% to 18.67% and increases reason-first from 30.85% to 66.55%. Granite begins with few early candidates; its clearest change is the increase in reason-first from 58.11% to 95.92% at $-6$.
 
-At each model's workpoint, accuracy rises along with this reorganization: +18.00 pp for Llama, +18.00 pp for Qwen2.5 and +23.67 pp for Qwen3. Granite rises +4.67 pp, which is not significant. These are in-sample contrasts, because each workpoint was chosen on these items. Section 5 tests the same workpoints on other tasks.
+**Table 2. Answer organization and accuracy at the reference workpoints.** Values show baseline ($\alpha=0$) → workpoint performance, in percent.
 
-**Table 2. Answer organization at each model's GSM8K workpoint** (Bare, No-CoT, n=300). Accuracy changes are paired against $\alpha=0$; "Fixed / broke" counts items that went from wrong to right / from right to wrong.
+| Model | Reference $\alpha$ | EC | Reason-first | Accuracy |
+|---|---:|---:|---:|---:|
+| Llama-3.1-8B | −6 | 48.00 → 18.67 | 30.85 → 66.55 | 60.00 → 78.00 |
+| Granite-3.3-8B | −6 | 6.67 → 2.67 | 58.11 → 95.92 | 84.00 → 88.67 |
+| Qwen2.5-7B | +8 | 96.33 → 5.00 | 0.00 → 98.00 | 68.00 → 86.00 |
+| Qwen3-8B | +10 | 64.00 → 9.00 | 17.23 → 81.85 | 49.33 → 73.00 |
 
-| Model | $\alpha$ | `first_acc` | EC | Reason first | Pre-candidate chars (median) | Valid submission | Fixed / broke | Exact McNemar $p$ |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Llama-3.1-8B | 0 | 60.00% | 48.00% | 30.85% | 0 | 62.67% | — | — |
-| | **−6** | **78.00%** | **18.67%** | **66.55%** | 175 | 60.67% | 76 / 22 | 3.9×10⁻⁸ |
-| Granite-3.3-8B | 0 | 84.00% | 6.67% | 58.11% | 125 | 88.00% | — | — |
-| | **−6** | **88.67%** | **2.67%** | **95.92%** | 226 | 90.00% | 32 / 18 | .065 |
-| Qwen2.5-7B | 0 | 68.00% | 96.33% | 0.00% | 0 | 81.00% | — | — |
-| | **+8** | **86.00%** | **5.00%** | **98.00%** | 140 | 97.00% | 78 / 24 | 7.7×10⁻⁸ |
-| Qwen3-8B | 0 | 49.33% | 64.00% | 17.23% | 0 | 42.00% | — | — |
-| | **+10** | **73.00%** | **9.00%** | **81.85%** | 513 | 62.67% | 103 / 32 | 6.8×10⁻¹⁰ |
+Accuracy increases alongside these organizational changes. The gains are significant after Holm correction for Llama (+18.00 percentage points), Qwen2.5 (+18.00), and Qwen3 (+23.67), with a smaller positive trend for Granite (+4.67). Section 5 examines these performance changes and their transfer across tasks.
 
-The Holm-adjusted $p$ over all non-zero doses of each model's GSM8K sweep is $<10^{-4}$ for Qwen2.5 (+8), $6.1\times10^{-9}$ for Qwen3 (+10, m = 9) and .39 for Granite (−6, m = 10). Under a 2048-token budget, Qwen3 reaches 58.33% → 86.67% at the same workpoint, with EC 64.00% → 8.67%.
-
-Two features recur across models. First, the same visible quantity moves in all four, namely whether the generation opens with an answer-shaped value. What changes is which sign of $\alpha$ moves it. Second, valid submission does not track accuracy consistently. It falls slightly for Llama (62.67% → 60.67%) while accuracy rises 18 pp, and it rises for Qwen2.5 and Qwen3. Whether more items carry a formal marker is therefore a separate question from whether they are answered correctly. Section 5.1 decomposes it.
-
-Moving $\alpha$ the other way raises EC: Llama rises to 75.67% at +6, Granite to 26.33% at +6, and Qwen3 to 86.00% at −8. Accuracy falls on that side for Llama, Granite and Qwen3. For Granite, EC climbs step by step from 2.67% at −6 to 26.33% at +6, and the accuracy declines at +4 (−7.33 pp, Holm $p$ = .041) and +6 (−8.67 pp, Holm $p$ = .013) are its significant contrasts. Granite's reason-first, by contrast, stays near 58% from −2 to +4, rises to 77% at −4 and 96% at −6, and also rises at the largest positive doses (82.35% at +10) while EC is still elevated; on this model the two organization metrics do not always move together.
+Steering in the opposite direction can instead favor early candidates. EC rises to 75.67% for Llama at $+6$, 26.33% for Granite at $+6$, and 86.00% for Qwen3 at $-8$. Together, these results show that steering systematically changes visible answer organization, with model-specific dose-response patterns. The following section examines how these responses saturate or reverse at stronger doses.
 
 ### 4.2 Non-Monotone Responses
 
@@ -105,7 +97,7 @@ Organization and accuracy decouple in two ways: when the dose overshoots, and wh
 
 **Overshoot (Llama, −8).** Going one step past Llama's workpoint collapses accuracy to 40.33%, below the 60.00% baseline. The failure is not a return to the baseline pattern. At −8, 171 of 300 generations begin directly with a formal `#### N` submission. The median position of the first parseable marker is 0.000 of the generation (0.177 at baseline). Accuracy among items with a marker is 23.63%. The model submits at once and then keeps generating: 41 items switch between two or more different answer values, and the median length after the first candidate is 2,259 characters. EC is high here (76.67%), as on the positive side, but the visible pattern differs. Positive doses produce an early candidate followed by continued checking; −8 produces an early formal submission followed by unstable answer values.
 
-**Saturation (Qwen2.5).** On GSM8K, accuracy reaches a plateau beyond the workpoint: 86.00%, 88.33% and 88.67% at +8, +10 and +12, with no detected difference between any two of them. EC is already at 2.67–5.00%. On MATH, the same model's accuracy peaks at +6 (68.33%, +7.67 pp over baseline, Holm $p$ = .0087) and falls at +8 (63.33%; exploratory $p$ = .040 against +6), while EC keeps falling (19.33% → 10.33%) and reason-first keeps rising (77.59% → 86.16%). Further delaying the first candidate does not keep improving accuracy. The MATH decline is concentrated in Level-5 problems (47.2% → 36.0%).
+**Saturation (Qwen2.5).** On GSM8K, accuracy levels off beyond the workpoint: 86.00% at +8 and 88.33% at +10, with no detected difference between them. EC is already at 2.67–5.00%. On MATH, the same model's accuracy peaks at +6 (68.33%, +7.67 pp over baseline, Holm $p$ = .0087) and falls at +8 (63.33%; exploratory $p$ = .040 against +6), while EC keeps falling (19.33% → 10.33%) and reason-first keeps rising (77.59% → 86.16%). Further delaying the first candidate does not keep improving accuracy. The MATH decline is concentrated in Level-5 problems (47.2% → 36.0%).
 
 Both cases show that the organization metrics describe an output pattern, not a quantity to be pushed to its extreme. Low EC accompanies the best-performing doses in every model, but it is not sufficient for them.
 
