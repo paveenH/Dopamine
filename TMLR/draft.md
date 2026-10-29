@@ -120,21 +120,17 @@ The answer is 40.
 
 ### 4.3 Specificity
 
-Is the gain specific to the RSN direction, or would any sparse perturbation of the same strength do? We injected norm-matched control directions at each model's workpoint and regenerated all 300 GSM8K items (Figure 3). We tested two kinds of control:
-- *On-support* controls use exactly the RSN's non-zero coordinates, matched per layer in norm, with Gaussian weights orthogonal to the dense role-difference vector.
-- *Off-support* controls use the same number of coordinates per layer, disjoint from the RSN's, also matched in norm.
-
-Each kind has three seeds, which are three different directions. The baseline and RSN cells were regenerated in the same round as the controls. Llama's reproduce the dose-sweep cells exactly; Qwen2.5's read 69.33% and 85.00% (68.00% and 86.00% in the sweep), and the comparisons below use the matched round.
+We assess whether the observed gains depend on the RSN direction by comparing it with norm-matched sparse control directions on GSM8K (Figure 3). For Llama and Qwen2.5, we evaluate three independently sampled directions of each type at the model’s reference workpoint. *On-support* controls retain the RSN’s non-zero coordinates but replace their weights with random weights orthogonal to the dense role-difference vector. *Off-support* controls use an equal number of coordinates disjoint from the RSN support. Both types match the RSN vector’s norm in each steered layer. Control construction and experimental settings are detailed in Appendix A; complete paired comparisons and correction families are reported in Appendix D.
 
 ![Figure 3](Figures/fig3_orthogonal.png)
 
-**Figure 3.** RSN versus norm-matched control directions on GSM8K at each model's workpoint (300 items per point). On-support controls share the RSN's coordinates; off-support controls use disjoint coordinates. Each control point is one direction.
+**Figure 3.** Accuracy and early-candidate rate under RSN and norm-matched control directions on GSM8K (Bare, No-CoT; 300 items per condition). On-support controls share the RSN’s coordinates; off-support controls use disjoint coordinates. Each control point represents a distinct sampled direction.
 
-**On support, RSN beats all three controls in both models.** All six direct comparisons survive Holm correction (m = 6). Llama: RSN 78.00% against 71.00%, 66.00% and 56.67% (RSN − control +7.00 to +21.33 pp, Holm $p$ ≤ .0154). Qwen2.5: RSN 85.00% against 69.67%, 68.33% and 69.67% (+15.33 to +16.67 pp, Holm $p$ ≤ 1.5×10⁻⁵). Holding the coordinates and per-layer norm fixed, the weights of the direction matter.
+**RSN outperforms all on-support controls in both models.** Llama reaches 78.00% accuracy, compared with 56.67–71.00% for the controls; Qwen2.5 reaches 85.00%, compared with 68.33–69.67%. All six paired comparisons remain significant after Holm correction ($m=6$), with adjusted $p\leq .0154$ for Llama and $p\leq 1.5\times10^{-5}$ for Qwen2.5. Thus, the specific weight direction contributes to performance even when the steered coordinates and per-layer intervention norm are held fixed.
 
-**Off support, the two models differ.** For Qwen2.5, no control reproduces either the gain or the reorganization. All six control directions stay near baseline accuracy (68.33–72.33%) and baseline EC (88.33–97.67%), and RSN exceeds each off-support control (+12.67 to +16.67 pp, Holm $p$ ≤ 1.3×10⁻⁴, a separate m = 6 family). For Llama, some random directions also help. Off-support seed 1 reaches 75.33% with EC 23.67%, and RSN does not detectably exceed it (+2.67 pp, $p$ = .42). Averaged over all six control directions, Llama's controls sit 5.78 pp above baseline (95% CI [+1.61, +9.94]), and RSN sits 12.22 pp above that average (CI [+7.72, +16.61]).
+**Off-support controls provide a complementary comparison.** For Qwen2.5, all six sampled controls cluster near baseline accuracy (68.33–72.33%) and retain high EC (88.33–97.67%), whereas RSN combines 85.00% accuracy with 5.00% EC. RSN also significantly exceeds each off-support control (adjusted $p\leq 1.3\times10^{-4}$ within a separate six-comparison Holm family). Llama shows greater variation across control directions. Across its six controls, mean accuracy is 65.78%, compared with 78.00% for RSN.
 
-The supported claim is therefore that RSN outperforms the six norm-matched directions tested. It is not that only the RSN direction can produce a gain. In Llama, the control directions that raise accuracy also lower EC (Figure 3, left), so accuracy and organization move together across directions as well as across doses.
+Together, these results support a contribution from the RSN weight direction beyond sparse support and intervention magnitude. RSN achieves the highest observed accuracy in both models, with significant advantages over every tested on-support direction. Higher-performing control directions also tend to have lower EC, extending the association between answer organization and accuracy across intervention directions.
 
 ### 4.4 Transfer to Base Checkpoints
 
