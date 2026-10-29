@@ -51,4 +51,7 @@ GPUS="0 1" SPLIT_A="-4 -2" SPLIT_B="2 4" nohup bash run_gsm8k_granite33_bare_swe
 
 cat granite_gsm8k_pm24.log
 
+CUDA_VISIBLE_DEVICES=5 nohup bash run_gsm8k_qwen3_bare_sweep.sh > tmp/qwen3_gsm8k_pm2.log 2>&1 &
+
+
 ```
