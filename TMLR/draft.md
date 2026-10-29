@@ -33,7 +33,7 @@ For GSM8K, GSM-Hard, and MATH, each experimental cell contains 300 items. All fo
 
 ### 3.3 Interfaces
 
-**Bare.** For reasoning tasks, we provide the task prompt as a plain string without a chat template. The GSM8K No-CoT prompt is. For GSM8K, the CoT variant adds `Let's think step by step.` before the final-answer instruction. MATH prompts request the final answer in `\boxed{}`. We use Bare as a simple setting for examining how steering changes the model’s answer organization.
+**Bare.** For reasoning tasks, we provide the task prompt as a plain string without a chat template. GSM8K prompts request a final numeric answer after `####`, with the CoT variant adding `Let's think step by step.` before the final-answer instruction. MATH prompts request the final answer in `\boxed{}`. We use Bare as a simple setting for examining how steering changes the model’s answer organization.
 
 ```
 Solve the following math problem.
@@ -48,17 +48,17 @@ All runs use greedy decoding with a fixed token budget: 768 tokens for the GSM8K
 
 ### 3.4 Metrics
 
-We separate how well the model answers from how it organizes its answer. Every metric below is computed offline from the stored generations by one frozen implementation, shared across models.
+We separate how well the model answers from how it organizes its answer. 
 
-**Performance.** `first_acc` is the primary metric. It scores the first parseable final-answer marker: `#### <number>` for the GSM8K family, or the first non-empty `\boxed{}` for MATH. Items without a parseable marker are scored by a fixed fallback chain, and the denominator is always all items. `last_acc` scores the last marker instead and is reported as a sensitivity check.
+**Performance.** Our primary metric is first-answer accuracy, which evaluates the first parseable final answer in each output. A fixed fallback procedure handles outputs without a parseable answer marker, and all items remain in the denominator. We also report last-answer accuracy to assess sensitivity to answer revisions. Scoring details are provided in Appendix C.
 
 **Answer organization.** The two organization metrics describe the visible order of the generated text.
-- `early_candidate_rate` (EC) is the primary one. An item counts if the first non-empty line of the generation has at most 60 characters, contains a number, and is neither a numbered reasoning step (`1. To find …`) nor a bare heading (`Step 1:`). It flags items that open with an answer-shaped value before any derivation. The denominator is all items. A blind audit of 180 items gave precision 1.000 and recall 0.976 (Appendix C).
-- `reason_first_rate` is the auxiliary one. A locator finds the first answer-shaped value in the text, and an item counts if a reasoning cue (an `=` or a `Step` marker) appears before that value. The denominator is the *candidate-covered* items, those where the locator finds a value (93–100% of items in every GSM8K cell).
+- Early-candidate rate (EC) measures the proportion of outputs that open with an answer-like numerical candidate before presenting a derivation. We compute this rate over all items using a fixed text-based detector, with detection criteria and validation results provided in Appendix C.
+- **Reason-first rate** measures the proportion of outputs that contain explicit reasoning cues before the first answer-like numerical candidate, among outputs where such a candidate can be identified. Detection criteria are provided in Appendix C.
 
-**Submission and denominators.** `valid_sub_rate` is the share of items with a parseable marker. `cond_acc` is accuracy within that subset. Because the subset changes with $\alpha$, `cond_acc` is never used as a paired effect.
+**Answer submission.** We report the valid-submission rate, the proportion of outputs containing a parseable final-answer marker, and conditional accuracy among those outputs. Conditional accuracy is descriptive because the submitted-item subset varies with $\alpha$.
 
-**Generation health.** We report three rates. *Loop*: the final 40 characters of a generation recur at least four times in it. *Truncation*: generation ended at the token budget. *Natural EOS*: generation stopped before the budget.
+**Generation quality.** We track repetitive looping, token-budget truncation, and natural termination. Operational definitions are provided in Appendix C.
 
 ### 3.5 Statistics
 
