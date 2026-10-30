@@ -155,11 +155,12 @@ These transfers reveal a controllable aspect of answer organization already pres
 
 ### 5.1 Where the Gains Appear
 
-> **[写作备注 · 开头]** 一两句引出：§4 显示干预改变作答组织并伴随准确率上升；本节看多答对的题落在哪里、基线文本里有什么。对象是 Llama、Qwen2.5 在 GSM8K / GSM-Hard 的固定工作点，加 Qwen3 GSM8K。先定义评分路径：每题按基线与工作点是否取到可解析 `####` marker（M）或走 fallback（F）分成四条路径。
+
+> **[写作备注 · 开头]** 一两句引出：§4 显示干预改变作答组织并伴随准确率上升；本节看多答对的题落在哪里、基线文本里有什么。对象是 Llama、Qwen2.5 在 GSM8K / GSM-Hard 的固定工作点，加 Qwen3 GSM8K。先定义评分路径：每题按基线与工作点是否取到可解析 `####` marker（M）或走 fallback（F）分成四条路径。定义路径时必须写明 F 不等于未作答或答错，可直接用这句：*F does not indicate a missing or incorrect answer: when no parseable marker is present, the fallback procedure extracts an answer from the text and scores it against the reference like any other answer.*（例：Qwen3 走 F→M 的 116 题中，基线已有 25 题答对；Llama GSM8K 走 F→F 的 58 题中，基线已有 28 题答对。）
 
 ![Figure 4](Figures/fig4_score_path.png)
 
-**Figure 4.** Net change in correct answers between the baseline and the reference workpoint, by scoring path. Each item is assigned to a path according to whether its answer was scored from a parseable `####` marker (M) or by the fallback extractor (F) under each condition. Segments show net corrections (wrong → correct minus correct → wrong) within each path; dots mark the total net change. Llama and Qwen2.5 use a 768-token budget; Qwen3 uses 2048 tokens. Corrections and damages for each path are listed in Appendix E.
+**Figure 4.** Net change in correct answers between the baseline and the reference workpoint, by scoring path. Each item is assigned to a path according to whether its answer was scored from a parseable `####` marker (M) or by the fallback extractor (F; it extracts an answer from the text when no marker is present, and such items can be correct) under each condition. Segments show net corrections (wrong → correct minus correct → wrong) within each path; dots mark the total net change. Llama and Qwen2.5 use a 768-token budget; Qwen3 uses 2048 tokens. Corrections and damages for each path are listed in Appendix E.
 
 > **[写作备注 · 评分路径因模型而异]** 按图读三种模式：
 > - Qwen2.5 净增主要来自 M→M：GSM8K +54 中 +49，GSM-Hard +49 中 +33。提交格式没变，提交的答案变对了。
