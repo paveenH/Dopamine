@@ -155,7 +155,7 @@ These transfers reveal a controllable aspect of answer organization already pres
 
 ### 5.1 Where the Gains Appear
 
-(Section 4 shows that RSN steering changes answer organization alongside accuracy. We now examine where the additional correct answers arise 这两句写成一句). We analyze Llama and Qwen2.5 on GSM8K and GSM-Hard at their reference workpoints, together with Qwen3 on GSM8K under the 2048-token budget. Each item is assigned to one of four paired scoring paths according to whether its answer is extracted from a parseable `####` marker (M) or through the fallback procedure (F) at baseline and at the workpoint. Fallback-scored answers are evaluated against the same reference and can be correct; F denotes an extraction route, not an unanswered item.
+Building on the changes in answer organization and accuracy observed in §4, we examine where the additional correct answers arise. We analyze Llama and Qwen2.5 on GSM8K and GSM-Hard at their reference workpoints, together with Qwen3 on GSM8K. Each item is assigned to one of four paired scoring paths according to whether its answer is extracted from a parseable `####` marker (M) or through the fallback procedure (F) at baseline and at the workpoint. The fallback procedure uses fixed text-matching rules to extract an answer when no parseable marker is present; F therefore denotes an extraction route, not an unanswered item.
 
 ![Figure 4](Figures/fig4_score_path.png)
 
