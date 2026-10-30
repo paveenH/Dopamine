@@ -159,9 +159,9 @@ Building on the changes in answer organization and accuracy observed in §4, we 
 
 ![Figure 4](Figures/fig4_score_path.png)
 
-**Figure 4.** Net change in correct answers by paired scoring path (baseline → workpoint; 300 items per comparison). M denotes marker-based extraction and F fallback extraction. Segments show corrections minus newly incorrect answers within each path; dots mark the total net change. Llama and Qwen2.5 use 768-token budgets; Qwen3 uses 2048 tokens. Complete path counts are provided in Appendix E.
+**Figure 4.** Net change in correct answers by paired scoring path (baseline → workpoint; 300 items per comparison). M denotes marker-based extraction and F fallback extraction. Segments show corrections minus newly incorrect answers within each path; dots mark the total net change. Qwen3 is shown at 768 and 2048 tokens; all other comparisons use 768 tokens. Complete path counts are provided in Appendix E.
 
-**The gains follow different scoring paths across models.** For Qwen2.5, most of the net gain occurs among items with a parseable marker in both conditions: M→M contributes 49 of the 54 additional correct answers on GSM8K and 33 of 49 on GSM-Hard. Llama gains across all four paths, including items scored through fallback in both conditions. Its GSM8K marker coverage decreases slightly, from 62.67% to 60.67%, while accuracy rises by 18.00 percentage points. Qwen3 shows a complementary pattern: F→M contributes a net gain of 86 correct answers, with the remaining paths contributing −1 in total. Here, steering primarily enables correct formal submissions from outputs previously scored through fallback. Together, these patterns distinguish gains in the correctness of submitted answers from gains accompanying changes in submission format.
+**The gains follow different scoring paths across models.** For Qwen2.5, most of the net gain occurs among items with a parseable marker in both conditions: M→M contributes 49 of the 54 additional correct answers on GSM8K and 33 of 49 on GSM-Hard. Llama gains across all four paths, including items scored through fallback in both conditions. Its GSM8K marker coverage decreases slightly, from 62.67% to 60.67%, while accuracy rises by 18.00 percentage points. Qwen3 use Qwen3 shows a complementary pattern: F→M contributes a net gain of 86 correct answers, with the remaining paths contributing −1 in total. Here, steering primarily enables correct formal submissions from outputs previously scored through fallback. Together, these patterns distinguish gains in the correctness of submitted answers from gains accompanying changes in submission format.
 
 **Table 4. Accuracy gains within the both-marker subset and under first- and last-answer scoring.** Both-marker accuracy shows baseline → workpoint values in percent; all differences are in percentage points. The subset contains items with a parseable marker in both conditions and is reported descriptively. Asterisks on its accuracy change indicate exploratory, unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. The final two columns use all 300 items. Budgets match Figure 4; full statistics are provided in Appendix E.
 
@@ -171,7 +171,8 @@ Building on the changes in answer organization and accuracy observed in §4, we 
 | Llama GSM-Hard ($-6$) | 94 | 17.02 → 20.21 | +3.19 | +6.33 | +6.33 |
 | Qwen2.5 GSM8K ($+8$) | 238 | 64.71 → 85.29 | $+20.59^{***}$ | +18.00 | +7.00 |
 | Qwen2.5 GSM-Hard ($+8$) | 214 | 35.98 → 51.40 | $+15.42^{***}$ | +16.33 | +13.67 |
-| Qwen3 GSM8K ($+10$) | 125 | 94.40 → 97.60 | +3.20 | +28.33 | +26.67 |
+| Qwen3 GSM8K ($+10$, 768) | 88 | 94.32 → 96.59 | +2.27 | +23.67 | +22.33 |
+| Qwen3 GSM8K ($+10$, 2048) | 125 | 94.40 → 97.60 | +3.20 | +28.33 | +26.67 |
 
 **Accuracy also improves when both outputs contain a formal answer.** Within the both-marker subsets, Llama GSM8K and both Qwen2.5 comparisons show significant gains under the exploratory tests in Table 4. Llama GSM-Hard and Qwen3 GSM8K show smaller positive trends. The same analysis on Qwen3 MATH gives 29.02% → 40.39% accuracy across 255 items (Appendix E). These subsets are selected using outputs from both conditions, so the comparisons describe where gains appear rather than isolate a causal effect of steering at fixed submission status.
 
