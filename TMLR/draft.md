@@ -153,9 +153,9 @@ These transfers reveal a controllable aspect of answer organization already pres
 
 ### 4.5 Output Wording
 
-To characterize how answer organization appears in the text, we analyze the evaluative, procedural, and checking expressions listed in Table N. We selected a shared phrase set for all four models from keyword contrasts between baseline and workpoint outputs. Evaluative share is defined as $E/(E+P)$, with sentence counts pooled over 300 GSM8K outputs after removing prompt and new-question continuation fragments and deduplicating sentences within each output. Table 4 reports within-model comparisons.
+To characterize how answer organization appears in the text, we analyze the evaluative, procedural, and checking expressions listed in Table 4. We selected a shared phrase set for all four models from keyword contrasts between baseline and workpoint outputs. Evaluative share is defined as $E/(E+P)$, with sentence counts pooled over 300 GSM8K outputs after removing prompt and new-question continuation fragments and deduplicating sentences within each output. Table 5 reports within-model comparisons.
 
-**Table N. Output wording categories, definitions, and example expressions.** Checking expressions are counted separately from evaluative and procedural expressions.
+**Table 4. Output wording categories, definitions, and example expressions.** Checking expressions are counted separately from evaluative and procedural expressions.
 
 | Category | Description | Example expressions |
 |---|---|---|
@@ -163,7 +163,7 @@ To characterize how answer organization appears in the text, we analyze the eval
 | Procedural ($P$) | Advancing the computation | first; next; step; calculate; determine |
 | Checking | Checking a calculation or result; counted separately from $E$ and $P$ | double-check; make sure; verify |
 
-**Table 4. Evaluative share on GSM8K.** Values are percentages. Workpoint and reverse doses are listed for each model. Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
+**Table 5. Evaluative share on GSM8K.** Values are percentages. Workpoint and reverse doses are listed for each model. Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
 
 | Model | Workpoint $\alpha$ | Reverse $\alpha$ | Baseline | Workpoint | Reverse |
 |---|---:|---:|---:|---:|---:|
@@ -294,7 +294,7 @@ Building on the changes in answer organization and accuracy observed in §4, we 
 
 **The gains follow different scoring paths across models.** For Qwen2.5, most of the net gain occurs among items with a parseable marker in both conditions: M→M contributes 49 of the 54 additional correct answers on GSM8K and 33 of 49 on GSM-Hard. Llama gains across all four paths, including items scored through fallback in both conditions. Its GSM8K marker coverage decreases slightly, from 62.67% to 60.67%, while accuracy rises by 18.00 percentage points. Qwen3 use Qwen3 shows a complementary pattern: F→M contributes a net gain of 86 correct answers, with the remaining paths contributing −1 in total. Here, steering primarily enables correct formal submissions from outputs previously scored through fallback. Together, these patterns distinguish gains in the correctness of submitted answers from gains accompanying changes in submission format.
 
-**Table 5. Accuracy gains within the both-marker subset and under first- and last-answer scoring.** Both-marker accuracy shows baseline → workpoint values in percent; all differences are in percentage points. The subset contains items with a parseable marker in both conditions and is reported descriptively. Asterisks on its accuracy change indicate exploratory, unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. The final two columns use all 300 items. Budgets match Figure 4; full statistics are provided in Appendix E.
+**Table 6. Accuracy gains within the both-marker subset and under first- and last-answer scoring.** Both-marker accuracy shows baseline → workpoint values in percent; all differences are in percentage points. The subset contains items with a parseable marker in both conditions and is reported descriptively. Asterisks on its accuracy change indicate exploratory, unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. The final two columns use all 300 items. Budgets match Figure 4; full statistics are provided in Appendix E.
 
 | Configuration | Both-marker $n$ | Both-marker accuracy | Both-marker Δ | All-item Δ (first) | All-item Δ (last) |
 |---|---:|---:|---:|---:|---:|
@@ -305,7 +305,7 @@ Building on the changes in answer organization and accuracy observed in §4, we 
 | Qwen3 GSM8K ($+10$, 768) | 88 | 94.32 → 96.59 | +2.27 | +23.67 | +22.33 |
 | Qwen3 GSM8K ($+10$, 2048) | 125 | 94.40 → 97.60 | +3.20 | +28.33 | +26.67 |
 
-**Accuracy also improves when both outputs contain a formal answer.** Within the both-marker subsets, Llama GSM8K and both Qwen2.5 comparisons show significant gains under the exploratory tests in Table 5. Llama GSM-Hard and Qwen3 GSM8K show smaller positive trends. The same analysis on Qwen3 MATH gives 29.02% → 40.39% accuracy across 255 items (Appendix E). These subsets are selected using outputs from both conditions, so the comparisons describe where gains appear rather than isolate a causal effect of steering at fixed submission status.
+**Accuracy also improves when both outputs contain a formal answer.** Within the both-marker subsets, Llama GSM8K and both Qwen2.5 comparisons show significant gains under the exploratory tests in Table 6. Llama GSM-Hard and Qwen3 GSM8K show smaller positive trends. The same analysis on Qwen3 MATH gives 29.02% → 40.39% accuracy across 255 items (Appendix E). These subsets are selected using outputs from both conditions, so the comparisons describe where gains appear rather than isolate a causal effect of steering at fixed submission status.
 
 **Baseline text often contains a correct target calculation despite an incorrect scored answer.** A contextual audit of corrected items confirmed such calculations in at least 43 of 76 Llama GSM8K corrections, 14 of 32 Llama GSM-Hard corrections, 47 of 78 Qwen2.5 GSM8K corrections, and 25 of 63 Qwen2.5 GSM-Hard corrections. For Qwen3, a separate audit identified a reference-consistent arithmetic result in 85 of the 86 F→M corrections. These are confirmed lower bounds from text review; audit procedures and item-level evidence are provided in Appendix E.
 
@@ -315,4 +315,4 @@ The visible sequences differ across models. In the confirmed Llama cases, an inc
 
 It subsequently returns to 3 and submits `#### 3`. At $+8$, the output instead works through the remaining time and distance before submitting `#### 6`. This example illustrates a correct calculation appearing in the baseline text without determining its submitted answer.
 
-First- and last-answer scoring provide a complementary view (Table 5). Llama's GSM8K gains are similar under the two readouts (+18.00 and +19.33 percentage points). Qwen2.5 retains a positive GSM8K gain under last-answer scoring (+7.00), while its larger first-answer gain (+18.00) is consistent with the later corrections already present in some baseline outputs. Thus, steering can improve both which answer is submitted and how a calculation is carried through to submission. Lower EC frequently accompanies these gains, while the dose responses in §4.2 show that further organizational change need not yield a further accuracy increase.
+First- and last-answer scoring provide a complementary view (Table 6). Llama's GSM8K gains are similar under the two readouts (+18.00 and +19.33 percentage points). Qwen2.5 retains a positive GSM8K gain under last-answer scoring (+7.00), while its larger first-answer gain (+18.00) is consistent with the later corrections already present in some baseline outputs. Thus, steering can improve both which answer is submitted and how a calculation is carried through to submission. Lower EC frequently accompanies these gains, while the dose responses in §4.2 show that further organizational change need not yield a further accuracy increase.
