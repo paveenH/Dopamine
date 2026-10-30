@@ -6,7 +6,9 @@ the workpoint. Values are net corrections (wrong->correct minus
 correct->wrong) per path, copied from:
   - Llama / Qwen2.5: RoleAnswer/reasoningTaskAnalysis/score_path_audit_v1/
     review_20261028/REPORT.md (768 tokens)
-  - Qwen3 GSM8K: Note/ReasoningBare.md Table 9.4 (2048 tokens)
+  - Qwen3 GSM8K 2048: Note/ReasoningBare.md Table 9.4
+  - Qwen3 GSM8K 768: recomputed from AdaResult/qwen3/gsm8k/bare/mdf_{0,10}
+    with the frozen first-marker + fallback scorer (148 -> 219 correct)
 
 Run: ~/.venvs/rsn-analysis/bin/python TMLR/scripts/fig4_score_path.py
 """
@@ -26,7 +28,8 @@ DATA = {
     "Llama\nGSM-Hard": ([3, 4, 7, 5], 19),
     "Qwen2.5\nGSM8K": ([49, 5, 0, 0], 54),
     "Qwen2.5\nGSM-Hard": ([33, 16, 0, 0], 49),
-    "Qwen3\nGSM8K": ([4, 86, -11, 6], 85),
+    "Qwen3 GSM8K\n768 tokens": ([2, 78, -24, 15], 71),
+    "Qwen3 GSM8K\n2048 tokens": ([4, 86, -11, 6], 85),
 }
 COLORS = ["#2a78d6", "#1baf7a", "#eb6834", "#eda100"]
 INK, MUTED, GRID = "#1f1f1e", "#6b6a65", "#e6e5e0"
@@ -37,7 +40,7 @@ def main():
         assert sum(vals) == total, name
     plt.rcParams.update({"font.size": 9, "axes.edgecolor": MUTED,
                          "xtick.color": MUTED, "ytick.color": MUTED})
-    fig, ax = plt.subplots(figsize=(6.4, 3.4))
+    fig, ax = plt.subplots(figsize=(7.2, 3.4))
     xs = range(len(DATA))
     for x, (name, (vals, total)) in zip(xs, DATA.items()):
         pos, neg = 0, 0
@@ -62,7 +65,7 @@ def main():
     ax.set_xticks(list(xs))
     ax.set_xticklabels(DATA.keys(), color=INK)
     ax.set_ylabel("Net change in correct items")
-    ax.set_ylim(-20, 105)
+    ax.set_ylim(-30, 105)
     ax.grid(axis="y", color=GRID, lw=0.8, zorder=0)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
