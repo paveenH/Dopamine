@@ -163,7 +163,7 @@ To characterize how answer organization appears in the text, we analyze the eval
 | Procedural ($P$) | Advancing the computation | first; next; step; calculate; determine |
 | Checking | Checking a calculation or result; counted separately from $E$ and $P$ | double-check; make sure; verify |
 
-Table 4. Evaluative share on GSM8K. Values are percentages. Workpoint and reverse doses are listed for each model. Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
+**Table 4. Evaluative share on GSM8K.** Values are percentages. Workpoint and reverse doses are listed for each model. Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
 
 | Model | Workpoint $\alpha$ | Reverse $\alpha$ | Baseline | Workpoint | Reverse |
 |---|---:|---:|---:|---:|---:|
@@ -173,7 +173,7 @@ Table 4. Evaluative share on GSM8K. Values are percentages. Workpoint and revers
 | Granite | −6 | +6 | 6.03 | **0.89** | 16.97 |
 
 
-The evaluative share decreases at the reference workpoint in all four models and is higher under the reverse dose. For Llama, it falls from 29.63% to 3.91%; for Qwen2.5, from 32.73% to 9.17%. Qwen3 and Granite show the same direction of change. Qwen3's frequent use of “wait” contributes to its higher overall level, motivating comparisons within each model. The common change is a reduction in evaluative wording: its density falls at every workpoint. Procedural density approximately doubles for Llama and rises by a factor of 1.2 for Qwen3, while it decreases slightly in Qwen2.5's shorter outputs and remains nearly unchanged for Granite. Checking language follows a different pattern: only Qwen3 shows an increase at the workpoint, from 1.11 to 1.31 sentences per 1,000 characters. As Example 2 illustrates, checking can confirm a computed result after submission.
+The evaluative share decreases at the reference workpoint in all four models and rises above baseline under the reverse dose. For Llama, it falls from 29.63% to 3.91%; for Qwen2.5, from 32.73% to 9.17%. Qwen3 and Granite show the same pattern, indicating a consistent reduction in the relative prominence of evaluative wording at the workpoint. This shift can coexist with continued checking: Example 2 illustrates how the model checks and confirms a computed result after submission.
 
 The dose curves connect these wording changes to the organizational patterns in §§4.1–4.2. Llama's evaluative share increases monotonically from $-6$ to $+6$, but returns to 38.61% at $-8$, alongside the immediate submissions and answer switching described in §4.2. Qwen2.5 remains near 33–37% from $-8$ to $+4$, then declines sharply from $+6$, paralleling its threshold-like EC response. These patterns extend to doses not used for phrase selection. All four models also show lower workpoint shares on GSM-Hard, and the GSM8K direction is preserved when “however” or “wait” is omitted, or when only explicit answer-evaluation terms are retained (Appendix L).
 
