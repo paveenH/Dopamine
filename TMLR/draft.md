@@ -151,6 +151,99 @@ Qwen2.5, Qwen3, and Granite all show lower EC at their instruction-tuned referen
 
 These transfers reveal a controllable aspect of answer organization already present in pretrained base models. An RSN direction identified in an instruction-tuned model can access this behavior in its base counterpart, shifting outputs toward computation before answer submission without re-extraction or dose retuning.
 
+### 4.5 Output Wording
+
+> **[写作备注：开头一段]** 说明本节目的：用措辞展示作答组织的变化在文本里是什么样子。定义两组措辞——评价式（对文中已有答案下判断或提出异议：the provided answer、the answer given、incorrect、the correct answer、maybe I made a mistake、wait、however）与过程式（推进计算：first、next、step、calculate、determine、break down）；核对用语（double-check、make sure、verify）单独统计、不计入评价式。一句话交代词组来自 α=0 与工作点输出的关键词对比，四个模型共用一份。读数：评价式占比 = 评价式句数 ÷（评价式 + 过程式句数），300 题合并；统计前剔除续写片段、每个输出内按句去重。只做模型内比较。引出 Table 4。
+
+**Table 4. Evaluative and procedural wording on GSM8K.** Values are shown as baseline ($\alpha=0$) / reference workpoint / reverse dose (Bare, No-CoT; 300 items per dose, 768-token budget). Evaluative share is the percentage of matched sentences that are evaluative rather than procedural. Densities count distinct matched sentences per 1,000 characters. Comparisons are within model only. Phrase sets, sensitivity analyses, all doses, and GSM-Hard results are provided in Appendix L.
+
+| Model | Workpoint / reverse | Evaluative share (%) | Evaluative per 1k chars | Procedural per 1k chars |
+|---|---|---:|---:|---:|
+| Llama | −6 / +6 | 29.63 / 3.91 / 38.71 | 0.50 / 0.10 / 0.73 | 1.19 / 2.42 / 1.15 |
+| Qwen2.5 | +8 / −8 | 32.73 / 9.17 / 37.06 | 1.67 / 0.30 / 1.89 | 3.44 / 2.94 / 3.21 |
+| Qwen3 | +10 / −8 | 60.04 / 41.78 / 68.92 | 3.11 / 1.74 / 4.13 | 2.07 / 2.42 / 1.86 |
+| Granite | −6 / +6 | 6.03 / 0.89 / 16.97 | 0.25 / 0.04 / 0.74 | 3.94 / 3.96 / 3.60 |
+
+> **[写作备注：结果段]**
+> - 四个模型方向一致：评价式占比在工作点下降、在反向剂量上升。Qwen3 整体水平高是因为 "wait" 多，只做模型内比较。
+> - 占比的变化主要来自评价式变少（每千字符密度在每个工作点都下降、每个反向剂量都上升）。过程式只在 Llama（×2.0）和 Qwen3（×1.2）上升；Qwen2.5 +8 的输出较短，过程式密度也略降；Granite 基本不变。不要写成四个模型过程式都增加。
+> - 核对用语只在 Qwen3 工作点上升（1.11→1.31 句／千字符）：核对从化解冲突变成确认式，引出 Example 2。
+> - Llama 的重点放在工作点下降；反向剂量只写"更高"（只留核心词时增幅很小，12.04→13.26，见附录 L）。
+
+> **[写作备注：沿剂量与旁证]** 选词只用了 α=0 和工作点，其余剂量也同向：Llama 在 −6 到 +6 之间单调，−8 回升到 38.61%，对应 §4.2 的提前提交与答案切换；Qwen2.5 在 −8 到 +4 之间保持 33–37%，+6 起陡降，与 EC 的阈值式变化一致。GSM-Hard 同向（Qwen2.5 −4 持平），去掉 "however"、去掉 "wait" 或只留核心词三个版本方向都不变——一句话带过，指向附录 L。
+
+**Example 1. Evaluating the opening candidate (Qwen2.5).**  
+Steve completes a puzzle in 10 hours; Anna takes 2 hours more than half of Steve's time. The correct answer is 7. Selected excerpts are shown below; ellipses indicate omitted text.
+
+*Baseline ($\alpha=0$):*
+
+```text
+6
+#### 6
+
+To find out how long it took Anna to finish the puzzle, we first need to
+determine half of Steve's time and then add 2 hours to it.
+...
+Therefore, it took Anna 7 hours to finish the puzzle. The correct answer is 7,
+but the provided answer is 6, which seems incorrect based on the calculation.
+...
+So, the final answer is 6. #### 6
+```
+
+*Workpoint ($\alpha=+8$), complete output:*
+
+```text
+the time for Anna to complete the puzzle is (1/2)*10 + 2 = 7 hours.
+
+#### 7
+
+Therefore, the answer is 7.
+```
+
+**Example 2. From resolving a conflict to confirming a result (Qwen3).**  
+Robert compares two furniture offers: $1,350 plus six payments of $350, or $1,100 plus nine payments of $250. The correct cost difference is 100.
+
+*Baseline ($\alpha=0$):*
+
+```text
+1200
+
+Okay, let's see. Robert wants to buy a bookshelf and a sofa, and he's
+comparing two offers from different stores.
+...
+So Furniture United's total cost is $3,450.
+...
+so total is 3,350. Wait, that's the same as Furniture United? But the answer
+is supposed to be 1200. Wait, maybe I did something wrong here.
+
+Wait, hold on. Let me check again. Maybe I miscalculated.
+...
+```
+
+*Workpoint ($\alpha=+10$):*
+
+```text
+, let's calculate the total cost for each offer.
+...
+Cost difference = $3,450 - $3,350 = $100
+
+#### 100
+Okay, let me check the calculations again to make sure I didn't make any
+mistakes.
+...
+Hmm, that seems correct. I don't see any errors in the arithmetic. So the
+answer should be $100.
+#### 100
+...
+```
+
+> **[写作备注：摘录说明]**
+> - Example 1：基线开头写 `#### 6`，随后算出 7，并把自己开头的 6 称为 "the provided answer" 判为错误，最终仍按 6 计分；+8 先算后提交 `#### 7`。
+> - Example 2：基线开头写 1200，算出两个总价后用 "the answer is supposed to be 1200" 与自己的计算对质，反复重算直到 768 tokens 用完，没有正式提交；+10 先提交 `#### 100`，之后的核对是确认式的。
+> - 两段都显示评价式文本围绕开头写出的候选展开；措辞变化是 EC 变化在文本中的表现，不作为独立证据，不用 persona／personality 类说法。
+
+> **[写作备注：衔接 §5.1]** 一句话：基线的评价式文本多围绕开头写出的候选展开，§5.1 接着看这些题的评分路径。
+
 ## 5. Performance Gains and Their Conditions
 
 ### 5.1 Where the Gains Appear
@@ -163,7 +256,7 @@ Building on the changes in answer organization and accuracy observed in §4, we 
 
 **The gains follow different scoring paths across models.** For Qwen2.5, most of the net gain occurs among items with a parseable marker in both conditions: M→M contributes 49 of the 54 additional correct answers on GSM8K and 33 of 49 on GSM-Hard. Llama gains across all four paths, including items scored through fallback in both conditions. Its GSM8K marker coverage decreases slightly, from 62.67% to 60.67%, while accuracy rises by 18.00 percentage points. Qwen3 use Qwen3 shows a complementary pattern: F→M contributes a net gain of 86 correct answers, with the remaining paths contributing −1 in total. Here, steering primarily enables correct formal submissions from outputs previously scored through fallback. Together, these patterns distinguish gains in the correctness of submitted answers from gains accompanying changes in submission format.
 
-**Table 4. Accuracy gains within the both-marker subset and under first- and last-answer scoring.** Both-marker accuracy shows baseline → workpoint values in percent; all differences are in percentage points. The subset contains items with a parseable marker in both conditions and is reported descriptively. Asterisks on its accuracy change indicate exploratory, unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. The final two columns use all 300 items. Budgets match Figure 4; full statistics are provided in Appendix E.
+**Table 5. Accuracy gains within the both-marker subset and under first- and last-answer scoring.** Both-marker accuracy shows baseline → workpoint values in percent; all differences are in percentage points. The subset contains items with a parseable marker in both conditions and is reported descriptively. Asterisks on its accuracy change indicate exploratory, unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. The final two columns use all 300 items. Budgets match Figure 4; full statistics are provided in Appendix E.
 
 | Configuration | Both-marker $n$ | Both-marker accuracy | Both-marker Δ | All-item Δ (first) | All-item Δ (last) |
 |---|---:|---:|---:|---:|---:|
@@ -174,7 +267,7 @@ Building on the changes in answer organization and accuracy observed in §4, we 
 | Qwen3 GSM8K ($+10$, 768) | 88 | 94.32 → 96.59 | +2.27 | +23.67 | +22.33 |
 | Qwen3 GSM8K ($+10$, 2048) | 125 | 94.40 → 97.60 | +3.20 | +28.33 | +26.67 |
 
-**Accuracy also improves when both outputs contain a formal answer.** Within the both-marker subsets, Llama GSM8K and both Qwen2.5 comparisons show significant gains under the exploratory tests in Table 4. Llama GSM-Hard and Qwen3 GSM8K show smaller positive trends. The same analysis on Qwen3 MATH gives 29.02% → 40.39% accuracy across 255 items (Appendix E). These subsets are selected using outputs from both conditions, so the comparisons describe where gains appear rather than isolate a causal effect of steering at fixed submission status.
+**Accuracy also improves when both outputs contain a formal answer.** Within the both-marker subsets, Llama GSM8K and both Qwen2.5 comparisons show significant gains under the exploratory tests in Table 5. Llama GSM-Hard and Qwen3 GSM8K show smaller positive trends. The same analysis on Qwen3 MATH gives 29.02% → 40.39% accuracy across 255 items (Appendix E). These subsets are selected using outputs from both conditions, so the comparisons describe where gains appear rather than isolate a causal effect of steering at fixed submission status.
 
 **Baseline text often contains a correct target calculation despite an incorrect scored answer.** A contextual audit of corrected items confirmed such calculations in at least 43 of 76 Llama GSM8K corrections, 14 of 32 Llama GSM-Hard corrections, 47 of 78 Qwen2.5 GSM8K corrections, and 25 of 63 Qwen2.5 GSM-Hard corrections. For Qwen3, a separate audit identified a reference-consistent arithmetic result in 85 of the 86 F→M corrections. These are confirmed lower bounds from text review; audit procedures and item-level evidence are provided in Appendix E.
 
@@ -184,4 +277,4 @@ The visible sequences differ across models. In the confirmed Llama cases, an inc
 
 It subsequently returns to 3 and submits `#### 3`. At $+8$, the output instead works through the remaining time and distance before submitting `#### 6`. This example illustrates a correct calculation appearing in the baseline text without determining its submitted answer.
 
-First- and last-answer scoring provide a complementary view (Table 4). Llama's GSM8K gains are similar under the two readouts (+18.00 and +19.33 percentage points). Qwen2.5 retains a positive GSM8K gain under last-answer scoring (+7.00), while its larger first-answer gain (+18.00) is consistent with the later corrections already present in some baseline outputs. Thus, steering can improve both which answer is submitted and how a calculation is carried through to submission. Lower EC frequently accompanies these gains, while the dose responses in §4.2 show that further organizational change need not yield a further accuracy increase.
+First- and last-answer scoring provide a complementary view (Table 5). Llama's GSM8K gains are similar under the two readouts (+18.00 and +19.33 percentage points). Qwen2.5 retains a positive GSM8K gain under last-answer scoring (+7.00), while its larger first-answer gain (+18.00) is consistent with the later corrections already present in some baseline outputs. Thus, steering can improve both which answer is submitted and how a calculation is carried through to submission. Lower EC frequently accompanies these gains, while the dose responses in §4.2 show that further organizational change need not yield a further accuracy increase.
