@@ -153,24 +153,31 @@ These transfers reveal a controllable aspect of answer organization already pres
 
 ### 4.5 Output Wording
 
-> **[写作备注：开头一段]** 说明本节目的：用措辞展示作答组织的变化在文本里是什么样子。定义两组措辞——评价式（对文中已有答案下判断或提出异议：the provided answer、the answer given、incorrect、the correct answer、maybe I made a mistake、wait、however）与过程式（推进计算：first、next、step、calculate、determine、break down）；核对用语（double-check、make sure、verify）单独统计、不计入评价式。一句话交代词组来自 α=0 与工作点输出的关键词对比，四个模型共用一份。读数：评价式占比 = 评价式句数 ÷（评价式 + 过程式句数），300 题合并；统计前剔除续写片段、每个输出内按句去重。只做模型内比较。引出 Table 4。
+To characterize how answer organization appears in the text, we analyze the evaluative, procedural, and checking expressions listed in Table N. We selected a shared phrase set for all four models from keyword contrasts between baseline and workpoint outputs. Evaluative share is defined as $E/(E+P)$, with sentence counts pooled over 300 GSM8K outputs after removing prompt and new-question continuation fragments and deduplicating sentences within each output. Table 4 reports within-model comparisons.
 
-**Table 4. Evaluative and procedural wording on GSM8K.** Values are shown as baseline ($\alpha=0$) / reference workpoint / reverse dose (Bare, No-CoT; 300 items per dose, 768-token budget). Evaluative share is the percentage of matched sentences that are evaluative rather than procedural. Densities count distinct matched sentences per 1,000 characters. Comparisons are within model only. Phrase sets, sensitivity analyses, all doses, and GSM-Hard results are provided in Appendix L.
+**Table N. Output wording categories, definitions, and example expressions.** Checking expressions are counted separately from evaluative and procedural expressions.
 
-| Model | Workpoint / reverse | Evaluative share (%) | Evaluative per 1k chars | Procedural per 1k chars |
-|---|---|---:|---:|---:|
-| Llama | −6 / +6 | 29.63 / 3.91 / 38.71 | 0.50 / 0.10 / 0.73 | 1.19 / 2.42 / 1.15 |
-| Qwen2.5 | +8 / −8 | 32.73 / 9.17 / 37.06 | 1.67 / 0.30 / 1.89 | 3.44 / 2.94 / 3.21 |
-| Qwen3 | +10 / −8 | 60.04 / 41.78 / 68.92 | 3.11 / 1.74 / 4.13 | 2.07 / 2.42 / 1.86 |
-| Granite | −6 / +6 | 6.03 / 0.89 / 16.97 | 0.25 / 0.04 / 0.74 | 3.94 / 3.96 / 3.60 |
+| Category | Description | Example expressions |
+|---|---|---|
+| Evaluative ($E$) | Judging, disputing, or reconsidering an answer already in the output | the provided answer; the correct answer; incorrect; wait; however |
+| Procedural ($P$) | Advancing the computation | first; next; step; calculate; determine |
+| Checking | Checking a calculation or result; counted separately from $E$ and $P$ | double-check; make sure; verify |
 
-> **[写作备注：结果段]**
-> - 四个模型方向一致：评价式占比在工作点下降、在反向剂量上升。Qwen3 整体水平高是因为 "wait" 多，只做模型内比较。
-> - 占比的变化主要来自评价式变少（每千字符密度在每个工作点都下降、每个反向剂量都上升）。过程式只在 Llama（×2.0）和 Qwen3（×1.2）上升；Qwen2.5 +8 的输出较短，过程式密度也略降；Granite 基本不变。不要写成四个模型过程式都增加。
-> - 核对用语只在 Qwen3 工作点上升（1.11→1.31 句／千字符）：核对从化解冲突变成确认式，引出 Example 2。
-> - Llama 的重点放在工作点下降；反向剂量只写"更高"（只留核心词时增幅很小，12.04→13.26，见附录 L）。
 
-> **[写作备注：沿剂量与旁证]** 选词只用了 α=0 和工作点，其余剂量也同向：Llama 在 −6 到 +6 之间单调，−8 回升到 38.61%，对应 §4.2 的提前提交与答案切换；Qwen2.5 在 −8 到 +4 之间保持 33–37%，+6 起陡降，与 EC 的阈值式变化一致。GSM-Hard 同向（Qwen2.5 −4 持平），去掉 "however"、去掉 "wait" 或只留核心词三个版本方向都不变——一句话带过，指向附录 L。
+**Table 4. Evaluative share on GSM8K.** Values are percentages (Bare, No-CoT; 300 items per condition, 768-token budget). Doses are shown in column headings for each model group.
+
+| Model | Workpoint $\alpha$ | Reverse $\alpha$ | Baseline | Workpoint | Reverse |
+|---|---:|---:|---:|---:|---:|
+| Llama | −6 | +6 | 29.63 | **3.91** | 38.71 |
+| Qwen2.5 | +8 | −8 | 32.73 | **9.17** | 37.06 |
+| Qwen3 | +10 | −8 | 60.04 | **41.78** | 68.92 |
+| Granite | −6 | +6 | 6.03 | **0.89** | 16.97 |
+
+Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
+
+The evaluative share decreases at the reference workpoint in all four models and is higher under the reverse dose. For Llama, it falls from 29.63% to 3.91%; for Qwen2.5, from 32.73% to 9.17%. Qwen3 and Granite show the same direction of change. Qwen3's frequent use of “wait” contributes to its higher overall level, motivating comparisons within each model. The common change is a reduction in evaluative wording: its density falls at every workpoint. Procedural density approximately doubles for Llama and rises by a factor of 1.2 for Qwen3, while it decreases slightly in Qwen2.5's shorter outputs and remains nearly unchanged for Granite. Checking language follows a different pattern: only Qwen3 shows an increase at the workpoint, from 1.11 to 1.31 sentences per 1,000 characters. As Example 2 illustrates, checking can confirm a computed result after submission.
+
+The dose curves connect these wording changes to the organizational patterns in §§4.1–4.2. Llama's evaluative share increases monotonically from $-6$ to $+6$, but returns to 38.61% at $-8$, alongside the immediate submissions and answer switching described in §4.2. Qwen2.5 remains near 33–37% from $-8$ to $+4$, then declines sharply from $+6$, paralleling its threshold-like EC response. These patterns extend to doses not used for phrase selection. All four models also show lower workpoint shares on GSM-Hard, and the GSM8K direction is preserved when “however” or “wait” is omitted, or when only explicit answer-evaluation terms are retained (Appendix L).
 
 **Example 1. Evaluating the opening candidate (Qwen2.5).**  
 Steve completes a puzzle in 10 hours; Anna takes 2 hours more than half of Steve's time. The correct answer is 7. Selected excerpts are shown below; ellipses indicate omitted text.
@@ -188,9 +195,12 @@ Therefore, it took Anna 7 hours to finish the puzzle. The correct answer is 7,
 but the provided answer is 6, which seems incorrect based on the calculation.
 ...
 So, the final answer is 6. #### 6
+
+The correct answer is actually 7. #### 7
+...
 ```
 
-*Workpoint ($\alpha=+8$), complete output:*
+*Workpoint ($\alpha=+8$):*
 
 ```text
 the time for Anna to complete the puzzle is (1/2)*10 + 2 = 7 hours.
@@ -199,6 +209,8 @@ the time for Anna to complete the puzzle is (1/2)*10 + 2 = 7 hours.
 
 Therefore, the answer is 7.
 ```
+
+The baseline explicitly calls its own opening candidate “the provided answer” and disputes it after calculating 7; first-answer scoring still takes the initial `#### 6`. At the workpoint, the computation precedes the correct submission.
 
 **Example 2. From resolving a conflict to confirming a result (Qwen3).**  
 Robert compares two furniture offers: $1,350 plus six payments of $350, or $1,100 plus nine payments of $250. The correct cost difference is 100.
@@ -237,12 +249,9 @@ answer should be $100.
 ...
 ```
 
-> **[写作备注：摘录说明]**
-> - Example 1：基线开头写 `#### 6`，随后算出 7，并把自己开头的 6 称为 "the provided answer" 判为错误，最终仍按 6 计分；+8 先算后提交 `#### 7`。
-> - Example 2：基线开头写 1200，算出两个总价后用 "the answer is supposed to be 1200" 与自己的计算对质，反复重算直到 768 tokens 用完，没有正式提交；+10 先提交 `#### 100`，之后的核对是确认式的。
-> - 两段都显示评价式文本围绕开头写出的候选展开；措辞变化是 EC 变化在文本中的表现，不作为独立证据，不用 persona／personality 类说法。
+The baseline treats its opening value of 1200 as an expected answer and repeatedly revisits the calculation. At the workpoint, the model computes the difference, submits 100, and then checks the result with confirming language. Thus, checking remains visible even as the output shifts away from disputing an opening candidate.
 
-> **[写作备注：衔接 §5.1]** 一句话：基线的评价式文本多围绕开头写出的候选展开，§5.1 接着看这些题的评分路径。
+These wording patterns describe how the organizational changes appear in the text: baseline evaluations often concern a candidate written at the start, whereas workpoint outputs contain fewer such evaluations. Section 5.1 examines the corresponding scoring paths and the calculations present in baseline outputs.
 
 ## 5. Performance Gains and Their Conditions
 
