@@ -78,7 +78,7 @@ Figure 2 shows how steering changes answer organization on GSM8K. Across all fou
 
 Table 2 summarizes the changes from baseline to each model’s reference workpoint. Qwen2.5 exhibits the largest reduction in early candidates: EC falls from 96.33% to 5.00% at $\alpha=+8$, while reason-first rises from 0.00% to 98.00%. Qwen3 shows a similar shift at $+10$, with EC falling from 64.00% to 9.00% and reason-first rising from 17.23% to 81.85%. For Llama, $\alpha=-6$ reduces EC from 48.00% to 18.67% and increases reason-first from 30.85% to 66.55%. Granite begins with few early candidates; its clearest change is the increase in reason-first from 58.11% to 95.92% at $-6$.
 
-**Table 2. Answer organization and accuracy at the reference workpoints.** Values show baseline ($\alpha=0$) → workpoint performance, in percent.
+**Table 2. Answer organization and accuracy at the reference workpoints.** Values show baseline → workpoint performance, in percent.
 
 | Model | Reference $\alpha$ | EC | Reason-first | Accuracy |
 |---|---:|---:|---:|---:|
@@ -136,7 +136,7 @@ Together, these results support a contribution from the RSN weight direction bey
 
 To examine whether the organizational effects extend to base models, we apply each instruction-tuned model’s RSN direction unchanged to its corresponding base model. We retain the same sparse support, layer band, and reference workpoint, evaluating the same 300 GSM8K items under Bare, zero-shot prompting with a 768-token budget.
 
-**Table 3. Transfer of instruction-tuned RSN directions to base models.** Values show baseline ($\alpha=0$) → reference workpoint, in percent. Accuracy differences are in percentage points. Asterisks indicate unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. Exact values and complete results are provided in Appendix K.
+**Table 3. Transfer of instruction-tuned RSN directions to base models.** Values show baseline → reference workpoint, in percent. Accuracy differences are in percentage points. Asterisks indicate unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. Exact values and complete results are provided in Appendix K.
 
 | Base model | $\alpha$ | Accuracy | Δ (pp) | EC | Valid marker |
 |---|---:|---:|---:|---:|---:|
@@ -163,8 +163,7 @@ To characterize how answer organization appears in the text, we analyze the eval
 | Procedural ($P$) | Advancing the computation | first; next; step; calculate; determine |
 | Checking | Checking a calculation or result; counted separately from $E$ and $P$ | double-check; make sure; verify |
 
-
-**Table 4. Evaluative share on GSM8K.** Values are percentages (Bare, No-CoT; 300 items per condition, 768-token budget). Doses are shown in column headings for each model group.
+Table 4. Evaluative share on GSM8K. Values are percentages. Workpoint and reverse doses are listed for each model. Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
 
 | Model | Workpoint $\alpha$ | Reverse $\alpha$ | Baseline | Workpoint | Reverse |
 |---|---:|---:|---:|---:|---:|
@@ -173,7 +172,6 @@ To characterize how answer organization appears in the text, we analyze the eval
 | Qwen3 | +10 | −8 | 60.04 | **41.78** | 68.92 |
 | Granite | −6 | +6 | 6.03 | **0.89** | 16.97 |
 
-Bold values identify the reference workpoint. Full phrase sets, wording densities, and sensitivity analyses are provided in Appendix L.
 
 The evaluative share decreases at the reference workpoint in all four models and is higher under the reverse dose. For Llama, it falls from 29.63% to 3.91%; for Qwen2.5, from 32.73% to 9.17%. Qwen3 and Granite show the same direction of change. Qwen3's frequent use of “wait” contributes to its higher overall level, motivating comparisons within each model. The common change is a reduction in evaluative wording: its density falls at every workpoint. Procedural density approximately doubles for Llama and rises by a factor of 1.2 for Qwen3, while it decreases slightly in Qwen2.5's shorter outputs and remains nearly unchanged for Granite. Checking language follows a different pattern: only Qwen3 shows an increase at the workpoint, from 1.11 to 1.31 sentences per 1,000 characters. As Example 2 illustrates, checking can confirm a computed result after submission.
 
@@ -182,7 +180,7 @@ The dose curves connect these wording changes to the organizational patterns in 
 **Example 1. Evaluating the opening candidate (Qwen2.5).**  
 Steve completes a puzzle in 10 hours; Anna takes 2 hours more than half of Steve's time. The correct answer is 7. Selected excerpts are shown below; ellipses indicate omitted text.
 
-*Baseline ($\alpha=0$):*
+*Baseline:*
 
 ```text
 6
@@ -215,7 +213,7 @@ The baseline explicitly calls its own opening candidate “the provided answer�
 **Example 2. From resolving a conflict to confirming a result (Qwen3).**  
 Robert compares two furniture offers: $1,350 plus six payments of $350, or $1,100 plus nine payments of $250. The correct cost difference is 100.
 
-*Baseline ($\alpha=0$):*
+*Baseline:*
 
 ```text
 1200
