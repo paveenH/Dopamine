@@ -155,37 +155,32 @@ These transfers reveal a controllable aspect of answer organization already pres
 
 ### 5.1 Where the Gains Appear
 
-
-> **[写作备注 · 开头]** 一两句引出：§4 显示干预改变作答组织并伴随准确率上升；本节看多答对的题落在哪里、基线文本里有什么。对象是 Llama、Qwen2.5 在 GSM8K / GSM-Hard 的固定工作点，加 Qwen3 GSM8K。先定义评分路径：每题按基线与工作点是否取到可解析 `####` marker（M）或走 fallback（F）分成四条路径。定义路径时必须写明 F 不等于未作答或答错，可直接用这句：*F does not indicate a missing or incorrect answer: when no parseable marker is present, the fallback procedure extracts an answer from the text and scores it against the reference like any other answer.*（例：Qwen3 走 F→M 的 116 题中，基线已有 25 题答对；Llama GSM8K 走 F→F 的 58 题中，基线已有 28 题答对。）
+(Section 4 shows that RSN steering changes answer organization alongside accuracy. We now examine where the additional correct answers arise 这两句写成一句). We analyze Llama and Qwen2.5 on GSM8K and GSM-Hard at their reference workpoints, together with Qwen3 on GSM8K under the 2048-token budget. Each item is assigned to one of four paired scoring paths according to whether its answer is extracted from a parseable `####` marker (M) or through the fallback procedure (F) at baseline and at the workpoint. Fallback-scored answers are evaluated against the same reference and can be correct; F denotes an extraction route, not an unanswered item.
 
 ![Figure 4](Figures/fig4_score_path.png)
 
-**Figure 4.** Net change in correct answers between the baseline and the reference workpoint, by scoring path. Each item is assigned to a path according to whether its answer was scored from a parseable `####` marker (M) or by the fallback extractor (F; it extracts an answer from the text when no marker is present, and such items can be correct) under each condition. Segments show net corrections (wrong → correct minus correct → wrong) within each path; dots mark the total net change. Llama and Qwen2.5 use a 768-token budget; Qwen3 uses 2048 tokens. Corrections and damages for each path are listed in Appendix E.
+**Figure 4.** Net change in correct answers by paired scoring path (baseline → workpoint; 300 items per comparison). M denotes marker-based extraction and F fallback extraction. Segments show corrections minus newly incorrect answers within each path; dots mark the total net change. Llama and Qwen2.5 use 768-token budgets; Qwen3 uses 2048 tokens. Complete path counts are provided in Appendix E.
 
-> **[写作备注 · 评分路径因模型而异]** 按图读三种模式：
-> - Qwen2.5 净增主要来自 M→M：GSM8K +54 中 +49，GSM-Hard +49 中 +33。提交格式没变，提交的答案变对了。
-> - Llama 净增分散在四条路径（GSM8K 19/17/6/12）。
-> - Qwen3 净增几乎全部来自 F→M（+85 中 +86，其余路径合计 −1）：原本没有正式提交的题变成了正式提交。
-> - 结论句：收益不能统一写成"更多 marker 提交"。
+**The gains follow different scoring paths across models.** For Qwen2.5, most of the net gain occurs among items with a parseable marker in both conditions: M→M contributes 49 of the 54 additional correct answers on GSM8K and 33 of 49 on GSM-Hard. Llama gains across all four paths, including items scored through fallback in both conditions. Its GSM8K marker coverage decreases slightly, from 62.67% to 60.67%, while accuracy rises by 18.00 percentage points. Qwen3 shows a complementary pattern: F→M contributes a net gain of 86 correct answers, with the remaining paths contributing −1 in total. Here, steering primarily enables correct formal submissions from outputs previously scored through fallback. Together, these patterns distinguish gains in the correctness of submitted answers from gains accompanying changes in submission format.
 
-**Table 4. Gains among items with a formal answer in both conditions, text-audit counts, and first versus last scoring.** Both-marker columns use items that contain a parseable `####` marker at baseline and at the workpoint; this subset is selected from outputs under both conditions and is reported descriptively. Asterisks indicate unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. Confirmed calculations count corrected items whose baseline text contains a gold-consistent target calculation; they are confirmed lower bounds, not proportion estimates. Accuracy differences are in percentage points.
+**Table 4. Accuracy gains within the both-marker subset and under first- and last-answer scoring.** Both-marker accuracy shows baseline → workpoint values in percent; all differences are in percentage points. The subset contains items with a parseable marker in both conditions and is reported descriptively. Asterisks on its accuracy change indicate exploratory, unadjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$. The final two columns use all 300 items. Budgets match Figure 4; full statistics are provided in Appendix E.
 
-| Configuration | Both-marker $n$ | Both-marker accuracy | Δ | Corrections / damages | Confirmed calculations | Δ `first_acc` | Δ `last_acc` |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Llama GSM8K ($-6$) | 128 | 67.19 → 82.03 | $+14.84^{**}$ | 29 / 10 | 43 / 76 | +18.00 | +19.33 |
-| Llama GSM-Hard ($-6$) | 94 | 17.02 → 20.21 | +3.19 | 8 / 5 | 14 / 32 | +6.33 | +6.33 |
-| Qwen2.5 GSM8K ($+8$) | 238 | 64.71 → 85.29 | $+20.59^{***}$ | 69 / 20 | 47 / 78 | +18.00 | +7.00 |
-| Qwen2.5 GSM-Hard ($+8$) | 214 | 35.98 → 51.40 | $+15.42^{***}$ | 45 / 12 | 25 / 63 | +16.33 | +13.67 |
-| Qwen3 GSM8K ($+10$, 2048) | 125 | 94.40 → 97.60 | +3.20 | 5 / 1 | 85 / 86‡ | +28.33 | +26.67 |
+| Configuration | Both-marker $n$ | Both-marker accuracy | Both-marker Δ | All-item Δ (first) | All-item Δ (last) |
+|---|---:|---:|---:|---:|---:|
+| Llama GSM8K ($-6$) | 128 | 67.19 → 82.03 | $+14.84^{**}$ | +18.00 | +19.33 |
+| Llama GSM-Hard ($-6$) | 94 | 17.02 → 20.21 | +3.19 | +6.33 | +6.33 |
+| Qwen2.5 GSM8K ($+8$) | 238 | 64.71 → 85.29 | $+20.59^{***}$ | +18.00 | +7.00 |
+| Qwen2.5 GSM-Hard ($+8$) | 214 | 35.98 → 51.40 | $+15.42^{***}$ | +16.33 | +13.67 |
+| Qwen3 GSM8K ($+10$) | 125 | 94.40 → 97.60 | +3.20 | +28.33 | +26.67 |
 
-‡ Audited among the 86 fallback → marker corrections only (101 corrections in total).
+**Accuracy also improves when both outputs contain a formal answer.** Within the both-marker subsets, Llama GSM8K and both Qwen2.5 comparisons show significant gains under the exploratory tests in Table 4. Llama GSM-Hard and Qwen3 GSM8K show smaller positive trends. The same analysis on Qwen3 MATH gives 29.02% → 40.39% accuracy across 255 items (Appendix E). These subsets are selected using outputs from both conditions, so the comparisons describe where gains appear rather than isolate a causal effect of steering at fixed submission status.
 
-> **[写作备注 · 两格都有 marker 的子集]** 子集里准确率同样上升：显著三项（Llama GSM8K、Qwen2.5 GSM8K / GSM-Hard）；Llama GSM-Hard 与 Qwen3 GSM8K 为正向趋势（Qwen3 基线已 94.40%，空间小）。可顺带一句 Qwen3 迁移：MATH 255 题 29.02→40.39%（41/12）；GSM-Hard 32 题 25→26，未检出变化。只需一句注明子集是干预后按两侧输出选出的，结果作描述。
+**Baseline text often contains a correct target calculation despite an incorrect scored answer.** A contextual audit of corrected items confirmed such calculations in at least 43 of 76 Llama GSM8K corrections, 14 of 32 Llama GSM-Hard corrections, 47 of 78 Qwen2.5 GSM8K corrections, and 25 of 63 Qwen2.5 GSM-Hard corrections. For Qwen3, a separate audit identified a reference-consistent arithmetic result in 85 of the 86 F→M corrections. These are confirmed lower bounds from text review; audit procedures and item-level evidence are provided in Appendix E.
 
-> **[写作备注 · 基线文本中已有正确的目标计算]** 按 Table 4 第六列给出已确认题数，强调是确认到的下限、不是比例估计；审阅为单人、非盲（细节放附录 E，Limitations 再提）。
+The visible sequences differ across models. In the confirmed Llama cases, an incorrect opening candidate precedes a correct target calculation, while the scored answer remains incorrect. Qwen2.5 additionally produces later correct markers after an incorrect first marker in 20 corrected GSM8K items and nine corrected GSM-Hard items. For example, on a GSM8K hiking-speed problem whose reference answer is 6 miles per hour, the Qwen2.5 baseline opens with `3` and `#### 3`, then states:
 
-> **[写作备注 · 两个模型的表现形式不同]** Llama 常先写一个错误候选，随后在正文算出正确结果，但计分仍取到错值；Qwen2.5 有 20 题（GSM8K）和 9 题（GSM-Hard）在错误的首个 marker 之后已经出现正确 marker。可选：各配一段逐字节选（格式同 §4.2 的 Example），按 sample_idx 取审计报告中的第一条已确认案例，不挑措辞。
+> Therefore, she needs to walk at a speed of 6 miles / 1 hour = 6 miles per hour for the remaining distance.
 
-> **[写作备注 · first 与 last 评分]** Llama 两种评分收益相近（GSM8K +18.00 对 +19.33）；Qwen2.5 GSM8K 的 last 收益较小（+7.00 对 +18.00），与基线常在错误首答之后自行改正相符。
+It subsequently returns to 3 and submits `#### 3`. At $+8$, the output instead works through the remaining time and distance before submitting `#### 6`. This example illustrates a correct calculation appearing in the baseline text without determining its submitted answer.
 
-> **[写作备注 · 收尾一句]** EC 下降与收益常同时出现，但不必然（例：Qwen2.5 MATH +6→+8、Qwen GSM-Symbolic CoT）。不写成中介。
+First- and last-answer scoring provide a complementary view (Table 4). Llama's GSM8K gains are similar under the two readouts (+18.00 and +19.33 percentage points). Qwen2.5 retains a positive GSM8K gain under last-answer scoring (+7.00), while its larger first-answer gain (+18.00) is consistent with the later corrections already present in some baseline outputs. Thus, steering can improve both which answer is submitted and how a calculation is carried through to submission. Lower EC frequently accompanies these gains, while the dose responses in §4.2 show that further organizational change need not yield a further accuracy increase.
