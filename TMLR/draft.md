@@ -172,10 +172,9 @@ To characterize how answer organization appears in the text, we analyze the eval
 | Qwen3 | +10 | −8 | 60.04 | **41.78** | 68.92 |
 | Granite | −6 | +6 | 6.03 | **0.89** | 16.97 |
 
+The evaluative share decreases at the reference workpoint in all four models and rises above baseline under the reverse dose. For Llama, it falls from 29.63% to 3.91%; for Qwen2.5, from 32.73% to 9.17%. Qwen3 and Granite show the same pattern, indicating a consistent reduction in the relative prominence of evaluative wording at the workpoint. Similar trends appear at other doses, and all four models also show lower evaluative shares at their workpoints on GSM-Hard. The direction of the GSM8K comparisons is preserved when “however” or “wait” is omitted, or when the phrase set is restricted to explicit answer-evaluation terms, as detailed in Appendix L.
 
-The evaluative share decreases at the reference workpoint in all four models and rises above baseline under the reverse dose. For Llama, it falls from 29.63% to 3.91%; for Qwen2.5, from 32.73% to 9.17%. Qwen3 and Granite show the same pattern, indicating a consistent reduction in the relative prominence of evaluative wording at the workpoint. This shift can coexist with continued checking: Example 2 illustrates how the model checks and confirms a computed result after submission.
-
-The dose curves connect these wording changes to the organizational patterns in §§4.1–4.2. Llama's evaluative share increases monotonically from $-6$ to $+6$, but returns to 38.61% at $-8$, alongside the immediate submissions and answer switching described in §4.2. Qwen2.5 remains near 33–37% from $-8$ to $+4$, then declines sharply from $+6$, paralleling its threshold-like EC response. These patterns extend to doses not used for phrase selection. All four models also show lower workpoint shares on GSM-Hard, and the GSM8K direction is preserved when “however” or “wait” is omitted, or when only explicit answer-evaluation terms are retained (Appendix L).
+The three examples illustrate how an opening candidate can remain a reference point in the subsequent text, even when the calculation yields a different result. In Example 1, Qwen2.5 computes 7 but calls its own opening value of 6 “the provided answer” and repeatedly evaluates the discrepancy. In Example 2, Qwen3 treats 1200 as the expected answer and revisits its calculations. In Example 3, Llama calculates 7 yet formally submits its opening candidate of 4, before again stating that the correct answer is 7. At their reference workpoints, all three outputs calculate the requested quantity before submitting the correct answer. Qwen3 continues checking after submission, now confirming the computed result. These contrasts show how the organizational changes appear in the wording and motivate the examination of scoring paths and baseline calculations in §5.1.
 
 **Example 1. Evaluating the opening candidate (Qwen2.5).**  
 Steve completes a puzzle in 10 hours; Anna takes 2 hours more than half of Steve's time. The correct answer is 7. Selected excerpts are shown below; ellipses indicate omitted text.
@@ -207,8 +206,6 @@ the time for Anna to complete the puzzle is (1/2)*10 + 2 = 7 hours.
 
 Therefore, the answer is 7.
 ```
-
-The baseline explicitly calls its own opening candidate “the provided answer” and disputes it after calculating 7; first-answer scoring still takes the initial `#### 6`. At the workpoint, the computation precedes the correct submission.
 
 **Example 2. From resolving a conflict to confirming a result (Qwen3).**  
 Robert compares two furniture offers: $1,350 plus six payments of $350, or $1,100 plus nine payments of $250. The correct cost difference is 100.
@@ -247,9 +244,43 @@ answer should be $100.
 ...
 ```
 
-The baseline treats its opening value of 1200 as an expected answer and repeatedly revisits the calculation. At the workpoint, the model computes the difference, submits 100, and then checks the result with confirming language. Thus, checking remains visible even as the output shifts away from disputing an opening candidate.
+**Example 3. Submitting the opening candidate after computing another (Llama).**  
+Sitti and Juris buy 34 and 22 oranges and share them equally with their six other friends. The correct answer is 7.
 
-These wording patterns describe how the organizational changes appear in the text: baseline evaluations often concern a candidate written at the start, whereas workpoint outputs contain fewer such evaluations. Section 5.1 examines the corresponding scoring paths and the calculations present in baseline outputs.
+*Baseline:*
+
+```text
+4
+Step 1: Calculate the total number of oranges Sitti and Juris have.
+...
+So, 56 oranges / 8 people = 7 oranges per person.
+However, since the question asks for the number of oranges each person will
+get, we need to consider that the oranges will be shared equally among the 8
+people, including Sitti and Juris.
+...
+The final answer is: ####4####
+
+However, since the problem asks for the number of oranges each person will get,
+and we have a remainder of 0, we can conclude that everyone will get 7 oranges.
+Therefore, the correct answer is 7.
+...
+```
+
+*Workpoint ($\alpha=-6$):*
+
+```text
+Step 1: First, let's calculate the total number of oranges Sitti and Juris
+have. Sitti has 34 oranges and Juris has 22 oranges. Total oranges = 34 + 22 = 56.
+Step 2: Next, let's calculate the total number of people who will share the
+oranges. Sitti and Juris will share the oranges with their 6 other friends.
+Total people = 2 (Sitti and Juris) + 6 (friends) = 8.
+Step 3: Now, let's calculate the number of oranges each person will get. To do
+this, we need to divide the total number of oranges by the total number of
+people. Oranges per person = Total oranges / Total people = 56 / 8 = 7.
+
+The final answer is: ####7####
+```
+
 
 ## 5. Performance Gains and Their Conditions
 
