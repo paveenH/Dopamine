@@ -18,7 +18,7 @@ No further intervention is applied during decoding. Each model uses a contiguous
 
 ### 3.2 Models and Coverage
 
-We study four instruction-tuned models with 7–8B parameters. Table 1 lists their layer counts and steered ranges. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. Additional tasks are introduced in §5.5.
+We study four instruction-tuned models with 7–8B parameters. Table 1 lists their layer counts and steered ranges. GSM8K serves as the reference task for characterizing dose-response patterns, while GSM-Hard and MATH assess cross-task transfer. Additional tasks are introduced in §5.3.
 
 **Table 1. Models and intervention settings.** Decoder-layer indices are zero-based, and both endpoints of each steered range are included.
 
@@ -44,7 +44,7 @@ Answer:
 
 The CoT variant adds `Let's think step by step.` before the final-answer instruction. MATH prompts request the final answer in `\boxed{}`. Full prompts are provided in Appendix B.
 
-**Native Chat.** We present the task instruction using each model’s native chat template to examine steering under standard conversational use (§5.3).
+**Native Chat.** We present the task instruction using each model’s native chat template to examine steering under standard conversational use (§5.4).
 
 ### 3.4 Metrics
 
