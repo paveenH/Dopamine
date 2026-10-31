@@ -295,3 +295,36 @@ In this section, we examine where the additional correct answers arise. We analy
 **The gains follow different scoring paths across models.** For Qwen2.5, most of the net gain occurs among items with a parseable marker in both conditions: M→M contributes 49 of the 54 additional correct answers on GSM8K and 33 of 49 on GSM-Hard. Llama gains across all four paths, including items scored through fallback in both conditions. Qwen3 shows a complementary pattern under the 2048-token budget: F→M contributes a net gain of 86 correct answers, with the remaining paths contributing −1 in total. Together, these results show that accuracy gains occur across several scoring paths, with their contributions varying across models. The paired examples in §4.5 illustrate how such gains can accompany a shift from submitting an opening candidate to submitting the computed result.
 
 Because some outputs contain more than one marker, the gains could depend on which marker is scored. They remain positive when the last rather than the first marker is scored (Appendix E): +18.00 and +19.33 percentage points for Llama on GSM8K, and +18.00 and +7.00 for Qwen2.5. The smaller last-answer gain for Qwen2.5 is consistent with baseline outputs that already revise an incorrect first marker later in the text.
+
+### 5.2 Fixed-Workpoint Transfer
+
+![Figure 5](Figures/fig5_transfer.png)
+
+**Figure 5.** Accuracy change at the fixed GSM8K workpoint (workpoint − baseline, percentage points). (A) Fixed-workpoint transfer to GSM-Hard (768 tokens) and MATH (2048 tokens) under No-CoT. (B) Task boundaries for Llama and Qwen2.5 under No-CoT and CoT. Workpoints are taken from GSM8K and are not re-selected on the target task. Bars show paired bootstrap 95% CIs. Filled markers indicate Holm-adjusted exact McNemar $p<.05$ (within task for A, $m=4$; within condition for B, $m=6$); diamonds mark CoT.
+
+**Table 6. Fixed-workpoint transfer and task boundaries.** Accuracy shows baseline → fixed workpoint, in percent. Differences are in percentage points with paired bootstrap 95% CIs ($B=10{,}000$). Asterisks mark Holm-adjusted two-sided exact McNemar tests: \* $p<.05$, \*\* $p<.01$, \*\*\* $p<.001$; transfer rows are adjusted within task ($m=4$) and boundary rows within condition ($m=6$). BBH comparisons use 250 items; all others use 300. Exact $p$-values and discordant counts are provided in Appendix F.
+
+| Task | Condition | Model | $\alpha$ | Accuracy | Δ (pp) | 95% CI |
+|---|---|---|---:|---:|---:|---:|
+| *Fixed-workpoint transfer* | | | | | | |
+| GSM-Hard | No-CoT | Llama | −6 | 18.00 → 24.33 | $+6.33^{*}$ | [+2.00, +10.67] |
+| GSM-Hard | No-CoT | Qwen2.5 | +8 | 34.00 → 50.33 | $+16.33^{***}$ | [+11.00, +21.67] |
+| GSM-Hard | No-CoT | Qwen3 | +10 | 20.33 → 31.67 | $+11.33^{***}$ | [+5.33, +17.33] |
+| GSM-Hard | No-CoT | Granite | −6 | 43.00 → 45.33 | +2.33 | [−1.67, +6.33] |
+| MATH | No-CoT | Llama | −6 | 36.67 → 43.33 | $+6.67^{*}$ | [+1.00, +12.33] |
+| MATH | No-CoT | Qwen2.5 | +8 | 60.67 → 63.33 | +2.67 | [−2.33, +7.67] |
+| MATH | No-CoT | Qwen3 | +10 | 27.33 → 35.33 | $+8.00^{*}$ | [+3.00, +13.33] |
+| MATH | No-CoT | Granite | −6 | 52.67 → 60.00 | $+7.33^{*}$ | [+2.33, +12.00] |
+| *Task boundaries* | | | | | | |
+| LogiQA 2.0 | No-CoT | Llama | −6 | 56.33 → 52.00 | −4.33 | [−8.33, −0.33] |
+| LogiQA 2.0 | No-CoT | Qwen2.5 | +8 | 64.00 → 65.00 | +1.00 | [−4.33, +6.00] |
+| LogiQA 2.0 | CoT | Llama | −6 | 46.33 → 44.00 | −2.33 | [−8.00, +3.33] |
+| LogiQA 2.0 | CoT | Qwen2.5 | +8 | 66.33 → 61.00 | −5.33 | [−10.33, −0.33] |
+| BBH | No-CoT | Llama | −6 | 41.60 → 40.80 | −0.80 | [−6.41, +5.20] |
+| BBH | No-CoT | Qwen2.5 | +8 | 55.20 → 57.60 | +2.40 | [−3.60, +8.40] |
+| BBH | CoT | Llama | −6 | 40.80 → 56.80 | $+16.00^{***}$ | [+8.79, +23.20] |
+| BBH | CoT | Qwen2.5 | +8 | 52.80 → 66.80 | $+14.00^{***}$ | [+7.20, +20.40] |
+| CRUXEval-O | No-CoT | Llama | −6 | 34.67 → 31.00 | −3.67 | [−8.00, +0.67] |
+| CRUXEval-O | No-CoT | Qwen2.5 | +8 | 29.33 → 37.67 | $+8.33^{*}$ | [+3.33, +13.33] |
+| CRUXEval-O | CoT | Llama | −6 | 34.67 → 34.00 | −0.67 | [−5.33, +3.67] |
+| CRUXEval-O | CoT | Qwen2.5 | +8 | 34.67 → 54.00 | $+19.33^{***}$ | [+13.67, +25.33] |
